@@ -9,12 +9,12 @@ db = CrmDBManager()
 
 st.set_page_config(page_title="Gestione Clienti", page_icon="👥", layout="wide")
 
-st.title("👥 Gestione Clienti & Contratti")
+st.title("👥 Gestione Clienti & Contratti Pro")
 
 # --- 1. SELETTORE / LISTA ---
 col_search, col_add = st.columns([3, 1])
 
-# Carica lista clienti
+# Carichiamo la lista base
 df_cli = db.get_clienti_df()
 search_opts = {row['id']: f"{row['cognome']} {row['nome']}" for _, row in df_cli.iterrows()} if not df_cli.empty else {}
 
@@ -33,125 +33,185 @@ with col_add:
 # --- 2. LOGICA VISUALIZZAZIONE ---
 if st.session_state.get('new_client_mode'):
     st.divider()
-    st.subheader("Nuova Anagrafica")
+    st.subheader("📝 Nuova Anagrafica Rapida")
     with st.form("new_client"):
         c1, c2 = st.columns(2)
-        nome = c1.text_input("Nome")
-        cognome = c2.text_input("Cognome")
+        nome = c1.text_input("Nome*")
+        cognome = c2.text_input("Cognome*")
         tel = c1.text_input("Telefono")
         email = c2.text_input("Email")
         
-        if st.form_submit_button("Salva Anagrafica"):
+        if st.form_submit_button("Salva e Vai ai Dettagli"):
             if nome and cognome:
+                # Creazione con dati minimi, poi si arricchisce nella scheda
                 db.save_cliente({
                     "nome": nome, "cognome": cognome, "telefono": tel, "email": email,
                     "nascita": date(1990,1,1), "sesso": "Uomo", "stato": "Attivo", "anamnesi": {}
                 })
-                st.success("Cliente creato! Selezionalo dalla lista per i dettagli.")
+                st.success("Cliente creato! Selezionalo dalla lista per completare la scheda.")
                 st.session_state['new_client_mode'] = False
                 st.rerun()
             else:
                 st.error("Nome e Cognome obbligatori")
     
-    if st.button("Annulla"):
+    if st.button("Annulla creazione"):
         st.session_state['new_client_mode'] = False
         st.rerun()
 
 elif cliente_sel_id:
     # --- 3. SCHEDA DETTAGLIO CLIENTE ---
+    # Recuperiamo TUTTI i dati (Anagrafica + Finanza)
+    # Assicurati che core/crm_db.py abbia il metodo 'get_cliente_financial_history' aggiornato
+    fin_data = db.get_cliente_financial_history(cliente_sel_id)
+    # Recuperiamo anche i dati anagrafici grezzi
     cli_data = db.get_cliente_full(cliente_sel_id)
     
-    # Header con KPI rapidi
-    kpi1, kpi2, kpi3 = st.columns(3)
-    kpi1.metric("Saldo Contabile", f"€ {cli_data['saldo']:.2f}", delta_color="inverse")
-    kpi2.metric("Lezioni Residue", cli_data['lezioni_residue'])
-    kpi3.info(f"Stato: {cli_data['stato']}")
+    if not cli_data:
+        st.error("Errore caricamento dati cliente.")
+        st.stop()
+
+    # HEADER KPI
+    k1, k2, k3 = st.columns(3)
+    saldo = fin_data['saldo_globale']
+    k1.metric("Saldo da Pagare", f"€ {saldo:.2f}", delta="-Da Saldare" if saldo > 0 else "In Regola", delta_color="inverse")
+    k2.metric("Lezioni Residue", cli_data.get('lezioni_residue', 0))
+    k3.info(f"Stato: **{cli_data['stato']}**")
     
-    # Tabs
-    tab_ana, tab_amm, tab_storico = st.tabs(["👤 Anagrafica & Salute", "💳 Contratti & Pagamenti", "📅 Storico Lezioni"])
+    st.divider()
     
-    # --- TAB 1: ANAGRAFICA & SALUTE ---
+    # TABS COMPLETE
+    tab_ana, tab_amm, tab_storico = st.tabs(["👤 Anagrafica & Salute", "💳 Amministrazione", "📅 Storico Lezioni"])
+    
+    # --- TAB 1: ANAGRAFICA & SALUTE (RIPRISTINATA) ---
     with tab_ana:
         with st.form("edit_ana"):
+            st.subheader("✏️ Modifica Dati Personali")
             ac1, ac2 = st.columns(2)
+            
             new_nome = ac1.text_input("Nome", cli_data['nome'])
             new_cogn = ac2.text_input("Cognome", cli_data['cognome'])
             new_tel = ac1.text_input("Telefono", cli_data['telefono'])
             new_mail = ac2.text_input("Email", cli_data['email'])
             
-            # Anamnesi JSON Parsing
+            # Gestione data di nascita (conversione sicura)
+            try: d_nascita = pd.to_datetime(cli_data['data_nascita']).date()
+            except: d_nascita = date(1990, 1, 1)
+            new_nascita = ac1.date_input("Data di Nascita", value=d_nascita)
+            
+            new_sesso = ac2.radio("Sesso", ["Uomo", "Donna"], index=0 if cli_data['sesso'] == 'Uomo' else 1, horizontal=True)
+
+            st.markdown("---")
+            st.subheader("🧬 Profilo Clinico")
+            
+            # JSON Parsing Anamnesi
             anamnesi = {}
             if cli_data['anamnesi_json']:
                 try: anamnesi = json.loads(cli_data['anamnesi_json'])
                 except: pass
             
-            st.markdown("##### 🧬 Profilo Tecnico")
             tc1, tc2 = st.columns(2)
             prof = tc1.text_input("Professione", value=anamnesi.get('professione', ''))
             sport = tc2.text_input("Sport Precedenti", value=anamnesi.get('sport', ''))
+            
+            idx_fumo = 0
+            if anamnesi.get('fumo') == "Occasionale": idx_fumo = 1
+            elif anamnesi.get('fumo') == "Abituale": idx_fumo = 2
+            fumo = tc1.selectbox("Fumatore", ["No", "Occasionale", "Abituale"], index=idx_fumo)
+            
             note_med = st.text_area("Note Mediche / Infortuni", value=anamnesi.get('infortuni', ''))
             
-            if st.form_submit_button("💾 Aggiorna Dati"):
-                # Salva
+            # Tasto Aggiorna
+            if st.form_submit_button("💾 Aggiorna Anagrafica"):
                 payload = {
                     "nome": new_nome, "cognome": new_cogn, "telefono": new_tel, "email": new_mail,
-                    "nascita": cli_data['data_nascita'], "sesso": cli_data['sesso'], "stato": cli_data['stato'],
-                    "anamnesi": {"professione": prof, "sport": sport, "infortuni": note_med}
+                    "nascita": new_nascita, "sesso": new_sesso, "stato": cli_data['stato'],
+                    "anamnesi": {
+                        "professione": prof, "sport": sport, "fumo": fumo, "infortuni": note_med
+                    }
                 }
                 db.save_cliente(payload, cliente_sel_id)
-                st.success("Dati aggiornati!")
+                st.toast("Dati anagrafici salvati!", icon="✅")
                 st.rerun()
 
-    # --- TAB 2: AMMINISTRAZIONE ---
+    # --- TAB 2: AMMINISTRAZIONE (NUOVA LOGICA) ---
     with tab_amm:
         c_sx, c_dx = st.columns([2, 1])
         
         with c_sx:
-            st.subheader("Contratti")
-            if not cli_data['contratti']:
-                st.warning("Nessun contratto registrato.")
+            st.subheader("📜 Contratti Attivi & Storico")
+            if not fin_data['contratti']:
+                st.caption("Nessun contratto registrato.")
             else:
-                for c in cli_data['contratti']:
-                    icon = "🟢" if not c['chiuso'] else "🔴"
-                    with st.expander(f"{icon} {c['tipo_pacchetto']} ({c['data_inizio']})"):
-                        st.write(f"Prezzo: €{c['prezzo_pattuito']} | Crediti: {c['crediti_totali']}")
-                        st.write(f"Note: {c['note']}")
-            
-            st.subheader("Storico Pagamenti")
-            if cli_data['pagamenti']:
-                df_pay = pd.DataFrame(cli_data['pagamenti'])
-                st.dataframe(df_pay[['data', 'importo', 'metodo', 'note']], use_container_width=True)
-        
+                for c in fin_data['contratti']:
+                    # Logica colori stato
+                    color_st = "green" if c['stato_pagamento'] == 'SALDATO' else "orange" if c['stato_pagamento'] == 'PARZIALE' else "red"
+                    icon_cls = "🔒" if c['chiuso'] else "🔓"
+                    
+                    with st.container(border=True):
+                        col_a, col_b = st.columns([3, 1])
+                        col_a.markdown(f"**{c['tipo_pacchetto']}** (dal {c['data_inizio']}) {icon_cls}")
+                        col_a.caption(f"Prezzo: €{c['prezzo_totale']} | Versato: €{c['totale_versato']} | Crediti: {c['crediti_usati']}/{c['crediti_totali']}")
+                        col_b.markdown(f":{color_st}[**{c['stato_pagamento']}**]")
+                        
+                        # Se c'è un debito, mostra form per pagare
+                        da_pagare = c['prezzo_totale'] - c['totale_versato']
+                        if da_pagare > 0.01:
+                            with st.expander(f"💸 Registra Rata (€ {da_pagare:.2f})"):
+                                with st.form(f"pay_form_{c['id']}"):
+                                    imp_rata = st.number_input("Importo Rata", value=float(da_pagare), max_value=float(da_pagare), step=10.0, key=f"ir_{c['id']}")
+                                    met_rata = st.selectbox("Metodo", ["CONTANTI", "POS", "BONIFICO"], key=f"mr_{c['id']}")
+                                    note_rata = st.text_input("Note pagamento", key=f"nr_{c['id']}")
+                                    
+                                    if st.form_submit_button("Incassa Rata"):
+                                        db.registra_rata(c['id'], imp_rata, met_rata, note_rata)
+                                        st.success("Pagamento registrato!")
+                                        st.rerun()
+
+            st.divider()
+            st.subheader("🧾 Storico Movimenti Cassa")
+            if fin_data['movimenti']:
+                st.dataframe(
+                    pd.DataFrame(fin_data['movimenti'])[['data_movimento', 'categoria', 'importo', 'metodo', 'note']], 
+                    use_container_width=True,
+                    hide_index=True
+                )
+            else:
+                st.caption("Nessun movimento.")
+
         with c_dx:
-            st.markdown("### ⚡ Operazioni")
-            
-            with st.expander("📝 Vendi Nuovo Pacchetto", expanded=True):
-                with st.form("new_contract"):
-                    pacc = st.selectbox("Pacchetto", ["10 PT", "20 PT", "Mensile", "Trimestrale", "Consulenza"])
-                    prezzo = st.number_input("Prezzo (€)", value=350.0, step=10.0)
-                    ingr = st.number_input("Crediti", value=10)
-                    start = st.date_input("Inizio", date.today())
-                    note_c = st.text_input("Note")
+            st.markdown("### ⚡ Nuova Vendita")
+            with st.container(border=True):
+                with st.form("new_sale_form"):
+                    st.write("**Vendi Pacchetto / Abbonamento**")
+                    tipo = st.selectbox("Tipologia", ["10 PT", "20 PT", "Mensile Sala", "Trimestrale Sala", "Annuale Sala", "Consulenza Singola"])
                     
-                    if st.form_submit_button("Vendi Pacchetto"):
-                        db.add_contratto(cliente_sel_id, pacc, prezzo, ingr, start, None, note_c)
-                        st.success("Contratto Attivato!")
-                        st.rerun()
-            
-            with st.expander("💰 Registra Incasso"):
-                with st.form("new_pay"):
-                    imp = st.number_input("Importo (€)", value=50.0)
-                    met = st.selectbox("Metodo", ["Contanti", "Bonifico", "POS"])
+                    # Prezzi default intelligenti
+                    prezzo_def = 350.0 if "10 PT" in tipo else 50.0
+                    crediti_def = 10 if "10 PT" in tipo else 0
                     
-                    if st.form_submit_button("Registra Pagamento"):
-                        db.add_pagamento(cliente_sel_id, imp, met, "Pagamento Manuale")
-                        st.success("Incasso registrato!")
+                    prezzo = st.number_input("Prezzo Pattuito (€)", value=prezzo_def, step=10.0)
+                    crediti = st.number_input("Crediti Inclusi", value=crediti_def)
+                    
+                    start_d = st.date_input("Data Inizio", date.today())
+                    end_d = st.date_input("Scadenza", date.today() + timedelta(days=365))
+                    
+                    st.divider()
+                    st.write("**Acconto Iniziale**")
+                    acconto = st.number_input("Versato Oggi (€)", value=0.0, step=10.0)
+                    metodo_acc = st.selectbox("Metodo Acconto", ["CONTANTI", "POS", "BONIFICO"])
+                    
+                    if st.form_submit_button("Conferma Vendita", type="primary"):
+                        db.crea_contratto_vendita(
+                            cliente_sel_id, tipo, prezzo, crediti, 
+                            start_d, end_d, acconto, metodo_acc
+                        )
+                        st.success("Vendita registrata correttamente!")
+                        st.balloons()
                         st.rerun()
 
-    # --- TAB 3: STORICO ---
+    # --- TAB 3: STORICO (PLACEHOLDER) ---
     with tab_storico:
-        # Qui potremo vedere le lezioni fatte
-        st.info("🚧 Qui apparirà la lista delle lezioni completate dall'agenda.")
+        st.info("🚧 In questa sezione vedrai a breve la lista cronologica di tutte le lezioni effettuate da questo cliente, recuperate dall'Agenda.")
 
 else:
-    st.info("👈 Seleziona un cliente o creane uno nuovo.")
+    st.info("👈 Seleziona un cliente dalla lista o creane uno nuovo per iniziare.")
