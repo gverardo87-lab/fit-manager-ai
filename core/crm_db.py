@@ -1,14 +1,13 @@
-# file: core/crm_db.py (Versione FitManager 3.0 - Agenda Engine)
+# file: core/crm_db.py (Versione FitManager 3.0 - Definitive Core)
 from __future__ import annotations
 import sqlite3
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 import datetime
 from datetime import date
-import json
 from contextlib import contextmanager
-import pandas as pd
 
+# Percorso DB
 DB_FILE = Path(__file__).resolve().parents[1] / "data" / "crm.db"
 
 class CrmDBManager:
@@ -26,30 +25,30 @@ class CrmDBManager:
         with self._connect() as conn:
             cursor = conn.cursor()
             
-            # --- 1. CLIENTI & LEAD ---
+            # 1. CLIENTI (Ex Anagrafica)
             cursor.execute("""
             CREATE TABLE IF NOT EXISTS clienti (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 nome TEXT NOT NULL, cognome TEXT NOT NULL,
                 telefono TEXT, email TEXT,
                 data_nascita DATE, sesso TEXT,
-                anamnesi_json TEXT, -- Dati clinici
+                anamnesi_json TEXT,      -- Dati clinici (JSON)
                 stato TEXT DEFAULT 'Attivo',
                 data_creazione DATETIME DEFAULT CURRENT_TIMESTAMP
             )""")
 
-            # --- 2. CONTRATTI (Portafoglio) ---
+            # 2. CONTRATTI (Portafoglio)
             cursor.execute("""
             CREATE TABLE IF NOT EXISTS contratti (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 id_cliente INTEGER NOT NULL,
-                tipo_pacchetto TEXT,
+                tipo_pacchetto TEXT,     -- Es. '10 PT', 'Mensile'
                 data_inizio DATE, data_scadenza DATE,
                 crediti_totali INTEGER, prezzo_pattuito REAL,
                 note TEXT, chiuso BOOLEAN DEFAULT 0
             )""")
 
-            # --- 3. PAGAMENTI (Cassa) ---
+            # 3. PAGAMENTI (Cassa)
             cursor.execute("""
             CREATE TABLE IF NOT EXISTS pagamenti (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -59,20 +58,19 @@ class CrmDBManager:
                 importo REAL NOT NULL, metodo TEXT, note TEXT
             )""")
 
-            # --- 4. AGENDA IBRIDA (Il centro operativo) ---
+            # 4. AGENDA (Operatività)
             cursor.execute("""
             CREATE TABLE IF NOT EXISTS agenda (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 data_inizio DATETIME NOT NULL,
                 data_fine DATETIME NOT NULL,
-                categoria TEXT NOT NULL, -- PT, SALA, CORSO, CONSULENZA
+                categoria TEXT NOT NULL, -- PT, SALA, CORSO, ecc.
                 titolo TEXT,
                 id_cliente INTEGER,
                 id_contratto INTEGER,
-                stato TEXT DEFAULT 'Programmato', -- Programmato, Fatto, Cancellato
+                stato TEXT DEFAULT 'Programmato',
                 note TEXT
             )""")
-            
             conn.commit()
 
     @contextmanager
@@ -82,59 +80,37 @@ class CrmDBManager:
         except Exception as e: conn.rollback(); raise e
         finally: conn.close()
 
-    # --- API AGENDA INTERATTIVA ---
-    def add_evento(self, start, end, categoria, titolo, id_cliente=None, note=""):
+    # --- API AGENDA ---
+    def add_evento(self, start, end, categoria, titolo, id_cliente=None):
         with self.transaction() as cur:
-            # Se è PT, aggancia contratto attivo
             id_contr = None
             if categoria == 'PT' and id_cliente:
+                # Cerca contratto attivo
                 cur.execute("SELECT id FROM contratti WHERE id_cliente=? AND chiuso=0 ORDER BY data_inizio DESC LIMIT 1", (id_cliente,))
                 row = cur.fetchone()
                 if row: id_contr = row['id']
             
-            cur.execute("""
-                INSERT INTO agenda (data_inizio, data_fine, categoria, titolo, id_cliente, id_contratto, note)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (start, end, categoria, titolo, id_cliente, id_contr, note))
+            cur.execute("INSERT INTO agenda (data_inizio, data_fine, categoria, titolo, id_cliente, id_contratto) VALUES (?, ?, ?, ?, ?, ?)", 
+                        (start, end, categoria, titolo, id_cliente, id_contr))
 
-    def get_agenda_settimana(self, start_date: date, end_date: date) -> List[dict]:
+    def get_agenda_range(self, start_date: date, end_date: date) -> List[dict]:
+        # Recupera eventi per il calendario
         q = """
-            SELECT a.*, c.nome, c.cognome, c.telefono 
+            SELECT a.*, c.nome, c.cognome 
             FROM agenda a 
             LEFT JOIN clienti c ON a.id_cliente = c.id
-            WHERE date(a.data_inizio) BETWEEN ? AND ? AND a.stato != 'Cancellato'
-            ORDER BY a.data_inizio
+            WHERE date(a.data_inizio) BETWEEN ? AND ?
         """
         with self._connect() as conn:
             return [dict(r) for r in conn.execute(q, (start_date, end_date)).fetchall()]
+    
+    def confirm_evento(self, id_ev):
+        with self._connect() as conn: conn.execute("UPDATE agenda SET stato='Fatto' WHERE id=?", (id_ev,)); conn.commit()
 
-    def delete_evento(self, id_evento):
-        with self._connect() as conn:
-            conn.execute("UPDATE agenda SET stato = 'Cancellato' WHERE id = ?", (id_evento,))
-            conn.commit()
+    def delete_evento(self, id_ev):
+        with self._connect() as conn: conn.execute("DELETE FROM agenda WHERE id=?", (id_ev,)); conn.commit()
 
-    def confirm_evento(self, id_evento):
-        with self._connect() as conn:
-            conn.execute("UPDATE agenda SET stato = 'Fatto' WHERE id = ?", (id_evento,))
-            conn.commit()
-
-    # --- API CLIENTI & CONTRATTI BASE ---
+    # --- API CLIENTI RAPIDE ---
     def get_clienti_attivi(self):
         with self._connect() as conn:
             return [dict(r) for r in conn.execute("SELECT id, nome, cognome FROM clienti WHERE stato='Attivo' ORDER BY cognome").fetchall()]
-
-    def get_cliente_balance(self, id_cliente):
-        # Calcolo rapido per la sidebar
-        with self._connect() as conn:
-            crediti = conn.execute("SELECT SUM(crediti_totali) FROM contratti WHERE id_cliente=?", (id_cliente,)).fetchone()[0] or 0
-            usati = conn.execute("SELECT COUNT(*) FROM agenda WHERE id_cliente=? AND categoria='PT' AND stato != 'Cancellato'", (id_cliente,)).fetchone()[0] or 0
-            
-            dovuto = conn.execute("SELECT SUM(prezzo_pattuito) FROM contratti WHERE id_cliente=?", (id_cliente,)).fetchone()[0] or 0
-            pagato = conn.execute("SELECT SUM(importo) FROM pagamenti WHERE id_cliente=?", (id_cliente,)).fetchone()[0] or 0
-            
-            return {"lezioni_residue": crediti - usati, "da_saldare": dovuto - pagato}
-    
-    # Placeholder per compatibilità con altre pagine se non ancora aggiornate
-    def get_dipendenti_df(self, solo_attivi=False): return pd.DataFrame()
-    def get_squadre(self): return []
-    def get_turni_standard(self): return []
