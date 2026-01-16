@@ -1,16 +1,16 @@
-# pyproject.toml (Versione 5.0 - Build Stabile per Windows)
+# pyproject.toml (Versione FitManager 1.0 - Clean Build)
 
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "capocantiere-ai"
+name = "fit-manager-ai"  # <--- RINOMINATO
 version = "1.0.0"
 authors = [
   { name="G. Verardo", email="tuo.email@example.com" },
 ]
-description = "Applicazione Streamlit per la gestione e l'analisi di dati di cantiere navale tramite AI."
+description = "Piattaforma AI per la gestione di studi fitness, atleti e nutrizione."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT License" }
@@ -20,16 +20,17 @@ classifiers = [
     "Framework :: Streamlit",
 ]
 dependencies = [
-    # --- CORE LIBS (Stabili) ---
+    # --- CORE LIBS (Base) ---
     "streamlit==1.36.0",
     "pandas==2.2.2",
     "numpy==1.26.4",
+    "requests",
     "openpyxl==3.1.2",
-    "feedparser", 
     "python-dotenv==1.0.1",
     "plotly==5.22.0",
+    "feedparser",
 
-    # --- LANGCHAIN ECOSYSTEM (Strategia Stabile) ---
+    # --- LANGCHAIN ECOSYSTEM (AI Logic) ---
     "langchain==0.2.5",
     "langchain-community",
     "langchain-core",
@@ -37,16 +38,10 @@ dependencies = [
     "langchain-ollama",
     "langchain-text-splitters",
 
-    # --- CORE LIBS (Stabili) ---
-    "streamlit==1.36.0",
-    "pandas==2.2.2",
-    "requests", # <--- AGGIUNGI QUESTA RIGA
-    "numpy==1.26.4",
-
-    # --- RAG & AI LIBS (Stabili e Compatibili con Windows Build) ---
+    # --- RAG & ML (Motore AI Locale) ---
     "ollama==0.5.4",
     "PyMuPDF==1.24.1",
-    "chromadb==0.4.24", # <-- MODIFICA CHIAVE per evitare la compilazione C++
+    "chromadb==0.4.24", # Versione stabile per evitare errori C++ su Windows
     "torch==2.3.0",
     "transformers==4.41.2",
     "sentence-transformers==2.7.0",
@@ -55,11 +50,9 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/gverardo87-lab/capocantiere-ai"
-"Bug Tracker" = "https://github.com/gverardo87-lab/capocantiere-ai/issues"
+"Homepage" = "https://github.com/tuo-user/fit-manager-ai"
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["core*", "server*", "tools*", "knowledge_base*"]
 exclude = ["data*", "venv*"]
-
