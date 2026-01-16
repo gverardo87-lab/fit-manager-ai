@@ -1,12 +1,12 @@
-# pyproject.toml (Versione FitManager 1.0 - Clean Build)
+# pyproject.toml (Versione FitManager 3.0 - Agenda Update)
 
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "fit-manager-ai"  # <--- RINOMINATO
-version = "1.0.0"
+name = "fit-manager-ai"
+version = "3.0.0" # Aggiornato alla v3
 authors = [
   { name="G. Verardo", email="tuo.email@example.com" },
 ]
@@ -29,6 +29,8 @@ dependencies = [
     "python-dotenv==1.0.1",
     "plotly==5.22.0",
     "feedparser",
+    "streamlit-calendar", # <--- NUOVA DIPENDENZA FONDAMENTALE
+    "watchdog",           # <--- Per gestione file system
 
     # --- LANGCHAIN ECOSYSTEM (AI Logic) ---
     "langchain==0.2.5",
@@ -41,7 +43,7 @@ dependencies = [
     # --- RAG & ML (Motore AI Locale) ---
     "ollama==0.5.4",
     "PyMuPDF==1.24.1",
-    "chromadb==0.4.24", # Versione stabile per evitare errori C++ su Windows
+    "chromadb==0.4.24",
     "torch==2.3.0",
     "transformers==4.41.2",
     "sentence-transformers==2.7.0",
