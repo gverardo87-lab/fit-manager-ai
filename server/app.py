@@ -11,19 +11,32 @@ st.set_page_config(page_title="ProFit AI", page_icon="🍎", layout="wide")
 st.title("🍎 ProFit AI Studio")
 
 with st.sidebar:
-    st.header("Navigazione")
+    st.header("Navigazione Moduli")
     
-    # Link SOLO alle pagine esistenti
-    st.page_link("pages/01_Agenda.py", label="Agenda Operativa", icon="📅")
-    st.page_link("pages/02_Clienti.py", label="Gestione Clienti", icon="👥")
+    st.subheader("Gestione Base")
+    st.page_link("pages/01_Agenda.py", label="Agenda", icon="📅")
+    st.page_link("pages/03_Clienti.py", label="Clienti", icon="👥")
+    st.page_link("pages/04_Cassa.py", label="Cassa", icon="💰")
     
-    st.markdown("---")
-    st.subheader("Strumenti AI")
-    # Verifica che questi file esistano prima di cliccare
-    if os.path.exists(os.path.join(os.path.dirname(__file__), "pages/03_Esperto_Tecnico.py")):
-        st.page_link("pages/03_Esperto_Tecnico.py", label="AI Coach", icon="🧠")
+    st.divider()
     
-    if os.path.exists(os.path.join(os.path.dirname(__file__), "pages/06_Document_Explorer.py")):
-        st.page_link("pages/06_Document_Explorer.py", label="Documenti", icon="📂")
+    st.subheader("AI & Allenamento")
+    st.page_link("pages/02_Assistente_Esperto.py", label="Assistente Esperto", icon="🧠")
+    st.page_link("pages/06_Programma_Allenamento.py", label="Generatore Programmi", icon="🏋️")
+    st.page_link("pages/05_Assessment_Allenamenti.py", label="Assessment", icon="📊")
+    
+    st.divider()
+    
+    st.subheader("Risorse")
+    st.page_link("pages/07_Document_Explorer.py", label="Documenti", icon="📚")
+    st.page_link("pages/08_Meteo_Cantiere.py", label="Meteo", icon="🌤️")
+    st.page_link("pages/09_Bollettino_Mare.py", label="Mare", icon="🌊")
 
-st.info("👈 Seleziona un modulo dal menu laterale per iniziare.")
+st.info("""
+👈 **Seleziona un modulo** dal menu laterale.
+
+**Moduli principali:**
+- 🧠 **Assistente Esperto**: Chat intelligente basata su vector store e metodologie di allenamento
+- 🏋️ **Generatore Programmi**: Crea workout personalizzati con IA
+- 👥 **Gestione Clienti**: Amministra i tuoi clienti
+""")
