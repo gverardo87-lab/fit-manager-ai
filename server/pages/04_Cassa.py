@@ -46,12 +46,18 @@ st.info("""
 
 # Fetch dati usando la NUOVA logica pulita
 with st.spinner("Caricamento dati finanziari..."):
-    # Bilancio effettivo (soldi veri)
-    bilancio_eff = db.get_bilancio_effettivo()
-    
-    # Mese corrente
+    # Metriche unificate per il mese corrente
     oggi = date.today()
     primo_mese = date(oggi.year, oggi.month, 1)
+    from calendar import monthrange
+    ultimo_giorno_mese = monthrange(oggi.year, oggi.month)[1]
+    ultimo_mese = date(oggi.year, oggi.month, ultimo_giorno_mese)
+    
+    # Usa il metodo unificato per il mese
+    metriche_mese = db.calculate_unified_metrics(primo_mese, ultimo_mese)
+    
+    # Bilancio effettivo (legacy, per compatibilità)
+    bilancio_eff = db.get_bilancio_effettivo()
     bilancio_mese = db.get_bilancio_effettivo(primo_mese, None)
     
     # Previsione 30 giorni
@@ -101,6 +107,53 @@ with col4:
         "nuovi questo mese" if True else "stabili",
         delta_color="normal"
     )
+
+# ════════════════════════════════════════════════════════════
+# ANALISI MARGINE - LOGICA UNIFICATA
+# ════════════════════════════════════════════════════════════
+
+st.subheader("📊 Analisi Margine (Logica Unificata)", divider=True)
+
+col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+
+with col_m1:
+    st.metric(
+        "⏱️ Ore Pagate",
+        f"{metriche_mese['ore_pagate']:.1f}h",
+        f"€{metriche_mese['fatturato_per_ora']:.2f}/h",
+        delta_color="normal"
+    )
+
+with col_m2:
+    st.metric(
+        "💰 Entrate Mese",
+        f"€{metriche_mese['entrate_totali']:.2f}",
+        f"da {metriche_mese['giorni']} giorni",
+        delta_color="normal"
+    )
+
+with col_m3:
+    st.metric(
+        "💸 Costi Totali",
+        f"€{metriche_mese['costi_totali']:.2f}",
+        f"Fissi: €{metriche_mese['costi_fissi_periodo']:.2f}",
+        delta_color="inverse"
+    )
+
+with col_m4:
+    st.metric(
+        "🎯 Margine/Ora",
+        f"€{metriche_mese['margine_orario']:.2f}",
+        f"Lordo: €{metriche_mese['margine_lordo']:.2f}",
+        delta_color="normal" if metriche_mese['margine_orario'] > 0 else "inverse"
+    )
+
+st.info(f"""
+📌 **Analisi Margine Mese {primo_mese.strftime('%B %Y')}**
+- **Formula**: Margine/Ora = (Entrate - Costi Fissi - Costi Variabili) / Ore Pagate
+- **Ore Non Pagate**: {metriche_mese['ore_non_pagate']:.1f}h (Admin, Formazione, ecc.)
+- **Costi Fissi Mensili**: €{metriche_mese['costi_fissi_mensili']:.2f}
+""")
 
 # ════════════════════════════════════════════════════════════
 # CASHFLOW MESE CORRENTE

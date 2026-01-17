@@ -89,19 +89,27 @@ slot disponibili, fatturato reale vs previsione.
 st.divider()
 
 # ════════════════════════════════════════════════════════════
-# CALCOLO METRICHE
+# CALCOLO METRICHE - LOGICA UNIFICATA
 # ════════════════════════════════════════════════════════════
 
-with st.spinner("📊 Calcolo metriche..."):
+with st.spinner("📊 Calcolo metriche unificate..."):
     if granularita == "Giornaliera":
-        metrics_data = db.calculate_hourly_metrics(data_sel)
+        # Logica unificata per un giorno
+        metrics_data = db.calculate_unified_metrics(data_sel, data_sel)
         periodo_label = f"Giorno {data_sel}"
     elif granularita == "Settimanale":
-        metrics_data = db.get_hourly_metrics_week(data_sel)
-        periodo_label = metrics_data['settimana']
+        # Logica unificata: da lunedì a domenica della settimana
+        lunedi = data_sel - timedelta(days=data_sel.weekday())
+        domenica = lunedi + timedelta(days=6)
+        metrics_data = db.calculate_unified_metrics(lunedi, domenica)
+        periodo_label = f"Settimana {lunedi.strftime('%d/%m')} - {domenica.strftime('%d/%m/%Y')}"
     else:  # Mensile
-        metrics_data = db.get_hourly_metrics_month(data_sel[0], data_sel[1])
-        periodo_label = metrics_data['mese']
+        # Logica unificata: dall'1 all'ultimo giorno del mese
+        anno, mese = data_sel
+        primo_giorno = date(anno, mese, 1)
+        ultimo_giorno = date(anno, mese, monthrange(anno, mese)[1])
+        metrics_data = db.calculate_unified_metrics(primo_giorno, ultimo_giorno)
+        periodo_label = f"Mese {primo_giorno.strftime('%B %Y')}"
 
 # ════════════════════════════════════════════════════════════
 # DASHBOARD KPI - 4 COLONNE
@@ -115,16 +123,16 @@ with col1:
     render_metric_box(
         "Ore Pagate",
         f"{metrics_data['ore_pagate']}h",
-        f"+ {metrics_data['ore_non_pagate']}h admin",
+        f"+ {metrics_data['ore_non_pagate']}h non pagate",
         "⏱️",
         "primary"
     )
 
 with col2:
     render_metric_box(
-        "Fatturato",
-        f"€{metrics_data['fatturato_totale']:.2f}",
-        f"Costi: €{metrics_data['costi_totali']:.2f}",
+        "Entrate Totali",
+        f"€{metrics_data['entrate_totali']:.2f}",
+        f"€{metrics_data['fatturato_per_ora']:.2f}/ora",
         "💰",
         "success"
     )
@@ -142,26 +150,13 @@ with col3:
     )
 
 with col4:
-    if 'slot_disponibili' in metrics_data:
-        slot_occupati = metrics_data.get('slot_occupati', 0)
-        slot_tot = metrics_data['slot_disponibili'] + slot_occupati
-        tasso_occupazione = (slot_occupati / slot_tot * 100) if slot_tot > 0 else 0
-        
-        render_metric_box(
-            "Slot Occupati",
-            f"{slot_occupati}/{slot_tot}",
-            f"Tasso: {tasso_occupazione:.0f}%",
-            "📍",
-            "success" if tasso_occupazione > 75 else "primary"
-        )
-    else:
-        render_metric_box(
-            "Margine Lordo",
-            f"€{metrics_data['margine_lordo']:.2f}",
-            f"vs Netto: €{metrics_data['margine_netto']:.2f}",
-            "📊",
-            "primary"
-        )
+    render_metric_box(
+        "Margine Lordo",
+        f"€{metrics_data['margine_lordo']:.2f}",
+        f"Costi: €{metrics_data['costi_totali']:.2f}",
+        "📊",
+        "primary"
+    )
 
 st.divider()
 
@@ -179,113 +174,106 @@ tab1, tab2, tab3, tab4 = st.tabs([
 with tab1:
     create_section_header("Andamento nel Tempo", "Evoluzione del margine orario", "📈")
     
-    if granularita in ["Giornaliera", "Settimanale"]:
+    if granularita == "Giornaliera":
         # Mostra ultimi 30 giorni
-        if granularita == "Giornaliera":
-            data_inizio = data_sel - timedelta(days=30)
-            data_fine = data_sel
-            daily_data = db.get_hourly_metrics_period(data_inizio, data_fine)
-            
-            # Prepara DataFrame
-            df_trend = pd.DataFrame([
-                {
-                    'Data': m['data'],
-                    'Margine/Ora': m['margine_orario'],
-                    'Fatturato': m['fatturato_totale'],
-                    'Ore Pagate': m['ore_pagate']
-                }
-                for m in daily_data
-            ])
-            
-            # Grafico tendenza
-            fig = go.Figure()
-            
-            fig.add_trace(go.Scatter(
-                x=df_trend['Data'],
-                y=df_trend['Margine/Ora'],
-                mode='lines+markers',
-                name='Margine/Ora',
-                line=dict(color='#0066cc', width=3),
-                marker=dict(size=6)
-            ))
-            
-            # Aggiungi linea target
-            fig.add_hline(
-                y=target_margine,
-                line_dash="dash",
-                line_color="red",
-                annotation_text=f"Target: €{target_margine:.2f}/h",
-                annotation_position="right"
-            )
-            
-            fig.update_layout(
-                title="Margine Orario - Ultimi 30 Giorni",
-                xaxis_title="Data",
-                yaxis_title="Margine/Ora (€)",
-                hovermode="x unified",
-                height=400,
-                template="plotly_white"
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Statistiche
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                avg_margine = df_trend['Margine/Ora'].mean()
-                st.metric("Media Margine/Ora", f"€{avg_margine:.2f}")
-            with col2:
-                max_margine = df_trend['Margine/Ora'].max()
-                st.metric("Picco Margine", f"€{max_margine:.2f}")
-            with col3:
-                min_margine = df_trend['Margine/Ora'].min()
-                st.metric("Minimo Margine", f"€{min_margine:.2f}")
+        data_inizio = data_sel - timedelta(days=29)  # 30 giorni incluso oggi
+        data_fine = data_sel
         
-        else:  # Settimanale
-            # Ultimi 12 settimane
-            settimane_data = []
-            data_corrente = date_sel
-            for _ in range(12):
-                settimana = db.get_hourly_metrics_week(data_corrente)
-                settimane_data.append(settimana)
-                data_corrente -= timedelta(weeks=1)
-            
-            settimane_data.reverse()
-            
-            df_trend = pd.DataFrame([
-                {
-                    'Settimana': s['settimana'],
-                    'Margine/Ora': s['margine_orario'],
-                    'Fatturato': s['fatturato_totale']
-                }
-                for s in settimane_data
-            ])
-            
-            fig = px.line(
-                df_trend,
-                x='Settimana',
-                y='Margine/Ora',
-                title="Margine Orario - Ultimi 12 Settimane",
-                markers=True,
-                line_shape='linear'
-            )
-            
-            fig.add_hline(
-                y=target_margine,
-                line_dash="dash",
-                line_color="red",
-                annotation_text=f"Target: €{target_margine:.2f}/h"
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
+        daily_data = db.get_daily_metrics_range(data_inizio, data_fine)
+        
+        # Prepara DataFrame
+        df_trend = pd.DataFrame([
+            {
+                'Data': m['data'],
+                'Margine/Ora': m['margine_orario'],
+                'Entrate': m['entrate_totali'],
+                'Ore Pagate': m['ore_pagate']
+            }
+            for m in daily_data
+        ])
+        
+        # Grafico tendenza
+        fig = go.Figure()
+        
+        fig.add_trace(go.Scatter(
+            x=df_trend['Data'],
+            y=df_trend['Margine/Ora'],
+            mode='lines+markers',
+            name='Margine/Ora',
+            line=dict(color='#0066cc', width=3),
+            marker=dict(size=6)
+        ))
+        
+        # Aggiungi linea target
+        fig.add_hline(
+            y=target_margine,
+            line_dash="dash",
+            line_color="red",
+            annotation_text=f"Target: €{target_margine:.2f}/h",
+            annotation_position="right"
+        )
+        
+        fig.update_layout(
+            title="Margine Orario - Ultimi 30 Giorni",
+            xaxis_title="Data",
+            yaxis_title="Margine/Ora (€)",
+            hovermode="x unified",
+            height=400
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # KPI nel grafico
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            max_margine = df_trend['Margine/Ora'].max()
+            st.metric("Massimo Margine", f"€{max_margine:.2f}")
+        
+        with col2:
+            media_margine = df_trend['Margine/Ora'].mean()
+            st.metric("Media Margine", f"€{media_margine:.2f}")
+        
+        with col3:
+            min_margine = df_trend['Margine/Ora'].min()
+            st.metric("Minimo Margine", f"€{min_margine:.2f}")
+    
+    elif granularita == "Settimanale":
+        fig = px.line(
+            df_trend,
+            x='Settimana',
+            y='Margine/Ora',
+            title="Margine Orario - Ultimi 12 Settimane",
+            markers=True,
+            line_shape='linear'
+        )
+        
+        fig.add_hline(
+            y=target_margine,
+            line_dash="dash",
+            line_color="red",
+            annotation_text=f"Target: €{target_margine:.2f}/h"
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # KPI settimane
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            max_w = df_trend['Margine/Ora'].max()
+            st.metric("Max Settimana", f"€{max_w:.2f}")
+        
+        with col2:
+            media_w = df_trend['Margine/Ora'].mean()
+            st.metric("Media Settimane", f"€{media_w:.2f}")
+        
+        with col3:
+            min_w = df_trend['Margine/Ora'].min()
+            st.metric("Min Settimana", f"€{min_w:.2f}")
     
     else:  # Mensile
-        st.info("📊 Visualizza gli ultimi 12 mesi per analizzare la tendenza")
-        # TODO: Implementare visualizzazione annuale
-
-# ════════════════════════════════════════════════════════════
-# TAB 2: MARGINE PER CLIENTE
-# ════════════════════════════════════════════════════════════
+        st.info("📊 Analisi mensile - Ultimi 12 mesi in sviluppo")
 
 with tab2:
     create_section_header("Redditività per Cliente", "Analisi margine diviso per cliente", "👥")

@@ -126,7 +126,26 @@ Avvia:
 Bash
 
 streamlit run server/app.py
-🔮 Roadmap & Vision
+
+---
+
+## 📐 **Documentazione Formule Finanziarie**
+
+Tutte le metriche finanziarie (Cassa, Margine Orario, ecc.) si basano su un **sistema unificato di calcolo** per garantire coerenza.
+
+👉 **Vedi**: [`FORMULE_FINANZIARIE.md`](FORMULE_FINANZIARIE.md)
+
+Documentazione completa delle formule, incluse:
+- Definizione di ogni metrica
+- Source dei dati (quale tabella DB)
+- Sincronizzazione tra pagine
+- Esempi di calcolo
+
+**Implementazione tecnica**: `core/crm_db.py` → Metodo `calculate_unified_metrics()`
+
+---
+
+## 🔮 Roadmap & Vision
 [ ] Q3 2026: Migrazione Database a PostgreSQL per supporto multi-utente concorrente.
 
 [ ] Q4 2026: Rilascio App Mobile "Read-Only" per Capisquadra (Tablet).
