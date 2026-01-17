@@ -311,16 +311,55 @@ elif sel_id:
                 }, sel_id)
                 st.success("Aggiornato!"); st.rerun()
 
-    with tabs[2]: # Contratti
+    with tabs[2]: # Contratti & Pagamenti
+        # --- RIEPILOGO PAGAMENTI GLOBALE ---
+        st.subheader("📊 Riepilogo Finanziario")
+        fin_cols = st.columns(5)
+        
+        # Calcolare statistiche
+        tot_contratti = sum(c['prezzo_totale'] for c in fin['contratti'])
+        tot_versato = sum(c['totale_versato'] for c in fin['contratti'])
+        tot_residuo = tot_contratti - tot_versato
+        perc_pagato = (tot_versato / tot_contratti * 100) if tot_contratti > 0 else 0
+        
+        # Separare acconto e rate dai movimenti
+        tot_acconto = sum(m['importo'] for m in fin['movimenti'] if m['categoria'] == 'ACCONTO_CONTRATTO')
+        tot_rate = sum(m['importo'] for m in fin['movimenti'] if m['categoria'] == 'RATA_CONTRATTO')
+        
+        fin_cols[0].metric("Totale Contratti", f"€ {tot_contratti:.2f}", f"{len(fin['contratti'])} contratti")
+        fin_cols[1].metric("💰 Acconto", f"€ {tot_acconto:.2f}", f"{(tot_acconto/tot_contratti*100):.0f}%" if tot_contratti > 0 else "0%")
+        fin_cols[2].metric("📋 Rate", f"€ {tot_rate:.2f}")
+        fin_cols[3].metric("Residuo", f"€ {tot_residuo:.2f}", delta="CRITICO" if tot_residuo > 500 else "OK", delta_color="inverse" if tot_residuo > 500 else "normal")
+        
+        # Status pagamenti
+        rate_scadute = sum(1 for c in fin['contratti'] for r in db.get_rate_contratto(c['id']) if pd.to_datetime(r['data_scadenza']).date() < date.today() and r['stato'] != 'SALDATA')
+        fin_cols[4].metric("Rate Scadute", rate_scadute, "⚠️" if rate_scadute > 0 else "✅")
+        
+        st.divider()
+        
+        # --- LISTA CONTRATTI DETTAGLIATA ---
         if st.button("💰 Nuovo Contratto", type="primary"): dialog_vendita(sel_id)
+        
         for c in fin['contratti']:
             with st.container(border=True):
-                st.markdown(f"**{c['tipo_pacchetto']}** - Tot: €{c['prezzo_totale']:.2f} (Versato: €{c['totale_versato']:.2f})")
-                if st.button("✏️", key=f"edc_{c['id']}", help="Modifica / Elimina"): dialog_edit_contratto(c)
+                # Header contratto con status
+                h1, h2, h3 = st.columns([3, 1.5, 1.5])
+                status_badge = "🟢 PAGATO" if c['totale_versato'] >= c['prezzo_totale'] else "🟡 IN CORSO" if c['totale_versato'] > 0 else "🔴 NON PAGATO"
+                h1.markdown(f"**{c['tipo_pacchetto']}** {status_badge}")
+                h2.write(f"Crediti: {c['crediti_usati']}/{c['crediti_totali']}")
+                if h3.button("✏️", key=f"edc_{c['id']}", help="Modifica / Elimina"): dialog_edit_contratto(c)
                 
+                # Progress bar pagamento
+                progress_val = (c['totale_versato'] / c['prezzo_totale']) if c['prezzo_totale'] > 0 else 0
+                st.progress(min(progress_val, 1.0), text=f"€ {c['totale_versato']:.2f} / € {c['prezzo_totale']:.2f}")
+                
+                # Rate
                 rate = db.get_rate_contratto(c['id'])
                 if rate:
-                    st.caption("Piano Rateale")
+                    st.caption("📅 Piano Rateale")
+                    rate_paid = sum(1 for r in rate if r['stato'] == 'SALDATA')
+                    st.text(f"{rate_paid}/{len(rate)} rate saldate")
+                    
                     for r in rate:
                         c_d, c_desc, c_imp, c_btn = st.columns([2, 3, 2, 2])
                         is_late = pd.to_datetime(r['data_scadenza']).date() < date.today() and r['stato'] != 'SALDATA'
@@ -334,9 +373,58 @@ elif sel_id:
                                 dialog_edit_rata(r, c['prezzo_totale'])
                     if st.button("➕ Rata", key=f"ar_{c['id']}"): dialog_add_rata(c['id'])
     
-    with tabs[3]: # Diario
-        hist = db.get_storico_lezioni_cliente(sel_id)
-        if hist: st.dataframe(pd.DataFrame(hist)[['data_inizio','titolo','stato']], use_container_width=True)
-        else: st.info("Nessuna lezione.")
+    with tabs[3]: # Storico Pagamenti + Lezioni
+        st.subheader("📜 Storico Attività")
+        
+        sub_tab1, sub_tab2 = st.tabs(["💳 Movimenti Finanziari", "📅 Lezioni"])
+        
+        with sub_tab1:
+            # Storico pagamenti
+            movimenti = db.get_storico_pagamenti_cliente(sel_id) if hasattr(db, 'get_storico_pagamenti_cliente') else []
+            if movimenti:
+                mov_df = pd.DataFrame(movimenti)
+                mov_df['data'] = pd.to_datetime(mov_df['data_movimento']).dt.strftime('%d/%m/%Y')
+                mov_df = mov_df[['data', 'tipo', 'importo', 'metodo', 'note']]
+                st.dataframe(mov_df, use_container_width=True, hide_index=True)
+                
+                # Statistiche movimenti
+                st.divider()
+                st.caption("📊 Statistiche Movimenti")
+                stat_col1, stat_col2 = st.columns(2)
+                total_movimenti = sum(m['importo'] for m in movimenti)
+                num_movimenti = len(movimenti)
+                stat_col1.metric("Totale Movimenti", f"€ {total_movimenti:.2f}")
+                stat_col2.metric("Numero Operazioni", num_movimenti)
+            else:
+                st.info("Nessun movimento registrato per questo cliente.")
+        
+        with sub_tab2:
+            # Storico lezioni
+            hist = db.get_storico_lezioni_cliente(sel_id)
+            if hist:
+                hist_df = pd.DataFrame(hist)
+                # Ordinare per data decrescente
+                hist_df['data_inizio'] = pd.to_datetime(hist_df['data_inizio'])
+                hist_df = hist_df.sort_values('data_inizio', ascending=False)
+                
+                # Colonne principali
+                display_df = hist_df[['data_inizio', 'titolo', 'stato']].copy()
+                display_df['data_inizio'] = display_df['data_inizio'].dt.strftime('%d/%m/%Y %H:%M')
+                
+                st.dataframe(display_df, use_container_width=True, hide_index=True)
+                
+                # Statistiche lezioni
+                st.divider()
+                st.caption("📊 Statistiche Lezioni")
+                stat_col1, stat_col2, stat_col3 = st.columns(3)
+                num_lezioni = len(hist_df)
+                completate = sum(1 for h in hist if h['stato'] == 'Completato')
+                programmate = sum(1 for h in hist if h['stato'] == 'Programmato')
+                
+                stat_col1.metric("Totale Lezioni", num_lezioni)
+                stat_col2.metric("Completate", completate, f"{(completate/num_lezioni*100):.0f}%" if num_lezioni > 0 else "0%")
+                stat_col3.metric("Programmate", programmate)
+            else:
+                st.info("Nessuna lezione registrata per questo cliente.")
 else:
     st.info("👈 Seleziona un atleta.")
