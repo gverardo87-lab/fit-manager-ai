@@ -428,6 +428,127 @@ class CrmDBManager:
     # Logica coerente per Cassa + Margine Orario
     # ═══════════════════════════════════════════════════════════════
     
+    def get_bilancio_cassa(self, data_inizio: date = None, data_fine: date = None) -> Dict[str, Any]:
+        """
+        BILANCIO PER CASSA - Soldi REALI entrati/usciti.
+        Fonte di verità assoluta: data_effettiva dei movimenti.
+        
+        Uso: Vedere quanto c'è DAVVERO in banca
+        """
+        with self._connect() as conn:
+            # Incassato nel periodo
+            incassato = conn.execute("""
+                SELECT COALESCE(SUM(importo), 0)
+                FROM movimenti_cassa
+                WHERE tipo='ENTRATA'
+            """ + (f" AND data_effettiva BETWEEN ? AND ?" if data_inizio else ""),
+            (data_inizio, data_fine) if data_inizio else ()
+            ).fetchone()[0]
+            
+            # Speso nel periodo
+            speso = conn.execute("""
+                SELECT COALESCE(SUM(importo), 0)
+                FROM movimenti_cassa
+                WHERE tipo='USCITA'
+            """ + (f" AND data_effettiva BETWEEN ? AND ?" if data_inizio else ""),
+            (data_inizio, data_fine) if data_inizio else ()
+            ).fetchone()[0]
+            
+            return {
+                'incassato': round(incassato, 2),
+                'speso': round(speso, 2),
+                'saldo_cassa': round(incassato - speso, 2)
+            }
+    
+    def get_bilancio_competenza(self, data_inizio: date, data_fine: date) -> Dict[str, Any]:
+        """
+        BILANCIO PER COMPETENZA - Ore VENDUTE nel periodo.
+        Base: data_vendita dei contratti (quando è stata fatta la vendita).
+        
+        Uso: Vedere quanto DOVREBBE arrivare
+        """
+        with self._connect() as conn:
+            # Ore vendute nel periodo (indipendentemente da pagamento)
+            ore_vendute = conn.execute("""
+                SELECT COALESCE(SUM(crediti_totali), 0)
+                FROM contratti
+                WHERE data_vendita BETWEEN ? AND ?
+            """, (data_inizio, data_fine)).fetchone()[0]
+            
+            # Ore eseguite
+            ore_eseguite = conn.execute("""
+                SELECT COALESCE(SUM(crediti_usati), 0)
+                FROM contratti
+                WHERE data_vendita BETWEEN ? AND ?
+            """, (data_inizio, data_fine)).fetchone()[0]
+            
+            # Fatturato potenziale (prezzo_totale di tutti i contratti venduti)
+            fatturato_potenziale = conn.execute("""
+                SELECT COALESCE(SUM(prezzo_totale), 0)
+                FROM contratti
+                WHERE data_vendita BETWEEN ? AND ?
+            """, (data_inizio, data_fine)).fetchone()[0]
+            
+            # Incassato su questi contratti
+            incassato_su_contratti = conn.execute("""
+                SELECT COALESCE(SUM(totale_versato), 0)
+                FROM contratti
+                WHERE data_vendita BETWEEN ? AND ?
+            """, (data_inizio, data_fine)).fetchone()[0]
+            
+            return {
+                'ore_vendute': round(ore_vendute, 2),
+                'ore_eseguite': round(ore_eseguite, 2),
+                'ore_rimanenti': round(ore_vendute - ore_eseguite, 2),
+                'fatturato_potenziale': round(fatturato_potenziale, 2),
+                'incassato_su_contratti': round(incassato_su_contratti, 2),
+                'rate_mancanti': round(fatturato_potenziale - incassato_su_contratti, 2)
+            }
+    
+    def get_previsione_cash(self, giorni=30) -> Dict[str, Any]:
+        """
+        PREVISIONE CASH FLOW - Cosa avremo in cassa nei prossimi N giorni.
+        
+        Calcolo:
+        - Saldo oggi (da bilancio_cassa totale)
+        + Rate scadenti nei prossimi N giorni
+        - Costi fissi proporzionali a N giorni
+        = Saldo previsto
+        """
+        from datetime import datetime
+        
+        with self._connect() as conn:
+            oggi = date.today()
+            data_fine_previsione = oggi + timedelta(days=giorni)
+            
+            # Saldo oggi (cassa totale storica)
+            saldo_oggi = self.get_bilancio_cassa()['saldo_cassa']
+            
+            # Rate in scadenza nei prossimi N giorni
+            rate_scadenti = conn.execute("""
+                SELECT COALESCE(SUM(importo_previsto), 0)
+                FROM rate_programmate
+                WHERE data_scadenza BETWEEN ? AND ?
+                AND stato != 'SALDATA'
+            """, (oggi, data_fine_previsione)).fetchone()[0]
+            
+            # Costi fissi proporzionali
+            costi_fissi_mensili = conn.execute("""
+                SELECT COALESCE(SUM(importo), 0)
+                FROM spese_ricorrenti
+                WHERE attiva=1 AND frequenza='MENSILE'
+            """).fetchone()[0]
+            
+            costi_fissi_previsti = (costi_fissi_mensili / 30) * giorni
+            
+            return {
+                'saldo_oggi': round(saldo_oggi, 2),
+                'rate_scadenti': round(rate_scadenti, 2),
+                'costi_previsti': round(costi_fissi_previsti, 2),
+                'saldo_previsto': round(saldo_oggi + rate_scadenti - costi_fissi_previsti, 2),
+                'periodo': f"{oggi} + {giorni} giorni"
+            }
+    
     def calculate_unified_metrics(self, data_inizio: date, data_fine: date) -> Dict[str, Any]:
         """
         Calcola metriche finanziarie COMPLETE e COERENTI per un periodo.

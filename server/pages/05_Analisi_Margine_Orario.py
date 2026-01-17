@@ -89,26 +89,29 @@ slot disponibili, fatturato reale vs previsione.
 st.divider()
 
 # ════════════════════════════════════════════════════════════
-# CALCOLO METRICHE - LOGICA UNIFICATA
+# CALCOLO METRICHE - NUOVA LOGICA SEPARATA (CASSA vs COMPETENZA)
 # ════════════════════════════════════════════════════════════
 
-with st.spinner("📊 Calcolo metriche unificate..."):
+with st.spinner("📊 Calcolo metriche separate (Cassa + Competenza)..."):
     if granularita == "Giornaliera":
-        # Logica unificata per un giorno
-        metrics_data = db.calculate_unified_metrics(data_sel, data_sel)
+        # Logica separata per un giorno
+        bilancio_cassa = db.get_bilancio_cassa(data_sel, data_sel)
+        bilancio_competenza = db.get_bilancio_competenza(data_sel, data_sel)
         periodo_label = f"Giorno {data_sel}"
     elif granularita == "Settimanale":
-        # Logica unificata: da lunedì a domenica della settimana
+        # Logica separata: da lunedì a domenica della settimana
         lunedi = data_sel - timedelta(days=data_sel.weekday())
         domenica = lunedi + timedelta(days=6)
-        metrics_data = db.calculate_unified_metrics(lunedi, domenica)
+        bilancio_cassa = db.get_bilancio_cassa(lunedi, domenica)
+        bilancio_competenza = db.get_bilancio_competenza(lunedi, domenica)
         periodo_label = f"Settimana {lunedi.strftime('%d/%m')} - {domenica.strftime('%d/%m/%Y')}"
     else:  # Mensile
-        # Logica unificata: dall'1 all'ultimo giorno del mese
+        # Logica separata: dall'1 all'ultimo giorno del mese
         anno, mese = data_sel
         primo_giorno = date(anno, mese, 1)
         ultimo_giorno = date(anno, mese, monthrange(anno, mese)[1])
-        metrics_data = db.calculate_unified_metrics(primo_giorno, ultimo_giorno)
+        bilancio_cassa = db.get_bilancio_cassa(primo_giorno, ultimo_giorno)
+        bilancio_competenza = db.get_bilancio_competenza(primo_giorno, ultimo_giorno)
         periodo_label = f"Mese {primo_giorno.strftime('%B %Y')}"
 
 # ════════════════════════════════════════════════════════════
@@ -121,24 +124,26 @@ col1, col2, col3, col4 = st.columns(4, gap="large")
 
 with col1:
     render_metric_box(
-        "Ore Fatturate",
-        f"{metrics_data['ore_fatturate']}h",
-        f"Eseguite: {metrics_data['ore_eseguite']}h",
+        "Ore Vendute",
+        f"{bilancio_competenza['ore_vendute']:.1f}h",
+        f"Eseguite: {bilancio_competenza['ore_eseguite']:.1f}h",
         "⏱️",
         "primary"
     )
 
 with col2:
     render_metric_box(
-        "Entrate Totali",
-        f"€{metrics_data['entrate_totali']:.2f}",
-        f"€{metrics_data['fatturato_per_ora']:.2f}/ora",
+        "Incassato",
+        f"€{bilancio_cassa['incassato']:.2f}",
+        f"Soldi VERI nel periodo",
         "💰",
         "success"
     )
 
 with col3:
-    margine_orario = metrics_data['margine_orario']
+    # Margine/Ora calcolato CORRETTAMENTE:
+    # = Incassato / Ore Vendute (non mischiare periodi)
+    margine_orario = bilancio_cassa['incassato'] / max(bilancio_competenza['ore_vendute'], 1)
     delta_perc = ((margine_orario - target_margine) / target_margine * 100) if target_margine > 0 else 0
     
     render_metric_box(
@@ -150,11 +155,12 @@ with col3:
     )
 
 with col4:
+    # Rate in pendenza (non ancora incassate)
     render_metric_box(
-        "Margine Lordo",
-        f"€{metrics_data['margine_lordo']:.2f}",
-        f"Costi: €{metrics_data['costi_totali']:.2f}",
-        "📊",
+        "Rate Mancanti",
+        f"€{bilancio_competenza['rate_mancanti']:.2f}",
+        f"Da riscuotere",
+        "⏳",
         "primary"
     )
 
@@ -405,7 +411,8 @@ with tab3:
 with tab4:
     create_section_header("Analisi vs Target", "Raggiungimento obiettivi", "🎯")
     
-    margine_attuale = metrics_data['margine_orario']
+    # Margine/Ora calcolato CORRETTAMENTE
+    margine_attuale = bilancio_cassa['incassato'] / max(bilancio_competenza['ore_vendute'], 1)
     differenza = margine_attuale - target_margine
     perc_target = (margine_attuale / target_margine * 100) if target_margine > 0 else 0
     
@@ -433,7 +440,9 @@ with tab4:
     st.markdown("### 💡 Raccomandazioni")
     
     if margine_attuale < target_margine:
-        gap_totale = (target_margine - margine_attuale) * metrics_data['ore_fatturate']
+        gap_totale = (target_margine - margine_attuale) * bilancio_competenza['ore_vendute']
+        tariffe_attuali = bilancio_cassa['incassato'] / max(bilancio_competenza['ore_vendute'], 1)
+        aumento_tariffe_perc = ((target_margine - margine_attuale) / max(tariffe_attuali, 0.1) * 100) if bilancio_competenza['ore_vendute'] > 0 else 0
         
         col1, col2 = st.columns(2)
         
@@ -442,7 +451,7 @@ with tab4:
             **Gap da Colmare**: €{gap_totale:.2f}
             
             **Opzioni:**
-            1. **Aumenta Tariffe**: +{((target_margine - margine_attuale) / (metrics_data['entrate_totali'] / metrics_data['ore_fatturate']) * 100) if metrics_data['ore_fatturate'] > 0 else 0:.1f}% per raggiungere il target
+            1. **Aumenta Tariffe**: +{aumento_tariffe_perc:.1f}% per raggiungere il target
             2. **Riduci Costi**: Identifica spese variabili da ottimizzare
             3. **Aumenta Volume**: Vendi più ore per distribuire i costi fissi
             """)
@@ -450,20 +459,21 @@ with tab4:
         with col2:
             st.markdown(f"""
             **Analisi Oraria:**
-            - Ore Vendute: {metrics_data['ore_fatturate']}h
-            - Ore Eseguite: {metrics_data['ore_eseguite']}h
-            - Ore Rimanenti: {metrics_data['ore_rimanenti']}h
-            - Fatturato/Ora: €{(metrics_data['entrate_totali'] / metrics_data['ore_fatturate']) if metrics_data['ore_fatturate'] > 0 else 0:.2f}
-            - Costi/Ora: €{(metrics_data['costi_totali'] / metrics_data['ore_fatturate']) if metrics_data['ore_fatturate'] > 0 else 0:.2f}
+            - Ore Vendute: {bilancio_competenza['ore_vendute']:.1f}h
+            - Ore Eseguite: {bilancio_competenza['ore_eseguite']:.1f}h
+            - Ore Rimanenti: {bilancio_competenza['ore_rimanenti']:.1f}h
+            - Tariffe Attuali: €{tariffe_attuali:.2f}/h
+            - **Incassato**: €{bilancio_cassa['incassato']:.2f}
+            - **Rate Mancanti**: €{bilancio_competenza['rate_mancanti']:.2f}
             """)
     else:
-        st.success("""
-        ✅ **Target Raggiunto!**
+        st.success(f"""
+        ✅ **Target Raggiunto!** (€{margine_attuale:.2f}/h)
         
         Mantieni questo livello di redditività e continua a monitorare:
-        - Equilibrio ore vendute vs eseguite
-        - Margine per cliente
-        - Fatturato e costi mensili
+        - **Ore Vendute**: {bilancio_competenza['ore_vendute']:.1f}h (di cui {bilancio_competenza['ore_eseguite']:.1f}h eseguite)
+        - **Incassato**: €{bilancio_cassa['incassato']:.2f}
+        - **Rate in Sospeso**: €{bilancio_competenza['rate_mancanti']:.2f}
         """)
 
 st.divider()
