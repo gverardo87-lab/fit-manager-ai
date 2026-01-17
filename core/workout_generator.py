@@ -63,36 +63,53 @@ class WorkoutGenerator:
         """
         Genera un piano di allenamento personalizzato usando HYBRID approach.
         
-        - Usa built-in exercise database come base
-        - Ibridizza con KB se disponibile
+        - Cerca esercizi specifici nel KB per il goal
+        - Usa built-in exercise database come fallback
+        - Ibridizza KB + built-in
         - Personalizza con LLM
         """
         
         try:
-            # Step 1: Recupera template di workout built-in
+            # Step 1: PRIMA COSA - Cerca nel KB gli esercizi per questo GOAL
+            kb_exercises = None
+            kb_methodology = None
+            kb_sources = []
+            
+            if self.hybrid_chain.kb_available:
+                print(f"[SEARCH KB] Cercando esercizi per goal: {client_profile['goal']}")
+                kb_exercises = self._search_kb_exercises_for_goal(client_profile['goal'])
+                kb_methodology = self._search_kb_methodology(client_profile['goal'], client_profile['level'])
+                if kb_exercises or kb_methodology:
+                    print(f"[FOUND] Trovati dati KB per {client_profile['goal']}")
+                    kb_sources = [doc.metadata.get('source', 'Unknown') for doc in (kb_exercises or [])]
+            
+            # Step 2: Recupera template di workout built-in (fallback)
             template = self.hybrid_chain.exercise_db.get_workout_template(
                 goal=client_profile['goal'],
                 level=client_profile['level'],
                 days_per_week=client_profile.get('disponibilita_giorni', 3)
             )
             
-            # Step 2: Recupera periodizzazione
+            # Step 3: Recupera periodizzazione
             periodization = self.hybrid_chain.get_periodization(
                 periodization_type='linear',
                 weeks=weeks
             )
             
-            # Step 3: Recupera strategie progressione
+            # Step 4: Recupera strategie progressione
             progression = self.hybrid_chain.get_progression_strategy(client_profile['goal'])
             
-            # Step 4: Se LLM disponibile, personalizza
+            # Step 5: Se LLM disponibile, personalizza CON DATI KB
             if self.llm:
                 response = self._personalize_with_llm(
                     template=template,
                     periodization=periodization,
                     client_profile=client_profile,
                     weeks=weeks,
-                    sessions_per_week=sessions_per_week
+                    sessions_per_week=sessions_per_week,
+                    kb_exercises=kb_exercises,
+                    kb_methodology=kb_methodology,
+                    kb_sources=kb_sources
                 )
             else:
                 response = self._build_basic_plan(
@@ -191,8 +208,18 @@ Ogni 4 settimane, ridurre il volume del 40% e l'intensità del 20%.
             'note': '✅ Utilizziamo template built-in. Per customizzazione avanzata, carica la KB.'
         }
     
-    def _personalize_with_llm(self, template, periodization, client_profile, weeks, sessions_per_week) -> Dict[str, Any]:
-        """Personalizza il piano con LLM"""
+    def _personalize_with_llm(self, template, periodization, client_profile, weeks, sessions_per_week, kb_exercises=None, kb_methodology=None, kb_sources=None) -> Dict[str, Any]:
+        """Personalizza il piano con LLM, usando dati KB se disponibili"""
+        
+        # Costruisci contesto KB se disponibile
+        kb_context = ""
+        if kb_methodology:
+            kb_context += f"METODOLOGIA DA KB:\n{kb_methodology[:1500]}\n\n"
+        
+        if kb_exercises:
+            kb_context += "ESERCIZI TROVATI NEL KB:\n"
+            for doc in kb_exercises[:3]:
+                kb_context += f"- {doc.page_content[:300]}\n"
         
         prompt_template = """
 Sei un esperto trainer professionale certificato. Genera una scheda di allenamento DETTAGLIATA e STRUTTURATA.
@@ -206,6 +233,8 @@ CLIENTE:
 - Limitazioni: {limitazioni}
 - Preferenze: {preferenze}
 
+{kb_context}
+
 TEMPLATE BASE:
 {template}
 
@@ -215,7 +244,7 @@ PERIODIZZAZIONE:
 GENERA UNA RISPOSTA STRUTTURATA CON:
 
 ## METODOLOGIA
-Descrivi l'approccio di allenamento adatto al cliente (2-3 paragrafi).
+Descrivi l'approccio di allenamento adatto al cliente (2-3 paragrafi). Se hai dati dal KB, usali per personalizzare.
 
 ## WEEKLY SCHEDULE
 Per ogni settimana della periodizzazione, descrivi:
@@ -230,18 +259,20 @@ Per ogni sessione tipo:
 - Tempo di riposo
 - RPE (Scala di sforzo 1-10)
 
+Se hai esercizi dal KB per il goal "{goal}", incorporali nella scheda.
+
 ## PROGRESSIONE
 Come aumentare il carico ogni settimana.
 
 ## RECOVERY
 Raccomandazioni su sonno, nutrizione, stretching.
 
-Rispondi in italiano e sii SPECIFICO e PRATICO.
+Rispondi in italiano e sii SPECIFICO e PRATICO. Sfrutta i dati disponibili nel KB.
 """
         
         prompt = PromptTemplate(
             template=prompt_template,
-            input_variables=['nome', 'goal', 'level', 'giorni', 'tempo', 'limitazioni', 'preferenze', 'template', 'periodization']
+            input_variables=['nome', 'goal', 'level', 'giorni', 'tempo', 'limitazioni', 'preferenze', 'template', 'periodization', 'kb_context']
         )
         
         chain = prompt | self.llm
@@ -256,7 +287,8 @@ Rispondi in italiano e sii SPECIFICO e PRATICO.
                 'limitazioni': client_profile.get('limitazioni', 'Nessuna'),
                 'preferenze': client_profile.get('preferenze', 'N/A'),
                 'template': json.dumps(template, ensure_ascii=False) if template else 'Template non disponibile',
-                'periodization': json.dumps(periodization, ensure_ascii=False) if periodization else 'Periodizzazione non disponibile'
+                'periodization': json.dumps(periodization, ensure_ascii=False) if periodization else 'Periodizzazione non disponibile',
+                'kb_context': kb_context
             })
             
             # Estrai sezioni dalla risposta LLM
@@ -266,7 +298,7 @@ Rispondi in italiano e sii SPECIFICO e PRATICO.
                 'exercises_details': self._extract_section(response_text, 'ESERCIZI DETTAGLIATI'),
                 'progressive_overload_strategy': self._extract_section(response_text, 'PROGRESSIONE'),
                 'recovery_recommendations': self._extract_section(response_text, 'RECOVERY'),
-                'sources': []
+                'sources': kb_sources or []
             }
             
             return {
@@ -281,7 +313,7 @@ Rispondi in italiano e sii SPECIFICO e PRATICO.
                 'progressive_overload_strategy': sections['progressive_overload_strategy'],
                 'recovery_recommendations': sections['recovery_recommendations'],
                 'sources': sections['sources'],
-                'kb_used': self.hybrid_chain.is_kb_loaded() if self.hybrid_chain else False
+                'kb_used': bool(kb_exercises or kb_methodology)  # True se ho usato dati KB
             }
         except Exception as e:
             import traceback
@@ -342,6 +374,72 @@ Rispondi in italiano e sii SPECIFICO e PRATICO.
             context_parts.append(f"[{source}, pag. {page}]\n{content}")
         
         return "\n\n---\n\n".join(context_parts)
+    
+    def _search_kb_exercises_for_goal(self, goal: str) -> Optional[List]:
+        """Cerca nel KB esercizi specifici per un goal (es. calisthenics, strength, etc)"""
+        if not self.hybrid_chain.kb_available or not self.hybrid_chain.retriever:
+            return None
+        
+        try:
+            # Query specifica per esercizi del goal
+            queries = [
+                f"esercizi {goal}",
+                f"{goal} exercises movements",
+                f"allenamento {goal}"
+            ]
+            
+            all_docs = []
+            for q in queries:
+                try:
+                    docs = self.hybrid_chain.retriever.invoke(q)
+                    all_docs.extend(docs)
+                except:
+                    pass
+            
+            if not all_docs:
+                return None
+            
+            # Re-rank con cross-encoder se disponibile
+            if self.hybrid_chain.cross_encoder:
+                scores = self.hybrid_chain.cross_encoder.predict(
+                    [[f"{goal} exercises", doc.page_content[:200]] for doc in all_docs]
+                )
+                # Sort by score
+                scored_docs = list(zip(scores, all_docs))
+                scored_docs.sort(key=lambda x: x[0], reverse=True)
+                return [doc for score, doc in scored_docs[:5]]  # Top 5
+            
+            return all_docs[:5]
+            
+        except Exception as e:
+            print(f"[ERROR] Errore nella ricerca KB esercizi: {e}")
+            return None
+    
+    def _search_kb_methodology(self, goal: str, level: str) -> Optional[str]:
+        """Cerca nel KB la metodologia per goal + level"""
+        if not self.hybrid_chain.kb_available or not self.hybrid_chain.retriever:
+            return None
+        
+        try:
+            query = f"{goal} {level} training methodology programming"
+            docs = self.hybrid_chain.retriever.invoke(query)
+            
+            if not docs:
+                return None
+            
+            # Prendi il documento più rilevante
+            if self.hybrid_chain.cross_encoder:
+                scores = self.hybrid_chain.cross_encoder.predict(
+                    [[f"{goal} {level} training", doc.page_content[:300]] for doc in docs]
+                )
+                best_idx = scores.argmax()
+                return docs[best_idx].page_content
+            
+            return docs[0].page_content
+            
+        except Exception as e:
+            print(f"[ERROR] Errore nella ricerca KB metodologia: {e}")
+            return None
     
     def retrieve_programming_principles(self) -> List[Dict[str, Any]]:
         """Legacy method - compatibilità"""
