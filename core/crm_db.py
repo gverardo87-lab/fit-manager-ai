@@ -180,7 +180,10 @@ class CrmDBManager:
                     VALUES ('ENTRATA', 'ACCONTO_CONTRATTO', ?, ?, ?, ?, 'Acconto contestuale')
                 """, (acconto, metodo_acconto, id_cliente, id_contratto))
 
-    def registra_rata(self, id_contratto, importo, metodo, note=""):
+    def registra_rata(self, id_contratto, importo, metodo, data_pagamento=None, note=""):
+        if data_pagamento is None: 
+            data_pagamento = date.today()
+            
         with self.transaction() as cur:
             cur.execute("SELECT id_cliente, prezzo_totale, totale_versato FROM contratti WHERE id=?", (id_contratto,))
             contratto = cur.fetchone()
@@ -188,12 +191,13 @@ class CrmDBManager:
             nuovo_totale = contratto['totale_versato'] + importo
             stato_pag = 'SALDATO' if nuovo_totale >= contratto['prezzo_totale'] else 'PARZIALE'
             
+            # Ora inseriamo anche la data personalizzata
             cur.execute("""
-                INSERT INTO movimenti_cassa (tipo, categoria, importo, metodo, id_cliente, id_contratto, note)
-                VALUES ('ENTRATA', 'RATA_CONTRATTO', ?, ?, ?, ?, ?)
-            """, (importo, metodo, contratto['id_cliente'], id_contratto, note))
+                INSERT INTO movimenti_cassa (data_movimento, tipo, categoria, importo, metodo, id_cliente, id_contratto, note)
+                VALUES (?, 'ENTRATA', 'RATA_CONTRATTO', ?, ?, ?, ?, ?)
+            """, (data_pagamento, importo, metodo, contratto['id_cliente'], id_contratto, note))
             
-            cur.execute("UPDATE contratti SET totale_versato = ?, stato_pagamento = ? WHERE id = ?", (nuovo_totale, stato_pag, id_contratto))
+            cur.execute("UPDATE contratti SET totale_versato = ?, stato_pagamento = ? WHERE id = ?", (nuovo_totale, stato_pag, id_contratto)) (nuovo_totale, stato_pag, id_contratto),
 
     # --- API AGENDA ---
     def add_evento(self, start, end, categoria, titolo, id_cliente=None, note=""):

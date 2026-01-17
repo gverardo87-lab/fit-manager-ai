@@ -158,13 +158,18 @@ elif cliente_sel_id:
                         if da_pagare > 0.01:
                             with st.expander(f"💸 Registra Rata (€ {da_pagare:.2f})"):
                                 with st.form(f"pay_form_{c['id']}"):
-                                    imp_rata = st.number_input("Importo Rata", value=float(da_pagare), max_value=float(da_pagare), step=10.0, key=f"ir_{c['id']}")
-                                    met_rata = st.selectbox("Metodo", ["CONTANTI", "POS", "BONIFICO"], key=f"mr_{c['id']}")
-                                    note_rata = st.text_input("Note pagamento", key=f"nr_{c['id']}")
+                                    col_p1, col_p2 = st.columns(2)
+                                    imp_rata = col_p1.number_input("Importo Rata (€)", value=float(da_pagare), max_value=float(da_pagare), step=10.0, key=f"ir_{c['id']}")
+                                    met_rata = col_p2.selectbox("Metodo", ["CONTANTI", "POS", "BONIFICO"], key=f"mr_{c['id']}")
                                     
-                                    if st.form_submit_button("Incassa Rata"):
-                                        db.registra_rata(c['id'], imp_rata, met_rata, note_rata)
-                                        st.success("Pagamento registrato!")
+                                    # --- NUOVO CAMPO DATA ---
+                                    data_rata = st.date_input("Data Pagamento", value=date.today(), key=f"dr_{c['id']}")
+                                    note_rata = st.text_input("Note opzionali", key=f"nr_{c['id']}")
+                                    
+                                    if st.form_submit_button("Registra Incasso"):
+                                        # Passiamo la data selezionata al DB
+                                        db.registra_rata(c['id'], imp_rata, met_rata, data_rata, note_rata)
+                                        st.success(f"Pagamento di €{imp_rata} registrato al {data_rata}!")
                                         st.rerun()
 
             st.divider()
