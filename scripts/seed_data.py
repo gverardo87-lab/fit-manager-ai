@@ -7,13 +7,20 @@ Usage:
     python scripts/seed_data.py              # Aggiungi dati
     python scripts/seed_data.py --reset      # Reset DB e aggiungi dati
     python scripts/seed_data.py --clear      # Solo reset DB
+
+Note:
+    This script uses CrmDBManager._connect() which is a private method.
+    In production, CrmDBManager should expose a public API for these operations.
+    For now, this is acceptable for a development/testing utility script.
 """
 
 import sys
 from pathlib import Path
 
-# Aggiungi root al path per import
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+# Add project root to path for imports
+project_root = Path(__file__).resolve().parents[1]
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
 from core.crm_db import CrmDBManager
 from datetime import date, datetime, timedelta
@@ -25,31 +32,42 @@ def clear_database(db: CrmDBManager):
     """Elimina tutti i dati dal database (mantiene schema)"""
     print("🗑️  Clearing database...")
     
+    # Whitelist of valid table names to prevent SQL injection
+    VALID_TABLES = [
+        'progress_records',
+        'workout_plans',
+        'client_assessment_followup',
+        'client_assessment_initial',
+        'misurazioni',
+        'agenda',
+        'rate_programmate',
+        'movimenti_cassa',
+        'spese_ricorrenti',
+        'contratti',
+        'clienti'
+    ]
+    
     with db._connect() as conn:
         cursor = conn.cursor()
         
-        # Ordine importante per foreign keys (se abilitati)
-        tables = [
-            'progress_records',
-            'workout_plans',
-            'client_assessment_followup',
-            'client_assessment_initial',
-            'misurazioni',
-            'agenda',
-            'rate_programmate',
-            'movimenti_cassa',
-            'spese_ricorrenti',
-            'contratti',
-            'clienti'
-        ]
-        
-        for table in tables:
+        # Clear tables in order (important for foreign key constraints if enabled)
+        for table in VALID_TABLES:
+            # Safe: table name is from whitelist, not user input
             cursor.execute(f"DELETE FROM {table}")
             print(f"   ✓ Cleared {table}")
         
         conn.commit()
     
     print("✅ Database cleared successfully\n")
+
+
+def create_anamnesi_json(patologie: list, farmaci: list, note: str) -> str:
+    """Helper function to create consistent anamnesi JSON"""
+    return json.dumps({
+        "patologie": patologie,
+        "farmaci": farmaci,
+        "note": note
+    })
 
 
 def seed_clienti(db: CrmDBManager):
@@ -64,11 +82,11 @@ def seed_clienti(db: CrmDBManager):
             "email": "mario.rossi@example.com",
             "data_nascita": "1985-03-15",
             "sesso": "Uomo",
-            "anamnesi_json": json.dumps({
-                "patologie": ["Nessuna"],
-                "farmaci": [],
-                "note": "Sedentario da 5 anni, vuole tornare in forma"
-            })
+            "anamnesi_json": create_anamnesi_json(
+                patologie=["Nessuna"],
+                farmaci=[],
+                note="Sedentario da 5 anni, vuole tornare in forma"
+            )
         },
         {
             "nome": "Laura",
@@ -77,11 +95,11 @@ def seed_clienti(db: CrmDBManager):
             "email": "laura.bianchi@example.com",
             "data_nascita": "1990-07-22",
             "sesso": "Donna",
-            "anamnesi_json": json.dumps({
-                "patologie": ["Mal di schiena cronico"],
-                "farmaci": [],
-                "note": "Ex atleta, ora manager. Stress elevato."
-            })
+            "anamnesi_json": create_anamnesi_json(
+                patologie=["Mal di schiena cronico"],
+                farmaci=[],
+                note="Ex atleta, ora manager. Stress elevato."
+            )
         },
         {
             "nome": "Giuseppe",
@@ -90,11 +108,11 @@ def seed_clienti(db: CrmDBManager):
             "email": "giuseppe.verdi@example.com",
             "data_nascita": "1978-11-10",
             "sesso": "Uomo",
-            "anamnesi_json": json.dumps({
-                "patologie": ["Ipertensione controllata"],
-                "farmaci": ["Ramipril 5mg"],
-                "note": "Medico consiglia attività moderata"
-            })
+            "anamnesi_json": create_anamnesi_json(
+                patologie=["Ipertensione controllata"],
+                farmaci=["Ramipril 5mg"],
+                note="Medico consiglia attività moderata"
+            )
         },
         {
             "nome": "Sofia",
@@ -103,11 +121,11 @@ def seed_clienti(db: CrmDBManager):
             "email": "sofia.romano@example.com",
             "data_nascita": "1995-05-05",
             "sesso": "Donna",
-            "anamnesi_json": json.dumps({
-                "patologie": ["Nessuna"],
-                "farmaci": [],
-                "note": "Competitiva, obiettivo gara bodybuilding"
-            })
+            "anamnesi_json": create_anamnesi_json(
+                patologie=["Nessuna"],
+                farmaci=[],
+                note="Competitiva, obiettivo gara bodybuilding"
+            )
         },
         {
             "nome": "Luca",
@@ -116,11 +134,11 @@ def seed_clienti(db: CrmDBManager):
             "email": "luca.ferrari@example.com",
             "data_nascita": "2000-12-20",
             "sesso": "Uomo",
-            "anamnesi_json": json.dumps({
-                "patologie": ["Nessuna"],
-                "farmaci": [],
-                "note": "Studente universitario, principiante assoluto"
-            })
+            "anamnesi_json": create_anamnesi_json(
+                patologie=["Nessuna"],
+                farmaci=[],
+                note="Studente universitario, principiante assoluto"
+            )
         }
     ]
     
