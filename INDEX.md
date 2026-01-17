@@ -1,12 +1,19 @@
 # 📋 INDEX DOCUMENTI ANALISI - FitManager AI
 
 **Generato**: 17 Gennaio 2026
-**Status**: ✅ Analisi + Implementazione Workout Engine
+**Status**: ✅ Analisi + Implementazione Workout Engine + Database Analysis
 **Prossima Revisione**: Post-Sprint 1 (24 Gennaio)
 
 ---
 
-## 🚀 WHAT'S NEW (17 Gen)
+## 🚀 WHAT'S NEW (17 Gen - Update 2)
+
+✅ **ANALISI DATABASE COMPLETA**: Data Sets Analysis
+- Complete database schema documentation (12 tables, 150+ fields)
+- Entity Relationship mapping
+- 10 critical/important problems identified
+- Seed data script created (scripts/seed_data.py)
+- Testing guide and recommendations
 
 ✅ **IMPLEMENTAZIONE COMPLETA**: Workout Programming Engine
 - RAG-based workout generation
@@ -16,6 +23,7 @@
 
 📊 **Feature parity**: 19% → 24% (+5%)
 🎯 **Workout capability**: 5% → 45% (+40%)
+🗄️ **Database documentation**: 0% → 100% (+100%)
 
 ---
 
@@ -27,10 +35,11 @@
    - 3 quick steps: Add PDFs → Ingest → Generate
    - Esempi pratici
    
-2. **SESSION_SUMMARY_17GEN.md** - 10 min read
-   - Cosa è stato fatto oggi
-   - Impact assessment
-   - Next priorities
+2. **RIEPILOGO_ANALISI_DATA_SETS.md** - 10 min read ✨ NEW
+   - Executive summary analisi database
+   - Problemi identificati (10 critical/important)
+   - Deliverables e metriche
+   - Next steps prioritizzati
 
 ---
 
@@ -81,6 +90,36 @@
 - Where FitManager can win
 
 👉 **CRITICO**: Mostra esattamente cosa manca per essere competitivo
+
+---
+
+### 4. 🗄️ **ANALISI_DATI_DATABASE.md** (NEW - 17 Gen) ✨
+**Scopo**: Analisi completa database con schema, relazioni e data quality
+**Leggere per**: Capire architettura database, problemi data integrity
+**Tempo lettura**: 40 minuti
+**Sezioni chiave**:
+- Schema completo 12 tabelle (150+ campi)
+- Entity Relationship Diagram
+- Analisi data quality (10 problemi)
+- Raccomandazioni prioritizzate (3 livelli)
+- Indici performance raccomandati
+
+👉 **TECNICO**: Database architecture e data integrity
+
+---
+
+### 5. 📝 **RIEPILOGO_ANALISI_DATA_SETS.md** (NEW - 17 Gen) ✨
+**Scopo**: Executive summary analisi database
+**Leggere per**: Overview veloce risultati analisi dati
+**Tempo lettura**: 10 minuti
+**Sezioni chiave**:
+- Executive summary con metriche chiave
+- 4 deliverables prodotti
+- 10 problemi identificati (prioritizzati)
+- Impact assessment (prima/dopo)
+- Next steps immediati
+
+👉 **MANAGER**: Quick overview analisi database
 
 ---
 
@@ -157,11 +196,26 @@
 
 ---
 
+### 8. 🧪 **TESTING_SEED_SCRIPT.md** (NEW - 17 Gen) ✨
+**Scopo**: Guida completa uso seed data script
+**Leggere per**: Come testare database con dati di esempio
+**Tempo lettura**: 10 minuti
+**Sezioni chiave**:
+- Pre-requisiti e installazione
+- 3 modi di uso (seed, reset, clear)
+- Verifica dati (UI, SQLite, Python)
+- Troubleshooting (5 errori comuni)
+- Estensioni future (v2.0 script)
+
+👉 **TESTING**: Come popolare database per test
+
+---
+
 ## 🎯 READING ORDER BY ROLE
 
 ### 👔 **Per Manager/Owner**
-1. QUICK_START_WORKOUT_ENGINE.md (5 min)
-2. SESSION_SUMMARY_17GEN.md (10 min)
+1. RIEPILOGO_ANALISI_DATA_SETS.md (10 min) ✨ NEW
+2. QUICK_START_WORKOUT_ENGINE.md (5 min)
 3. ANALISI_COMPETITIVA_LACUNE.md (30 min)
 4. RIEPILOGO_ANALISI.md (15 min)
 5. PIANO_AZIONE_TECNICO.md (20 min)
@@ -172,10 +226,21 @@
 
 ### 💻 **Per Developer**
 1. QUICK_START_WORKOUT_ENGINE.md (5 min)
-2. IMPLEMENTAZIONE_WORKOUT_ENGINE.md (25 min)
-3. knowledge_base/README.md (10 min)
+2. TESTING_SEED_SCRIPT.md (10 min) ✨ NEW
+3. ANALISI_DATI_DATABASE.md (40 min) ✨ NEW
+4. IMPLEMENTAZIONE_WORKOUT_ENGINE.md (25 min)
+5. knowledge_base/README.md (10 min)
+6. PIANO_AZIONE_TECNICO.md (20 min)
+
+**Total**: ~110 minuti
+
+---
+
+### 🗄️ **Per Database/DevOps**
+1. RIEPILOGO_ANALISI_DATA_SETS.md (10 min) ✨ NEW
+2. ANALISI_DATI_DATABASE.md (40 min) ✨ NEW
+3. TESTING_SEED_SCRIPT.md (10 min) ✨ NEW
 4. ANALISI_STRATEGICA.md (30 min)
-5. PIANO_AZIONE_TECNICO.md (20 min)
 
 **Total**: ~90 minuti
 
