@@ -1,4 +1,4 @@
-# file: core/crm_db.py (Versione FitManager 4.3 - Editabile)
+# file: core/crm_db.py (Versione 5.0 - con Update Evento)
 from __future__ import annotations
 import sqlite3
 from pathlib import Path
@@ -133,14 +133,12 @@ class CrmDBManager:
     def crea_contratto_vendita(self, id_cliente, pacchetto, prezzo, crediti, start, end, acconto=0, metodo_acconto=None):
         with self.transaction() as cur:
             stato_pag = 'SALDATO' if acconto >= prezzo else 'PARZIALE' if acconto > 0 else 'PENDENTE'
-            cur.execute("""INSERT INTO contratti (id_cliente, tipo_pacchetto, data_inizio, data_scadenza, crediti_totali, prezzo_totale, totale_versato, stato_pagamento) 
-                           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""", 
-                           (id_cliente, pacchetto, start, end, crediti, prezzo, acconto, stato_pag))
+            cur.execute("INSERT INTO contratti (id_cliente, tipo_pacchetto, data_inizio, data_scadenza, crediti_totali, prezzo_totale, totale_versato, stato_pagamento) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", 
+                       (id_cliente, pacchetto, start, end, crediti, prezzo, acconto, stato_pag))
             id_contr = cur.lastrowid
             if acconto > 0:
-                cur.execute("""INSERT INTO movimenti_cassa (tipo, categoria, importo, metodo, id_cliente, id_contratto, note) 
-                               VALUES ('ENTRATA', 'ACCONTO_CONTRATTO', ?, ?, ?, ?, 'Acconto contestuale')""", 
-                               (acconto, metodo_acconto, id_cliente, id_contr))
+                cur.execute("INSERT INTO movimenti_cassa (tipo, categoria, importo, metodo, id_cliente, id_contratto, note) VALUES ('ENTRATA', 'ACCONTO_CONTRATTO', ?, ?, ?, ?, 'Acconto contestuale')", 
+                           (acconto, metodo_acconto, id_cliente, id_contr))
 
     def registra_rata(self, id_contratto, importo, metodo, data_pagamento=None, note=""):
         if data_pagamento is None: data_pagamento = date.today()
@@ -150,9 +148,8 @@ class CrmDBManager:
             if not c: return
             nuovo_tot = c['totale_versato'] + importo
             stato = 'SALDATO' if nuovo_tot >= c['prezzo_totale'] else 'PARZIALE'
-            cur.execute("""INSERT INTO movimenti_cassa (data_movimento, tipo, categoria, importo, metodo, id_cliente, id_contratto, note) 
-                           VALUES (?, 'ENTRATA', 'RATA_CONTRATTO', ?, ?, ?, ?, ?)""", 
-                           (data_pagamento, importo, metodo, c['id_cliente'], id_contratto, note))
+            cur.execute("INSERT INTO movimenti_cassa (data_movimento, tipo, categoria, importo, metodo, id_cliente, id_contratto, note) VALUES (?, 'ENTRATA', 'RATA_CONTRATTO', ?, ?, ?, ?, ?)", 
+                       (data_pagamento, importo, metodo, c['id_cliente'], id_contratto, note))
             cur.execute("UPDATE contratti SET totale_versato=?, stato_pagamento=? WHERE id=?", (nuovo_tot, stato, id_contratto))
 
     # --- API AGENDA ---
@@ -167,6 +164,15 @@ class CrmDBManager:
                     cur.execute("UPDATE contratti SET crediti_usati = crediti_usati + 1 WHERE id=?", (id_contr,))
                 else: note += " [⚠️ NO CREDITO]"
             cur.execute("INSERT INTO agenda (data_inizio, data_fine, categoria, titolo, id_cliente, id_contratto, note) VALUES (?, ?, ?, ?, ?, ?, ?)", (start, end, categoria, titolo, id_cliente, id_contr, note))
+
+    def update_evento(self, id_ev, start, end, titolo, note=""):
+        """Modifica orario e dettagli di un evento esistente."""
+        with self.transaction() as cur:
+            cur.execute("""
+                UPDATE agenda 
+                SET data_inizio=?, data_fine=?, titolo=?, note=?
+                WHERE id=?
+            """, (start, end, titolo, note, id_ev))
 
     def get_agenda_range(self, start, end):
         with self._connect() as conn: return [dict(r) for r in conn.execute("SELECT a.*, c.nome, c.cognome FROM agenda a LEFT JOIN clienti c ON a.id_cliente=c.id WHERE date(a.data_inizio) BETWEEN ? AND ?", (start, end)).fetchall()]
@@ -185,42 +191,19 @@ class CrmDBManager:
         q = "SELECT a.*, c.tipo_pacchetto FROM agenda a LEFT JOIN contratti c ON a.id_contratto=c.id WHERE a.id_cliente=? ORDER BY a.data_inizio DESC"
         with self._connect() as conn: return [dict(r) for r in conn.execute(q, (id_cliente,)).fetchall()]
 
-    # --- API MISURAZIONI (CRUD EDITABILE) ---
-    def get_progressi_cliente(self, id_cliente):
-        with self._connect() as conn: return pd.read_sql("SELECT * FROM misurazioni WHERE id_cliente=? ORDER BY data_misurazione DESC", conn, params=(id_cliente,)) # Ordine cronologico inverso per la lista
-
+    # --- API MISURAZIONI ---
     def add_misurazione_completa(self, id_cliente, dati: Dict[str, Any]):
-        """Crea NUOVO check-up."""
         with self.transaction() as cur:
-            cur.execute("""
-                INSERT INTO misurazioni (
-                    id_cliente, data_misurazione, 
-                    peso, massa_grassa, massa_magra, acqua,
-                    collo, spalle, torace, braccio, vita, fianchi, coscia, polpaccio,
-                    note
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                id_cliente, dati.get('data'),
-                dati.get('peso'), dati.get('grasso'), dati.get('muscolo'), dati.get('acqua'),
-                dati.get('collo'), dati.get('spalle'), dati.get('torace'), dati.get('braccio'),
-                dati.get('vita'), dati.get('fianchi'), dati.get('coscia'), dati.get('polpaccio'),
-                dati.get('note')
-            ))
+            cur.execute("""INSERT INTO misurazioni (id_cliente, data_misurazione, peso, massa_grassa, massa_magra, acqua, collo, spalle, torace, braccio, vita, fianchi, coscia, polpaccio, note) 
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", 
+                           (id_cliente, dati.get('data'), dati.get('peso'), dati.get('grasso'), dati.get('muscolo'), dati.get('acqua'),
+                            dati.get('collo'), dati.get('spalle'), dati.get('torace'), dati.get('braccio'), dati.get('vita'), dati.get('fianchi'), dati.get('coscia'), dati.get('polpaccio'),
+                            dati.get('note')))
 
     def update_misurazione(self, id_misura, dati: Dict[str, Any]):
-        """MODIFICA check-up esistente."""
         with self.transaction() as cur:
-            cur.execute("""
-                UPDATE misurazioni SET
-                    data_misurazione=?, peso=?, massa_grassa=?, massa_magra=?, acqua=?,
-                    collo=?, spalle=?, torace=?, braccio=?, vita=?, fianchi=?, coscia=?, polpaccio=?,
-                    note=?
-                WHERE id=?
-            """, (
-                dati.get('data'),
-                dati.get('peso'), dati.get('grasso'), dati.get('muscolo'), dati.get('acqua'),
-                dati.get('collo'), dati.get('spalle'), dati.get('torace'), dati.get('braccio'),
-                dati.get('vita'), dati.get('fianchi'), dati.get('coscia'), dati.get('polpaccio'),
-                dati.get('note'),
-                id_misura
-            ))
+            cur.execute("""UPDATE misurazioni SET data_misurazione=?, peso=?, massa_grassa=?, massa_magra=?, acqua=?, collo=?, spalle=?, torace=?, braccio=?, vita=?, fianchi=?, coscia=?, polpaccio=?, note=? WHERE id=?""", 
+                        (dati.get('data'), dati.get('peso'), dati.get('grasso'), dati.get('muscolo'), dati.get('acqua'), dati.get('collo'), dati.get('spalle'), dati.get('torace'), dati.get('braccio'), dati.get('vita'), dati.get('fianchi'), dati.get('coscia'), dati.get('polpaccio'), dati.get('note'), id_misura))
+
+    def get_progressi_cliente(self, id_cliente):
+        with self._connect() as conn: return pd.read_sql("SELECT * FROM misurazioni WHERE id_cliente=? ORDER BY data_misurazione DESC", conn, params=(id_cliente,))
