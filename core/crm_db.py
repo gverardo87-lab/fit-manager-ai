@@ -1,4 +1,4 @@
-# file: core/crm_db.py (Versione FitManager 3.4 - Golden Master)
+# file: core/crm_db.py (Versione FitManager 3.5 - Fix Pagamenti)
 from __future__ import annotations
 import sqlite3
 from pathlib import Path
@@ -77,7 +77,7 @@ class CrmDBManager:
                 operatore TEXT DEFAULT 'Admin'
             )""")
 
-            # 4. PAGAMENTI (Legacy/Semplificata - Mantenuta per compatibilità o migrazione)
+            # 4. PAGAMENTI (Legacy)
             cursor.execute("""
             CREATE TABLE IF NOT EXISTS pagamenti (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -137,7 +137,6 @@ class CrmDBManager:
             
             # Calcolo rapido lezioni residue
             res['lezioni_residue'] = 0
-            # Prende l'ultimo contratto attivo
             contratto = conn.execute("SELECT * FROM contratti WHERE id_cliente=? AND chiuso=0 ORDER BY data_inizio DESC LIMIT 1", (id_cliente,)).fetchone()
             if contratto:
                 res['lezioni_residue'] = contratto['crediti_totali'] - contratto['crediti_usati']
@@ -197,14 +196,14 @@ class CrmDBManager:
                 VALUES (?, 'ENTRATA', 'RATA_CONTRATTO', ?, ?, ?, ?, ?)
             """, (data_pagamento, importo, metodo, contratto['id_cliente'], id_contratto, note))
             
-            cur.execute("UPDATE contratti SET totale_versato = ?, stato_pagamento = ? WHERE id = ?", (nuovo_totale, stato_pag, id_contratto)) (nuovo_totale, stato_pag, id_contratto),
+            # FIX: Rimossa la tupla duplicata che causava TypeError
+            cur.execute("UPDATE contratti SET totale_versato = ?, stato_pagamento = ? WHERE id = ?", (nuovo_totale, stato_pag, id_contratto))
 
     # --- API AGENDA ---
     def add_evento(self, start, end, categoria, titolo, id_cliente=None, note=""):
         with self.transaction() as cur:
             id_contr = None
             if categoria == 'PT' and id_cliente:
-                # Cerca contratto per scalare credito
                 cur.execute("""
                     SELECT id FROM contratti 
                     WHERE id_cliente=? AND chiuso=0 AND crediti_usati < crediti_totali
@@ -230,24 +229,18 @@ class CrmDBManager:
     def confirm_evento(self, id_ev):
         with self._connect() as conn: conn.execute("UPDATE agenda SET stato='Fatto' WHERE id=?", (id_ev,)); conn.commit()
 
-    # --- AGGIUNGI QUESTE FUNZIONI NEL BLOCCO API AGENDA ---
-
     def delete_evento(self, id_ev):
         """Cancella l'evento e, se era collegato a un contratto, RESTITUISCE il credito."""
         with self.transaction() as cur:
-            # 1. Recupera info sull'evento prima di cancellarlo
             cur.execute("SELECT id_contratto FROM agenda WHERE id=?", (id_ev,))
             row = cur.fetchone()
             
             if row and row['id_contratto']:
-                # 2. Restituisci il credito al contratto (decrementa usati)
                 cur.execute("UPDATE contratti SET crediti_usati = crediti_usati - 1 WHERE id=?", (row['id_contratto'],))
             
-            # 3. Cancella fisicamente l'evento
             cur.execute("DELETE FROM agenda WHERE id=?", (id_ev,))
 
     def get_storico_lezioni_cliente(self, id_cliente):
-        """Recupera tutte le lezioni fatte/programmate per un cliente specifico."""
         q = """
             SELECT a.*, c.tipo_pacchetto 
             FROM agenda a 
