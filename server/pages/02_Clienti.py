@@ -214,9 +214,38 @@ elif cliente_sel_id:
                         st.balloons()
                         st.rerun()
 
-    # --- TAB 3: STORICO (PLACEHOLDER) ---
+    # --- TAB 3: STORICO LEZIONI (ORA ATTIVO) ---
     with tab_storico:
-        st.info("🚧 In questa sezione vedrai a breve la lista cronologica di tutte le lezioni effettuate da questo cliente, recuperate dall'Agenda.")
-
-else:
-    st.info("👈 Seleziona un cliente dalla lista o creane uno nuovo per iniziare.")
+        st.subheader("📅 Registro Allenamenti")
+        
+        # Recupera storico dal DB
+        storico = db.get_storico_lezioni_cliente(cliente_sel_id)
+        
+        if not storico:
+            st.info("Nessuna lezione registrata in agenda.")
+        else:
+            # Creiamo una tabella leggibile
+            data_list = []
+            for ev in storico:
+                # Icona stato
+                stato_icon = "✅" if ev['stato'] == 'Fatto' else "📅"
+                # Pacchetto di origine
+                pack_name = ev['tipo_pacchetto'] if ev['tipo_pacchetto'] else "-(Extra)-"
+                
+                data_list.append({
+                    "Data": pd.to_datetime(ev['data_inizio']).strftime("%d/%m/%Y %H:%M"),
+                    "Attività": ev['titolo'],
+                    "Categoria": ev['categoria'],
+                    "Pacchetto Usato": pack_name,
+                    "Stato": f"{stato_icon} {ev['stato']}",
+                    "Note": ev['note']
+                })
+            
+            st.dataframe(
+                pd.DataFrame(data_list), 
+                use_container_width=True, 
+                hide_index=True,
+                column_config={
+                    "Note": st.column_config.TextColumn("Note", width="medium")
+                }
+            )

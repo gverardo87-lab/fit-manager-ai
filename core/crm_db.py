@@ -230,7 +230,30 @@ class CrmDBManager:
     def confirm_evento(self, id_ev):
         with self._connect() as conn: conn.execute("UPDATE agenda SET stato='Fatto' WHERE id=?", (id_ev,)); conn.commit()
 
+    # --- AGGIUNGI QUESTE FUNZIONI NEL BLOCCO API AGENDA ---
+
     def delete_evento(self, id_ev):
-        # Nota: Qui potremmo implementare la restituzione del credito se cancellato prima di X ore.
-        # Per ora semplice cancellazione.
-        with self._connect() as conn: conn.execute("DELETE FROM agenda WHERE id=?", (id_ev,)); conn.commit()
+        """Cancella l'evento e, se era collegato a un contratto, RESTITUISCE il credito."""
+        with self.transaction() as cur:
+            # 1. Recupera info sull'evento prima di cancellarlo
+            cur.execute("SELECT id_contratto FROM agenda WHERE id=?", (id_ev,))
+            row = cur.fetchone()
+            
+            if row and row['id_contratto']:
+                # 2. Restituisci il credito al contratto (decrementa usati)
+                cur.execute("UPDATE contratti SET crediti_usati = crediti_usati - 1 WHERE id=?", (row['id_contratto'],))
+            
+            # 3. Cancella fisicamente l'evento
+            cur.execute("DELETE FROM agenda WHERE id=?", (id_ev,))
+
+    def get_storico_lezioni_cliente(self, id_cliente):
+        """Recupera tutte le lezioni fatte/programmate per un cliente specifico."""
+        q = """
+            SELECT a.*, c.tipo_pacchetto 
+            FROM agenda a 
+            LEFT JOIN contratti c ON a.id_contratto = c.id
+            WHERE a.id_cliente = ?
+            ORDER BY a.data_inizio DESC
+        """
+        with self._connect() as conn:
+            return [dict(r) for r in conn.execute(q, (id_cliente,)).fetchall()]
