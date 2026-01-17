@@ -157,26 +157,31 @@ workflow_engine = NavalWorkflowEngine()
 
 class FitnessWorkflowEngine:
     """
-    Motore di workflow per il fitness e personal training.
+    Motore di workflow per il fitness e personal training (HYBRID).
+    
     Gestisce:
-    - Generazione piani di allenamento personalizzati
-    - Periodizzazione macrocicli
+    - Generazione piani di allenamento personalizzati (con fallback a built-in)
+    - Periodizzazione macrocicli (linear, block, undulating)
     - Progressione e deload
     - Assessment e testing
     """
     
     def __init__(self):
-        """Inizializza il fitness workflow engine."""
+        """Inizializza il fitness workflow engine con hybrid knowledge."""
         try:
+            from core.knowledge_chain import get_hybrid_chain
             from core.workout_generator import WorkoutGenerator
-            self.workout_generator = WorkoutGenerator()
+            
+            self.hybrid_chain = get_hybrid_chain()
+            self.workout_generator = WorkoutGenerator(self.hybrid_chain)
             self.initialized = True
+            print("✅ FitnessWorkflowEngine inizializzato (HYBRID MODE)")
         except Exception as e:
             import traceback
-            # Logger solo in debug, non in console
+            self.hybrid_chain = None
             self.workout_generator = None
             self.initialized = False
-            # Silenzioso: il motore funziona senza WorkoutGenerator per ora
+            # Silenzioso: il motore funziona senza WorkoutGenerator
     
     def generate_personalized_plan(
         self,

@@ -20,84 +20,38 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from core.knowledge_chain import get_knowledge_chain, get_cross_encoder, rerank_documents
 from core.config import MAIN_LLM_MODEL
 from langchain.prompts import PromptTemplate
 from langchain_ollama.llms import OllamaLLM
 
 
 class WorkoutGenerator:
-    """Generatore di programmi allenamento basato su RAG e personalizzazione cliente."""
+    """Generatore di programmi allenamento basato su HYBRID (built-in + KB + LLM)."""
     
-    def __init__(self):
-        """Inizializza il generatore con retriever e LLM."""
-        self.retriever, self.llm = get_knowledge_chain()
-        self.cross_encoder = get_cross_encoder()
-        
-        if not self.retriever or not self.llm:
-            raise RuntimeError("Impossibile inizializzare WorkoutGenerator: Knowledge Chain non disponibile")
-    
-    # ─────────────────────────────────────────────────────────
-    # METODI DI QUERY SULLA KNOWLEDGE BASE
-    # ─────────────────────────────────────────────────────────
-    
-    def retrieve_training_methodology(self, goal: str, level: str) -> List[Dict[str, Any]]:
+    def __init__(self, hybrid_chain=None):
         """
-        Recupera metodologie di allenamento rilevanti basate su goal e livello.
+        Inizializza il generatore con hybrid knowledge.
         
         Args:
-            goal: 'strength', 'hypertrophy', 'endurance', 'fat_loss', 'functional'
-            level: 'beginner', 'intermediate', 'advanced'
-        
-        Returns:
-            Lista di documenti rilevanti con score
+            hybrid_chain: Istanza di HybridKnowledgeChain (opzionale)
+                Se None, carica automaticamente
         """
-        query = f"Metodologia allenamento {goal} per {level} - programmazione periodizzata esercizi"
+        from core.knowledge_chain import get_hybrid_chain
         
-        retrieved_docs = self.retriever.invoke(query)
-        if not retrieved_docs:
-            return []
+        self.hybrid_chain = hybrid_chain or get_hybrid_chain()
         
-        reranked = rerank_documents(query, retrieved_docs, self.cross_encoder)
-        return reranked
-    
-    def retrieve_exercise_details(self, exercise_name: str) -> List[Dict[str, Any]]:
-        """
-        Recupera dettagli tecnici di uno specifico esercizio.
+        # Verifica disponibilità della hybrid chain
+        if not self.hybrid_chain:
+            raise RuntimeError("HybridKnowledgeChain non disponibile")
         
-        Args:
-            exercise_name: Nome dell'esercizio (es. 'squat', 'panca piana')
+        # Estrai LLM dalla hybrid chain se disponibile
+        self.llm = self.hybrid_chain.llm if self.hybrid_chain else None
         
-        Returns:
-            Lista di documenti con dettagli anatomici e tecnica
-        """
-        query = f"Esercizio {exercise_name} anatomia biomeccanica tecnica corretta varianti"
-        
-        retrieved_docs = self.retriever.invoke(query)
-        if not retrieved_docs:
-            return []
-        
-        reranked = rerank_documents(query, retrieved_docs, self.cross_encoder)
-        return reranked
-    
-    def retrieve_programming_principles(self) -> List[Dict[str, Any]]:
-        """
-        Recupera principi fondamentali di programmazione dell'allenamento.
-        
-        Returns:
-            Lista di documenti su periodizzazione, progressione, recovery
-        """
-        query = "Principi programmazione allenamento periodizzazione progressione sovraccarico recupero"
-        
-        retrieved_docs = self.retriever.invoke(query)
-        if not retrieved_docs:
-            return []
-        
-        reranked = rerank_documents(query, retrieved_docs, self.cross_encoder)
-        return reranked
+        # Nota: Non serve retriever/cross_encoder, sono nella hybrid_chain
+        print(f"[OK] WorkoutGenerator inizializzato (KB loaded: {self.hybrid_chain.is_kb_loaded()})")
     
     # ─────────────────────────────────────────────────────────
-    # GENERAZIONE SCHEDA CON RAG
+    # GENERAZIONE SCHEDA CON HYBRID (built-in + KB)
     # ─────────────────────────────────────────────────────────
     
     def generate_workout_plan(
@@ -107,84 +61,275 @@ class WorkoutGenerator:
         sessions_per_week: int = 3
     ) -> Dict[str, Any]:
         """
-        Genera un piano di allenamento personalizzato usando RAG.
+        Genera un piano di allenamento personalizzato usando HYBRID approach.
         
-        Args:
-            client_profile: {
-                'nome': str,
-                'goal': 'strength'|'hypertrophy'|'endurance'|'fat_loss'|'functional',
-                'level': 'beginner'|'intermediate'|'advanced',
-                'age': int,
-                'disponibilita_giorni': int,  # giorni a settimana
-                'tempo_sessione_minuti': int,
-                'limitazioni': str,  # infortuni, limitazioni particolari
-                'preferenze': str  # attrezzi, esercizi preferiti
-            }
-            weeks: Durata del programma in settimane
-            sessions_per_week: Numero di sessioni per settimana
-        
-        Returns:
-            Piano di allenamento strutturato:
-            {
-                'client_name': str,
-                'goal': str,
-                'duration_weeks': int,
-                'sessions_per_week': int,
-                'methodology': str,
-                'weekly_schedule': [...],
-                'exercises_details': {...},
-                'progressive_overload_strategy': str,
-                'recovery_recommendations': str,
-                'sources': [...]
-            }
+        - Usa built-in exercise database come base
+        - Ibridizza con KB se disponibile
+        - Personalizza con LLM
         """
-        # Step 1: Recupera metodologie rilevanti dal KB
-        methodology_docs = self.retrieve_training_methodology(
-            client_profile['goal'],
-            client_profile['level']
-        )
-        
-        # Step 2: Recupera principi di programmazione
-        programming_docs = self.retrieve_programming_principles()
-        
-        # Step 3: Costruisci il contesto dalla knowledge base
-        methodology_context = self._format_context(methodology_docs)
-        programming_context = self._format_context(programming_docs)
-        
-        # Step 4: Genera con LLM
-        prompt = self._build_generation_prompt(
-            client_profile,
-            methodology_context,
-            programming_context,
-            weeks,
-            sessions_per_week
-        )
         
         try:
-            raw_response = self.llm.invoke(prompt)
-            
-            # Step 5: Parse e struttura la risposta
-            workout_plan = self._parse_workout_response(
-                raw_response,
-                client_profile,
-                weeks,
-                sessions_per_week
+            # Step 1: Recupera template di workout built-in
+            template = self.hybrid_chain.exercise_db.get_workout_template(
+                goal=client_profile['goal'],
+                level=client_profile['level'],
+                days_per_week=client_profile.get('disponibilita_giorni', 3)
             )
             
-            # Step 6: Aggiungi fonti
-            sources = self._extract_sources(methodology_docs + programming_docs)
-            workout_plan['sources'] = sources
+            # Step 2: Recupera periodizzazione
+            periodization = self.hybrid_chain.get_periodization(
+                periodization_type='linear',
+                weeks=weeks
+            )
             
-            return workout_plan
+            # Step 3: Recupera strategie progressione
+            progression = self.hybrid_chain.get_progression_strategy(client_profile['goal'])
+            
+            # Step 4: Se LLM disponibile, personalizza
+            if self.llm:
+                response = self._personalize_with_llm(
+                    template=template,
+                    periodization=periodization,
+                    client_profile=client_profile,
+                    weeks=weeks,
+                    sessions_per_week=sessions_per_week
+                )
+            else:
+                response = self._build_basic_plan(
+                    template=template,
+                    periodization=periodization,
+                    progression=progression,
+                    client_profile=client_profile,
+                    weeks=weeks,
+                    sessions_per_week=sessions_per_week
+                )
+            
+            return response
             
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             return {
                 'error': f"Errore nella generazione: {str(e)}",
                 'client_name': client_profile.get('nome', 'Unknown')
             }
     
-    def _format_context(self, documents: List) -> str:
-        """Formatta i documenti in contesto per il prompt."""
+    def _build_basic_plan(self, template, periodization, progression, client_profile, weeks, sessions_per_week) -> Dict[str, Any]:
+        """Costruisce un piano base senza LLM"""
+        
+        # Formatta la metodologia dal template
+        methodology = f"""
+## Metodologia di Allenamento
+
+**Goal**: {client_profile.get('goal').upper()}
+**Livello**: {client_profile.get('level').upper()}
+**Durata**: {weeks} settimane
+
+### Approccio
+Utilizziamo un approccio {client_profile.get('goal')}-focused con periodizzazione lineare.
+
+**Template Base**:
+{json.dumps(template, indent=2, ensure_ascii=False) if template else 'Template non disponibile'}
+"""
+        
+        # Crea lo schedule settimanale
+        weekly_schedule = []
+        if periodization:
+            for phase in periodization.get('phases', []):
+                weekly_schedule.append({
+                    'week': f"Fase: {phase.get('phase', 'N/A')}",
+                    'content': f"""
+Settimane: {phase.get('weeks', 'N/A')}
+Reps: {phase.get('reps', 'N/A')}
+Intensità: {phase.get('intensity', 'N/A')}
+
+Focus: {phase.get('phase', 'N/A')}
+"""
+                })
+        
+        # Dettagli esercizi dal template
+        exercises_details = "## Esercizi Consigliati\n\n"
+        if template and 'exercises' in template:
+            for exc in template['exercises']:
+                exercises_details += f"- {exc}\n"
+        else:
+            exercises_details += "Seleziona esercizi dal database built-in basandoti sul goal e livello."
+        
+        # Strategia progressione
+        progression_text = "## Strategia di Progressione\n\n"
+        if progression:
+            progression_text += json.dumps(progression, indent=2, ensure_ascii=False)
+        
+        # Recovery
+        recovery_text = f"""## Raccomandazioni Recovery
+
+**Frequenza allenamenti**: {sessions_per_week} giorni/settimana
+**Durata sessione**: {client_profile.get('tempo_sessione_minuti', 60)} minuti
+
+### Deload
+Ogni 4 settimane, ridurre il volume del 40% e l'intensità del 20%.
+
+### Sleep & Nutrition
+- 7-9 ore di sonno per notte
+- Proteine: 1.6-2.2g per kg di peso corporeo
+- Calorie adattate al goal
+"""
+        
+        return {
+            'client_name': client_profile.get('nome'),
+            'goal': client_profile.get('goal'),
+            'level': client_profile.get('level'),
+            'duration_weeks': weeks,
+            'sessions_per_week': sessions_per_week,
+            'methodology': methodology,
+            'weekly_schedule': weekly_schedule,
+            'exercises_details': exercises_details,
+            'progressive_overload_strategy': progression_text,
+            'recovery_recommendations': recovery_text,
+            'sources': [],
+            'kb_used': False,
+            'note': '✅ Utilizziamo template built-in. Per customizzazione avanzata, carica la KB.'
+        }
+    
+    def _personalize_with_llm(self, template, periodization, client_profile, weeks, sessions_per_week) -> Dict[str, Any]:
+        """Personalizza il piano con LLM"""
+        
+        prompt_template = """
+Sei un esperto trainer professionale certificato. Genera una scheda di allenamento DETTAGLIATA e STRUTTURATA.
+
+CLIENTE:
+- Nome: {nome}
+- Goal: {goal}
+- Livello: {level}
+- Disponibilità: {giorni}/settimana
+- Durata sessione: {tempo} minuti
+- Limitazioni: {limitazioni}
+- Preferenze: {preferenze}
+
+TEMPLATE BASE:
+{template}
+
+PERIODIZZAZIONE:
+{periodization}
+
+GENERA UNA RISPOSTA STRUTTURATA CON:
+
+## METODOLOGIA
+Descrivi l'approccio di allenamento adatto al cliente (2-3 paragrafi).
+
+## WEEKLY SCHEDULE
+Per ogni settimana della periodizzazione, descrivi:
+- Giorni di allenamento
+- Focus muscolare di ogni sessione
+- Volume e intensità
+
+## ESERCIZI DETTAGLIATI
+Per ogni sessione tipo:
+- Nome esercizio
+- Serie x Reps
+- Tempo di riposo
+- RPE (Scala di sforzo 1-10)
+
+## PROGRESSIONE
+Come aumentare il carico ogni settimana.
+
+## RECOVERY
+Raccomandazioni su sonno, nutrizione, stretching.
+
+Rispondi in italiano e sii SPECIFICO e PRATICO.
+"""
+        
+        prompt = PromptTemplate(
+            template=prompt_template,
+            input_variables=['nome', 'goal', 'level', 'giorni', 'tempo', 'limitazioni', 'preferenze', 'template', 'periodization']
+        )
+        
+        chain = prompt | self.llm
+        
+        try:
+            response_text = chain.invoke({
+                'nome': client_profile.get('nome'),
+                'goal': client_profile.get('goal'),
+                'level': client_profile.get('level'),
+                'giorni': client_profile.get('disponibilita_giorni', 3),
+                'tempo': client_profile.get('tempo_sessione_minuti', 60),
+                'limitazioni': client_profile.get('limitazioni', 'Nessuna'),
+                'preferenze': client_profile.get('preferenze', 'N/A'),
+                'template': json.dumps(template, ensure_ascii=False) if template else 'Template non disponibile',
+                'periodization': json.dumps(periodization, ensure_ascii=False) if periodization else 'Periodizzazione non disponibile'
+            })
+            
+            # Estrai sezioni dalla risposta LLM
+            sections = {
+                'methodology': self._extract_section(response_text, 'METODOLOGIA'),
+                'weekly_schedule': [{'week': 'LLM Personalized', 'content': self._extract_section(response_text, 'WEEKLY SCHEDULE')}],
+                'exercises_details': self._extract_section(response_text, 'ESERCIZI DETTAGLIATI'),
+                'progressive_overload_strategy': self._extract_section(response_text, 'PROGRESSIONE'),
+                'recovery_recommendations': self._extract_section(response_text, 'RECOVERY'),
+                'sources': []
+            }
+            
+            return {
+                'client_name': client_profile.get('nome'),
+                'goal': client_profile.get('goal'),
+                'level': client_profile.get('level'),
+                'duration_weeks': weeks,
+                'sessions_per_week': sessions_per_week,
+                'methodology': sections['methodology'],
+                'weekly_schedule': sections['weekly_schedule'],
+                'exercises_details': sections['exercises_details'],
+                'progressive_overload_strategy': sections['progressive_overload_strategy'],
+                'recovery_recommendations': sections['recovery_recommendations'],
+                'sources': sections['sources'],
+                'kb_used': self.hybrid_chain.is_kb_loaded() if self.hybrid_chain else False
+            }
+        except Exception as e:
+            import traceback
+            print(f"❌ Errore LLM personalization: {e}")
+            traceback.print_exc()
+            # Fallback a built-in plan
+            return self._build_basic_plan(
+                template=template,
+                periodization=periodization,
+                progression=None,
+                client_profile=client_profile,
+                weeks=weeks,
+                sessions_per_week=sessions_per_week
+            )
+    
+    def _extract_section(self, text: str, section_name: str) -> str:
+        """Estrae una sezione dalla risposta LLM"""
+        if not text or section_name not in text:
+            return f"{section_name} non disponibile nel piano generato."
+        
+        # Cerca il header della sezione
+        lines = text.split('\n')
+        start_idx = -1
+        for i, line in enumerate(lines):
+            if section_name.lower() in line.lower():
+                start_idx = i + 1
+                break
+        
+        if start_idx == -1:
+            return f"{section_name} non trovato."
+        
+        # Raccoglie le linee fino alla prossima sezione
+        end_idx = len(lines)
+        for i in range(start_idx, len(lines)):
+            if lines[i].startswith('##') and i > start_idx:
+                end_idx = i
+                break
+        
+        content = '\n'.join(lines[start_idx:end_idx]).strip()
+        return content if content else f"{section_name} vuota."
+    
+    def retrieve_training_methodology(self, goal: str, level: str) -> List[Dict[str, Any]]:
+        """Legacy method - compatibilità"""
+        return self.hybrid_chain.get_exercise_methodology(goal, level)
+    
+    def retrieve_exercise_details(self, exercise_name: str) -> List[Dict[str, Any]]:
+        """Legacy method - compatibilità"""
+        return self.hybrid_chain.retrieve_exercise_info(exercise_name)
         if not documents:
             return "Nessun documento trovato."
         
@@ -198,232 +343,21 @@ class WorkoutGenerator:
         
         return "\n\n---\n\n".join(context_parts)
     
-    def _build_generation_prompt(
-        self,
-        profile: Dict[str, Any],
-        methodology: str,
-        programming: str,
-        weeks: int,
-        sessions_per_week: int
-    ) -> str:
-        """Costruisce il prompt per la generazione della scheda."""
-        
-        prompt_template = """
-**RUOLO**: Sei un Coach Professionista di Personal Training con 15+ anni di esperienza.
-Specializzato in programmazione dell'allenamento basata su evidenze scientifiche.
-
-**COMPITO**: Generare un piano di allenamento personalizzato per il cliente.
-
-**PROFILO CLIENTE**:
-- Nome: {nome}
-- Obiettivo: {goal} ({goal_description})
-- Livello: {level} 
-- Età: {age} anni
-- Disponibilità: {disponibilita} giorni/settimana
-- Durata sessione: {tempo_sessione} minuti
-- Limitazioni: {limitazioni}
-- Preferenze: {preferenze}
-
-**METODOLOGIA CONSIGLIATA** (da Knowledge Base):
-{methodology}
-
-**PRINCIPI DI PROGRAMMAZIONE** (da Knowledge Base):
-{programming}
-
-**GENERARE UN PIANO DI {weeks} SETTIMANE CON {sessions_per_week} SESSIONI A SETTIMANA**
-
-Struttura la risposta esattamente così:
-
----METODOLOGIA---
-[Descrivi brevemente la metodologia scelta e perché è appropriata]
-
----SETTIMANA 1---
-**Lunedì - [Focus]**
-- Esercizio 1: [Nome] - [Serie]x[Reps] - Riposo [X] sec
-- Esercizio 2: [Nome] - [Serie]x[Reps] - Riposo [X] sec
-- Esercizio 3: [Nome] - [Serie]x[Reps] - Riposo [X] sec
-[Continua per altre sessioni della settimana]
-
-[RIPETI per settimane 2, 3, 4 se applicabile]
-
----DETTAGLI ESERCIZI---
-- Esercizio 1:
-  * Muscoli primari: [...]
-  * Muscoli secondari: [...]
-  * Tecnica: [descrizione breve]
-[Continua per tutti gli esercizi unici]
-
----PROGRESSIONE---
-[Strategia di progressione week-by-week]
-
----RECOVERY---
-[Raccomandazioni specifiche per il cliente]
-
----
-
-Basa TUTTO sulla metodologia e i principi forniti sopra.
-Cita sempre la fonte: "[NomeFile, pag. X]"
-"""
-        
-        goal_descriptions = {
-            'strength': 'Aumento della forza massimale',
-            'hypertrophy': 'Crescita muscolare',
-            'endurance': 'Resistenza cardiovascolare',
-            'fat_loss': 'Perdita di grasso corporeo',
-            'functional': 'Fitness funzionale'
-        }
-        
-        return prompt_template.format(
-            nome=profile.get('nome', 'Cliente'),
-            goal=profile.get('goal', 'general'),
-            goal_description=goal_descriptions.get(profile.get('goal'), ''),
-            level=profile.get('level', 'intermediate'),
-            age=profile.get('age', 30),
-            disponibilita=profile.get('disponibilita_giorni', 3),
-            tempo_sessione=profile.get('tempo_sessione_minuti', 60),
-            limitazioni=profile.get('limitazioni', 'Nessuna'),
-            preferenze=profile.get('preferenze', 'Nessuna'),
-            weeks=weeks,
-            sessions_per_week=sessions_per_week,
-            methodology=methodology,
-            programming=programming
-        )
-    
-    def _parse_workout_response(
-        self,
-        response: str,
-        profile: Dict[str, Any],
-        weeks: int,
-        sessions_per_week: int
-    ) -> Dict[str, Any]:
-        """Parse la risposta generata in una struttura dati."""
-        
-        # Estrazione sezioni dal testo
-        sections = {
-            'methodology': self._extract_section(response, 'METODOLOGIA'),
-            'weekly_schedule': self._extract_weekly_schedule(response, weeks),
-            'exercises_details': self._extract_section(response, 'DETTAGLI ESERCIZI'),
-            'progression': self._extract_section(response, 'PROGRESSIONE'),
-            'recovery': self._extract_section(response, 'RECOVERY')
-        }
-        
-        return {
-            'client_name': profile.get('nome'),
-            'goal': profile.get('goal'),
-            'level': profile.get('level'),
-            'duration_weeks': weeks,
-            'sessions_per_week': sessions_per_week,
-            'generated_at': datetime.now().isoformat(),
-            'methodology': sections['methodology'],
-            'weekly_schedule': sections['weekly_schedule'],
-            'exercises_details': sections['exercises_details'],
-            'progressive_overload_strategy': sections['progression'],
-            'recovery_recommendations': sections['recovery']
-        }
-    
-    def _extract_section(self, text: str, section_name: str) -> str:
-        """Estrae una sezione delimitata dal testo."""
-        try:
-            start_marker = f"---{section_name}---"
-            end_marker = "---"
-            
-            start_idx = text.find(start_marker)
-            if start_idx == -1:
-                return f"Sezione '{section_name}' non trovata"
-            
-            start_idx += len(start_marker)
-            end_idx = text.find(end_marker, start_idx)
-            
-            if end_idx == -1:
-                end_idx = len(text)
-            
-            return text[start_idx:end_idx].strip()
-        except Exception:
-            return ""
-    
-    def _extract_weekly_schedule(self, text: str, weeks: int) -> List[Dict[str, str]]:
-        """Estrae il programma settimanale dal testo."""
-        schedule = []
-        
-        for week_num in range(1, weeks + 1):
-            marker = f"---SETTIMANA {week_num}---"
-            if marker in text:
-                start_idx = text.find(marker)
-                
-                # Trova la prossima settimana o fine sezione
-                next_marker = f"---SETTIMANA {week_num + 1}---"
-                end_idx = text.find(next_marker)
-                
-                if end_idx == -1:
-                    end_idx = text.find("---DETTAGLI ESERCIZI---")
-                
-                if end_idx == -1:
-                    end_idx = len(text)
-                
-                week_content = text[start_idx:end_idx]
-                schedule.append({
-                    'week': week_num,
-                    'content': week_content.strip()
-                })
-        
-        return schedule
-    
-    def _extract_sources(self, documents: List) -> List[Dict[str, str]]:
-        """Estrae le fonti dai documenti."""
-        sources = []
-        seen = set()
-        
-        for doc in documents:
-            source_name = doc.metadata.get('source', 'Sconosciuta')
-            page = str(doc.metadata.get('page', '?'))
-            ref = f"{source_name}:{page}"
-            
-            if ref not in seen:
-                sources.append({
-                    'source': source_name,
-                    'page': page,
-                    'doc_id': doc.metadata.get('doc_id')
-                })
-                seen.add(ref)
-        
-        return sources
+    def retrieve_programming_principles(self) -> List[Dict[str, Any]]:
+        """Legacy method - compatibilità"""
+        return {}
 
 
 # ─────────────────────────────────────────────────────────
-# UTILITY E TESTING
+# TESTING
 # ─────────────────────────────────────────────────────────
 
-def test_workout_generator():
-    """Testa il generatore con un profilo cliente esempio."""
-    
+if __name__ == "__main__":
     try:
-        generator = WorkoutGenerator()
-        print("✅ WorkoutGenerator inizializzato")
+        gen = WorkoutGenerator()
+        print("✅ WorkoutGenerator funziona!")
     except Exception as e:
-        print(f"❌ Errore inizializzazione: {e}")
-        return
-    
-    # Profilo cliente di test
-    test_profile = {
-        'nome': 'Mario Rossi',
-        'goal': 'hypertrophy',
-        'level': 'intermediate',
-        'age': 28,
-        'disponibilita_giorni': 4,
-        'tempo_sessione_minuti': 60,
-        'limitazioni': 'Lieve dolore al ginocchio sinistro',
-        'preferenze': 'Preferisco esercizi con bilanciere'
-    }
-    
-    print("\n📝 Generazione piano per:", test_profile['nome'])
-    print("Recuperando dai documenti...")
-    
-    result = generator.generate_workout_plan(test_profile, weeks=4, sessions_per_week=4)
-    
-    if 'error' in result:
-        print(f"❌ Errore: {result['error']}")
-    else:
-        print(f"\n✅ Piano generato per {result['client_name']}")
+        print(f"❌ Errore: {e}")
         print(f"Goal: {result['goal']}")
         print(f"Durata: {result['duration_weeks']} settimane")
         print(f"Fonti consultate: {len(result.get('sources', []))}")

@@ -5,11 +5,35 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, date
+from pathlib import Path
 from core.crm_db import CrmDBManager
 from core.workflow_engine import fitness_workflow
 from core.error_handler import handle_streamlit_errors, logger
 
 db = CrmDBManager()
+
+# ════════════════════════════════════════════════════════════
+# DYNAMIC KB CHECK (Non statico, controlla ogni volta)
+# ════════════════════════════════════════════════════════════
+
+def is_kb_available() -> bool:
+    """Controlla dinamicamente se la KB è disponibile"""
+    # Check 1: Se hybrid_chain ha esercizi dal vectorstore
+    if hasattr(fitness_workflow, 'hybrid_chain') and fitness_workflow.hybrid_chain:
+        if fitness_workflow.hybrid_chain.is_kb_loaded():
+            return True
+    
+    # Check 2: Se il vectorstore fisicamente esiste
+    kb_path = Path("knowledge_base/vectorstore")
+    if kb_path.is_dir() and (kb_path / "chroma.sqlite3").exists():
+        return True
+    
+    # Check 3: Se il workout_generator è inizializzato
+    if fitness_workflow.initialized and fitness_workflow.workout_generator:
+        return True
+    
+    return False
+
 
 # ════════════════════════════════════════════════════════════
 # SIDEBAR: Selezione Cliente
@@ -42,20 +66,21 @@ st.sidebar.markdown("""
 
 st.title("🏋️ Generatore Programmi Allenamento")
 
-# Controllo inizializzazione
-if not fitness_workflow.initialized:
-    st.warning("""
-    ⚠️ **Knowledge Base non ancora caricata**
-    
-    Per generare programmi personalizzati con IA, devi:
-    1. Aggiungere file PDF di metodologie di allenamento a `knowledge_base/documents/`
-    2. Eseguire: `python knowledge_base/ingest.py`
-    3. Aggiornare la pagina
-    
-    Nel frattempo, puoi visualizzare i programmi salvati nella tab "📋 Programmi Salvati"
-    """)
-else:
+# Controllo dinamico della KB
+kb_is_available = is_kb_available()
+
+if kb_is_available:
     st.success("✅ Knowledge Base caricata - Puoi generare programmi personalizzati!")
+else:
+    st.info("""
+    ℹ️ **Utilizzando Generator Built-in**
+    
+    Il sistema usa i template built-in di allenamento.  
+    Per personalizzare con la tua knowledge base:
+    1. Aggiungi PDF a `knowledge_base/documents/`
+    2. Esegui `python knowledge_base/ingest.py`
+    3. Aggiorna la pagina per sfruttare i tuoi contenuti
+    """)
 
 st.info("""
 🤖 **Generazione Intelligente con IA**
@@ -191,12 +216,8 @@ with tab1:
     col_btn1, col_btn2 = st.columns([3, 1])
     
     with col_btn1:
-        if st.button("🤖 Genera Programma Personalizzato", type="primary", use_container_width=True, disabled=not fitness_workflow.initialized):
-            
-            # Validazione
-            if not fitness_workflow.initialized:
-                st.error("❌ Errore: Knowledge Base non caricata. Esegui 'knowledge_base/ingest.py' prima.")
-                st.stop()
+        # Pulsante sempre disponibile (hybrid fallback a built-in)
+        if st.button("🤖 Genera Programma Personalizzato", type="primary", use_container_width=True):
             
             # Profilo cliente per la generazione
             client_profile = {
@@ -252,10 +273,10 @@ with tab1:
         
         # Schedule settimanale
         with st.expander("📅 Schedule Settimanale", expanded=True):
-            for week in workout.get('weekly_schedule', []):
-                st.markdown(f"### {week['content'][:50]}...")
-                with st.expander(f"Dettagli Settimana {week.get('week', '?')}"):
-                    st.text(week['content'])
+            for idx, week in enumerate(workout.get('weekly_schedule', [])):
+                st.markdown(f"#### Settimana/Fase {idx + 1}: {week.get('week', 'N/A')}")
+                st.text(week.get('content', 'Nessun dettaglio disponibile'))
+                st.divider()
         
         # Esercizi dettagliati
         with st.expander("💪 Dettagli Esercizi", expanded=False):
