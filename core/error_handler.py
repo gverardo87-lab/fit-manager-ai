@@ -11,13 +11,18 @@ from typing import Callable, TypeVar, Any, Optional
 from functools import wraps
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
+
+# Create logs directory if it doesn't exist
+logs_dir = Path("logs")
+logs_dir.mkdir(exist_ok=True)
 
 # Setup logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("logs/fitmanager.log"),
+        logging.FileHandler(logs_dir / "fitmanager.log"),
         logging.StreamHandler()
     ]
 )

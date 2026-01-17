@@ -29,7 +29,7 @@ st.sidebar.subheader("👥 Seleziona Cliente")
 clienti = db.get_clienti_attivi()
 
 if not clienti:
-    st.warning("Nessun cliente attivo nel sistema.")
+    st.warning("Nessun cliente attivo nel sistema. Crea un cliente in 👤 Clienti")
     st.stop()
 
 cliente_dict = {f"{c['nome']} {c['cognome']}" : c['id'] for c in clienti}
@@ -40,9 +40,8 @@ cliente_info = db.get_cliente_full(id_cliente)
 assessment_initial = db.get_assessment_initial(id_cliente)
 
 st.sidebar.divider()
-st.sidebar.write(f"**Cliente**: {cliente_nome}")
-if cliente_info and cliente_info.get('lezioni_residue'):
-    st.sidebar.write(f"**Lezioni Residue**: {cliente_info['lezioni_residue']}")
+st.sidebar.write(f"**📋 Pagina di Assessment e Allenamento**")
+st.sidebar.info("🔙 Per modificare anagrafica e contratti, vai a **👤 Clienti**")
 
 # ════════════════════════════════════════════════════════════
 # MAIN TABS

@@ -119,6 +119,38 @@ class CrmDBManager:
                 collo REAL, spalle REAL, torace REAL, braccio REAL,
                 vita REAL, fianchi REAL, coscia REAL, polpaccio REAL, note TEXT
             )""")
+            # Tabella per i piani di allenamento generati
+            cursor.execute("""CREATE TABLE IF NOT EXISTS workout_plans (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id_cliente INTEGER NOT NULL,
+                data_creazione DATETIME DEFAULT CURRENT_TIMESTAMP,
+                data_inizio DATE NOT NULL,
+                goal TEXT,
+                level TEXT,
+                duration_weeks INTEGER,
+                sessions_per_week INTEGER,
+                methodology TEXT,
+                weekly_schedule TEXT,
+                exercises_details TEXT,
+                progressive_overload_strategy TEXT,
+                recovery_recommendations TEXT,
+                sources TEXT,
+                attivo BOOLEAN DEFAULT 1,
+                completato BOOLEAN DEFAULT 0,
+                NOTE TEXT
+            )""")
+            
+            # Tabella per il tracking del progresso durante il programma
+            cursor.execute("""CREATE TABLE IF NOT EXISTS progress_records (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id_cliente INTEGER NOT NULL,
+                data DATE NOT NULL DEFAULT CURRENT_DATE,
+                pushup_reps INTEGER,
+                vo2_estimate REAL,
+                note TEXT,
+                data_creazione DATETIME DEFAULT CURRENT_TIMESTAMP
+            )""")
+
             cursor.execute("""CREATE TABLE IF NOT EXISTS client_assessment_initial (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 id_cliente INTEGER NOT NULL UNIQUE,
@@ -636,3 +668,159 @@ class CrmDBManager:
                 timeline.append({"type": "followup", "data": dict(fu)})
             
             return timeline
+
+    # ═══════════════════════════════════════════════════════════════
+    # METODI PER WORKOUT PLANS (PROGRAMMI DI ALLENAMENTO)
+    # ═══════════════════════════════════════════════════════════════
+    
+    def save_workout_plan(self, id_cliente: int, plan_data: Dict[str, Any], data_inizio: date) -> int:
+        """
+        Salva un programma di allenamento generato nel database.
+        
+        Args:
+            id_cliente: ID del cliente
+            plan_data: Dizionario con i dati del programma (da WorkoutGenerator)
+            data_inizio: Data di inizio del programma
+        
+        Returns:
+            ID del programma salvato
+        """
+        import json
+        
+        with self._connect() as conn:
+            cursor = conn.cursor()
+            
+            # Converti liste in JSON per storage
+            weekly_schedule_json = json.dumps(plan_data.get('weekly_schedule', []))
+            sources_json = json.dumps(plan_data.get('sources', []))
+            
+            cursor.execute("""
+                INSERT INTO workout_plans (
+                    id_cliente, data_inizio, goal, level, duration_weeks, 
+                    sessions_per_week, methodology, weekly_schedule, 
+                    exercises_details, progressive_overload_strategy, 
+                    recovery_recommendations, sources, attivo, completato
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                id_cliente,
+                data_inizio,
+                plan_data.get('goal'),
+                plan_data.get('level'),
+                plan_data.get('duration_weeks'),
+                plan_data.get('sessions_per_week'),
+                plan_data.get('methodology', ''),
+                weekly_schedule_json,
+                plan_data.get('exercises_details', ''),
+                plan_data.get('progressive_overload_strategy', ''),
+                plan_data.get('recovery_recommendations', ''),
+                sources_json,
+                1,  # attivo
+                0   # non completato
+            ))
+            
+            conn.commit()
+            return cursor.lastrowid
+    
+    def get_workout_plans_for_cliente(self, id_cliente: int) -> List[Dict[str, Any]]:
+        """
+        Recupera tutti i piani di allenamento per un cliente.
+        
+        Args:
+            id_cliente: ID del cliente
+        
+        Returns:
+            Lista di dizionari con i dati dei programmi
+        """
+        import json
+        
+        with self._connect() as conn:
+            rows = conn.execute("""
+                SELECT * FROM workout_plans 
+                WHERE id_cliente=? 
+                ORDER BY data_creazione DESC
+            """, (id_cliente,)).fetchall()
+            
+            plans = []
+            for row in rows:
+                plan_dict = dict(row)
+                # Converte JSON back to Python objects
+                plan_dict['weekly_schedule'] = json.loads(plan_dict.get('weekly_schedule', '[]'))
+                plan_dict['sources'] = json.loads(plan_dict.get('sources', '[]'))
+                plans.append(plan_dict)
+            
+            return plans
+    
+    def get_workout_plan_by_id(self, plan_id: int) -> Optional[Dict[str, Any]]:
+        """Recupera un programma specifico per ID."""
+        import json
+        
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM workout_plans WHERE id=?", (plan_id,)).fetchone()
+            
+            if not row:
+                return None
+            
+            plan_dict = dict(row)
+            plan_dict['weekly_schedule'] = json.loads(plan_dict.get('weekly_schedule', '[]'))
+            plan_dict['sources'] = json.loads(plan_dict.get('sources', '[]'))
+            
+            return plan_dict
+    
+    def delete_workout_plan(self, plan_id: int) -> bool:
+        """Elimina un programma di allenamento."""
+        with self._connect() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM workout_plans WHERE id=?", (plan_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+    
+    def mark_workout_plan_completed(self, plan_id: int) -> bool:
+        """Marca un programma come completato."""
+        with self._connect() as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE workout_plans SET completato=1 WHERE id=?", (plan_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+    
+    def add_progress_record(
+        self,
+        id_cliente: int,
+        data: date,
+        pushup_reps: int = 0,
+        vo2_estimate: float = 0.0,
+        note: str = ""
+    ) -> int:
+        """
+        Aggiungi un record di progresso per il tracking.
+        
+        Args:
+            id_cliente: ID cliente
+            data: Data del record
+            pushup_reps: Numero di pushup consecutivi
+            vo2_estimate: Stima VO2 max
+            note: Note sul progresso
+        
+        Returns:
+            ID del record creato
+        """
+        with self._connect() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO progress_records (
+                    id_cliente, data, pushup_reps, vo2_estimate, note
+                ) VALUES (?, ?, ?, ?, ?)
+            """, (id_cliente, data, pushup_reps, vo2_estimate, note))
+            
+            conn.commit()
+            return cursor.lastrowid
+    
+    def get_progress_records(self, id_cliente: int) -> List[Dict[str, Any]]:
+        """Recupera tutti i record di progresso per un cliente."""
+        with self._connect() as conn:
+            rows = conn.execute("""
+                SELECT * FROM progress_records 
+                WHERE id_cliente=? 
+                ORDER BY data DESC
+            """, (id_cliente,)).fetchall()
+            
+            return [dict(r) for r in rows]

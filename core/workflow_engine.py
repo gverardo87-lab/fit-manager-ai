@@ -150,6 +150,178 @@ class NavalWorkflowEngine:
 # Istanza globale
 workflow_engine = NavalWorkflowEngine()
 
+
+# ════════════════════════════════════════════════════════════════════════════════
+# SEZIONE FITNESS & PERSONAL TRAINING (Integrazione Workout Generator)
+# ════════════════════════════════════════════════════════════════════════════════
+
+class FitnessWorkflowEngine:
+    """
+    Motore di workflow per il fitness e personal training.
+    Gestisce:
+    - Generazione piani di allenamento personalizzati
+    - Periodizzazione macrocicli
+    - Progressione e deload
+    - Assessment e testing
+    """
+    
+    def __init__(self):
+        """Inizializza il fitness workflow engine."""
+        try:
+            from core.workout_generator import WorkoutGenerator
+            self.workout_generator = WorkoutGenerator()
+            self.initialized = True
+        except Exception as e:
+            import traceback
+            # Logger solo in debug, non in console
+            self.workout_generator = None
+            self.initialized = False
+            # Silenzioso: il motore funziona senza WorkoutGenerator per ora
+    
+    def generate_personalized_plan(
+        self,
+        client_profile: Dict[str, Any],
+        weeks: int = 4,
+        sessions_per_week: int = 3
+    ) -> Dict[str, Any]:
+        """
+        Genera un piano di allenamento personalizzato basato su RAG.
+        
+        Args:
+            client_profile: Profilo cliente con goal, livello, disponibilità
+            weeks: Durata del programma
+            sessions_per_week: Numero di sessioni per settimana
+        
+        Returns:
+            Piano strutturato con esercizi, progressione, recovery
+        """
+        if not self.initialized or not self.workout_generator:
+            return {'error': 'WorkoutGenerator non disponibile. Carica la knowledge base.'}
+        
+        return self.workout_generator.generate_workout_plan(
+            client_profile,
+            weeks=weeks,
+            sessions_per_week=sessions_per_week
+        )
+    
+    def create_macrocycle(
+        self,
+        goal: str,
+        duration_weeks: int = 12,
+        periodization_type: str = 'linear'
+    ) -> Dict[str, Any]:
+        """
+        Crea un macrociclo di allenamento con periodizzazione.
+        
+        Args:
+            goal: 'strength', 'hypertrophy', 'endurance', 'fat_loss'
+            duration_weeks: Durata totale in settimane
+            periodization_type: 'linear', 'block', 'undulating'
+        
+        Returns:
+            Struttura macrociclo con fasi di allenamento
+        """
+        phases = {
+            'linear': self._create_linear_periodization(goal, duration_weeks),
+            'block': self._create_block_periodization(goal, duration_weeks),
+            'undulating': self._create_undulating_periodization(goal, duration_weeks)
+        }
+        
+        selected_phase = phases.get(periodization_type, phases['linear'])
+        
+        return {
+            'goal': goal,
+            'duration_weeks': duration_weeks,
+            'periodization_type': periodization_type,
+            'phases': selected_phase,
+            'total_volume': self._calculate_total_volume(selected_phase),
+            'intensity_progression': self._calculate_intensity_curve(goal, duration_weeks)
+        }
+    
+    def _create_linear_periodization(self, goal: str, weeks: int) -> List[Dict[str, Any]]:
+        """Periodizzazione lineare: aumenta intensità, diminuisce volume."""
+        return [
+            {'phase': 'Hypertrophy', 'weeks': weeks // 3, 'reps': '8-12', 'intensity': '70-80%'},
+            {'phase': 'Strength', 'weeks': weeks // 3, 'reps': '3-6', 'intensity': '85-95%'},
+            {'phase': 'Power', 'weeks': weeks // 3, 'reps': '1-3', 'intensity': '95%+'}
+        ]
+    
+    def _create_block_periodization(self, goal: str, weeks: int) -> List[Dict[str, Any]]:
+        """Periodizzazione a blocchi: concentra stimoli per adattamento specifico."""
+        return [
+            {'phase': 'Accumulation Block', 'weeks': weeks // 3, 'focus': 'Volume', 'intensity': '65-75%'},
+            {'phase': 'Intensification Block', 'weeks': weeks // 3, 'focus': 'Intensity', 'intensity': '85-92%'},
+            {'phase': 'Realization Block', 'weeks': weeks // 3, 'focus': 'Peak Performance', 'intensity': '90%+'}
+        ]
+    
+    def _create_undulating_periodization(self, goal: str, weeks: int) -> List[Dict[str, Any]]:
+        """Periodizzazione ondulante: varia volume e intensità settimanalmente."""
+        return [
+            {'week': f'Week {i}', 'focus': ['Hypertrophy', 'Strength', 'Power'][i % 3]}
+            for i in range(1, weeks + 1)
+        ]
+    
+    def _calculate_total_volume(self, phases: List[Dict]) -> int:
+        """Calcola volume totale (somma di set * reps * peso)."""
+        # Implementazione semplificata
+        return sum(p.get('weeks', 1) * 100 for p in phases)
+    
+    def _calculate_intensity_curve(self, goal: str, weeks: int) -> List[float]:
+        """Calcola la curva di intensità nel tempo."""
+        base_intensity = {'strength': 0.85, 'hypertrophy': 0.75, 'endurance': 0.65, 'fat_loss': 0.70}
+        intensity = base_intensity.get(goal, 0.75)
+        
+        return [intensity + (0.05 * (i / weeks)) for i in range(weeks)]
+    
+    def calculate_estimated_progress(
+        self,
+        client_profile: Dict[str, Any],
+        duration_weeks: int
+    ) -> Dict[str, Any]:
+        """
+        Stima il progresso atteso in base al profilo e durata.
+        
+        Returns:
+            Previsioni realistiche di guadagni (forza, massa, perdita grasso)
+        """
+        level = client_profile.get('level', 'intermediate')
+        goal = client_profile.get('goal', 'general')
+        
+        # Coefficienti per livello
+        progression_coefficients = {
+            'beginner': 1.5,
+            'intermediate': 1.0,
+            'advanced': 0.5
+        }
+        
+        base_progress = {
+            'strength': {'male': 15, 'female': 10},  # % aumento strength
+            'hypertrophy': {'male': 5, 'female': 3},  # % aumento massa
+            'fat_loss': {'male': 12, 'female': 10},  # % perdita grasso
+            'endurance': {'male': 20, 'female': 18}  # % miglioramento VO2
+        }
+        
+        coefficient = progression_coefficients.get(level, 1.0)
+        base = base_progress.get(goal, {})
+        
+        return {
+            'estimated_progress': {
+                k: v * coefficient * (duration_weeks / 12) 
+                for k, v in base.items()
+            },
+            'confidence': 'Alta' if level in ['beginner', 'intermediate'] else 'Media',
+            'recommendations': [
+                'Mantieni consistenza negli allenamenti',
+                'Monitora progressivamente il carico',
+                'Registra i dati di performance settimanalmente',
+                'Adatta la nutrizione all\'obiettivo'
+            ]
+        }
+
+# Istanza globale fitness
+fitness_workflow = FitnessWorkflowEngine()
+
+
 def get_workflow_info(activity_id: str) -> Dict[str, Any]:
     workflow = workflow_engine.get_workflow_for_activity(activity_id)
     if not workflow: return {'error': f'Nessun workflow trovato per {activity_id}'}

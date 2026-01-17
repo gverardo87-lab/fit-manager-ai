@@ -24,80 +24,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- GRAPH ---
-def plot_radar_chart(df):
-    if len(df) < 1: return None
-    last = df.iloc[0]; first = df.iloc[-1]
-    keys = ['Spalle', 'Torace', 'Braccio', 'Vita', 'Fianchi', 'Coscia', 'Polpaccio']
-    db_keys = [c.lower() for c in keys]
-    fig = go.Figure()
-    fig.add_trace(go.Scatterpolar(r=[last.get(k, 0) for k in db_keys], theta=keys, fill='toself', name='Oggi', line_color='#0068c9', opacity=0.8))
-    if len(df) > 1: fig.add_trace(go.Scatterpolar(r=[first.get(k, 0) for k in db_keys], theta=keys, fill='toself', name='Inizio', line_color='#bdc3c7', opacity=0.4, line=dict(dash='dot')))
-    fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, max(last.get('fianchi', 100), 120)])), showlegend=True, title="🕸️ Analisi Simmetria", margin=dict(t=40, b=20, l=40, r=40), height=350)
-    return fig
-
 # --- DIALOGHI (NO FORMS per stabilità) ---
-
-@st.experimental_dialog("Laboratorio Biometrico")
-def dialog_misurazione(id_cliente, dati_pre=None, id_misura=None):
-    mode = "Modifica" if dati_pre else "Nuovo"
-    st.markdown(f"### {mode} Check-up")
-    
-    # Helper sicuro
-    def v(key, default): 
-        if dati_pre and isinstance(dati_pre, dict):
-            val = dati_pre.get(key, default)
-            return float(val) if val is not None else default
-        return default
-
-    # INPUTS DIRETTI (Senza Form)
-    d_def = date.today()
-    if dati_pre and 'data_misurazione' in dati_pre: 
-        try: d_def = pd.to_datetime(dati_pre['data_misurazione']).date()
-        except: pass
-        
-    dt = st.date_input("Data Rilevazione", value=d_def)
-    
-    t1, t2 = st.tabs(["⚖️ Composizione", "📏 Circonferenze"])
-    
-    with t1:
-        c1, c2, c3 = st.columns(3)
-        peso = c1.number_input("Peso (kg)", 40.0, 200.0, v('peso', 70.0), step=0.1)
-        grasso = c2.number_input("Fat Mass (%)", 0.0, 60.0, v('massa_grassa', 15.0), step=0.1)
-        muscolo = c3.number_input("Muscle Mass (kg)", 0.0, 100.0, v('massa_magra', 0.0), step=0.1)
-        
-    with t2:
-        cc1, cc2 = st.columns(2)
-        collo = cc1.number_input("Collo", 0.0, 100.0, v('collo', 0.0), step=0.5)
-        spalle = cc2.number_input("Spalle", 0.0, 200.0, v('spalle', 0.0), step=0.5)
-        torace = cc1.number_input("Torace", 0.0, 200.0, v('torace', 0.0), step=0.5)
-        braccio = cc2.number_input("Braccio", 0.0, 100.0, v('braccio', 0.0), step=0.5)
-        
-        r2c1, r2c2, r2c3, r2c4 = st.columns(4)
-        vita = r2c1.number_input("Vita", 0.0, 200.0, v('vita', 0.0), step=0.5)
-        fianchi = r2c2.number_input("Fianchi", 0.0, 200.0, v('fianchi', 0.0), step=0.5)
-        coscia = r2c3.number_input("Coscia", 0.0, 100.0, v('coscia', 0.0), step=0.5)
-        polpaccio = r2c4.number_input("Polpaccio", 0.0, 100.0, v('polpaccio', 0.0), step=0.5)
-        
-    note_val = dati_pre.get('note', "") if dati_pre else ""
-    note = st.text_area("📝 Note Tecniche", value=note_val)
-    
-    if st.button("💾 Salva Check-up", type="primary"):
-        dati = {
-            "data": dt, "peso": peso, "grasso": grasso, "muscolo": muscolo, "acqua": 0,
-            "collo": collo, "spalle": spalle, "torace": torace, "braccio": braccio,
-            "vita": vita, "fianchi": fianchi, "coscia": coscia, "polpaccio": polpaccio,
-            "note": note
-        }
-        try:
-            if id_misura: 
-                db.update_misurazione(id_misura, dati)
-            else: 
-                db.add_misurazione_completa(id_cliente, dati)
-            st.success("Salvato!")
-            st.rerun()
-        except Exception as e:
-            st.error(f"Errore nel salvataggio: {str(e)}")
 
 @st.experimental_dialog("Nuovo Contratto")
 def dialog_vendita(id_cl):
@@ -244,7 +171,6 @@ if st.session_state.get('new_c'):
 elif sel_id:
     cli = db.get_cliente_full(sel_id)
     fin = db.get_cliente_financial_history(sel_id)
-    prog = db.get_progressi_cliente(sel_id)
     
     with st.container():
         c1, c2, c3, c4 = st.columns([1, 3, 1.5, 1.5])
@@ -254,34 +180,15 @@ elif sel_id:
         saldo = fin['saldo_globale']
         c4.metric("Saldo", f"€ {saldo:.0f}", delta="OK" if saldo <= 0 else "DA SALDARE", delta_color="inverse" if saldo > 0 else "normal")
 
-    tabs = st.tabs(["🚀 Performance", "📂 Cartella", "💳 Contratti & Rate", "📅 Diario"])
+    tabs = st.tabs(["� Cartella", "💳 Contratti & Rate", "📅 Diario"])
+    
+    # Link a Assessment & Allenamenti
+    st.info("""
+    🏋️ **Per gestire Assessment, Test di Forza e Progressi Allenamento:**
+    Vai alla pagina **🏋️ Assessment & Allenamenti**
+    """)
 
-    with tabs[0]: # Performance
-        if prog.empty: 
-            st.info("Nessun dato.")
-            if st.button("➕ Primo Check-up", type="primary"):
-                dialog_misurazione(sel_id)
-        else:
-            col_tools, _ = st.columns([1, 4])
-            if col_tools.button("➕ Nuovo Check-up", type="primary"): dialog_misurazione(sel_id)
-            
-            last = prog.iloc[0]; prev = prog.iloc[1] if len(prog) > 1 else last
-            k1, k2, k3, k4 = st.columns(4)
-            k1.metric("Peso", f"{last['peso']} kg", delta=f"{last['peso']-prev['peso']:.1f}")
-            k2.metric("BF", f"{last['massa_grassa']}%", delta=f"{last['massa_grassa']-prev['massa_grassa']:.1f}")
-            k3.metric("Vita", f"{last.get('vita',0)}", delta=f"{last.get('vita',0)-prev.get('vita',0):.1f}")
-            k4.metric("Torace", f"{last.get('torace',0)}", delta=f"{last.get('torace',0)-prev.get('torace',0):.1f}")
-            
-            g1, g2 = st.columns([2, 1])
-            with g1: st.plotly_chart(px.area(prog.sort_values('data_misurazione'), x='data_misurazione', y='peso', title="Trend Peso"), use_container_width=True)
-            with g2: st.plotly_chart(plot_radar_chart(prog), use_container_width=True)
-            
-            with st.expander("Storico"):
-                for _, r in prog.iterrows():
-                    if st.button(f"✏️ {pd.to_datetime(r['data_misurazione']).strftime('%d/%m')} - Peso: {r['peso']}", key=f"e_{r['id']}"):
-                        dialog_misurazione(sel_id, r.to_dict(), r['id'])
-
-    with tabs[1]: # Cartella Restaurata
+    with tabs[0]: # Cartella Restaurata
         ana = json.loads(cli['anamnesi_json']) if cli['anamnesi_json'] else {}
         with st.form("ana_form"):
             st.subheader("👤 Anagrafica")
@@ -311,7 +218,7 @@ elif sel_id:
                 }, sel_id)
                 st.success("Aggiornato!"); st.rerun()
 
-    with tabs[2]: # Contratti & Pagamenti
+    with tabs[1]: # Contratti & Pagamenti
         # --- RIEPILOGO PAGAMENTI GLOBALE ---
         st.subheader("📊 Riepilogo Finanziario")
         fin_cols = st.columns(5)
@@ -373,7 +280,7 @@ elif sel_id:
                                 dialog_edit_rata(r, c['prezzo_totale'])
                     if st.button("➕ Rata", key=f"ar_{c['id']}"): dialog_add_rata(c['id'])
     
-    with tabs[3]: # Storico Pagamenti + Lezioni
+    with tabs[2]: # Storico Pagamenti + Lezioni
         st.subheader("📜 Storico Attività")
         
         sub_tab1, sub_tab2 = st.tabs(["💳 Movimenti Finanziari", "📅 Lezioni"])
