@@ -1,4 +1,4 @@
-# file: core/crm_db.py (Versione FitManager 4.0 - Consolidated)
+# file: core/crm_db.py
 from __future__ import annotations
 import sqlite3
 from pathlib import Path
@@ -34,7 +34,7 @@ class CrmDBManager:
                 nome TEXT NOT NULL, cognome TEXT NOT NULL,
                 telefono TEXT, email TEXT,
                 data_nascita DATE, sesso TEXT,
-                anamnesi_json TEXT,
+                anamnesi_json TEXT,      -- Contiene: Stile Vita, Clinica, Obiettivi
                 stato TEXT DEFAULT 'Attivo',
                 data_creazione DATETIME DEFAULT CURRENT_TIMESTAMP
             )""")
@@ -74,15 +74,29 @@ class CrmDBManager:
                 stato TEXT DEFAULT 'Programmato', note TEXT
             )""")
 
-            # 5. MISURAZIONI (Per i grafici progressi)
+            # 5. MISURAZIONI AVANZATE
             cursor.execute("""
             CREATE TABLE IF NOT EXISTS misurazioni (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 id_cliente INTEGER NOT NULL,
                 data_misurazione DATE DEFAULT CURRENT_DATE,
+                
+                -- Composizione Corporea
                 peso REAL,
-                massa_grassa REAL,
-                circonferenza_vita REAL,
+                massa_grassa REAL, -- %
+                massa_magra REAL,  -- % o kg
+                acqua REAL,        -- %
+                
+                -- Circonferenze (cm)
+                collo REAL,
+                spalle REAL,
+                torace REAL,
+                braccio REAL,
+                vita REAL,
+                fianchi REAL,
+                coscia REAL,
+                polpaccio REAL,
+                
                 note TEXT
             )""")
             
@@ -103,26 +117,39 @@ class CrmDBManager:
         with self._connect() as conn: return [dict(r) for r in conn.execute("SELECT id, nome, cognome FROM clienti WHERE stato='Attivo' ORDER BY cognome").fetchall()]
 
     def save_cliente(self, dati: Dict[str, Any], id_cliente: Optional[int] = None):
+        # FIX: Uso .get() per evitare KeyError se mancano campi opzionali
         anamnesi = json.dumps(dati.get('anamnesi', {}))
+        nome = dati.get('nome', '')
+        cognome = dati.get('cognome', '')
+        telefono = dati.get('telefono', '')
+        email = dati.get('email', '')
+        nascita = dati.get('data_nascita')
+        sesso = dati.get('sesso', 'Uomo')
+        stato = dati.get('stato', 'Attivo')
+
         with self.transaction() as cur:
             if id_cliente:
-                cur.execute("UPDATE clienti SET nome=?, cognome=?, telefono=?, email=?, data_nascita=?, sesso=?, anamnesi_json=?, stato=? WHERE id=?", 
-                           (dati['nome'], dati['cognome'], dati['telefono'], dati['email'], dati['nascita'], dati['sesso'], anamnesi, dati['stato'], id_cliente))
+                cur.execute("""
+                    UPDATE clienti SET nome=?, cognome=?, telefono=?, email=?, data_nascita=?, sesso=?, anamnesi_json=?, stato=?
+                    WHERE id=?
+                """, (nome, cognome, telefono, email, nascita, sesso, anamnesi, stato, id_cliente))
             else:
-                cur.execute("INSERT INTO clienti (nome, cognome, telefono, email, data_nascita, sesso, anamnesi_json, stato) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", 
-                           (dati['nome'], dati['cognome'], dati['telefono'], dati['email'], dati['nascita'], dati['sesso'], anamnesi, dati['stato']))
+                cur.execute("""
+                    INSERT INTO clienti (nome, cognome, telefono, email, data_nascita, sesso, anamnesi_json, stato)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (nome, cognome, telefono, email, nascita, sesso, anamnesi, stato))
 
     def get_cliente_full(self, id_cliente: int) -> Dict[str, Any]:
         with self._connect() as conn:
             cli = conn.execute("SELECT * FROM clienti WHERE id=?", (id_cliente,)).fetchone()
             if not cli: return None
             res = dict(cli)
-            # Calcolo rapido lezioni residue dall'ultimo contratto attivo
+            # Calcolo crediti residui
             contratto = conn.execute("SELECT * FROM contratti WHERE id_cliente=? AND chiuso=0 ORDER BY data_inizio DESC LIMIT 1", (id_cliente,)).fetchone()
             res['lezioni_residue'] = (contratto['crediti_totali'] - contratto['crediti_usati']) if contratto else 0
             return res
 
-    # --- API AMMINISTRAZIONE & CASSA ---
+    # --- API FINANZIARIE ---
     def get_cliente_financial_history(self, id_cliente):
         with self._connect() as conn:
             contratti = conn.execute("SELECT * FROM contratti WHERE id_cliente=? ORDER BY data_vendita DESC", (id_cliente,)).fetchall()
@@ -134,12 +161,14 @@ class CrmDBManager:
     def crea_contratto_vendita(self, id_cliente, pacchetto, prezzo, crediti, start, end, acconto=0, metodo_acconto=None):
         with self.transaction() as cur:
             stato_pag = 'SALDATO' if acconto >= prezzo else 'PARZIALE' if acconto > 0 else 'PENDENTE'
-            cur.execute("INSERT INTO contratti (id_cliente, tipo_pacchetto, data_inizio, data_scadenza, crediti_totali, prezzo_totale, totale_versato, stato_pagamento) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", 
-                       (id_cliente, pacchetto, start, end, crediti, prezzo, acconto, stato_pag))
+            cur.execute("""INSERT INTO contratti (id_cliente, tipo_pacchetto, data_inizio, data_scadenza, crediti_totali, prezzo_totale, totale_versato, stato_pagamento) 
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""", 
+                           (id_cliente, pacchetto, start, end, crediti, prezzo, acconto, stato_pag))
             id_contr = cur.lastrowid
             if acconto > 0:
-                cur.execute("INSERT INTO movimenti_cassa (tipo, categoria, importo, metodo, id_cliente, id_contratto, note) VALUES ('ENTRATA', 'ACCONTO_CONTRATTO', ?, ?, ?, ?, 'Acconto contestuale')", 
-                           (acconto, metodo_acconto, id_cliente, id_contr))
+                cur.execute("""INSERT INTO movimenti_cassa (tipo, categoria, importo, metodo, id_cliente, id_contratto, note) 
+                               VALUES ('ENTRATA', 'ACCONTO_CONTRATTO', ?, ?, ?, ?, 'Acconto contestuale')""", 
+                               (acconto, metodo_acconto, id_cliente, id_contr))
 
     def registra_rata(self, id_contratto, importo, metodo, data_pagamento=None, note=""):
         if data_pagamento is None: data_pagamento = date.today()
@@ -147,28 +176,29 @@ class CrmDBManager:
             cur.execute("SELECT id_cliente, prezzo_totale, totale_versato FROM contratti WHERE id=?", (id_contratto,))
             c = cur.fetchone()
             if not c: return
+            
             nuovo_tot = c['totale_versato'] + importo
             stato = 'SALDATO' if nuovo_tot >= c['prezzo_totale'] else 'PARZIALE'
             
-            # Inserimento movimento con data manuale
-            cur.execute("INSERT INTO movimenti_cassa (data_movimento, tipo, categoria, importo, metodo, id_cliente, id_contratto, note) VALUES (?, 'ENTRATA', 'RATA_CONTRATTO', ?, ?, ?, ?, ?)", 
-                       (data_pagamento, importo, metodo, c['id_cliente'], id_contratto, note))
-            # Aggiornamento contratto
+            cur.execute("""INSERT INTO movimenti_cassa (data_movimento, tipo, categoria, importo, metodo, id_cliente, id_contratto, note) 
+                           VALUES (?, 'ENTRATA', 'RATA_CONTRATTO', ?, ?, ?, ?, ?)""", 
+                           (data_pagamento, importo, metodo, c['id_cliente'], id_contratto, note))
+            
             cur.execute("UPDATE contratti SET totale_versato=?, stato_pagamento=? WHERE id=?", (nuovo_tot, stato, id_contratto))
 
-    # --- API AGENDA & STORICO ---
+    # --- API AGENDA & CONSUMO CREDITI ---
     def add_evento(self, start, end, categoria, titolo, id_cliente=None, note=""):
         with self.transaction() as cur:
             id_contr = None
             if categoria == 'PT' and id_cliente:
-                # Scala credito dal contratto attivo più vecchio non esaurito
+                # Cerca pacchetto valido
                 cur.execute("SELECT id FROM contratti WHERE id_cliente=? AND chiuso=0 AND crediti_usati < crediti_totali ORDER BY data_inizio ASC LIMIT 1", (id_cliente,))
                 res = cur.fetchone()
                 if res: 
                     id_contr = res['id']
                     cur.execute("UPDATE contratti SET crediti_usati = crediti_usati + 1 WHERE id=?", (id_contr,))
                 else: 
-                    note += " [⚠️ NO CREDITO SCALATO]"
+                    note += " [⚠️ NO CREDITO]"
             
             cur.execute("INSERT INTO agenda (data_inizio, data_fine, categoria, titolo, id_cliente, id_contratto, note) VALUES (?, ?, ?, ?, ?, ?, ?)", (start, end, categoria, titolo, id_cliente, id_contr, note))
 
@@ -183,7 +213,7 @@ class CrmDBManager:
         with self.transaction() as cur:
             cur.execute("SELECT id_contratto FROM agenda WHERE id=?", (id_ev,))
             row = cur.fetchone()
-            if row and row['id_contratto']: 
+            if row and row['id_contratto']:
                 cur.execute("UPDATE contratti SET crediti_usati = crediti_usati - 1 WHERE id=?", (row['id_contratto'],))
             cur.execute("DELETE FROM agenda WHERE id=?", (id_ev,))
 
@@ -191,10 +221,24 @@ class CrmDBManager:
         q = "SELECT a.*, c.tipo_pacchetto FROM agenda a LEFT JOIN contratti c ON a.id_contratto=c.id WHERE a.id_cliente=? ORDER BY a.data_inizio DESC"
         with self._connect() as conn: return [dict(r) for r in conn.execute(q, (id_cliente,)).fetchall()]
 
-    # --- API MISURAZIONI (PROGRESSI) ---
-    def add_misurazione(self, id_cliente, peso, grasso, vita, note=""):
+    # --- API MISURAZIONI (AVANZATE) ---
+    def add_misurazione_completa(self, id_cliente, dati: Dict[str, Any]):
+        # Uso .get() anche qui per sicurezza
         with self.transaction() as cur:
-            cur.execute("INSERT INTO misurazioni (id_cliente, data_misurazione, peso, massa_grassa, circonferenza_vita, note) VALUES (?, DATE('now'), ?, ?, ?, ?)", (id_cliente, peso, grasso, vita, note))
+            cur.execute("""
+                INSERT INTO misurazioni (
+                    id_cliente, data_misurazione, 
+                    peso, massa_grassa, massa_magra, acqua,
+                    collo, spalle, torace, braccio, vita, fianchi, coscia, polpaccio,
+                    note
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                id_cliente, dati.get('data'),
+                dati.get('peso'), dati.get('grasso'), dati.get('muscolo'), dati.get('acqua'),
+                dati.get('collo'), dati.get('spalle'), dati.get('torace'), dati.get('braccio'),
+                dati.get('vita'), dati.get('fianchi'), dati.get('coscia'), dati.get('polpaccio'),
+                dati.get('note')
+            ))
 
     def get_progressi_cliente(self, id_cliente):
         with self._connect() as conn: return pd.read_sql("SELECT * FROM misurazioni WHERE id_cliente=? ORDER BY data_misurazione", conn, params=(id_cliente,))
