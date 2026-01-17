@@ -119,6 +119,103 @@ class CrmDBManager:
                 collo REAL, spalle REAL, torace REAL, braccio REAL,
                 vita REAL, fianchi REAL, coscia REAL, polpaccio REAL, note TEXT
             )""")
+            cursor.execute("""CREATE TABLE IF NOT EXISTS client_assessment_initial (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id_cliente INTEGER NOT NULL UNIQUE,
+                data_assessment DATE DEFAULT CURRENT_DATE,
+                
+                altezza_cm REAL,
+                peso_kg REAL,
+                massa_grassa_pct REAL,
+                
+                circonferenza_petto_cm REAL,
+                circonferenza_vita_cm REAL,
+                circonferenza_bicipite_sx_cm REAL,
+                circonferenza_bicipite_dx_cm REAL,
+                circonferenza_fianchi_cm REAL,
+                circonferenza_quadricipite_sx_cm REAL,
+                circonferenza_quadricipite_dx_cm REAL,
+                circonferenza_coscia_sx_cm REAL,
+                circonferenza_coscia_dx_cm REAL,
+                
+                pushups_reps INTEGER,
+                pushups_note TEXT,
+                
+                panca_peso_kg REAL,
+                panca_reps INTEGER,
+                panca_note TEXT,
+                
+                rematore_peso_kg REAL,
+                rematore_reps INTEGER,
+                rematore_note TEXT,
+                
+                lat_machine_peso_kg REAL,
+                lat_machine_reps INTEGER,
+                lat_machine_note TEXT,
+                
+                squat_bastone_note TEXT,
+                squat_macchina_peso_kg REAL,
+                squat_macchina_reps INTEGER,
+                squat_macchina_note TEXT,
+                
+                mobilita_spalle_note TEXT,
+                mobilita_gomiti_note TEXT,
+                mobilita_polsi_note TEXT,
+                mobilita_anche_note TEXT,
+                mobilita_schiena_note TEXT,
+                
+                infortuni_pregessi TEXT,
+                infortuni_attuali TEXT,
+                limitazioni TEXT,
+                storia_medica TEXT,
+                
+                goals_quantificabili TEXT,
+                goals_benessere TEXT,
+                
+                foto_fronte_path VARCHAR,
+                foto_lato_path VARCHAR,
+                foto_dietro_path VARCHAR,
+                
+                note_colloquio TEXT,
+                
+                data_creazione DATETIME DEFAULT CURRENT_TIMESTAMP
+            )""")
+            cursor.execute("""CREATE TABLE IF NOT EXISTS client_assessment_followup (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id_cliente INTEGER NOT NULL,
+                data_followup DATE DEFAULT CURRENT_DATE,
+                
+                peso_kg REAL,
+                massa_grassa_pct REAL,
+                
+                circonferenza_petto_cm REAL,
+                circonferenza_vita_cm REAL,
+                circonferenza_bicipite_sx_cm REAL,
+                circonferenza_bicipite_dx_cm REAL,
+                circonferenza_fianchi_cm REAL,
+                circonferenza_quadricipite_sx_cm REAL,
+                circonferenza_quadricipite_dx_cm REAL,
+                circonferenza_coscia_sx_cm REAL,
+                circonferenza_coscia_dx_cm REAL,
+                
+                pushups_reps INTEGER,
+                panca_peso_kg REAL,
+                panca_reps INTEGER,
+                rematore_peso_kg REAL,
+                rematore_reps INTEGER,
+                squat_peso_kg REAL,
+                squat_reps INTEGER,
+                
+                goals_progress TEXT,
+                
+                foto_fronte_path VARCHAR,
+                foto_lato_path VARCHAR,
+                foto_dietro_path VARCHAR,
+                
+                note_followup TEXT,
+                
+                data_creazione DATETIME DEFAULT CURRENT_TIMESTAMP
+            )""")
             conn.commit()
         
         # === MIGRAZIONI (esegui DOPO che la connessione è stata chiusa e committata) ===
@@ -437,3 +534,105 @@ class CrmDBManager:
         with self.transaction() as cur: cur.execute("UPDATE misurazioni SET data_misurazione=?, peso=?, massa_grassa=?, massa_magra=?, acqua=?, collo=?, spalle=?, torace=?, braccio=?, vita=?, fianchi=?, coscia=?, polpaccio=?, note=? WHERE id=?", (dati.get('data'), dati.get('peso'), dati.get('grasso'), dati.get('muscolo'), dati.get('acqua'), dati.get('collo'), dati.get('spalle'), dati.get('torace'), dati.get('braccio'), dati.get('vita'), dati.get('fianchi'), dati.get('coscia'), dati.get('polpaccio'), dati.get('note'), id_misura))
     def get_progressi_cliente(self, id_cliente):
         with self._connect() as conn: return pd.read_sql("SELECT * FROM misurazioni WHERE id_cliente=? ORDER BY data_misurazione DESC", conn, params=(id_cliente,))
+
+    # --- ASSESSMENTS ---
+    def save_assessment_initial(self, id_cliente, dati):
+        """Salva assessment iniziale completo per un cliente"""
+        with self.transaction() as cur:
+            cur.execute("""
+                INSERT OR REPLACE INTO client_assessment_initial 
+                (id_cliente, data_assessment, altezza_cm, peso_kg, massa_grassa_pct,
+                 circonferenza_petto_cm, circonferenza_vita_cm, circonferenza_bicipite_sx_cm, 
+                 circonferenza_bicipite_dx_cm, circonferenza_fianchi_cm, circonferenza_quadricipite_sx_cm,
+                 circonferenza_quadricipite_dx_cm, circonferenza_coscia_sx_cm, circonferenza_coscia_dx_cm,
+                 pushups_reps, pushups_note, panca_peso_kg, panca_reps, panca_note,
+                 rematore_peso_kg, rematore_reps, rematore_note, lat_machine_peso_kg, lat_machine_reps,
+                 lat_machine_note, squat_bastone_note, squat_macchina_peso_kg, squat_macchina_reps,
+                 squat_macchina_note, mobilita_spalle_note, mobilita_gomiti_note, mobilita_polsi_note,
+                 mobilita_anche_note, mobilita_schiena_note, infortuni_pregessi, infortuni_attuali,
+                 limitazioni, storia_medica, goals_quantificabili, goals_benessere,
+                 foto_fronte_path, foto_lato_path, foto_dietro_path, note_colloquio)
+                VALUES (?, date(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (id_cliente, dati.get('altezza_cm'), dati.get('peso_kg'), dati.get('massa_grassa_pct'),
+                  dati.get('circonferenza_petto_cm'), dati.get('circonferenza_vita_cm'),
+                  dati.get('circonferenza_bicipite_sx_cm'), dati.get('circonferenza_bicipite_dx_cm'),
+                  dati.get('circonferenza_fianchi_cm'), dati.get('circonferenza_quadricipite_sx_cm'),
+                  dati.get('circonferenza_quadricipite_dx_cm'), dati.get('circonferenza_coscia_sx_cm'),
+                  dati.get('circonferenza_coscia_dx_cm'), dati.get('pushups_reps'), dati.get('pushups_note'),
+                  dati.get('panca_peso_kg'), dati.get('panca_reps'), dati.get('panca_note'),
+                  dati.get('rematore_peso_kg'), dati.get('rematore_reps'), dati.get('rematore_note'),
+                  dati.get('lat_machine_peso_kg'), dati.get('lat_machine_reps'), dati.get('lat_machine_note'),
+                  dati.get('squat_bastone_note'), dati.get('squat_macchina_peso_kg'),
+                  dati.get('squat_macchina_reps'), dati.get('squat_macchina_note'),
+                  dati.get('mobilita_spalle_note'), dati.get('mobilita_gomiti_note'),
+                  dati.get('mobilita_polsi_note'), dati.get('mobilita_anche_note'),
+                  dati.get('mobilita_schiena_note'), dati.get('infortuni_pregessi'),
+                  dati.get('infortuni_attuali'), dati.get('limitazioni'), dati.get('storia_medica'),
+                  dati.get('goals_quantificabili'), dati.get('goals_benessere'),
+                  dati.get('foto_fronte_path'), dati.get('foto_lato_path'), dati.get('foto_dietro_path'),
+                  dati.get('note_colloquio')))
+
+    def get_assessment_initial(self, id_cliente):
+        """Recupera assessment iniziale di un cliente"""
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM client_assessment_initial WHERE id_cliente=?", (id_cliente,)).fetchone()
+            return dict(row) if row else None
+
+    def save_assessment_followup(self, id_cliente, dati):
+        """Salva followup assessment"""
+        with self.transaction() as cur:
+            cur.execute("""
+                INSERT INTO client_assessment_followup
+                (id_cliente, data_followup, peso_kg, massa_grassa_pct,
+                 circonferenza_petto_cm, circonferenza_vita_cm, circonferenza_bicipite_sx_cm,
+                 circonferenza_bicipite_dx_cm, circonferenza_fianchi_cm, circonferenza_quadricipite_sx_cm,
+                 circonferenza_quadricipite_dx_cm, circonferenza_coscia_sx_cm, circonferenza_coscia_dx_cm,
+                 pushups_reps, panca_peso_kg, panca_reps, rematore_peso_kg, rematore_reps,
+                 squat_peso_kg, squat_reps, goals_progress,
+                 foto_fronte_path, foto_lato_path, foto_dietro_path, note_followup)
+                VALUES (?, date(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (id_cliente, dati.get('peso_kg'), dati.get('massa_grassa_pct'),
+                  dati.get('circonferenza_petto_cm'), dati.get('circonferenza_vita_cm'),
+                  dati.get('circonferenza_bicipite_sx_cm'), dati.get('circonferenza_bicipite_dx_cm'),
+                  dati.get('circonferenza_fianchi_cm'), dati.get('circonferenza_quadricipite_sx_cm'),
+                  dati.get('circonferenza_quadricipite_dx_cm'), dati.get('circonferenza_coscia_sx_cm'),
+                  dati.get('circonferenza_coscia_dx_cm'), dati.get('pushups_reps'),
+                  dati.get('panca_peso_kg'), dati.get('panca_reps'), dati.get('rematore_peso_kg'),
+                  dati.get('rematore_reps'), dati.get('squat_peso_kg'), dati.get('squat_reps'),
+                  dati.get('goals_progress'), dati.get('foto_fronte_path'), dati.get('foto_lato_path'),
+                  dati.get('foto_dietro_path'), dati.get('note_followup')))
+
+    def get_assessment_followups(self, id_cliente):
+        """Recupera tutti i followup assessments di un cliente"""
+        with self._connect() as conn:
+            rows = conn.execute("""
+                SELECT * FROM client_assessment_followup 
+                WHERE id_cliente=? 
+                ORDER BY data_followup DESC
+            """, (id_cliente,)).fetchall()
+            return [dict(r) for r in rows]
+
+    def get_assessment_followup_latest(self, id_cliente):
+        """Recupera il followup assessment più recente"""
+        with self._connect() as conn:
+            row = conn.execute("""
+                SELECT * FROM client_assessment_followup 
+                WHERE id_cliente=? 
+                ORDER BY data_followup DESC 
+                LIMIT 1
+            """, (id_cliente,)).fetchone()
+            return dict(row) if row else None
+
+    def get_assessment_timeline(self, id_cliente):
+        """Recupera timeline completa di assessments (initial + followups)"""
+        with self._connect() as conn:
+            initial = conn.execute("SELECT * FROM client_assessment_initial WHERE id_cliente=?", (id_cliente,)).fetchone()
+            followups = conn.execute("SELECT * FROM client_assessment_followup WHERE id_cliente=? ORDER BY data_followup ASC", (id_cliente,)).fetchall()
+            
+            timeline = []
+            if initial:
+                timeline.append({"type": "initial", "data": dict(initial)})
+            for fu in followups:
+                timeline.append({"type": "followup", "data": dict(fu)})
+            
+            return timeline
