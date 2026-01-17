@@ -296,9 +296,25 @@ with tab2:
     if clienti_margine:
         df_clienti = pd.DataFrame(clienti_margine)
         
+        # Filtro clienti
+        col_filter1, col_filter2 = st.columns([3, 1])
+        with col_filter1:
+            clienti_lista = ['TUTTI'] + sorted(df_clienti['cliente'].unique().tolist())
+            cliente_sel = st.selectbox(
+                "Seleziona Cliente",
+                clienti_lista,
+                key="cliente_margine"
+            )
+        
+        # Filtra dati
+        if cliente_sel != 'TUTTI':
+            df_clienti_filtered = df_clienti[df_clienti['cliente'] == cliente_sel]
+        else:
+            df_clienti_filtered = df_clienti
+        
         # Tabella
         st.dataframe(
-            df_clienti[['cliente', 'sessioni', 'ore', 'fatturato', 'margine', 'margine_orario']],
+            df_clienti_filtered[['cliente', 'sessioni', 'ore', 'fatturato', 'margine', 'margine_orario']],
             use_container_width=True,
             column_config={
                 'cliente': 'Cliente',
@@ -310,13 +326,20 @@ with tab2:
             }
         )
         
-        # Grafico: Top clienti per margine
+        # Grafico: Top clienti per margine (o cliente selezionato)
+        if cliente_sel == 'TUTTI':
+            dati_grafico = df_clienti.nlargest(10, 'fatturato')
+            titolo = "Top 10 Clienti - Margine Orario"
+        else:
+            dati_grafico = df_clienti_filtered
+            titolo = f"Margine Orario - {cliente_sel}"
+        
         fig = px.bar(
-            df_clienti.nlargest(10, 'fatturato'),
+            dati_grafico,
             x='cliente',
             y='margine_orario',
             color='margine_orario',
-            title="Top 10 Clienti - Margine Orario",
+            title=titolo,
             labels={'margine_orario': 'Margine/Ora (€)', 'cliente': 'Cliente'},
             color_continuous_scale='RdYlGn'
         )
@@ -340,11 +363,11 @@ with tab3:
         df_ore_fat = pd.DataFrame([
             {
                 'Data': m['data'],
-                'Ore Pagate': m['ore_pagate'],
-                'Fatturato': m['fatturato_totale'],
-                'Fatturato/Ora': m['fatturato_totale'] / m['ore_pagate'] if m['ore_pagate'] > 0 else 0
+                'Ore Pagate': m['ore_fatturate'],
+                'Fatturato': m['entrate_totali'],
+                'Fatturato/Ora': m['entrate_totali'] / m['ore_fatturate'] if m['ore_fatturate'] > 0 else 0
             }
-            for m in daily_data if m['ore_pagate'] > 0
+            for m in daily_data if m['ore_fatturate'] > 0
         ])
         
         if len(df_ore_fat) == 0:
@@ -410,40 +433,37 @@ with tab4:
     st.markdown("### 💡 Raccomandazioni")
     
     if margine_attuale < target_margine:
-        gap_totale = (target_margine - margine_attuale) * metrics_data['ore_pagate']
+        gap_totale = (target_margine - margine_attuale) * metrics_data['ore_fatturate']
         
         col1, col2 = st.columns(2)
         
         with col1:
-            # Calcola percentuale occupazione slot
-            slot_tot = metrics_data.get('slot_disponibili', 0) + metrics_data.get('slot_occupati', 0)
-            occupazione_slot = (metrics_data.get('slot_occupati', 0) / slot_tot * 100) if slot_tot > 0 else 0
-            
             st.markdown(f"""
             **Gap da Colmare**: €{gap_totale:.2f}
             
             **Opzioni:**
-            1. **Aumenta Tariffe**: +{((target_margine - margine_attuale) / (metrics_data['fatturato_totale'] / metrics_data['ore_pagate']) * 100) if metrics_data['ore_pagate'] > 0 else 0:.1f}% per raggiungere il target
+            1. **Aumenta Tariffe**: +{((target_margine - margine_attuale) / (metrics_data['entrate_totali'] / metrics_data['ore_fatturate']) * 100) if metrics_data['ore_fatturate'] > 0 else 0:.1f}% per raggiungere il target
             2. **Riduci Costi**: Identifica spese variabili da ottimizzare
-            3. **Migliora Slot**: Occupazione slot al {occupazione_slot:.0f}%
+            3. **Aumenta Volume**: Vendi più ore per distribuire i costi fissi
             """)
         
         with col2:
             st.markdown(f"""
             **Analisi Oraria:**
-            - Ore Pagate: {metrics_data['ore_pagate']}h
-            - Ore Non Pagate: {metrics_data['ore_non_pagate']}h
-            - Fatturato/Ora: €{(metrics_data['fatturato_totale'] / metrics_data['ore_pagate']) if metrics_data['ore_pagate'] > 0 else 0:.2f}
-            - Costi/Ora: €{(metrics_data['costi_totali'] / metrics_data['ore_pagate']) if metrics_data['ore_pagate'] > 0 else 0:.2f}
+            - Ore Vendute: {metrics_data['ore_fatturate']}h
+            - Ore Eseguite: {metrics_data['ore_eseguite']}h
+            - Ore Rimanenti: {metrics_data['ore_rimanenti']}h
+            - Fatturato/Ora: €{(metrics_data['entrate_totali'] / metrics_data['ore_fatturate']) if metrics_data['ore_fatturate'] > 0 else 0:.2f}
+            - Costi/Ora: €{(metrics_data['costi_totali'] / metrics_data['ore_fatturate']) if metrics_data['ore_fatturate'] > 0 else 0:.2f}
             """)
     else:
         st.success("""
         ✅ **Target Raggiunto!**
         
         Mantieni questo livello di redditività e continua a monitorare:
-        - Equilibrio ore pagate/non pagate
-        - Tasso di occupazione slot
+        - Equilibrio ore vendute vs eseguite
         - Margine per cliente
+        - Fatturato e costi mensili
         """)
 
 st.divider()

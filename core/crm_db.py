@@ -430,87 +430,60 @@ class CrmDBManager:
     
     def calculate_unified_metrics(self, data_inizio: date, data_fine: date) -> Dict[str, Any]:
         """
-        Calcola metriche finanziarie unificate per un periodo.
+        Calcola metriche finanziarie COMPLETE e COERENTI per un periodo.
         
-        FORMULE USATE (da sincronizzare tra Cassa e Margine):
-        ─────────────────────────────────────────────────────
-        1. ENTRATE = SUM(importo) movimenti_cassa WHERE tipo='ENTRATA' AND data_effettiva IN [inizio, fine]
+        LOGICA UNIFICATA (fonte di verità unica: data_effettiva per tutti i movimenti):
+        ──────────────────────────────────────────────────────────────────────────────
         
-        2. ORE FATTURATE = SUM(crediti_totali) contratti WHERE sono COMPLETAMENTE PAGATI
-                          durante il periodo (date_vendita IN [inizio, fine])
+        ENTRATE = SUM(importo) FROM movimenti_cassa 
+                  WHERE tipo='ENTRATA' AND data_effettiva IN [inizio, fine]
         
-        3. ORE ESEGUITE = SUM(durata) agenda WHERE categoria IN ['Lezione', 'Allenamento'] 
-                         (per tracking, non per calcolo margine)
+        USCITE TOTALI = SUM(importo) FROM movimenti_cassa 
+                        WHERE tipo='USCITA' AND data_effettiva IN [inizio, fine]
         
-        4. COSTI FISSI MENSILI = SUM(importo) FROM spese_ricorrenti WHERE frequenza='MENSILE'
+        USCITE VARIABILI = uscite WHERE categoria IN ('SPESE_ATTREZZATURE', 'ALTRO')
         
-        5. COSTI FISSI PERIODO = (Costi Fissi Mensili / 30) * giorni_nel_periodo
+        USCITE FISSE = SUM(importo) FROM spese_ricorrenti 
+                       WHERE attiva=1 AND frequenza='MENSILE'
+                       SCALATE AL PERIODO: (mensili / 30) * giorni_periodo
         
-        6. COSTI VARIABILI = SUM(importo) WHERE tipo='USCITA' AND categoria IN ['SPESE_ATTREZZATURE', 'ALTRO']
+        ORE FATTURATE = SUM(crediti_totali) FROM contratti 
+                        WHERE data_vendita IN [inizio, fine] AND totale_versato > 0
+                        (ore PAGATE - solo contratti che hanno ricevuto almeno un pagamento)
         
-        7. MARGINE LORDO = Entrate - Costi Fissi Periodo - Costi Variabili
+        ORE ESEGUITE = SUM(crediti_usati) FROM contratti 
+                       WHERE data_vendita IN [inizio, fine]
+                       (ore effettivamente consumate)
         
-        8. MARGINE/ORA = Margine Lordo / ORE FATTURATE (ciò che effettivamente è stato pagato!)
+        RATE MANCANTI = SUM(importo_previsto) FROM rate_programmate
+                        WHERE stato != 'SALDATA' AND data_scadenza IN [inizio, fine]
         
-        Returns:
-            Dict con metriche unificate
+        MARGINE = Entrate - Uscite Variabili - Uscite Fisse (scalate)
+        MARGINE/ORA = Margine / Ore Fatturate (solo ore pagate)
         """
         with self._connect() as conn:
-            # 1. ENTRATE (soldi reali da movimenti_cassa)
+            giorni_periodo = (data_fine - data_inizio).days + 1
+            
+            # ═══════════════════════════════════════════
+            # 1. ENTRATE & USCITE (da movimenti_cassa)
+            # ═══════════════════════════════════════════
+            
+            # Entrate nel periodo
             entrate = conn.execute("""
                 SELECT COALESCE(SUM(importo), 0)
                 FROM movimenti_cassa
                 WHERE tipo='ENTRATA' AND data_effettiva BETWEEN ? AND ?
             """, (data_inizio, data_fine)).fetchone()[0]
             
-            # 2. ORE FATTURATE (da contratti PAGATI - crediti totali del contratto)
-            # Un contratto "pagato" è quando totale_versato >= prezzo_totale
-            ore_fatturate = conn.execute("""
-                SELECT COALESCE(SUM(crediti_totali), 0)
-                FROM contratti
-                WHERE data_vendita BETWEEN ? AND ?
-                AND totale_versato > 0
-            """, (data_inizio, data_fine)).fetchone()[0]
-            
-            # 3. ORE ESEGUITE (da agenda - solo per tracking)
-            ore_eseguite = conn.execute("""
-                SELECT COALESCE(SUM(
-                    (CAST(substr(data_fine, 12, 2) AS REAL) + 
-                     CAST(substr(data_fine, 15, 2) AS REAL)/60) -
-                    (CAST(substr(data_inizio, 12, 2) AS REAL) + 
-                     CAST(substr(data_inizio, 15, 2) AS REAL)/60)
-                ), 0)
-                FROM agenda
-                WHERE categoria IN ('Lezione', 'Allenamento', 'Sessione')
-                AND DATE(data_inizio) BETWEEN ? AND ?
-            """, (data_inizio, data_fine)).fetchone()[0]
-            
-            # 4. ORE NON PAGATE (admin, formazione, marketing)
-            ore_non_pagate = conn.execute("""
-                SELECT COALESCE(SUM(
-                    (CAST(substr(data_fine, 12, 2) AS REAL) + 
-                     CAST(substr(data_fine, 15, 2) AS REAL)/60) -
-                    (CAST(substr(data_inizio, 12, 2) AS REAL) + 
-                     CAST(substr(data_inizio, 15, 2) AS REAL)/60)
-                ), 0)
-                FROM agenda
-                WHERE categoria IN ('Admin', 'Formazione', 'Marketing', 'Riunione')
-                AND DATE(data_inizio) BETWEEN ? AND ?
-            """, (data_inizio, data_fine)).fetchone()[0]
-            
-            # 5. COSTI FISSI MENSILI
-            costi_fissi_mensili = conn.execute("""
+            # TUTTE le uscite nel periodo (per saldo complessivo)
+            uscite_totali = conn.execute("""
                 SELECT COALESCE(SUM(importo), 0)
-                FROM spese_ricorrenti
-                WHERE attiva=1 AND frequenza='MENSILE'
-            """).fetchone()[0]
+                FROM movimenti_cassa
+                WHERE tipo='USCITA' AND data_effettiva BETWEEN ? AND ?
+            """, (data_inizio, data_fine)).fetchone()[0]
             
-            # Calcola costi fissi proporzionali al periodo
-            giorni_periodo = (data_fine - data_inizio).days + 1
-            costi_fissi_periodo = (costi_fissi_mensili / 30) * giorni_periodo
-            
-            # 6. COSTI VARIABILI (da movimenti_cassa)
-            costi_variabili = conn.execute("""
+            # Uscite variabili nel periodo (da movimenti_cassa)
+            uscite_variabili = conn.execute("""
                 SELECT COALESCE(SUM(importo), 0)
                 FROM movimenti_cassa
                 WHERE tipo='USCITA' 
@@ -518,15 +491,62 @@ class CrmDBManager:
                 AND data_effettiva BETWEEN ? AND ?
             """, (data_inizio, data_fine)).fetchone()[0]
             
-            # 7. TOTALE COSTI
-            costi_totali = costi_fissi_periodo + costi_variabili
+            # ═══════════════════════════════════════════
+            # 2. COSTI FISSI (spese ricorrenti)
+            # ═══════════════════════════════════════════
             
-            # 8. MARGINE (basato su ORE FATTURATE - ciò che il cliente ha EFFETTIVAMENTE PAGATO)
-            margine_lordo = entrate - costi_totali
+            costi_fissi_mensili = conn.execute("""
+                SELECT COALESCE(SUM(importo), 0)
+                FROM spese_ricorrenti
+                WHERE attiva=1 AND frequenza='MENSILE'
+            """).fetchone()[0]
+            
+            # Scala al periodo reale
+            costi_fissi_periodo = (costi_fissi_mensili / 30) * giorni_periodo
+            
+            # ═══════════════════════════════════════════
+            # 3. ORE (da contratti)
+            # ═══════════════════════════════════════════
+            
+            # Ore PAGATE nel periodo (crediti_totali dove totale_versato > 0)
+            # Solo i contratti che hanno ricevuto almeno un pagamento contano
+            ore_fatturate = conn.execute("""
+                SELECT COALESCE(SUM(crediti_totali), 0)
+                FROM contratti
+                WHERE data_vendita BETWEEN ? AND ?
+                AND totale_versato > 0
+            """, (data_inizio, data_fine)).fetchone()[0]
+            
+            # Ore ESEGUITE nel periodo (crediti_usati)
+            ore_eseguite = conn.execute("""
+                SELECT COALESCE(SUM(crediti_usati), 0)
+                FROM contratti
+                WHERE data_vendita BETWEEN ? AND ?
+            """, (data_inizio, data_fine)).fetchone()[0]
+            
+            # Rate MANCANTI (non ancora incassate)
+            rate_mancanti = conn.execute("""
+                SELECT COALESCE(SUM(importo_previsto), 0)
+                FROM rate_programmate
+                WHERE stato != 'SALDATA'
+                AND data_scadenza BETWEEN ? AND ?
+            """, (data_inizio, data_fine)).fetchone()[0]
+            
+            # ═══════════════════════════════════════════
+            # 4. CALCOLI MARGINE
+            # ═══════════════════════════════════════════
+            
+            # Margine netto = Entrate - (Uscite Variabili + Uscite Fisse)
+            margine_lordo = entrate - uscite_variabili - costi_fissi_periodo
+            
+            # Margine/ora su ore vendute
             margine_orario = (margine_lordo / ore_fatturate) if ore_fatturate > 0 else 0
             
-            # 9. FATTURATO/ORA (per comparazione con ore eseguite)
+            # Fatturato/ora
             fatturato_per_ora = (entrate / ore_fatturate) if ore_fatturate > 0 else 0
+            
+            # Saldo = soldi in cassa
+            saldo = entrate - uscite_totali
             
             return {
                 'periodo_inizio': str(data_inizio),
@@ -534,30 +554,31 @@ class CrmDBManager:
                 'giorni': giorni_periodo,
                 
                 # ORE
-                'ore_fatturate': round(ore_fatturate, 2),  # ORE PAGATE DAL CLIENTE (da contratti)
-                'ore_eseguite': round(ore_eseguite, 2),    # Ore fisicamente eseguite (da agenda)
-                'ore_non_pagate': round(ore_non_pagate, 2),  # Ore admin/formazione
-                'ore_totali': round(ore_eseguite + ore_non_pagate, 2),
+                'ore_fatturate': round(ore_fatturate, 2),
+                'ore_eseguite': round(ore_eseguite, 2),
+                'ore_rimanenti': round(ore_fatturate - ore_eseguite, 2),
                 
-                # ENTRATE
+                # ENTRATE & SALDO
                 'entrate_totali': round(entrate, 2),
+                'rate_mancanti': round(rate_mancanti, 2),
+                'saldo_effettivo': round(saldo, 2),
                 'fatturato_per_ora': round(fatturato_per_ora, 2),
                 
-                # COSTI
+                # USCITE
+                'uscite_totali': round(uscite_totali, 2),
+                'uscite_variabili': round(uscite_variabili, 2),
                 'costi_fissi_mensili': round(costi_fissi_mensili, 2),
                 'costi_fissi_periodo': round(costi_fissi_periodo, 2),
-                'costi_variabili': round(costi_variabili, 2),
-                'costi_totali': round(costi_totali, 2),
+                'costi_totali': round(uscite_variabili + costi_fissi_periodo, 2),
                 
                 # MARGINE
                 'margine_lordo': round(margine_lordo, 2),
-                'margine_netto': round(margine_lordo, 2),  # Netto = Lordo in questo caso
+                'margine_netto': round(margine_lordo, 2),
                 'margine_orario': round(margine_orario, 2),
-                'margine_per_ora_costi_variabili': round((entrate - costi_variabili) / ore_fatturate, 2) if ore_fatturate > 0 else 0,
                 
                 # METADATA
-                'formula': 'Margine/Ora = (Entrate - Costi_Fissi_Periodo - Costi_Variabili) / Ore_Fatturate',
-                'note': 'Ore Fatturate = crediti totali da contratti PAGATI (ciò che il cliente ha effettivamente pagato)'
+                'formula': 'Margine = Entrate - Uscite_Variabili - Costi_Fissi_Periodo',
+                'note': 'Tutti i dati basati su data_effettiva (movimenti) e data_vendita (contratti)'
             }
     
     def get_daily_metrics_range(self, data_inizio: date, data_fine: date) -> list:
@@ -1197,11 +1218,13 @@ class CrmDBManager:
             }
     
     def get_hourly_metrics_period(self, data_inizio: date, data_fine: date) -> List[Dict[str, Any]]:
-        """Recupera metriche orarie per un periodo."""
+        """Recupera metriche unificate per un periodo (una riga per giorno)."""
         metrics = []
         current = data_inizio
         while current <= data_fine:
-            metrics.append(self.calculate_hourly_metrics(current))
+            m = self.calculate_unified_metrics(current, current)
+            m['data'] = str(current)
+            metrics.append(m)
             current += timedelta(days=1)
         return metrics
     

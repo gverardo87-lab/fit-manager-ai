@@ -56,13 +56,56 @@ with st.spinner("Caricamento dati finanziari..."):
     from calendar import monthrange
     ultimo_giorno_mese = monthrange(oggi.year, oggi.month)[1]
     ultimo_mese = date(oggi.year, oggi.month, ultimo_giorno_mese)
+
+# ════════════════════════════════════════════════════════════
+# FILTRI PERIODO ANALISI
+# ════════════════════════════════════════════════════════════
+
+col_filter1, col_filter2, col_filter3 = st.columns(3)
+
+with col_filter1:
+    tipo_periodo = st.radio(
+        "📅 Periodo Analisi",
+        ["Mese Solare", "Ultimi 30 giorni", "Ultimi 7 giorni", "Personalizzato"],
+        horizontal=True
+    )
+
+# Calcola il periodo in base alla selezione
+if tipo_periodo == "Mese Solare":
+    data_inizio = primo_mese
+    data_fine = ultimo_mese
+    label_periodo = f"{primo_mese.strftime('%d %b')} - {ultimo_mese.strftime('%d %b %Y')}"
+elif tipo_periodo == "Ultimi 30 giorni":
+    data_fine = oggi
+    data_inizio = oggi - timedelta(days=29)
+    label_periodo = f"{data_inizio.strftime('%d %b')} - {data_fine.strftime('%d %b %Y')} (ultimi 30gg)"
+elif tipo_periodo == "Ultimi 7 giorni":
+    data_fine = oggi
+    data_inizio = oggi - timedelta(days=6)
+    label_periodo = f"{data_inizio.strftime('%d %b')} - {data_fine.strftime('%d %b %Y')} (ultimi 7gg)"
+else:  # Personalizzato
+    with col_filter2:
+        data_inizio = st.date_input("Data Inizio", value=primo_mese, key="custom_start")
+    with col_filter3:
+        data_fine = st.date_input("Data Fine", value=ultimo_mese, key="custom_end")
+    label_periodo = f"{data_inizio.strftime('%d %b')} - {data_fine.strftime('%d %b %Y')} (custom)"
+
+st.caption(f"📍 Periodo selezionato: {label_periodo}")
+
+# Calcola metriche per il periodo selezionato
+with st.spinner("Ricalcolo metriche per periodo selezionato..."):
+    metriche_mese = db.calculate_unified_metrics(data_inizio, data_fine)
     
-    # Usa il metodo unificato per il mese
-    metriche_mese = db.calculate_unified_metrics(primo_mese, ultimo_mese)
+    # Carica movimenti per il periodo (per i grafici cashflow)
+    with db._connect() as conn:
+        movimenti_periodo = [dict(r) for r in conn.execute("""
+            SELECT * FROM movimenti_cassa
+            WHERE data_effettiva BETWEEN ? AND ?
+            ORDER BY data_effettiva
+        """, (data_inizio, data_fine)).fetchall()]
     
-    # Bilancio effettivo (legacy, per compatibilità)
+    # Bilancio storico totale (saldo complessivo della cassa)
     bilancio_eff = db.get_bilancio_effettivo()
-    bilancio_mese = db.get_bilancio_effettivo(primo_mese, None)
     
     # Previsione 30 giorni
     previsione = db.get_cashflow_previsione(30)
@@ -81,24 +124,24 @@ col1, col2, col3, col4 = st.columns(4)
 with col1:
     st.metric(
         "💼 Entrate Totali",
-        f"€ {bilancio_eff['entrate']:.2f}",
-        f"€ {bilancio_mese['entrate']:.2f} questo mese",
+        f"€ {metriche_mese['entrate_totali']:.2f}",
+        f"Fatturato/h: €{metriche_mese['fatturato_per_ora']:.2f}",
         delta_color="normal"
     )
 
 with col2:
     st.metric(
         "💸 Uscite Totali",
-        f"€ {bilancio_eff['uscite']:.2f}",
-        f"€ {bilancio_mese['uscite']:.2f} questo mese",
+        f"€ {metriche_mese['uscite_totali']:.2f}",
+        f"Variabili: €{metriche_mese['uscite_variabili']:.2f}",
         delta_color="inverse"
     )
 
 with col3:
     st.metric(
         "📈 Saldo Effettivo",
-        f"€ {bilancio_eff['saldo']:.2f}",
-        delta_color="normal" if bilancio_eff['saldo'] >= 0 else "inverse"
+        f"€ {metriche_mese['saldo_effettivo']:.2f}",
+        delta_color="normal" if metriche_mese['saldo_effettivo'] >= 0 else "inverse"
     )
 
 with col4:
@@ -108,7 +151,7 @@ with col4:
     st.metric(
         "👥 Clienti Attivi",
         clienti,
-        "nuovi questo mese" if True else "stabili",
+        "contratti nel periodo" if True else "stabili",
         delta_color="normal"
     )
 
@@ -130,7 +173,7 @@ with col_m1:
 
 with col_m2:
     st.metric(
-        "💰 Entrate Mese",
+        "💰 Entrate Periodo",
         f"€{metriche_mese['entrate_totali']:.2f}",
         f"da {metriche_mese['giorni']} giorni",
         delta_color="normal"
@@ -138,7 +181,7 @@ with col_m2:
 
 with col_m3:
     st.metric(
-        "💸 Costi Totali",
+        "💸 Costi Periodo",
         f"€{metriche_mese['costi_totali']:.2f}",
         f"Fissi: €{metriche_mese['costi_fissi_periodo']:.2f}",
         delta_color="inverse"
@@ -154,8 +197,8 @@ with col_m4:
 
 st.info(f"""
 📌 **Analisi Margine Mese {primo_mese.strftime('%B %Y')}**
-- **Formula**: Margine/Ora = (Entrate - Costi Fissi - Costi Variabili) / Ore Pagate
-- **Ore Non Pagate**: {metriche_mese['ore_non_pagate']:.1f}h (Admin, Formazione, ecc.)
+- **Formula**: Margine/Ora = (Entrate - Costi Fissi - Costi Variabili) / Ore Fatturate
+- **Ore Rimanenti**: {metriche_mese['ore_rimanenti']:.1f}h (ancora disponibili per i clienti)
 - **Costi Fissi Mensili**: €{metriche_mese['costi_fissi_mensili']:.2f}
 """)
 
@@ -163,11 +206,11 @@ st.info(f"""
 # CASHFLOW MESE CORRENTE
 # ════════════════════════════════════════════════════════════
 
-st.subheader("💵 Cashflow Mese Corrente", divider=True)
+st.subheader("💵 Cashflow Periodo Selezionato", divider=True)
 
-if len(bilancio_mese['movimenti']) > 0:
+if len(movimenti_periodo) > 0:
     # Preparare dati giornalieri usando data_effettiva
-    cf_mese = pd.DataFrame(bilancio_mese['movimenti'])
+    cf_mese = pd.DataFrame(movimenti_periodo)
     cf_mese['data_effettiva'] = pd.to_datetime(cf_mese['data_effettiva'], format='mixed')
     cf_mese['data_giorno'] = cf_mese['data_effettiva'].dt.date
     
@@ -224,9 +267,9 @@ if len(bilancio_mese['movimenti']) > 0:
     # Statistiche cashflow
     st.divider()
     cf_stat_col1, cf_stat_col2, cf_stat_col3, cf_stat_col4 = st.columns(4)
-    cf_stat_col1.metric("Entrate Mese", f"€ {bilancio_mese['entrate']:.2f}")
-    cf_stat_col2.metric("Uscite Mese", f"€ {bilancio_mese['uscite']:.2f}")
-    cf_stat_col3.metric("Saldo Netto Mese", f"€ {bilancio_mese['saldo']:.2f}")
+    cf_stat_col1.metric("Entrate Periodo", f"€ {metriche_mese['entrate_totali']:.2f}")
+    cf_stat_col2.metric("Uscite Periodo", f"€ {metriche_mese['uscite_totali']:.2f}")
+    cf_stat_col3.metric("Saldo Netto Periodo", f"€ {metriche_mese['saldo_effettivo']:.2f}")
     if len(cf_giornaliero) > 0 and 'ENTRATA' in cf_giornaliero.columns:
         cf_stat_col4.metric("Giorno con + Entrate", f"€ {cf_giornaliero['ENTRATA'].max():.2f}")
 else:
@@ -493,7 +536,7 @@ with tab2:
                         
                         r_col1.write(f"📅 {scad_date.strftime('%d/%m/%Y')}")
                         r_col2.write(f"€ {r['importo_previsto']:.2f}")
-                        r_col3.markdown(f":{color}[{color_tag}]") if color != "green" else r_col3.markdown(f":{color}[{color_tag}]")
+                        r_col3.markdown(f":{color}[{color_tag}]")
                         r_col4.caption(f"ID: {r['id']}")
                 else:
                     st.caption("Nessuna rata associata")
