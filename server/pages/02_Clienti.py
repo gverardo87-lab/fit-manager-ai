@@ -1,4 +1,4 @@
-# file: server/pages/02_Clienti.py (Versione 7.9 - Stable Form Logic)
+# file: server/pages/02_Clienti.py (Versione 8.0 - Stable NO-FORM)
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -36,7 +36,7 @@ def plot_radar_chart(df):
     fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, max(last.get('fianchi', 100), 120)])), showlegend=True, title="🕸️ Analisi Simmetria", margin=dict(t=40, b=20, l=40, r=40), height=350)
     return fig
 
-# --- DIALOGHI ---
+# --- DIALOGHI (NO FORMS per stabilità) ---
 
 @st.experimental_dialog("Laboratorio Biometrico")
 def dialog_misurazione(id_cliente, dati_pre=None, id_misura=None):
@@ -50,64 +50,58 @@ def dialog_misurazione(id_cliente, dati_pre=None, id_misura=None):
             return float(val) if val is not None else default
         return default
 
-    # FORM DATA
-    dati_salvataggio = {}
-    submitted = False
-
-    with st.form("form_misure_pro"):
-        d_def = date.today()
-        if dati_pre and 'data_misurazione' in dati_pre: 
-            try: d_def = pd.to_datetime(dati_pre['data_misurazione']).date()
-            except: pass
-            
-        dt = st.date_input("Data Rilevazione", value=d_def)
+    # INPUTS DIRETTI (Senza Form)
+    d_def = date.today()
+    if dati_pre and 'data_misurazione' in dati_pre: 
+        try: d_def = pd.to_datetime(dati_pre['data_misurazione']).date()
+        except: pass
         
-        t1, t2 = st.tabs(["⚖️ Composizione", "📏 Circonferenze"])
+    dt = st.date_input("Data Rilevazione", value=d_def)
+    
+    t1, t2 = st.tabs(["⚖️ Composizione", "📏 Circonferenze"])
+    
+    with t1:
+        c1, c2, c3 = st.columns(3)
+        peso = c1.number_input("Peso (kg)", 40.0, 200.0, v('peso', 70.0), step=0.1)
+        grasso = c2.number_input("Fat Mass (%)", 0.0, 60.0, v('massa_grassa', 15.0), step=0.1)
+        muscolo = c3.number_input("Muscle Mass (kg)", 0.0, 100.0, v('massa_magra', 0.0), step=0.1)
         
-        with t1:
-            c1, c2, c3 = st.columns(3)
-            peso = c1.number_input("Peso (kg)", 40.0, 200.0, v('peso', 70.0), step=0.1)
-            grasso = c2.number_input("Fat Mass (%)", 0.0, 60.0, v('massa_grassa', 15.0), step=0.1)
-            muscolo = c3.number_input("Muscle Mass (kg)", 0.0, 100.0, v('massa_magra', 0.0), step=0.1)
-            
-        with t2:
-            cc1, cc2 = st.columns(2)
-            collo = cc1.number_input("Collo", 0.0, 100.0, v('collo', 0.0), step=0.5)
-            spalle = cc2.number_input("Spalle", 0.0, 200.0, v('spalle', 0.0), step=0.5)
-            torace = cc1.number_input("Torace", 0.0, 200.0, v('torace', 0.0), step=0.5)
-            braccio = cc2.number_input("Braccio", 0.0, 100.0, v('braccio', 0.0), step=0.5)
-            
-            r2c1, r2c2, r2c3, r2c4 = st.columns(4)
-            vita = r2c1.number_input("Vita", 0.0, 200.0, v('vita', 0.0), step=0.5)
-            fianchi = r2c2.number_input("Fianchi", 0.0, 200.0, v('fianchi', 0.0), step=0.5)
-            coscia = r2c3.number_input("Coscia", 0.0, 100.0, v('coscia', 0.0), step=0.5)
-            polpaccio = r2c4.number_input("Polpaccio", 0.0, 100.0, v('polpaccio', 0.0), step=0.5)
-            
-        note_val = dati_pre.get('note', "") if dati_pre else ""
-        note = st.text_area("📝 Note Tecniche", value=note_val)
+    with t2:
+        cc1, cc2 = st.columns(2)
+        collo = cc1.number_input("Collo", 0.0, 100.0, v('collo', 0.0), step=0.5)
+        spalle = cc2.number_input("Spalle", 0.0, 200.0, v('spalle', 0.0), step=0.5)
+        torace = cc1.number_input("Torace", 0.0, 200.0, v('torace', 0.0), step=0.5)
+        braccio = cc2.number_input("Braccio", 0.0, 100.0, v('braccio', 0.0), step=0.5)
         
-        # IL BOTTONE DEVE ESSERE L'ULTIMA COSA NEL FORM
-        submitted = st.form_submit_button("💾 Salva Check-up", type="primary")
+        r2c1, r2c2, r2c3, r2c4 = st.columns(4)
+        vita = r2c1.number_input("Vita", 0.0, 200.0, v('vita', 0.0), step=0.5)
+        fianchi = r2c2.number_input("Fianchi", 0.0, 200.0, v('fianchi', 0.0), step=0.5)
+        coscia = r2c3.number_input("Coscia", 0.0, 100.0, v('coscia', 0.0), step=0.5)
+        polpaccio = r2c4.number_input("Polpaccio", 0.0, 100.0, v('polpaccio', 0.0), step=0.5)
         
-        if submitted:
-            dati_salvataggio = {
-                "data": dt, "peso": peso, "grasso": grasso, "muscolo": muscolo, "acqua": 0,
-                "collo": collo, "spalle": spalle, "torace": torace, "braccio": braccio,
-                "vita": vita, "fianchi": fianchi, "coscia": coscia, "polpaccio": polpaccio,
-                "note": note
-            }
-
-    # LOGICA ESEGUITA FUORI DAL FORM PER EVITARE CRASH
-    if submitted:
-        if id_misura: db.update_misurazione(id_misura, dati_salvataggio)
-        else: db.add_misurazione_completa(id_cliente, dati_salvataggio)
-        st.success("Salvato!")
-        st.rerun()
+    note_val = dati_pre.get('note', "") if dati_pre else ""
+    note = st.text_area("📝 Note Tecniche", value=note_val)
+    
+    if st.button("💾 Salva Check-up", type="primary"):
+        dati = {
+            "data": dt, "peso": peso, "grasso": grasso, "muscolo": muscolo, "acqua": 0,
+            "collo": collo, "spalle": spalle, "torace": torace, "braccio": braccio,
+            "vita": vita, "fianchi": fianchi, "coscia": coscia, "polpaccio": polpaccio,
+            "note": note
+        }
+        try:
+            if id_misura: 
+                db.update_misurazione(id_misura, dati)
+            else: 
+                db.add_misurazione_completa(id_cliente, dati)
+            st.success("Salvato!")
+            st.rerun()
+        except Exception as e:
+            st.error(f"Errore nel salvataggio: {str(e)}")
 
 @st.experimental_dialog("Nuovo Contratto")
 def dialog_vendita(id_cl):
     st.markdown("### 📝 Configurazione Accordo")
-    # WIZARD SENZA FORM PER INTERATTIVITÀ TOTALE
     
     st.caption("📦 Dettagli Pacchetto")
     c1, c2 = st.columns(2)
@@ -135,7 +129,6 @@ def dialog_vendita(id_cl):
         st.info("Configurazione Rate")
         cr1, cr2, cr3 = st.columns(3)
         
-        # Logica Bidirezionale
         tipo_calc = st.radio("Calcola in base a:", ["Numero Rate", "Importo Rata"], horizontal=True, label_visibility="collapsed")
         
         if tipo_calc == "Numero Rate":
@@ -178,20 +171,15 @@ def dialog_edit_rata(rata, totale_contratto):
     tab_pay, tab_edit = st.tabs(["💳 Incassa", "✏️ Modifica"])
     
     with tab_pay:
-        # Form pagamento semplice
-        with st.form("pay_rata"):
-            imp = st.number_input("Importo Versato", value=float(rata['importo_previsto']), step=10.0)
-            met = st.selectbox("Metodo", ["CONTANTI", "POS", "BONIFICO"])
-            dt = st.date_input("Data Incasso", value=date.today())
-            submitted_pay = st.form_submit_button("Registra Incasso", type="primary")
-            
-        if submitted_pay:
+        imp = st.number_input("Importo Versato", value=float(rata['importo_previsto']), step=10.0)
+        met = st.selectbox("Metodo", ["CONTANTI", "POS", "BONIFICO"])
+        dt = st.date_input("Data Incasso", value=date.today())
+        if st.button("Registra Incasso", type="primary"):
             db.paga_rata_specifica(rata['id'], imp, met, dt)
             st.success("Saldata!"); st.rerun()
 
     with tab_edit:
         st.caption("Modifica piano")
-        # NO FORM QUI per permettere interattività checkbox
         n_imp = st.number_input("Nuovo Importo", value=float(rata['importo_previsto']), step=5.0)
         n_date = st.date_input("Scadenza", value=pd.to_datetime(rata['data_scadenza']).date())
         smart = st.checkbox("Rimodula rate successive", value=True)
@@ -207,19 +195,15 @@ def dialog_edit_rata(rata, totale_contratto):
 @st.experimental_dialog("Aggiungi Rata")
 def dialog_add_rata(id_contratto):
     st.markdown("### ➕ Nuova Rata")
-    with st.form("add_r"):
-        dt = st.date_input("Scadenza", value=date.today() + timedelta(days=30))
-        imp = st.number_input("Importo", value=100.0)
-        desc = st.text_input("Descrizione", value="Rata Extra")
-        sub = st.form_submit_button("Aggiungi")
-        
-    if sub:
+    dt = st.date_input("Scadenza", value=date.today() + timedelta(days=30))
+    imp = st.number_input("Importo", value=100.0)
+    desc = st.text_input("Descrizione", value="Rata Extra")
+    if st.button("Aggiungi"):
         db.aggiungi_rata_manuale(id_contratto, dt, imp, desc); st.rerun()
 
 @st.experimental_dialog("Modifica Contratto")
 def dialog_edit_contratto(c):
     st.markdown("### Gestione Contratto")
-    # NO FORM per avere bottoni distinti
     p = st.number_input("Totale (€)", value=float(c['prezzo_totale']))
     cr = st.number_input("Crediti", value=int(c['crediti_totali']))
     scad = st.date_input("Scadenza", value=pd.to_datetime(c['data_scadenza']).date())
@@ -273,7 +257,10 @@ elif sel_id:
     tabs = st.tabs(["🚀 Performance", "📂 Cartella", "💳 Contratti & Rate", "📅 Diario"])
 
     with tabs[0]: # Performance
-        if prog.empty: st.info("Nessun dato."); st.button("➕ Primo Check-up", on_click=lambda: dialog_misurazione(sel_id))
+        if prog.empty: 
+            st.info("Nessun dato.")
+            if st.button("➕ Primo Check-up", type="primary"):
+                dialog_misurazione(sel_id)
         else:
             col_tools, _ = st.columns([1, 4])
             if col_tools.button("➕ Nuovo Check-up", type="primary"): dialog_misurazione(sel_id)

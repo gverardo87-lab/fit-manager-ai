@@ -1,4 +1,4 @@
-# file: core/crm_db.py (Versione 7.7 - Final Core)
+# file: core/crm_db.py (Versione 8.0 - Stable Core)
 from __future__ import annotations
 import sqlite3
 from pathlib import Path
@@ -91,24 +91,23 @@ class CrmDBManager:
     # --- LOGICA RATE INTELLIGENTE ---
     def rimodula_piano_rate(self, id_contratto, id_rata_modificata, nuovo_importo_rata, nuova_data=None):
         with self.transaction() as cur:
-            # 1. Totale Contratto
             cur.execute("SELECT prezzo_totale FROM contratti WHERE id=?", (id_contratto,))
             res = cur.fetchone()
             if not res: return
             totale_contratto = res['prezzo_totale']
 
-            # 2. Acconto Versato (Movimenti di tipo ACCONTO)
+            # Acconto
             cur.execute("SELECT SUM(importo) as acconto FROM movimenti_cassa WHERE id_contratto=? AND categoria='ACCONTO_CONTRATTO'", (id_contratto,))
             res_acc = cur.fetchone()
             acconto = res_acc['acconto'] if res_acc and res_acc['acconto'] else 0.0
 
-            # 3. Aggiorna rata target
+            # Aggiorna rata target
             if nuova_data:
                 cur.execute("UPDATE rate_programmate SET importo_previsto=?, data_scadenza=? WHERE id=?", (nuovo_importo_rata, nuova_data, id_rata_modificata))
             else:
                 cur.execute("UPDATE rate_programmate SET importo_previsto=? WHERE id=?", (nuovo_importo_rata, id_rata_modificata))
 
-            # 4. Ricalcola le altre
+            # Ricalcola le altre
             cur.execute("SELECT * FROM rate_programmate WHERE id_contratto=? ORDER BY data_scadenza ASC, id ASC", (id_contratto,))
             tutte = [dict(r) for r in cur.fetchall()]
 
@@ -121,7 +120,7 @@ class CrmDBManager:
                 else: da_spalmare.append(r)
 
             residuo = totale_contratto - bloccato
-            if residuo < 0: residuo = 0 # Safety check
+            if residuo < 0: residuo = 0 
 
             if da_spalmare:
                 val_singolo = residuo / len(da_spalmare)
