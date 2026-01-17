@@ -46,6 +46,10 @@ st.info("""
 
 # Fetch dati usando la NUOVA logica pulita
 with st.spinner("Caricamento dati finanziari..."):
+    # IMPORTANTE: Sincronizza lo stato dei contratti da movimenti RATA_CONTRATTO
+    # (utile quando i pagamenti sono stati registrati direttamente come movimenti)
+    db.sincronizza_stato_contratti_da_movimenti()
+    
     # Metriche unificate per il mese corrente
     oggi = date.today()
     primo_mese = date(oggi.year, oggi.month, 1)
@@ -118,9 +122,9 @@ col_m1, col_m2, col_m3, col_m4 = st.columns(4)
 
 with col_m1:
     st.metric(
-        "⏱️ Ore Pagate",
-        f"{metriche_mese['ore_pagate']:.1f}h",
-        f"€{metriche_mese['fatturato_per_ora']:.2f}/h",
+        "⏱️ Ore Fatturate",
+        f"{metriche_mese['ore_fatturate']:.1f}h",
+        f"Eseguite: {metriche_mese['ore_eseguite']:.1f}h",
         delta_color="normal"
     )
 
@@ -416,30 +420,47 @@ with tab1:
 with tab2:
     st.subheader("⏰ Scadenziario Pagamenti Clienti")
     
-    # Query su contratti con rate pendenti
+    # Query su TUTTI i contratti per mostrare lo stato completo
     with db._connect() as conn:
         contratti = conn.execute("""
             SELECT c.id, c.id_cliente, c.tipo_pacchetto, c.prezzo_totale, c.totale_versato, 
-                   cli.nome, cli.cognome, c.stato_pagamento
+                   cli.nome, cli.cognome, c.stato_pagamento, c.data_vendita
             FROM contratti c
             JOIN clienti cli ON c.id_cliente = cli.id
-            WHERE c.stato_pagamento != 'SALDATO' 
             ORDER BY c.data_vendita DESC
         """).fetchall()
     
     if len(contratti) > 0:
-        # Mostra contratti non saldati
+        # Filtri
+        col_tab2_filt1, col_tab2_filt2 = st.columns(2)
+        with col_tab2_filt1:
+            stato_filt = st.multiselect(
+                "Filtra per stato pagamento",
+                ["SALDATO", "PARZIALE", "PENDENTE"],
+                default=["PARZIALE", "PENDENTE"],
+                key="stato_filt_tab2"
+            )
+        
+        # Mostra contratti filtrati
         for contr in contratti:
+            if contr['stato_pagamento'] not in stato_filt:
+                continue
+            
             rate = db.get_rate_contratto(contr['id'])
             
             with st.container(border=True):
                 # Header
-                h1, h2, h3 = st.columns([2, 2, 1])
+                h1, h2, h3, h4 = st.columns([2, 2, 1.2, 1])
                 h1.markdown(f"**{contr['nome']} {contr['cognome']}** - {contr['tipo_pacchetto']}")
                 h2.caption(f"Saldo: € {contr['totale_versato']:.2f} / € {contr['prezzo_totale']:.2f}")
                 
-                status_icon = "🟢" if contr['stato_pagamento'] == 'SALDATO' else "🟡" if contr['stato_pagamento'] == 'PARZIALE' else "🔴"
-                h3.write(f"{status_icon} {contr['stato_pagamento']}")
+                status_icon = "✅" if contr['stato_pagamento'] == 'SALDATO' else "⏳" if contr['stato_pagamento'] == 'PARZIALE' else "❌"
+                percentuale_pagato = (contr['totale_versato'] / contr['prezzo_totale'] * 100) if contr['prezzo_totale'] > 0 else 0
+                h3.write(f"{status_icon} {percentuale_pagato:.0f}%")
+                h4.caption(f"Vendita: {contr['data_vendita']}")
+                
+                # Barra di progresso
+                st.progress(min(percentuale_pagato / 100, 1.0), text=f"{percentuale_pagato:.1f}% pagato")
                 
                 # Rate
                 if rate:
@@ -447,19 +468,37 @@ with tab2:
                     rate_df['data_scadenza'] = pd.to_datetime(rate_df['data_scadenza'])
                     rate_df = rate_df.sort_values('data_scadenza')
                     
+                    # Intestazione tabella rate
+                    rate_h1, rate_h2, rate_h3, rate_h4 = st.columns([1.5, 1.5, 1, 1])
+                    rate_h1.caption("**Scadenza**")
+                    rate_h2.caption("**Importo**")
+                    rate_h3.caption("**Stato**")
+                    rate_h4.caption("**Azioni**")
+                    
                     for r in rate_df.to_dict('records'):
-                        r_col1, r_col2, r_col3, r_col4 = st.columns([2, 2, 1.5, 1.5])
+                        r_col1, r_col2, r_col3, r_col4 = st.columns([1.5, 1.5, 1, 1])
                         
                         scad_date = pd.to_datetime(r['data_scadenza']).date()
                         is_overdue = scad_date < date.today() and r['stato'] != 'SALDATA'
-                        color = "red" if is_overdue else "gray"
                         
-                        r_col1.markdown(f":{color}[📅 {scad_date.strftime('%d/%m/%Y')}]")
+                        if r['stato'] == 'SALDATA':
+                            color_tag = "✅"
+                            color = "green"
+                        elif is_overdue:
+                            color_tag = "⚠️ SCADUTA"
+                            color = "red"
+                        else:
+                            color_tag = "⏳ IN SCADENZA"
+                            color = "gray"
+                        
+                        r_col1.write(f"📅 {scad_date.strftime('%d/%m/%Y')}")
                         r_col2.write(f"€ {r['importo_previsto']:.2f}")
-                        r_col3.write(r['stato'])
-                        r_col4.write("⚠️ SCADUTA" if is_overdue else "")
+                        r_col3.markdown(f":{color}[{color_tag}]") if color != "green" else r_col3.markdown(f":{color}[{color_tag}]")
+                        r_col4.caption(f"ID: {r['id']}")
+                else:
+                    st.caption("Nessuna rata associata")
     else:
-        st.success("✅ Tutti i pagamenti sono in regola!")
+        st.success("✅ Nessun contratto registrato!")
 
 with tab3:
     st.subheader("📈 Analisi Finanziaria")

@@ -1,8 +1,9 @@
 # 📊 Sistema Finanziario Unificato - Formule Ufficiali
 
-**Versione**: 1.0  
-**Data**: Gennaio 2026  
-**Fonte di Verità**: `core/crm_db.py` - Metodo `calculate_unified_metrics()`
+**Versione**: 8.1 (Corretta)  
+**Data**: 17 Gennaio 2026  
+**Fonte di Verità**: `core/crm_db.py` - Metodo `calculate_unified_metrics()`  
+**Stato**: ✅ ALLINEATO CON STANDARD INDUSTRIA
 
 ---
 
@@ -12,9 +13,11 @@ Garantire coerenza e trasparenza nelle metriche finanziarie utilizzate in:
 - **04_Cassa.py** - Dashboard di contabilità generale
 - **05_Analisi_Margine_Orario.py** - Analisi della redditività oraria
 
+**NOTA CRITICA**: A partire da v8.1, le formule sono state corrette per allinearsi con gli standard del settore (Trainerize, Zen Planner, ecc.)
+
 ---
 
-## 📐 Formule Base
+## 📐 Formule Base (Versione 8.1 - CORRETTA)
 
 ### 1. **ENTRATE TOTALI**
 ```
@@ -25,16 +28,27 @@ Source: movimenti_cassa
 ```
 **Significato**: Soldi effettivamente incassati nel periodo (solo importi confermati)
 
-### 2. **ORE PAGATE**
+### 2. **ORE FATTURATE** ⭐ CORRETTO (v8.1)
 ```
-ORE_PAGATE = SUM(durata_ore)
+ORE_FATTURATE = SUM(crediti_totali)
+WHERE stato_pagamento != 'PENDENTE'
+  AND data_vendita BETWEEN [data_inizio] AND [data_fine]
+Source: contratti (crediti acquistati dal cliente)
+```
+**Significato**: Ore che la PT ha VENDUTO E RICEVUTO PAGAMENTO (indipendentemente se eseguite)  
+**Nota**: Questa è la misura di RESPONSABILITÀ della PT verso il cliente  
+**Cambiamento v8.1**: Precedentemente era calcolato da agenda (SBAGLIATO)
+
+### 3. **ORE ESEGUITE** ⭐ NUOVO (v8.1)
+```
+ORE_ESEGUITE = SUM(durata_ore)
 WHERE categoria IN ('Lezione', 'Allenamento', 'Sessione')
   AND DATE(data_inizio) BETWEEN [data_inizio] AND [data_fine]
-Source: agenda
+Source: agenda (sessioni fisicamente consegnate)
 ```
-**Significato**: Ore di lezione/allenamento che generano fatturato
+**Significato**: Ore di lezione/allenamento EFFETTIVAMENTE CONSEGNATE (tracking esecuzione)
 
-### 3. **ORE NON PAGATE**
+### 4. **ORE NON PAGATE**
 ```
 ORE_NON_PAGATE = SUM(durata_ore)
 WHERE categoria IN ('Admin', 'Formazione', 'Marketing', 'Riunione')
@@ -43,7 +57,7 @@ Source: agenda
 ```
 **Significato**: Ore di attività non fatturate (amministrative, di formazione, ecc.)
 
-### 4. **COSTI FISSI MENSILI**
+### 5. **COSTI FISSI MENSILI**
 ```
 COSTI_FISSI_MENSILI = SUM(importo)
 WHERE attiva=1 
@@ -84,23 +98,25 @@ MARGINE_LORDO = ENTRATE - COSTI_TOTALI
 
 ### 9. **FATTURATO PER ORA**
 ```
-FATTURATO_PER_ORA = ENTRATE / ORE_PAGATE  (se ORE_PAGATE > 0)
+FATTURATO_PER_ORA = ENTRATE / ORE_FATTURATE  (se ORE_FATTURATE > 0)
                   = 0 altrimenti
 ```
-**Significato**: Entrate medie per ora fatturata (non considerando costi)
+**Significato**: Entrate medie per ora FATTURATA (non considerando costi)
 
-### 10. **MARGINE PER ORA** ⭐ METRICA PRINCIPALE
+### 10. **MARGINE PER ORA** ⭐ METRICA PRINCIPALE (CORRETTA v8.1)
 ```
-MARGINE_PER_ORA = MARGINE_LORDO / ORE_PAGATE  (se ORE_PAGATE > 0)
+MARGINE_PER_ORA = MARGINE_LORDO / ORE_FATTURATE  (se ORE_FATTURATE > 0)
                 = 0 altrimenti
 
-MARGINE_PER_ORA = (ENTRATE - COSTI_FISSI_PERIODO - COSTI_VARIABILI) / ORE_PAGATE
+MARGINE_PER_ORA = (ENTRATE - COSTI_FISSI_PERIODO - COSTI_VARIABILI) / ORE_FATTURATE
 ```
-**Significato**: Profitto medio per ora di lavoro - **QUESTO È IL KPI PRINCIPALE**
+**Significato**: Profitto medio per ora FATTURATA (responsabilità della PT) - **QUESTO È IL KPI PRINCIPALE**  
+**Cambiamento v8.1**: Precedentemente divideva per ORE_PAGATE (che erano le ore eseguite da agenda - SBAGLIATO)  
+**Correzione**: Ora divide per ORE_FATTURATE (ore che il cliente ha pagato - CORRETTO)
 
 ---
 
-## 📊 Output del Metodo `calculate_unified_metrics()`
+## 📊 Output del Metodo `calculate_unified_metrics()` (v8.1)
 
 ```python
 {
@@ -109,10 +125,11 @@ MARGINE_PER_ORA = (ENTRATE - COSTI_FISSI_PERIODO - COSTI_VARIABILI) / ORE_PAGATE
     'periodo_fine': str(date),
     'giorni': int,
     
-    # ORE
-    'ore_pagate': float,
-    'ore_non_pagate': float,
-    'ore_totali': float,
+    # ORE (NUOVO SCHEMA v8.1)
+    'ore_fatturate': float,    # Ore che il cliente ha PAGATO (da contratti)
+    'ore_eseguite': float,      # Ore che la PT ha CONSEGNATO (da agenda)
+    'ore_non_pagate': float,    # Ore di attività non fatturate
+    'ore_totali': float,        # ore_eseguite + ore_non_pagate
     
     # ENTRATE
     'entrate_totali': float,
@@ -124,14 +141,15 @@ MARGINE_PER_ORA = (ENTRATE - COSTI_FISSI_PERIODO - COSTI_VARIABILI) / ORE_PAGATE
     'costi_variabili': float,
     'costi_totali': float,
     
-    # MARGINE
+    # MARGINE (BASATO SU ORE_FATTURATE)
     'margine_lordo': float,
     'margine_netto': float,  # = margine_lordo per ora
-    'margine_orario': float,  # = MARGINE_PER_ORA
+    'margine_orario': float,  # = MARGINE_PER_ORA (il KPI principale)
     'margine_per_ora_costi_variabili': float,
     
     # Metadata
-    'formula': str
+    'formula': str,
+    'note': str
 }
 ```
 
@@ -222,11 +240,50 @@ I costi fissi mensili sono proporzionali al numero di giorni nel periodo:
 
 ## 📝 Changelog
 
-### v1.0 (17 Gennaio 2026)
+### v8.1 (17 Gennaio 2026) - CORREZIONE CRITICA
+- 🔧 **BREAKING**: Rinominato `ore_pagate` → `ore_fatturate` e aggiunto `ore_eseguite`
+- 🔧 **FIX**: Ore Fatturate ora calcolate da `contratti` (crediti_totali), non da `agenda`
+- 🔧 **FIX**: Margine/Ora ora basato su ORE_FATTURATE (ore pagate), non ore eseguite
+- 📊 **ADD**: Tracking separato di ore_eseguite (per monitorare compliance esecuzione)
+- 📈 **IMPROVEMENT**: Allineamento con standard industria (Trainerize, Zen Planner, etc.)
+- 📖 **UPDATE**: Documentazione FORMULE_FINANZIARIE.md
+
+### v1.0 (17 Gennaio 2026 - Early)
 - ✅ Implementazione metodo `calculate_unified_metrics()`
 - ✅ Sincronizzazione Cassa + Margine Orario
 - ✅ Documentazione formule ufficiali
-- ✅ Validazione con dati reali
+- ⚠️ NOTA: Formule v1.0 erano SCORRETTE per ore_pagate
+
+---
+
+## ⚠️ BREAKING CHANGES (v8.1)
+
+| Aspetto | v1.0 (SBAGLIATO) | v8.1 (CORRETTO) |
+|---------|-----------------|-----------------|
+| **Chiave**: Ore Pagate | `ore_pagate` | `ore_fatturate` + `ore_eseguite` |
+| **Calcolo**: Ore Pagate | `SUM(durata) FROM agenda` | `SUM(crediti_totali) FROM contratti WHERE stato_pagamento != PENDENTE` |
+| **Margine/Ora**: Formula | `Entrate / ore_pagate` | `Entrate / ore_fatturate` |
+| **Significato**: Ore Pagate | Ore ESEGUITE | Ore FATTURATE AL CLIENTE |
+| **Impatto**: KPI | ❌ SBAGLIATO | ✅ CORRETTO |
+
+---
+
+## 🔄 Migrazione da v1.0 a v8.1
+
+Se stai usando i dati della v1.0, **IMPORTANTE**:
+
+```python
+# PRIMA (v1.0 - SBAGLIATO)
+metriche = db.calculate_unified_metrics(...)
+ore_pagate = metriche['ore_pagate']  # ← SBAGLIATO (era da agenda)
+margine_orario = metriche['margine_orario']  # ← SBAGLIATO (basato su ore_pagate errate)
+
+# DOPO (v8.1 - CORRETTO)
+metriche = db.calculate_unified_metrics(...)
+ore_fatturate = metriche['ore_fatturate']  # ← CORRETTO (da contratti)
+ore_eseguite = metriche['ore_eseguite']    # ← NUOVO (da agenda, per tracking)
+margine_orario = metriche['margine_orario']  # ← CORRETTO (basato su ore_fatturate)
+```
 
 ---
 

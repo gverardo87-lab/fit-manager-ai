@@ -434,23 +434,23 @@ class CrmDBManager:
         
         FORMULE USATE (da sincronizzare tra Cassa e Margine):
         ─────────────────────────────────────────────────────
-        1. ENTRATE = SUM(importo) WHERE tipo='ENTRATA' AND data_effettiva IN [inizio, fine]
+        1. ENTRATE = SUM(importo) movimenti_cassa WHERE tipo='ENTRATA' AND data_effettiva IN [inizio, fine]
         
-        2. ORE PAGATE = SUM(durata) agenda WHERE categoria IN ['Lezione', 'Allenamento'] 
-                       AND data_inizio IN [inizio, fine]
+        2. ORE FATTURATE = SUM(crediti_totali) contratti WHERE sono COMPLETAMENTE PAGATI
+                          durante il periodo (date_vendita IN [inizio, fine])
         
-        3. COSTI FISSI MENSILI = SUM(importo) FROM spese_ricorrenti WHERE frequenza='MENSILE'
-           Questi si spalman su 30 giorni del mese
+        3. ORE ESEGUITE = SUM(durata) agenda WHERE categoria IN ['Lezione', 'Allenamento'] 
+                         (per tracking, non per calcolo margine)
         
-        4. COSTI VARIABILI = SUM(importo) WHERE tipo='USCITA' AND categoria IN 
-                            ['SPESE_ATTREZZATURE', 'ALTRO']
-                            AND data_effettiva IN [inizio, fine]
+        4. COSTI FISSI MENSILI = SUM(importo) FROM spese_ricorrenti WHERE frequenza='MENSILE'
         
         5. COSTI FISSI PERIODO = (Costi Fissi Mensili / 30) * giorni_nel_periodo
         
-        6. MARGINE LORDO = Entrate - Costi Fissi Periodo - Costi Variabili
+        6. COSTI VARIABILI = SUM(importo) WHERE tipo='USCITA' AND categoria IN ['SPESE_ATTREZZATURE', 'ALTRO']
         
-        7. MARGINE/ORA = Margine Lordo / Ore Pagate (se Ore Pagate > 0)
+        7. MARGINE LORDO = Entrate - Costi Fissi Periodo - Costi Variabili
+        
+        8. MARGINE/ORA = Margine Lordo / ORE FATTURATE (ciò che effettivamente è stato pagato!)
         
         Returns:
             Dict con metriche unificate
@@ -463,8 +463,17 @@ class CrmDBManager:
                 WHERE tipo='ENTRATA' AND data_effettiva BETWEEN ? AND ?
             """, (data_inizio, data_fine)).fetchone()[0]
             
-            # 2. ORE PAGATE (da agenda)
-            ore_pagate = conn.execute("""
+            # 2. ORE FATTURATE (da contratti PAGATI - crediti totali del contratto)
+            # Un contratto "pagato" è quando totale_versato >= prezzo_totale
+            ore_fatturate = conn.execute("""
+                SELECT COALESCE(SUM(crediti_totali), 0)
+                FROM contratti
+                WHERE data_vendita BETWEEN ? AND ?
+                AND totale_versato > 0
+            """, (data_inizio, data_fine)).fetchone()[0]
+            
+            # 3. ORE ESEGUITE (da agenda - solo per tracking)
+            ore_eseguite = conn.execute("""
                 SELECT COALESCE(SUM(
                     (CAST(substr(data_fine, 12, 2) AS REAL) + 
                      CAST(substr(data_fine, 15, 2) AS REAL)/60) -
@@ -476,7 +485,7 @@ class CrmDBManager:
                 AND DATE(data_inizio) BETWEEN ? AND ?
             """, (data_inizio, data_fine)).fetchone()[0]
             
-            # 3. ORE NON PAGATE (admin, formazione, marketing)
+            # 4. ORE NON PAGATE (admin, formazione, marketing)
             ore_non_pagate = conn.execute("""
                 SELECT COALESCE(SUM(
                     (CAST(substr(data_fine, 12, 2) AS REAL) + 
@@ -489,7 +498,7 @@ class CrmDBManager:
                 AND DATE(data_inizio) BETWEEN ? AND ?
             """, (data_inizio, data_fine)).fetchone()[0]
             
-            # 4. COSTI FISSI MENSILI
+            # 5. COSTI FISSI MENSILI
             costi_fissi_mensili = conn.execute("""
                 SELECT COALESCE(SUM(importo), 0)
                 FROM spese_ricorrenti
@@ -500,7 +509,7 @@ class CrmDBManager:
             giorni_periodo = (data_fine - data_inizio).days + 1
             costi_fissi_periodo = (costi_fissi_mensili / 30) * giorni_periodo
             
-            # 5. COSTI VARIABILI (da movimenti_cassa)
+            # 6. COSTI VARIABILI (da movimenti_cassa)
             costi_variabili = conn.execute("""
                 SELECT COALESCE(SUM(importo), 0)
                 FROM movimenti_cassa
@@ -509,15 +518,15 @@ class CrmDBManager:
                 AND data_effettiva BETWEEN ? AND ?
             """, (data_inizio, data_fine)).fetchone()[0]
             
-            # 6. TOTALE COSTI
+            # 7. TOTALE COSTI
             costi_totali = costi_fissi_periodo + costi_variabili
             
-            # 7. MARGINE
+            # 8. MARGINE (basato su ORE FATTURATE - ciò che il cliente ha EFFETTIVAMENTE PAGATO)
             margine_lordo = entrate - costi_totali
-            margine_orario = (margine_lordo / ore_pagate) if ore_pagate > 0 else 0
+            margine_orario = (margine_lordo / ore_fatturate) if ore_fatturate > 0 else 0
             
-            # 8. FATTURATO/ORA (per comparazione)
-            fatturato_per_ora = (entrate / ore_pagate) if ore_pagate > 0 else 0
+            # 9. FATTURATO/ORA (per comparazione con ore eseguite)
+            fatturato_per_ora = (entrate / ore_fatturate) if ore_fatturate > 0 else 0
             
             return {
                 'periodo_inizio': str(data_inizio),
@@ -525,9 +534,10 @@ class CrmDBManager:
                 'giorni': giorni_periodo,
                 
                 # ORE
-                'ore_pagate': round(ore_pagate, 2),
-                'ore_non_pagate': round(ore_non_pagate, 2),
-                'ore_totali': round(ore_pagate + ore_non_pagate, 2),
+                'ore_fatturate': round(ore_fatturate, 2),  # ORE PAGATE DAL CLIENTE (da contratti)
+                'ore_eseguite': round(ore_eseguite, 2),    # Ore fisicamente eseguite (da agenda)
+                'ore_non_pagate': round(ore_non_pagate, 2),  # Ore admin/formazione
+                'ore_totali': round(ore_eseguite + ore_non_pagate, 2),
                 
                 # ENTRATE
                 'entrate_totali': round(entrate, 2),
@@ -543,10 +553,11 @@ class CrmDBManager:
                 'margine_lordo': round(margine_lordo, 2),
                 'margine_netto': round(margine_lordo, 2),  # Netto = Lordo in questo caso
                 'margine_orario': round(margine_orario, 2),
-                'margine_per_ora_costi_variabili': round((entrate - costi_variabili) / ore_pagate, 2) if ore_pagate > 0 else 0,
+                'margine_per_ora_costi_variabili': round((entrate - costi_variabili) / ore_fatturate, 2) if ore_fatturate > 0 else 0,
                 
                 # METADATA
-                'formula': 'Margine/Ora = (Entrate - Costi_Fissi_Periodo - Costi_Variabili) / Ore_Pagate'
+                'formula': 'Margine/Ora = (Entrate - Costi_Fissi_Periodo - Costi_Variabili) / Ore_Fatturate',
+                'note': 'Ore Fatturate = crediti totali da contratti PAGATI (ciò che il cliente ha effettivamente pagato)'
             }
     
     def get_daily_metrics_range(self, data_inizio: date, data_fine: date) -> list:
@@ -760,6 +771,54 @@ class CrmDBManager:
             stato = 'SALDATO' if nuovo_tot >= c['prezzo_totale'] else 'PARZIALE'
             cur.execute("INSERT INTO movimenti_cassa (data_effettiva, tipo, categoria, importo, metodo, id_cliente, id_contratto, note) VALUES (?, 'ENTRATA', ?, ?, ?, ?, ?, ?)", (data_pagamento, CATEGORIA_RATA, importo, metodo, c['id_cliente'], id_contratto, note))
             cur.execute("UPDATE contratti SET totale_versato=?, stato_pagamento=? WHERE id=?", (nuovo_tot, stato, id_contratto))
+    
+    def sincronizza_stato_contratti_da_movimenti(self):
+        """
+        Sincronizza lo stato dei contratti (totale_versato, stato_pagamento) 
+        basandosi sui movimenti di RATA_CONTRATTO già registrati.
+        Utile quando i pagamenti sono stati registrati direttamente come movimenti.
+        """
+        with self.transaction() as cur:
+            # Per ogni contratto, calcola il totale versato dai movimenti RATA_CONTRATTO
+            cur.execute("""
+                SELECT DISTINCT c.id, c.prezzo_totale
+                FROM contratti c
+                WHERE EXISTS (
+                    SELECT 1 FROM movimenti_cassa m 
+                    WHERE m.id_contratto = c.id 
+                    AND m.categoria = 'RATA_CONTRATTO'
+                )
+            """)
+            contratti = cur.fetchall()
+            
+            for contratto in contratti:
+                id_contr = contratto['id']
+                prezzo_tot = contratto['prezzo_totale']
+                
+                # Somma i movimenti di RATA_CONTRATTO per questo contratto
+                cur.execute("""
+                    SELECT COALESCE(SUM(importo), 0) as totale
+                    FROM movimenti_cassa
+                    WHERE id_contratto = ? AND categoria = 'RATA_CONTRATTO'
+                """, (id_contr,))
+                
+                result = cur.fetchone()
+                totale_versato = result['totale'] if result else 0
+                
+                # Determina lo stato
+                if totale_versato >= prezzo_tot:
+                    nuovo_stato = 'SALDATO'
+                elif totale_versato > 0:
+                    nuovo_stato = 'PARZIALE'
+                else:
+                    nuovo_stato = 'PENDENTE'
+                
+                # Aggiorna il contratto
+                cur.execute("""
+                    UPDATE contratti 
+                    SET totale_versato = ?, stato_pagamento = ?
+                    WHERE id = ?
+                """, (totale_versato, nuovo_stato, id_contr))
 
     # --- MISURAZIONI ---
     def add_misurazione_completa(self, id_cliente, dati):

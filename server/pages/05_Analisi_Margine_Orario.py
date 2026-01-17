@@ -121,9 +121,9 @@ col1, col2, col3, col4 = st.columns(4, gap="large")
 
 with col1:
     render_metric_box(
-        "Ore Pagate",
-        f"{metrics_data['ore_pagate']}h",
-        f"+ {metrics_data['ore_non_pagate']}h non pagate",
+        "Ore Fatturate",
+        f"{metrics_data['ore_fatturate']}h",
+        f"Eseguite: {metrics_data['ore_eseguite']}h",
         "⏱️",
         "primary"
     )
@@ -187,7 +187,7 @@ with tab1:
                 'Data': m['data'],
                 'Margine/Ora': m['margine_orario'],
                 'Entrate': m['entrate_totali'],
-                'Ore Pagate': m['ore_pagate']
+                'Ore Fatturate': m['ore_fatturate']
             }
             for m in daily_data
         ])
@@ -357,7 +357,7 @@ with tab3:
                 y='Fatturato',
                 size='Fatturato/Ora',
                 hover_data=['Data'],
-                title="Relazione Ore Pagate vs Fatturato",
+                title="Relazione Ore Eseguite vs Fatturato (da agenda)",
                 labels={'Ore Pagate': 'Ore Pagate', 'Fatturato': 'Fatturato (€)'}
             )
             
