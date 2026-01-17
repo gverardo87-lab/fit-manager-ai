@@ -334,7 +334,7 @@ def render_success_message(text: str) -> None:
 def render_error_message(text: str) -> None:
     """Messaggio di errore stilizzato."""
     st.markdown(f"""
-    <div style="background: #ffe6e6; border-left: 4px solid var(--danger); border-radius: 6px; padding: 1rem; margin: 1rem 0;">
+    <div style="background: var(--bg-card); border-left: 4px solid var(--danger); border-radius: 6px; padding: 1rem; margin: 1rem 0; color: var(--text-primary);">
         <strong style="color: var(--danger);">❌ {text}</strong>
     </div>
     """, unsafe_allow_html=True)

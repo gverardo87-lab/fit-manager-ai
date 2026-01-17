@@ -151,6 +151,41 @@ class CrmDBManager:
                 data_creazione DATETIME DEFAULT CURRENT_TIMESTAMP
             )""")
 
+            # Tabella per il tracking del margine orario giornaliero
+            cursor.execute("""CREATE TABLE IF NOT EXISTS hourly_tracking (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                data DATE NOT NULL,
+                ore_totali_mese REAL DEFAULT 0,
+                ore_pagate REAL DEFAULT 0,
+                ore_non_pagate REAL DEFAULT 0,
+                slot_disponibili INTEGER DEFAULT 0,
+                slot_occupati INTEGER DEFAULT 0,
+                fatturato_totale REAL DEFAULT 0,
+                costi_fissi_giornalieri REAL DEFAULT 0,
+                costi_variabili REAL DEFAULT 0,
+                margine_lordo REAL DEFAULT 0,
+                margine_netto REAL DEFAULT 0,
+                margine_orario REAL DEFAULT 0,
+                margine_orario_target REAL DEFAULT 0,
+                note TEXT,
+                data_creazione DATETIME DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(data)
+            )""")
+            
+            # Tabella per gli slot disponibili (giorni/ore)
+            cursor.execute("""CREATE TABLE IF NOT EXISTS slot_disponibili (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                data_slot DATE NOT NULL,
+                ora_inizio TEXT NOT NULL,
+                ora_fine TEXT NOT NULL,
+                capacita INTEGER DEFAULT 1,
+                occupati INTEGER DEFAULT 0,
+                tipo_servizio TEXT,
+                note TEXT,
+                data_creazione DATETIME DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(data_slot, ora_inizio)
+            )""")
+
             cursor.execute("""CREATE TABLE IF NOT EXISTS client_assessment_initial (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 id_cliente INTEGER NOT NULL UNIQUE,
@@ -823,4 +858,230 @@ class CrmDBManager:
                 ORDER BY data DESC
             """, (id_cliente,)).fetchall()
             
+            return [dict(r) for r in rows]
+    
+    # ═══════════════════════════════════════════════════════════════
+    # SISTEMA DI TRACKING MARGINE ORARIO
+    # ═══════════════════════════════════════════════════════════════
+    
+    def calculate_hourly_metrics(self, data: date) -> Dict[str, Any]:
+        """
+        Calcola metriche orarie per un giorno specifico.
+        
+        Args:
+            data: Data per cui calcolare le metriche
+        
+        Returns:
+            Dict con ore pagate, non pagate, slot, fatturato, costi, margine
+        """
+        with self._connect() as conn:
+            # 1. Ore pagate (lezioni registrate in agenda)
+            ore_pagate = conn.execute("""
+                SELECT COALESCE(SUM(
+                    (CAST(substr(data_fine, 12, 2) AS REAL) + 
+                     CAST(substr(data_fine, 15, 2) AS REAL)/60) -
+                    (CAST(substr(data_inizio, 12, 2) AS REAL) + 
+                     CAST(substr(data_inizio, 15, 2) AS REAL)/60)
+                ), 0) as ore
+                FROM agenda
+                WHERE DATE(data_inizio) = ? AND categoria IN ('Lezione', 'Allenamento', 'Sessione')
+            """, (data,)).fetchone()[0]
+            
+            # 2. Ore non pagate (admin, formazione, marketing)
+            ore_non_pagate = conn.execute("""
+                SELECT COALESCE(SUM(
+                    (CAST(substr(data_fine, 12, 2) AS REAL) + 
+                     CAST(substr(data_fine, 15, 2) AS REAL)/60) -
+                    (CAST(substr(data_inizio, 12, 2) AS REAL) + 
+                     CAST(substr(data_inizio, 15, 2) AS REAL)/60)
+                ), 0) as ore
+                FROM agenda
+                WHERE DATE(data_inizio) = ? AND categoria IN ('Admin', 'Formazione', 'Marketing')
+            """, (data,)).fetchone()[0]
+            
+            # 3. Slot disponibili e occupati
+            slot_info = conn.execute("""
+                SELECT 
+                    COALESCE(SUM(capacita), 0) as slot_tot,
+                    COALESCE(SUM(occupati), 0) as slot_occ
+                FROM slot_disponibili
+                WHERE data_slot = ?
+            """, (data,)).fetchone()
+            slot_disponibili = slot_info[0] - slot_info[1] if slot_info else (0, 0)
+            slot_occupati = slot_info[1] if slot_info else 0
+            
+            # 4. Fatturato del giorno
+            fatturato = conn.execute("""
+                SELECT COALESCE(SUM(importo), 0)
+                FROM movimenti_cassa
+                WHERE DATE(data_effettiva) = ? AND tipo = 'ENTRATA'
+            """, (data,)).fetchone()[0]
+            
+            # 5. Costi fissi (spalmati su ore del mese)
+            inizio_mese = date(data.year, data.month, 1)
+            fine_mese = date(data.year, data.month + 1, 1) - timedelta(days=1) if data.month < 12 else date(data.year, 12, 31)
+            
+            ore_totali_mese = conn.execute("""
+                SELECT COALESCE(SUM(
+                    (CAST(substr(data_fine, 12, 2) AS REAL) + 
+                     CAST(substr(data_fine, 15, 2) AS REAL)/60) -
+                    (CAST(substr(data_inizio, 12, 2) AS REAL) + 
+                     CAST(substr(data_inizio, 15, 2) AS REAL)/60)
+                ), 0) as ore
+                FROM agenda
+                WHERE DATE(data_inizio) BETWEEN ? AND ? AND categoria IN ('Lezione', 'Allenamento', 'Sessione')
+            """, (inizio_mese, fine_mese)).fetchone()[0]
+            
+            costi_fissi_mese = conn.execute("""
+                SELECT COALESCE(SUM(importo), 0)
+                FROM spese_ricorrenti
+                WHERE attiva = 1 AND frequenza = 'MENSILE'
+            """).fetchone()[0]
+            
+            costi_fissi_giornalieri = costi_fissi_mese / 30 if ore_totali_mese > 0 else 0
+            
+            # 6. Costi variabili (del giorno)
+            costi_variabili = conn.execute("""
+                SELECT COALESCE(SUM(importo), 0)
+                FROM movimenti_cassa
+                WHERE DATE(data_effettiva) = ? AND tipo = 'USCITA' AND categoria IN ('SPESE_ATTREZZATURE', 'ALTRO')
+            """, (data,)).fetchone()[0]
+            
+            # 7. Calcolo margine
+            ore_totali_giorno = ore_pagate + ore_non_pagate
+            margine_lordo = fatturato - costi_fissi_giornalieri - costi_variabili
+            margine_netto = margine_lordo
+            margine_orario = (margine_netto / ore_pagate) if ore_pagate > 0 else 0
+            
+            return {
+                'data': str(data),
+                'ore_pagate': round(ore_pagate, 2),
+                'ore_non_pagate': round(ore_non_pagate, 2),
+                'ore_totali': round(ore_totali_giorno, 2),
+                'slot_disponibili': int(slot_disponibili),
+                'slot_occupati': int(slot_occupati),
+                'fatturato_totale': round(fatturato, 2),
+                'costi_fissi_giornalieri': round(costi_fissi_giornalieri, 2),
+                'costi_variabili': round(costi_variabili, 2),
+                'costi_totali': round(costi_fissi_giornalieri + costi_variabili, 2),
+                'margine_lordo': round(margine_lordo, 2),
+                'margine_netto': round(margine_netto, 2),
+                'margine_orario': round(margine_orario, 2),
+                'ore_totali_mese': round(ore_totali_mese, 2)
+            }
+    
+    def get_hourly_metrics_period(self, data_inizio: date, data_fine: date) -> List[Dict[str, Any]]:
+        """Recupera metriche orarie per un periodo."""
+        metrics = []
+        current = data_inizio
+        while current <= data_fine:
+            metrics.append(self.calculate_hourly_metrics(current))
+            current += timedelta(days=1)
+        return metrics
+    
+    def get_hourly_metrics_week(self, data: date) -> Dict[str, Any]:
+        """Calcola metriche per la settimana contenente la data."""
+        # Lunedì della settimana
+        lunedi = data - timedelta(days=data.weekday())
+        domenica = lunedi + timedelta(days=6)
+        
+        daily_metrics = self.get_hourly_metrics_period(lunedi, domenica)
+        
+        # Aggrega
+        return {
+            'settimana': f"{lunedi} - {domenica}",
+            'ore_pagate': round(sum(m['ore_pagate'] for m in daily_metrics), 2),
+            'ore_non_pagate': round(sum(m['ore_non_pagate'] for m in daily_metrics), 2),
+            'ore_totali': round(sum(m['ore_totali'] for m in daily_metrics), 2),
+            'slot_disponibili': sum(m['slot_disponibili'] for m in daily_metrics),
+            'slot_occupati': sum(m['slot_occupati'] for m in daily_metrics),
+            'fatturato_totale': round(sum(m['fatturato_totale'] for m in daily_metrics), 2),
+            'costi_totali': round(sum(m['costi_totali'] for m in daily_metrics), 2),
+            'margine_lordo': round(sum(m['margine_lordo'] for m in daily_metrics), 2),
+            'margine_orario': round(sum(m['margine_orario'] for m in daily_metrics) / 7, 2),
+            'giornalieri': daily_metrics
+        }
+    
+    def get_hourly_metrics_month(self, anno: int, mese: int) -> Dict[str, Any]:
+        """Calcola metriche per il mese."""
+        from calendar import monthrange
+        
+        ultimo_giorno = monthrange(anno, mese)[1]
+        data_inizio = date(anno, mese, 1)
+        data_fine = date(anno, mese, ultimo_giorno)
+        
+        daily_metrics = self.get_hourly_metrics_period(data_inizio, data_fine)
+        
+        return {
+            'mese': f"{anno}-{mese:02d}",
+            'ore_pagate': round(sum(m['ore_pagate'] for m in daily_metrics), 2),
+            'ore_non_pagate': round(sum(m['ore_non_pagate'] for m in daily_metrics), 2),
+            'ore_totali': round(sum(m['ore_totali'] for m in daily_metrics), 2),
+            'slot_disponibili': sum(m['slot_disponibili'] for m in daily_metrics),
+            'slot_occupati': sum(m['slot_occupati'] for m in daily_metrics),
+            'fatturato_totale': round(sum(m['fatturato_totale'] for m in daily_metrics), 2),
+            'costi_totali': round(sum(m['costi_totali'] for m in daily_metrics), 2),
+            'margine_lordo': round(sum(m['margine_lordo'] for m in daily_metrics), 2),
+            'margine_orario': round(sum(m['margine_orario'] for m in daily_metrics) / len(daily_metrics), 2) if daily_metrics else 0,
+            'giorni_totali': len(daily_metrics)
+        }
+    
+    def get_margine_per_cliente(self, data_inizio: date, data_fine: date) -> List[Dict[str, Any]]:
+        """Calcola margine per ogni cliente nel periodo."""
+        with self._connect() as conn:
+            rows = conn.execute("""
+                SELECT 
+                    c.id,
+                    c.nome || ' ' || c.cognome as cliente,
+                    COUNT(DISTINCT a.id) as sessioni,
+                    COALESCE(SUM(
+                        (CAST(substr(a.data_fine, 12, 2) AS REAL) + 
+                         CAST(substr(a.data_fine, 15, 2) AS REAL)/60) -
+                        (CAST(substr(a.data_inizio, 12, 2) AS REAL) + 
+                         CAST(substr(a.data_inizio, 15, 2) AS REAL)/60)
+                    ), 0) as ore,
+                    COALESCE(SUM(CASE WHEN m.tipo='ENTRATA' THEN m.importo ELSE 0 END), 0) as fatturato,
+                    COALESCE(SUM(CASE WHEN m.tipo='USCITA' THEN m.importo ELSE 0 END), 0) as costi
+                FROM clienti c
+                LEFT JOIN agenda a ON c.id = a.id_cliente AND DATE(a.data_inizio) BETWEEN ? AND ?
+                LEFT JOIN movimenti_cassa m ON c.id = m.id_cliente AND DATE(m.data_effettiva) BETWEEN ? AND ?
+                GROUP BY c.id
+                ORDER BY fatturato DESC
+            """, (data_inizio, data_fine, data_inizio, data_fine)).fetchall()
+            
+            return [
+                {
+                    'cliente_id': r[0],
+                    'cliente': r[1],
+                    'sessioni': r[2],
+                    'ore': round(r[3], 2),
+                    'fatturato': round(r[4], 2),
+                    'costi': round(r[5], 2),
+                    'margine': round(r[4] - r[5], 2),
+                    'margine_orario': round((r[4] - r[5]) / r[3], 2) if r[3] > 0 else 0
+                }
+                for r in rows if r[3] > 0  # Solo clienti con ore
+            ]
+    
+    def add_slot_disponibile(self, data_slot: date, ora_inizio: str, ora_fine: str, 
+                            capacita: int = 1, tipo_servizio: str = "Lezione") -> int:
+        """Aggiungi uno slot disponibile."""
+        with self._connect() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT OR REPLACE INTO slot_disponibili 
+                (data_slot, ora_inizio, ora_fine, capacita, tipo_servizio)
+                VALUES (?, ?, ?, ?, ?)
+            """, (data_slot, ora_inizio, ora_fine, capacita, tipo_servizio))
+            conn.commit()
+            return cursor.lastrowid
+    
+    def get_slot_disponibili(self, data: date) -> List[Dict[str, Any]]:
+        """Recupera slot disponibili per una data."""
+        with self._connect() as conn:
+            rows = conn.execute("""
+                SELECT * FROM slot_disponibili
+                WHERE data_slot = ?
+                ORDER BY ora_inizio
+            """, (data,)).fetchall()
             return [dict(r) for r in rows]
