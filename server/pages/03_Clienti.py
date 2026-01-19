@@ -256,9 +256,9 @@ elif sel_id:
                 h2.write(f"Crediti: {c['crediti_usati']}/{c['crediti_totali']}")
                 if h3.button("✏️", key=f"edc_{c['id']}", help="Modifica / Elimina"): dialog_edit_contratto(c)
                 
-                # Progress bar pagamento
+                # Progress bar pagamento (clampato tra 0.0 e 1.0)
                 progress_val = (c['totale_versato'] / c['prezzo_totale']) if c['prezzo_totale'] > 0 else 0
-                st.progress(min(progress_val, 1.0), text=f"€ {c['totale_versato']:.2f} / € {c['prezzo_totale']:.2f}")
+                st.progress(max(0.0, min(progress_val, 1.0)), text=f"€ {c['totale_versato']:.2f} / € {c['prezzo_totale']:.2f}")
                 
                 # Rate
                 rate = db.get_rate_contratto(c['id'])
