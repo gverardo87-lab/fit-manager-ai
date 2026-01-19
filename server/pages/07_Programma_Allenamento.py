@@ -15,7 +15,7 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from core.crm_db import CrmDBManager
-from core.workflow_engine import fitness_workflow
+from core.workout_generator_v2 import WorkoutGeneratorV2
 from core.error_handler import logger
 from core.ui_components import (
     render_card, render_metric_box, render_workout_summary,
@@ -23,29 +23,21 @@ from core.ui_components import (
     render_progress_bar, render_badges, render_status_indicator,
     render_divider, render_exercise_card
 )
+import json
 
 # PAGE CONFIG
 st.set_page_config(page_title="Generatore Programmi", page_icon="🏋️", layout="wide")
 
 # INITIALIZATION
 db = CrmDBManager()
-
-def is_kb_available() -> bool:
-    """Controlla dinamicamente se la KB è disponibile"""
-    if hasattr(fitness_workflow, 'hybrid_chain') and fitness_workflow.hybrid_chain:
-        if fitness_workflow.hybrid_chain.is_kb_loaded():
-            return True
-    kb_path = Path("knowledge_base/vectorstore")
-    if kb_path.is_dir() and (kb_path / "chroma.sqlite3").exists():
-        return True
-    if fitness_workflow.initialized and fitness_workflow.workout_generator:
-        return True
-    return False
+workout_gen = WorkoutGeneratorV2()
 
 if 'current_workout' not in st.session_state:
     st.session_state.current_workout = None
 if 'show_workout_details' not in st.session_state:
     st.session_state.show_workout_details = False
+if 'selected_week' not in st.session_state:
+    st.session_state.selected_week = 1
 
 # SIDEBAR
 with st.sidebar:
@@ -61,15 +53,12 @@ with st.sidebar:
     cliente_nome = st.selectbox("Seleziona Cliente", list(cliente_dict.keys()))
     id_cliente = cliente_dict[cliente_nome]
     cliente_info = db.get_cliente_full(id_cliente)
-    
+
     st.divider()
-    
-    st.markdown("#### 📚 Knowledge Base")
-    kb_available = is_kb_available()
-    if kb_available:
-        st.success("✅ KB Caricata", icon="✅")
-    else:
-        st.info("📭 Built-in Mode", icon="ℹ️")
+
+    st.markdown("#### 🏋️ Workout Generator V2")
+    st.success("✅ Professional Mode", icon="⭐")
+    st.caption("500+ esercizi | 5 modelli periodizzazione")
 
 # MAIN CONTENT
 col_header1, col_header2 = st.columns([3, 1])
@@ -129,13 +118,28 @@ with tab1:
     
     st.divider()
     
-    col3, col4 = st.columns(2, gap="large")
-    
+    col3, col4, col5 = st.columns(3, gap="large")
+
     with col3:
         st.markdown("### 📅 Durata Programma")
-        durata_settimane = st.selectbox("Settimane", [4, 6, 8, 12, 16, 24], index=2, label_visibility="collapsed")
-    
+        durata_settimane = st.selectbox("Settimane", [4, 6, 8, 12, 16], index=2, label_visibility="collapsed")
+
     with col4:
+        st.markdown("### 🔬 Periodizzazione")
+        periodization_model = st.selectbox(
+            "Modello Scientifico",
+            ["linear", "block", "dup", "conjugate", "rpe"],
+            format_func=lambda x: {
+                "linear": "📈 Linear (Principianti)",
+                "block": "🧱 Block (Intermedi)",
+                "dup": "📊 DUP (Avanzati)",
+                "conjugate": "⚡ Conjugate (Powerlifting)",
+                "rpe": "🎯 RPE Auto-Reg"
+            }.get(x, x),
+            label_visibility="collapsed"
+        )
+
+    with col5:
         st.markdown("### ⚠️ Limitazioni")
         limitazioni = st.text_input("Es: Mal schiena, ginocchio...", label_visibility="collapsed")
     
@@ -180,6 +184,12 @@ with tab1:
         st.rerun()
     
     if generate_btn:
+        equipment_list = []
+        if pref_bilanciere: equipment_list.append("barbell")
+        if pref_manubri: equipment_list.append("dumbbell")
+        if pref_cardio: equipment_list.append("cardio_machine")
+        if pref_calisthenics: equipment_list.append("bodyweight")
+
         client_profile = {
             'nome': cliente_info['nome'],
             'goal': goal,
@@ -188,110 +198,186 @@ with tab1:
             'disponibilita_giorni': disponibilita_giorni,
             'tempo_sessione_minuti': tempo_sessione,
             'limitazioni': limitazioni or 'Nessuna',
-            'preferenze': ', '.join(preferenze) if preferenze else 'Nessuna'
+            'equipment': equipment_list if equipment_list else ['barbell', 'dumbbell']
         }
-        
-        with st.spinner("🔄 Generazione in corso..."):
+
+        with st.spinner("🔄 Generazione programma professionale..."):
             try:
-                workout_plan = fitness_workflow.generate_personalized_plan(
-                    client_profile,
+                workout_plan = workout_gen.generate_professional_workout(
+                    client_profile=client_profile,
                     weeks=durata_settimane,
+                    periodization_model=periodization_model,
                     sessions_per_week=disponibilita_giorni
                 )
-                
+
                 if 'error' in workout_plan:
                     render_error_message(workout_plan['error'])
                 else:
-                    # Mostra indicatore KB se usato
-                    kb_used = workout_plan.get('kb_used', False)
-                    if kb_used:
-                        render_success_message(f"✨ Programma generato usando la tua Knowledge Base ({len(workout_plan.get('sources', []))} fonti)")
-                    else:
-                        st.info("📚 Programma generato con database built-in. Carica più PDF per personalizzazione avanzata!")
-                    
+                    render_success_message(f"✨ Programma professionale generato con {periodization_model.upper()} periodization!")
+
                     st.session_state['current_workout'] = workout_plan
                     st.session_state['show_workout_details'] = True
-            
+                    st.session_state['selected_week'] = 1
+
             except Exception as e:
                 logger.error(f"Errore: {str(e)}")
-                render_error_message(f"Errore: {str(e)}")
+                render_error_message(f"Errore generazione: {str(e)}")
     
     # ═════════════════════════════════════════════════════════════
     # VISUALIZZAZIONE RISULTATI
     # ═════════════════════════════════════════════════════════════
-    
+
     if st.session_state.get('show_workout_details') and st.session_state.get('current_workout'):
-        
+
         workout = st.session_state['current_workout']
-        
+
         st.divider()
         create_section_header("Programma Generato", f"Per {workout.get('client_name', 'Cliente')}", "📋")
-        
-        # Summary
-        render_workout_summary(
-            goal=workout.get('goal', 'N/A').upper(),
-            level=workout.get('level', 'N/A').upper(),
-            duration=f"{workout.get('duration_weeks', 0)} settimane",
-            frequency=f"{workout.get('sessions_per_week', 0)} gg/sett",
-            exercises=len(workout.get('weekly_schedule', []))
-        )
-        
+
+        # Summary cards
+        col_s1, col_s2, col_s3, col_s4, col_s5 = st.columns(5)
+        with col_s1:
+            st.metric("🎯 Obiettivo", workout.get('goal', 'N/A').upper())
+        with col_s2:
+            st.metric("📊 Livello", workout.get('level', 'N/A').upper())
+        with col_s3:
+            st.metric("📅 Durata", f"{len(workout.get('weekly_schedule', {}))} sett.")
+        with col_s4:
+            st.metric("💪 Split", workout.get('split_type', 'N/A').replace('_', ' ').title())
+        with col_s5:
+            st.metric("🔬 Modello", workout.get('periodization_model', 'N/A').split()[0])
+
         st.divider()
-        
-        col_det1, col_det2 = st.columns(2, gap="large")
-        
-        with col_det1:
-            with st.expander("🔬 Metodologia", expanded=True):
-                st.markdown(workout.get('methodology', 'N/A'))
-        
-        with col_det2:
-            with st.expander("📈 Progressione", expanded=True):
-                st.markdown(workout.get('progressive_overload_strategy', 'N/A'))
-        
-        with st.expander("📅 Schedule Settimanale", expanded=True):
-            for idx, week in enumerate(workout.get('weekly_schedule', [])):
-                st.markdown(f"#### Fase {idx + 1}: {week.get('week', 'N/A')}")
-                st.text(week.get('content', 'N/A'))
-                st.divider()
-        
-        with st.expander("💪 Dettagli Esercizi", expanded=False):
-            st.markdown(workout.get('exercises_details', 'N/A'))
-        
-        with st.expander("😴 Recovery", expanded=False):
-            st.markdown(workout.get('recovery_recommendations', 'N/A'))
-        
-        with st.expander("📚 Fonti", expanded=False):
-            sources = workout.get('sources', [])
-            if sources:
-                for src in sources:
-                    # Le fonti possono essere stringhe o dict
-                    if isinstance(src, dict):
-                        st.caption(f"**{src.get('source', '?')}** - Pag. {src.get('page', '?')}")
+
+        # Week selector
+        total_weeks = len(workout.get('weekly_schedule', {}))
+        if total_weeks > 0:
+            selected_week = st.selectbox(
+                "📅 Seleziona Settimana",
+                options=list(range(1, total_weeks + 1)),
+                index=st.session_state.selected_week - 1,
+                format_func=lambda x: f"Settimana {x}"
+            )
+            st.session_state.selected_week = selected_week
+
+            week_key = f"week_{selected_week}"
+            week_data = workout.get('weekly_schedule', {}).get(week_key, {})
+
+            if week_data:
+                # Week info
+                col_w1, col_w2, col_w3 = st.columns(3)
+                with col_w1:
+                    focus = week_data.get('focus', 'N/A')
+                    if week_data.get('is_deload', False):
+                        st.warning(f"⚠️ **DELOAD WEEK** - Focus: {focus}")
                     else:
-                        st.caption(f"📄 {src}")
-            else:
-                st.info("Programma generato con template built-in")
-        
+                        st.info(f"🎯 Focus: **{focus.title()}**")
+                with col_w2:
+                    st.metric("Intensità", f"{int(week_data.get('intensity_percent', 0) * 100)}%")
+                with col_w3:
+                    st.metric("Sessioni", len(week_data.get('sessions', {})))
+
+                st.divider()
+
+                # Sessions
+                sessions = week_data.get('sessions', {})
+                for day_key, session in sessions.items():
+                    day_num = day_key.split('_')[1]
+
+                    with st.expander(f"🗓️ Giorno {day_num}", expanded=(int(day_num) == 1)):
+                        # Warmup
+                        warmup = session.get('warmup', {})
+                        if warmup and warmup.get('exercises'):
+                            st.markdown("#### 🔥 Riscaldamento")
+                            st.caption(f"⏱️ Durata: {warmup.get('duration_minutes', 10)} minuti")
+                            for ex in warmup.get('exercises', []):
+                                st.markdown(f"- {ex.get('name', 'N/A')}: {ex.get('duration', 'N/A')}")
+                            st.divider()
+
+                        # Main workout
+                        st.markdown("#### 💪 Allenamento Principale")
+                        main_exercises = session.get('main_workout', [])
+
+                        for idx, exercise in enumerate(main_exercises, 1):
+                            # Exercise card
+                            with st.container():
+                                col_ex1, col_ex2 = st.columns([3, 1])
+
+                                with col_ex1:
+                                    ex_name = exercise.get('italian_name', exercise.get('name', 'N/A'))
+                                    st.markdown(f"**{idx}. {ex_name}**")
+
+                                    # Muscles
+                                    primary = exercise.get('primary_muscles', [])
+                                    if primary:
+                                        muscle_badges = " ".join([f"`{m}`" for m in primary[:3]])
+                                        st.markdown(f"🎯 {muscle_badges}")
+
+                                with col_ex2:
+                                    intensity = exercise.get('intensity_percent', 0)
+                                    st.progress(intensity, text=f"{int(intensity*100)}%")
+
+                                # Sets/Reps/Rest
+                                col_sr1, col_sr2, col_sr3, col_sr4 = st.columns(4)
+                                with col_sr1:
+                                    st.caption(f"**Sets:** {exercise.get('sets', 'N/A')}")
+                                with col_sr2:
+                                    reps = exercise.get('reps', 'N/A')
+                                    st.caption(f"**Reps:** {reps}")
+                                with col_sr3:
+                                    rest = exercise.get('rest_seconds', 0)
+                                    st.caption(f"**Rest:** {rest}s")
+                                with col_sr4:
+                                    tempo = exercise.get('tempo', 'N/A')
+                                    if tempo and tempo != 'N/A':
+                                        st.caption(f"**Tempo:** {tempo}")
+
+                                # Notes
+                                notes = exercise.get('notes', '')
+                                if notes:
+                                    st.caption(f"💡 {notes}")
+
+                                st.divider()
+
+                        # Cooldown
+                        cooldown = session.get('cooldown', {})
+                        if cooldown and cooldown.get('exercises'):
+                            st.markdown("#### 🧘 Defaticamento")
+                            st.caption(f"⏱️ Durata: {cooldown.get('duration_minutes', 10)} minuti")
+                            for ex in cooldown.get('exercises', []):
+                                st.markdown(f"- {ex.get('name', 'N/A')}: {ex.get('duration', 'N/A')}")
+
         st.divider()
-        
-        col_save1, col_save2, col_save3 = st.columns(3)
-        
-        with col_save1:
+
+        # Actions
+        col_act1, col_act2, col_act3, col_act4 = st.columns(4)
+
+        with col_act1:
             if st.button("💾 Salva", type="primary", use_container_width=True, key="btn_save"):
                 try:
                     db.save_workout_plan(id_cliente, workout, date.today())
-                    render_success_message("Programma salvato!")
+                    render_success_message("✅ Programma salvato!")
                 except Exception as e:
-                    render_error_message(f"Errore: {str(e)}")
-        
-        with col_save2:
+                    render_error_message(f"❌ Errore: {str(e)}")
+
+        with col_act2:
+            if st.button("📥 Download JSON", use_container_width=True, key="btn_json"):
+                workout_json = json.dumps(workout, indent=2, ensure_ascii=False)
+                st.download_button(
+                    label="⬇️ Scarica JSON",
+                    data=workout_json,
+                    file_name=f"workout_{workout.get('client_name', 'cliente')}_{datetime.now().strftime('%Y%m%d')}.json",
+                    mime="application/json"
+                )
+
+        with col_act3:
             if st.button("🔄 Rigenera", use_container_width=True, key="btn_regen"):
                 st.session_state.show_workout_details = False
                 st.rerun()
-        
-        with col_save3:
-            if st.button("📥 Esporta", use_container_width=True, key="btn_export"):
-                st.info("Esportazione PDF in sviluppo...")
+
+        with col_act4:
+            if st.button("🖨️ Stampa", use_container_width=True, key="btn_print"):
+                st.info("📄 Funzione stampa/PDF in sviluppo...")
 
 # ═════════════════════════════════════════════════════════════
 # TAB 2: PROGRAMMI SALVATI
