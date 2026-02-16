@@ -781,6 +781,239 @@ class ExerciseDatabase:
         """Conta gli esercizi totali"""
         return len(self.exercises)
     
+    # ═══════════════════════════════════════════════════════════
+    # SMART FILTERING METHODS - REFACTOR V2
+    # ═══════════════════════════════════════════════════════════
+    
+    def filter_by_equipment_available(self, equipment_list: List[str]) -> List[Exercise]:
+        """
+        Filtra esercizi che POSSONO essere eseguiti con l'equipment disponibile
+        
+        Args:
+            equipment_list: ['barbell', 'dumbbell', 'bodyweight', ...]
+        
+        Returns:
+            Lista esercizi eseguibili
+        """
+        available = []
+        for ex in self.exercises.values():
+            # Un esercizio è eseguibile se TUTTI i suoi equipment sono disponibili
+            if all(eq in equipment_list for eq in ex.equipment):
+                available.append(ex)
+        return available
+    
+    def filter_by_contraindications(self, limitazioni: List[str]) -> List[Exercise]:
+        """
+        Filtra esercizi ESCLUDENDO quelli con controindicazioni
+        
+        Args:
+            limitazioni: ['ginocchio', 'spalla', 'schiena', ...]
+        
+        Returns:
+            Lista esercizi sicuri
+        """
+        safe_exercises = []
+        for ex in self.exercises.values():
+            # Controlla se c'è sovrapposizione tra limitazioni cliente e controindicazioni esercizio
+            has_contraindication = False
+            for limit in limitazioni:
+                limit_lower = limit.lower()
+                for contra in ex.contraindications:
+                    if limit_lower in contra.lower():
+                        has_contraindication = True
+                        break
+                if has_contraindication:
+                    break
+            
+            if not has_contraindication:
+                safe_exercises.append(ex)
+        
+        return safe_exercises
+    
+    def select_best_for_pattern(
+        self,
+        pattern: str,
+        equipment: List[str],
+        level: DifficultyLevel,
+        exclude_contraindications: List[str] = None
+    ) -> Optional[Exercise]:
+        """
+        Seleziona il MIGLIOR esercizio per un pattern di movimento
+        
+        Args:
+            pattern: 'squat', 'hinge', 'push', 'pull', 'carry', 'rotation'
+            equipment: Equipment disponibile
+            level: Livello cliente
+            exclude_contraindications: Limitazioni da evitare
+        
+        Returns:
+            Exercise object o None
+        """
+        if exclude_contraindications is None:
+            exclude_contraindications = []
+        
+        # Helper: inferisce pattern dall'ID se movement_pattern non è settato
+        def matches_pattern(ex: Exercise, target_pattern: str) -> bool:
+            """Verifica se esercizio match il pattern (esplicito o inferito)"""
+            # Se ha movement_pattern esplicito, usa quello
+            if ex.movement_pattern:
+                return ex.movement_pattern == target_pattern
+            
+            # Altrimenti inferisci dall'ID e muscoli
+            ex_id_lower = ex.id.lower()
+            ex_name_lower = ex.name.lower()
+            
+            if target_pattern == 'squat':
+                return 'squat' in ex_id_lower or 'squat' in ex_name_lower or 'leg_press' in ex_id_lower
+            elif target_pattern == 'hinge':
+                return any(word in ex_id_lower for word in ['deadlift', 'rdl', 'romanian', 'good_morning', 'hinge'])
+            elif target_pattern == 'push':
+                return any(word in ex_id_lower for word in ['bench', 'press', 'push', 'dips', 'dip']) \
+                    and MuscleGroup.CHEST in ex.primary_muscles or MuscleGroup.SHOULDERS in ex.primary_muscles or MuscleGroup.TRICEPS in ex.primary_muscles
+            elif target_pattern == 'pull':
+                return any(word in ex_id_lower for word in ['pull', 'row', 'chin', 'lat']) \
+                    and (MuscleGroup.BACK in ex.primary_muscles or MuscleGroup.LATS in ex.primary_muscles)
+            elif target_pattern == 'carry':
+                return any(word in ex_id_lower for word in ['carry', 'farmer', 'suitcase', 'overhead_walk'])
+            elif target_pattern == 'rotation':
+                return any(word in ex_id_lower for word in ['rotation', 'twist', 'chop', 'woodchop'])
+            
+            return False
+        
+        # Step 1: Filtra per pattern (inferito o esplicito)
+        candidates = [ex for ex in self.exercises.values() if matches_pattern(ex, pattern)]
+        
+        # Step 2: Filtra per equipment disponibile
+        candidates = [ex for ex in candidates if all(eq in equipment for eq in ex.equipment)]
+        
+        # Step 3: Filtra per controindicazioni
+        if exclude_contraindications:
+            safe_candidates = []
+            for ex in candidates:
+                is_safe = True
+                for limit in exclude_contraindications:
+                    limit_lower = limit.lower()
+                    for contra in ex.contraindications:
+                        if limit_lower in contra.lower():
+                            is_safe = False
+                            break
+                    if not is_safe:
+                        break
+                if is_safe:
+                    safe_candidates.append(ex)
+            candidates = safe_candidates
+        
+        # Step 4: Seleziona per livello (preferisci esatto, altrimenti più facile)
+        level_matches = [ex for ex in candidates if ex.difficulty == level]
+        if level_matches:
+            return level_matches[0]  # Prendi primo match
+        
+        # Fallback: prendi qualsiasi candidato
+        return candidates[0] if candidates else None
+    
+    def get_alternative_exercises(
+        self,
+        exercise_id: str,
+        reason: str = "general",
+        equipment: List[str] = None
+    ) -> List[Exercise]:
+        """
+        Trova esercizi alternativi per un esercizio dato
+        
+        Args:
+            exercise_id: ID dell'esercizio da sostituire
+            reason: 'injury', 'equipment', 'difficulty', 'general'
+            equipment: Equipment disponibile (se reason='equipment')
+        
+        Returns:
+            Lista di alternative ordinate per similarità
+        """
+        original = self.get_exercise(exercise_id)
+        if not original:
+            return []
+        
+        alternatives = []
+        
+        # Cerca esercizi con muscoli primari simili
+        for ex in self.exercises.values():
+            if ex.id == exercise_id:
+                continue  # Skip originale
+            
+            # Check similarità muscoli primari
+            overlap = set(ex.primary_muscles) & set(original.primary_muscles)
+            if not overlap:
+                continue  # Nessuna sovrapposizione muscoli → skip
+            
+            # Filtra per equipment se necessario
+            if equipment and not all(eq in equipment for eq in ex.equipment):
+                continue
+            
+            # Filtra per difficoltà se reason='difficulty'
+            if reason == 'difficulty':
+                # Preferisci esercizi più facili
+                if ex.difficulty.value == 'principiante' or ex.difficulty.value == 'intermedio':
+                    alternatives.append((ex, len(overlap)))
+            else:
+                alternatives.append((ex, len(overlap)))
+        
+        # Ordina per sovrapposizione muscoli (più overlap = più simile)
+        alternatives.sort(key=lambda x: x[1], reverse=True)
+        
+        return [ex for ex, _ in alternatives]
+    
+    def select_balanced_workout(
+        self,
+        muscles: List[MuscleGroup],
+        count: int,
+        equipment: List[str],
+        level: DifficultyLevel,
+        exclude_ids: List[str] = None
+    ) -> List[Exercise]:
+        """
+        Seleziona un workout bilanciato SENZA duplicati
+        
+        Args:
+            muscles: Lista muscoli da targetizzare
+            count: Quanti esercizi selezionare
+            equipment: Equipment disponibile
+            level: Livello cliente
+            exclude_ids: ID esercizi già selezionati (anti-duplicati)
+        
+        Returns:
+            Lista Exercise objects (max count)
+        """
+        if exclude_ids is None:
+            exclude_ids = []
+        
+        selected = []
+        used_ids = set(exclude_ids)
+        
+        # Per ogni muscolo, cerca esercizio
+        for muscle in muscles:
+            if len(selected) >= count:
+                break
+            
+            # Trova esercizi per questo muscolo
+            candidates = self.get_exercises_by_muscle(muscle)
+            
+            # Filtra per equipment
+            candidates = [ex for ex in candidates if all(eq in equipment for eq in ex.equipment)]
+            
+            # Filtra per livello (preferisci livello esatto o più facile)
+            level_candidates = [ex for ex in candidates if ex.difficulty == level or ex.difficulty.value == 'principiante']
+            if level_candidates:
+                candidates = level_candidates
+            
+            # Escludi già usati
+            candidates = [ex for ex in candidates if ex.id not in used_ids]
+            
+            if candidates:
+                # Prendi primo candidato
+                selected.append(candidates[0])
+                used_ids.add(candidates[0].id)
+        
+        return selected[:count]
+    
     def get_workout_template(self, goal: str, level: str, days_per_week: int = 4) -> Dict[str, Any]:
         """
         Genera un template di workout basato su goal, livello, e disponibilità.

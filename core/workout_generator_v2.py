@@ -1,19 +1,18 @@
 # core/workout_generator_v2.py
 """
-Workout Generator V2 - Versione Professionale
+Workout Generator V2 - Versione Professionale REFACTORED
 
 Integra:
-- Database 500+ esercizi (exercise_library_extended)
+- Database UNIFICATO 500+ esercizi (exercise_database - UNICA FONTE)
 - 5 Modelli periodizzazione scientifica (periodization_models)
 - Output strutturato e professionale
 - Progressive overload automatico
 
-Miglioramenti vs V1:
-- Esercizi CONCRETI selezionati da database
-- Periodizzazione scientifica (non più "inventata" dall'LLM)
-- Warm-up e cool-down inclusi
-- Progressione chiara settimana per settimana
-- Formato export-ready (PDF/stampa)
+REFACTOR V2:
+- Eliminato exercise_library_extended e exercise_library_pro
+- Usa SOLO exercise_database con metodi smart
+- Selezione intelligente invece di hardcode
+- Validazione equipment e controindicazioni
 """
 
 from typing import Dict, List, Any, Optional
@@ -24,29 +23,28 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from core.exercise_library_extended import get_complete_exercise_database
+from core.exercise_database import exercise_db, MuscleGroup, DifficultyLevel
 from core.periodization_models import get_periodization_plan, Goal, PeriodizationPlan
-from core.exercise_database import MuscleGroup, DifficultyLevel
-from core.exercise_library_pro import apply_professional_details_to_exercise
 
 
 class WorkoutGeneratorV2:
     """
-    Generatore professionale di programmi allenamento
+    Generatore professionale di programmi allenamento - REFACTORED
 
     Features:
-    - Selezione esercizi da database 500+
+    - Selezione esercizi da database UNIFICATO 500+
     - Periodizzazione scientifica (5 modelli)
     - Warm-up/cool-down automatici
     - Progressive overload tracking
+    - Validazione equipment e controindicazioni
     - Output professionale
     """
 
     def __init__(self):
-        """Inizializza generatore con database esercizi"""
-        print("[INIT] Caricamento database esercizi...")
-        self.exercise_db = get_complete_exercise_database()
-        print(f"[OK] Caricati {len(self.exercise_db.exercises)} esercizi")
+        """Inizializza generatore con database esercizi UNIFICATO"""
+        print("[INIT] Caricamento database esercizi UNIFICATO...")
+        self.exercise_db = exercise_db  # Usa istanza globale
+        print(f"[OK] Caricati {self.exercise_db.count_exercises()} esercizi")
 
     def generate_professional_workout(
         self,
@@ -245,58 +243,61 @@ class WorkoutGeneratorV2:
         limitazioni: List[str],
         day_num: int
     ) -> List[Dict]:
-        """Seleziona esercizi per sessione full body"""
+        """Seleziona esercizi per sessione full body - SMART SELECTION"""
 
         exercises = []
+        used_ids = []
 
-        # Esercizio composto lower body (squat/deadlift)
-        if day_num == 1:
-            ex = self.exercise_db.get_exercise('back_squat') or self.exercise_db.get_exercise('goblet_squat')
-        elif day_num == 2:
-            ex = self.exercise_db.get_exercise('romanian_deadlift') or self.exercise_db.get_exercise('deadlift')
+        # Esercizio composto lower body (squat pattern alternato con hinge)
+        if day_num == 1 or day_num == 3:
+            pattern = 'squat'
         else:
-            ex = self.exercise_db.get_exercise('front_squat') or self.exercise_db.get_exercise('leg_press')
-
+            pattern = 'hinge'  # deadlift/RDL
+        
+        ex = self.exercise_db.select_best_for_pattern(
+            pattern=pattern,
+            equipment=equipment,
+            level=difficulty,
+            exclude_contraindications=limitazioni
+        )
         if ex:
             exercises.append(self._format_exercise(ex, goal, is_main=True))
+            used_ids.append(ex.id)
 
-        # Esercizio composto upper body push (bench/overhead)
-        if day_num == 1:
-            ex = self.exercise_db.get_exercise('bench_press') or self.exercise_db.get_exercise('pushup')
-        elif day_num == 2:
-            ex = self.exercise_db.get_exercise('overhead_press') or self.exercise_db.get_exercise('dumbbell_press')
-        else:
-            ex = self.exercise_db.get_exercise('incline_bench') or self.exercise_db.get_exercise('dips')
+        # Esercizio composto upper body push
+        push_ex = self.exercise_db.select_best_for_pattern(
+            pattern='push',
+            equipment=equipment,
+            level=difficulty,
+            exclude_contraindications=limitazioni
+        )
+        if push_ex and push_ex.id not in used_ids:
+            exercises.append(self._format_exercise(push_ex, goal, is_main=True))
+            used_ids.append(push_ex.id)
 
-        if ex:
-            exercises.append(self._format_exercise(ex, goal, is_main=True))
+        # Esercizio composto upper body pull
+        pull_ex = self.exercise_db.select_best_for_pattern(
+            pattern='pull',
+            equipment=equipment,
+            level=difficulty,
+            exclude_contraindications=limitazioni
+        )
+        if pull_ex and pull_ex.id not in used_ids:
+            exercises.append(self._format_exercise(pull_ex, goal, is_main=True))
+            used_ids.append(pull_ex.id)
 
-        # Esercizio composto upper body pull (rows/pullups)
-        if day_num == 1:
-            ex = self.exercise_db.get_exercise('barbell_row') or self.exercise_db.get_exercise('pullup')
-        elif day_num == 2:
-            ex = self.exercise_db.get_exercise('pullup') or self.exercise_db.get_exercise('lat_pulldown')
-        else:
-            ex = self.exercise_db.get_exercise('dumbbell_row') or self.exercise_db.get_exercise('cable_row')
-
-        if ex:
-            exercises.append(self._format_exercise(ex, goal, is_main=True))
-
-        # Accessori (2-3 esercizi)
-        # Gambe accessorio
-        ex = self.exercise_db.get_exercise('leg_curl') or self.exercise_db.get_exercise('walking_lunge')
-        if ex:
-            exercises.append(self._format_exercise(ex, goal, is_main=False))
-
-        # Spalle/braccia
-        ex = self.exercise_db.get_exercise('lateral_raise') or self.exercise_db.get_exercise('dumbbell_curl')
-        if ex:
-            exercises.append(self._format_exercise(ex, goal, is_main=False))
-
-        # Core
-        ex = self.exercise_db.get_exercise('plank') or self.exercise_db.get_exercise('ab_wheel')
-        if ex:
-            exercises.append(self._format_exercise(ex, goal, is_main=False))
+        # Accessori (2-3 esercizi bilanciati)
+        accessory_muscles = [MuscleGroup.QUADRICEPS, MuscleGroup.SHOULDERS, MuscleGroup.CORE]
+        accessory_exercises = self.exercise_db.select_balanced_workout(
+            muscles=accessory_muscles,
+            count=3,
+            equipment=equipment,
+            level=difficulty,
+            exclude_ids=used_ids
+        )
+        
+        for acc_ex in accessory_exercises:
+            exercises.append(self._format_exercise(acc_ex, goal, is_main=False))
 
         return exercises
 
@@ -308,31 +309,49 @@ class WorkoutGeneratorV2:
         limitazioni: List[str],
         day: int
     ) -> List[Dict]:
-        """Seleziona esercizi upper body"""
+        """Seleziona esercizi upper body - SMART SELECTION"""
         exercises = []
+        used_ids = []
 
         # Main push
-        if day == 1:
-            ex = self.exercise_db.get_exercise('bench_press')
-        else:
-            ex = self.exercise_db.get_exercise('overhead_press')
-        if ex:
-            exercises.append(self._format_exercise(ex, goal, is_main=True))
+        push_ex = self.exercise_db.select_best_for_pattern(
+            pattern='push',
+            equipment=equipment,
+            level=difficulty,
+            exclude_contraindications=limitazioni
+        )
+        if push_ex:
+            exercises.append(self._format_exercise(push_ex, goal, is_main=True))
+            used_ids.append(push_ex.id)
 
         # Main pull
-        if day == 1:
-            ex = self.exercise_db.get_exercise('pullup')
-        else:
-            ex = self.exercise_db.get_exercise('barbell_row')
-        if ex:
-            exercises.append(self._format_exercise(ex, goal, is_main=True))
+        pull_ex = self.exercise_db.select_best_for_pattern(
+            pattern='pull',
+            equipment=equipment,
+            level=difficulty,
+            exclude_contraindications=limitazioni
+        )
+        if pull_ex and pull_ex.id not in used_ids:
+            exercises.append(self._format_exercise(pull_ex, goal, is_main=True))
+            used_ids.append(pull_ex.id)
 
-        # Accessori (3-4)
-        accessory_ids = ['dumbbell_row', 'lateral_raise', 'tricep_dips', 'bicep_curl', 'face_pull']
-        for ex_id in accessory_ids[:3]:
-            ex = self.exercise_db.get_exercise(ex_id)
-            if ex:
-                exercises.append(self._format_exercise(ex, goal, is_main=False))
+        # Accessori (3-4 esercizi bilanciati)
+        accessory_muscles = [
+            MuscleGroup.SHOULDERS,
+            MuscleGroup.BICEPS,
+            MuscleGroup.TRICEPS,
+            MuscleGroup.TRAPS
+        ]
+        accessory_exercises = self.exercise_db.select_balanced_workout(
+            muscles=accessory_muscles,
+            count=4,
+            equipment=equipment,
+            level=difficulty,
+            exclude_ids=used_ids
+        )
+        
+        for acc_ex in accessory_exercises:
+            exercises.append(self._format_exercise(acc_ex, goal, is_main=False))
 
         return exercises
 
@@ -344,38 +363,107 @@ class WorkoutGeneratorV2:
         limitazioni: List[str],
         day: int
     ) -> List[Dict]:
-        """Seleziona esercizi lower body"""
+        """Seleziona esercizi lower body - SMART SELECTION"""
         exercises = []
+        used_ids = []
 
-        # Main compound
-        if day == 1:
-            ex = self.exercise_db.get_exercise('back_squat')
-        else:
-            ex = self.exercise_db.get_exercise('deadlift')
-        if ex:
-            exercises.append(self._format_exercise(ex, goal, is_main=True))
+        # Main compound (alternare squat e hinge)
+        pattern = 'squat' if day == 1 else 'hinge'
+        main_ex = self.exercise_db.select_best_for_pattern(
+            pattern=pattern,
+            equipment=equipment,
+            level=difficulty,
+            exclude_contraindications=limitazioni
+        )
+        if main_ex:
+            exercises.append(self._format_exercise(main_ex, goal, is_main=True))
+            used_ids.append(main_ex.id)
 
-        # Accessori
-        accessory_ids = ['leg_press', 'leg_curl', 'walking_lunge', 'calf_raise']
-        for ex_id in accessory_ids:
-            ex = self.exercise_db.get_exercise(ex_id)
-            if ex:
-                exercises.append(self._format_exercise(ex, goal, is_main=False))
+        # Accessori (3-4 esercizi)
+        accessory_muscles = [
+            MuscleGroup.QUADRICEPS,
+            MuscleGroup.HAMSTRINGS,
+            MuscleGroup.GLUTES,
+            MuscleGroup.CALVES
+        ]
+        accessory_exercises = self.exercise_db.select_balanced_workout(
+            muscles=accessory_muscles,
+            count=4,
+            equipment=equipment,
+            level=difficulty,
+            exclude_ids=used_ids
+        )
+        
+        for acc_ex in accessory_exercises:
+            exercises.append(self._format_exercise(acc_ex, goal, is_main=False))
 
         return exercises
 
     def _select_push_exercises(self, difficulty, goal, equipment, limitazioni) -> List[Dict]:
-        """Push day (chest/shoulders/triceps)"""
-        # Implementazione simile...
-        return []
+        """Push day (chest/shoulders/triceps) - SMART SELECTION"""
+        exercises = []
+        used_ids = []
+
+        # Main push
+        main_push = self.exercise_db.select_best_for_pattern(
+            pattern='push',
+            equipment=equipment,
+            level=difficulty,
+            exclude_contraindications=limitazioni
+        )
+        if main_push:
+            exercises.append(self._format_exercise(main_push, goal, is_main=True))
+            used_ids.append(main_push.id)
+
+        # Accessori push
+        push_muscles = [MuscleGroup.CHEST, MuscleGroup.SHOULDERS, MuscleGroup.TRICEPS]
+        accessory_exercises = self.exercise_db.select_balanced_workout(
+            muscles=push_muscles,
+            count=4,
+            equipment=equipment,
+            level=difficulty,
+            exclude_ids=used_ids
+        )
+        
+        for acc_ex in accessory_exercises:
+            exercises.append(self._format_exercise(acc_ex, goal, is_main=False))
+
+        return exercises
 
     def _select_pull_exercises(self, difficulty, goal, equipment, limitazioni) -> List[Dict]:
-        """Pull day (back/biceps)"""
-        return []
+        """Pull day (back/biceps) - SMART SELECTION"""
+        exercises = []
+        used_ids = []
+
+        # Main pull
+        main_pull = self.exercise_db.select_best_for_pattern(
+            pattern='pull',
+            equipment=equipment,
+            level=difficulty,
+            exclude_contraindications=limitazioni
+        )
+        if main_pull:
+            exercises.append(self._format_exercise(main_pull, goal, is_main=True))
+            used_ids.append(main_pull.id)
+
+        # Accessori pull
+        pull_muscles = [MuscleGroup.BACK, MuscleGroup.LATS, MuscleGroup.BICEPS, MuscleGroup.TRAPS]
+        accessory_exercises = self.exercise_db.select_balanced_workout(
+            muscles=pull_muscles,
+            count=4,
+            equipment=equipment,
+            level=difficulty,
+            exclude_ids=used_ids
+        )
+        
+        for acc_ex in accessory_exercises:
+            exercises.append(self._format_exercise(acc_ex, goal, is_main=False))
+
+        return exercises
 
     def _select_leg_exercises(self, difficulty, goal, equipment, limitazioni) -> List[Dict]:
-        """Leg day"""
-        return []
+        """Leg day - SMART SELECTION"""
+        return self._select_lower_body_exercises(difficulty, goal, equipment, limitazioni, day=1)
 
     def _format_exercise(
         self,
@@ -449,10 +537,8 @@ class WorkoutGeneratorV2:
             'plane_of_movement': getattr(exercise, 'plane_of_movement', []),
         }
 
-        # Applica dettagli PRO se disponibili (video, istruzioni, form cues)
-        enhanced_dict = apply_professional_details_to_exercise(base_dict)
-
-        return enhanced_dict
+        # Note: professional details già inclusi nel database unificato
+        return base_dict
 
     def _apply_periodization_to_template(
         self,
