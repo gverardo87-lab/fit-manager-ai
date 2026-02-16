@@ -1,13 +1,11 @@
-# file: server/pages/04_Cassa_Simple.py
+# file: server/pages/04_Cassa.py
 """
-💰 Cassa & Bilancio - Versione SEMPLIFICATA
+💰 Cassa & Bilancio - Versione DASHBOARD
 
 Target: Libera professionista P.IVA forfettaria
-- No concetti di "competenza" 
-- No metriche aziendali (LTV, CAC, ecc.)
-- Focus: Cash In, Cash Out, Saldo, Prossime Entrate
+Design: Executive Summary + Tabelle chiare + Visual hierarchy
 
-UI ispirata a: Trainerize, FitSW, MyPTHub (CRM semplici)
+Ispirato a: Stripe Dashboard, QuickBooks, Wave Accounting
 """
 
 import streamlit as st
@@ -35,58 +33,67 @@ st.set_page_config(
 db = CrmDBManager()
 
 # ════════════════════════════════════════════════════════════
-# CSS MINIMALISTA
+# CSS OTTIMIZZATO
 # ════════════════════════════════════════════════════════════
 
 st.markdown("""
 <style>
-    /* Card semplici */
-    .metric-card {
-        background: white;
-        padding: 20px;
+    /* Executive Summary Box */
+    .summary-box {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px;
         border-radius: 12px;
-        border: 1px solid #e5e7eb;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 30px;
     }
     
-    /* Numeri grandi e leggibili */
-    .big-number {
-        font-size: 36px;
+    /* KPI Cards */
+    .kpi-card {
+        background: white;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 20px;
+        text-align: center;
+    }
+    
+    .kpi-value {
+        font-size: 32px;
         font-weight: bold;
         margin: 10px 0;
     }
     
+    .kpi-label {
+        font-size: 14px;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    /* Colors */
     .positive { color: #10b981; }
     .negative { color: #ef4444; }
+    .warning { color: #f59e0b; }
     .neutral { color: #6b7280; }
     
-    /* Lista semplice */
-    .simple-list {
-        background: #f9fafb;
-        padding: 15px;
-        border-radius: 8px;
-        margin: 10px 0;
+    /* Tables */
+    .dataframe {
+        font-size: 14px;
+    }
+    
+    /* Section Headers */
+    .section-header {
+        font-size: 20px;
+        font-weight: 600;
+        color: #111827;
+        margin: 20px 0 10px 0;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #e5e7eb;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # ════════════════════════════════════════════════════════════
-# HEADER
-# ════════════════════════════════════════════════════════════
-
-st.title("💰 Cassa & Bilancio")
-
-st.markdown("""
-<div style="background: #f0f9ff; padding: 15px; border-radius: 8px; border-left: 4px solid #0ea5e9;">
-<b>📋 Vista Semplice</b><br>
-Quanto hai incassato, quanto hai speso, quanto ti aspetti nei prossimi giorni.
-</div>
-""", unsafe_allow_html=True)
-
-st.divider()
-
-# ════════════════════════════════════════════════════════════
-# PERIODO: Mese Corrente (sempre)
+# DATI BASE
 # ════════════════════════════════════════════════════════════
 
 oggi = date.today()
@@ -94,91 +101,270 @@ primo_mese = date(oggi.year, oggi.month, 1)
 ultimo_giorno = monthrange(oggi.year, oggi.month)[1]
 ultimo_mese = date(oggi.year, oggi.month, ultimo_giorno)
 
-# Calcola bilancio mese corrente
+# Calcola metriche
 bilancio = db.get_bilancio_cassa(primo_mese, ultimo_mese)
+saldo_totale = db.get_bilancio_cassa()['saldo_cassa']
 previsione = db.get_previsione_cash(30)
+rate_pendenti = db.get_rate_pendenti(oggi + timedelta(days=30), solo_future=True)
+rate_scadute = db.get_rate_scadute()
+spese_fisse = db.get_spese_ricorrenti()
 
 # ════════════════════════════════════════════════════════════
-# DASHBOARD PRINCIPALE - 4 NUMERI CHIAVE
+# EXECUTIVE SUMMARY (Top Priority)
 # ════════════════════════════════════════════════════════════
 
-st.subheader(f"📊 Questo Mese ({oggi.strftime('%B %Y')})")
+st.title("💰 Quadro Cassa")
 
-col1, col2, col3, col4 = st.columns(4)
+# RIEPILOGO CRITICITÀ
+col_alert1, col_alert2 = st.columns(2)
+
+with col_alert1:
+    if rate_scadute:
+        totale_scaduto = sum(r['importo_previsto'] - r.get('importo_saldato', 0) for r in rate_scadute)
+        st.error(f"⚠️ **{len(rate_scadute)} rate in ritardo** → €{totale_scaduto:.0f} da recuperare")
+    else:
+        st.success("✅ Nessuna rata in ritardo")
+
+with col_alert2:
+    if previsione['saldo_previsto'] < 500:
+        st.warning(f"⚠️ **Cash flow basso** → Saldo previsto 30gg: €{previsione['saldo_previsto']:.0f}")
+    else:
+        st.success(f"✅ Cash flow OK → Previsione 30gg: €{previsione['saldo_previsto']:.0f}")
+
+st.divider()
+
+# KPI PRINCIPALI (3 numeri chiave)
+st.subheader("📊 Situazione Finanziaria")
+
+col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.markdown("### 💵 Incassato")
-    st.markdown(f"<div class='big-number positive'>€ {bilancio['incassato']:.0f}</div>", unsafe_allow_html=True)
-    st.caption("Soldi entrati questo mese")
+    st.markdown(f"""
+    <div class='kpi-card'>
+        <div class='kpi-label'>Saldo in Cassa</div>
+        <div class='kpi-value {"positive" if saldo_totale >= 0 else "negative"}'>€ {saldo_totale:,.0f}</div>
+        <small>Totale storico</small>
+    </div>
+    """, unsafe_allow_html=True)
 
 with col2:
-    st.markdown("### 💸 Speso")
-    st.markdown(f"<div class='big-number negative'>€ {bilancio['speso']:.0f}</div>", unsafe_allow_html=True)
-    st.caption("Soldi usciti questo mese")
+    st.markdown(f"""
+    <div class='kpi-card'>
+        <div class='kpi-label'>Questo Mese</div>
+        <div class='kpi-value {"positive" if bilancio["saldo_cassa"] >= 0 else "negative"}'>€ {bilancio['saldo_cassa']:,.0f}</div>
+        <small>€{bilancio['incassato']:,.0f} entrate · €{bilancio['speso']:,.0f} uscite</small>
+    </div>
+    """, unsafe_allow_html=True)
 
 with col3:
-    st.markdown("### 🏦 Saldo Mese")
-    saldo_colore = "positive" if bilancio['saldo_cassa'] >= 0 else "negative"
-    st.markdown(f"<div class='big-number {saldo_colore}'>€ {bilancio['saldo_cassa']:.0f}</div>", unsafe_allow_html=True)
-    st.caption("Differenza entrate - uscite")
-
-with col4:
-    st.markdown("### 📈 Previsione")
-    prev_colore = "positive" if previsione['saldo_previsto'] >= 0 else "negative"
-    st.markdown(f"<div class='big-number {prev_colore}'>€ {previsione['saldo_previsto']:.0f}</div>", unsafe_allow_html=True)
-    st.caption("Saldo tra 30 giorni")
+    st.markdown(f"""
+    <div class='kpi-card'>
+        <div class='kpi-label'>Previsione 30gg</div>
+        <div class='kpi-value {"positive" if previsione["saldo_previsto"] >= 0 else "negative"}'>€ {previsione['saldo_previsto']:,.0f}</div>
+        <small>€{previsione['rate_scadenti']:,.0f} attesi · €{previsione['costi_previsti']:,.0f} costi</small>
+    </div>
+    """, unsafe_allow_html=True)
 
 st.divider()
 
 # ════════════════════════════════════════════════════════════
-# QUICK ADD SPESA (Always Visible - FitSW Style)
+# RATE DA INCASSARE (Tabella Prioritaria)
 # ════════════════════════════════════════════════════════════
 
-st.subheader("➕ Registra Spesa Veloce")
+st.markdown("### 📋 Rate da Incassare")
 
-col_q1, col_q2, col_q3, col_q4, col_btn = st.columns([2, 2, 1.5, 2, 1])
+# TABS: Scadute vs Prossime
+tab1, tab2 = st.tabs(["⚠️ In Ritardo" + (f" ({len(rate_scadute)})" if rate_scadute else ""), 
+                       "📅 Prossime 30gg" + (f" ({len(rate_pendenti)})" if rate_pendenti else "")])
 
-with col_q1:
-    categoria_spesa = st.selectbox(
-        "Categoria",
-        ["Affitto", "Utenze", "Attrezzature", "Marketing", "Formazione", "Assicurazioni", "Altro"],
-        key="quick_cat"
-    )
+with tab1:
+    if rate_scadute:
+        # Prepara dati per tabella
+        dati_scadute = []
+        for r in rate_scadute:
+            data_sc = date.fromisoformat(r['data_scadenza']) if isinstance(r['data_scadenza'], str) else r['data_scadenza']
+            giorni_ritardo = (oggi - data_sc).days
+            importo_rimanente = r['importo_previsto'] - r.get('importo_saldato', 0)
+            
+            dati_scadute.append({
+                'Cliente': f"{r['nome']} {r['cognome']}",
+                'Pacchetto': r['tipo_pacchetto'],
+                'Scadenza': data_sc.strftime('%d/%m/%Y'),
+                'Giorni Ritardo': giorni_ritardo,
+                'Importo': f"€{importo_rimanente:.0f}",
+                'Parziale': "Sì" if r.get('importo_saldato', 0) > 0 else "No",
+                '_id': r['id'],
+                '_importo_num': importo_rimanente
+            })
+        
+        df_scadute = pd.DataFrame(dati_scadute)
+        
+        # Mostra tabella
+        st.dataframe(
+            df_scadute[['Cliente', 'Pacchetto', 'Scadenza', 'Giorni Ritardo', 'Importo', 'Parziale']],
+            use_container_width=True,
+            hide_index=True
+        )
+        
+        # Totale e azioni
+        totale_scadute = df_scadute['_importo_num'].sum()
+        st.error(f"**TOTALE DA RECUPERARE: €{totale_scadute:,.0f}**")
+        
+        # Buttons per pagamento veloce
+        st.markdown("**Azioni Rapide:**")
+        cols = st.columns(min(len(rate_scadute), 5))
+        for idx, (col, rata) in enumerate(zip(cols, rate_scadute[:5])):
+            with col:
+                importo_da_pagare = rata['importo_previsto'] - rata.get('importo_saldato', 0)
+                if st.button(f"✅ {rata['nome']}", key=f"paga_scad_{rata['id']}", use_container_width=True):
+                    db.paga_rata_specifica(
+                        id_rata=rata['id'],
+                        importo_versato=importo_da_pagare,
+                        metodo="Contanti",
+                        data_pagamento=oggi,
+                        note="Pagamento sollecitato"
+                    )
+                    st.success(f"✅ €{importo_da_pagare:.0f} registrato!")
+                    st.rerun()
+    else:
+        st.success("✅ Nessuna rata in ritardo - ottimo lavoro!")
 
-with col_q2:
-    importo_spesa = st.number_input("Importo €", min_value=0.0, step=10.0, key="quick_imp")
+with tab2:
+    if rate_pendenti:
+        # Prepara dati per tabella
+        dati_pendenti = []
+        for r in rate_pendenti:
+            data_sc = date.fromisoformat(r['data_scadenza']) if isinstance(r['data_scadenza'], str) else r['data_scadenza']
+            giorni_mancanti = (data_sc - oggi).days
+            importo_rimanente = r['importo_previsto'] - r.get('importo_saldato', 0)
+            
+            dati_pendenti.append({
+                'Cliente': f"{r['nome']} {r['cognome']}",
+                'Pacchetto': r['tipo_pacchetto'],
+                'Scadenza': data_sc.strftime('%d/%m/%Y'),
+                'Tra Giorni': giorni_mancanti,
+                'Importo': f"€{importo_rimanente:.0f}",
+                'Urgente': "🔴" if giorni_mancanti <= 7 else "",
+                '_id': r['id'],
+                '_importo_num': importo_rimanente
+            })
+        
+        df_pendenti = pd.DataFrame(dati_pendenti)
+        
+        # Mostra tabella
+        st.dataframe(
+            df_pendenti[['Urgente', 'Cliente', 'Pacchetto', 'Scadenza', 'Tra Giorni', 'Importo']],
+            use_container_width=True,
+            hide_index=True
+        )
+        
+        # Totale
+        totale_pendenti = df_pendenti['_importo_num'].sum()
+        st.info(f"**TOTALE ATTESO: €{totale_pendenti:,.0f}**")
+        
+        # Buttons per pagamento veloce
+        st.markdown("**Azioni Rapide:**")
+        cols = st.columns(min(len(rate_pendenti), 5))
+        for idx, (col, rata) in enumerate(zip(cols, rate_pendenti[:5])):
+            with col:
+                importo_da_pagare = rata['importo_previsto'] - rata.get('importo_saldato', 0)
+                if st.button(f"✅ {rata['nome']}", key=f"paga_pend_{rata['id']}", use_container_width=True):
+                    db.paga_rata_specifica(
+                        id_rata=rata['id'],
+                        importo_versato=importo_da_pagare,
+                        metodo="Contanti",
+                        data_pagamento=oggi,
+                        note="Pagamento anticipato"
+                    )
+                    st.success(f"✅ €{importo_da_pagare:.0f} registrato!")
+                    st.rerun()
+    else:
+        st.info("Nessuna rata in scadenza nei prossimi 30 giorni")
 
-with col_q3:
-    data_spesa = st.date_input("Data", value=oggi, key="quick_data")
+st.divider()
 
-with col_q4:
-    note_spesa = st.text_input("Note (opzionale)", key="quick_note", placeholder="es: Bolletta energia")
+# ════════════════════════════════════════════════════════════
+# SPESE E ENTRATE (Gestione Operativa)
+# ════════════════════════════════════════════════════════════
 
-with col_btn:
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("💾 Salva", type="primary", use_container_width=True, key="save_spesa"):
-        if importo_spesa > 0:
-            db.registra_spesa(
-                categoria=categoria_spesa,
-                importo=importo_spesa,
-                metodo="Contanti",
-                data_pagamento=data_spesa,
-                note=note_spesa
+st.markdown("### 💼 Gestione Operativa")
+
+col_left, col_right = st.columns(2)
+
+with col_left:
+    st.markdown("**➕ Registra Spesa Veloce**")
+    
+    with st.form("quick_spesa", clear_on_submit=True):
+        col_f1, col_f2 = st.columns(2)
+        with col_f1:
+            categoria_spesa = st.selectbox(
+                "Categoria",
+                ["Affitto", "Utenze", "Attrezzature", "Marketing", "Formazione", "Altro"]
             )
-            st.success(f"✅ Spesa registrata: €{importo_spesa:.2f}")
-            st.rerun()
-        else:
-            st.error("⚠️ Inserisci un importo valido")
+            importo_spesa = st.number_input("Importo €", min_value=0.0, step=10.0)
+        with col_f2:
+            data_spesa = st.date_input("Data", value=oggi)
+            note_spesa = st.text_input("Note", placeholder="es: Bolletta luce")
+        
+        if st.form_submit_button("💾 Salva Spesa", type="primary", use_container_width=True):
+            if importo_spesa > 0:
+                db.registra_spesa(
+                    categoria=categoria_spesa,
+                    importo=importo_spesa,
+                    metodo="Contanti",
+                    data_pagamento=data_spesa,
+                    note=note_spesa
+                )
+                st.success(f"✅ Spesa €{importo_spesa:.0f} registrata!")
+                st.rerun()
+
+with col_right:
+    st.markdown("**📊 Spese Fisse Mensili**")
+    
+    if spese_fisse:
+        totale_fisso = sum(s['importo'] for s in spese_fisse)
+        
+        # Tabella spese fisse
+        dati_fisse = []
+        for s in spese_fisse:
+            dati_fisse.append({
+                'Nome': s['nome'],
+                'Categoria': s['categoria'],
+                'Importo': f"€{s['importo']:.0f}",
+                'Scadenza': f"{s['giorno_scadenza']} del mese"
+            })
+        
+        df_fisse = pd.DataFrame(dati_fisse)
+        st.dataframe(df_fisse, use_container_width=True, hide_index=True)
+        st.info(f"**Totale mensile: €{totale_fisso:,.0f}**")
+    else:
+        st.info("Nessuna spesa fissa configurata")
+    
+    with st.expander("➕ Aggiungi Spesa Fissa"):
+        with st.form("add_spesa_fissa"):
+            nome_sf = st.text_input("Nome", placeholder="es: Affitto Studio")
+            col_sf1, col_sf2 = st.columns(2)
+            with col_sf1:
+                categoria_sf = st.selectbox("Categoria", ["Affitto", "Utenze", "Assicurazioni", "Altro"])
+                importo_sf = st.number_input("Importo mensile €", min_value=0.0, step=50.0)
+            with col_sf2:
+                giorno_sf = st.number_input("Giorno scadenza", min_value=1, max_value=28, value=1)
+            
+            if st.form_submit_button("💾 Salva", type="primary"):
+                if nome_sf and importo_sf > 0:
+                    db.add_spesa_ricorrente(nome_sf, categoria_sf, importo_sf, "MENSILE", giorno_sf)
+                    st.success(f"✅ {nome_sf} aggiunto!")
+                    st.rerun()
 
 st.divider()
 
 # ════════════════════════════════════════════════════════════
-# GRAFICO SEMPLICE: Entrate vs Uscite Mensili
+# ANALISI TREND (Grafico)
 # ════════════════════════════════════════════════════════════
 
-st.subheader("📊 Andamento Mese")
+st.markdown("### 📈 Trend Ultimi 6 Mesi")
 
-# Dati ultimi 6 mesi
+# Calcola ultimi 6 mesi
 mesi_dati = []
 for i in range(5, -1, -1):
     mese_calc = oggi - timedelta(days=30*i)
@@ -190,19 +376,20 @@ for i in range(5, -1, -1):
     mesi_dati.append({
         'Mese': primo.strftime('%b %Y'),
         'Entrate': bil['incassato'],
-        'Uscite': bil['speso']
+        'Uscite': bil['speso'],
+        'Saldo': bil['saldo_cassa']
     })
 
 df_mesi = pd.DataFrame(mesi_dati)
 
-# Grafico a barre semplice
+# Grafico combinato
 fig = px.bar(
     df_mesi,
     x='Mese',
-    y=['Entrate', 'Uscite'],
+    y=['Entrate', 'Uscite', 'Saldo'],
     barmode='group',
-    color_discrete_map={'Entrate': '#10b981', 'Uscite': '#ef4444'},
-    height=350
+    color_discrete_map={'Entrate': '#10b981', 'Uscite': '#ef4444', 'Saldo': '#3b82f6'},
+    height=400
 )
 fig.update_layout(
     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
@@ -211,254 +398,43 @@ fig.update_layout(
 )
 st.plotly_chart(fig, use_container_width=True)
 
-st.divider()
-
-# ════════════════════════════════════════════════════════════
-# RATE IN RITARDO (da sollecitare)
-# ════════════════════════════════════════════════════════════
-
-rate_scadute = db.get_rate_scadute()
-
-if rate_scadute:
-    st.error(f"⚠️ **{len(rate_scadute)} rate in ritardo** - Totale: **€ {sum(r['importo_previsto'] - r.get('importo_saldato', 0) for r in rate_scadute):.0f}**")
-    
-    with st.expander("🔴 Visualizza Rate Scadute (da sollecitare)", expanded=False):
-        for rata in rate_scadute[:5]:  # Max 5 più vecchie
-            col_r1, col_r2, col_r3 = st.columns([3, 2, 1])
-            
-            with col_r1:
-                st.markdown(f"**{rata['nome']} {rata['cognome']}**")
-                st.caption(f"{rata['tipo_pacchetto']}")
-            
-            with col_r2:
-                data_scadenza = date.fromisoformat(rata['data_scadenza']) if isinstance(rata['data_scadenza'], str) else rata['data_scadenza']
-                giorni_ritardo = (oggi - data_scadenza).days
-                st.markdown(f"🔴 **Scaduta {giorni_ritardo} giorni fa**")
-                st.caption(f"Scadenza: {data_scadenza.strftime('%d/%m/%Y')}")
-            
-            with col_r3:
-                importo_rimanente = rata['importo_previsto'] - rata.get('importo_saldato', 0)
-                st.markdown(f"### € {importo_rimanente:.0f}")
-                if rata.get('importo_saldato', 0) > 0:
-                    st.caption(f"(su €{rata['importo_previsto']:.0f})")
-            
-            st.divider()
-        
-        if len(rate_scadute) > 5:
-            st.info(f"... e altre {len(rate_scadute) - 5} rate scadute")
+# Tabella riassuntiva
+st.dataframe(df_mesi, use_container_width=True, hide_index=True)
 
 st.divider()
 
 # ════════════════════════════════════════════════════════════
-# PROSSIME ENTRATE (Rate in Scadenza FUTURE)
+# MOVIMENTI RECENTI (Storico)
 # ════════════════════════════════════════════════════════════
 
-st.subheader("📅 Prossimi Incassi Attesi (30 giorni)")
-
-rate_pendenti = db.get_rate_pendenti(oggi + timedelta(days=30), solo_future=True)
-
-if rate_pendenti:
-    totale_atteso = sum(r['importo_previsto'] - r.get('importo_saldato', 0) for r in rate_pendenti)
-    st.success(f"✅ {len(rate_pendenti)} rate in scadenza - Totale rimanente: **€ {totale_atteso:.0f}**")
+with st.expander("📋 Ultimi 20 Movimenti"):
+    with db._connect() as conn:
+        movimenti = [dict(r) for r in conn.execute("""
+            SELECT data_effettiva, tipo, categoria, importo, note
+            FROM movimenti_cassa
+            ORDER BY data_effettiva DESC
+            LIMIT 20
+        """).fetchall()]
     
-    # Lista semplice con button "Pagata" (FitSW style)
-    for rata in rate_pendenti[:10]:  # Max 10 più vicine
-        col_a, col_b, col_c, col_btn = st.columns([3, 2, 1, 1])
+    if movimenti:
+        dati_mov = []
+        for m in movimenti:
+            dati_mov.append({
+                'Data': m['data_effettiva'],
+                'Tipo': "💵 Entrata" if m['tipo'] == 'ENTRATA' else "💸 Uscita",
+                'Categoria': m['categoria'],
+                'Importo': f"€{m['importo']:.2f}",
+                'Note': m['note'] or "-"
+            })
         
-        with col_a:
-            st.markdown(f"**{rata['nome']} {rata['cognome']}**")
-            st.caption(f"{rata['tipo_pacchetto']}")
-        
-        with col_b:
-            # Converti stringa ISO da SQLite (YYYY-MM-DD) in date object
-            data_scadenza = date.fromisoformat(rata['data_scadenza']) if isinstance(rata['data_scadenza'], str) else rata['data_scadenza']
-            giorni_mancanti = (data_scadenza - oggi).days
-            if giorni_mancanti <= 7:
-                st.markdown(f"🔴 Scadenza: {data_scadenza.strftime('%d/%m/%Y')}")
-            else:
-                st.markdown(f"Scadenza: {data_scadenza.strftime('%d/%m/%Y')}")
-            st.caption(f"Tra {giorni_mancanti} giorni")
-        
-        with col_c:
-            # Mostra importo RIMANENTE (non totale!)
-            importo_rimanente = rata['importo_previsto'] - rata.get('importo_saldato', 0)
-            st.markdown(f"### € {importo_rimanente:.0f}")
-            if rata.get('importo_saldato', 0) > 0:
-                st.caption(f"(su €{rata['importo_previsto']:.0f})")
-        
-        with col_btn:
-            st.markdown("<br>", unsafe_allow_html=True)
-            # Paga l'importo RIMANENTE (non totale!)
-            importo_da_pagare = rata['importo_previsto'] - rata.get('importo_saldato', 0)
-            if st.button("✅ Pagata", key=f"paga_{rata['id']}", use_container_width=True):
-                db.paga_rata_specifica(
-                    id_rata=rata['id'],
-                    importo_versato=importo_da_pagare,
-                    metodo="Contanti",
-                    data_pagamento=oggi,
-                    note="Pagamento registrato da Cassa"
-                )
-                st.success(f"✅ Rata di {rata['nome']} {rata['cognome']} pagata (€{importo_da_pagare:.0f})!")
-                st.rerun()
-        
-        st.divider()
-    
-    if len(rate_pendenti) > 10:
-        st.info(f"... e altre {len(rate_pendenti) - 10} rate")
-else:
-    st.info("✅ Nessuna rata in scadenza nei prossimi 30 giorni")
-
-st.divider()
-
-# ════════════════════════════════════════════════════════════
-# SPESE FISSE MENSILI (DB-Driven)
-# ════════════════════════════════════════════════════════════
-
-st.subheader("💼 Spese Fisse Mensili")
-
-# Leggi spese dal DB
-spese_fisse = db.get_spese_ricorrenti()
-
-if spese_fisse:
-    for spesa in spese_fisse:
-        col_sf1, col_sf2, col_sf3 = st.columns([3, 2, 1])
-        with col_sf1:
-            st.markdown(f"**{spesa['nome']}** · {spesa['categoria']}")
-        with col_sf2:
-            st.caption(f"Scadenza: {spesa['giorno_scadenza']} del mese")
-        with col_sf3:
-            st.markdown(f"**€ {spesa['importo']:.0f}**")
-        st.divider()
-    
-    totale_fisso = sum(s['importo'] for s in spese_fisse)
-    st.info(f"📊 **Totale spese fisse mensili: € {totale_fisso:.0f}**")
-else:
-    st.info("💡 Nessuna spesa fissa configurata. Usa il form qui sotto per aggiungerne.")
-    totale_fisso = 0
-
-# Form per aggiungere nuova spesa fissa
-with st.expander("➕ Aggiungi Nuova Spesa Fissa Mensile"):
-    with st.form("add_spesa_fissa"):
-        nome_sf = st.text_input("Nome spesa", placeholder="es: Affitto Studio, Assicurazione RC")
-        
-        col_form1, col_form2, col_form3 = st.columns(3)
-        
-        with col_form1:
-            categoria_sf = st.selectbox(
-                "Categoria",
-                ["Affitto", "Utenze", "Assicurazioni", "Marketing", "Attrezzature", "Altro"]
-            )
-        
-        with col_form2:
-            importo_sf = st.number_input("Importo mensile €", min_value=0.0, step=50.0, value=0.0)
-        
-        with col_form3:
-            giorno_sf = st.number_input(
-                "Giorno scadenza",
-                min_value=1,
-                max_value=28,
-                value=1,
-                help="Giorno del mese in cui scade (max 28)"
-            )
-        
-        if st.form_submit_button("💾 Salva Spesa Fissa", type="primary", use_container_width=True):
-            if nome_sf and importo_sf > 0:
-                db.add_spesa_ricorrente(
-                    nome=nome_sf,
-                    categoria=categoria_sf,
-                    importo=importo_sf,
-                    frequenza="MENSILE",
-                    giorno_scadenza=giorno_sf
-                )
-                st.success(f"✅ Spesa fissa aggiunta: {nome_sf} - €{importo_sf:.0f}/mese")
-                st.rerun()
-            else:
-                st.error("⚠️ Inserisci nome e importo validi")
-
-st.divider()
-
-# ════════════════════════════════════════════════════════════
-# PREVISIONE SEMPLICE (Saldo tra 30 giorni)
-# ════════════════════════════════════════════════════════════
-
-st.subheader("🔮 Previsione Semplice (30 giorni)")
-
-# Usa previsione da DB (già calcolata correttamente)
-saldo_oggi_reale = db.get_bilancio_cassa()['saldo_cassa']  # TOTALE storico (no filtro)
-rate_attese = previsione['rate_scadenti']  # Rate in arrivo
-costi_previsti = previsione['costi_previsti']  # Spese fisse proporzionali a 30gg
-saldo_30gg = previsione['saldo_previsto']  # Già calcolato nel DB
-
-col_p1, col_p2, col_p3, col_p4 = st.columns(4)
-
-with col_p1:
-    st.metric("💰 Saldo Oggi", f"€ {saldo_oggi_reale:.0f}")
-
-with col_p2:
-    st.metric("➕ Rate Attese", f"€ {rate_attese:.0f}", delta="In arrivo")
-
-with col_p3:
-    st.metric("➖ Costi Previsti", f"€ {costi_previsti:.0f}", delta="30 giorni", delta_color="inverse")
-
-with col_p4:
-    delta_msg = "ATTENZIONE!" if saldo_30gg < 500 else "OK"
-    delta_color = "inverse" if saldo_30gg < 500 else "normal"
-    st.metric("🎯 Saldo tra 30gg", f"€ {saldo_30gg:.0f}", delta=delta_msg, delta_color=delta_color)
-
-# Alert se saldo previsto basso
-if saldo_30gg < 500:
-    st.warning("""
-    ⚠️ **Attenzione Cash Flow**
-    
-    Il saldo previsto tra 30 giorni è basso (< €500).
-    Considera di:
-    - Sollecitare rate in ritardo
-    - Ridurre spese non essenziali
-    - Programmare nuove vendite
-    """)
-
-st.divider()
-
-# ════════════════════════════════════════════════════════════
-# MOVIMENTI RECENTI (Ultimi 10)
-# ════════════════════════════════════════════════════════════
-
-st.subheader("📋 Ultimi Movimenti")
-
-with db._connect() as conn:
-    movimenti = [dict(r) for r in conn.execute("""
-        SELECT data_effettiva, tipo, categoria, importo, note
-        FROM movimenti_cassa
-        WHERE data_effettiva >= ?
-        ORDER BY data_effettiva DESC
-        LIMIT 10
-    """, (primo_mese,)).fetchall()]
-
-if movimenti:
-    for mov in movimenti:
-        col_m1, col_m2, col_m3 = st.columns([2, 3, 1])
-        
-        with col_m1:
-            st.markdown(f"**{mov['data_effettiva']}**")
-        
-        with col_m2:
-            tipo_icon = "💵" if mov['tipo'] == 'ENTRATA' else "💸"
-            st.markdown(f"{tipo_icon} {mov['categoria']}")
-            if mov['note']:
-                st.caption(mov['note'])
-        
-        with col_m3:
-            colore = "positive" if mov['tipo'] == 'ENTRATA' else "negative"
-            segno = "+" if mov['tipo'] == 'ENTRATA' else "-"
-            st.markdown(f"<span class='{colore}'><b>{segno}€ {mov['importo']:.0f}</b></span>", unsafe_allow_html=True)
-        
-        st.divider()
-else:
-    st.info("Nessun movimento registrato ancora")
+        df_mov = pd.DataFrame(dati_mov)
+        st.dataframe(df_mov, use_container_width=True, hide_index=True)
+    else:
+        st.info("Nessun movimento registrato")
 
 # ════════════════════════════════════════════════════════════
 # FOOTER
 # ════════════════════════════════════════════════════════════
 
 st.divider()
-st.caption("💡 Versione Semplificata - Ideale per P.IVA forfettaria e gestione libero professionista")
+st.caption("💡 Dashboard ottimizzato per P.IVA forfettaria · Aggiornamento: " + oggi.strftime('%d/%m/%Y'))
