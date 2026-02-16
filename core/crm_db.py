@@ -773,11 +773,16 @@ class CrmDBManager:
                 "movimenti": movimenti
             }
 
-    def get_rate_pendenti(self, data_entro=None):
+    def get_rate_pendenti(self, data_entro=None, solo_future=True):
         """
         Ritorna rate NON ancora pagate (stato != 'SALDATA'), opzionalmente entro una certa data.
+        
+        Args:
+            data_entro: Data limite massima (inclusa)
+            solo_future: Se True, esclude rate già scadute (data_scadenza >= oggi)
         """
         with self._connect() as conn:
+            oggi = date.today()
             query = """
                 SELECT rp.*, c.id_cliente, c.tipo_pacchetto, cl.nome, cl.cognome
                 FROM rate_programmate rp
@@ -787,6 +792,12 @@ class CrmDBManager:
             """
             params = []
             
+            # Filtra rate future (esclude scadute)
+            if solo_future:
+                query += " AND rp.data_scadenza >= ?"
+                params.append(oggi)
+            
+            # Filtra entro data limite
             if data_entro:
                 query += " AND rp.data_scadenza <= ?"
                 params.append(data_entro)
@@ -794,6 +805,23 @@ class CrmDBManager:
             query += " ORDER BY rp.data_scadenza ASC"
             return [dict(r) for r in conn.execute(query, params).fetchall()]
 
+    def get_rate_scadute(self):
+        """
+        Ritorna rate SCADUTE e non ancora saldate (da sollecitare).
+        """
+        with self._connect() as conn:
+            oggi = date.today()
+            query = """
+                SELECT rp.*, c.id_cliente, c.tipo_pacchetto, cl.nome, cl.cognome
+                FROM rate_programmate rp
+                JOIN contratti c ON rp.id_contratto = c.id
+                JOIN clienti cl ON c.id_cliente = cl.id
+                WHERE rp.stato != 'SALDATA'
+                AND rp.data_scadenza < ?
+                ORDER BY rp.data_scadenza ASC
+            """
+            return [dict(r) for r in conn.execute(query, (oggi,)).fetchall()]
+    
     def get_spese_ricorrenti_prossime(self, giorni_futuri=30):
         """
         Ritorna spese ricorrenti che scadono nei prossimi N giorni (basate su data_prossima_scadenza).

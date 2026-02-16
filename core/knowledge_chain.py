@@ -206,7 +206,7 @@ class HybridKnowledgeChain:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# LEGACY FUNCTIONS (per compatibilità con workout_generator.py)
+# GLOBAL INSTANCE & HELPER FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════════
 
 # Istanza globale

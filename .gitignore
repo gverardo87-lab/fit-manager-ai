@@ -132,3 +132,27 @@ knowledge_base/vectorstore/
 
 # PDF files
 *.pdf
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Test coverage
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
