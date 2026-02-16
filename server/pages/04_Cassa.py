@@ -108,6 +108,7 @@ previsione = db.get_previsione_cash(30)
 rate_pendenti = db.get_rate_pendenti(oggi + timedelta(days=30), solo_future=True)
 rate_scadute = db.get_rate_scadute()
 spese_fisse = db.get_spese_ricorrenti()
+spese_fisse_non_pagate = db.get_spese_fisse_non_pagate()  # Nuova metrica
 
 # ════════════════════════════════════════════════════════════
 # EXECUTIVE SUMMARY (Top Priority)
@@ -130,7 +131,16 @@ with col_alert1:
         st.success("✅ Nessuna rata in ritardo")
 
 with col_alert2:
-    if previsione['saldo_previsto'] < 500:
+    # Priorità 1: Spese fisse non pagate (più urgente)
+    if spese_fisse_non_pagate:
+        totale_non_pagato = sum(s['importo'] for s in spese_fisse_non_pagate)
+        nomi_spese = ", ".join([f"{s['nome']} (€{s['importo']:.0f})" for s in spese_fisse_non_pagate[:2]])
+        if len(spese_fisse_non_pagate) > 2:
+            nomi_spese += f" +{len(spese_fisse_non_pagate)-2} altre"
+        st.warning(f"⚠️ **{len(spese_fisse_non_pagate)} spese fisse non pagate** → €{totale_non_pagato:.0f}")
+        st.caption(f"💳 {nomi_spese}")
+    # Priorità 2: Cash flow basso
+    elif previsione['saldo_previsto'] < 500:
         st.warning(f"⚠️ **Cash flow basso** → Saldo previsto 30gg: €{previsione['saldo_previsto']:.0f}")
         st.caption(f"📊 Oggi: €{saldo_totale:.0f} + Rate: €{previsione['rate_scadenti']:.0f} - Costi: €{previsione['costi_previsti']:.0f}")
     else:
@@ -359,29 +369,59 @@ with col_spesa:
     st.markdown("**💸 Registra Spesa Veloce**")
     
     with st.form("quick_spesa", clear_on_submit=True):
+        # Costruisci dropdown dinamico con spese fisse + categorie standard
+        categorie_standard = ["──── ALTRE CATEGORIE ────", "Marketing", "Formazione", "Attrezzature", "Trasporti", "Altro"]
+        
+        if spese_fisse:
+            categorie_spese_fisse = [f"📌 {s['nome']} (€{s['importo']:.0f} - {s['giorno_scadenza']}°)" for s in spese_fisse]
+            opzioni_categoria = ["──── SPESE FISSE MENSILI ────"] + categorie_spese_fisse + categorie_standard
+        else:
+            opzioni_categoria = categorie_standard[1:]  # Salta header se no spese fisse
+        
         col_f1, col_f2 = st.columns(2)
         with col_f1:
-            categoria_spesa = st.selectbox(
+            categoria_sel = st.selectbox(
                 "Categoria",
-                ["Affitto", "Utenze", "Attrezzature", "Marketing", "Formazione", "Altro"]
+                opzioni_categoria,
+                key="cat_spesa"
             )
-            importo_spesa = st.number_input("Importo €", min_value=0.0, step=10.0)
+            
+            # Se seleziona spesa fissa, pre-compila importo
+            importo_default = 0.0
+            id_spesa_ricorrente = None
+            categoria_finale = categoria_sel
+            
+            if categoria_sel.startswith("📌 "):
+                # Estrai nome spesa fissa (rimuovi emoji e parentesi)
+                nome_spesa = categoria_sel.split(" (")[0].replace("📌 ", "")
+                # Trova spesa corrispondente
+                for sf in spese_fisse:
+                    if sf['nome'] == nome_spesa:
+                        importo_default = float(sf['importo'])
+                        id_spesa_ricorrente = sf['id']
+                        categoria_finale = sf['categoria']  # Usa categoria della spesa fissa
+                        break
+            
+            importo_spesa = st.number_input("Importo €", min_value=0.0, step=10.0, value=importo_default, key="imp_spesa")
         with col_f2:
-            data_spesa = st.date_input("Data", value=oggi)
-            note_spesa = st.text_input("Note", placeholder="es: Bolletta luce")
+            data_spesa = st.date_input("Data", value=oggi, key="data_spesa_input")
+            note_spesa = st.text_input("Note", placeholder="es: Bolletta luce", key="note_spesa")
         
         if st.form_submit_button("💾 Salva Spesa", type="primary", use_container_width=True):
-            if importo_spesa > 0:
+            if importo_spesa > 0 and not categoria_sel.startswith("────"):
                 db.registra_spesa(
-                    categoria=categoria_spesa,
+                    categoria=categoria_finale,
                     importo=importo_spesa,
-                    metodo="Contanti",
+                    metodo="Bonifico",
                     data_pagamento=data_spesa,
-                    note=note_spesa
+                    note=note_spesa,
+                    id_spesa_ricorrente=id_spesa_ricorrente  # Collegamento diretto
                 )
                 st.success(f"✅ Spesa €{importo_spesa:.0f} registrata! Controlla lo storico movimenti sotto.")
                 st.balloons()
                 st.rerun()
+            elif categoria_sel.startswith("────"):
+                st.error("⚠️ Seleziona una categoria valida")
 
 with col_entrata:
     st.markdown("**💵 Registra Entrata Spot**")
@@ -429,20 +469,56 @@ st.divider()
 
 # Seconda sezione: Spese Fisse (full width)
 with st.expander("📊 Spese Fisse Mensili", expanded=False):
+    # Quick Actions per spese non pagate
+    if spese_fisse_non_pagate:
+        st.warning(f"⚠️ **{len(spese_fisse_non_pagate)} spese non pagate questo mese**")
+        
+        cols_quick = st.columns(min(len(spese_fisse_non_pagate), 3))
+        for idx, (col, spesa) in enumerate(zip(cols_quick, spese_fisse_non_pagate[:3])):
+            with col:
+                st.markdown(f"**{spesa['nome']}**")
+                st.caption(f"Scadenza: {spesa['giorno_scadenza']} {oggi.strftime('%B')}")
+                st.caption(f"💶 €{spesa['importo']:.0f}")
+                
+                if st.button(f"💳 Paga Ora", key=f"quick_paga_{spesa['id']}", use_container_width=True, type="primary"):
+                    db.registra_spesa(
+                        categoria=spesa['categoria'],
+                        importo=spesa['importo'],
+                        metodo="Bonifico",
+                        data_pagamento=oggi,
+                        note=f"Pagamento {spesa['nome']} - {oggi.strftime('%B %Y')}",
+                        id_spesa_ricorrente=spesa['id']
+                    )
+                    st.success(f"✅ {spesa['nome']} pagata!")
+                    st.balloons()
+                    st.rerun()
+        
+        if len(spese_fisse_non_pagate) > 3:
+            st.info(f"➕ {len(spese_fisse_non_pagate)-3} altre spese da pagare (vedi dropdown sopra)")
+        
+        st.divider()
+    
+    # Tabella completa spese fisse
     if spese_fisse:
+        st.markdown("**📋 Tutte le Spese Fisse Configurate**")
         totale_fisso = sum(s['importo'] for s in spese_fisse)
         
         col_sf_left, col_sf_right = st.columns([2, 1])
         
         with col_sf_left:
-            # Tabella spese fisse
+            # Tabella spese fisse con status
             dati_fisse = []
             for s in spese_fisse:
+                # Verifica se pagata questo mese
+                pagata_questo_mese = s['id'] not in [sp['id'] for sp in spese_fisse_non_pagate]
+                status = "✅ Pagata" if pagata_questo_mese else ("⏳ Futura" if s['giorno_scadenza'] > oggi.day else "❌ Non Pagata")
+                
                 dati_fisse.append({
                     'Nome': s['nome'],
                     'Categoria': s['categoria'],
                     'Importo': f"€{s['importo']:.0f}",
-                    'Scadenza': f"{s['giorno_scadenza']} del mese"
+                    'Scadenza': f"{s['giorno_scadenza']}° del mese",
+                    'Status': status
                 })
             
             df_fisse = pd.DataFrame(dati_fisse)
@@ -450,6 +526,12 @@ with st.expander("📊 Spese Fisse Mensili", expanded=False):
         
         with col_sf_right:
             st.metric("Totale Mensile", f"€{totale_fisso:,.0f}")
+            
+            # Breakdown pagato/non pagato
+            totale_non_pagato = sum(s['importo'] for s in spese_fisse_non_pagate)
+            totale_pagato = totale_fisso - totale_non_pagato
+            st.caption(f"✅ Pagato: €{totale_pagato:.0f}")
+            st.caption(f"❌ Da pagare: €{totale_non_pagato:.0f}")
     else:
         st.info("Nessuna spesa fissa configurata")
     

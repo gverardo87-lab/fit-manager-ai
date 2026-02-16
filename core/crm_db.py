@@ -57,6 +57,13 @@ class CrmDBManager:
             conn.commit()
         except sqlite3.OperationalError:
             pass
+        
+        # Migrazione 3: Aggiungi id_spesa_ricorrente a movimenti_cassa per collegamento diretto
+        try:
+            cursor.execute("ALTER TABLE movimenti_cassa ADD COLUMN id_spesa_ricorrente INTEGER")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass
 
     def _init_schema(self):
         with self._connect() as conn:
@@ -855,11 +862,15 @@ class CrmDBManager:
         }
 
     # --- SPESE ---
-    def registra_spesa(self, categoria, importo, metodo, data_pagamento=None, note=""):
+    def registra_spesa(self, categoria, importo, metodo, data_pagamento=None, note="", id_spesa_ricorrente=None):
+        """Registra uscita con collegamento opzionale a spesa ricorrente"""
         if data_pagamento is None: 
             data_pagamento = date.today()
         with self.transaction() as cur: 
-            cur.execute("INSERT INTO movimenti_cassa (data_effettiva, tipo, categoria, importo, metodo, note) VALUES (?, 'USCITA', ?, ?, ?, ?)", (data_pagamento, categoria, importo, metodo, note))
+            cur.execute(
+                "INSERT INTO movimenti_cassa (data_effettiva, tipo, categoria, importo, metodo, note, id_spesa_ricorrente) VALUES (?, 'USCITA', ?, ?, ?, ?, ?)", 
+                (data_pagamento, categoria, importo, metodo, note, id_spesa_ricorrente)
+            )
     
     def registra_entrata_spot(self, categoria, importo, metodo="Contanti", data_pagamento=None, id_cliente=None, note=""):
         """Registra entrata one-off (non da contratto): vendita prodotto, consulenza spot, etc."""
@@ -885,6 +896,28 @@ class CrmDBManager:
             """, (nome, categoria, importo, frequenza, giorno_scadenza, data_prossima))
     def get_spese_ricorrenti(self):
         with self._connect() as conn: return [dict(r) for r in conn.execute("SELECT * FROM spese_ricorrenti WHERE attiva=1").fetchall()]
+    
+    def get_spese_fisse_non_pagate(self, mese=None):
+        """Ritorna spese fisse scadute e non ancora pagate nel mese specificato (default: mese corrente)"""
+        if mese is None:
+            mese = date.today()
+        
+        anno_mese = mese.strftime('%Y-%m')
+        giorno_oggi = mese.day
+        
+        with self._connect() as conn:
+            query = """
+                SELECT sf.* 
+                FROM spese_ricorrenti sf
+                LEFT JOIN movimenti_cassa mc 
+                    ON sf.id = mc.id_spesa_ricorrente
+                    AND strftime('%Y-%m', mc.data_effettiva) = ?
+                WHERE sf.attiva = 1
+                  AND sf.giorno_scadenza <= ?
+                  AND mc.id IS NULL
+                ORDER BY sf.giorno_scadenza ASC
+            """
+            return [dict(r) for r in conn.execute(query, (anno_mese, giorno_oggi)).fetchall()]
 
     # --- GETTERS ---
     def get_clienti_df(self):
