@@ -472,8 +472,6 @@ with st.sidebar:
     
     st.markdown("#### 📚 Risorse")
     st.page_link("pages/08_Document_Explorer.py", label="📚 Documenti", icon="📚")
-    st.page_link("pages/09_Meteo_Cantiere.py", label="🌤️ Meteo", icon="🌤️")
-    st.page_link("pages/10_Bollettino_Mare.py", label="🌊 Mare", icon="🌊")
     
     st.divider()
     
