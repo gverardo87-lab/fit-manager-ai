@@ -29,12 +29,15 @@ from core.periodization_models import get_periodization_plan, Goal, Periodizatio
 
 class WorkoutGeneratorV2:
     """
-    Generatore professionale di programmi allenamento - REFACTORED
+    Generatore professionale di programmi allenamento - REFACTORED V3
 
     Features:
     - Selezione esercizi da database UNIFICATO 500+
     - Periodizzazione scientifica (5 modelli)
-    - Warm-up/cool-down automatici
+    - EXERCISE ROTATION: Varianti automatiche ogni 2-4 settimane
+    - SMART WARM-UP: Riscaldamento specifico + specific warm-up sets
+    - DELOAD AUTOMATION: Settimana scarico ogni 3-4 settimane
+    - VOLUME TRACKING: Calcolo sets ottimali per muscolo
     - Progressive overload tracking
     - Validazione equipment e controindicazioni
     - Output professionale
@@ -42,9 +45,25 @@ class WorkoutGeneratorV2:
 
     def __init__(self):
         """Inizializza generatore con database esercizi UNIFICATO"""
-        print("[INIT] Caricamento database esercizi UNIFICATO...")
+        print("[INIT] Caricamento database esercizi UNIFICATO V3...")
         self.exercise_db = exercise_db  # Usa istanza globale
+        
+        # Volume tracking guidelines (sets/week per muscolo - evidenza scientifica)
+        self.optimal_volume_ranges = {
+            MuscleGroup.CHEST: (12, 20),      # 12-20 sets/week
+            MuscleGroup.BACK: (14, 22),       # Più volume per back
+            MuscleGroup.SHOULDERS: (12, 18),
+            MuscleGroup.QUADRICEPS: (12, 20),
+            MuscleGroup.HAMSTRINGS: (10, 16),
+            MuscleGroup.GLUTES: (12, 20),
+            MuscleGroup.BICEPS: (8, 14),      # Isolation
+            MuscleGroup.TRICEPS: (10, 16),
+            MuscleGroup.CALVES: (12, 18),
+            MuscleGroup.CORE: (0, 0),  # Non tracciato (fatto ogni sessione)
+        }
+        
         print(f"[OK] Caricati {self.exercise_db.count_exercises()} esercizi")
+        print("[OK] Volume tracking attivo: 10-22 sets/week per muscolo")
 
     def generate_professional_workout(
         self,
@@ -115,18 +134,31 @@ class WorkoutGeneratorV2:
             limitazioni=client_profile.get('limitazioni', [])
         )
 
-        # Step 5: Applica periodizzazione a template
-        print(f"[APPLY] Applicando periodizzazione a {weeks} settimane...")
-        complete_program = self._apply_periodization_to_template(
+        # Step 5: Applica exercise rotation (varianti ogni 2-4 settimane)
+        print(f"[ROTATION] Applicando rotazione esercizi...")
+        rotated_templates = self._apply_exercise_rotation(
             weekly_template,
+            weeks,
+            equipment=client_profile.get('equipment', []),
+            limitazioni=client_profile.get('limitazioni', [])
+        )
+
+        # Step 6: Applica periodizzazione con deload automatico
+        print(f"[APPLY] Applicando periodizzazione a {weeks} settimane...")
+        complete_program = self._apply_periodization_to_template_v2(
+            rotated_templates,
             periodization_plan,
             weeks
         )
 
-        # Step 6: Aggiungi warm-up e cool-down
-        complete_program = self._add_warmup_cooldown(complete_program)
+        # Step 7: Volume tracking validation
+        print(f"[VOLUME] Validando volume per muscolo...")
+        volume_report = self._validate_weekly_volume(weekly_template)
+        
+        # Step 8: Aggiungi smart warm-up e cool-down
+        complete_program = self._add_smart_warmup_cooldown(complete_program)
 
-        # Step 7: Genera output finale
+        # Step 9: Genera output finale con volume report
         output = {
             'client_name': f"{client_profile.get('nome', '')} {client_profile.get('cognome', '')}".strip(),
             'goal': goal.value,
@@ -137,6 +169,7 @@ class WorkoutGeneratorV2:
             'periodization_model': periodization_plan.model_name,
             'periodization_description': periodization_plan.description,
             'weekly_schedule': complete_program,
+            'volume_analysis': volume_report,  # NEW: Volume tracking
             'progressive_overload': self._generate_progression_guidelines(goal),
             'recovery_recommendations': self._generate_recovery_guidelines(goal),
             'notes': self._generate_program_notes(client_profile),
@@ -696,6 +729,363 @@ class WorkoutGeneratorV2:
         """
 
         return notes
+
+
+    # ══════════════════════════════════════════════════════════════
+    # NEW V3: EXERCISE ROTATION, VOLUME TRACKING, SMART WARM-UP
+    # ══════════════════════════════════════════════════════════════
+
+    def _apply_exercise_rotation(
+        self,
+        weekly_template: Dict,
+        weeks: int,
+        equipment: List[str],
+        limitazioni: List[str]
+    ) -> Dict[int, Dict]:
+        """
+        Applica rotazione esercizi ogni 2-4 settimane per varietà
+        
+        Returns:
+            {
+                1: weekly_template (week 1-2),
+                3: weekly_template_variant (week 3-4),
+                5: weekly_template_variant2 (week 5-6),
+                ...
+            }
+        """
+        rotation_frequency = 2 if weeks >= 8 else 4  # Ruota ogni 2-4 settimane
+        templates = {}
+        
+        for week_start in range(1, weeks + 1, rotation_frequency):
+            # Usa template originale per prime settimane
+            if week_start == 1:
+                templates[week_start] = weekly_template
+            else:
+                # Genera variante usando alternative exercises
+                variant_template = {}
+                for day_name, exercises in weekly_template.items():
+                    variant_exercises = []
+                    for ex in exercises:
+                        # Per esercizi principali, trova variante
+                        if ex.get('is_main_lift', False):
+                            original_id = ex.get('id', ex['name'])
+                            alternatives = self.exercise_db.get_alternative_exercises(
+                                exercise_id=original_id,
+                                reason='variety',
+                                equipment=equipment
+                            )
+                            # Prendi prima alternativa safe
+                            if alternatives:
+                                variant_ex = alternatives[0]
+                                # Ricostruisci dict
+                                variant_exercises.append({
+                                    'id': variant_ex.id,
+                                    'name': variant_ex.name,
+                                    'italian_name': variant_ex.italian_name,
+                                    'primary_muscles': [m.value for m in variant_ex.primary_muscles],
+                                    'equipment': variant_ex.equipment,
+                                    'is_main_lift': True,
+                                    'sets': ex['sets'],
+                                    'reps': ex['reps'],
+                                    'rest_seconds': ex['rest_seconds'],
+                                    'notes': f"Variante di {ex['name']}",
+                                    'contraindications': variant_ex.contraindications,
+                                })
+                            else:
+                                # Nessuna alternativa, tieni originale
+                                variant_exercises.append(ex)
+                        else:
+                            # Esercizi accessori, tieni uguali
+                            variant_exercises.append(ex)
+                    
+                    variant_template[day_name] = variant_exercises
+                
+                templates[week_start] = variant_template
+        
+        return templates
+
+    def _apply_periodization_to_template_v2(
+        self,
+        rotated_templates: Dict[int, Dict],
+        periodization_plan: PeriodizationPlan,
+        weeks: int
+    ) -> Dict:
+        """
+        Applica periodizzazione con DELOAD automatico ogni 3-4 settimane
+        
+        Returns:
+            {
+                'week_1': {...},
+                'week_2': {...},
+                ...
+            }
+        """
+        complete_program = {}
+        deload_frequency = 4  # Deload ogni 4 settimane
+        
+        for week_num in range(1, weeks + 1):
+            # Determina se è deload week
+            is_deload = (week_num % deload_frequency == 0) and week_num > 1
+            
+            # Ottieni parametri periodizzazione
+            week_params = periodization_plan.weeks[min(week_num - 1, len(periodization_plan.weeks) - 1)]
+            
+            # Trova template corretto (rotazione)
+            template_week = max([w for w in rotated_templates.keys() if w <= week_num])
+            weekly_template = rotated_templates[template_week]
+            
+            # Applica parametri
+            week_program = {}
+            for day_name, exercises in weekly_template.items():
+                week_program[day_name] = []
+                
+                for exercise in exercises:
+                    ex = exercise.copy()
+                    
+                    if is_deload:
+                        # DELOAD: Riduci volume 40-60%, intensità -10%
+                        ex['sets'] = max(2, int(ex.get('sets', 3) * 0.6))  # -40% sets
+                        ex['intensity_percent'] = max(60, week_params.intensity_percent - 10)
+                        ex['notes'] = f"🔵 DELOAD WEEK - {ex.get('notes', '')}"
+                        ex['reps'] = f"{week_params.reps_per_set[0]}-{week_params.reps_per_set[1]}"
+                    else:
+                        # Normal week
+                        ex['sets'] = week_params.volume_sets if ex.get('is_main_lift') else max(2, week_params.volume_sets - 1)
+                        ex['reps'] = f"{week_params.reps_per_set[0]}-{week_params.reps_per_set[1]}"
+                        ex['rest_seconds'] = week_params.rest_seconds
+                        ex['intensity_percent'] = week_params.intensity_percent
+                    
+                    week_program[day_name].append(ex)
+            
+            complete_program[f'week_{week_num}'] = {
+                'week_number': week_num,
+                'focus': "Deload & Recovery" if is_deload else week_params.focus,
+                'is_deload': is_deload,
+                'intensity_percent': week_params.intensity_percent - 10 if is_deload else week_params.intensity_percent,
+                'notes': "Settimana di scarico: volume ridotto 40%, intensità -10%. Focus su recupero e tecnica." if is_deload else week_params.notes,
+                'sessions': week_program
+            }
+        
+        return complete_program
+
+    def _validate_weekly_volume(self, weekly_template: Dict) -> Dict:
+        """
+        Calcola e valida volume settimanale per muscolo
+        
+        Returns:
+            {
+                'total_sets_per_muscle': {...},
+                'warnings': [...],
+                'recommendations': [...]
+            }
+        """
+        muscle_volume = {}
+        
+        # Conta sets per muscolo
+        for day_name, exercises in weekly_template.items():
+            for ex in exercises:
+                # Estrai muscoli primari
+                primary_muscles = ex.get('primary_muscles', [])
+                sets = ex.get('sets', 3)
+                
+                for muscle_str in primary_muscles:
+                    # Converti stringa a MuscleGroup
+                    try:
+                        muscle = MuscleGroup(muscle_str)
+                        if muscle not in muscle_volume:
+                            muscle_volume[muscle] = 0
+                        muscle_volume[muscle] += sets
+                    except ValueError:
+                        continue  # Skip se non è MuscleGroup valido
+        
+        # Valida contro range ottimali
+        warnings = []
+        recommendations = []
+        
+        for muscle, total_sets in muscle_volume.items():
+            if muscle in self.optimal_volume_ranges:
+                min_sets, max_sets = self.optimal_volume_ranges[muscle]
+                
+                if total_sets < min_sets:
+                    warnings.append(f"⚠️  {muscle.value}: {total_sets} sets/week (sotto range ottimale {min_sets}-{max_sets})")
+                    recommendations.append(f"Aggiungi 1-2 esercizi per {muscle.value}")
+                elif total_sets > max_sets:
+                    warnings.append(f"⚠️  {muscle.value}: {total_sets} sets/week (sopra range ottimale {min_sets}-{max_sets})")
+                    recommendations.append(f"Riduci volume per {muscle.value} per evitare overtraining")
+        
+        return {
+            'total_sets_per_muscle': {m.value: s for m, s in muscle_volume.items()},
+            'optimal_ranges': {m.value: f"{r[0]}-{r[1]} sets/week" for m, r in self.optimal_volume_ranges.items()},
+            'warnings': warnings,
+            'recommendations': recommendations,
+            'status': 'optimal' if not warnings else 'needs_adjustment'
+        }
+
+    def _add_smart_warmup_cooldown(self, program: Dict) -> Dict:
+        """
+        Aggiunge warm-up SPECIFICO e cool-down a ogni sessione
+        
+        Warm-up include:
+        - General warm-up (cardio leggero)
+        - Dynamic stretching specifico
+        - Specific warm-up sets (50%, 75%, 90% del working weight)
+        """
+        
+        for week_name, week_data in program.items():
+            if isinstance(week_data, dict) and 'sessions' in week_data:
+                for session_name, exercises in week_data['sessions'].items():
+                    if not exercises:
+                        continue
+                    
+                    # Identifica main lifts
+                    main_lifts = [ex for ex in exercises if ex.get('is_main_lift', False)]
+                    
+                    # SMART WARM-UP
+                    warmup = {
+                        'duration_minutes': 15,
+                        'phases': [
+                            {
+                                'phase': '1. General Warm-up',
+                                'duration': '5 min',
+                                'exercises': [
+                                    {'name': 'Light Cardio', 'details': 'Tapis roulant, bike, rowing @ RPE 4-5'}
+                                ]
+                            },
+                            {
+                                'phase': '2. Dynamic Mobility',
+                                'duration': '5 min',
+                                'exercises': self._get_dynamic_warmup_for_session(main_lifts)
+                            },
+                            {
+                                'phase': '3. Specific Warm-up Sets',
+                                'duration': '5 min',
+                                'exercises': self._get_specific_warmup_sets(main_lifts)
+                            }
+                        ]
+                    }
+                    
+                    # COOL-DOWN
+                    cooldown = {
+                        'duration_minutes': 10,
+                        'phases': [
+                            {
+                                'phase': '1. Light Active Recovery',
+                                'duration': '3 min',
+                                'exercises': [
+                                    {'name': 'Walking', 'details': '3 min camminata lenta per abbassare HR'}
+                                ]
+                            },
+                            {
+                                'phase': '2. Static Stretching',
+                                'duration': '4 min',
+                                'exercises': self._get_static_stretch_for_session(main_lifts)
+                            },
+                            {
+                                'phase': '3. Foam Rolling',
+                                'duration': '3 min',
+                                'exercises': [
+                                    {'name': 'Foam Roll', 'details': 'Focus muscoli allenati oggi (30 sec per muscolo)'}
+                                ]
+                            }
+                        ]
+                    }
+                    
+                    # Inserisci all'inizio e fine sessione
+                    week_data['sessions'][session_name] = {
+                        'warmup': warmup,
+                        'main_workout': exercises,
+                        'cooldown': cooldown
+                    }
+        
+        return program
+
+    def _get_dynamic_warmup_for_session(self, main_lifts: List[Dict]) -> List[Dict]:
+        """Genera dynamic warm-up specifico per esercizi sessione"""
+        
+        # Analizza muscoli target
+        has_lower = any('squat' in ex.get('name', '').lower() or 
+                       'deadlift' in ex.get('name', '').lower() or
+                       'leg' in ex.get('name', '').lower() 
+                       for ex in main_lifts)
+        
+        has_upper_push = any('bench' in ex.get('name', '').lower() or 
+                            'press' in ex.get('name', '').lower() 
+                            for ex in main_lifts)
+        
+        has_upper_pull = any('row' in ex.get('name', '').lower() or 
+                            'pull' in ex.get('name', '').lower() 
+                            for ex in main_lifts)
+        
+        dynamic_exercises = []
+        
+        if has_lower:
+            dynamic_exercises.extend([
+                {'name': 'Leg Swings', 'reps': '10 per lato', 'details': 'Avanti/indietro e laterali'},
+                {'name': 'Bodyweight Squats', 'reps': '10', 'details': 'Lento e controllato'},
+                {'name': 'Walking Lunges', 'reps': '10 per lato', 'details': 'Focus mobilità anca'}
+            ])
+        
+        if has_upper_push or has_upper_pull:
+            dynamic_exercises.extend([
+                {'name': 'Arm Circles', 'reps': '10 avanti + 10 indietro', 'details': 'Piccoli e grandi cerchi'},
+                {'name': 'Scapular Push-ups', 'reps': '10', 'details': 'Focus retrazione scapole'},
+                {'name': 'Band Pull-aparts', 'reps': '15', 'details': 'Attivazione upper back'}
+            ])
+        
+        return dynamic_exercises if dynamic_exercises else [
+            {'name': 'Full Body Dynamic Stretch', 'reps': '5 min', 'details': 'Movimenti dinamici multi-articolari'}
+        ]
+
+    def _get_specific_warmup_sets(self, main_lifts: List[Dict]) -> List[Dict]:
+        """Genera specific warm-up sets per main lifts (50%, 75%, 90%)"""
+        
+        warmup_sets = []
+        
+        for lift in main_lifts[:2]:  # Primi 2 main lifts
+            name = lift.get('name', 'Exercise')
+            warmup_sets.append({
+                'name': f"{name} Warm-up",
+                'sets': '3 sets',
+                'details': '1×8 @ 50%, 1×5 @ 75%, 1×3 @ 90% del peso di lavoro'
+            })
+        
+        return warmup_sets if warmup_sets else [
+            {'name': 'Light Sets', 'details': 'Inizia con peso leggero e aumenta gradualmente'}
+        ]
+
+    def _get_static_stretch_for_session(self, main_lifts: List[Dict]) -> List[Dict]:
+        """Genera static stretching specifico per muscoli allenati"""
+        
+        has_lower = any('squat' in ex.get('name', '').lower() or 
+                       'deadlift' in ex.get('name', '').lower() or
+                       'leg' in ex.get('name', '').lower() 
+                       for ex in main_lifts)
+        
+        has_upper = any('bench' in ex.get('name', '').lower() or 
+                       'press' in ex.get('name', '').lower() or
+                       'row' in ex.get('name', '').lower() or
+                       'pull' in ex.get('name', '').lower()
+                       for ex in main_lifts)
+        
+        stretches = []
+        
+        if has_lower:
+            stretches.extend([
+                {'name': 'Quad Stretch', 'duration': '30 sec per lato'},
+                {'name': 'Hamstring Stretch', 'duration': '30 sec per lato'},
+                {'name': 'Glute Stretch (Pigeon)', 'duration': '30 sec per lato'},
+            ])
+        
+        if has_upper:
+            stretches.extend([
+                {'name': 'Chest Doorway Stretch', 'duration': '30 sec'},
+                {'name': 'Shoulder Cross-body Stretch', 'duration': '30 sec per lato'},
+                {'name': 'Tricep Overhead Stretch', 'duration': '30 sec per lato'},
+            ])
+        
+        return stretches if stretches else [
+            {'name': 'Full Body Stretch', 'duration': '5 min', 'details': 'Focus muscoli allenati'}
+        ]
 
 
 # ══════════════════════════════════════════════════════════════
