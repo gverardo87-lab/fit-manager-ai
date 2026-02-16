@@ -20,6 +20,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from core.crm_db import CrmDBManager
+from core.ui_components import badge, status_badge, format_currency, loading_message, section_divider_component
 
 # ════════════════════════════════════════════════════════════
 # CONFIG
@@ -160,7 +161,7 @@ with col1:
     st.markdown(f"""
     <div class='kpi-card'>
         <div class='kpi-label'>💰 Saldo in Cassa (REALE)</div>
-        <div class='kpi-value {"positive" if saldo_totale >= 0 else "negative"}'>€ {saldo_totale:,.0f}</div>
+        <div class='kpi-value {"positive" if saldo_totale >= 0 else "negative"}'>{format_currency(saldo_totale, 0)}</div>
         <small>Capitale effettivo accumulato</small>
     </div>
     """, unsafe_allow_html=True)
@@ -169,8 +170,8 @@ with col2:
     st.markdown(f"""
     <div class='kpi-card'>
         <div class='kpi-label'>💰 Flusso Questo Mese (REALE)</div>
-        <div class='kpi-value {"positive" if bilancio["saldo_cassa"] >= 0 else "negative"}'>€ {bilancio['saldo_cassa']:,.0f}</div>
-        <small>€{bilancio['incassato']:,.0f} entrate · €{bilancio['speso']:,.0f} uscite</small>
+        <div class='kpi-value {"positive" if bilancio["saldo_cassa"] >= 0 else "negative"}'>{format_currency(bilancio['saldo_cassa'], 0)}</div>
+        <small>{format_currency(bilancio['incassato'], 0)} entrate · {format_currency(bilancio['speso'], 0)} uscite</small>
     </div>
     """, unsafe_allow_html=True)    
     # Breakdown entrate/uscite questo mese
@@ -209,7 +210,7 @@ with col3:
     st.markdown(f"""
     <div class='kpi-card'>
         <div class='kpi-label'>📈 Previsione 30gg (STIMA)</div>
-        <div class='kpi-value {"positive" if previsione["saldo_previsto"] >= 0 else "negative"}'>€ {previsione['saldo_previsto']:,.0f}</div>
+        <div class='kpi-value {"positive" if previsione["saldo_previsto"] >= 0 else "negative"}'>{format_currency(previsione['saldo_previsto'], 0)}</div>
         <small>Saldo attuale + rate future - costi attesi</small>
     </div>
     """, unsafe_allow_html=True)
@@ -257,7 +258,7 @@ with tab1:
         
         # Totale con breakdown dettagliato
         totale_scadute = df_scadute['_importo_num'].sum()
-        st.error(f"**TOTALE DA RECUPERARE: €{totale_scadute:,.0f}**")
+        st.error(f"**TOTALE DA RECUPERARE: {format_currency(totale_scadute, 0)}**")
         
         # Breakdown per cliente (expander)
         with st.expander("🔍 Dettaglio per Cliente"):
@@ -323,7 +324,7 @@ with tab2:
         
         # Totale con breakdown dettagliato
         totale_pendenti = df_pendenti['_importo_num'].sum()
-        st.info(f"**TOTALE ATTESO: €{totale_pendenti:,.0f}**")
+        st.info(f"**TOTALE ATTESO: {format_currency(totale_pendenti, 0)}**")
         
         # Breakdown per cliente (expander)
         with st.expander("🔍 Dettaglio per Cliente"):
@@ -535,7 +536,7 @@ with st.expander("📊 Spese Fisse Mensili", expanded=False):
             st.dataframe(df_fisse, use_container_width=True, hide_index=True)
         
         with col_sf_right:
-            st.metric("Totale Mensile", f"€{totale_fisso:,.0f}")
+            st.metric("Totale Mensile", format_currency(totale_fisso, 0))
             
             # Breakdown pagato/non pagato
             totale_non_pagato = sum(s['importo'] for s in spese_fisse_non_pagate)
@@ -582,8 +583,8 @@ col_saldo_attuale, col_variazione = st.columns([2, 1])
 with col_saldo_attuale:
     st.metric(
         "💰 Saldo Totale Attuale",
-        f"€ {saldo_totale:.2f}",
-        delta=f"€ {bilancio['saldo_cassa']:.2f} questo mese",
+        format_currency(saldo_totale),
+        delta=f"{format_currency(bilancio['saldo_cassa'], 0)} questo mese",
         delta_color="normal" if bilancio['saldo_cassa'] >= 0 else "inverse"
     )
 with col_variazione:

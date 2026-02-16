@@ -413,8 +413,107 @@ st.markdown("""
     }
 
     /* ═══════════════════════════════════════════════════════════════ */
-    /* CUSTOM UTILITIES */
+    /* CUSTOM UTILITIES - QUICK WINS */
     /* ═══════════════════════════════════════════════════════════════ */
+    
+    /* Text Colors Semantici */
+    .text-success { color: #155724 !important; }
+    .text-warning { color: #856404 !important; }
+    .text-danger { color: #721C24 !important; }
+    .text-info { color: #0C5460 !important; }
+    .text-muted { color: #7A7A8A !important; }
+    .text-primary { color: #0066CC !important; }
+    
+    /* Background Colors Light */
+    .bg-success-light { background: rgba(0, 200, 81, 0.1) !important; }
+    .bg-warning-light { background: rgba(255, 184, 0, 0.1) !important; }
+    .bg-danger-light { background: rgba(231, 76, 60, 0.1) !important; }
+    .bg-info-light { background: rgba(0, 102, 204, 0.1) !important; }
+    
+    /* Border Radius Utilities */
+    .rounded-sm { border-radius: 4px !important; }
+    .rounded-md { border-radius: 8px !important; }
+    .rounded-lg { border-radius: 12px !important; }
+    .rounded-xl { border-radius: 16px !important; }
+    .rounded-full { border-radius: 9999px !important; }
+    
+    /* Shadow Utilities */
+    .shadow-sm { box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important; }
+    .shadow-md { box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important; }
+    .shadow-lg { box-shadow: 0 10px 15px rgba(0,0,0,0.1) !important; }
+    .shadow-xl { box-shadow: 0 20px 25px rgba(0,0,0,0.15) !important; }
+    
+    /* Spacing Utilities (padding/margin) */
+    .p-0 { padding: 0 !important; }
+    .p-1 { padding: 0.25rem !important; }
+    .p-2 { padding: 0.5rem !important; }
+    .p-3 { padding: 0.75rem !important; }
+    .p-4 { padding: 1rem !important; }
+    .p-5 { padding: 1.5rem !important; }
+    .p-6 { padding: 2rem !important; }
+    
+    .m-0 { margin: 0 !important; }
+    .m-1 { margin: 0.25rem !important; }
+    .m-2 { margin: 0.5rem !important; }
+    .m-3 { margin: 0.75rem !important; }
+    .m-4 { margin: 1rem !important; }
+    .m-5 { margin: 1.5rem !important; }
+    .m-6 { margin: 2rem !important; }
+    
+    .mt-0 { margin-top: 0 !important; }
+    .mt-2 { margin-top: 0.5rem !important; }
+    .mt-3 { margin-top: 0.75rem !important; }
+    .mt-4 { margin-top: 1rem !important; }
+    .mt-5 { margin-top: 1.5rem !important; }
+    .mt-6 { margin-top: 2rem !important; }
+    
+    .mb-0 { margin-bottom: 0 !important; }
+    .mb-2 { margin-bottom: 0.5rem !important; }
+    .mb-3 { margin-bottom: 0.75rem !important; }
+    .mb-4 { margin-bottom: 1rem !important; }
+    .mb-5 { margin-bottom: 1.5rem !important; }
+    .mb-6 { margin-bottom: 2rem !important; }
+    
+    /* Animations */
+    .animate-fade-in {
+        animation: fadeIn 0.3s ease-in;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .hover-lift {
+        transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+    }
+    
+    .hover-lift:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 16px rgba(0,0,0,0.12) !important;
+    }
+    
+    /* Font Utilities */
+    .font-bold { font-weight: 700 !important; }
+    .font-semibold { font-weight: 600 !important; }
+    .font-normal { font-weight: 400 !important; }
+    
+    .text-xs { font-size: 0.75rem !important; }
+    .text-sm { font-size: 0.875rem !important; }
+    .text-base { font-size: 1rem !important; }
+    .text-lg { font-size: 1.125rem !important; }
+    .text-xl { font-size: 1.25rem !important; }
+    .text-2xl { font-size: 1.5rem !important; }
+    
+    /* Display & Flex */
+    .flex { display: flex !important; }
+    .flex-col { flex-direction: column !important; }
+    .items-center { align-items: center !important; }
+    .justify-between { justify-content: space-between !important; }
+    .justify-center { justify-content: center !important; }
+    .gap-2 { gap: 0.5rem !important; }
+    .gap-3 { gap: 0.75rem !important; }
+    .gap-4 { gap: 1rem !important; }
     
     .section-header {
         color: var(--text-primary);

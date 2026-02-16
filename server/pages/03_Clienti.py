@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 import json
 from datetime import date, datetime, timedelta
 from core.crm_db import CrmDBManager
+from core.ui_components import badge, status_badge, format_currency, empty_state_component, loading_message
 
 db = CrmDBManager()
 
@@ -61,7 +62,7 @@ def dialog_vendita(id_cl):
         if tipo_calc == "Numero Rate":
             n_rate = cr1.number_input("Numero Rate", 2, 24, 3, step=1)
             rata_calc = residuo / n_rate
-            cr2.metric("Importo Rata", f"€ {rata_calc:.2f}")
+            cr2.metric("Importo Rata", format_currency(rata_calc))
         else:
             target_rata = cr1.number_input("Importo Desiderato (€)", value=100.0, step=10.0)
             if target_rata > 0:
@@ -74,7 +75,7 @@ def dialog_vendita(id_cl):
         freq = st.selectbox("Cadenza Rate", ["MENSILE", "SETTIMANALE"])
     
     elif residuo > 0:
-        st.info(f"Residuo di **€ {residuo:.2f}** da saldare in unica soluzione.")
+        st.info(f"Residuo di **{format_currency(residuo)}** da saldare in unica soluzione.")
     
     st.markdown("---")
     cd1, cd2 = st.columns(2)
@@ -233,10 +234,10 @@ elif sel_id:
         tot_acconto = sum(m['importo'] for m in fin['movimenti'] if m['categoria'] == 'ACCONTO_CONTRATTO')
         tot_rate = sum(m['importo'] for m in fin['movimenti'] if m['categoria'] == 'RATA_CONTRATTO')
         
-        fin_cols[0].metric("Totale Contratti", f"€ {tot_contratti:.2f}", f"{len(fin['contratti'])} contratti")
-        fin_cols[1].metric("💰 Acconto", f"€ {tot_acconto:.2f}", f"{(tot_acconto/tot_contratti*100):.0f}%" if tot_contratti > 0 else "0%")
-        fin_cols[2].metric("📋 Rate", f"€ {tot_rate:.2f}")
-        fin_cols[3].metric("Residuo", f"€ {tot_residuo:.2f}", delta="CRITICO" if tot_residuo > 500 else "OK", delta_color="inverse" if tot_residuo > 500 else "normal")
+        fin_cols[0].metric("Totale Contratti", format_currency(tot_contratti), f"{len(fin['contratti'])} contratti")
+        fin_cols[1].metric("💰 Acconto", format_currency(tot_acconto), f"{(tot_acconto/tot_contratti*100):.0f}%" if tot_contratti > 0 else "0%")
+        fin_cols[2].metric("📋 Rate", format_currency(tot_rate))
+        fin_cols[3].metric("Residuo", format_currency(tot_residuo), delta="CRITICO" if tot_residuo > 500 else "OK", delta_color="inverse" if tot_residuo > 500 else "normal")
         
         # Status pagamenti
         rate_scadute = sum(1 for c in fin['contratti'] for r in db.get_rate_contratto(c['id']) if pd.to_datetime(r['data_scadenza']).date() < date.today() and r['stato'] != 'SALDATA')
@@ -251,14 +252,15 @@ elif sel_id:
             with st.container(border=True):
                 # Header contratto con status
                 h1, h2, h3 = st.columns([3, 1.5, 1.5])
-                status_badge = "🟢 PAGATO" if c['totale_versato'] >= c['prezzo_totale'] else "🟡 IN CORSO" if c['totale_versato'] > 0 else "🔴 NON PAGATO"
-                h1.markdown(f"**{c['tipo_pacchetto']}** {status_badge}")
+                status_text = "SALDATO" if c['totale_versato'] >= c['prezzo_totale'] else "PARZIALE" if c['totale_versato'] > 0 else "PENDENTE"
+                status_html = status_badge(status_text)
+                h1.markdown(f"**{c['tipo_pacchetto']}** {status_html}", unsafe_allow_html=True)
                 h2.write(f"Crediti: {c['crediti_usati']}/{c['crediti_totali']}")
                 if h3.button("✏️", key=f"edc_{c['id']}", help="Modifica / Elimina"): dialog_edit_contratto(c)
                 
                 # Progress bar pagamento (clampato tra 0.0 e 1.0)
                 progress_val = (c['totale_versato'] / c['prezzo_totale']) if c['prezzo_totale'] > 0 else 0
-                st.progress(max(0.0, min(progress_val, 1.0)), text=f"€ {c['totale_versato']:.2f} / € {c['prezzo_totale']:.2f}")
+                st.progress(max(0.0, min(progress_val, 1.0)), text=f"{format_currency(c['totale_versato'])} / {format_currency(c['prezzo_totale'])}")
                 
                 # Rate
                 rate = db.get_rate_contratto(c['id'])
