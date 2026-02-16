@@ -1042,7 +1042,15 @@ class CrmDBManager:
         with self._connect() as conn: return [dict(r) for r in conn.execute("SELECT * FROM spese_ricorrenti WHERE attiva=1").fetchall()]
     
     def get_spese_fisse_non_pagate(self, mese=None):
-        """Ritorna spese fisse scadute e non ancora pagate nel mese specificato (default: mese corrente)"""
+        """
+        Ritorna spese fisse scadute e non ancora pagate correttamente nel mese specificato.
+        
+        Una spesa fissa è considerata "non pagata" se:
+        1. Non esiste un movimento collegato nel mese, OPPURE
+        2. Esiste un movimento ma l'importo NON corrisponde (diff > 0.01€)
+        
+        Questo permette di rilevare modifiche post-registrazione.
+        """
         if mese is None:
             mese = date.today()
         
@@ -1051,14 +1059,19 @@ class CrmDBManager:
         
         with self._connect() as conn:
             query = """
-                SELECT sf.* 
+                SELECT sf.*, 
+                       mc.id as movimento_id,
+                       mc.importo as importo_pagato
                 FROM spese_ricorrenti sf
                 LEFT JOIN movimenti_cassa mc 
                     ON sf.id = mc.id_spesa_ricorrente
                     AND strftime('%Y-%m', mc.data_effettiva) = ?
                 WHERE sf.attiva = 1
                   AND sf.giorno_scadenza <= ?
-                  AND mc.id IS NULL
+                  AND (
+                      mc.id IS NULL OR                           -- Non esiste movimento
+                      ABS(mc.importo - sf.importo) > 0.01        -- Importo non corrisponde (tolleranza 1 centesimo)
+                  )
                 ORDER BY sf.giorno_scadenza ASC
             """
             return [dict(r) for r in conn.execute(query, (anno_mese, giorno_oggi)).fetchall()]

@@ -10,6 +10,197 @@ from typing import Dict, List, Any, Optional
 import pandas as pd
 
 # ════════════════════════════════════════════════════════════
+# QUICK WINS - UTILITIES (v2.0)
+# ════════════════════════════════════════════════════════════
+
+def badge(text: str, variant: str = "info", icon: str = "") -> str:
+    """
+    Badge colorato semantico con varianti predefinite.
+    
+    Args:
+        text: Testo da mostrare
+        variant: success, warning, danger, info, neutral, primary
+        icon: Emoji opzionale
+    
+    Returns:
+        HTML string del badge styled
+    
+    Examples:
+        badge("SALDATO", "success", "✅")
+        badge("IN RITARDO", "danger", "⚠️")
+    """
+    colors = {
+        'success': {'bg': '#D4EDDA', 'text': '#155724', 'border': '#C3E6CB'},
+        'warning': {'bg': '#FFF3CD', 'text': '#856404', 'border': '#FFEAA7'},
+        'danger': {'bg': '#F8D7DA', 'text': '#721C24', 'border': '#F5C6CB'},
+        'info': {'bg': '#D1ECF1', 'text': '#0C5460', 'border': '#BEE5EB'},
+        'neutral': {'bg': '#E2E3E5', 'text': '#383D41', 'border': '#D6D8DB'},
+        'primary': {'bg': '#CCE5FF', 'text': '#004085', 'border': '#B8DAFF'},
+    }
+    
+    col = colors.get(variant, colors['info'])
+    icon_html = f'<span style="margin-right: 4px;">{icon}</span>' if icon else ''
+    
+    return f"""<span style="background: {col['bg']}; color: {col['text']}; padding: 4px 12px; border-radius: 12px; font-size: 0.875rem; font-weight: 600; display: inline-flex; align-items: center; border: 1px solid {col['border']}; white-space: nowrap;">{icon_html}{text}</span>"""
+
+
+def status_badge(status: str) -> str:
+    """
+    Badge automatico per stati comuni (pagamenti, contratti, etc).
+    Mapping predefinito stato → colore.
+    
+    Args:
+        status: Stato da visualizzare
+    
+    Returns:
+        HTML badge con colori semantici
+    """
+    status_map = {
+        'SALDATO': ('success', '✅'), 'PAGATO': ('success', '✅'), 'COMPLETATO': ('success', '✅'), 'ATTIVO': ('success', '🟢'),
+        'PARZIALE': ('warning', '⏳'), 'IN CORSO': ('warning', '🔄'), 'SCADUTO': ('warning', '⚠️'),
+        'PENDENTE': ('danger', '❌'), 'NON PAGATO': ('danger', '❌'), 'IN RITARDO': ('danger', '🚨'), 'SCADUTA': ('danger', '⏰'),
+        'ANNULLATO': ('neutral', '⊘'), 'ARCHIVIATO': ('neutral', '📦'),
+    }
+    
+    variant, icon = status_map.get(status.upper(), ('info', '📝'))
+    return badge(status, variant, icon)
+
+
+def format_currency(value: float, decimals: int = 2, symbol: str = "€") -> str:
+    """
+    Formatta valore monetario in stile europeo.
+    
+    Args:
+        value: Valore numerico
+        decimals: Numero decimali (default 2)
+        symbol: Simbolo valuta (default €)
+    
+    Returns:
+        String formattata es: "€ 1.234,56"
+    """
+    if value is None:
+        return f"{symbol} 0,00"
+    
+    # Formato europeo: migliaia con punto, decimali con virgola
+    formatted = f"{value:,.{decimals}f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return f"{symbol} {formatted}"
+
+
+def format_currency_colored(value: float, positive_good: bool = True) -> str:
+    """
+    Currency con colore semantico (verde positivo, rosso negativo).
+    
+    Args:
+        value: Valore monetario
+        positive_good: Se True, positivo=verde. Se False, inverso.
+    
+    Returns:
+        HTML con currency colorata
+    """
+    formatted = format_currency(value)
+    
+    if value > 0:
+        color = "#155724" if positive_good else "#721C24"
+    elif value < 0:
+        color = "#721C24" if positive_good else "#155724"
+    else:
+        color = "#383D41"
+    
+    return f'<span style="color: {color}; font-weight: 600;">{formatted}</span>'
+
+
+def empty_state_component(title: str, description: str, icon: str = "📭", action_text: str = None) -> str:
+    """
+    Empty state quando non ci sono dati, con CTA opzionale.
+    
+    Args:
+        title: Titolo principale
+        description: Descrizione/suggerimento
+        icon: Emoji grande
+        action_text: Testo CTA (opzionale)
+    
+    Returns:
+        HTML dell'empty state centrato
+    """
+    action_html = f'<div style="margin-top: 24px;"><span style="background: linear-gradient(135deg, #0066CC 0%, #00A86B 100%); color: white; padding: 12px 24px; border-radius: 8px; font-weight: 600; display: inline-block; cursor: pointer;">{action_text}</span></div>' if action_text else ''
+    
+    return f"""
+    <div style="text-align: center; padding: 60px 20px; background: #F8F9FA; border-radius: 16px; border: 2px dashed #D0D0D8; margin: 40px 0;">
+        <div style="font-size: 4rem; margin-bottom: 16px;">{icon}</div>
+        <h3 style="color: #1A1A2E; margin-bottom: 8px; font-size: 1.5rem;">{title}</h3>
+        <p style="color: #5A5A6E; font-size: 1rem; max-width: 400px; margin: 0 auto;">{description}</p>
+        {action_html}
+    </div>
+    """
+
+
+def progress_bar_component(percentage: float, label: str = "", show_text: bool = True, height: int = 8) -> str:
+    """
+    Progress bar con colore dinamico basato su percentuale.
+    
+    Args:
+        percentage: Valore 0-100
+        label: Testo opzionale sopra barra
+        show_text: Mostra percentuale come testo
+        height: Altezza barra in px
+    
+    Returns:
+        HTML della progress bar
+    """
+    pct = max(0, min(100, percentage))
+    
+    # Colore dinamico
+    if pct >= 80:
+        color = "#00C851"  # Verde
+    elif pct >= 50:
+        color = "#FFB800"  # Giallo
+    else:
+        color = "#E74C3C"  # Rosso
+    
+    label_html = f'<div style="font-size: 0.875rem; color: #5A5A6E; margin-bottom: 8px; font-weight: 500;">{label}</div>' if label else ''
+    text_html = f'<div style="font-size: 0.875rem; color: #1A1A2E; margin-top: 4px; font-weight: 600;">{pct:.0f}%</div>' if show_text else ''
+    
+    return f"""
+    <div style="width: 100%;">
+        {label_html}
+        <div style="background: #E0E0E8; border-radius: {height}px; height: {height}px; overflow: hidden; position: relative;">
+            <div style="background: {color}; height: 100%; width: {pct}%; border-radius: {height}px; transition: width 0.5s ease;"></div>
+        </div>
+        {text_html}
+    </div>
+    """
+
+
+def loading_message(message: str = "Carico i tuoi dati", icon: str = "💪") -> str:
+    """Messaggio loading branded per st.spinner()."""
+    return f"{icon} {message}..."
+
+
+def section_divider_component(title: str = None, icon: str = None) -> str:
+    """
+    Divider tra sezioni con titolo opzionale.
+    
+    Args:
+        title: Titolo sezione
+        icon: Emoji icona
+    
+    Returns:
+        HTML del divider
+    """
+    if title:
+        icon_html = f'{icon} ' if icon else ''
+        return f"""
+        <div style="display: flex; align-items: center; margin: 32px 0 24px 0; gap: 12px;">
+            <div style="flex: 1; height: 2px; background: linear-gradient(90deg, transparent 0%, #D0D0D8 50%, transparent 100%);"></div>
+            <div style="font-size: 1.25rem; font-weight: 700; color: #1A1A2E; white-space: nowrap;">{icon_html}{title}</div>
+            <div style="flex: 1; height: 2px; background: linear-gradient(90deg, transparent 0%, #D0D0D8 50%, transparent 100%);"></div>
+        </div>
+        """
+    else:
+        return '<div style="height: 2px; background: #E0E0E8; margin: 24px 0; border-radius: 1px;"></div>'
+
+
+# ════════════════════════════════════════════════════════════
 # CARD COMPONENTS
 # ════════════════════════════════════════════════════════════
 

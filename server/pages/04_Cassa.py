@@ -20,6 +20,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from core.crm_db import CrmDBManager
+from core.ui_components import badge, status_badge, format_currency, loading_message, section_divider_component, empty_state_component
 
 # ════════════════════════════════════════════════════════════
 # CONFIG
@@ -132,13 +133,32 @@ with col_alert1:
         st.success("✅ Nessuna rata in ritardo")
 
 with col_alert2:
-    # Priorità 1: Spese fisse non pagate (più urgente)
+    # Priorità 1: Spese fisse non pagate o pagate con importo sbagliato
     if spese_fisse_non_pagate:
-        totale_non_pagato = sum(s['importo'] for s in spese_fisse_non_pagate)
-        nomi_spese = ", ".join([f"{s['nome']} (€{s['importo']:.0f})" for s in spese_fisse_non_pagate[:2]])
+        # Distingui tra non pagate e pagate con importo sbagliato
+        non_pagate = [s for s in spese_fisse_non_pagate if s.get('movimento_id') is None]
+        pagate_male = [s for s in spese_fisse_non_pagate if s.get('movimento_id') is not None]
+        
+        totale_non_pagato = sum(s['importo'] for s in non_pagate)
+        totale_discrepanza = sum(abs(s['importo'] - s.get('importo_pagato', 0)) for s in pagate_male)
+        
+        # Messaggio principale
+        if pagate_male:
+            st.error(f"⚠️ **{len(non_pagate)} spese NON pagate + {len(pagate_male)} con importo ERRATO** → €{totale_non_pagato + totale_discrepanza:.0f}")
+        else:
+            st.warning(f"⚠️ **{len(spese_fisse_non_pagate)} spese fisse non pagate** → €{totale_non_pagato:.0f}")
+        
+        # Dettaglio nomi
+        nomi_problemi = []
+        for s in spese_fisse_non_pagate[:2]:
+            if s.get('movimento_id') is None:
+                nomi_problemi.append(f"{s['nome']} (€{s['importo']:.0f} NON pagato)")
+            else:
+                nomi_problemi.append(f"{s['nome']} (€{s['importo']:.0f} previsto vs €{s.get('importo_pagato', 0):.0f} pagato)")
+        
+        nomi_spese = ", ".join(nomi_problemi)
         if len(spese_fisse_non_pagate) > 2:
-            nomi_spese += f" +{len(spese_fisse_non_pagate)-2} altre"
-        st.warning(f"⚠️ **{len(spese_fisse_non_pagate)} spese fisse non pagate** → €{totale_non_pagato:.0f}")
+            nomi_spese += f" +{len(spese_fisse_non_pagate)-2} altri"
         st.caption(f"💳 {nomi_spese}")
     # Priorità 2: Cash flow basso
     elif previsione['saldo_previsto'] < 500:
@@ -160,7 +180,7 @@ with col1:
     st.markdown(f"""
     <div class='kpi-card'>
         <div class='kpi-label'>💰 Saldo in Cassa (REALE)</div>
-        <div class='kpi-value {"positive" if saldo_totale >= 0 else "negative"}'>€ {saldo_totale:,.0f}</div>
+        <div class='kpi-value {"positive" if saldo_totale >= 0 else "negative"}'>{format_currency(saldo_totale, 0)}</div>
         <small>Capitale effettivo accumulato</small>
     </div>
     """, unsafe_allow_html=True)
@@ -169,8 +189,8 @@ with col2:
     st.markdown(f"""
     <div class='kpi-card'>
         <div class='kpi-label'>💰 Flusso Questo Mese (REALE)</div>
-        <div class='kpi-value {"positive" if bilancio["saldo_cassa"] >= 0 else "negative"}'>€ {bilancio['saldo_cassa']:,.0f}</div>
-        <small>€{bilancio['incassato']:,.0f} entrate · €{bilancio['speso']:,.0f} uscite</small>
+        <div class='kpi-value {"positive" if bilancio["saldo_cassa"] >= 0 else "negative"}'>{format_currency(bilancio['saldo_cassa'], 0)}</div>
+        <small>{format_currency(bilancio['incassato'], 0)} entrate · {format_currency(bilancio['speso'], 0)} uscite</small>
     </div>
     """, unsafe_allow_html=True)    
     # Breakdown entrate/uscite questo mese
@@ -209,7 +229,7 @@ with col3:
     st.markdown(f"""
     <div class='kpi-card'>
         <div class='kpi-label'>📈 Previsione 30gg (STIMA)</div>
-        <div class='kpi-value {"positive" if previsione["saldo_previsto"] >= 0 else "negative"}'>€ {previsione['saldo_previsto']:,.0f}</div>
+        <div class='kpi-value {"positive" if previsione["saldo_previsto"] >= 0 else "negative"}'>{format_currency(previsione['saldo_previsto'], 0)}</div>
         <small>Saldo attuale + rate future - costi attesi</small>
     </div>
     """, unsafe_allow_html=True)
@@ -257,7 +277,7 @@ with tab1:
         
         # Totale con breakdown dettagliato
         totale_scadute = df_scadute['_importo_num'].sum()
-        st.error(f"**TOTALE DA RECUPERARE: €{totale_scadute:,.0f}**")
+        st.error(f"**TOTALE DA RECUPERARE: {format_currency(totale_scadute, 0)}**")
         
         # Breakdown per cliente (expander)
         with st.expander("🔍 Dettaglio per Cliente"):
@@ -323,7 +343,7 @@ with tab2:
         
         # Totale con breakdown dettagliato
         totale_pendenti = df_pendenti['_importo_num'].sum()
-        st.info(f"**TOTALE ATTESO: €{totale_pendenti:,.0f}**")
+        st.info(f"**TOTALE ATTESO: {format_currency(totale_pendenti, 0)}**")
         
         # Breakdown per cliente (expander)
         with st.expander("🔍 Dettaglio per Cliente"):
@@ -478,33 +498,48 @@ st.divider()
 with st.expander("📊 Spese Fisse Mensili", expanded=False):
     # Quick Actions per spese non pagate
     if spese_fisse_non_pagate:
-        st.warning(f"⚠️ **{len(spese_fisse_non_pagate)} spese non pagate questo mese**")
+        # Distingui tra completamente non pagate e pagate male
+        non_pagate = [s for s in spese_fisse_non_pagate if s.get('movimento_id') is None]
+        pagate_male = [s for s in spese_fisse_non_pagate if s.get('movimento_id') is not None]
         
-        cols_quick = st.columns(min(len(spese_fisse_non_pagate), 3))
-        for idx, (col, spesa) in enumerate(zip(cols_quick, spese_fisse_non_pagate[:3])):
-            with col:
-                st.markdown(f"**{spesa['nome']}**")
-                st.caption(f"Scadenza: {spesa['giorno_scadenza']} {oggi.strftime('%B')}")
-                st.caption(f"💶 €{spesa['importo']:.0f}")
-                
-                if st.button(f"💳 Paga Ora", key=f"quick_paga_{spesa['id']}", use_container_width=True, type="primary"):
-                    try:
-                        db.registra_spesa(
-                            categoria=spesa['categoria'],
-                            importo=spesa['importo'],
-                            metodo="Bonifico",
-                            data_pagamento=oggi,
-                            note=f"Pagamento {spesa['nome']} - {oggi.strftime('%B %Y')}",
-                            id_spesa_ricorrente=spesa['id']
-                        )
-                        st.success(f"✅ {spesa['nome']} pagata!")
-                        st.balloons()
-                        st.rerun()
-                    except ValueError as e:
-                        st.error(f"🚫 Pagamento già registrato! Ricarica la pagina.")
+        if non_pagate:
+            st.warning(f"⚠️ **{len(non_pagate)} spese non pagate questo mese**")
+            
+            cols_quick = st.columns(min(len(non_pagate), 3))
+            for idx, (col, spesa) in enumerate(zip(cols_quick, non_pagate[:3])):
+                with col:
+                    st.markdown(f"**{spesa['nome']}**")
+                    st.caption(f"Scadenza: {spesa['giorno_scadenza']} {oggi.strftime('%B')}")
+                    st.caption(f"💶 {format_currency(spesa['importo'], 0)}")
+                    
+                    if st.button(f"💳 Paga Ora", key=f"quick_paga_{spesa['id']}", use_container_width=True, type="primary"):
+                        try:
+                            db.registra_spesa(
+                                categoria=spesa['categoria'],
+                                importo=spesa['importo'],
+                                metodo="Bonifico",
+                                data_pagamento=oggi,
+                                note=f"Pagamento {spesa['nome']} - {oggi.strftime('%B %Y')}",
+                                id_spesa_ricorrente=spesa['id']
+                            )
+                            st.success(f"✅ {spesa['nome']} pagata!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Errore: {str(e)}")
+            
+            if len(non_pagate) > 3:
+                st.info(f"➕ {len(non_pagate)-3} altre spese da pagare (vedi dropdown sopra)")
         
-        if len(spese_fisse_non_pagate) > 3:
-            st.info(f"➕ {len(spese_fisse_non_pagate)-3} altre spese da pagare (vedi dropdown sopra)")
+        # Avviso per spese pagate con importo sbagliato
+        if pagate_male:
+            st.error(f"⚠️ **{len(pagate_male)} spese pagate con IMPORTO ERRATO**")
+            st.info("📝 **Azione richiesta:** Vai a 'Storico Movimenti' sotto per correggere gli importi usando il bottone ✏️ Modifica")
+            
+            for spesa in pagate_male[:3]:
+                st.caption(f"• {spesa['nome']}: previsto {format_currency(spesa['importo'], 0)}, pagato {format_currency(spesa.get('importo_pagato', 0), 0)}")
+            
+            if len(pagate_male) > 3:
+                st.caption(f"➕ {len(pagate_male)-3} altri errori da correggere")
         
         st.divider()
     
@@ -516,17 +551,30 @@ with st.expander("📊 Spese Fisse Mensili", expanded=False):
         col_sf_left, col_sf_right = st.columns([2, 1])
         
         with col_sf_left:
-            # Tabella spese fisse con status
+            # Tabella spese fisse con status dettagliato
             dati_fisse = []
+            
+            # Crea dizionari per lookup veloce
+            non_pagate_dict = {s['id']: s for s in spese_fisse_non_pagate if s.get('movimento_id') is None}
+            pagate_male_dict = {s['id']: s for s in spese_fisse_non_pagate if s.get('movimento_id') is not None}
+            
             for s in spese_fisse:
-                # Verifica se pagata questo mese
-                pagata_questo_mese = s['id'] not in [sp['id'] for sp in spese_fisse_non_pagate]
-                status = "✅ Pagata" if pagata_questo_mese else ("⏳ Futura" if s['giorno_scadenza'] > oggi.day else "❌ Non Pagata")
+                # Determina status preciso
+                if s['id'] in pagate_male_dict:
+                    pm = pagate_male_dict[s['id']]
+                    status = f"⚠️ Importo errato ({format_currency(pm.get('importo_pagato', 0), 0)} vs {format_currency(s['importo'], 0)})"
+                elif s['id'] in non_pagate_dict:
+                    if s['giorno_scadenza'] > oggi.day:
+                        status = "⏳ Futura"
+                    else:
+                        status = "❌ Non Pagata"
+                else:
+                    status = "✅ Pagata"
                 
                 dati_fisse.append({
                     'Nome': s['nome'],
                     'Categoria': s['categoria'],
-                    'Importo': f"€{s['importo']:.0f}",
+                    'Importo': format_currency(s['importo'], 0),
                     'Scadenza': f"{s['giorno_scadenza']}° del mese",
                     'Status': status
                 })
@@ -535,13 +583,21 @@ with st.expander("📊 Spese Fisse Mensili", expanded=False):
             st.dataframe(df_fisse, use_container_width=True, hide_index=True)
         
         with col_sf_right:
-            st.metric("Totale Mensile", f"€{totale_fisso:,.0f}")
+            st.metric("Totale Mensile", format_currency(totale_fisso, 0))
             
-            # Breakdown pagato/non pagato
-            totale_non_pagato = sum(s['importo'] for s in spese_fisse_non_pagate)
-            totale_pagato = totale_fisso - totale_non_pagato
-            st.caption(f"✅ Pagato: €{totale_pagato:.0f}")
-            st.caption(f"❌ Da pagare: €{totale_non_pagato:.0f}")
+            # Breakdown preciso: pagate correttamente / pagate male / non pagate
+            spese_pagate_male = [s for s in spese_fisse_non_pagate if s.get('movimento_id') is not None]
+            spese_non_pagate = [s for s in spese_fisse_non_pagate if s.get('movimento_id') is None]
+            spese_pagate_ok = [s for s in spese_fisse if s['id'] not in [sp['id'] for sp in spese_fisse_non_pagate]]
+            
+            totale_pagato_ok = sum(s['importo'] for s in spese_pagate_ok)
+            totale_non_pagato = sum(s['importo'] for s in spese_non_pagate)
+            totale_pagato_male = sum(s['importo'] for s in spese_pagate_male)
+            
+            st.caption(f"✅ Pagate correttamente: {format_currency(totale_pagato_ok, 0)}")
+            if totale_pagato_male > 0:
+                st.caption(f"⚠️ Pagate con errore: {format_currency(totale_pagato_male, 0)}")
+            st.caption(f"❌ Da pagare: {format_currency(totale_non_pagato, 0)}")
     else:
         st.info("Nessuna spesa fissa configurata")
     
@@ -582,8 +638,8 @@ col_saldo_attuale, col_variazione = st.columns([2, 1])
 with col_saldo_attuale:
     st.metric(
         "💰 Saldo Totale Attuale",
-        f"€ {saldo_totale:.2f}",
-        delta=f"€ {bilancio['saldo_cassa']:.2f} questo mese",
+        format_currency(saldo_totale),
+        delta=f"{format_currency(bilancio['saldo_cassa'], 0)} questo mese",
         delta_color="normal" if bilancio['saldo_cassa'] >= 0 else "inverse"
     )
 with col_variazione:
@@ -683,35 +739,89 @@ st.dataframe(df_mesi, use_container_width=True, hide_index=True)
 st.divider()
 
 # ════════════════════════════════════════════════════════════
-# MOVIMENTI RECENTI (Storico)
+# MOVIMENTI RECENTI (Storico) - ENHANCED
 # ════════════════════════════════════════════════════════════
 
 st.markdown("### 📋 Storico Movimenti")
+st.caption("🔍 Filtra e analizza tutte le transazioni - Stile app bancaria moderna")
 
-col_filter1, col_filter2, col_filter3 = st.columns(3)
-with col_filter1:
+# ═══ RIGA 1 FILTRI: Date Range + Tipo + Cliente ═══
+col_f1, col_f2, col_f3, col_f4 = st.columns([1.5, 1.5, 1.5, 1.5])
+
+with col_f1:
+    # Default: ultimi 30 giorni
+    data_da = st.date_input(
+        "📅 Da",
+        value=oggi - timedelta(days=30),
+        max_value=oggi,
+        key="filtro_data_da"
+    )
+
+with col_f2:
+    data_a = st.date_input(
+        "📅 A",
+        value=oggi,
+        max_value=oggi,
+        key="filtro_data_a"
+    )
+
+with col_f3:
     filtro_tipo = st.selectbox(
-        "Filtra per tipo",
-        ["Tutti", "Solo Entrate", "Solo Uscite"],
+        "Tipo Movimento",
+        ["Tutti", "💵 Solo Entrate", "💸 Solo Uscite"],
         key="filtro_tipo_mov"
     )
-with col_filter2:
+
+with col_f4:
     # Carica lista clienti per filtro
     clienti_attivi = db.get_clienti_attivi()
     opzioni_clienti = ["Tutti i clienti"] + [f"{c['nome']} {c['cognome']}" for c in clienti_attivi]
     filtro_cliente = st.selectbox(
-        "Filtra per cliente",
+        "Cliente",
         opzioni_clienti,
         key="filtro_cliente_mov"
     )
-with col_filter3:
+
+# ═══ RIGA 2 FILTRI: Categoria + Ricerca + Ordinamento + Limite ═══
+col_f5, col_f6, col_f7, col_f8 = st.columns([1.5, 2, 1.5, 1])
+
+with col_f5:
+    # Recupera categorie esistenti dinamicamente
+    with db._connect() as conn:
+        categorie_esistenti = [r[0] for r in conn.execute(
+            "SELECT DISTINCT categoria FROM movimenti_cassa ORDER BY categoria"
+        ).fetchall()]
+    
+    opzioni_categorie = ["Tutte le categorie"] + categorie_esistenti
+    filtro_categoria = st.selectbox(
+        "Categoria",
+        opzioni_categorie,
+        key="filtro_categoria_mov"
+    )
+
+with col_f6:
+    ricerca_testo = st.text_input(
+        "🔍 Cerca in note",
+        placeholder="es: stipendio, affitto, cliente...",
+        key="ricerca_mov"
+    )
+
+with col_f7:
+    ordinamento = st.selectbox(
+        "Ordinamento",
+        ["Più recenti", "Meno recenti", "Importo ↑", "Importo ↓"],
+        key="ordinamento_mov"
+    )
+
+with col_f8:
     limite_mov = st.selectbox(
-        "Mostra ultimi",
-        [10, 20, 50, 100],
-        index=1,
+        "N°",
+        [10, 20, 50, 100, 500],
+        index=2,  # Default 50
         key="limite_mov"
     )
 
+# ═══ COSTRUZIONE QUERY DINAMICA ═══
 with db._connect() as conn:
     query = """
         SELECT data_movimento, data_effettiva, tipo, categoria, importo, note, id_cliente, id
@@ -721,32 +831,64 @@ with db._connect() as conn:
     conditions = []
     params = []
     
-    if filtro_tipo == "Solo Entrate":
+    # Filtro date range
+    if data_da:
+        conditions.append("data_effettiva >= ?")
+        params.append(data_da)
+    if data_a:
+        conditions.append("data_effettiva <= ?")
+        params.append(data_a)
+    
+    # Filtro tipo
+    if filtro_tipo == "💵 Solo Entrate":
         conditions.append("tipo='ENTRATA'")
-    elif filtro_tipo == "Solo Uscite":
+    elif filtro_tipo == "💸 Solo Uscite":
         conditions.append("tipo='USCITA'")
     
+    # Filtro cliente
     if filtro_cliente != "Tutti i clienti":
-        # Trova ID cliente selezionato
-        idx_cliente = opzioni_clienti.index(filtro_cliente) - 1  # -1 perché "Tutti i clienti" è primo
+        idx_cliente = opzioni_clienti.index(filtro_cliente) - 1
         id_cliente_selezionato = clienti_attivi[idx_cliente]['id']
         conditions.append("id_cliente=?")
         params.append(id_cliente_selezionato)
     
+    # Filtro categoria
+    if filtro_categoria != "Tutte le categorie":
+        conditions.append("categoria=?")
+        params.append(filtro_categoria)
+    
+    # Ricerca testuale in note
+    if ricerca_testo and ricerca_testo.strip():
+        conditions.append("(note LIKE ? OR categoria LIKE ?)")
+        search_term = f"%{ricerca_testo.strip()}%"
+        params.append(search_term)
+        params.append(search_term)
+    
+    # Aggiungi WHERE se ci sono condizioni
     if conditions:
         query += " WHERE " + " AND ".join(conditions)
     
-    # ORDINAMENTO CORRETTO: per timestamp (data + ora), non solo data
-    query += f" ORDER BY data_movimento DESC, id DESC LIMIT {limite_mov}"
+    # Ordinamento
+    if ordinamento == "Più recenti":
+        query += " ORDER BY data_movimento DESC, id DESC"
+    elif ordinamento == "Meno recenti":
+        query += " ORDER BY data_movimento ASC, id ASC"
+    elif ordinamento == "Importo ↑":
+        query += " ORDER BY importo ASC"
+    elif ordinamento == "Importo ↓":
+        query += " ORDER BY importo DESC"
+    
+    query += f" LIMIT {limite_mov}"
     
     movimenti = [dict(r) for r in conn.execute(query, params).fetchall()]
 
+# ═══ VISUALIZZAZIONE RISULTATI ═══
 if movimenti:
     from datetime import datetime
     
     dati_mov = []
     for idx, m in enumerate(movimenti):
-        # Per entrate con id_cliente, mostra il nome cliente
+        # Cliente info
         cliente_info = "-"
         if m.get('id_cliente'):
             with db._connect() as conn:
@@ -768,46 +910,64 @@ if movimenti:
         except:
             ora_str = ""
         
-        # Formatta data in modo user-friendly (stile app bancarie)
+        # Formatta data in modo user-friendly
         data_eff = m['data_effettiva']
         if isinstance(data_eff, str):
             data_eff = date.fromisoformat(data_eff)
         
         if data_eff == oggi:
             data_display = f"🆕 Oggi {ora_str}"
-            badge = ""
         elif data_eff == oggi - timedelta(days=1):
             data_display = f"Ieri {ora_str}"
-            badge = ""
         elif data_eff >= oggi - timedelta(days=7):
-            # Ultimi 7 giorni: mostra giorno settimana
             giorni = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
             data_display = f"{giorni[data_eff.weekday()]} {data_eff.strftime('%d/%m')} {ora_str}"
-            badge = ""
         else:
             data_display = f"{data_eff.strftime('%d/%m/%Y')} {ora_str}"
-            badge = ""
         
-        # Badge NUOVO per prime 3 entry di oggi
-        if idx < 3 and data_eff == oggi:
-            badge = "🆕"
+        # Badge tipo con colori
+        if m['tipo'] == 'ENTRATA':
+            tipo_badge = badge("ENTRATA", "success", "💵")
+        else:
+            tipo_badge = badge("USCITA", "danger", "💸")
         
         dati_mov.append({
+            'ID': f"#{m['id']}",
             'Data': data_display,
-            'Tipo': "💵 Entrata" if m['tipo'] == 'ENTRATA' else "💸 Uscita",
-            'Categoria': f"{badge} {m['categoria']}" if badge else m['categoria'],
+            'Tipo': tipo_badge,
+            'Categoria': m['categoria'],
             'Cliente': cliente_info,
-            'Importo': f"€{m['importo']:.2f}",
-            'Note': m['note'] or "-"
+            'Importo': format_currency(m['importo']),
+            'Note': (m['note'] or "-")[:50] + "..." if m.get('note') and len(m['note']) > 50 else (m['note'] or "-")
         })
     
     df_mov = pd.DataFrame(dati_mov)
-    st.dataframe(df_mov, use_container_width=True, hide_index=True)
     
-    # Riepilogo filtrato
+    # Render dataframe con HTML badges
+    st.markdown(df_mov.to_html(escape=False, index=False), unsafe_allow_html=True)
+    
+    # ═══ STATISTICHE PERIODO FILTRATO ═══
+    st.markdown("<br>", unsafe_allow_html=True)
+    
     totale_entrate_filt = sum(m['importo'] for m in movimenti if m['tipo'] == 'ENTRATA')
     totale_uscite_filt = sum(m['importo'] for m in movimenti if m['tipo'] == 'USCITA')
-    st.info(f"📊 Periodo mostrato: €{totale_entrate_filt:.0f} entrate · €{totale_uscite_filt:.0f} uscite · Saldo: €{totale_entrate_filt - totale_uscite_filt:.0f}")
+    saldo_filt = totale_entrate_filt - totale_uscite_filt
+    
+    stat_col1, stat_col2, stat_col3, stat_col4 = st.columns(4)
+    stat_col1.metric("💵 Totale Entrate", format_currency(totale_entrate_filt, 0))
+    stat_col2.metric("💸 Totale Uscite", format_currency(totale_uscite_filt, 0))
+    stat_col3.metric("📊 Saldo Periodo", format_currency(saldo_filt, 0), delta="Positivo" if saldo_filt >= 0 else "Negativo")
+    stat_col4.metric("📝 Movimenti", len(movimenti))
+    
+    # ═══ EXPORT CSV ═══
+    if st.button("📥 Esporta in CSV", key="export_csv"):
+        csv_data = df_mov.to_csv(index=False)
+        st.download_button(
+            label="⬇️ Scarica CSV",
+            data=csv_data,
+            file_name=f"movimenti_{data_da}_{data_a}.csv",
+            mime="text/csv"
+        )
     
     # ═══════════════════════════════════════════════════════
     # POPUP DETTAGLI MOVIMENTO
@@ -816,7 +976,7 @@ if movimenti:
     st.markdown("**🔍 Visualizza Dettagli Movimento**")
     
     # Crea lista opzioni per selectbox
-    opzioni_movimenti = [f"#{m['id']} - {m['data_effettiva']} - {m['categoria']} (€{m['importo']:.2f})" for m in movimenti]
+    opzioni_movimenti = [f"#{m['id']} - {m['data_effettiva']} - {m['categoria']} ({format_currency(m['importo'])})" for m in movimenti]
     
     movimento_selezionato = st.selectbox(
         "Seleziona un movimento per vedere i dettagli completi:",
@@ -853,7 +1013,7 @@ if movimenti:
         col_det1, col_det2, col_det3 = st.columns(3)
         
         with col_det1:
-            st.metric("Importo", f"€{movimento_dettaglio['importo']:.2f}")
+            st.metric("Importo", format_currency(movimento_dettaglio['importo']))
             st.caption(f"**Tipo:** {movimento_dettaglio['tipo']}")
         
         with col_det2:
@@ -870,17 +1030,191 @@ if movimenti:
         # Timestamp registrazione
         st.caption(f"🕐 Registrato il: {movimento_dettaglio['data_movimento']}")
         
-        # Future: pulsanti Modifica/Elimina
-        # col_btn1, col_btn2 = st.columns(2)
-        # with col_btn1:
-        #     if st.button("✏️ Modifica", use_container_width=True):
-        #         st.warning("Funzione in sviluppo")
-        # with col_btn2:
-        #     if st.button("🗑️ Elimina", use_container_width=True, type="secondary"):
-        #         st.warning("Funzione in sviluppo")
+        # ═══ AZIONI: MODIFICA / ELIMINA ═══
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Inizializza session state per edit/delete
+        if 'editing_movimento_id' not in st.session_state:
+            st.session_state.editing_movimento_id = None
+        if 'deleting_movimento_id' not in st.session_state:
+            st.session_state.deleting_movimento_id = None
+        
+        # ═══ MODALITÀ EDIT ═══
+        if st.session_state.editing_movimento_id == movimento_dettaglio['id']:
+            st.markdown("---")
+            st.markdown("### ✏️ Modifica Movimento")
+            
+            with st.form(key=f"form_edit_mov_{movimento_dettaglio['id']}"):
+                edit_col1, edit_col2 = st.columns(2)
+                
+                with edit_col1:
+                    # Data effettiva
+                    data_eff_edit = movimento_dettaglio['data_effettiva']
+                    if isinstance(data_eff_edit, str):
+                        data_eff_edit = date.fromisoformat(data_eff_edit)
+                    
+                    nuovo_data = st.date_input(
+                        "Data effettiva",
+                        value=data_eff_edit,
+                        max_value=oggi
+                    )
+                    
+                    # Tipo
+                    tipo_idx = 0 if movimento_dettaglio['tipo'] == 'ENTRATA' else 1
+                    nuovo_tipo = st.selectbox(
+                        "Tipo",
+                        ["ENTRATA", "USCITA"],
+                        index=tipo_idx
+                    )
+                    
+                    # Importo
+                    nuovo_importo = st.number_input(
+                        "Importo (€)",
+                        min_value=0.0,
+                        value=float(movimento_dettaglio['importo']),
+                        step=10.0,
+                        format="%.2f"
+                    )
+                
+                with edit_col2:
+                    # Categoria
+                    with db._connect() as conn:
+                        categorie_esistenti = [r[0] for r in conn.execute(
+                            "SELECT DISTINCT categoria FROM movimenti_cassa ORDER BY categoria"
+                        ).fetchall()]
+                    
+                    cat_idx = categorie_esistenti.index(movimento_dettaglio['categoria']) if movimento_dettaglio['categoria'] in categorie_esistenti else 0
+                    nuova_categoria = st.selectbox(
+                        "Categoria",
+                        categorie_esistenti,
+                        index=cat_idx
+                    )
+                    
+                    # Metodo pagamento
+                    metodi = ["CONTANTI", "POS", "BONIFICO", "ASSEGNO", "ALTRO"]
+                    metodo_attuale = movimento_dettaglio.get('metodo', 'CONTANTI')
+                    metodo_idx = metodi.index(metodo_attuale) if metodo_attuale in metodi else 0
+                    nuovo_metodo = st.selectbox(
+                        "Metodo pagamento",
+                        metodi,
+                        index=metodo_idx
+                    )
+                    
+                    # Note
+                    nuove_note = st.text_area(
+                        "Note",
+                        value=movimento_dettaglio.get('note', ''),
+                        height=100
+                    )
+                
+                # Bottoni form
+                form_col1, form_col2 = st.columns(2)
+                with form_col1:
+                    salva_btn = st.form_submit_button("💾 Salva Modifiche", use_container_width=True, type="primary")
+                with form_col2:
+                    annulla_btn = st.form_submit_button("❌ Annulla", use_container_width=True)
+                
+                if salva_btn:
+                    # Esegui UPDATE
+                    with db._connect() as conn:
+                        conn.execute("""
+                            UPDATE movimenti_cassa
+                            SET data_effettiva = ?,
+                                tipo = ?,
+                                importo = ?,
+                                categoria = ?,
+                                metodo = ?,
+                                note = ?
+                            WHERE id = ?
+                        """, (
+                            nuovo_data,
+                            nuovo_tipo,
+                            nuovo_importo,
+                            nuova_categoria,
+                            nuovo_metodo,
+                            nuove_note,
+                            movimento_dettaglio['id']
+                        ))
+                        conn.commit()
+                    
+                    st.success(f"✅ Movimento #{movimento_dettaglio['id']} modificato con successo!")
+                    st.session_state.editing_movimento_id = None
+                    st.rerun()
+                
+                if annulla_btn:
+                    st.session_state.editing_movimento_id = None
+                    st.rerun()
+        
+        # ═══ MODALITÀ DELETE ═══
+        elif st.session_state.deleting_movimento_id == movimento_dettaglio['id']:
+            st.markdown("---")
+            st.error("### ⚠️ Conferma Eliminazione")
+            st.warning(f"""
+            Stai per eliminare **definitivamente** il movimento:
+            - **ID:** #{movimento_dettaglio['id']}
+            - **Data:** {movimento_dettaglio['data_effettiva']}
+            - **Tipo:** {movimento_dettaglio['tipo']}
+            - **Importo:** {format_currency(movimento_dettaglio['importo'])}
+            - **Categoria:** {movimento_dettaglio['categoria']}
+            
+            ⚠️ **Questa azione NON può essere annullata!**
+            """)
+            
+            conferma_eliminazione = st.checkbox(
+                "✓ Sono sicuro di voler eliminare questo movimento",
+                key=f"confirm_delete_{movimento_dettaglio['id']}"
+            )
+            
+            del_col1, del_col2 = st.columns(2)
+            with del_col1:
+                if st.button(
+                    "🗑️ Elimina Definitivamente",
+                    use_container_width=True,
+                    type="primary",
+                    disabled=not conferma_eliminazione
+                ):
+                    # Esegui DELETE
+                    with db._connect() as conn:
+                        conn.execute(
+                            "DELETE FROM movimenti_cassa WHERE id = ?",
+                            (movimento_dettaglio['id'],)
+                        )
+                        conn.commit()
+                    
+                    st.success(f"✅ Movimento #{movimento_dettaglio['id']} eliminato correttamente!")
+                    st.session_state.deleting_movimento_id = None
+                    st.balloons()
+                    st.rerun()
+            
+            with del_col2:
+                if st.button("❌ Annulla", use_container_width=True):
+                    st.session_state.deleting_movimento_id = None
+                    st.rerun()
+        
+        # ═══ MODALITÀ VISUALIZZAZIONE (DEFAULT) ═══
+        else:
+            col_btn1, col_btn2 = st.columns(2)
+            with col_btn1:
+                if st.button("✏️ Modifica", use_container_width=True, key=f"edit_btn_{movimento_dettaglio['id']}"):
+                    st.session_state.editing_movimento_id = movimento_dettaglio['id']
+                    st.session_state.deleting_movimento_id = None
+                    st.rerun()
+            with col_btn2:
+                if st.button("🗑️ Elimina", use_container_width=True, type="secondary", key=f"delete_btn_{movimento_dettaglio['id']}"):
+                    st.session_state.deleting_movimento_id = movimento_dettaglio['id']
+                    st.session_state.editing_movimento_id = None
+                    st.rerun()
 
 else:
-    st.info("Nessun movimento registrato")
+    # Empty state quando nessun risultato
+    st.markdown(
+        empty_state_component(
+            "Nessun movimento trovato",
+            "Prova a modificare i filtri o ampliare il periodo di ricerca",
+            "📭"
+        ),
+        unsafe_allow_html=True
+    )
 
 # ════════════════════════════════════════════════════════════
 # FOOTER
