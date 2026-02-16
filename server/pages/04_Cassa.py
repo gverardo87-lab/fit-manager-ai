@@ -191,11 +191,13 @@ if rate_pendenti:
             st.caption(f"{rata['tipo_pacchetto']}")
         
         with col_b:
-            giorni_mancanti = (rata['data_scadenza'] - oggi).days
+            # Converti stringa ISO da SQLite (YYYY-MM-DD) in date object
+            data_scadenza = date.fromisoformat(rata['data_scadenza']) if isinstance(rata['data_scadenza'], str) else rata['data_scadenza']
+            giorni_mancanti = (data_scadenza - oggi).days
             if giorni_mancanti <= 7:
-                st.markdown(f"🔴 Scadenza: {rata['data_scadenza'].strftime('%d/%m/%Y')}")
+                st.markdown(f"🔴 Scadenza: {data_scadenza.strftime('%d/%m/%Y')}")
             else:
-                st.markdown(f"Scadenza: {rata['data_scadenza'].strftime('%d/%m/%Y')}")
+                st.markdown(f"Scadenza: {data_scadenza.strftime('%d/%m/%Y')}")
             st.caption(f"Tra {giorni_mancanti} giorni")
         
         with col_c:
@@ -312,7 +314,7 @@ st.subheader("📋 Ultimi Movimenti")
 
 with db._connect() as conn:
     movimenti = [dict(r) for r in conn.execute("""
-        SELECT data_effettiva, tipo, categoria, importo, descrizione
+        SELECT data_effettiva, tipo, categoria, importo, note
         FROM movimenti_cassa
         WHERE data_effettiva >= ?
         ORDER BY data_effettiva DESC
@@ -329,8 +331,8 @@ if movimenti:
         with col_m2:
             tipo_icon = "💵" if mov['tipo'] == 'ENTRATA' else "💸"
             st.markdown(f"{tipo_icon} {mov['categoria']}")
-            if mov['descrizione']:
-                st.caption(mov['descrizione'])
+            if mov['note']:
+                st.caption(mov['note'])
         
         with col_m3:
             colore = "positive" if mov['tipo'] == 'ENTRATA' else "negative"
