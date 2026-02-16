@@ -274,7 +274,8 @@ with tab1:
                         data_pagamento=oggi,
                         note="Pagamento sollecitato"
                     )
-                    st.success(f"✅ €{importo_da_pagare:.0f} registrato!")
+                    st.success(f"✅ €{importo_da_pagare:.0f} registrato! Movimento inserito in fondo alla pagina.")
+                    st.balloons()
                     st.rerun()
     else:
         st.success("✅ Nessuna rata in ritardo - ottimo lavoro!")
@@ -337,7 +338,8 @@ with tab2:
                         data_pagamento=oggi,
                         note="Pagamento anticipato"
                     )
-                    st.success(f"✅ €{importo_da_pagare:.0f} registrato!")
+                    st.success(f"✅ €{importo_da_pagare:.0f} registrato! Movimento inserito in fondo alla pagina.")
+                    st.balloons()
                     st.rerun()
     else:
         st.info("Nessuna rata in scadenza nei prossimi 30 giorni")
@@ -376,7 +378,8 @@ with col_left:
                     data_pagamento=data_spesa,
                     note=note_spesa
                 )
-                st.success(f"✅ Spesa €{importo_spesa:.0f} registrata!")
+                st.success(f"✅ Spesa €{importo_spesa:.0f} registrata! Controlla lo storico movimenti sotto.")
+                st.balloons()  # Feedback visivo
                 st.rerun()
 
 with col_right:
@@ -487,7 +490,7 @@ with col_filter2:
 
 with db._connect() as conn:
     query = """
-        SELECT data_effettiva, tipo, categoria, importo, note, id_cliente
+        SELECT data_movimento, data_effettiva, tipo, categoria, importo, note, id_cliente, id
         FROM movimenti_cassa
     """
     
@@ -496,13 +499,16 @@ with db._connect() as conn:
     elif filtro_tipo == "Solo Uscite":
         query += " WHERE tipo='USCITA'"
     
-    query += f" ORDER BY data_effettiva DESC LIMIT {limite_mov}"
+    # ORDINAMENTO CORRETTO: per timestamp (data + ora), non solo data
+    query += f" ORDER BY data_movimento DESC, id DESC LIMIT {limite_mov}"
     
     movimenti = [dict(r) for r in conn.execute(query).fetchall()]
 
 if movimenti:
+    from datetime import datetime
+    
     dati_mov = []
-    for m in movimenti:
+    for idx, m in enumerate(movimenti):
         # Per entrate con id_cliente, mostra il nome cliente
         cliente_info = "-"
         if m.get('id_cliente'):
@@ -514,10 +520,45 @@ if movimenti:
                 if cliente:
                     cliente_info = f"{cliente['nome']} {cliente['cognome']}"
         
+        # Parsea data_movimento per estrarre ora
+        data_mov_str = m['data_movimento']
+        try:
+            if isinstance(data_mov_str, str):
+                data_mov = datetime.fromisoformat(data_mov_str.replace(' ', 'T'))
+            else:
+                data_mov = data_mov_str
+            ora_str = data_mov.strftime('%H:%M')
+        except:
+            ora_str = ""
+        
+        # Formatta data in modo user-friendly (stile app bancarie)
+        data_eff = m['data_effettiva']
+        if isinstance(data_eff, str):
+            data_eff = date.fromisoformat(data_eff)
+        
+        if data_eff == oggi:
+            data_display = f"🆕 Oggi {ora_str}"
+            badge = ""
+        elif data_eff == oggi - timedelta(days=1):
+            data_display = f"Ieri {ora_str}"
+            badge = ""
+        elif data_eff >= oggi - timedelta(days=7):
+            # Ultimi 7 giorni: mostra giorno settimana
+            giorni = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
+            data_display = f"{giorni[data_eff.weekday()]} {data_eff.strftime('%d/%m')} {ora_str}"
+            badge = ""
+        else:
+            data_display = f"{data_eff.strftime('%d/%m/%Y')} {ora_str}"
+            badge = ""
+        
+        # Badge NUOVO per prime 3 entry di oggi
+        if idx < 3 and data_eff == oggi:
+            badge = "🆕"
+        
         dati_mov.append({
-            'Data': m['data_effettiva'],
+            'Data': data_display,
             'Tipo': "💵 Entrata" if m['tipo'] == 'ENTRATA' else "💸 Uscita",
-            'Categoria': m['categoria'],
+            'Categoria': f"{badge} {m['categoria']}" if badge else m['categoria'],
             'Cliente': cliente_info,
             'Importo': f"€{m['importo']:.2f}",
             'Note': m['note'] or "-"
