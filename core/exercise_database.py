@@ -174,6 +174,7 @@ class ExerciseDatabase:
             secondary_muscles=[MuscleGroup.CORE],
             difficulty=DifficultyLevel.INTERMEDIATE,
             equipment=['barbell'],
+            movement_pattern='squat',
             rep_range_strength=(3, 6),
             rep_range_hypertrophy=(6, 12),
             rep_range_endurance=(15, 20),
@@ -196,6 +197,7 @@ class ExerciseDatabase:
             secondary_muscles=[MuscleGroup.CORE],
             difficulty=DifficultyLevel.ADVANCED,
             equipment=['barbell'],
+            movement_pattern='squat',
             rep_range_strength=(3, 6),
             rep_range_hypertrophy=(6, 12),
             rep_range_endurance=(12, 15),
@@ -212,6 +214,7 @@ class ExerciseDatabase:
             secondary_muscles=[MuscleGroup.CORE],
             difficulty=DifficultyLevel.BEGINNER,
             equipment=['dumbbell', 'kettlebell'],
+            movement_pattern='squat',
             rep_range_strength=(8, 12),
             rep_range_hypertrophy=(10, 15),
             rep_range_endurance=(15, 20),
@@ -229,6 +232,7 @@ class ExerciseDatabase:
             secondary_muscles=[MuscleGroup.HAMSTRINGS],
             difficulty=DifficultyLevel.BEGINNER,
             equipment=['machine'],
+            movement_pattern='squat',
             rep_range_strength=(6, 10),
             rep_range_hypertrophy=(10, 15),
             rep_range_endurance=(15, 20),
@@ -245,6 +249,7 @@ class ExerciseDatabase:
             secondary_muscles=[MuscleGroup.HAMSTRINGS, MuscleGroup.CORE],
             difficulty=DifficultyLevel.BEGINNER,
             equipment=['bodyweight'],
+            movement_pattern='squat',
             rep_range_strength=(15, 20),
             rep_range_hypertrophy=(15, 20),
             rep_range_endurance=(20, 30),
@@ -266,6 +271,7 @@ class ExerciseDatabase:
             secondary_muscles=[MuscleGroup.QUADRICEPS, MuscleGroup.CORE],
             difficulty=DifficultyLevel.ADVANCED,
             equipment=['barbell'],
+            movement_pattern='hinge',
             rep_range_strength=(1, 6),
             rep_range_hypertrophy=(6, 10),
             rep_range_endurance=(10, 15),
@@ -282,6 +288,7 @@ class ExerciseDatabase:
             secondary_muscles=[MuscleGroup.QUADRICEPS, MuscleGroup.CORE],
             difficulty=DifficultyLevel.INTERMEDIATE,
             equipment=['barbell'],
+            movement_pattern='hinge',
             rep_range_strength=(3, 6),
             rep_range_hypertrophy=(6, 10),
             rep_range_endurance=(10, 15),
@@ -298,6 +305,7 @@ class ExerciseDatabase:
             secondary_muscles=[MuscleGroup.BACK],
             difficulty=DifficultyLevel.INTERMEDIATE,
             equipment=['barbell', 'dumbbell'],
+            movement_pattern='hinge',
             rep_range_strength=(6, 8),
             rep_range_hypertrophy=(8, 12),
             rep_range_endurance=(12, 15),
@@ -742,6 +750,724 @@ class ExerciseDatabase:
             rep_range_endurance=(20, 30),
             recovery_hours=24,
             notes='Isolamento polpacci, può essere con pesi o macchina',
+        )
+        
+        # ═══════════════════════════════════════════════════════════
+        # CHEST - VARIANTI PROFESSIONALI
+        # ═══════════════════════════════════════════════════════════
+        
+        self.exercises['incline_bench_press'] = Exercise(
+            id='incline_bench_press',
+            name='Incline Bench Press',
+            italian_name='Panca Inclinata',
+            description='Bench press su panca inclinata 30-45°, focus upper chest',
+            primary_muscles=[MuscleGroup.CHEST],
+            secondary_muscles=[MuscleGroup.SHOULDERS, MuscleGroup.TRICEPS],
+            difficulty=DifficultyLevel.INTERMEDIATE,
+            equipment=['barbell', 'bench'],
+            movement_pattern='push',
+            rep_range_strength=(4, 6),
+            rep_range_hypertrophy=(6, 10),
+            rep_range_endurance=(10, 15),
+            recovery_hours=48,
+            notes='Enfatizza upper chest, ottimo per sviluppo completo petto',
+        )
+        
+        self.exercises['incline_dumbbell_press'] = Exercise(
+            id='incline_dumbbell_press',
+            name='Incline Dumbbell Press',
+            italian_name='Panca Inclinata Manubri',
+            description='Press manubri su panca inclinata',
+            primary_muscles=[MuscleGroup.CHEST],
+            secondary_muscles=[MuscleGroup.SHOULDERS, MuscleGroup.TRICEPS],
+            difficulty=DifficultyLevel.INTERMEDIATE,
+            equipment=['dumbbell', 'bench'],
+            movement_pattern='push',
+            rep_range_strength=(6, 8),
+            rep_range_hypertrophy=(8, 12),
+            rep_range_endurance=(12, 15),
+            recovery_hours=48,
+            notes='Maggior ROM rispetto a barbell, ottimo per upper chest',
+        )
+        
+        self.exercises['decline_bench_press'] = Exercise(
+            id='decline_bench_press',
+            name='Decline Bench Press',
+            italian_name='Panca Declinata',
+            description='Bench press su panca declinata, focus lower chest',
+            primary_muscles=[MuscleGroup.CHEST],
+            secondary_muscles=[MuscleGroup.TRICEPS],
+            difficulty=DifficultyLevel.INTERMEDIATE,
+            equipment=['barbell', 'bench'],
+            movement_pattern='push',
+            rep_range_strength=(4, 6),
+            rep_range_hypertrophy=(6, 10),
+            rep_range_endurance=(10, 12),
+            recovery_hours=48,
+            notes='Enfatizza lower chest, minor stress spalle',
+        )
+        
+        self.exercises['cable_crossover'] = Exercise(
+            id='cable_crossover',
+            name='Cable Crossover',
+            italian_name='Croci ai Cavi',
+            description='Isolamento petto con cavi, costante tensione',
+            primary_muscles=[MuscleGroup.CHEST],
+            secondary_muscles=[MuscleGroup.SHOULDERS],
+            difficulty=DifficultyLevel.BEGINNER,
+            equipment=['cable'],
+            movement_pattern='push',
+            rep_range_strength=(8, 12),
+            rep_range_hypertrophy=(10, 15),
+            rep_range_endurance=(12, 20),
+            recovery_hours=24,
+            notes='Ottimo pump, tensione costante, focus stretch e contrazione',
+        )
+        
+        self.exercises['pec_deck'] = Exercise(
+            id='pec_deck',
+            name='Pec Deck Machine',
+            italian_name='Pectoral Machine',
+            description='Isolamento petto su macchina, movimento guidato',
+            primary_muscles=[MuscleGroup.CHEST],
+            difficulty=DifficultyLevel.BEGINNER,
+            equipment=['machine'],
+            movement_pattern='push',
+            rep_range_strength=(8, 12),
+            rep_range_hypertrophy=(10, 15),
+            rep_range_endurance=(15, 20),
+            recovery_hours=24,
+            notes='Facile da controllare, ottimo per pump finale',
+        )
+        
+        self.exercises['landmine_press'] = Exercise(
+            id='landmine_press',
+            name='Landmine Press',
+            italian_name='Landmine Press',
+            description='Press con bilanciere su landmine, angolo unico',
+            primary_muscles=[MuscleGroup.CHEST, MuscleGroup.SHOULDERS],
+            secondary_muscles=[MuscleGroup.CORE],
+            difficulty=DifficultyLevel.INTERMEDIATE,
+            equipment=['barbell'],
+            movement_pattern='push',
+            rep_range_strength=(6, 8),
+            rep_range_hypertrophy=(8, 12),
+            rep_range_endurance=(12, 15),
+            recovery_hours=36,
+            notes='Angolo unico, ottimo per atleti, minor stress spalle',
+        )
+        
+        self.exercises['close_grip_bench'] = Exercise(
+            id='close_grip_bench',
+            name='Close Grip Bench Press',
+            italian_name='Panca Presa Stretta',
+            description='Bench press con impugnatura stretta, focus tricipiti',
+            primary_muscles=[MuscleGroup.TRICEPS],
+            secondary_muscles=[MuscleGroup.CHEST, MuscleGroup.SHOULDERS],
+            difficulty=DifficultyLevel.INTERMEDIATE,
+            equipment=['barbell', 'bench'],
+            movement_pattern='push',
+            rep_range_strength=(4, 6),
+            rep_range_hypertrophy=(6, 10),
+            rep_range_endurance=(10, 12),
+            recovery_hours=48,
+            notes='Compound per tricipiti, ottimo mass builder',
+        )
+        
+        # ═══════════════════════════════════════════════════════════
+        # BACK - VARIANTI PROFESSIONALI
+        # ═══════════════════════════════════════════════════════════
+        
+        self.exercises['t_bar_row'] = Exercise(
+            id='t_bar_row',
+            name='T-Bar Row',
+            italian_name='Rematore T-Bar',
+            description='Row con T-bar, ottimo per thickness schiena',
+            primary_muscles=[MuscleGroup.BACK, MuscleGroup.LATS],
+            secondary_muscles=[MuscleGroup.BICEPS],
+            difficulty=DifficultyLevel.INTERMEDIATE,
+            equipment=['barbell'],
+            movement_pattern='pull',
+            rep_range_strength=(5, 8),
+            rep_range_hypertrophy=(8, 12),
+            rep_range_endurance=(12, 15),
+            recovery_hours=48,
+            notes='Mass builder per schiena, focus mid-back thickness',
+        )
+        
+        self.exercises['chest_supported_row'] = Exercise(
+            id='chest_supported_row',
+            name='Chest Supported Row',
+            italian_name='Rematore Petto Appoggiato',
+            description='Row con petto appoggiato, elimina cheating',
+            primary_muscles=[MuscleGroup.BACK],
+            secondary_muscles=[MuscleGroup.BICEPS, MuscleGroup.TRAPS],
+            difficulty=DifficultyLevel.BEGINNER,
+            equipment=['dumbbell', 'bench'],
+            movement_pattern='pull',
+            rep_range_strength=(6, 10),
+            rep_range_hypertrophy=(8, 12),
+            rep_range_endurance=(12, 15),
+            recovery_hours=36,
+            notes='No cheating, focus puro schiena, ottimo per strict form',
+        )
+        
+        self.exercises['inverted_row'] = Exercise(
+            id='inverted_row',
+            name='Inverted Row',
+            italian_name='Rematore Inverso',
+            description='Row bodyweight sotto barra, ottimo per principianti',
+            primary_muscles=[MuscleGroup.BACK],
+            secondary_muscles=[MuscleGroup.BICEPS, MuscleGroup.CORE],
+            difficulty=DifficultyLevel.BEGINNER,
+            equipment=['bodyweight'],
+            movement_pattern='pull',
+            rep_range_strength=(8, 12),
+            rep_range_hypertrophy=(10, 15),
+            rep_range_endurance=(15, 20),
+            recovery_hours=24,
+            notes='Bodyweight row, progressione verso pull-up',
+        )
+        
+        self.exercises['pendlay_row'] = Exercise(
+            id='pendlay_row',
+            name='Pendlay Row',
+            italian_name='Rematore Pendlay',
+            description='Row esplosivo da terra, focus potenza',
+            primary_muscles=[MuscleGroup.BACK],
+            secondary_muscles=[MuscleGroup.BICEPS, MuscleGroup.TRAPS],
+            difficulty=DifficultyLevel.ADVANCED,
+            equipment=['barbell'],
+            movement_pattern='pull',
+            rep_range_strength=(3, 6),
+            rep_range_hypertrophy=(5, 8),
+            rep_range_endurance=(8, 10),
+            recovery_hours=48,
+            notes='Esplosivo, powerlifting style, focus strength e power',
+        )
+        
+        self.exercises['face_pull'] = Exercise(
+            id='face_pull',
+            name='Face Pull',
+            italian_name='Face Pull Cavi',
+            description='Pull ai cavi verso faccia, focus rear delts e upper back',
+            primary_muscles=[MuscleGroup.SHOULDERS, MuscleGroup.TRAPS],
+            secondary_muscles=[MuscleGroup.BACK],
+            difficulty=DifficultyLevel.BEGINNER,
+            equipment=['cable'],
+            movement_pattern='pull',
+            rep_range_strength=(10, 15),
+            rep_range_hypertrophy=(12, 20),
+            rep_range_endurance=(15, 25),
+            recovery_hours=24,
+            notes='FONDAMENTALE per salute spalle, combatte postura shoulders forward',
+        )
+        
+        self.exercises['cable_row_wide'] = Exercise(
+            id='cable_row_wide',
+            name='Cable Row (Wide Grip)',
+            italian_name='Rematore Cavi Presa Larga',
+            description='Row ai cavi con presa larga, focus lats width',
+            primary_muscles=[MuscleGroup.LATS, MuscleGroup.BACK],
+            secondary_muscles=[MuscleGroup.BICEPS],
+            difficulty=DifficultyLevel.BEGINNER,
+            equipment=['cable'],
+            movement_pattern='pull',
+            rep_range_strength=(8, 10),
+            rep_range_hypertrophy=(10, 15),
+            rep_range_endurance=(12, 20),
+            recovery_hours=36,
+            notes='Focus larghezza dorsali, presa larga',
+        )
+        
+        # ═══════════════════════════════════════════════════════════
+        # SHOULDERS - VARIANTI PROFESSIONALI
+        # ═══════════════════════════════════════════════════════════
+        
+        self.exercises['arnold_press'] = Exercise(
+            id='arnold_press',
+            name='Arnold Press',
+            italian_name='Arnold Press',
+            description='Press con rotazione manubri, full ROM spalle',
+            primary_muscles=[MuscleGroup.SHOULDERS],
+            secondary_muscles=[MuscleGroup.TRICEPS],
+            difficulty=DifficultyLevel.INTERMEDIATE,
+            equipment=['dumbbell'],
+            movement_pattern='push',
+            rep_range_strength=(6, 8),
+            rep_range_hypertrophy=(8, 12),
+            rep_range_endurance=(12, 15),
+            recovery_hours=36,
+            notes='Rotazione unica, colpisce tutti e 3 deltoidi',
+        )
+        
+        self.exercises['seated_dumbbell_press'] = Exercise(
+            id='seated_dumbbell_press',
+            name='Seated Dumbbell Press',
+            italian_name='Press Manubri Seduto',
+            description='Press manubri seduto, stabilità maggiore',
+            primary_muscles=[MuscleGroup.SHOULDERS],
+            secondary_muscles=[MuscleGroup.TRICEPS],
+            difficulty=DifficultyLevel.BEGINNER,
+            equipment=['dumbbell', 'bench'],
+            movement_pattern='push',
+            rep_range_strength=(5, 8),
+            rep_range_hypertrophy=(8, 12),
+            rep_range_endurance=(12, 15),
+            recovery_hours=36,
+            notes='Seduto = più stabile, focus puro spalle',
+        )
+        
+        self.exercises['cable_lateral_raise'] = Exercise(
+            id='cable_lateral_raise',
+            name='Cable Lateral Raise',
+            italian_name='Alzate Laterali Cavi',
+            description='Lateral raise ai cavi, tensione costante',
+            primary_muscles=[MuscleGroup.SHOULDERS],
+            difficulty=DifficultyLevel.BEGINNER,
+            equipment=['cable'],
+            rep_range_strength=(10, 15),
+            rep_range_hypertrophy=(12, 20),
+            rep_range_endurance=(15, 25),
+            recovery_hours=24,
+            notes='Tensione costante, ottimo per side delts',
+        )
+        
+        self.exercises['rear_delt_fly'] = Exercise(
+            id='rear_delt_fly',
+            name='Rear Delt Fly',
+            italian_name='Alzate Posteriori',
+            description='Fly per deltoidi posteriori, focus postura',
+            primary_muscles=[MuscleGroup.SHOULDERS],
+            secondary_muscles=[MuscleGroup.TRAPS],
+            difficulty=DifficultyLevel.BEGINNER,
+            equipment=['dumbbell'],
+            rep_range_strength=(10, 15),
+            rep_range_hypertrophy=(12, 20),
+            rep_range_endurance=(15, 25),
+            recovery_hours=24,
+            notes='FONDAMENTALE per rear delts, postura, salute spalle',
+        )
+        
+        self.exercises['upright_row'] = Exercise(
+            id='upright_row',
+            name='Upright Row',
+            italian_name='Rematore Alto',
+            description='Row verticale, focus traps e side delts',
+            primary_muscles=[MuscleGroup.SHOULDERS, MuscleGroup.TRAPS],
+            difficulty=DifficultyLevel.INTERMEDIATE,
+            equipment=['barbell', 'dumbbell'],
+            movement_pattern='pull',
+            rep_range_strength=(6, 10),
+            rep_range_hypertrophy=(8, 12),
+            rep_range_endurance=(12, 15),
+            recovery_hours=36,
+            contraindications=['Spalla', 'Impingement'],
+            notes='Attenzione impingement, non troppo alto, presa larga meglio',
+        )
+        
+        self.exercises['reverse_pec_deck'] = Exercise(
+            id='reverse_pec_deck',
+            name='Reverse Pec Deck',
+            italian_name='Pectoral Machine Inversa',
+            description='Pec deck inversa per rear delts',
+            primary_muscles=[MuscleGroup.SHOULDERS],
+            secondary_muscles=[MuscleGroup.TRAPS],
+            difficulty=DifficultyLevel.BEGINNER,
+            equipment=['machine'],
+            rep_range_strength=(10, 15),
+            rep_range_hypertrophy=(12, 20),
+            rep_range_endurance=(15, 25),
+            recovery_hours=24,
+            notes='Facile da controllare, ottimo per rear delts isolation',
+        )
+        
+        # ═══════════════════════════════════════════════════════════
+        # ARMS - BICEPS & TRICEPS PROFESSIONALI
+        # ═══════════════════════════════════════════════════════════
+        
+        self.exercises['hammer_curl'] = Exercise(
+            id='hammer_curl',
+            name='Hammer Curl',
+            italian_name='Curl Martello',
+            description='Curl con presa neutra, focus brachiale e brachioradiale',
+            primary_muscles=[MuscleGroup.BICEPS],
+            secondary_muscles=[MuscleGroup.FOREARMS],
+            difficulty=DifficultyLevel.BEGINNER,
+            equipment=['dumbbell'],
+            rep_range_strength=(6, 10),
+            rep_range_hypertrophy=(8, 12),
+            rep_range_endurance=(12, 15),
+            recovery_hours=24,
+            notes='Presa neutra, colpisce brachiale per thickness bicipite',
+        )
+        
+        self.exercises['preacher_curl'] = Exercise(
+            id='preacher_curl',
+            name='Preacher Curl',
+            italian_name='Curl Panca Scott',
+            description='Curl su panca scott, isolamento bicipiti',
+            primary_muscles=[MuscleGroup.BICEPS],
+            difficulty=DifficultyLevel.BEGINNER,
+            equipment=['barbell', 'dumbbell', 'machine'],
+            rep_range_strength=(6, 10),
+            rep_range_hypertrophy=(8, 12),
+            rep_range_endurance=(12, 15),
+            recovery_hours=24,
+            notes='No cheating, isolamento puro bicipiti',
+        )
+        
+        self.exercises['cable_curl'] = Exercise(
+            id='cable_curl',
+            name='Cable Curl',
+            italian_name='Curl Cavi',
+            description='Curl ai cavi, tensione costante',
+            primary_muscles=[MuscleGroup.BICEPS],
+            difficulty=DifficultyLevel.BEGINNER,
+            equipment=['cable'],
+            rep_range_strength=(8, 12),
+            rep_range_hypertrophy=(10, 15),
+            rep_range_endurance=(12, 20),
+            recovery_hours=24,
+            notes='Tensione costante, ottimo pump finale',
+        )
+        
+        self.exercises['skull_crusher'] = Exercise(
+            id='skull_crusher',
+            name='Skull Crusher',
+            italian_name='French Press',
+            description='Extension tricipiti sdraiato, long head focus',
+            primary_muscles=[MuscleGroup.TRICEPS],
+            difficulty=DifficultyLevel.INTERMEDIATE,
+            equipment=['barbell', 'dumbbell'],
+            rep_range_strength=(6, 10),
+            rep_range_hypertrophy=(8, 12),
+            rep_range_endurance=(12, 15),
+            recovery_hours=36,
+            contraindications=['Gomito'],
+            notes='Mass builder tricipiti, attenzione gomiti',
+        )
+        
+        self.exercises['overhead_tricep_extension'] = Exercise(
+            id='overhead_tricep_extension',
+            name='Overhead Tricep Extension',
+            italian_name='Estensione Tricipiti Sopra Testa',
+            description='Extension tricipiti overhead, long head focus',
+            primary_muscles=[MuscleGroup.TRICEPS],
+            difficulty=DifficultyLevel.BEGINNER,
+            equipment=['dumbbell', 'cable'],
+            rep_range_strength=(8, 12),
+            rep_range_hypertrophy=(10, 15),
+            rep_range_endurance=(12, 20),
+            recovery_hours=24,
+            notes='Stretch estremo long head, ottimo per sviluppo completo',
+        )
+        
+        self.exercises['cable_pushdown'] = Exercise(
+            id='cable_pushdown',
+            name='Cable Pushdown',
+            italian_name='Pushdown Cavi',
+            description='Pushdown tricipiti ai cavi, lateral head focus',
+            primary_muscles=[MuscleGroup.TRICEPS],
+            difficulty=DifficultyLevel.BEGINNER,
+            equipment=['cable'],
+            rep_range_strength=(8, 12),
+            rep_range_hypertrophy=(10, 15),
+            rep_range_endurance=(12, 20),
+            recovery_hours=24,
+            notes='Classico tricipiti finisher, lateral head',
+        )
+        
+        self.exercises['tricep_dips'] = Exercise(
+            id='tricep_dips',
+            name='Tricep Dips',
+            italian_name='Dip Tricipiti',
+            description='Dips su parallele focus tricipiti',
+            primary_muscles=[MuscleGroup.TRICEPS],
+            secondary_muscles=[MuscleGroup.CHEST, MuscleGroup.SHOULDERS],
+            difficulty=DifficultyLevel.INTERMEDIATE,
+            equipment=['bodyweight'],
+            movement_pattern='push',
+            rep_range_strength=(5, 10),
+            rep_range_hypertrophy=(8, 12),
+            rep_range_endurance=(10, 15),
+            recovery_hours=36,
+            notes='Compound bodyweight, mass builder tricipiti',
+        )
+        
+        # ═══════════════════════════════════════════════════════════
+        # LEGS - QUADS, GLUTES, HAMSTRINGS PROFESSIONALI
+        # ═══════════════════════════════════════════════════════════
+        
+        self.exercises['bulgarian_split_squat'] = Exercise(
+            id='bulgarian_split_squat',
+            name='Bulgarian Split Squat',
+            italian_name='Squat Bulgaro',
+            description='Split squat con piede posteriore elevato, unilaterale',
+            primary_muscles=[MuscleGroup.QUADRICEPS, MuscleGroup.GLUTES],
+            secondary_muscles=[MuscleGroup.HAMSTRINGS, MuscleGroup.CORE],
+            difficulty=DifficultyLevel.INTERMEDIATE,
+            equipment=['dumbbell', 'bodyweight'],
+            movement_pattern='squat',
+            rep_range_strength=(6, 10),
+            rep_range_hypertrophy=(8, 12),
+            rep_range_endurance=(12, 15),
+            recovery_hours=36,
+            notes='Unilaterale king, quad e glutes, balance e core',
+        )
+        
+        self.exercises['hack_squat'] = Exercise(
+            id='hack_squat',
+            name='Hack Squat',
+            italian_name='Hack Squat Machine',
+            description='Squat su macchina hack, focus quad safety',
+            primary_muscles=[MuscleGroup.QUADRICEPS],
+            secondary_muscles=[MuscleGroup.GLUTES],
+            difficulty=DifficultyLevel.BEGINNER,
+            equipment=['machine'],
+            movement_pattern='squat',
+            rep_range_strength=(6, 10),
+            rep_range_hypertrophy=(8, 15),
+            rep_range_endurance=(12, 20),
+            recovery_hours=36,
+            notes='Machine = sicuro, focus quad isolation',
+        )
+        
+        self.exercises['walking_lunges'] = Exercise(
+            id='walking_lunges',
+            name='Walking Lunges',
+            italian_name='Affondi Camminati',
+            description='Lunges dinamici camminati, functional',
+            primary_muscles=[MuscleGroup.QUADRICEPS, MuscleGroup.GLUTES],
+            secondary_muscles=[MuscleGroup.HAMSTRINGS, MuscleGroup.CORE],
+            difficulty=DifficultyLevel.BEGINNER,
+            equipment=['dumbbell', 'bodyweight'],
+            movement_pattern='squat',
+            rep_range_strength=(10, 15),
+            rep_range_hypertrophy=(12, 20),
+            rep_range_endurance=(15, 25),
+            recovery_hours=24,
+            notes='Functional, balance, cardio component',
+        )
+        
+        self.exercises['nordic_curl'] = Exercise(
+            id='nordic_curl',
+            name='Nordic Hamstring Curl',
+            italian_name='Nordic Curl',
+            description='Curl eccentrici hamstring bodyweight, injury prevention',
+            primary_muscles=[MuscleGroup.HAMSTRINGS],
+            secondary_muscles=[MuscleGroup.GLUTES, MuscleGroup.CORE],
+            difficulty=DifficultyLevel.ADVANCED,
+            equipment=['bodyweight'],
+            movement_pattern='hinge',
+            rep_range_strength=(3, 6),
+            rep_range_hypertrophy=(5, 8),
+            rep_range_endurance=(8, 12),
+            recovery_hours=48,
+            notes='ECCENTRIC KING, injury prevention hamstring, molto duro',
+        )
+        
+        self.exercises['good_morning'] = Exercise(
+            id='good_morning',
+            name='Good Morning',
+            italian_name='Good Morning',
+            description='Hinge con bilanciere sulle spalle, posterior chain',
+            primary_muscles=[MuscleGroup.HAMSTRINGS, MuscleGroup.GLUTES],
+            secondary_muscles=[MuscleGroup.BACK, MuscleGroup.CORE],
+            difficulty=DifficultyLevel.ADVANCED,
+            equipment=['barbell'],
+            movement_pattern='hinge',
+            rep_range_strength=(5, 8),
+            rep_range_hypertrophy=(6, 10),
+            rep_range_endurance=(8, 12),
+            recovery_hours=48,
+            contraindications=['Schiena bassa'],
+            notes='Posterior chain builder, tecnica FONDAMENTALE',
+        )
+        
+        self.exercises['single_leg_rdl'] = Exercise(
+            id='single_leg_rdl',
+            name='Single Leg RDL',
+            italian_name='Stacco Rumeno Unilaterale',
+            description='RDL su una gamba, balance e hamstring',
+            primary_muscles=[MuscleGroup.HAMSTRINGS, MuscleGroup.GLUTES],
+            secondary_muscles=[MuscleGroup.CORE],
+            difficulty=DifficultyLevel.INTERMEDIATE,
+            equipment=['dumbbell', 'kettlebell', 'bodyweight'],
+            movement_pattern='hinge',
+            rep_range_strength=(6, 10),
+            rep_range_hypertrophy=(8, 12),
+            rep_range_endurance=(12, 15),
+            recovery_hours=36,
+            notes='Unilaterale, balance, functional strength',
+        )
+        
+        self.exercises['seated_leg_curl'] = Exercise(
+            id='seated_leg_curl',
+            name='Seated Leg Curl',
+            italian_name='Leg Curl Seduto',
+            description='Curl hamstring su macchina seduto',
+            primary_muscles=[MuscleGroup.HAMSTRINGS],
+            difficulty=DifficultyLevel.BEGINNER,
+            equipment=['machine'],
+            rep_range_strength=(8, 12),
+            rep_range_hypertrophy=(10, 15),
+            rep_range_endurance=(12, 20),
+            recovery_hours=24,
+            notes='Isolation hamstring safe, controllo facile',
+        )
+        
+        # ═══════════════════════════════════════════════════════════
+        # GLUTES - ESERCIZI FONDAMENTALI (ERANO MANCANTI!)
+        # ═══════════════════════════════════════════════════════════
+        
+        self.exercises['hip_thrust'] = Exercise(
+            id='hip_thrust',
+            name='Hip Thrust',
+            italian_name='Hip Thrust',
+            description='HIP THRUST - IL RE PER GLUTES! Extension anca con upper back su panca',
+            primary_muscles=[MuscleGroup.GLUTES],
+            secondary_muscles=[MuscleGroup.HAMSTRINGS, MuscleGroup.CORE],
+            difficulty=DifficultyLevel.INTERMEDIATE,
+            equipment=['barbell', 'dumbbell', 'bench'],
+            movement_pattern='hinge',
+            rep_range_strength=(5, 8),
+            rep_range_hypertrophy=(8, 12),
+            rep_range_endurance=(12, 20),
+            recovery_hours=36,
+            notes='IL MIGLIORE PER GLUTES! Evidenza scientifica massima attivazione glutei',
+        )
+        
+        self.exercises['glute_bridge'] = Exercise(
+            id='glute_bridge',
+            name='Glute Bridge',
+            italian_name='Ponte Glutei',
+            description='Bridge da terra, glutes activation',
+            primary_muscles=[MuscleGroup.GLUTES],
+            secondary_muscles=[MuscleGroup.HAMSTRINGS, MuscleGroup.CORE],
+            difficulty=DifficultyLevel.BEGINNER,
+            equipment=['barbell', 'dumbbell', 'bodyweight'],
+            movement_pattern='hinge',
+            rep_range_strength=(10, 15),
+            rep_range_hypertrophy=(12, 20),
+            rep_range_endurance=(15, 25),
+            recovery_hours=24,
+            notes='Principianti, glutes activation, progressione verso hip thrust',
+        )
+        
+        self.exercises['cable_pull_through'] = Exercise(
+            id='cable_pull_through',
+            name='Cable Pull Through',
+            italian_name='Cable Pull Through',
+            description='Hinge pattern ai cavi, glutes e hamstring',
+            primary_muscles=[MuscleGroup.GLUTES, MuscleGroup.HAMSTRINGS],
+            secondary_muscles=[MuscleGroup.CORE],
+            difficulty=DifficultyLevel.BEGINNER,
+            equipment=['cable'],
+            movement_pattern='hinge',
+            rep_range_strength=(8, 12),
+            rep_range_hypertrophy=(10, 15),
+            rep_range_endurance=(12, 20),
+            recovery_hours=24,
+            notes='Hinge teaching tool, ottimo per imparare pattern',
+        )
+        
+        self.exercises['step_up'] = Exercise(
+            id='step_up',
+            name='Step Up',
+            italian_name='Step Up',
+            description='Salita su box, unilaterale per quad e glutes',
+            primary_muscles=[MuscleGroup.QUADRICEPS, MuscleGroup.GLUTES],
+            secondary_muscles=[MuscleGroup.HAMSTRINGS, MuscleGroup.CORE],
+            difficulty=DifficultyLevel.BEGINNER,
+            equipment=['dumbbell', 'bodyweight', 'box'],
+            movement_pattern='squat',
+            rep_range_strength=(8, 12),
+            rep_range_hypertrophy=(10, 15),
+            rep_range_endurance=(12, 20),
+            recovery_hours=24,
+            notes='Unilaterale, functional, ottimo per asymmetry',
+        )
+        
+        # ═══════════════════════════════════════════════════════════
+        # CORE - ESERCIZI PROFESSIONALI
+        # ═══════════════════════════════════════════════════════════
+        
+        self.exercises['cable_crunch'] = Exercise(
+            id='cable_crunch',
+            name='Cable Crunch',
+            italian_name='Crunch Cavi',
+            description='Crunch ai cavi in ginocchio, progressione carico',
+            primary_muscles=[MuscleGroup.CORE],
+            difficulty=DifficultyLevel.BEGINNER,
+            equipment=['cable'],
+            rep_range_strength=(10, 15),
+            rep_range_hypertrophy=(12, 20),
+            rep_range_endurance=(15, 25),
+            recovery_hours=24,
+            notes='Progressive overload per abs, controllo facile',
+        )
+        
+        self.exercises['hanging_leg_raise'] = Exercise(
+            id='hanging_leg_raise',
+            name='Hanging Leg Raise',
+            italian_name='Sollevamento Gambe Appeso',
+            description='Leg raise appeso alla sbarra, lower abs focus',
+            primary_muscles=[MuscleGroup.CORE],
+            secondary_muscles=[MuscleGroup.BACK],
+            difficulty=DifficultyLevel.ADVANCED,
+            equipment=['bodyweight'],
+            rep_range_strength=(5, 10),
+            rep_range_hypertrophy=(8, 15),
+            rep_range_endurance=(12, 20),
+            recovery_hours=24,
+            notes='Advanced abs, lower abs focus, grip strength',
+        )
+        
+        self.exercises['pallof_press'] = Exercise(
+            id='pallof_press',
+            name='Pallof Press',
+            italian_name='Pallof Press',
+            description='Anti-rotation press ai cavi, core stability',
+            primary_muscles=[MuscleGroup.CORE],
+            difficulty=DifficultyLevel.INTERMEDIATE,
+            equipment=['cable'],
+            rep_range_strength=(8, 12),
+            rep_range_hypertrophy=(10, 15),
+            rep_range_endurance=(12, 20),
+            recovery_hours=24,
+            notes='ANTI-ROTATION king, functional core strength',
+        )
+        
+        self.exercises['russian_twist'] = Exercise(
+            id='russian_twist',
+            name='Russian Twist',
+            italian_name='Russian Twist',
+            description='Twist seduto con peso, obliques',
+            primary_muscles=[MuscleGroup.CORE],
+            difficulty=DifficultyLevel.BEGINNER,
+            equipment=['dumbbell', 'plate', 'bodyweight'],
+            rep_range_strength=(15, 25),
+            rep_range_hypertrophy=(20, 30),
+            rep_range_endurance=(25, 40),
+            recovery_hours=24,
+            notes='Obliques focus, rotation pattern',
+        )
+        
+        self.exercises['ab_wheel'] = Exercise(
+            id='ab_wheel',
+            name='Ab Wheel Rollout',
+            italian_name='Ab Wheel',
+            description='Rollout con ab wheel, core completo',
+            primary_muscles=[MuscleGroup.CORE],
+            secondary_muscles=[MuscleGroup.SHOULDERS],
+            difficulty=DifficultyLevel.ADVANCED,
+            equipment=['bodyweight'],
+            rep_range_strength=(5, 10),
+            rep_range_hypertrophy=(8, 15),
+            rep_range_endurance=(12, 20),
+            recovery_hours=36,
+            notes='Advanced core tool, full body tension',
         )
     
     def get_exercise(self, exercise_id: str) -> Optional[Exercise]:

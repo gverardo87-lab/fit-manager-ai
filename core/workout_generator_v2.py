@@ -240,18 +240,27 @@ class WorkoutGeneratorV2:
                 )
 
         elif split_type == 'upper_lower':
-            # 2 upper, 2 lower
+            # UPPER/LOWER con VARIAZIONE INTRA-SETTIMANA
+            # Day 1: Upper PRESS FOCUS + HEAVY
+            # Day 2: Lower SQUAT FOCUS + HEAVY
+            # Day 3: Upper PULL FOCUS + VOLUME
+            # Day 4: Lower HINGE FOCUS + VOLUME
+            
             template['day_1_upper'] = self._select_upper_body_exercises(
-                difficulty, goal, equipment, limitazioni, day=1
+                difficulty, goal, equipment, limitazioni, 
+                day=1, focus='press', intensity='heavy'
             )
             template['day_2_lower'] = self._select_lower_body_exercises(
-                difficulty, goal, equipment, limitazioni, day=1
+                difficulty, goal, equipment, limitazioni, 
+                day=1, focus='squat', intensity='heavy'
             )
             template['day_3_upper'] = self._select_upper_body_exercises(
-                difficulty, goal, equipment, limitazioni, day=2
+                difficulty, goal, equipment, limitazioni, 
+                day=2, focus='pull', intensity='volume'
             )
             template['day_4_lower'] = self._select_lower_body_exercises(
-                difficulty, goal, equipment, limitazioni, day=2
+                difficulty, goal, equipment, limitazioni, 
+                day=2, focus='hinge', intensity='volume'
             )
 
         elif split_type == 'push_pull_legs':
@@ -340,44 +349,137 @@ class WorkoutGeneratorV2:
         goal: Goal,
         equipment: List[str],
         limitazioni: List[str],
-        day: int
+        day: int,
+        focus: str = 'balanced',  # 'press', 'pull', or 'balanced'
+        intensity: str = 'volume'  # 'heavy' or 'volume'
     ) -> List[Dict]:
-        """Seleziona esercizi upper body - SMART SELECTION"""
+        """
+        Seleziona esercizi upper body con FOCUS e INTENSITY differenti
+        
+        PRESS FOCUS (Day 1): 2 push mains + pull secondario + triceps/delts accessories
+        PULL FOCUS (Day 3): 2 pull mains + push secondario + biceps/rear delts accessories
+        """
         exercises = []
         used_ids = []
 
-        # Main push
-        push_ex = self.exercise_db.select_best_for_pattern(
-            pattern='push',
-            equipment=equipment,
-            level=difficulty,
-            exclude_contraindications=limitazioni
-        )
-        if push_ex:
-            exercises.append(self._format_exercise(push_ex, goal, is_main=True))
-            used_ids.append(push_ex.id)
+        if focus == 'press':
+            # DAY 1: PRESS FOCUS - 2 push mains + 1 pull + triceps/delts accessories
+            
+            # Main 1: Best push (bench, dips, etc.)
+            push_main1 = self.exercise_db.select_best_for_pattern(
+                pattern='push',
+                equipment=equipment,
+                level=difficulty,
+                exclude_contraindications=limitazioni
+            )
+            if push_main1:
+                exercises.append(self._format_exercise(push_main1, goal, is_main=True))
+                used_ids.append(push_main1.id)
+            
+            # Main 2: Second push (diverso dal primo)
+            all_exercises = list(self.exercise_db.exercises.values())
+            push_exercises = [ex for ex in all_exercises 
+                             if 'push' in ex.movement_pattern
+                             and ex.id not in used_ids
+                             and ex.difficulty.value <= difficulty.value
+                             and any(eq in equipment for eq in ex.equipment)
+                             and not any(contr in limitazioni for contr in ex.contraindications)]
+            if push_exercises:
+                push_main2 = push_exercises[0]
+                exercises.append(self._format_exercise(push_main2, goal, is_main=True))
+                used_ids.append(push_main2.id)
+            
+            # Pull secondario (1 main)
+            pull_ex = self.exercise_db.select_best_for_pattern(
+                pattern='pull',
+                equipment=equipment,
+                level=difficulty,
+                exclude_contraindications=limitazioni
+            )
+            if pull_ex and pull_ex.id not in used_ids:
+                exercises.append(self._format_exercise(pull_ex, goal, is_main=True))
+                used_ids.append(pull_ex.id)
+            
+            # Accessori: SOLO TRICEPS (no shoulders per ridurre overlap)
+            accessory_muscles = [MuscleGroup.TRICEPS]
+            accessory_count = 2
+            
+        elif focus == 'pull':
+            # DAY 3: PULL FOCUS - 2 pull mains + 1 push + biceps/rear delts accessories
+            
+            # Main 1: Best pull (row, pullup, etc.)
+            pull_main1 = self.exercise_db.select_best_for_pattern(
+                pattern='pull',
+                equipment=equipment,
+                level=difficulty,
+                exclude_contraindications=limitazioni
+            )
+            if pull_main1:
+                exercises.append(self._format_exercise(pull_main1, goal, is_main=True))
+                used_ids.append(pull_main1.id)
+            
+            # Main 2: Second pull (diverso dal primo)
+            all_exercises = list(self.exercise_db.exercises.values())
+            pull_exercises = [ex for ex in all_exercises 
+                             if 'pull' in ex.movement_pattern
+                             and ex.id not in used_ids
+                             and ex.difficulty.value <= difficulty.value
+                             and any(eq in equipment for eq in ex.equipment)
+                             and not any(contr in limitazioni for contr in ex.contraindications)]
+            if pull_exercises:
+                pull_main2 = pull_exercises[0]
+                exercises.append(self._format_exercise(pull_main2, goal, is_main=True))
+                used_ids.append(pull_main2.id)
+            
+            # Push secondario (1 main)
+            push_ex = self.exercise_db.select_best_for_pattern(
+                pattern='push',
+                equipment=equipment,
+                level=difficulty,
+                exclude_contraindications=limitazioni
+            )
+            if push_ex and push_ex.id not in used_ids:
+                exercises.append(self._format_exercise(push_ex, goal, is_main=True))
+                used_ids.append(push_ex.id)
+            
+            # Accessori: SOLO BICEPS (no shoulders/traps per ridurre overlap)
+            accessory_muscles = [MuscleGroup.BICEPS]
+            accessory_count = 2
+            
+        else:
+            # BALANCED (default old logic)
+            push_ex = self.exercise_db.select_best_for_pattern(
+                pattern='push',
+                equipment=equipment,
+                level=difficulty,
+                exclude_contraindications=limitazioni
+            )
+            if push_ex:
+                exercises.append(self._format_exercise(push_ex, goal, is_main=True))
+                used_ids.append(push_ex.id)
 
-        # Main pull
-        pull_ex = self.exercise_db.select_best_for_pattern(
-            pattern='pull',
-            equipment=equipment,
-            level=difficulty,
-            exclude_contraindications=limitazioni
-        )
-        if pull_ex and pull_ex.id not in used_ids:
-            exercises.append(self._format_exercise(pull_ex, goal, is_main=True))
-            used_ids.append(pull_ex.id)
+            pull_ex = self.exercise_db.select_best_for_pattern(
+                pattern='pull',
+                equipment=equipment,
+                level=difficulty,
+                exclude_contraindications=limitazioni
+            )
+            if pull_ex and pull_ex.id not in used_ids:
+                exercises.append(self._format_exercise(pull_ex, goal, is_main=True))
+                used_ids.append(pull_ex.id)
 
-        # Accessori (3-4 esercizi bilanciati)
-        accessory_muscles = [
-            MuscleGroup.SHOULDERS,
-            MuscleGroup.BICEPS,
-            MuscleGroup.TRICEPS,
-            MuscleGroup.TRAPS
-        ]
+            accessory_muscles = [
+                MuscleGroup.SHOULDERS,
+                MuscleGroup.BICEPS,
+                MuscleGroup.TRICEPS,
+                MuscleGroup.TRAPS
+            ]
+            accessory_count = 4
+
+        # Aggiungi accessori
         accessory_exercises = self.exercise_db.select_balanced_workout(
             muscles=accessory_muscles,
-            count=4,
+            count=accessory_count,
             equipment=equipment,
             level=difficulty,
             exclude_ids=used_ids
@@ -394,34 +496,116 @@ class WorkoutGeneratorV2:
         goal: Goal,
         equipment: List[str],
         limitazioni: List[str],
-        day: int
+        day: int,
+        focus: str = 'balanced',  # 'squat', 'hinge', or 'balanced'
+        intensity: str = 'volume'  # 'heavy' or 'volume'
     ) -> List[Dict]:
-        """Seleziona esercizi lower body - SMART SELECTION"""
+        """
+        Seleziona esercizi lower body con FOCUS e INTENSITY differenti
+        
+        SQUAT FOCUS (Day 2): Squat main + quad emphasis accessories + glutes
+        HINGE FOCUS (Day 4): Deadlift/RDL main + hamstring emphasis accessories + glutes
+        """
         exercises = []
         used_ids = []
 
-        # Main compound (alternare squat e hinge)
-        pattern = 'squat' if day == 1 else 'hinge'
-        main_ex = self.exercise_db.select_best_for_pattern(
-            pattern=pattern,
-            equipment=equipment,
-            level=difficulty,
-            exclude_contraindications=limitazioni
-        )
-        if main_ex:
-            exercises.append(self._format_exercise(main_ex, goal, is_main=True))
-            used_ids.append(main_ex.id)
+        if focus == 'squat':
+            # DAY 2: SQUAT FOCUS - Quad dominant, NO HINGE EXERCISES
+            
+            # Main: Squat variation
+            main_ex = self.exercise_db.select_best_for_pattern(
+                pattern='squat',
+                equipment=equipment,
+                level=difficulty,
+                exclude_contraindications=limitazioni
+            )
+            if main_ex:
+                exercises.append(self._format_exercise(main_ex, goal, is_main=True))
+                used_ids.append(main_ex.id)
+            
+            # Accessori: QUADRICEPS + GLUTES - ESCLUDE pattern 'hinge' (deadlifts, RDL, etc.)
+            all_exercises = list(self.exercise_db.exercises.values())
+            quad_glute_exercises = [
+                ex for ex in all_exercises
+                if (MuscleGroup.QUADRICEPS in ex.primary_muscles or 
+                    MuscleGroup.QUADRICEPS in ex.secondary_muscles or
+                    MuscleGroup.GLUTES in ex.primary_muscles or
+                    MuscleGroup.GLUTES in ex.secondary_muscles)
+                and 'hinge' not in ex.movement_pattern  # ESCLUDE deadlifts famiglia
+                and ex.id not in used_ids
+                and ex.difficulty.value <= difficulty.value
+                and any(eq in equipment for eq in ex.equipment)
+                and not any(contr in limitazioni for contr in ex.contraindications)
+            ]
+            # Prendi primi 3 accessori
+            for acc_ex in quad_glute_exercises[:3]:
+                exercises.append(self._format_exercise(acc_ex, goal, is_main=False))
+                used_ids.append(acc_ex.id)
+            
+            accessory_muscles = []
+            accessory_count = 0  # Già aggiunti sopra
+            
+        elif focus == 'hinge':
+            # DAY 4: HINGE FOCUS - Posterior chain dominant, NO SQUAT EXERCISES
+            
+            # Main: Hinge variation
+            main_ex = self.exercise_db.select_best_for_pattern(
+                pattern='hinge',
+                equipment=equipment,
+                level=difficulty,
+                exclude_contraindications=limitazioni
+            )
+            if main_ex:
+                exercises.append(self._format_exercise(main_ex, goal, is_main=True))
+                used_ids.append(main_ex.id)
+            
+            # Accessori: HAMSTRINGS + GLUTES - ESCLUDE pattern 'squat' (back squat, front squat, etc.)
+            all_exercises = list(self.exercise_db.exercises.values())
+            hamstring_glute_exercises = [
+                ex for ex in all_exercises
+                if (MuscleGroup.HAMSTRINGS in ex.primary_muscles or 
+                    MuscleGroup.HAMSTRINGS in ex.secondary_muscles or
+                    MuscleGroup.GLUTES in ex.primary_muscles or
+                    MuscleGroup.GLUTES in ex.secondary_muscles)
+                and 'squat' not in ex.movement_pattern  # ESCLUDE squat famiglia
+                and ex.id not in used_ids
+                and ex.difficulty.value <= difficulty.value
+                and any(eq in equipment for eq in ex.equipment)
+                and not any(contr in limitazioni for contr in ex.contraindications)
+            ]
+            # Prendi primi 3 accessori
+            for acc_ex in hamstring_glute_exercises[:3]:
+                exercises.append(self._format_exercise(acc_ex, goal, is_main=False))
+                used_ids.append(acc_ex.id)
+            
+            accessory_muscles = []
+            accessory_count = 0  # Già aggiunti sopra
+            
+        else:
+            # BALANCED (default old logic)
+            pattern = 'squat' if day == 1 else 'hinge'
+            main_ex = self.exercise_db.select_best_for_pattern(
+                pattern=pattern,
+                equipment=equipment,
+                level=difficulty,
+                exclude_contraindications=limitazioni
+            )
+            if main_ex:
+                exercises.append(self._format_exercise(main_ex, goal, is_main=True))
+                used_ids.append(main_ex.id)
 
-        # Accessori (3-4 esercizi)
-        accessory_muscles = [
-            MuscleGroup.QUADRICEPS,
-            MuscleGroup.HAMSTRINGS,
-            MuscleGroup.GLUTES,
-            MuscleGroup.CALVES
-        ]
+            accessory_muscles = [
+                MuscleGroup.QUADRICEPS,
+                MuscleGroup.HAMSTRINGS,
+                MuscleGroup.GLUTES,
+                MuscleGroup.CALVES
+            ]
+            accessory_count = 4
+
+        # Aggiungi accessori
         accessory_exercises = self.exercise_db.select_balanced_workout(
             muscles=accessory_muscles,
-            count=4,
+            count=accessory_count,
             equipment=equipment,
             level=difficulty,
             exclude_ids=used_ids
