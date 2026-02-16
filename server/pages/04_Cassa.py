@@ -214,15 +214,52 @@ st.plotly_chart(fig, use_container_width=True)
 st.divider()
 
 # ════════════════════════════════════════════════════════════
-# PROSSIME ENTRATE (Rate in Scadenza)
+# RATE IN RITARDO (da sollecitare)
+# ════════════════════════════════════════════════════════════
+
+rate_scadute = db.get_rate_scadute()
+
+if rate_scadute:
+    st.error(f"⚠️ **{len(rate_scadute)} rate in ritardo** - Totale: **€ {sum(r['importo_previsto'] - r.get('importo_saldato', 0) for r in rate_scadute):.0f}**")
+    
+    with st.expander("🔴 Visualizza Rate Scadute (da sollecitare)", expanded=False):
+        for rata in rate_scadute[:5]:  # Max 5 più vecchie
+            col_r1, col_r2, col_r3 = st.columns([3, 2, 1])
+            
+            with col_r1:
+                st.markdown(f"**{rata['nome']} {rata['cognome']}**")
+                st.caption(f"{rata['tipo_pacchetto']}")
+            
+            with col_r2:
+                data_scadenza = date.fromisoformat(rata['data_scadenza']) if isinstance(rata['data_scadenza'], str) else rata['data_scadenza']
+                giorni_ritardo = (oggi - data_scadenza).days
+                st.markdown(f"🔴 **Scaduta {giorni_ritardo} giorni fa**")
+                st.caption(f"Scadenza: {data_scadenza.strftime('%d/%m/%Y')}")
+            
+            with col_r3:
+                importo_rimanente = rata['importo_previsto'] - rata.get('importo_saldato', 0)
+                st.markdown(f"### € {importo_rimanente:.0f}")
+                if rata.get('importo_saldato', 0) > 0:
+                    st.caption(f"(su €{rata['importo_previsto']:.0f})")
+            
+            st.divider()
+        
+        if len(rate_scadute) > 5:
+            st.info(f"... e altre {len(rate_scadute) - 5} rate scadute")
+
+st.divider()
+
+# ════════════════════════════════════════════════════════════
+# PROSSIME ENTRATE (Rate in Scadenza FUTURE)
 # ════════════════════════════════════════════════════════════
 
 st.subheader("📅 Prossimi Incassi Attesi (30 giorni)")
 
-rate_pendenti = db.get_rate_pendenti(oggi + timedelta(days=30))
+rate_pendenti = db.get_rate_pendenti(oggi + timedelta(days=30), solo_future=True)
 
 if rate_pendenti:
-    st.success(f"✅ {len(rate_pendenti)} rate in scadenza - Totale: **€ {sum(r['importo_previsto'] for r in rate_pendenti):.0f}**")
+    totale_atteso = sum(r['importo_previsto'] - r.get('importo_saldato', 0) for r in rate_pendenti)
+    st.success(f"✅ {len(rate_pendenti)} rate in scadenza - Totale rimanente: **€ {totale_atteso:.0f}**")
     
     # Lista semplice con button "Pagata" (FitSW style)
     for rata in rate_pendenti[:10]:  # Max 10 più vicine
@@ -243,19 +280,25 @@ if rate_pendenti:
             st.caption(f"Tra {giorni_mancanti} giorni")
         
         with col_c:
-            st.markdown(f"### € {rata['importo_previsto']:.0f}")
+            # Mostra importo RIMANENTE (non totale!)
+            importo_rimanente = rata['importo_previsto'] - rata.get('importo_saldato', 0)
+            st.markdown(f"### € {importo_rimanente:.0f}")
+            if rata.get('importo_saldato', 0) > 0:
+                st.caption(f"(su €{rata['importo_previsto']:.0f})")
         
         with col_btn:
             st.markdown("<br>", unsafe_allow_html=True)
+            # Paga l'importo RIMANENTE (non totale!)
+            importo_da_pagare = rata['importo_previsto'] - rata.get('importo_saldato', 0)
             if st.button("✅ Pagata", key=f"paga_{rata['id']}", use_container_width=True):
                 db.paga_rata_specifica(
                     id_rata=rata['id'],
-                    importo_versato=rata['importo_previsto'],
+                    importo_versato=importo_da_pagare,
                     metodo="Contanti",
                     data_pagamento=oggi,
                     note="Pagamento registrato da Cassa"
                 )
-                st.success(f"✅ Rata di {rata['nome']} {rata['cognome']} pagata!")
+                st.success(f"✅ Rata di {rata['nome']} {rata['cognome']} pagata (€{importo_da_pagare:.0f})!")
                 st.rerun()
         
         st.divider()
@@ -340,22 +383,22 @@ st.divider()
 
 st.subheader("🔮 Previsione Semplice (30 giorni)")
 
-# Calcola previsione usando dati DB reali
-saldo_oggi = bilancio['saldo_cassa']  # Saldo mese corrente
+# Usa previsione da DB (già calcolata correttamente)
+saldo_oggi_reale = db.get_bilancio_cassa()['saldo_cassa']  # TOTALE storico (no filtro)
 rate_attese = previsione['rate_scadenti']  # Rate in arrivo
-spese_previste = totale_fisso  # Spese fisse da DB (calcolato sopra)
-saldo_30gg = saldo_oggi + rate_attese - spese_previste
+costi_previsti = previsione['costi_previsti']  # Spese fisse proporzionali a 30gg
+saldo_30gg = previsione['saldo_previsto']  # Già calcolato nel DB
 
 col_p1, col_p2, col_p3, col_p4 = st.columns(4)
 
 with col_p1:
-    st.metric("💰 Saldo Oggi", f"€ {saldo_oggi:.0f}")
+    st.metric("💰 Saldo Oggi", f"€ {saldo_oggi_reale:.0f}")
 
 with col_p2:
     st.metric("➕ Rate Attese", f"€ {rate_attese:.0f}", delta="In arrivo")
 
 with col_p3:
-    st.metric("➖ Spese Previste", f"€ {spese_previste:.0f}", delta="Da pagare", delta_color="inverse")
+    st.metric("➖ Costi Previsti", f"€ {costi_previsti:.0f}", delta="30 giorni", delta_color="inverse")
 
 with col_p4:
     delta_msg = "ATTENZIONE!" if saldo_30gg < 500 else "OK"
