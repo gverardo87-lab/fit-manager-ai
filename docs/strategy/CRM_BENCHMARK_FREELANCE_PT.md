@@ -278,21 +278,19 @@ Priorità 3: Dettagli (liste espandibili)
 
 ## 📊 PAGINE RIORGANIZZATE
 
-### Struttura Nuova
+### Struttura Finale
 ```
 server/pages/
-├── 04_Cassa.py ✅ SEMPLIFICATA (principale)
-│   └── Per: Freelance P.IVA forfettaria
-│
-├── 14_Cassa_Advanced.py (nascosta)
-│   └── Per: PT con contabilità ordinaria (opzionale)
-│
-└── 15_Financial_Intelligence_Advanced.py (nascosta)
-    └── Per: PT con team, business-minded (LTV, CAC)
+└── 04_Cassa.py ✅ UNICA VERSIONE
+    └── Target: Freelance PT con P.IVA forfettaria
+    └── Focus: Cash flow semplice ed intuitivo
 ```
 
 ### Filosofia
-> "Simple first, complexity opt-in"
+> "Keep it simple. One freelance PT needs clarity, not complexity."
+
+**Deciso**: Eliminate versioni "Advanced" (14_Cassa_Advanced, 15_Financial_Intelligence).
+Perfezioniamo una sola interfaccia snella e funzionale.
 
 - Default = User freelance (90% utenti)
 - Advanced = Disponibile ma non invadente
