@@ -121,15 +121,21 @@ col_alert1, col_alert2 = st.columns(2)
 with col_alert1:
     if rate_scadute:
         totale_scaduto = sum(r['importo_previsto'] - r.get('importo_saldato', 0) for r in rate_scadute)
+        clienti_scaduti = ", ".join([f"{r['nome']} (€{r['importo_previsto'] - r.get('importo_saldato', 0):.0f})" for r in rate_scadute[:3]])
+        if len(rate_scadute) > 3:
+            clienti_scaduti += f" +{len(rate_scadute)-3} altri"
         st.error(f"⚠️ **{len(rate_scadute)} rate in ritardo** → €{totale_scaduto:.0f} da recuperare")
+        st.caption(f"👥 {clienti_scaduti}")
     else:
         st.success("✅ Nessuna rata in ritardo")
 
 with col_alert2:
     if previsione['saldo_previsto'] < 500:
         st.warning(f"⚠️ **Cash flow basso** → Saldo previsto 30gg: €{previsione['saldo_previsto']:.0f}")
+        st.caption(f"📊 Oggi: €{saldo_totale:.0f} + Rate: €{previsione['rate_scadenti']:.0f} - Costi: €{previsione['costi_previsti']:.0f}")
     else:
         st.success(f"✅ Cash flow OK → Previsione 30gg: €{previsione['saldo_previsto']:.0f}")
+        st.caption(f"📊 Oggi: €{saldo_totale:.0f} + Rate: €{previsione['rate_scadenti']:.0f} - Costi: €{previsione['costi_previsti']:.0f}")
 
 st.divider()
 
@@ -154,8 +160,39 @@ with col2:
         <div class='kpi-value {"positive" if bilancio["saldo_cassa"] >= 0 else "negative"}'>€ {bilancio['saldo_cassa']:,.0f}</div>
         <small>€{bilancio['incassato']:,.0f} entrate · €{bilancio['speso']:,.0f} uscite</small>
     </div>
-    """, unsafe_allow_html=True)
-
+    """, unsafe_allow_html=True)    
+    # Breakdown entrate/uscite questo mese
+    with st.expander("📊 Breakdown Mensile"):
+        with db._connect() as conn:
+            # Entrate per categoria
+            entrate_mese = conn.execute("""
+                SELECT categoria, SUM(importo) as totale
+                FROM movimenti_cassa
+                WHERE tipo='ENTRATA' AND data_effettiva BETWEEN ? AND ?
+                GROUP BY categoria
+                ORDER BY totale DESC
+            """, (primo_mese, ultimo_mese)).fetchall()
+            
+            if entrate_mese:
+                st.markdown("**💵 Entrate:**")
+                for cat, tot in entrate_mese:
+                    st.caption(f"{cat}: €{tot:.0f}")
+            
+            st.divider()
+            
+            # Uscite per categoria
+            uscite_mese = conn.execute("""
+                SELECT categoria, SUM(importo) as totale
+                FROM movimenti_cassa
+                WHERE tipo='USCITA' AND data_effettiva BETWEEN ? AND ?
+                GROUP BY categoria
+                ORDER BY totale DESC
+            """, (primo_mese, ultimo_mese)).fetchall()
+            
+            if uscite_mese:
+                st.markdown("**💸 Uscite:**")
+                for cat, tot in uscite_mese:
+                    st.caption(f"{cat}: €{tot:.0f}")
 with col3:
     st.markdown(f"""
     <div class='kpi-card'>
@@ -206,9 +243,22 @@ with tab1:
             hide_index=True
         )
         
-        # Totale e azioni
+        # Totale con breakdown dettagliato
         totale_scadute = df_scadute['_importo_num'].sum()
         st.error(f"**TOTALE DA RECUPERARE: €{totale_scadute:,.0f}**")
+        
+        # Breakdown per cliente (expander)
+        with st.expander("🔍 Dettaglio per Cliente"):
+            for _, row in df_scadute.iterrows():
+                col_d1, col_d2 = st.columns([3, 1])
+                with col_d1:
+                    st.markdown(f"**{row['Cliente']}** · {row['Pacchetto']}")
+                    st.caption(f"Scadenza: {row['Scadenza']} ({row['Giorni Ritardo']} giorni fa)")
+                with col_d2:
+                    st.markdown(f"**{row['Importo']}**")
+                    if row['Parziale'] == "Sì":
+                        st.caption("🟡 Parziale")
+                st.divider()
         
         # Buttons per pagamento veloce
         st.markdown("**Azioni Rapide:**")
@@ -258,9 +308,20 @@ with tab2:
             hide_index=True
         )
         
-        # Totale
+        # Totale con breakdown dettagliato
         totale_pendenti = df_pendenti['_importo_num'].sum()
         st.info(f"**TOTALE ATTESO: €{totale_pendenti:,.0f}**")
+        
+        # Breakdown per cliente (expander)
+        with st.expander("🔍 Dettaglio per Cliente"):
+            for _, row in df_pendenti.iterrows():
+                col_d1, col_d2 = st.columns([3, 1])
+                with col_d1:
+                    st.markdown(f"{row['Urgente']} **{row['Cliente']}** · {row['Pacchetto']}")
+                    st.caption(f"Scadenza: {row['Scadenza']} (tra {row['Tra Giorni']} giorni)")
+                with col_d2:
+                    st.markdown(f"**{row['Importo']}**")
+                st.divider()
         
         # Buttons per pagamento veloce
         st.markdown("**Azioni Rapide:**")
@@ -407,30 +468,70 @@ st.divider()
 # MOVIMENTI RECENTI (Storico)
 # ════════════════════════════════════════════════════════════
 
-with st.expander("📋 Ultimi 20 Movimenti"):
-    with db._connect() as conn:
-        movimenti = [dict(r) for r in conn.execute("""
-            SELECT data_effettiva, tipo, categoria, importo, note
-            FROM movimenti_cassa
-            ORDER BY data_effettiva DESC
-            LIMIT 20
-        """).fetchall()]
+st.markdown("### 📋 Storico Movimenti")
+
+col_filter1, col_filter2 = st.columns(2)
+with col_filter1:
+    filtro_tipo = st.selectbox(
+        "Filtra per tipo",
+        ["Tutti", "Solo Entrate", "Solo Uscite"],
+        key="filtro_tipo_mov"
+    )
+with col_filter2:
+    limite_mov = st.selectbox(
+        "Mostra ultimi",
+        [10, 20, 50, 100],
+        index=1,
+        key="limite_mov"
+    )
+
+with db._connect() as conn:
+    query = """
+        SELECT data_effettiva, tipo, categoria, importo, note, id_cliente
+        FROM movimenti_cassa
+    """
     
-    if movimenti:
-        dati_mov = []
-        for m in movimenti:
-            dati_mov.append({
-                'Data': m['data_effettiva'],
-                'Tipo': "💵 Entrata" if m['tipo'] == 'ENTRATA' else "💸 Uscita",
-                'Categoria': m['categoria'],
-                'Importo': f"€{m['importo']:.2f}",
-                'Note': m['note'] or "-"
-            })
+    if filtro_tipo == "Solo Entrate":
+        query += " WHERE tipo='ENTRATA'"
+    elif filtro_tipo == "Solo Uscite":
+        query += " WHERE tipo='USCITA'"
+    
+    query += f" ORDER BY data_effettiva DESC LIMIT {limite_mov}"
+    
+    movimenti = [dict(r) for r in conn.execute(query).fetchall()]
+
+if movimenti:
+    dati_mov = []
+    for m in movimenti:
+        # Per entrate con id_cliente, mostra il nome cliente
+        cliente_info = "-"
+        if m.get('id_cliente'):
+            with db._connect() as conn:
+                cliente = conn.execute(
+                    "SELECT nome, cognome FROM clienti WHERE id=?",
+                    (m['id_cliente'],)
+                ).fetchone()
+                if cliente:
+                    cliente_info = f"{cliente['nome']} {cliente['cognome']}"
         
-        df_mov = pd.DataFrame(dati_mov)
-        st.dataframe(df_mov, use_container_width=True, hide_index=True)
-    else:
-        st.info("Nessun movimento registrato")
+        dati_mov.append({
+            'Data': m['data_effettiva'],
+            'Tipo': "💵 Entrata" if m['tipo'] == 'ENTRATA' else "💸 Uscita",
+            'Categoria': m['categoria'],
+            'Cliente': cliente_info,
+            'Importo': f"€{m['importo']:.2f}",
+            'Note': m['note'] or "-"
+        })
+    
+    df_mov = pd.DataFrame(dati_mov)
+    st.dataframe(df_mov, use_container_width=True, hide_index=True)
+    
+    # Riepilogo filtrato
+    totale_entrate_filt = sum(m['importo'] for m in movimenti if m['tipo'] == 'ENTRATA')
+    totale_uscite_filt = sum(m['importo'] for m in movimenti if m['tipo'] == 'USCITA')
+    st.info(f"📊 Periodo mostrato: €{totale_entrate_filt:.0f} entrate · €{totale_uscite_filt:.0f} uscite · Saldo: €{totale_entrate_filt - totale_uscite_filt:.0f}")
+else:
+    st.info("Nessun movimento registrato")
 
 # ════════════════════════════════════════════════════════════
 # FOOTER
