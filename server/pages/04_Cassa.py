@@ -131,6 +131,48 @@ with col4:
 st.divider()
 
 # ════════════════════════════════════════════════════════════
+# QUICK ADD SPESA (Always Visible - FitSW Style)
+# ════════════════════════════════════════════════════════════
+
+st.subheader("➕ Registra Spesa Veloce")
+
+col_q1, col_q2, col_q3, col_q4, col_btn = st.columns([2, 2, 1.5, 2, 1])
+
+with col_q1:
+    categoria_spesa = st.selectbox(
+        "Categoria",
+        ["Affitto", "Utenze", "Attrezzature", "Marketing", "Formazione", "Assicurazioni", "Altro"],
+        key="quick_cat"
+    )
+
+with col_q2:
+    importo_spesa = st.number_input("Importo €", min_value=0.0, step=10.0, key="quick_imp")
+
+with col_q3:
+    data_spesa = st.date_input("Data", value=oggi, key="quick_data")
+
+with col_q4:
+    note_spesa = st.text_input("Note (opzionale)", key="quick_note", placeholder="es: Bolletta energia")
+
+with col_btn:
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("💾 Salva", type="primary", use_container_width=True, key="save_spesa"):
+        if importo_spesa > 0:
+            db.registra_spesa(
+                categoria=categoria_spesa,
+                importo=importo_spesa,
+                metodo="Contanti",
+                data_pagamento=data_spesa,
+                note=note_spesa
+            )
+            st.success(f"✅ Spesa registrata: €{importo_spesa:.2f}")
+            st.rerun()
+        else:
+            st.error("⚠️ Inserisci un importo valido")
+
+st.divider()
+
+# ════════════════════════════════════════════════════════════
 # GRAFICO SEMPLICE: Entrate vs Uscite Mensili
 # ════════════════════════════════════════════════════════════
 
@@ -182,9 +224,9 @@ rate_pendenti = db.get_rate_pendenti(oggi + timedelta(days=30))
 if rate_pendenti:
     st.success(f"✅ {len(rate_pendenti)} rate in scadenza - Totale: **€ {sum(r['importo_previsto'] for r in rate_pendenti):.0f}**")
     
-    # Lista semplice (come Trainerize, FitSW)
+    # Lista semplice con button "Pagata" (FitSW style)
     for rata in rate_pendenti[:10]:  # Max 10 più vicine
-        col_a, col_b, col_c = st.columns([3, 2, 1])
+        col_a, col_b, col_c, col_btn = st.columns([3, 2, 1, 1])
         
         with col_a:
             st.markdown(f"**{rata['nome']} {rata['cognome']}**")
@@ -203,6 +245,19 @@ if rate_pendenti:
         with col_c:
             st.markdown(f"### € {rata['importo_previsto']:.0f}")
         
+        with col_btn:
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("✅ Pagata", key=f"paga_{rata['id']}", use_container_width=True):
+                db.paga_rata_specifica(
+                    id_rata=rata['id'],
+                    importo_versato=rata['importo_previsto'],
+                    metodo="Contanti",
+                    data_pagamento=oggi,
+                    note="Pagamento registrato da Cassa"
+                )
+                st.success(f"✅ Rata di {rata['nome']} {rata['cognome']} pagata!")
+                st.rerun()
+        
         st.divider()
     
     if len(rate_pendenti) > 10:
@@ -213,55 +268,69 @@ else:
 st.divider()
 
 # ════════════════════════════════════════════════════════════
-# SPESE FISSE MENSILI (Configurazione)
+# SPESE FISSE MENSILI (DB-Driven)
 # ════════════════════════════════════════════════════════════
 
-st.subheader("💰 Spese Fisse Mensili")
+st.subheader("💼 Spese Fisse Mensili")
 
-col_s1, col_s2, col_s3 = st.columns(3)
+# Leggi spese dal DB
+spese_fisse = db.get_spese_ricorrenti()
 
-with col_s1:
-    affitto = st.number_input(
-        "🏠 Affitto Studio",
-        min_value=0,
-        step=50,
-        value=1000,
-        help="Affitto mensile dello studio"
-    )
+if spese_fisse:
+    for spesa in spese_fisse:
+        col_sf1, col_sf2, col_sf3 = st.columns([3, 2, 1])
+        with col_sf1:
+            st.markdown(f"**{spesa['nome']}** · {spesa['categoria']}")
+        with col_sf2:
+            st.caption(f"Scadenza: {spesa['giorno_scadenza']} del mese")
+        with col_sf3:
+            st.markdown(f"**€ {spesa['importo']:.0f}**")
+        st.divider()
+    
+    totale_fisso = sum(s['importo'] for s in spese_fisse)
+    st.info(f"📊 **Totale spese fisse mensili: € {totale_fisso:.0f}**")
+else:
+    st.info("💡 Nessuna spesa fissa configurata. Usa il form qui sotto per aggiungerne.")
+    totale_fisso = 0
 
-with col_s2:
-    utenze = st.number_input(
-        "⚡ Luce/Gas/Acqua",
-        min_value=0,
-        step=20,
-        value=150,
-        help="Utenze mensili medie"
-    )
-
-with col_s3:
-    assicurazioni = st.number_input(
-        "🛡️ Assicurazioni",
-        min_value=0,
-        step=50,
-        value=200,
-        help="Assicurazione professionale, RC, ecc."
-    )
-
-col_s4, col_s5 = st.columns(2)
-
-with col_s4:
-    altro = st.number_input(
-        "🔧 Altro (materiali, manutenzione)",
-        min_value=0,
-        step=50,
-        value=300,
-        help="Spese varie mensili"
-    )
-
-with col_s5:
-    st.markdown("### Totale Spese Fisse")
-    totale_fisso = affitto + utenze + assicurazioni + altro
-    st.markdown(f"<div class='big-number negative'>€ {totale_fisso:.0f}/mese</div>", unsafe_allow_html=True)
+# Form per aggiungere nuova spesa fissa
+with st.expander("➕ Aggiungi Nuova Spesa Fissa Mensile"):
+    with st.form("add_spesa_fissa"):
+        nome_sf = st.text_input("Nome spesa", placeholder="es: Affitto Studio, Assicurazione RC")
+        
+        col_form1, col_form2, col_form3 = st.columns(3)
+        
+        with col_form1:
+            categoria_sf = st.selectbox(
+                "Categoria",
+                ["Affitto", "Utenze", "Assicurazioni", "Marketing", "Attrezzature", "Altro"]
+            )
+        
+        with col_form2:
+            importo_sf = st.number_input("Importo mensile €", min_value=0.0, step=50.0, value=0.0)
+        
+        with col_form3:
+            giorno_sf = st.number_input(
+                "Giorno scadenza",
+                min_value=1,
+                max_value=28,
+                value=1,
+                help="Giorno del mese in cui scade (max 28)"
+            )
+        
+        if st.form_submit_button("💾 Salva Spesa Fissa", type="primary", use_container_width=True):
+            if nome_sf and importo_sf > 0:
+                db.add_spesa_ricorrente(
+                    nome=nome_sf,
+                    categoria=categoria_sf,
+                    importo=importo_sf,
+                    frequenza="MENSILE",
+                    giorno_scadenza=giorno_sf
+                )
+                st.success(f"✅ Spesa fissa aggiunta: {nome_sf} - €{importo_sf:.0f}/mese")
+                st.rerun()
+            else:
+                st.error("⚠️ Inserisci nome e importo validi")
 
 st.divider()
 
@@ -271,12 +340,13 @@ st.divider()
 
 st.subheader("🔮 Previsione Semplice (30 giorni)")
 
-col_p1, col_p2, col_p3, col_p4 = st.columns(4)
-
+# Calcola previsione usando dati DB reali
 saldo_oggi = bilancio['saldo_cassa']  # Saldo mese corrente
 rate_attese = previsione['rate_scadenti']  # Rate in arrivo
-spese_previste = totale_fisso  # Spese fisse configurate
+spese_previste = totale_fisso  # Spese fisse da DB (calcolato sopra)
 saldo_30gg = saldo_oggi + rate_attese - spese_previste
+
+col_p1, col_p2, col_p3, col_p4 = st.columns(4)
 
 with col_p1:
     st.metric("💰 Saldo Oggi", f"€ {saldo_oggi:.0f}")
