@@ -453,7 +453,11 @@ with st.expander("📊 Spese Fisse Mensili", expanded=False):
     else:
         st.info("Nessuna spesa fissa configurata")
     
-    with st.expander("➕ Aggiungi Spesa Fissa"):
+    # Form per aggiungere spesa fissa (usa checkbox per mostrare/nascondere)
+    st.divider()
+    mostra_form = st.checkbox("➕ Aggiungi Spesa Fissa", key="mostra_form_spesa_fissa")
+    
+    if mostra_form:
         with st.form("add_spesa_fissa"):
             nome_sf = st.text_input("Nome", placeholder="es: Affitto Studio")
             col_sf1, col_sf2 = st.columns(2)
