@@ -352,10 +352,11 @@ st.divider()
 
 st.markdown("### 💼 Gestione Operativa")
 
-col_left, col_right = st.columns(2)
+# Prima riga: Form Spesa + Form Entrata Spot
+col_spesa, col_entrata = st.columns(2)
 
-with col_left:
-    st.markdown("**➕ Registra Spesa Veloce**")
+with col_spesa:
+    st.markdown("**💸 Registra Spesa Veloce**")
     
     with st.form("quick_spesa", clear_on_submit=True):
         col_f1, col_f2 = st.columns(2)
@@ -379,28 +380,76 @@ with col_left:
                     note=note_spesa
                 )
                 st.success(f"✅ Spesa €{importo_spesa:.0f} registrata! Controlla lo storico movimenti sotto.")
-                st.balloons()  # Feedback visivo
+                st.balloons()
                 st.rerun()
 
-with col_right:
-    st.markdown("**📊 Spese Fisse Mensili**")
+with col_entrata:
+    st.markdown("**💵 Registra Entrata Spot**")
     
+    with st.form("quick_entrata", clear_on_submit=True):
+        col_e1, col_e2 = st.columns(2)
+        with col_e1:
+            categoria_entrata = st.selectbox(
+                "Tipo",
+                ["Lezione Singola", "Consulenza Spot", "Vendita Prodotto", "Altro"],
+                key="cat_entrata"
+            )
+            importo_entrata = st.number_input("Importo €", min_value=0.0, step=10.0, key="imp_entrata")
+        with col_e2:
+            data_entrata = st.date_input("Data", value=oggi, key="data_entrata")
+            
+            # Cliente opzionale
+            clienti_attivi = db.get_clienti_attivi()
+            opzioni_clienti = ["--Nessun cliente--"] + [f"{c['nome']} {c['cognome']}" for c in clienti_attivi]
+            cliente_sel = st.selectbox("Cliente (opz.)", opzioni_clienti, key="cli_entrata")
+            
+        note_entrata = st.text_input("Note", placeholder="es: Lezione prova", key="note_entrata")
+        
+        if st.form_submit_button("💾 Salva Entrata", type="primary", use_container_width=True):
+            if importo_entrata > 0:
+                # Trova id_cliente se selezionato
+                id_cliente_entrata = None
+                if cliente_sel != "--Nessun cliente--":
+                    idx_sel = opzioni_clienti.index(cliente_sel) - 1
+                    id_cliente_entrata = clienti_attivi[idx_sel]['id']
+                
+                db.registra_entrata_spot(
+                    categoria=categoria_entrata,
+                    importo=importo_entrata,
+                    metodo="Contanti",
+                    data_pagamento=data_entrata,
+                    id_cliente=id_cliente_entrata,
+                    note=note_entrata
+                )
+                st.success(f"✅ Entrata €{importo_entrata:.0f} registrata! Controlla lo storico movimenti sotto.")
+                st.balloons()
+                st.rerun()
+
+st.divider()
+
+# Seconda sezione: Spese Fisse (full width)
+with st.expander("📊 Spese Fisse Mensili", expanded=False):
     if spese_fisse:
         totale_fisso = sum(s['importo'] for s in spese_fisse)
         
-        # Tabella spese fisse
-        dati_fisse = []
-        for s in spese_fisse:
-            dati_fisse.append({
-                'Nome': s['nome'],
-                'Categoria': s['categoria'],
-                'Importo': f"€{s['importo']:.0f}",
-                'Scadenza': f"{s['giorno_scadenza']} del mese"
-            })
+        col_sf_left, col_sf_right = st.columns([2, 1])
         
-        df_fisse = pd.DataFrame(dati_fisse)
-        st.dataframe(df_fisse, use_container_width=True, hide_index=True)
-        st.info(f"**Totale mensile: €{totale_fisso:,.0f}**")
+        with col_sf_left:
+            # Tabella spese fisse
+            dati_fisse = []
+            for s in spese_fisse:
+                dati_fisse.append({
+                    'Nome': s['nome'],
+                    'Categoria': s['categoria'],
+                    'Importo': f"€{s['importo']:.0f}",
+                    'Scadenza': f"{s['giorno_scadenza']} del mese"
+                })
+            
+            df_fisse = pd.DataFrame(dati_fisse)
+            st.dataframe(df_fisse, use_container_width=True, hide_index=True)
+        
+        with col_sf_right:
+            st.metric("Totale Mensile", f"€{totale_fisso:,.0f}")
     else:
         st.info("Nessuna spesa fissa configurata")
     
@@ -571,6 +620,77 @@ if movimenti:
     totale_entrate_filt = sum(m['importo'] for m in movimenti if m['tipo'] == 'ENTRATA')
     totale_uscite_filt = sum(m['importo'] for m in movimenti if m['tipo'] == 'USCITA')
     st.info(f"📊 Periodo mostrato: €{totale_entrate_filt:.0f} entrate · €{totale_uscite_filt:.0f} uscite · Saldo: €{totale_entrate_filt - totale_uscite_filt:.0f}")
+    
+    # ═══════════════════════════════════════════════════════
+    # POPUP DETTAGLI MOVIMENTO
+    # ═══════════════════════════════════════════════════════
+    st.divider()
+    st.markdown("**🔍 Visualizza Dettagli Movimento**")
+    
+    # Crea lista opzioni per selectbox
+    opzioni_movimenti = [f"#{m['id']} - {m['data_effettiva']} - {m['categoria']} (€{m['importo']:.2f})" for m in movimenti]
+    
+    movimento_selezionato = st.selectbox(
+        "Seleziona un movimento per vedere i dettagli completi:",
+        ["-- Seleziona movimento --"] + opzioni_movimenti,
+        key="select_movimento"
+    )
+    
+    if movimento_selezionato != "-- Seleziona movimento --":
+        # Estrai ID dal testo selezionato
+        idx_movimento = opzioni_movimenti.index(movimento_selezionato)
+        movimento_dettaglio = movimenti[idx_movimento]
+        
+        # Recupera cliente se presente
+        cliente_nome = "-"
+        if movimento_dettaglio.get('id_cliente'):
+            with db._connect() as conn:
+                cliente = conn.execute(
+                    "SELECT nome, cognome FROM clienti WHERE id=?",
+                    (movimento_dettaglio['id_cliente'],)
+                ).fetchone()
+                if cliente:
+                    cliente_nome = f"{cliente['nome']} {cliente['cognome']}"
+        
+        # Box dettagli con stile
+        tipo_icon = "💵" if movimento_dettaglio['tipo'] == 'ENTRATA' else "💸"
+        tipo_color = "green" if movimento_dettaglio['tipo'] == 'ENTRATA' else "red"
+        
+        st.markdown(f"""
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; border-left: 5px solid {tipo_color};">
+            <h4 style="margin-top: 0;">{tipo_icon} Dettagli Movimento #{movimento_dettaglio['id']}</h4>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        col_det1, col_det2, col_det3 = st.columns(3)
+        
+        with col_det1:
+            st.metric("Importo", f"€{movimento_dettaglio['importo']:.2f}")
+            st.caption(f"**Tipo:** {movimento_dettaglio['tipo']}")
+        
+        with col_det2:
+            st.metric("Categoria", movimento_dettaglio['categoria'])
+            st.caption(f"**Metodo:** {movimento_dettaglio.get('metodo', 'N/D')}")
+        
+        with col_det3:
+            st.metric("Cliente", cliente_nome)
+            st.caption(f"**Data:** {movimento_dettaglio['data_effettiva']}")
+        
+        if movimento_dettaglio.get('note'):
+            st.info(f"📝 **Note:** {movimento_dettaglio['note']}")
+        
+        # Timestamp registrazione
+        st.caption(f"🕐 Registrato il: {movimento_dettaglio['data_movimento']}")
+        
+        # Future: pulsanti Modifica/Elimina
+        # col_btn1, col_btn2 = st.columns(2)
+        # with col_btn1:
+        #     if st.button("✏️ Modifica", use_container_width=True):
+        #         st.warning("Funzione in sviluppo")
+        # with col_btn2:
+        #     if st.button("🗑️ Elimina", use_container_width=True, type="secondary"):
+        #         st.warning("Funzione in sviluppo")
+
 else:
     st.info("Nessun movimento registrato")
 

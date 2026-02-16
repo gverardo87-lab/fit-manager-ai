@@ -860,6 +860,16 @@ class CrmDBManager:
             data_pagamento = date.today()
         with self.transaction() as cur: 
             cur.execute("INSERT INTO movimenti_cassa (data_effettiva, tipo, categoria, importo, metodo, note) VALUES (?, 'USCITA', ?, ?, ?, ?)", (data_pagamento, categoria, importo, metodo, note))
+    
+    def registra_entrata_spot(self, categoria, importo, metodo="Contanti", data_pagamento=None, id_cliente=None, note=""):
+        """Registra entrata one-off (non da contratto): vendita prodotto, consulenza spot, etc."""
+        if data_pagamento is None:
+            data_pagamento = date.today()
+        with self.transaction() as cur:
+            cur.execute(
+                "INSERT INTO movimenti_cassa (data_effettiva, tipo, categoria, importo, metodo, id_cliente, note) VALUES (?, 'ENTRATA', ?, ?, ?, ?, ?)",
+                (data_pagamento, categoria, importo, metodo, id_cliente, note)
+            )
     def add_spesa_ricorrente(self, nome, categoria, importo, frequenza, giorno_scadenza, data_prossima=None):
         if data_prossima is None:
             data_prossima = date(date.today().year, date.today().month, min(giorno_scadenza, 28))
