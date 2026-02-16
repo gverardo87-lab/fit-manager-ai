@@ -152,22 +152,23 @@ st.divider()
 
 # KPI PRINCIPALI (3 numeri chiave)
 st.subheader("📊 Situazione Finanziaria")
+st.caption("💰 FLUSSO DI CASSA = Movimenti reali già registrati | 📈 PREVISIONE = Stima incassi futuri da rate programmate")
 
 col1, col2, col3 = st.columns(3)
 
 with col1:
     st.markdown(f"""
     <div class='kpi-card'>
-        <div class='kpi-label'>Saldo in Cassa</div>
+        <div class='kpi-label'>💰 Saldo in Cassa (REALE)</div>
         <div class='kpi-value {"positive" if saldo_totale >= 0 else "negative"}'>€ {saldo_totale:,.0f}</div>
-        <small>Totale storico</small>
+        <small>Capitale effettivo accumulato</small>
     </div>
     """, unsafe_allow_html=True)
 
 with col2:
     st.markdown(f"""
     <div class='kpi-card'>
-        <div class='kpi-label'>Questo Mese</div>
+        <div class='kpi-label'>💰 Flusso Questo Mese (REALE)</div>
         <div class='kpi-value {"positive" if bilancio["saldo_cassa"] >= 0 else "negative"}'>€ {bilancio['saldo_cassa']:,.0f}</div>
         <small>€{bilancio['incassato']:,.0f} entrate · €{bilancio['speso']:,.0f} uscite</small>
     </div>
@@ -207,9 +208,9 @@ with col2:
 with col3:
     st.markdown(f"""
     <div class='kpi-card'>
-        <div class='kpi-label'>Previsione 30gg</div>
+        <div class='kpi-label'>📈 Previsione 30gg (STIMA)</div>
         <div class='kpi-value {"positive" if previsione["saldo_previsto"] >= 0 else "negative"}'>€ {previsione['saldo_previsto']:,.0f}</div>
-        <small>€{previsione['rate_scadenti']:,.0f} attesi · €{previsione['costi_previsti']:,.0f} costi</small>
+        <small>Saldo attuale + rate future - costi attesi</small>
     </div>
     """, unsafe_allow_html=True)
 
@@ -570,7 +571,11 @@ st.divider()
 # ANALISI TREND (Grafico)
 # ════════════════════════════════════════════════════════════
 
-st.markdown("### 📈 Trend Ultimi 6 Mesi")
+st.markdown("### 📈 Analisi Trend Flusso di Cassa")
+st.caption("""
+💰 **FLUSSO DI CASSA** = Movimenti effettivi registrati (quanto è entrato/uscito in quel mese)  
+💎 **SALDO TOTALE** = Capitale cumulativo alla fine del mese (tutti i movimenti dall'inizio fino a quella data)
+""")
 
 # Metrica prominente: SALDO ATTUALE
 col_saldo_attuale, col_variazione = st.columns([2, 1])
@@ -594,12 +599,6 @@ st.caption("---")
 
 # Calcola ultimi 6 mesi con saldo progressivo
 mesi_dati = []
-saldo_progressivo = 0
-
-# Prima ottieni il saldo iniziale (tutto fino a 6 mesi fa)
-sei_mesi_fa = oggi - timedelta(days=180)
-bil_iniziale = db.get_bilancio_cassa(data_fine=sei_mesi_fa)
-saldo_progressivo = bil_iniziale['saldo_cassa']
 
 for i in range(5, -1, -1):
     mese_calc = oggi - timedelta(days=30*i)
@@ -607,15 +606,18 @@ for i in range(5, -1, -1):
     ultimo_g = monthrange(mese_calc.year, mese_calc.month)[1]
     ultimo = date(mese_calc.year, mese_calc.month, ultimo_g)
     
-    bil = db.get_bilancio_cassa(primo, ultimo)
-    saldo_progressivo += bil['saldo_cassa']  # Accumula il saldo
+    # FLUSSO DI CASSA DEL MESE (quanto è entrato/uscito in quel mese)
+    bil_mese = db.get_bilancio_cassa(primo, ultimo)
+    
+    # SALDO TOTALE ALLA FINE DEL MESE (tutto dall'inizio dei tempi fino a ultimo giorno del mese)
+    saldo_cumulativo = db.get_bilancio_cassa(data_fine=ultimo)
     
     mesi_dati.append({
         'Mese': primo.strftime('%b %Y'),
-        'Entrate': bil['incassato'],
-        'Uscite': bil['speso'],
-        'Saldo': bil['saldo_cassa'],
-        'Saldo Totale': saldo_progressivo
+        'Entrate': bil_mese['incassato'],
+        'Uscite': bil_mese['speso'],
+        'Saldo Mese': bil_mese['saldo_cassa'],
+        'Saldo Totale': saldo_cumulativo['saldo_cassa']
     })
 
 df_mesi = pd.DataFrame(mesi_dati)
@@ -641,7 +643,7 @@ fig.add_trace(go.Bar(
 fig.add_trace(go.Bar(
     name='Saldo Mese',
     x=df_mesi['Mese'],
-    y=df_mesi['Saldo'],
+    y=df_mesi['Saldo Mese'],
     marker_color='#3b82f6'
 ))
 

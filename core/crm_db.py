@@ -450,25 +450,49 @@ class CrmDBManager:
         BILANCIO PER CASSA - Soldi REALI entrati/usciti.
         Fonte di verità assoluta: data_effettiva dei movimenti.
         
+        Parametri:
+        - data_inizio=None, data_fine=None → TUTTO (saldo totale dall'inizio)
+        - data_inizio=X, data_fine=Y → Solo periodo BETWEEN X AND Y (flusso di cassa)
+        - data_inizio=None, data_fine=Y → Tutto fino a Y (saldo cumulativo)
+        - data_inizio=X, data_fine=None → Da X in poi
+        
         Uso: Vedere quanto c'è DAVVERO in banca
         """
         with self._connect() as conn:
-            # Incassato nel periodo
-            incassato = conn.execute("""
-                SELECT COALESCE(SUM(importo), 0)
-                FROM movimenti_cassa
-                WHERE tipo='ENTRATA'
-            """ + (f" AND data_effettiva BETWEEN ? AND ?" if data_inizio else ""),
-            (data_inizio, data_fine) if data_inizio else ()
+            # Costruisci WHERE clause dinamicamente
+            where_conditions = []
+            params_entrate = []
+            params_uscite = []
+            
+            if data_inizio and data_fine:
+                # Periodo specifico
+                where_conditions.append("data_effettiva BETWEEN ? AND ?")
+                params_entrate = [data_inizio, data_fine]
+                params_uscite = [data_inizio, data_fine]
+            elif data_fine and not data_inizio:
+                # Tutto fino a data_fine (saldo cumulativo)
+                where_conditions.append("data_effettiva <= ?")
+                params_entrate = [data_fine]
+                params_uscite = [data_fine]
+            elif data_inizio and not data_fine:
+                # Da data_inizio in poi
+                where_conditions.append("data_effettiva >= ?")
+                params_entrate = [data_inizio]
+                params_uscite = [data_inizio]
+            # else: nessuna condizione = tutto
+            
+            where_clause = " AND " + " AND ".join(where_conditions) if where_conditions else ""
+            
+            # Incassato
+            incassato = conn.execute(
+                f"SELECT COALESCE(SUM(importo), 0) FROM movimenti_cassa WHERE tipo='ENTRATA'{where_clause}",
+                params_entrate
             ).fetchone()[0]
             
-            # Speso nel periodo
-            speso = conn.execute("""
-                SELECT COALESCE(SUM(importo), 0)
-                FROM movimenti_cassa
-                WHERE tipo='USCITA'
-            """ + (f" AND data_effettiva BETWEEN ? AND ?" if data_inizio else ""),
-            (data_inizio, data_fine) if data_inizio else ()
+            # Speso
+            speso = conn.execute(
+                f"SELECT COALESCE(SUM(importo), 0) FROM movimenti_cassa WHERE tipo='USCITA'{where_clause}",
+                params_uscite
             ).fetchone()[0]
             
             return {
