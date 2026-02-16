@@ -70,33 +70,54 @@ class ExerciseVariant:
 
 @dataclass
 class Exercise:
-    """Definizione completa di un esercizio"""
-    
+    """Definizione completa di un esercizio - ENHANCED per competere con Trainerize/TrueCoach"""
+
     # Identità
     id: str  # Slug unico (es. 'back_squat')
     name: str  # Nome (es. 'Back Squat')
     italian_name: str  # Nome italiano
     description: str  # Descrizione breve
-    
+
     # Anatomia
     primary_muscles: List[MuscleGroup]  # Muscoli principali
     secondary_muscles: List[MuscleGroup] = field(default_factory=list)  # Muscoli secondari
     stabilizers: List[MuscleGroup] = field(default_factory=list)  # Muscoli stabilizzatori
-    
+
     # Difficoltà e Equipment
     difficulty: DifficultyLevel = DifficultyLevel.INTERMEDIATE
     equipment: List[str] = field(default_factory=list)  # ['barbell', 'dumbbell', 'machine', 'bodyweight']
     space_required: str = "small"  # 'small', 'medium', 'large'
-    
+
     # Rep Ranges per Goal (min, max)
     rep_range_strength: tuple = (3, 6)  # Forza massimale
     rep_range_hypertrophy: tuple = (6, 12)  # Ipertrofia
     rep_range_endurance: tuple = (12, 20)  # Resistenza muscolare
-    
+
     # Recupero
     recovery_hours: int = 24  # Ore di recupero necessarie
     intensity_rpe_range: tuple = (6, 10)  # Rate of Perceived Exertion (1-10)
-    
+
+    # ============ ENHANCED FEATURES (come Trainerize/TrueCoach) ============
+
+    # Media (Video/Immagini)
+    video_url: str = ""  # YouTube URL video demo professionale
+    video_thumbnail: str = ""  # Thumbnail URL
+    image_url: str = ""  # Immagine statica esecuzione
+
+    # Istruzioni Step-by-Step (come TrueCoach)
+    setup_instructions: List[str] = field(default_factory=list)  # Setup/posizione iniziale
+    execution_steps: List[str] = field(default_factory=list)  # Step esecuzione movimento
+    breathing_cues: str = ""  # Quando inspirare/espirare
+
+    # Form & Technique (come Trainerize)
+    form_cues: List[str] = field(default_factory=list)  # Suggerimenti tecnici chiave
+    common_mistakes: List[str] = field(default_factory=list)  # Errori comuni da evitare
+    safety_tips: List[str] = field(default_factory=list)  # Avvertenze sicurezza
+
+    # Movement Pattern (come TrueCoach)
+    movement_pattern: str = ""  # 'squat', 'hinge', 'push', 'pull', 'carry', 'rotation'
+    plane_of_movement: List[str] = field(default_factory=list)  # ['sagittal', 'frontal', 'transverse']
+
     # Progressione
     progressions: List[ExerciseProgression] = field(default_factory=list)
     regressions: List[ExerciseRegression] = field(default_factory=list)

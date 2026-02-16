@@ -27,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from core.exercise_library_extended import get_complete_exercise_database
 from core.periodization_models import get_periodization_plan, Goal, PeriodizationPlan
 from core.exercise_database import MuscleGroup, DifficultyLevel
+from core.exercise_library_pro import apply_professional_details_to_exercise
 
 
 class WorkoutGeneratorV2:
@@ -417,7 +418,8 @@ class WorkoutGeneratorV2:
         else:  # FAT_LOSS, POWER
             sets, reps_range = 4, (8, 12)
 
-        return {
+        # Crea dict base
+        base_dict = {
             'id': exercise.id,
             'name': exercise.name,
             'italian_name': exercise.italian_name,
@@ -432,8 +434,25 @@ class WorkoutGeneratorV2:
             'notes': exercise.notes,
             'is_main_lift': is_main,
             'video_url': getattr(exercise, 'video_url', ''),
-            'contraindications': exercise.contraindications
+            'contraindications': exercise.contraindications,
+
+            # ENHANCED FIELDS (se disponibili nell'esercizio)
+            'video_thumbnail': getattr(exercise, 'video_thumbnail', ''),
+            'image_url': getattr(exercise, 'image_url', ''),
+            'setup_instructions': getattr(exercise, 'setup_instructions', []),
+            'execution_steps': getattr(exercise, 'execution_steps', []),
+            'breathing_cues': getattr(exercise, 'breathing_cues', ''),
+            'form_cues': getattr(exercise, 'form_cues', []),
+            'common_mistakes': getattr(exercise, 'common_mistakes', []),
+            'safety_tips': getattr(exercise, 'safety_tips', []),
+            'movement_pattern': getattr(exercise, 'movement_pattern', ''),
+            'plane_of_movement': getattr(exercise, 'plane_of_movement', []),
         }
+
+        # Applica dettagli PRO se disponibili (video, istruzioni, form cues)
+        enhanced_dict = apply_professional_details_to_exercise(base_dict)
+
+        return enhanced_dict
 
     def _apply_periodization_to_template(
         self,

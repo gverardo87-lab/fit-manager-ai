@@ -145,23 +145,29 @@ with tab1:
     
     st.divider()
     
-    st.markdown("### 🏋️ Equipaggiamento")
-    col_equip1, col_equip2, col_equip3, col_equip4 = st.columns(4)
-    
-    with col_equip1:
-        pref_bilanciere = st.checkbox("Bilanciere", value=True)
-    with col_equip2:
-        pref_manubri = st.checkbox("Manubri", value=True)
-    with col_equip3:
-        pref_cardio = st.checkbox("Cardio", value=False)
-    with col_equip4:
-        pref_calisthenics = st.checkbox("Calisthenics", value=False)
-    
-    preferenze = []
-    if pref_bilanciere: preferenze.append("bilanciere")
-    if pref_manubri: preferenze.append("manubri")
-    if pref_cardio: preferenze.append("cardio")
-    if pref_calisthenics: preferenze.append("calisthenics")
+    st.markdown("### 🏋️ Equipaggiamento Disponibile")
+
+    col_e1, col_e2, col_e3 = st.columns(3)
+
+    with col_e1:
+        st.markdown("**Free Weights**")
+        eq_barbell = st.checkbox("🏋️ Bilanciere", value=True, key="eq_bar")
+        eq_dumbbell = st.checkbox("🔩 Manubri", value=True, key="eq_db")
+        eq_kettlebell = st.checkbox("⚫ Kettlebell", value=False, key="eq_kb")
+        eq_ez_bar = st.checkbox("〰️ EZ Bar", value=False, key="eq_ez")
+
+    with col_e2:
+        st.markdown("**Machines & Cable**")
+        eq_machine = st.checkbox("🤖 Macchine", value=True, key="eq_mach")
+        eq_cable = st.checkbox("🔌 Cavi", value=True, key="eq_cable")
+        eq_smith = st.checkbox("🏗️ Smith Machine", value=False, key="eq_smith")
+
+    with col_e3:
+        st.markdown("**Bodyweight & Other**")
+        eq_bodyweight = st.checkbox("💪 Corpo Libero", value=True, key="eq_bw")
+        eq_bands = st.checkbox("🎀 Bande Elastiche", value=False, key="eq_bands")
+        eq_suspension = st.checkbox("🔗 TRX/Anelli", value=False, key="eq_trx")
+        eq_cardio = st.checkbox("🏃 Cardio Equipment", value=False, key="eq_cardio")
     
     st.divider()
     
@@ -185,10 +191,17 @@ with tab1:
     
     if generate_btn:
         equipment_list = []
-        if pref_bilanciere: equipment_list.append("barbell")
-        if pref_manubri: equipment_list.append("dumbbell")
-        if pref_cardio: equipment_list.append("cardio_machine")
-        if pref_calisthenics: equipment_list.append("bodyweight")
+        if eq_barbell: equipment_list.append("barbell")
+        if eq_dumbbell: equipment_list.append("dumbbell")
+        if eq_kettlebell: equipment_list.append("kettlebell")
+        if eq_ez_bar: equipment_list.append("ez_bar")
+        if eq_machine: equipment_list.append("machine")
+        if eq_cable: equipment_list.append("cable")
+        if eq_smith: equipment_list.append("smith_machine")
+        if eq_bodyweight: equipment_list.append("bodyweight")
+        if eq_bands: equipment_list.append("resistance_band")
+        if eq_suspension: equipment_list.append("suspension_trainer")
+        if eq_cardio: equipment_list.append("cardio_machine")
 
         client_profile = {
             'nome': cliente_info['nome'],
@@ -279,73 +292,118 @@ with tab1:
 
                 st.divider()
 
-                # Sessions
+                # Sessions - LAYOUT COMPATTO SCANNERIZZABILE
                 sessions = week_data.get('sessions', {})
                 for day_key, session in sessions.items():
                     day_num = day_key.split('_')[1]
 
-                    with st.expander(f"🗓️ Giorno {day_num}", expanded=(int(day_num) == 1)):
-                        # Warmup
+                    with st.expander(f"🗓️ **Giorno {day_num}**", expanded=(int(day_num) == 1)):
+
+                        # Warmup compatto
                         warmup = session.get('warmup', {})
                         if warmup and warmup.get('exercises'):
-                            st.markdown("#### 🔥 Riscaldamento")
-                            st.caption(f"⏱️ Durata: {warmup.get('duration_minutes', 10)} minuti")
-                            for ex in warmup.get('exercises', []):
-                                st.markdown(f"- {ex.get('name', 'N/A')}: {ex.get('duration', 'N/A')}")
+                            warmup_text = " • ".join([ex.get('name', 'N/A') for ex in warmup.get('exercises', [])])
+                            st.caption(f"🔥 **Riscaldamento (10'):** {warmup_text}")
                             st.divider()
 
-                        # Main workout
-                        st.markdown("#### 💪 Allenamento Principale")
+                        # Main workout - TABELLA COMPATTA
                         main_exercises = session.get('main_workout', [])
 
+                        # Header tabella
+                        col_h1, col_h2, col_h3, col_h4, col_h5 = st.columns([3, 1, 1, 1, 1])
+                        with col_h1:
+                            st.markdown("**Esercizio**")
+                        with col_h2:
+                            st.markdown("**Sets**")
+                        with col_h3:
+                            st.markdown("**Reps**")
+                        with col_h4:
+                            st.markdown("**Rest**")
+                        with col_h5:
+                            st.markdown("**Load**")
+
+                        st.divider()
+
+                        # Lista esercizi COMPATTA
                         for idx, exercise in enumerate(main_exercises, 1):
-                            # Exercise card
-                            with st.container():
-                                col_ex1, col_ex2 = st.columns([3, 1])
+                            col_e1, col_e2, col_e3, col_e4, col_e5 = st.columns([3, 1, 1, 1, 1])
 
-                                with col_ex1:
-                                    ex_name = exercise.get('italian_name', exercise.get('name', 'N/A'))
-                                    st.markdown(f"**{idx}. {ex_name}**")
+                            with col_e1:
+                                ex_name = exercise.get('italian_name', exercise.get('name', 'N/A'))
+                                muscles = exercise.get('primary_muscles', [])
+                                muscle_str = muscles[0][:3].upper() if muscles else ''
 
-                                    # Muscles
-                                    primary = exercise.get('primary_muscles', [])
-                                    if primary:
-                                        muscle_badges = " ".join([f"`{m}`" for m in primary[:3]])
-                                        st.markdown(f"🎯 {muscle_badges}")
+                                # Nome + Video button inline
+                                video_url = exercise.get('video_url', '')
+                                if video_url:
+                                    if st.button(f"📹", key=f"v_{selected_week}_{day_num}_{idx}", help="Guarda video"):
+                                        st.session_state[f'video_{selected_week}_{day_num}_{idx}'] = not st.session_state.get(f'video_{selected_week}_{day_num}_{idx}', False)
 
-                                with col_ex2:
-                                    intensity = exercise.get('intensity_percent', 0)
-                                    st.progress(intensity, text=f"{int(intensity*100)}%")
+                                st.markdown(f"**{idx}. {ex_name}**")
+                                st.caption(f"🎯 {muscle_str}")
 
-                                # Sets/Reps/Rest
-                                col_sr1, col_sr2, col_sr3, col_sr4 = st.columns(4)
-                                with col_sr1:
-                                    st.caption(f"**Sets:** {exercise.get('sets', 'N/A')}")
-                                with col_sr2:
-                                    reps = exercise.get('reps', 'N/A')
-                                    st.caption(f"**Reps:** {reps}")
-                                with col_sr3:
-                                    rest = exercise.get('rest_seconds', 0)
-                                    st.caption(f"**Rest:** {rest}s")
-                                with col_sr4:
-                                    tempo = exercise.get('tempo', 'N/A')
-                                    if tempo and tempo != 'N/A':
-                                        st.caption(f"**Tempo:** {tempo}")
+                            with col_e2:
+                                st.markdown(f"**{exercise.get('sets', '-')}**")
+                            with col_e3:
+                                st.markdown(f"**{exercise.get('reps', '-')}**")
+                            with col_e4:
+                                st.caption(f"{exercise.get('rest_seconds', 0)}s")
+                            with col_e5:
+                                intensity = exercise.get('intensity_percent', 0)
+                                st.caption(f"{int(intensity*100)}%")
 
-                                # Notes
-                                notes = exercise.get('notes', '')
-                                if notes:
-                                    st.caption(f"💡 {notes}")
+                            # Video embed (se richiesto)
+                            if st.session_state.get(f'video_{selected_week}_{day_num}_{idx}', False):
+                                st.video(video_url)
 
-                                st.divider()
+                            # Dettagli tecnici (opzionale, non obbligatorio)
+                            has_details = (
+                                exercise.get('setup_instructions') or
+                                exercise.get('execution_steps') or
+                                exercise.get('form_cues') or
+                                exercise.get('common_mistakes')
+                            )
 
-                        # Cooldown
+                            if has_details:
+                                if st.button(f"📖 Dettagli Tecnici", key=f"detail_{selected_week}_{day_num}_{idx}", help="Mostra dettagli tecnici"):
+                                    st.session_state[f'show_detail_{selected_week}_{day_num}_{idx}'] = not st.session_state.get(f'show_detail_{selected_week}_{day_num}_{idx}', False)
+                                
+                                if st.session_state.get(f'show_detail_{selected_week}_{day_num}_{idx}', False):
+                                    detail_tab1, detail_tab2 = st.tabs(["Setup & Esecuzione", "Form & Errori"])
+
+                                    with detail_tab1:
+                                        setup = exercise.get('setup_instructions', [])
+                                        if setup:
+                                            st.markdown("**📋 Setup:**")
+                                            for s in setup[:3]:
+                                                st.caption(f"• {s}")
+
+                                        execution = exercise.get('execution_steps', [])
+                                        if execution:
+                                            st.markdown("**🔄 Esecuzione:**")
+                                            for e in execution[:4]:
+                                                st.caption(f"• {e}")
+
+                                    with detail_tab2:
+                                        form_cues = exercise.get('form_cues', [])
+                                        if form_cues:
+                                            st.markdown("**✅ Punti Chiave:**")
+                                            for fc in form_cues[:3]:
+                                                st.caption(f"• {fc}")
+
+                                        mistakes = exercise.get('common_mistakes', [])
+                                        if mistakes:
+                                            st.markdown("**❌ Errori da Evitare:**")
+                                            for m in mistakes[:3]:
+                                                st.caption(f"• {m}")
+
+                            st.divider()
+
+                        # Cooldown compatto
                         cooldown = session.get('cooldown', {})
                         if cooldown and cooldown.get('exercises'):
-                            st.markdown("#### 🧘 Defaticamento")
-                            st.caption(f"⏱️ Durata: {cooldown.get('duration_minutes', 10)} minuti")
-                            for ex in cooldown.get('exercises', []):
-                                st.markdown(f"- {ex.get('name', 'N/A')}: {ex.get('duration', 'N/A')}")
+                            cooldown_text = " • ".join([ex.get('name', 'N/A') for ex in cooldown.get('exercises', [])])
+                            st.caption(f"🧘 **Defaticamento (10'):** {cooldown_text}")
 
         st.divider()
 
