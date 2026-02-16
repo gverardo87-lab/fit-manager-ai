@@ -133,13 +133,32 @@ with col_alert1:
         st.success("✅ Nessuna rata in ritardo")
 
 with col_alert2:
-    # Priorità 1: Spese fisse non pagate (più urgente)
+    # Priorità 1: Spese fisse non pagate o pagate con importo sbagliato
     if spese_fisse_non_pagate:
-        totale_non_pagato = sum(s['importo'] for s in spese_fisse_non_pagate)
-        nomi_spese = ", ".join([f"{s['nome']} (€{s['importo']:.0f})" for s in spese_fisse_non_pagate[:2]])
+        # Distingui tra non pagate e pagate con importo sbagliato
+        non_pagate = [s for s in spese_fisse_non_pagate if s.get('movimento_id') is None]
+        pagate_male = [s for s in spese_fisse_non_pagate if s.get('movimento_id') is not None]
+        
+        totale_non_pagato = sum(s['importo'] for s in non_pagate)
+        totale_discrepanza = sum(abs(s['importo'] - s.get('importo_pagato', 0)) for s in pagate_male)
+        
+        # Messaggio principale
+        if pagate_male:
+            st.error(f"⚠️ **{len(non_pagate)} spese NON pagate + {len(pagate_male)} con importo ERRATO** → €{totale_non_pagato + totale_discrepanza:.0f}")
+        else:
+            st.warning(f"⚠️ **{len(spese_fisse_non_pagate)} spese fisse non pagate** → €{totale_non_pagato:.0f}")
+        
+        # Dettaglio nomi
+        nomi_problemi = []
+        for s in spese_fisse_non_pagate[:2]:
+            if s.get('movimento_id') is None:
+                nomi_problemi.append(f"{s['nome']} (€{s['importo']:.0f} NON pagato)")
+            else:
+                nomi_problemi.append(f"{s['nome']} (€{s['importo']:.0f} previsto vs €{s.get('importo_pagato', 0):.0f} pagato)")
+        
+        nomi_spese = ", ".join(nomi_problemi)
         if len(spese_fisse_non_pagate) > 2:
-            nomi_spese += f" +{len(spese_fisse_non_pagate)-2} altre"
-        st.warning(f"⚠️ **{len(spese_fisse_non_pagate)} spese fisse non pagate** → €{totale_non_pagato:.0f}")
+            nomi_spese += f" +{len(spese_fisse_non_pagate)-2} altri"
         st.caption(f"💳 {nomi_spese}")
     # Priorità 2: Cash flow basso
     elif previsione['saldo_previsto'] < 500:
@@ -479,33 +498,48 @@ st.divider()
 with st.expander("📊 Spese Fisse Mensili", expanded=False):
     # Quick Actions per spese non pagate
     if spese_fisse_non_pagate:
-        st.warning(f"⚠️ **{len(spese_fisse_non_pagate)} spese non pagate questo mese**")
+        # Distingui tra completamente non pagate e pagate male
+        non_pagate = [s for s in spese_fisse_non_pagate if s.get('movimento_id') is None]
+        pagate_male = [s for s in spese_fisse_non_pagate if s.get('movimento_id') is not None]
         
-        cols_quick = st.columns(min(len(spese_fisse_non_pagate), 3))
-        for idx, (col, spesa) in enumerate(zip(cols_quick, spese_fisse_non_pagate[:3])):
-            with col:
-                st.markdown(f"**{spesa['nome']}**")
-                st.caption(f"Scadenza: {spesa['giorno_scadenza']} {oggi.strftime('%B')}")
-                st.caption(f"💶 €{spesa['importo']:.0f}")
-                
-                if st.button(f"💳 Paga Ora", key=f"quick_paga_{spesa['id']}", use_container_width=True, type="primary"):
-                    try:
-                        db.registra_spesa(
-                            categoria=spesa['categoria'],
-                            importo=spesa['importo'],
-                            metodo="Bonifico",
-                            data_pagamento=oggi,
-                            note=f"Pagamento {spesa['nome']} - {oggi.strftime('%B %Y')}",
-                            id_spesa_ricorrente=spesa['id']
-                        )
-                        st.success(f"✅ {spesa['nome']} pagata!")
-                        st.balloons()
-                        st.rerun()
-                    except ValueError as e:
-                        st.error(f"🚫 Pagamento già registrato! Ricarica la pagina.")
+        if non_pagate:
+            st.warning(f"⚠️ **{len(non_pagate)} spese non pagate questo mese**")
+            
+            cols_quick = st.columns(min(len(non_pagate), 3))
+            for idx, (col, spesa) in enumerate(zip(cols_quick, non_pagate[:3])):
+                with col:
+                    st.markdown(f"**{spesa['nome']}**")
+                    st.caption(f"Scadenza: {spesa['giorno_scadenza']} {oggi.strftime('%B')}")
+                    st.caption(f"💶 {format_currency(spesa['importo'], 0)}")
+                    
+                    if st.button(f"💳 Paga Ora", key=f"quick_paga_{spesa['id']}", use_container_width=True, type="primary"):
+                        try:
+                            db.registra_spesa(
+                                categoria=spesa['categoria'],
+                                importo=spesa['importo'],
+                                metodo="Bonifico",
+                                data_pagamento=oggi,
+                                note=f"Pagamento {spesa['nome']} - {oggi.strftime('%B %Y')}",
+                                id_spesa_ricorrente=spesa['id']
+                            )
+                            st.success(f"✅ {spesa['nome']} pagata!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Errore: {str(e)}")
+            
+            if len(non_pagate) > 3:
+                st.info(f"➕ {len(non_pagate)-3} altre spese da pagare (vedi dropdown sopra)")
         
-        if len(spese_fisse_non_pagate) > 3:
-            st.info(f"➕ {len(spese_fisse_non_pagate)-3} altre spese da pagare (vedi dropdown sopra)")
+        # Avviso per spese pagate con importo sbagliato
+        if pagate_male:
+            st.error(f"⚠️ **{len(pagate_male)} spese pagate con IMPORTO ERRATO**")
+            st.info("📝 **Azione richiesta:** Vai a 'Storico Movimenti' sotto per correggere gli importi usando il bottone ✏️ Modifica")
+            
+            for spesa in pagate_male[:3]:
+                st.caption(f"• {spesa['nome']}: previsto {format_currency(spesa['importo'], 0)}, pagato {format_currency(spesa.get('importo_pagato', 0), 0)}")
+            
+            if len(pagate_male) > 3:
+                st.caption(f"➕ {len(pagate_male)-3} altri errori da correggere")
         
         st.divider()
     
@@ -517,17 +551,30 @@ with st.expander("📊 Spese Fisse Mensili", expanded=False):
         col_sf_left, col_sf_right = st.columns([2, 1])
         
         with col_sf_left:
-            # Tabella spese fisse con status
+            # Tabella spese fisse con status dettagliato
             dati_fisse = []
+            
+            # Crea dizionari per lookup veloce
+            non_pagate_dict = {s['id']: s for s in spese_fisse_non_pagate if s.get('movimento_id') is None}
+            pagate_male_dict = {s['id']: s for s in spese_fisse_non_pagate if s.get('movimento_id') is not None}
+            
             for s in spese_fisse:
-                # Verifica se pagata questo mese
-                pagata_questo_mese = s['id'] not in [sp['id'] for sp in spese_fisse_non_pagate]
-                status = "✅ Pagata" if pagata_questo_mese else ("⏳ Futura" if s['giorno_scadenza'] > oggi.day else "❌ Non Pagata")
+                # Determina status preciso
+                if s['id'] in pagate_male_dict:
+                    pm = pagate_male_dict[s['id']]
+                    status = f"⚠️ Importo errato ({format_currency(pm.get('importo_pagato', 0), 0)} vs {format_currency(s['importo'], 0)})"
+                elif s['id'] in non_pagate_dict:
+                    if s['giorno_scadenza'] > oggi.day:
+                        status = "⏳ Futura"
+                    else:
+                        status = "❌ Non Pagata"
+                else:
+                    status = "✅ Pagata"
                 
                 dati_fisse.append({
                     'Nome': s['nome'],
                     'Categoria': s['categoria'],
-                    'Importo': f"€{s['importo']:.0f}",
+                    'Importo': format_currency(s['importo'], 0),
                     'Scadenza': f"{s['giorno_scadenza']}° del mese",
                     'Status': status
                 })
@@ -538,11 +585,19 @@ with st.expander("📊 Spese Fisse Mensili", expanded=False):
         with col_sf_right:
             st.metric("Totale Mensile", format_currency(totale_fisso, 0))
             
-            # Breakdown pagato/non pagato
-            totale_non_pagato = sum(s['importo'] for s in spese_fisse_non_pagate)
-            totale_pagato = totale_fisso - totale_non_pagato
-            st.caption(f"✅ Pagato: €{totale_pagato:.0f}")
-            st.caption(f"❌ Da pagare: €{totale_non_pagato:.0f}")
+            # Breakdown preciso: pagate correttamente / pagate male / non pagate
+            spese_pagate_male = [s for s in spese_fisse_non_pagate if s.get('movimento_id') is not None]
+            spese_non_pagate = [s for s in spese_fisse_non_pagate if s.get('movimento_id') is None]
+            spese_pagate_ok = [s for s in spese_fisse if s['id'] not in [sp['id'] for sp in spese_fisse_non_pagate]]
+            
+            totale_pagato_ok = sum(s['importo'] for s in spese_pagate_ok)
+            totale_non_pagato = sum(s['importo'] for s in spese_non_pagate)
+            totale_pagato_male = sum(s['importo'] for s in spese_pagate_male)
+            
+            st.caption(f"✅ Pagate correttamente: {format_currency(totale_pagato_ok, 0)}")
+            if totale_pagato_male > 0:
+                st.caption(f"⚠️ Pagate con errore: {format_currency(totale_pagato_male, 0)}")
+            st.caption(f"❌ Da pagare: {format_currency(totale_non_pagato, 0)}")
     else:
         st.info("Nessuna spesa fissa configurata")
     
