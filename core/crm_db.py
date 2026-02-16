@@ -321,6 +321,16 @@ class CrmDBManager:
             pass
         finally:
             conn4.close()
+        
+        # Migrazione 3: Aggiungi id_spesa_ricorrente a movimenti_cassa per collegamento diretto
+        conn5 = self._connect()
+        try:
+            conn5.execute("ALTER TABLE movimenti_cassa ADD COLUMN id_spesa_ricorrente INTEGER")
+            conn5.commit()
+        except sqlite3.OperationalError:
+            pass
+        finally:
+            conn5.close()
 
     @contextmanager
     def transaction(self):
