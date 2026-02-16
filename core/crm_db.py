@@ -873,9 +873,31 @@ class CrmDBManager:
 
     # --- SPESE ---
     def registra_spesa(self, categoria, importo, metodo, data_pagamento=None, note="", id_spesa_ricorrente=None):
-        """Registra uscita con collegamento opzionale a spesa ricorrente"""
+        """Registra uscita con collegamento opzionale a spesa ricorrente
+        
+        PROTEZIONE DOPPI PAGAMENTI: Se id_spesa_ricorrente è fornito, verifica che non esista
+        già un pagamento per quella spesa nello stesso mese. Previene errori e doppioni.
+        """
         if data_pagamento is None: 
             data_pagamento = date.today()
+        
+        # VALIDAZIONE ANTI-DOPPIONE per spese ricorrenti
+        if id_spesa_ricorrente is not None:
+            anno_mese = data_pagamento.strftime('%Y-%m')
+            with self._connect() as conn:
+                esistente = conn.execute("""
+                    SELECT id FROM movimenti_cassa
+                    WHERE id_spesa_ricorrente = ?
+                      AND strftime('%Y-%m', data_effettiva) = ?
+                """, (id_spesa_ricorrente, anno_mese)).fetchone()
+                
+                if esistente:
+                    raise ValueError(
+                        f"ERRORE: Spesa ricorrente ID {id_spesa_ricorrente} già pagata in {anno_mese}. "
+                        f"Impossibile registrare doppio pagamento. Movimento esistente: #{esistente['id']}"
+                    )
+        
+        # Registra movimento
         with self.transaction() as cur: 
             cur.execute(
                 "INSERT INTO movimenti_cassa (data_effettiva, tipo, categoria, importo, metodo, note, id_spesa_ricorrente) VALUES (?, 'USCITA', ?, ?, ?, ?, ?)", 
@@ -928,6 +950,20 @@ class CrmDBManager:
                 ORDER BY sf.giorno_scadenza ASC
             """
             return [dict(r) for r in conn.execute(query, (anno_mese, giorno_oggi)).fetchall()]
+
+    def get_storico_pagamenti_cliente(self, id_cliente):
+        """Ritorna tutti i movimenti di cassa associati a un cliente specifico"""
+        with self._connect() as conn:
+            query = """
+                SELECT mc.*, 
+                       c.tipo_pacchetto,
+                       c.prezzo_totale as contratto_valore
+                FROM movimenti_cassa mc
+                LEFT JOIN contratti c ON mc.id_contratto = c.id
+                WHERE mc.id_cliente = ?
+                ORDER BY mc.data_effettiva DESC, mc.data_movimento DESC
+            """
+            return [dict(r) for r in conn.execute(query, (id_cliente,)).fetchall()]
 
     # --- GETTERS ---
     def get_clienti_df(self):

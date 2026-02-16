@@ -369,14 +369,15 @@ with col_spesa:
     st.markdown("**💸 Registra Spesa Veloce**")
     
     with st.form("quick_spesa", clear_on_submit=True):
-        # Costruisci dropdown dinamico con spese fisse + categorie standard
+        # Costruisci dropdown dinamico con spese fisse NON PAGATE + categorie standard
+        # IMPORTANTE: Mostra solo spese fisse NON ancora pagate questo mese per prevenire doppioni
         categorie_standard = ["──── ALTRE CATEGORIE ────", "Marketing", "Formazione", "Attrezzature", "Trasporti", "Altro"]
         
-        if spese_fisse:
-            categorie_spese_fisse = [f"📌 {s['nome']} (€{s['importo']:.0f} - {s['giorno_scadenza']}°)" for s in spese_fisse]
-            opzioni_categoria = ["──── SPESE FISSE MENSILI ────"] + categorie_spese_fisse + categorie_standard
+        if spese_fisse_non_pagate:
+            categorie_spese_fisse = [f"📌 {s['nome']} (€{s['importo']:.0f} - {s['giorno_scadenza']}°)" for s in spese_fisse_non_pagate]
+            opzioni_categoria = ["──── SPESE FISSE DA PAGARE ────"] + categorie_spese_fisse + categorie_standard
         else:
-            opzioni_categoria = categorie_standard[1:]  # Salta header se no spese fisse
+            opzioni_categoria = categorie_standard[1:]  # Salta header se no spese fisse da pagare
         
         col_f1, col_f2 = st.columns(2)
         with col_f1:
@@ -394,8 +395,8 @@ with col_spesa:
             if categoria_sel.startswith("📌 "):
                 # Estrai nome spesa fissa (rimuovi emoji e parentesi)
                 nome_spesa = categoria_sel.split(" (")[0].replace("📌 ", "")
-                # Trova spesa corrispondente
-                for sf in spese_fisse:
+                # Trova spesa corrispondente tra quelle NON pagate
+                for sf in spese_fisse_non_pagate:
                     if sf['nome'] == nome_spesa:
                         importo_default = float(sf['importo'])
                         id_spesa_ricorrente = sf['id']
@@ -409,17 +410,21 @@ with col_spesa:
         
         if st.form_submit_button("💾 Salva Spesa", type="primary", use_container_width=True):
             if importo_spesa > 0 and not categoria_sel.startswith("────"):
-                db.registra_spesa(
-                    categoria=categoria_finale,
-                    importo=importo_spesa,
-                    metodo="Bonifico",
-                    data_pagamento=data_spesa,
-                    note=note_spesa,
-                    id_spesa_ricorrente=id_spesa_ricorrente  # Collegamento diretto
-                )
-                st.success(f"✅ Spesa €{importo_spesa:.0f} registrata! Controlla lo storico movimenti sotto.")
-                st.balloons()
-                st.rerun()
+                try:
+                    db.registra_spesa(
+                        categoria=categoria_finale,
+                        importo=importo_spesa,
+                        metodo="Bonifico",
+                        data_pagamento=data_spesa,
+                        note=note_spesa,
+                        id_spesa_ricorrente=id_spesa_ricorrente  # Collegamento diretto
+                    )
+                    st.success(f"✅ Spesa €{importo_spesa:.0f} registrata! Controlla lo storico movimenti sotto.")
+                    st.balloons()
+                    st.rerun()
+                except ValueError as e:
+                    # Protezione doppi pagamenti spese ricorrenti
+                    st.error(f"🚫 **Pagamento duplicato bloccato!**\n\n{str(e)}\n\nRicarica la pagina per vedere lo status aggiornato.")
             elif categoria_sel.startswith("────"):
                 st.error("⚠️ Seleziona una categoria valida")
 
@@ -481,17 +486,20 @@ with st.expander("📊 Spese Fisse Mensili", expanded=False):
                 st.caption(f"💶 €{spesa['importo']:.0f}")
                 
                 if st.button(f"💳 Paga Ora", key=f"quick_paga_{spesa['id']}", use_container_width=True, type="primary"):
-                    db.registra_spesa(
-                        categoria=spesa['categoria'],
-                        importo=spesa['importo'],
-                        metodo="Bonifico",
-                        data_pagamento=oggi,
-                        note=f"Pagamento {spesa['nome']} - {oggi.strftime('%B %Y')}",
-                        id_spesa_ricorrente=spesa['id']
-                    )
-                    st.success(f"✅ {spesa['nome']} pagata!")
-                    st.balloons()
-                    st.rerun()
+                    try:
+                        db.registra_spesa(
+                            categoria=spesa['categoria'],
+                            importo=spesa['importo'],
+                            metodo="Bonifico",
+                            data_pagamento=oggi,
+                            note=f"Pagamento {spesa['nome']} - {oggi.strftime('%B %Y')}",
+                            id_spesa_ricorrente=spesa['id']
+                        )
+                        st.success(f"✅ {spesa['nome']} pagata!")
+                        st.balloons()
+                        st.rerun()
+                    except ValueError as e:
+                        st.error(f"🚫 Pagamento già registrato! Ricarica la pagina.")
         
         if len(spese_fisse_non_pagate) > 3:
             st.info(f"➕ {len(spese_fisse_non_pagate)-3} altre spese da pagare (vedi dropdown sopra)")
@@ -608,7 +616,7 @@ st.divider()
 
 st.markdown("### 📋 Storico Movimenti")
 
-col_filter1, col_filter2 = st.columns(2)
+col_filter1, col_filter2, col_filter3 = st.columns(3)
 with col_filter1:
     filtro_tipo = st.selectbox(
         "Filtra per tipo",
@@ -616,6 +624,15 @@ with col_filter1:
         key="filtro_tipo_mov"
     )
 with col_filter2:
+    # Carica lista clienti per filtro
+    clienti_attivi = db.get_clienti_attivi()
+    opzioni_clienti = ["Tutti i clienti"] + [f"{c['nome']} {c['cognome']}" for c in clienti_attivi]
+    filtro_cliente = st.selectbox(
+        "Filtra per cliente",
+        opzioni_clienti,
+        key="filtro_cliente_mov"
+    )
+with col_filter3:
     limite_mov = st.selectbox(
         "Mostra ultimi",
         [10, 20, 50, 100],
@@ -629,15 +646,28 @@ with db._connect() as conn:
         FROM movimenti_cassa
     """
     
+    conditions = []
+    params = []
+    
     if filtro_tipo == "Solo Entrate":
-        query += " WHERE tipo='ENTRATA'"
+        conditions.append("tipo='ENTRATA'")
     elif filtro_tipo == "Solo Uscite":
-        query += " WHERE tipo='USCITA'"
+        conditions.append("tipo='USCITA'")
+    
+    if filtro_cliente != "Tutti i clienti":
+        # Trova ID cliente selezionato
+        idx_cliente = opzioni_clienti.index(filtro_cliente) - 1  # -1 perché "Tutti i clienti" è primo
+        id_cliente_selezionato = clienti_attivi[idx_cliente]['id']
+        conditions.append("id_cliente=?")
+        params.append(id_cliente_selezionato)
+    
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
     
     # ORDINAMENTO CORRETTO: per timestamp (data + ora), non solo data
     query += f" ORDER BY data_movimento DESC, id DESC LIMIT {limite_mov}"
     
-    movimenti = [dict(r) for r in conn.execute(query).fetchall()]
+    movimenti = [dict(r) for r in conn.execute(query, params).fetchall()]
 
 if movimenti:
     from datetime import datetime
