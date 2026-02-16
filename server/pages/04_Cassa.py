@@ -1,424 +1,349 @@
-# file: server/pages/03_Cassa.py
+# file: server/pages/04_Cassa_Simple.py
+"""
+💰 Cassa & Bilancio - Versione SEMPLIFICATA
+
+Target: Libera professionista P.IVA forfettaria
+- No concetti di "competenza" 
+- No metriche aziendali (LTV, CAC, ecc.)
+- Focus: Cash In, Cash Out, Saldo, Prossime Entrate
+
+UI ispirata a: Trainerize, FitSW, MyPTHub (CRM semplici)
+"""
+
 import streamlit as st
 import pandas as pd
-import plotly.graph_objects as go
 import plotly.express as px
-from datetime import date, timedelta, datetime
+from datetime import date, timedelta
+from calendar import monthrange
+import sys
+import os
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+
 from core.crm_db import CrmDBManager
+
+# ════════════════════════════════════════════════════════════
+# CONFIG
+# ════════════════════════════════════════════════════════════
+
+st.set_page_config(
+    page_title="Cassa & Bilancio",
+    page_icon="💰",
+    layout="wide"
+)
 
 db = CrmDBManager()
 
-st.set_page_config(page_title="Gestione Cassa", page_icon="💰", layout="wide")
+# ════════════════════════════════════════════════════════════
+# CSS MINIMALISTA
+# ════════════════════════════════════════════════════════════
 
-# CSS Styling
 st.markdown("""
 <style>
-    .kpi-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
+    /* Card semplici */
+    .metric-card {
+        background: white;
         padding: 20px;
-        border-radius: 10px;
-        text-align: center;
+        border-radius: 12px;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
-    .kpi-value {
-        font-size: 28px;
+    
+    /* Numeri grandi e leggibili */
+    .big-number {
+        font-size: 36px;
         font-weight: bold;
         margin: 10px 0;
     }
-    .kpi-label {
-        font-size: 12px;
-        opacity: 0.9;
+    
+    .positive { color: #10b981; }
+    .negative { color: #ef4444; }
+    .neutral { color: #6b7280; }
+    
+    /* Lista semplice */
+    .simple-list {
+        background: #f9fafb;
+        padding: 15px;
+        border-radius: 8px;
+        margin: 10px 0;
     }
-    .status-positive { color: #10b981; }
-    .status-warning { color: #f59e0b; }
-    .status-negative { color: #ef4444; }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("💰 Gestione Cassa & Contabilità")
-
-st.info("""
-📋 **Sistema Finanziario Professionale**
-- **Bilancio Effettivo**: Solo movimenti confermati (data_effettiva)
-- **Previsione**: Rate pendenti + spese ricorrenti
-- **Fonte Unica**: movimenti_cassa è la verità assoluta
-""")
-
-# Fetch dati usando la NUOVA logica pulita
-with st.spinner("Caricamento dati finanziari..."):
-    # IMPORTANTE: Sincronizza lo stato dei contratti da movimenti RATA_CONTRATTO
-    # (utile quando i pagamenti sono stati registrati direttamente come movimenti)
-    db.sincronizza_stato_contratti_da_movimenti()
-    
-    # Metriche unificate per il mese corrente
-    oggi = date.today()
-    primo_mese = date(oggi.year, oggi.month, 1)
-    from calendar import monthrange
-    ultimo_giorno_mese = monthrange(oggi.year, oggi.month)[1]
-    ultimo_mese = date(oggi.year, oggi.month, ultimo_giorno_mese)
-
 # ════════════════════════════════════════════════════════════
-# FILTRI PERIODO ANALISI
+# HEADER
 # ════════════════════════════════════════════════════════════
 
-col_filter1, col_filter2, col_filter3 = st.columns(3)
+st.title("💰 Cassa & Bilancio")
 
-with col_filter1:
-    tipo_periodo = st.radio(
-        "📅 Periodo Analisi",
-        ["Mese Solare", "Ultimi 30 giorni", "Ultimi 7 giorni", "Personalizzato"],
-        horizontal=True
-    )
+st.markdown("""
+<div style="background: #f0f9ff; padding: 15px; border-radius: 8px; border-left: 4px solid #0ea5e9;">
+<b>📋 Vista Semplice</b><br>
+Quanto hai incassato, quanto hai speso, quanto ti aspetti nei prossimi giorni.
+</div>
+""", unsafe_allow_html=True)
 
-# Calcola il periodo in base alla selezione
-if tipo_periodo == "Mese Solare":
-    data_inizio = primo_mese
-    data_fine = ultimo_mese
-    label_periodo = f"{primo_mese.strftime('%d %b')} - {ultimo_mese.strftime('%d %b %Y')}"
-elif tipo_periodo == "Ultimi 30 giorni":
-    data_fine = oggi
-    data_inizio = oggi - timedelta(days=29)
-    label_periodo = f"{data_inizio.strftime('%d %b')} - {data_fine.strftime('%d %b %Y')} (ultimi 30gg)"
-elif tipo_periodo == "Ultimi 7 giorni":
-    data_fine = oggi
-    data_inizio = oggi - timedelta(days=6)
-    label_periodo = f"{data_inizio.strftime('%d %b')} - {data_fine.strftime('%d %b %Y')} (ultimi 7gg)"
-else:  # Personalizzato
-    with col_filter2:
-        data_inizio = st.date_input("Data Inizio", value=primo_mese, key="custom_start")
-    with col_filter3:
-        data_fine = st.date_input("Data Fine", value=ultimo_mese, key="custom_end")
-    label_periodo = f"{data_inizio.strftime('%d %b')} - {data_fine.strftime('%d %b %Y')} (custom)"
-
-st.caption(f"📍 Periodo selezionato: {label_periodo}")
-
-# Calcola metriche per il periodo selezionato
-with st.spinner("Ricalcolo metriche per periodo selezionato..."):
-    # NUOVA LOGICA: Tre fonti separate e coerenti
-    bilancio_cassa = db.get_bilancio_cassa(data_inizio, data_fine)
-    bilancio_competenza = db.get_bilancio_competenza(data_inizio, data_fine)
-    previsione = db.get_previsione_cash(30)
-    
-    # Carica movimenti per il periodo (per i grafici cashflow)
-    with db._connect() as conn:
-        movimenti_periodo = [dict(r) for r in conn.execute("""
-            SELECT * FROM movimenti_cassa
-            WHERE data_effettiva BETWEEN ? AND ?
-            ORDER BY data_effettiva
-        """, (data_inizio, data_fine)).fetchall()]
+st.divider()
 
 # ════════════════════════════════════════════════════════════
-# DASHBOARD PRINCIPALE - KPI IN CARDS
+# PERIODO: Mese Corrente (sempre)
 # ════════════════════════════════════════════════════════════
 
-st.subheader("📊 Dashboard Finanziaria (Bilancio per CASSA)", divider=True)
+oggi = date.today()
+primo_mese = date(oggi.year, oggi.month, 1)
+ultimo_giorno = monthrange(oggi.year, oggi.month)[1]
+ultimo_mese = date(oggi.year, oggi.month, ultimo_giorno)
+
+# Calcola bilancio mese corrente
+bilancio = db.get_bilancio_cassa(primo_mese, ultimo_mese)
+previsione = db.get_previsione_cash(30)
+
+# ════════════════════════════════════════════════════════════
+# DASHBOARD PRINCIPALE - 4 NUMERI CHIAVE
+# ════════════════════════════════════════════════════════════
+
+st.subheader(f"📊 Questo Mese ({oggi.strftime('%B %Y')})")
 
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    st.metric(
-        "💵 Incassato",
-        f"€ {bilancio_cassa['incassato']:.2f}",
-        "Soldi VERI entrati",
-        delta_color="normal"
-    )
+    st.markdown("### 💵 Incassato")
+    st.markdown(f"<div class='big-number positive'>€ {bilancio['incassato']:.0f}</div>", unsafe_allow_html=True)
+    st.caption("Soldi entrati questo mese")
 
 with col2:
-    st.metric(
-        "💸 Speso",
-        f"€ {bilancio_cassa['speso']:.2f}",
-        "Soldi VERI usciti",
-        delta_color="inverse"
-    )
+    st.markdown("### 💸 Speso")
+    st.markdown(f"<div class='big-number negative'>€ {bilancio['speso']:.0f}</div>", unsafe_allow_html=True)
+    st.caption("Soldi usciti questo mese")
 
 with col3:
-    st.metric(
-        "🏦 Saldo Cassa",
-        f"€ {bilancio_cassa['saldo_cassa']:.2f}",
-        "Nel periodo",
-        delta_color="normal" if bilancio_cassa['saldo_cassa'] >= 0 else "inverse"
-    )
+    st.markdown("### 🏦 Saldo Mese")
+    saldo_colore = "positive" if bilancio['saldo_cassa'] >= 0 else "negative"
+    st.markdown(f"<div class='big-number {saldo_colore}'>€ {bilancio['saldo_cassa']:.0f}</div>", unsafe_allow_html=True)
+    st.caption("Differenza entrate - uscite")
 
 with col4:
-    st.metric(
-        "📈 Previsione Saldo",
-        f"€ {previsione['saldo_previsto']:.2f}",
-        f"tra {previsione.get('periodo', '30 giorni')}",
-        delta_color="normal" if previsione['saldo_previsto'] >= 0 else "inverse"
-    )
+    st.markdown("### 📈 Previsione")
+    prev_colore = "positive" if previsione['saldo_previsto'] >= 0 else "negative"
+    st.markdown(f"<div class='big-number {prev_colore}'>€ {previsione['saldo_previsto']:.0f}</div>", unsafe_allow_html=True)
+    st.caption("Saldo tra 30 giorni")
+
+st.divider()
 
 # ════════════════════════════════════════════════════════════
-# ANALISI COMPETENZA - ORE VENDUTE NEL PERIODO
+# GRAFICO SEMPLICE: Entrate vs Uscite Mensili
 # ════════════════════════════════════════════════════════════
 
-st.subheader("📊 Analisi Competenza (Ore VENDUTE nel periodo)", divider=True)
+st.subheader("📊 Andamento Mese")
 
-col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-
-with col_m1:
-    st.metric(
-        "⏱️ Ore Vendute",
-        f"{bilancio_competenza['ore_vendute']:.1f}h",
-        f"Eseguite: {bilancio_competenza['ore_eseguite']:.1f}h",
-        delta_color="normal"
-    )
-
-with col_m2:
-    st.metric(
-        "💰 Fatturato Potenziale",
-        f"€{bilancio_competenza['fatturato_potenziale']:.2f}",
-        f"Vendite nel periodo",
-        delta_color="normal"
-    )
-
-with col_m3:
-    st.metric(
-        "💳 Incassato su Contratti",
-        f"€{bilancio_competenza['incassato_su_contratti']:.2f}",
-        f"Pagato ({(bilancio_competenza['incassato_su_contratti']/max(bilancio_competenza['fatturato_potenziale'],1)*100):.1f}%)",
-        delta_color="normal"
-    )
-
-with col_m4:
-    st.metric(
-        "⏳ Rate Mancanti",
-        f"€{bilancio_competenza['rate_mancanti']:.2f}",
-        f"Da riscuotere",
-        delta_color="inverse" if bilancio_competenza['rate_mancanti'] > 0 else "normal"
-    )
-
-st.info(f"""
-📌 **Analisi Competenza (Ore vendute {label_periodo})**
-- **Ore Vendute**: Fatturato il {data_inizio.strftime('%d %b')} - {data_fine.strftime('%d %b %Y')}
-- **Ore Eseguite**: Lezioni già completate su queste vendite
-- **Fatturato Potenziale**: Quanto dovrebbe entrarmi se tutti pagano
-- **Incassato**: Quanto REALMENTE ho ricevuto (può essere da altri periodi)
-- **Rate Mancanti**: La differenza tra fatturato e incassato
-
-**Nota**: Le ore sono LOGICAMENTE SEPARATE dal cash flow.
-Una vendita oggi con pagamento tra 30 giorni genera:
-- **Ore in questo mese** (competenza)
-- **Cash in prossimo mese** (cassa)
-""")
-
-# ════════════════════════════════════════════════════════════
-# CASHFLOW MESE CORRENTE
-# ════════════════════════════════════════════════════════════
-
-st.subheader("💵 Cashflow Periodo Selezionato", divider=True)
-
-if len(movimenti_periodo) > 0:
-    # Preparare dati giornalieri usando data_effettiva
-    cf_mese = pd.DataFrame(movimenti_periodo)
-    cf_mese['data_effettiva'] = pd.to_datetime(cf_mese['data_effettiva'], format='mixed')
-    cf_mese['data_giorno'] = cf_mese['data_effettiva'].dt.date
+# Dati ultimi 6 mesi
+mesi_dati = []
+for i in range(5, -1, -1):
+    mese_calc = oggi - timedelta(days=30*i)
+    primo = date(mese_calc.year, mese_calc.month, 1)
+    ultimo_g = monthrange(mese_calc.year, mese_calc.month)[1]
+    ultimo = date(mese_calc.year, mese_calc.month, ultimo_g)
     
-    # Pivot per tipo giornaliero
-    cf_giornaliero = cf_mese.groupby(['data_giorno', 'tipo'])['importo'].sum().unstack(fill_value=0)
-    cf_giornaliero['SALDO_GIORNO'] = cf_giornaliero.get('ENTRATA', 0) - cf_giornaliero.get('USCITA', 0)
-    cf_giornaliero['SALDO_CUMULATIVO'] = cf_giornaliero['SALDO_GIORNO'].cumsum()
+    bil = db.get_bilancio_cassa(primo, ultimo)
+    mesi_dati.append({
+        'Mese': primo.strftime('%b %Y'),
+        'Entrate': bil['incassato'],
+        'Uscite': bil['speso']
+    })
+
+df_mesi = pd.DataFrame(mesi_dati)
+
+# Grafico a barre semplice
+fig = px.bar(
+    df_mesi,
+    x='Mese',
+    y=['Entrate', 'Uscite'],
+    barmode='group',
+    color_discrete_map={'Entrate': '#10b981', 'Uscite': '#ef4444'},
+    height=350
+)
+fig.update_layout(
+    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    margin=dict(t=30, b=0),
+    yaxis_title="Euro (€)"
+)
+st.plotly_chart(fig, use_container_width=True)
+
+st.divider()
+
+# ════════════════════════════════════════════════════════════
+# PROSSIME ENTRATE (Rate in Scadenza)
+# ════════════════════════════════════════════════════════════
+
+st.subheader("📅 Prossimi Incassi Attesi (30 giorni)")
+
+rate_pendenti = db.get_rate_pendenti(oggi + timedelta(days=30))
+
+if rate_pendenti:
+    st.success(f"✅ {len(rate_pendenti)} rate in scadenza - Totale: **€ {sum(r['importo_previsto'] for r in rate_pendenti):.0f}**")
     
-    col_cf1, col_cf2 = st.columns(2)
-    
-    with col_cf1:
-        # Grafico entrate vs uscite giornaliere
-        cf_reset = cf_giornaliero.reset_index()
+    # Lista semplice (come Trainerize, FitSW)
+    for rata in rate_pendenti[:10]:  # Max 10 più vicine
+        col_a, col_b, col_c = st.columns([3, 2, 1])
         
-        # Assicurare che entrambe le colonne esistano
-        if 'ENTRATA' not in cf_reset.columns:
-            cf_reset['ENTRATA'] = 0
-        if 'USCITA' not in cf_reset.columns:
-            cf_reset['USCITA'] = 0
+        with col_a:
+            st.markdown(f"**{rata['nome']} {rata['cognome']}**")
+            st.caption(f"{rata['tipo_pacchetto']}")
         
-        cf_melted = cf_reset.melt(
-            id_vars='data_giorno',
-            value_vars=['ENTRATA', 'USCITA'],
-            var_name='Tipo',
-            value_name='Importo'
-        )
-        fig_cf = px.bar(
-            cf_melted,
-            x='data_giorno',
-            y='Importo',
-            color='Tipo',
-            title="Entrate vs Uscite Giornaliere",
-            barmode='group',
-            labels={'data_giorno': 'Data', 'Importo': '€'},
-            color_discrete_map={'ENTRATA': '#10b981', 'USCITA': '#ef4444'}
-        )
-        fig_cf.update_xaxes(tickformat="%d/%m")
-        st.plotly_chart(fig_cf, use_container_width=True)
+        with col_b:
+            giorni_mancanti = (rata['data_scadenza'] - oggi).days
+            if giorni_mancanti <= 7:
+                st.markdown(f"🔴 Scadenza: {rata['data_scadenza'].strftime('%d/%m/%Y')}")
+            else:
+                st.markdown(f"Scadenza: {rata['data_scadenza'].strftime('%d/%m/%Y')}")
+            st.caption(f"Tra {giorni_mancanti} giorni")
+        
+        with col_c:
+            st.markdown(f"### € {rata['importo_previsto']:.0f}")
+        
+        st.divider()
     
-    with col_cf2:
-        # Grafico saldo cumulativo
-        fig_saldo = px.line(
-            cf_giornaliero.reset_index(),
-            x='data_giorno',
-            y='SALDO_CUMULATIVO',
-            title="Saldo Cumulativo Giornaliero",
-            markers=True,
-            labels={'data_giorno': 'Data', 'SALDO_CUMULATIVO': '€'}
-        )
-        fig_saldo.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
-        fig_saldo.update_traces(line_color='#667eea')
-        st.plotly_chart(fig_saldo, use_container_width=True)
-    
-    # Statistiche cashflow
-    st.divider()
-    cf_stat_col1, cf_stat_col2, cf_stat_col3, cf_stat_col4 = st.columns(4)
-    cf_stat_col1.metric("Entrate Periodo", f"€ {bilancio_cassa['incassato']:.2f}")
-    cf_stat_col2.metric("Uscite Periodo", f"€ {bilancio_cassa['speso']:.2f}")
-    cf_stat_col3.metric("Saldo Netto Periodo", f"€ {bilancio_cassa['saldo_cassa']:.2f}")
-    if len(cf_giornaliero) > 0 and 'ENTRATA' in cf_giornaliero.columns:
-        cf_stat_col4.metric("Giorno con + Entrate", f"€ {cf_giornaliero['ENTRATA'].max():.2f}")
+    if len(rate_pendenti) > 10:
+        st.info(f"... e altre {len(rate_pendenti) - 10} rate")
 else:
-    st.info("Nessun movimento registrato nel mese corrente.")
-
-# ════════════════════════════════════════════════════════════
-# PREVISIONE BILANCIO CON COSTI FISSI
-# ════════════════════════════════════════════════════════════
-
-st.subheader("📊 Previsione Bilancio & Costi Fissi", divider=True)
-
-# Impostazioni costi fissi
-with st.expander("⚙️ Configura Costi Fissi Mensili"):
-    col_cf_config1, col_cf_config2, col_cf_config3 = st.columns(3)
-    with col_cf_config1:
-        costo_affitto = st.number_input("Affitto", min_value=0.0, step=50.0, value=1000.0, key="affitto")
-    with col_cf_config2:
-        costo_utilities = st.number_input("Luce/Gas/Acqua", min_value=0.0, step=10.0, value=150.0, key="utilities")
-    with col_cf_config3:
-        costo_assicurazioni = st.number_input("Assicurazioni", min_value=0.0, step=50.0, value=200.0, key="assicurazioni")
-    
-    col_cf_config4, col_cf_config5 = st.columns(2)
-    with col_cf_config4:
-        costo_altro = st.number_input("Altro (manutenzione, attrezzi, ecc)", min_value=0.0, step=50.0, value=300.0, key="altro_costi")
-
-# Calcoli previsione (usando nuova logica)
-costi_fissi_totali = costo_affitto + costo_utilities + costo_assicurazioni + costo_altro
-
-# La previsione è già calcolata dall'API, qui aggiorniamo con i costi fissi
-previsione_giorni = 30  # Previsione a 30 giorni
-costi_previsti_custom = costi_fissi_totali  # Costi configurati nel form
-saldo_previsto_con_costi = previsione['saldo_previsto'] - costi_previsti_custom  # Aggiusta per costi fissi custom
-
-# Display previsione
-prev_col1, prev_col2, prev_col3, prev_col4 = st.columns(4)
-
-prev_col1.metric(
-    "Saldo Cassa Oggi",
-    f"EUR {bilancio_cassa['saldo_cassa']:.2f}",
-    delta_color="normal" if bilancio_cassa['saldo_cassa'] >= 0 else "inverse"
-)
-
-prev_col2.metric(
-    "Rate in Scadenza (30gg)",
-    f"EUR {previsione['rate_scadenti']:.2f}",
-    "che arriveranno",
-    delta_color="normal"
-)
-
-prev_col3.metric(
-    "Costi Previsti (30gg)",
-    f"EUR {previsione['costi_previsti']:.2f}",
-    "fissi", 
-    delta_color="inverse"
-)
-
-prev_col4.metric(
-    "Saldo Previsto (30gg)",
-    f"EUR {previsione['saldo_previsto']:.2f}",
-    delta="CRITICO" if previsione['saldo_previsto'] < 500 else "BUONO",
-    delta_color="inverse" if previsione['saldo_previsto'] < 500 else "normal"
-)
+    st.info("✅ Nessuna rata in scadenza nei prossimi 30 giorni")
 
 st.divider()
 
-# Grafico waterfall semplificato (solo previsione)
-fig_prev = px.bar(
-    x=['Saldo Oggi', 'Rate Attese', 'Costi Previsti', 'Saldo Previsto (30gg)'],
-    y=[bilancio_cassa['saldo_cassa'], previsione['rate_scadenti'], -previsione['costi_previsti'], previsione['saldo_previsto']],
-    title="Waterfall Previsione Bilancio (30 giorni)",
-    labels={'x': '', 'y': 'EUR'},
-    color=['#667eea', '#10b981', '#ef4444', '#f59e0b'],
-    height=400
-)
-st.plotly_chart(fig_prev, use_container_width=True)
-
-# Dettaglio entrate programmate
-with st.expander("📋 Dettaglio Entrate Programmate (Rate Pendenti)"):
-    rate_pendenti = db.get_rate_pendenti(date.today() + timedelta(days=30))
-    if rate_pendenti:
-        rate_df = pd.DataFrame(rate_pendenti)
-        rate_df_display = rate_df[['nome', 'cognome', 'tipo_pacchetto', 'data_scadenza', 'importo_previsto']].copy()
-        rate_df_display.columns = ['Cliente', 'Cognome', 'Pacchetto', 'Scadenza', 'Importo']
-        st.dataframe(rate_df_display, use_container_width=True, hide_index=True)
-    else:
-        st.success("✅ Nessuna rata pendente nei prossimi 30 giorni!")
-
-# Dettaglio uscite programmate
-with st.expander("📋 Dettaglio Uscite Programmate (Spese Ricorrenti)"):
-    spese_prossime = db.get_spese_ricorrenti_prossime(30)
-    if spese_prossime:
-        spese_df = pd.DataFrame(spese_prossime)
-        if len(spese_df) > 0:
-            spese_df_display = spese_df[['nome', 'categoria', 'importo', 'data_prossima_scadenza']].copy()
-            spese_df_display.columns = ['Nome', 'Categoria', 'Importo', 'Prossima Scadenza']
-            st.dataframe(spese_df_display, use_container_width=True, hide_index=True)
-    else:
-        st.info("Nessuna spesa ricorrente configurata.")
-
 # ════════════════════════════════════════════════════════════
-# TABS PRINCIPALI
+# SPESE FISSE MENSILI (Configurazione)
 # ════════════════════════════════════════════════════════════
 
-tab1, tab2 = st.tabs([
-    "📊 Movimenti del Periodo",
-    "📅 Scadenziario Pagamenti"
-])
+st.subheader("💰 Spese Fisse Mensili")
 
-with tab1:
-    st.subheader("Movimenti nel Periodo")
+col_s1, col_s2, col_s3 = st.columns(3)
+
+with col_s1:
+    affitto = st.number_input(
+        "🏠 Affitto Studio",
+        min_value=0,
+        step=50,
+        value=1000,
+        help="Affitto mensile dello studio"
+    )
+
+with col_s2:
+    utenze = st.number_input(
+        "⚡ Luce/Gas/Acqua",
+        min_value=0,
+        step=20,
+        value=150,
+        help="Utenze mensili medie"
+    )
+
+with col_s3:
+    assicurazioni = st.number_input(
+        "🛡️ Assicurazioni",
+        min_value=0,
+        step=50,
+        value=200,
+        help="Assicurazione professionale, RC, ecc."
+    )
+
+col_s4, col_s5 = st.columns(2)
+
+with col_s4:
+    altro = st.number_input(
+        "🔧 Altro (materiali, manutenzione)",
+        min_value=0,
+        step=50,
+        value=300,
+        help="Spese varie mensili"
+    )
+
+with col_s5:
+    st.markdown("### Totale Spese Fisse")
+    totale_fisso = affitto + utenze + assicurazioni + altro
+    st.markdown(f"<div class='big-number negative'>€ {totale_fisso:.0f}/mese</div>", unsafe_allow_html=True)
+
+st.divider()
+
+# ════════════════════════════════════════════════════════════
+# PREVISIONE SEMPLICE (Saldo tra 30 giorni)
+# ════════════════════════════════════════════════════════════
+
+st.subheader("🔮 Previsione Semplice (30 giorni)")
+
+col_p1, col_p2, col_p3, col_p4 = st.columns(4)
+
+saldo_oggi = bilancio['saldo_cassa']  # Saldo mese corrente
+rate_attese = previsione['rate_scadenti']  # Rate in arrivo
+spese_previste = totale_fisso  # Spese fisse configurate
+saldo_30gg = saldo_oggi + rate_attese - spese_previste
+
+with col_p1:
+    st.metric("💰 Saldo Oggi", f"€ {saldo_oggi:.0f}")
+
+with col_p2:
+    st.metric("➕ Rate Attese", f"€ {rate_attese:.0f}", delta="In arrivo")
+
+with col_p3:
+    st.metric("➖ Spese Previste", f"€ {spese_previste:.0f}", delta="Da pagare", delta_color="inverse")
+
+with col_p4:
+    delta_msg = "ATTENZIONE!" if saldo_30gg < 500 else "OK"
+    delta_color = "inverse" if saldo_30gg < 500 else "normal"
+    st.metric("🎯 Saldo tra 30gg", f"€ {saldo_30gg:.0f}", delta=delta_msg, delta_color=delta_color)
+
+# Alert se saldo previsto basso
+if saldo_30gg < 500:
+    st.warning("""
+    ⚠️ **Attenzione Cash Flow**
     
-    st.info(f"""
-    Periodo: {data_inizio.strftime('%d/%m/%Y')} - {data_fine.strftime('%d/%m/%Y')}
-    
-    **Incassato (soldi VERI entrati)**
-    - EUR {bilancio_cassa['incassato']:.2f}
-    
-    **Speso (soldi VERI usciti)**  
-    - EUR {bilancio_cassa['speso']:.2f}
-    
-    **Saldo Netto nel Periodo**
-    - EUR {bilancio_cassa['saldo_cassa']:.2f}
+    Il saldo previsto tra 30 giorni è basso (< €500).
+    Considera di:
+    - Sollecitare rate in ritardo
+    - Ridurre spese non essenziali
+    - Programmare nuove vendite
     """)
-    
-    # Tabella movimenti del periodo
-    if len(movimenti_periodo) > 0:
-        movimenti_df = pd.DataFrame(movimenti_periodo)
-        cols_to_show = ['data_effettiva', 'tipo', 'categoria', 'importo']
-        if all(col in movimenti_df.columns for col in cols_to_show):
-            display_df = movimenti_df[cols_to_show].copy()
-            display_df.columns = ['Data', 'Tipo', 'Categoria', 'Importo (EUR)']
-            st.dataframe(display_df, use_container_width=True, hide_index=True, height=300)
-        else:
-            st.info("Tabella movimenti non disponibile")
-    else:
-        st.info("Nessun movimento nel periodo selezionato")
-
-with tab2:
-    st.subheader("Scadenziario Pagamenti Clienti")
-    
-    st.info("""
-    Questo tab mostra il calendario delle rate in scadenza nei prossimi giorni.
-    
-    **Rate da riscuotere** (dai dati di competenza):
-    - EUR {:.2f} di rate mancanti
-    - Prossimi 30 giorni: EUR {:.2f} in scadenza
-    """.format(
-        bilancio_competenza['rate_mancanti'],
-        previsione['rate_scadenti']
-    ))
 
 st.divider()
-st.caption("Sistema di gestione cassa - Versione aggiornata con logica separata Cassa vs Competenza")
+
+# ════════════════════════════════════════════════════════════
+# MOVIMENTI RECENTI (Ultimi 10)
+# ════════════════════════════════════════════════════════════
+
+st.subheader("📋 Ultimi Movimenti")
+
+with db._connect() as conn:
+    movimenti = [dict(r) for r in conn.execute("""
+        SELECT data_effettiva, tipo, categoria, importo, descrizione
+        FROM movimenti_cassa
+        WHERE data_effettiva >= ?
+        ORDER BY data_effettiva DESC
+        LIMIT 10
+    """, (primo_mese,)).fetchall()]
+
+if movimenti:
+    for mov in movimenti:
+        col_m1, col_m2, col_m3 = st.columns([2, 3, 1])
+        
+        with col_m1:
+            st.markdown(f"**{mov['data_effettiva']}**")
+        
+        with col_m2:
+            tipo_icon = "💵" if mov['tipo'] == 'ENTRATA' else "💸"
+            st.markdown(f"{tipo_icon} {mov['categoria']}")
+            if mov['descrizione']:
+                st.caption(mov['descrizione'])
+        
+        with col_m3:
+            colore = "positive" if mov['tipo'] == 'ENTRATA' else "negative"
+            segno = "+" if mov['tipo'] == 'ENTRATA' else "-"
+            st.markdown(f"<span class='{colore}'><b>{segno}€ {mov['importo']:.0f}</b></span>", unsafe_allow_html=True)
+        
+        st.divider()
+else:
+    st.info("Nessun movimento registrato ancora")
+
+# ════════════════════════════════════════════════════════════
+# FOOTER
+# ════════════════════════════════════════════════════════════
+
+st.divider()
+st.caption("💡 Versione Semplificata - Ideale per P.IVA forfettaria e gestione libero professionista")
