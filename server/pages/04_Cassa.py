@@ -11,6 +11,7 @@ Ispirato a: Stripe Dashboard, QuickBooks, Wave Accounting
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 from datetime import date, timedelta
 from calendar import monthrange
 import sys
@@ -571,8 +572,35 @@ st.divider()
 
 st.markdown("### 📈 Trend Ultimi 6 Mesi")
 
-# Calcola ultimi 6 mesi
+# Metrica prominente: SALDO ATTUALE
+col_saldo_attuale, col_variazione = st.columns([2, 1])
+with col_saldo_attuale:
+    st.metric(
+        "💰 Saldo Totale Attuale",
+        f"€ {saldo_totale:.2f}",
+        delta=f"€ {bilancio['saldo_cassa']:.2f} questo mese",
+        delta_color="normal" if bilancio['saldo_cassa'] >= 0 else "inverse"
+    )
+with col_variazione:
+    perc_var = (bilancio['saldo_cassa'] / saldo_totale * 100) if saldo_totale != 0 else 0
+    st.metric(
+        "Variazione Mensile",
+        f"{perc_var:.1f}%",
+        delta="positivo" if bilancio['saldo_cassa'] >= 0 else "negativo",
+        delta_color="off"
+    )
+
+st.caption("---")
+
+# Calcola ultimi 6 mesi con saldo progressivo
 mesi_dati = []
+saldo_progressivo = 0
+
+# Prima ottieni il saldo iniziale (tutto fino a 6 mesi fa)
+sei_mesi_fa = oggi - timedelta(days=180)
+bil_iniziale = db.get_bilancio_cassa(data_fine=sei_mesi_fa)
+saldo_progressivo = bil_iniziale['saldo_cassa']
+
 for i in range(5, -1, -1):
     mese_calc = oggi - timedelta(days=30*i)
     primo = date(mese_calc.year, mese_calc.month, 1)
@@ -580,28 +608,70 @@ for i in range(5, -1, -1):
     ultimo = date(mese_calc.year, mese_calc.month, ultimo_g)
     
     bil = db.get_bilancio_cassa(primo, ultimo)
+    saldo_progressivo += bil['saldo_cassa']  # Accumula il saldo
+    
     mesi_dati.append({
         'Mese': primo.strftime('%b %Y'),
         'Entrate': bil['incassato'],
         'Uscite': bil['speso'],
-        'Saldo': bil['saldo_cassa']
+        'Saldo': bil['saldo_cassa'],
+        'Saldo Totale': saldo_progressivo
     })
 
 df_mesi = pd.DataFrame(mesi_dati)
 
-# Grafico combinato
-fig = px.bar(
-    df_mesi,
-    x='Mese',
-    y=['Entrate', 'Uscite', 'Saldo'],
-    barmode='group',
-    color_discrete_map={'Entrate': '#10b981', 'Uscite': '#ef4444', 'Saldo': '#3b82f6'},
-    height=400
-)
+# Grafico combinato con linea saldo totale
+import plotly.graph_objects as go
+
+fig = go.Figure()
+
+# Barre per Entrate e Uscite
+fig.add_trace(go.Bar(
+    name='Entrate',
+    x=df_mesi['Mese'],
+    y=df_mesi['Entrate'],
+    marker_color='#10b981'
+))
+fig.add_trace(go.Bar(
+    name='Uscite',
+    x=df_mesi['Mese'],
+    y=df_mesi['Uscite'],
+    marker_color='#ef4444'
+))
+fig.add_trace(go.Bar(
+    name='Saldo Mese',
+    x=df_mesi['Mese'],
+    y=df_mesi['Saldo'],
+    marker_color='#3b82f6'
+))
+
+# LINEA SALDO TOTALE PROGRESSIVO (l'elemento chiave!)
+fig.add_trace(go.Scatter(
+    name='💰 Saldo Totale',
+    x=df_mesi['Mese'],
+    y=df_mesi['Saldo Totale'],
+    mode='lines+markers+text',
+    line=dict(color='#8b5cf6', width=3),
+    marker=dict(size=10, symbol='diamond'),
+    text=[f"€{val:.0f}" for val in df_mesi['Saldo Totale']],
+    textposition='top center',
+    textfont=dict(size=11, color='#8b5cf6', family='Arial Black'),
+    yaxis='y2'  # Asse secondario
+))
+
 fig.update_layout(
+    barmode='group',
     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     margin=dict(t=30, b=0),
-    yaxis_title="Euro (€)"
+    yaxis=dict(title="Flusso Mensile (€)"),
+    yaxis2=dict(
+        title="Saldo Totale (€)",
+        overlaying='y',
+        side='right',
+        showgrid=False
+    ),
+    height=450,
+    hovermode='x unified'
 )
 st.plotly_chart(fig, use_container_width=True)
 
