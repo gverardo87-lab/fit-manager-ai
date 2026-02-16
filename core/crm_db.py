@@ -13,6 +13,10 @@ from contextlib import contextmanager
 # Percorso DB
 DB_FILE = Path(__file__).resolve().parents[1] / "data" / "crm.db"
 
+# === TIPI MOVIMENTO (FONTE DI VERITÀ) ===
+TIPO_ENTRATA = "ENTRATA"  # Soldi che ENTRANO in cassa
+TIPO_USCITA = "USCITA"    # Soldi che ESCONO da cassa
+
 # === CATEGORIE STANDARD ===
 CATEGORIA_ACCONTO = "ACCONTO_CONTRATTO"
 CATEGORIA_RATA = "RATA_CONTRATTO"
@@ -31,7 +35,24 @@ class CrmDBManager:
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
+        # Abilita foreign keys e trigger
+        conn.execute("PRAGMA foreign_keys = ON")
         return conn
+    
+    def _validate_importo(self, importo: float, operazione: str) -> None:
+        """Validazione importo: deve essere positivo e non zero"""
+        if not isinstance(importo, (int, float)):
+            raise ValueError(f"Importo deve essere un numero, ricevuto {type(importo).__name__}")
+        if importo <= 0:
+            raise ValueError(f"Importo deve essere positivo per {operazione}, ricevuto {importo}")
+        if importo > 1_000_000:
+            raise ValueError(f"Importo sospetto per {operazione}: €{importo:,.2f} (max €1M)")
+    
+    def _validate_data_effettiva(self, data: date, operazione: str) -> None:
+        """Validazione data: non può essere nel futuro lontano"""
+        oggi = date.today()
+        if data > oggi + timedelta(days=30):
+            raise ValueError(f"Data effettiva troppo nel futuro per {operazione}: {data} (max +30gg da oggi)")
 
     def _run_migrations(self, conn):
         """Esegui migrazioni per aggiungere colonne nuove a DB esistenti"""
@@ -89,9 +110,15 @@ class CrmDBManager:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 data_movimento DATETIME DEFAULT CURRENT_TIMESTAMP,
                 data_effettiva DATE NOT NULL DEFAULT CURRENT_DATE,
-                tipo TEXT NOT NULL, categoria TEXT, importo REAL NOT NULL,
-                metodo TEXT, id_cliente INTEGER, id_contratto INTEGER,
-                id_rata INTEGER, note TEXT, operatore TEXT DEFAULT 'Admin'
+                tipo TEXT NOT NULL CHECK(tipo IN ('ENTRATA', 'USCITA')),
+                categoria TEXT,
+                importo REAL NOT NULL CHECK(importo > 0),
+                metodo TEXT,
+                id_cliente INTEGER,
+                id_contratto INTEGER,
+                id_rata INTEGER,
+                note TEXT,
+                operatore TEXT DEFAULT 'Admin'
             )""")
             cursor.execute("""CREATE TABLE IF NOT EXISTS rate_programmate (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -387,8 +414,8 @@ class CrmDBManager:
                        (id_cliente, pacchetto, start, end, crediti, prezzo, acconto, 'PENDENTE'))
             id_contr = cur.lastrowid
             if acconto > 0:
-                cur.execute("INSERT INTO movimenti_cassa (data_effettiva, tipo, categoria, importo, metodo, id_cliente, id_contratto, note) VALUES (?, 'ENTRATA', ?, ?, ?, ?, ?, 'Acconto contestuale')", 
-                           (data_acconto, CATEGORIA_ACCONTO, acconto, metodo_acconto, id_cliente, id_contr))
+                cur.execute("INSERT INTO movimenti_cassa (data_effettiva, tipo, categoria, importo, metodo, id_cliente, id_contratto, note) VALUES (?, ?, ?, ?, ?, ?, ?, 'Acconto contestuale')", 
+                           (data_acconto, TIPO_ENTRATA, CATEGORIA_ACCONTO, acconto, metodo_acconto, id_cliente, id_contr))
             return id_contr
 
     def delete_contratto(self, id_contratto):
@@ -434,7 +461,7 @@ class CrmDBManager:
             if not rata: return
             cur.execute("SELECT id_cliente FROM contratti WHERE id=?", (rata['id_contratto'],))
             contratto = cur.fetchone()
-            cur.execute("INSERT INTO movimenti_cassa (data_effettiva, tipo, categoria, importo, metodo, id_cliente, id_contratto, id_rata, note) VALUES (?, 'ENTRATA', ?, ?, ?, ?, ?, ?, ?)", (data_pagamento, CATEGORIA_RATA, importo_versato, metodo, contratto['id_cliente'], rata['id_contratto'], id_rata, note))
+            cur.execute("INSERT INTO movimenti_cassa (data_effettiva, tipo, categoria, importo, metodo, id_cliente, id_contratto, id_rata, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", (data_pagamento, TIPO_ENTRATA, CATEGORIA_RATA, importo_versato, metodo, contratto['id_cliente'], rata['id_contratto'], id_rata, note))
             nuovo_saldato = rata['importo_saldato'] + importo_versato
             stato = 'SALDATA' if nuovo_saldato >= rata['importo_previsto'] - 0.1 else 'PARZIALE'
             cur.execute("UPDATE rate_programmate SET importo_saldato=?, stato=? WHERE id=?", (nuovo_saldato, stato, id_rata))
@@ -447,53 +474,54 @@ class CrmDBManager:
     
     def get_bilancio_cassa(self, data_inizio: date = None, data_fine: date = None) -> Dict[str, Any]:
         """
-        BILANCIO PER CASSA - Soldi REALI entrati/usciti.
-        Fonte di verità assoluta: data_effettiva dei movimenti.
+        ═══════════════════════════════════════════════════════════════════════════
+        BILANCIO PER CASSA - FONTE DI VERITÀ ASSOLUTA
+        ═══════════════════════════════════════════════════════════════════════════
         
-        Parametri:
-        - data_inizio=None, data_fine=None → TUTTO (saldo totale dall'inizio)
-        - data_inizio=X, data_fine=Y → Solo periodo BETWEEN X AND Y (flusso di cassa)
+        Calcola ENTRATE e USCITE effettive basate su movimenti_cassa.data_effettiva.
+        
+        PARAMETRI:
+        - data_inizio=None, data_fine=None → TUTTO (saldo totale dall'inizio dei tempi)
+        - data_inizio=X, data_fine=Y → Solo periodo BETWEEN (flusso di cassa periodo)
         - data_inizio=None, data_fine=Y → Tutto fino a Y (saldo cumulativo)
         - data_inizio=X, data_fine=None → Da X in poi
         
-        Uso: Vedere quanto c'è DAVVERO in banca
+        RETURN:
+        - incassato: Somma entrate (tipo='ENTRATA')
+        - speso: Somma uscite (tipo='USCITA')  
+        - saldo_cassa: incassato - speso (cifra netta)
+        
+        USO: Vedere quanto c'è DAVVERO in banca/cassa fisica
         """
         with self._connect() as conn:
             # Costruisci WHERE clause dinamicamente
             where_conditions = []
-            params_entrate = []
-            params_uscite = []
+            params = []
             
             if data_inizio and data_fine:
-                # Periodo specifico
                 where_conditions.append("data_effettiva BETWEEN ? AND ?")
-                params_entrate = [data_inizio, data_fine]
-                params_uscite = [data_inizio, data_fine]
+                params = [data_inizio, data_fine]
             elif data_fine and not data_inizio:
-                # Tutto fino a data_fine (saldo cumulativo)
                 where_conditions.append("data_effettiva <= ?")
-                params_entrate = [data_fine]
-                params_uscite = [data_fine]
+                params = [data_fine]
             elif data_inizio and not data_fine:
-                # Da data_inizio in poi
                 where_conditions.append("data_effettiva >= ?")
-                params_entrate = [data_inizio]
-                params_uscite = [data_inizio]
-            # else: nessuna condizione = tutto
+                params = [data_inizio]
             
             where_clause = " AND " + " AND ".join(where_conditions) if where_conditions else ""
             
-            # Incassato
-            incassato = conn.execute(
-                f"SELECT COALESCE(SUM(importo), 0) FROM movimenti_cassa WHERE tipo='ENTRATA'{where_clause}",
-                params_entrate
-            ).fetchone()[0]
+            # Query unificata per entrate e uscite
+            query = f"""
+                SELECT 
+                    COALESCE(SUM(CASE WHEN tipo=? THEN importo ELSE 0 END), 0) as entrate,
+                    COALESCE(SUM(CASE WHEN tipo=? THEN importo ELSE 0 END), 0) as uscite
+                FROM movimenti_cassa
+                WHERE 1=1{where_clause}
+            """
             
-            # Speso
-            speso = conn.execute(
-                f"SELECT COALESCE(SUM(importo), 0) FROM movimenti_cassa WHERE tipo='USCITA'{where_clause}",
-                params_uscite
-            ).fetchone()[0]
+            result = conn.execute(query, [TIPO_ENTRATA, TIPO_USCITA] + params).fetchone()
+            incassato = result['entrate']
+            speso = result['uscite']
             
             return {
                 'incassato': round(incassato, 2),
@@ -897,15 +925,24 @@ class CrmDBManager:
 
     # --- SPESE ---
     def registra_spesa(self, categoria, importo, metodo, data_pagamento=None, note="", id_spesa_ricorrente=None):
-        """Registra uscita con collegamento opzionale a spesa ricorrente
+        """Registra uscita con validazione completa e protezione doppi pagamenti
         
-        PROTEZIONE DOPPI PAGAMENTI: Se id_spesa_ricorrente è fornito, verifica che non esista
-        già un pagamento per quella spesa nello stesso mese. Previene errori e doppioni.
+        VALIDAZIONI:
+        - Importo deve essere positivo e realistico (max €1M)
+        - Data non può essere nel futuro lontano (max +30gg)
+        - Se spesa ricorrente: verifica che non sia già pagata nel mese
+        
+        RAISES:
+        - ValueError: Se validazioni falliscono
         """
         if data_pagamento is None: 
             data_pagamento = date.today()
         
-        # VALIDAZIONE ANTI-DOPPIONE per spese ricorrenti
+        # VALIDAZIONI BLINDATE
+        self._validate_importo(importo, f"registra_spesa({categoria})")
+        self._validate_data_effettiva(data_pagamento, f"registra_spesa({categoria})")
+        
+        # PROTEZIONE ANTI-DOPPIONE per spese ricorrenti
         if id_spesa_ricorrente is not None:
             anno_mese = data_pagamento.strftime('%Y-%m')
             with self._connect() as conn:
@@ -921,21 +958,34 @@ class CrmDBManager:
                         f"Impossibile registrare doppio pagamento. Movimento esistente: #{esistente['id']}"
                     )
         
-        # Registra movimento
+        # Registra movimento (usa costante TIPO_USCITA)
         with self.transaction() as cur: 
             cur.execute(
-                "INSERT INTO movimenti_cassa (data_effettiva, tipo, categoria, importo, metodo, note, id_spesa_ricorrente) VALUES (?, 'USCITA', ?, ?, ?, ?, ?)", 
-                (data_pagamento, categoria, importo, metodo, note, id_spesa_ricorrente)
+                "INSERT INTO movimenti_cassa (data_effettiva, tipo, categoria, importo, metodo, note, id_spesa_ricorrente) VALUES (?, ?, ?, ?, ?, ?, ?)", 
+                (data_pagamento, TIPO_USCITA, categoria, importo, metodo, note, id_spesa_ricorrente)
             )
     
     def registra_entrata_spot(self, categoria, importo, metodo="Contanti", data_pagamento=None, id_cliente=None, note=""):
-        """Registra entrata one-off (non da contratto): vendita prodotto, consulenza spot, etc."""
+        """Registra entrata one-off con validazione completa
+        
+        VALIDAZIONI:
+        - Importo deve essere positivo e realistico (max €1M)
+        - Data non può essere nel futuro lontano (max +30gg)
+        
+        RAISES:
+        - ValueError: Se validazioni falliscono
+        """
         if data_pagamento is None:
             data_pagamento = date.today()
+        
+        # VALIDAZIONI BLINDATE
+        self._validate_importo(importo, f"registra_entrata_spot({categoria})")
+        self._validate_data_effettiva(data_pagamento, f"registra_entrata_spot({categoria})")
+        
         with self.transaction() as cur:
             cur.execute(
-                "INSERT INTO movimenti_cassa (data_effettiva, tipo, categoria, importo, metodo, id_cliente, note) VALUES (?, 'ENTRATA', ?, ?, ?, ?, ?)",
-                (data_pagamento, categoria, importo, metodo, id_cliente, note)
+                "INSERT INTO movimenti_cassa (data_effettiva, tipo, categoria, importo, metodo, id_cliente, note) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (data_pagamento, TIPO_ENTRATA, categoria, importo, metodo, id_cliente, note)
             )
     def add_spesa_ricorrente(self, nome, categoria, importo, frequenza, giorno_scadenza, data_prossima=None):
         if data_prossima is None:
@@ -1052,7 +1102,7 @@ class CrmDBManager:
             if not c: return
             nuovo_tot = c['totale_versato'] + importo
             stato = 'SALDATO' if nuovo_tot >= c['prezzo_totale'] else 'PARZIALE'
-            cur.execute("INSERT INTO movimenti_cassa (data_effettiva, tipo, categoria, importo, metodo, id_cliente, id_contratto, note) VALUES (?, 'ENTRATA', ?, ?, ?, ?, ?, ?)", (data_pagamento, CATEGORIA_RATA, importo, metodo, c['id_cliente'], id_contratto, note))
+            cur.execute("INSERT INTO movimenti_cassa (data_effettiva, tipo, categoria, importo, metodo, id_cliente, id_contratto, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (data_pagamento, TIPO_ENTRATA, CATEGORIA_RATA, importo, metodo, c['id_cliente'], id_contratto, note))
             cur.execute("UPDATE contratti SET totale_versato=?, stato_pagamento=? WHERE id=?", (nuovo_tot, stato, id_contratto))
     
     def sincronizza_stato_contratti_da_movimenti(self):
