@@ -156,3 +156,6 @@ htmlcov/
 *.tmp
 *.temp
 *.bak
+
+# Test output artifacts
+*_output.json
