@@ -1,0 +1,183 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Exercise Database Schema",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Schema version (semver)"
+    },
+    "exercises": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/exercise"
+      }
+    }
+  },
+  "required": ["version", "exercises"],
+  "definitions": {
+    "exercise": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z_]+$",
+          "description": "Unique identifier (snake_case)"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Exercise name (English)"
+        },
+        "italian_name": {
+          "type": "string",
+          "description": "Nome italiano"
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed description"
+        },
+        "movement_pattern": {
+          "type": "string",
+          "enum": ["squat", "hinge", "push", "pull", "carry", "rotation", "isolation"],
+          "description": "Primary movement pattern"
+        },
+        "primary_muscles": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "chest", "back", "shoulders", "biceps", "triceps", "traps",
+              "quadriceps", "hamstrings", "glutes", "calves", "core", "forearms"
+            ]
+          },
+          "minItems": 1,
+          "description": "Primary muscles activated"
+        },
+        "secondary_muscles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Secondary muscles activated"
+        },
+        "equipment": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["barbell", "dumbbell", "cable", "machine", "bodyweight", "kettlebell", "bands"]
+          },
+          "minItems": 1,
+          "description": "Required equipment"
+        },
+        "difficulty": {
+          "type": "string",
+          "enum": ["beginner", "intermediate", "advanced", "expert"],
+          "description": "Exercise difficulty level"
+        },
+        "rep_ranges": {
+          "type": "object",
+          "properties": {
+            "strength": {
+              "type": "object",
+              "properties": {
+                "min": {"type": "integer", "minimum": 1},
+                "max": {"type": "integer", "minimum": 1}
+              },
+              "required": ["min", "max"]
+            },
+            "hypertrophy": {
+              "type": "object",
+              "properties": {
+                "min": {"type": "integer", "minimum": 1},
+                "max": {"type": "integer", "minimum": 1}
+              },
+              "required": ["min", "max"]
+            },
+            "endurance": {
+              "type": "object",
+              "properties": {
+                "min": {"type": "integer", "minimum": 1},
+                "max": {"type": "integer", "minimum": 1}
+              },
+              "required": ["min", "max"]
+            }
+          },
+          "required": ["strength", "hypertrophy", "endurance"]
+        },
+        "recovery_hours": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 168,
+          "description": "Recommended recovery time (hours)"
+        },
+        "contraindications": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Injury contraindications"
+        },
+        "video_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Video tutorial URL"
+        },
+        "image_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Exercise image URL"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Additional notes and tips"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Searchable tags"
+        },
+        "alternatives": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Alternative exercise IDs (same pattern/muscles)"
+        },
+        "progressions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "exercise_id": {"type": "string"},
+              "type": {"type": "string", "enum": ["weight", "tempo", "range_of_motion", "complexity"]}
+            }
+          },
+          "description": "Progression options"
+        },
+        "regressions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "exercise_id": {"type": "string"},
+              "type": {"type": "string", "enum": ["weight", "tempo", "range_of_motion", "complexity"]}
+            }
+          },
+          "description": "Regression options"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "movement_pattern",
+        "primary_muscles",
+        "equipment",
+        "difficulty"
+      ],
+      "additionalProperties": false
+    }
+  }
+}
