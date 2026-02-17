@@ -65,7 +65,7 @@ class AgendaRepository(BaseRepository):
         with self._connect() as conn:
             cursor = conn.cursor()
             
-            # Find active contract if PT session
+            # Find active contract if PT session (link only, don't consume credits yet)
             id_contratto = None
             if session.categoria == 'PT' and session.id_cliente:
                 cursor.execute("""
@@ -80,12 +80,7 @@ class AgendaRepository(BaseRepository):
                 row = cursor.fetchone()
                 if row:
                     id_contratto = row['id']
-                    # Increment crediti_usati
-                    cursor.execute("""
-                        UPDATE contratti 
-                        SET crediti_usati = crediti_usati + 1 
-                        WHERE id = ?
-                    """, (id_contratto,))
+                    # NOTE: Credits are consumed only when event is confirmed, not when created
             
             # Insert event
             cursor.execute("""
@@ -176,24 +171,24 @@ class AgendaRepository(BaseRepository):
     )
     def delete_event(self, id: int) -> None:
         """
-        Elimina evento e ripristina crediti se PT session.
+        Elimina evento e ripristina crediti se PT session completata.
         
         Args:
             id: ID evento da eliminare
         
         NOTE:
-            - Se evento ha id_contratto, decrementa crediti_usati
-            - Garantisce ripristino crediti per cancellazioni
+            - Se evento='Fatto' con contratto, decrementa crediti_usati (ripristino)
+            - Se evento='Programmato', non tocca crediti (non erano stati consumati)
         """
         with self._connect() as conn:
             cursor = conn.cursor()
             
             # Get event data
-            cursor.execute("SELECT id_contratto FROM agenda WHERE id = ?", (id,))
+            cursor.execute("SELECT id_contratto, stato FROM agenda WHERE id = ?", (id,))
             row = cursor.fetchone()
             
-            if row and row['id_contratto']:
-                # Restore credits
+            # Restore credits only if event was completed ('Fatto')
+            if row and row['id_contratto'] and row['stato'] == 'Fatto':
                 cursor.execute("""
                     UPDATE contratti 
                     SET crediti_usati = crediti_usati - 1 
@@ -269,7 +264,9 @@ class AgendaRepository(BaseRepository):
             id: ID evento da confermare
         
         NOTE:
-            - Usato per marcare sessioni completate
+            - Marca sessione come completata
+            - Incrementa crediti_usati se evento è legato a contratto
+            - NON elimina l'evento (mantiene storico)
         """
         with self._connect() as conn:
             cursor = conn.cursor()
@@ -278,22 +275,23 @@ class AgendaRepository(BaseRepository):
             cursor.execute("SELECT * FROM agenda WHERE id = ?", (id,))
             row = cursor.fetchone()
             
+            if not row:
+                return
+            
+            # Update event status to 'Fatto'
             cursor.execute("""
                 UPDATE agenda 
                 SET stato = 'Fatto' 
                 WHERE id = ?
             """, (id,))
             
-            if row and row['id_contratto']:
-                # Restore credits
+            # If event is linked to contract, increment credits used
+            if row['id_contratto']:
                 cursor.execute("""
                     UPDATE contratti 
-                    SET crediti_usati = crediti_usati - 1 
+                    SET crediti_usati = crediti_usati + 1 
                     WHERE id = ?
                 """, (row['id_contratto'],))
-            
-            # Delete event
-            cursor.execute("DELETE FROM agenda WHERE id = ?", (id,))
     
     @safe_operation(
         operation_name="Get Client Session History",

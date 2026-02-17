@@ -174,7 +174,8 @@ def dialog_view_event(event_id, event_props):
 
 # --- CARICAMENTO DATI ---
 today = date.today()
-events_raw = agenda_repo.get_events_by_range(today - timedelta(days=60), today + timedelta(days=180))
+# Extended range to include past events (last 120 days + future 180 days)
+events_raw = agenda_repo.get_events_by_range(today - timedelta(days=120), today + timedelta(days=180))
 
 # Convert Pydantic models to dicts for calendar
 events_data = [{
