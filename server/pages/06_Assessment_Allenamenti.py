@@ -45,7 +45,7 @@ if cliente_obj:
         'id': cliente_obj.id,
         'nome': cliente_obj.nome,
         'cognome': cliente_obj.cognome,
-        'lezioni_residue': cliente_obj.crediti_residui or 0
+        'lezioni_residue': cliente_obj.lezioni_residue or 0
     }
 else:
     st.error("Cliente non trovato")

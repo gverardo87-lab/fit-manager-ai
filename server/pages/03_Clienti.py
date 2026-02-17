@@ -214,7 +214,7 @@ elif sel_id:
         'data_nascita': cli_obj.data_nascita,
         'sesso': cli_obj.sesso or 'Uomo',
         'anamnesi_json': cli_obj.anamnesi_json,
-        'lezioni_residue': cli_obj.crediti_residui or 0
+        'lezioni_residue': cli_obj.lezioni_residue or 0
     }
     fin = client_repo.get_financial_history(sel_id)
     
