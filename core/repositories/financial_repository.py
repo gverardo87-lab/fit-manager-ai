@@ -1,0 +1,514 @@
+"""
+FinancialRepository - Data access layer for Financial Operations
+
+FASE 2 REFACTORING: Repository Pattern - Financial Domain
+
+Responsabilità:
+- Registrazione movimenti cassa (entrate/uscite)
+- Gestione spese ricorrenti
+- Calcolo bilanci (cassa, competenza)
+- Calcolo metriche finanziarie unificate
+- Previsione cash flow
+
+NOTE: Questo repository implementa la LOGICA FINANZIARIA UNIFICATA
+"""
+
+from typing import Optional, Dict, Any, List
+from datetime import date, datetime, timedelta
+
+from .base_repository import BaseRepository
+from core.models_v2 import MovimentoCassa, MovimentoCassaCreate, SpesaRicorrente, SpesaRicorrenteCreate
+from core.error_handler import safe_operation, ErrorSeverity
+
+# Constants
+TIPO_ENTRATA = "ENTRATA"
+TIPO_USCITA = "USCITA"
+
+
+class FinancialRepository(BaseRepository):
+    """
+    Repository per gestione Finanza.
+    
+    Metodi principali:
+    - register_cash_movement(movement: MovimentoCassaCreate) -> MovimentoCassa
+    - get_cash_balance(start_date, end_date) -> Dict
+    - calculate_unified_metrics(start_date, end_date) -> Dict
+    - get_cash_forecast(days) -> Dict
+    - add_recurring_expense(expense: SpesaRicorrenteCreate) -> SpesaRicorrente
+    - get_recurring_expenses() -> List[SpesaRicorrente]
+    """
+    
+    @safe_operation(
+        operation_name="Register Cash Movement",
+        severity=ErrorSeverity.HIGH,
+        fallback_return=None
+    )
+    def register_cash_movement(self, movement: MovimentoCassaCreate) -> Optional[MovimentoCassa]:
+        """
+        Registra movimento cassa (entrata o uscita).
+        
+        Args:
+            movement: Dati movimento da registrare (validato Pydantic)
+        
+        Returns:
+            MovimentoCassa creato con ID o None se errore
+        
+        Example:
+            movement = MovimentoCassaCreate(
+                tipo="USCITA",
+                categoria="AFFITTO",
+                importo=1200,
+                metodo_pagamento="BONIFICO",
+                data_transazione=date.today(),
+                data_effettiva=date.today(),
+                note="Affitto palestra gennaio"
+            )
+            created = financial_repo.register_cash_movement(movement)
+        """
+        with self._connect() as conn:
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                INSERT INTO movimenti_cassa (
+                    data_movimento, data_effettiva, tipo, categoria, importo, metodo,
+                    id_cliente, id_spesa_ricorrente, note, operatore
+                ) VALUES (CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, ?, ?, 'Admin')
+            """, (
+                movement.data_effettiva or movement.data_transazione,
+                movement.tipo,
+                movement.categoria,
+                movement.importo,
+                movement.metodo_pagamento,
+                movement.id_cliente,
+                movement.id_spesa_ricorrente,
+                movement.note
+            ))
+            
+            movement_id = cursor.lastrowid
+            
+            # Get created movement
+            cursor.execute("SELECT * FROM movimenti_cassa WHERE id = ?", (movement_id,))
+            row = cursor.fetchone()
+            
+            if not row:
+                return None
+            
+            movement_dict = self._row_to_dict(row)
+            
+            # Ensure data_creazione exists
+            if not movement_dict.get('data_creazione'):
+                movement_dict['data_creazione'] = datetime.now()
+            
+            return MovimentoCassa(**movement_dict)
+    
+    @safe_operation(
+        operation_name="Get Cash Balance",
+        severity=ErrorSeverity.MEDIUM,
+        fallback_return={'incassato': 0, 'speso': 0, 'saldo_cassa': 0}
+    )
+    def get_cash_balance(
+        self,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None
+    ) -> Dict[str, Any]:
+        """
+        Calcola bilancio per cassa (fonte di verità assoluta).
+        
+        Args:
+            start_date: Data inizio periodo (None = dall'inizio)
+            end_date: Data fine periodo (None = fino a oggi)
+        
+        Returns:
+            Dict con:
+            - incassato: Somma entrate
+            - speso: Somma uscite
+            - saldo_cassa: incassato - speso
+        
+        LOGICA:
+            - Basato SOLO su movimenti_cassa.data_effettiva
+            - ENTRATE = tipo='ENTRATA'
+            - USCITE = tipo='USCITA'
+        """
+        with self._connect() as conn:
+            cursor = conn.cursor()
+            
+            # Build WHERE clause
+            where_conditions = []
+            params = []
+            
+            if start_date and end_date:
+                where_conditions.append("data_effettiva BETWEEN ? AND ?")
+                params = [start_date, end_date]
+            elif end_date and not start_date:
+                where_conditions.append("data_effettiva <= ?")
+                params = [end_date]
+            elif start_date and not end_date:
+                where_conditions.append("data_effettiva >= ?")
+                params = [start_date]
+            
+            where_clause = " AND " + " AND ".join(where_conditions) if where_conditions else ""
+            
+            # Unified query for entrate + uscite
+            query = f"""
+                SELECT 
+                    COALESCE(SUM(CASE WHEN tipo=? THEN importo ELSE 0 END), 0) as entrate,
+                    COALESCE(SUM(CASE WHEN tipo=? THEN importo ELSE 0 END), 0) as uscite
+                FROM movimenti_cassa
+                WHERE 1=1{where_clause}
+            """
+            
+            cursor.execute(query, [TIPO_ENTRATA, TIPO_USCITA] + params)
+            result = cursor.fetchone()
+            
+            incassato = result['entrate']
+            speso = result['uscite']
+            
+            return {
+                'incassato': round(incassato, 2),
+                'speso': round(speso, 2),
+                'saldo_cassa': round(incassato - speso, 2)
+            }
+    
+    @safe_operation(
+        operation_name="Calculate Unified Metrics",
+        severity=ErrorSeverity.MEDIUM,
+        fallback_return={}
+    )
+    def calculate_unified_metrics(
+        self,
+        start_date: date,
+        end_date: date
+    ) -> Dict[str, Any]:
+        """
+        Calcola metriche finanziarie unificate per un periodo.
+        
+        LOGICA UNIFICATA (fonte di verità: data_effettiva per movimenti):
+        - ENTRATE = SUM(importo) WHERE tipo='ENTRATA' AND data_effettiva IN [start, end]
+        - USCITE = SUM(importo) WHERE tipo='USCITA' AND data_effettiva IN [start, end]
+        - ORE FATTURATE = SUM(crediti_totali) contratti venduti nel periodo
+        - MARGINE = Entrate - Uscite
+        - MARGINE/ORA = Margine / Ore Fatturate
+        
+        Args:
+            start_date: Data inizio periodo
+            end_date: Data fine periodo
+        
+        Returns:
+            Dict con metriche complete
+        """
+        with self._connect() as conn:
+            cursor = conn.cursor()
+            giorni_periodo = (end_date - start_date).days + 1
+            
+            # 1. Cash balance
+            balance = self.get_cash_balance(start_date, end_date)
+            entrate = balance['incassato']
+            uscite = balance['speso']
+            
+            # 2. Ore fatturate (contracts sold in period)
+            cursor.execute("""
+                SELECT COALESCE(SUM(crediti_totali), 0)
+                FROM contratti
+                WHERE data_vendita BETWEEN ? AND ?
+                AND totale_versato > 0
+            """, (start_date, end_date))
+            
+            ore_fatturate = cursor.fetchone()[0]
+            
+            # 3. Ore eseguite (credits used)
+            cursor.execute("""
+                SELECT COALESCE(SUM(crediti_usati), 0)
+                FROM contratti
+                WHERE data_vendita BETWEEN ? AND ?
+            """, (start_date, end_date))
+            
+            ore_eseguite = cursor.fetchone()[0]
+            
+            # 4. Fixed costs (proportional to period)
+            cursor.execute("""
+                SELECT COALESCE(SUM(importo), 0)
+                FROM spese_ricorrenti
+                WHERE attiva = 1 AND frequenza = 'MENSILE'
+            """)
+            
+            costi_fissi_mensili = cursor.fetchone()[0]
+            costi_fissi_periodo = (costi_fissi_mensili / 30) * giorni_periodo
+            
+            # 5. Calculate margins
+            margine = entrate - uscite
+            margine_orario = (margine / ore_fatturate) if ore_fatturate > 0 else 0
+            
+            return {
+                # CASH
+                'entrate': round(entrate, 2),
+                'uscite': round(uscite, 2),
+                'saldo': round(entrate - uscite, 2),
+                
+                # ORE
+                'ore_fatturate': round(ore_fatturate, 2),
+                'ore_eseguite': round(ore_eseguite, 2),
+                'ore_rimanenti': round(ore_fatturate - ore_eseguite, 2),
+                
+                # COSTI
+                'costi_fissi_periodo': round(costi_fissi_periodo, 2),
+                'costi_totali': round(uscite, 2),
+                
+                # MARGINE
+                'margine': round(margine, 2),
+                'margine_orario': round(margine_orario, 2),
+                
+                # METADATA
+                'periodo_giorni': giorni_periodo,
+                'data_inizio': str(start_date),
+                'data_fine': str(end_date)
+            }
+    
+    @safe_operation(
+        operation_name="Get Cash Forecast",
+        severity=ErrorSeverity.MEDIUM,
+        fallback_return={}
+    )
+    def get_cash_forecast(self, days: int = 30) -> Dict[str, Any]:
+        """
+        Previsione cash flow per i prossimi N giorni.
+        
+        Args:
+            days: Numero giorni da prevedere
+        
+        Returns:
+            Dict con:
+            - saldo_oggi: Saldo cassa corrente
+            - rate_scadenti: Rate in scadenza prossimi N giorni
+            - costi_previsti: Costi fissi proporzionali
+            - saldo_previsto: saldo_oggi + rate_scadenti - costi_previsti
+        """
+        with self._connect() as conn:
+            cursor = conn.cursor()
+            oggi = date.today()
+            data_fine_prev = oggi + timedelta(days=days)
+            
+            # Current cash balance
+            balance = self.get_cash_balance()
+            saldo_oggi = balance['saldo_cassa']
+            
+            # Upcoming rates
+            cursor.execute("""
+                SELECT COALESCE(SUM(importo_previsto), 0)
+                FROM rate_programmate
+                WHERE data_scadenza BETWEEN ? AND ?
+                AND stato != 'SALDATA'
+            """, (oggi, data_fine_prev))
+            
+            rate_scadenti = cursor.fetchone()[0]
+            
+            # Fixed costs proportional
+            cursor.execute("""
+                SELECT COALESCE(SUM(importo), 0)
+                FROM spese_ricorrenti
+                WHERE attiva = 1 AND frequenza = 'MENSILE'
+            """)
+            
+            costi_fissi_mensili = cursor.fetchone()[0]
+            costi_previsti = (costi_fissi_mensili / 30) * days
+            
+            return {
+                'saldo_oggi': round(saldo_oggi, 2),
+                'rate_scadenti': round(rate_scadenti, 2),
+                'costi_previsti': round(costi_previsti, 2),
+                'saldo_previsto': round(saldo_oggi + rate_scadenti - costi_previsti, 2),
+                'periodo': f"{oggi} + {days} giorni"
+            }
+    
+    @safe_operation(
+        operation_name="Add Recurring Expense",
+        severity=ErrorSeverity.HIGH,
+        fallback_return=None
+    )
+    def add_recurring_expense(self, expense: SpesaRicorrenteCreate) -> Optional[SpesaRicorrente]:
+        """
+        Aggiunge spesa ricorrente.
+        
+        Args:
+            expense: Dati spesa ricorrente (validato Pydantic)
+        
+        Returns:
+            SpesaRicorrente creata o None se errore
+        
+        Example:
+            expense = SpesaRicorrenteCreate(
+                nome="Affitto Palestra",
+                categoria="COSTI_FISSI",
+                importo=1200,
+                frequenza="MENSILE",
+                giorno_scadenza=5,
+                giorno_inizio=1
+            )
+            created = financial_repo.add_recurring_expense(expense)
+        """
+        with self._connect() as conn:
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                INSERT INTO spese_ricorrenti (
+                    nome, categoria, importo, frequenza,
+                    giorno_scadenza, giorno_inizio, data_prossima_scadenza, attiva
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                expense.nome,
+                expense.categoria,
+                expense.importo,
+                expense.frequenza,
+                expense.giorno_scadenza,
+                expense.giorno_inizio,
+                expense.data_prossima_scadenza,
+                expense.attiva
+            ))
+            
+            expense_id = cursor.lastrowid
+            
+            # Get created expense
+            cursor.execute("SELECT * FROM spese_ricorrenti WHERE id = ?", (expense_id,))
+            row = cursor.fetchone()
+            
+            if not row:
+                return None
+            
+            return SpesaRicorrente(**self._row_to_dict(row))
+    
+    @safe_operation(
+        operation_name="Get Recurring Expenses",
+        severity=ErrorSeverity.MEDIUM,
+        fallback_return=[]
+    )
+    def get_recurring_expenses(self, only_active: bool = True) -> List[SpesaRicorrente]:
+        """
+        Recupera tutte spese ricorrenti.
+        
+        Args:
+            only_active: Se True, ritorna solo spese attive
+        
+        Returns:
+            Lista SpesaRicorrente
+        """
+        with self._connect() as conn:
+            cursor = conn.cursor()
+            
+            query = "SELECT * FROM spese_ricorrenti"
+            params = []
+            
+            if only_active:
+                query += " WHERE attiva = ?"
+                params.append(1)
+            
+            query += " ORDER BY nome ASC"
+            
+            cursor.execute(query, params)
+            return [SpesaRicorrente(**self._row_to_dict(r)) for r in cursor.fetchall()]
+    
+    @safe_operation(
+        operation_name="Get Unpaid Fixed Expenses",
+        severity=ErrorSeverity.MEDIUM,
+        fallback_return=[]
+    )
+    def get_unpaid_fixed_expenses(self, month: Optional[date] = None) -> List[Dict[str, Any]]:
+        """
+        Recupera spese fisse scadute e non pagate (o pagate male) nel mese.
+        
+        Args:
+            month: Mese di riferimento (default: mese corrente)
+        
+        Returns:
+            Lista dict spese non pagate con info:
+            - id, nome, importo, giorno_scadenza, categoria, frequenza, attiva
+            - movimento_id: ID movimento se esiste ma importo errato
+            - importo_pagato: Importo pagato se movimento esiste
+        
+        NOTE:
+            Una spesa è "non pagata" se:
+            1. Non esiste movimento collegato nel mese, OPPURE
+            2. Esiste movimento ma importo non corrisponde (diff > 0.01€)
+        """
+        if month is None:
+            month = date.today()
+        
+        anno_mese = month.strftime('%Y-%m')
+        giorno_oggi = month.day
+        
+        with self._connect() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT sf.*, 
+                       mc.id as movimento_id,
+                       mc.importo as importo_pagato
+                FROM spese_ricorrenti sf
+                LEFT JOIN movimenti_cassa mc 
+                    ON sf.id = mc.id_spesa_ricorrente
+                    AND strftime('%Y-%m', mc.data_effettiva) = ?
+                WHERE sf.attiva = 1
+                  AND sf.giorno_scadenza <= ?
+                  AND (
+                      mc.id IS NULL OR
+                      ABS(mc.importo - sf.importo) > 0.01
+                  )
+                ORDER BY sf.giorno_scadenza ASC
+            """, (anno_mese, giorno_oggi))
+            
+            return [self._row_to_dict(r) for r in cursor.fetchall()]
+    
+    @safe_operation(
+        operation_name="Get Cash Breakdown",
+        severity=ErrorSeverity.LOW,
+        fallback_return=[]
+    )
+    def get_cash_breakdown_by_category(
+        self, 
+        start_date: date, 
+        end_date: date, 
+        tipo: str = "ENTRATA"
+    ) -> List[Dict[str, Any]]:
+        """
+        Ottiene breakdown movimenti per categoria nel periodo.
+        
+        Args:
+            start_date: Data inizio periodo
+            end_date: Data fine periodo
+            tipo: 'ENTRATA' o 'USCITA'
+        
+        Returns:
+            Lista dict con categoria e totale ordinati per totale DESC
+        """
+        with self._connect() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT categoria, SUM(importo) as totale
+                FROM movimenti_cassa
+                WHERE tipo = ? AND data_effettiva >= ? AND data_effettiva <= ?
+                GROUP BY categoria
+                ORDER BY totale DESC
+            """, (tipo, start_date, end_date))
+            
+            return [{'categoria': r[0], 'totale': r[1]} for r in cursor.fetchall()]
+    
+    @safe_operation(
+        operation_name="Get Movement Categories",
+        severity=ErrorSeverity.LOW,
+        fallback_return=[]
+    )
+    def get_movement_categories(self) -> List[str]:
+        """
+        Recupera tutte le categorie utilizzate nei movimenti cassa.
+        
+        Returns:
+            Lista categorie ordinate alfabeticamente
+        """
+        with self._connect() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT DISTINCT categoria 
+                FROM movimenti_cassa 
+                WHERE categoria IS NOT NULL
+                ORDER BY categoria ASC
+            """)
+            
+            return [r[0] for r in cursor.fetchall()]
+

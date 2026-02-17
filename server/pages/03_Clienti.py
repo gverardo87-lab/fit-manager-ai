@@ -5,10 +5,13 @@ import plotly.express as px
 import plotly.graph_objects as go
 import json
 from datetime import date, datetime, timedelta
-from core.crm_db import CrmDBManager
+from core.repositories import ClientRepository, ContractRepository, AgendaRepository
+from core.models_v2 import ClienteCreate, ClienteUpdate, ContratoCreate
 from core.ui_components import badge, status_badge, format_currency, empty_state_component, loading_message
 
-db = CrmDBManager()
+client_repo = ClientRepository()
+contract_repo = ContractRepository()
+agenda_repo = AgendaRepository()
 
 st.set_page_config(page_title="Elite Client Manager", page_icon="💎", layout="wide")
 
@@ -83,13 +86,24 @@ def dialog_vendita(id_cl):
     end = cd2.date_input("Fine", value=date.today() + timedelta(days=365))
     
     if st.button("✅ Genera Contratto", type="primary", use_container_width=True):
-        id_contr = db.crea_contratto_vendita(id_cl, pk, prezzo_tot, cr, start, end, acconto=acconto, metodo_acconto=metodo_acconto)
+        contract = ContratoCreate(
+            id_cliente=id_cl,
+            tipo_pacchetto=pk,
+            prezzo_totale=prezzo_tot,
+            crediti_totali=cr,
+            data_inizio=start,
+            data_scadenza=end,
+            acconto=acconto,
+            metodo_acconto=metodo_acconto
+        )
+        created_contract = contract_repo.create_contract(contract)
         
-        if residuo > 0:
+        if created_contract and residuo > 0:
+            id_contr = created_contract.id
             if modo_pag == "Rateale 📅":
-                db.genera_piano_rate(id_contr, residuo, n_rate, start, freq)
+                contract_repo.generate_payment_plan(id_contr, residuo, n_rate, start, freq)
             else:
-                db.genera_piano_rate(id_contr, residuo, 1, end, "MENSILE")
+                contract_repo.generate_payment_plan(id_contr, residuo, 1, end, "MENSILE")
         
         st.success("Contratto creato!"); st.rerun()
 
@@ -103,7 +117,7 @@ def dialog_edit_rata(rata, totale_contratto):
         met = st.selectbox("Metodo", ["CONTANTI", "POS", "BONIFICO"])
         dt = st.date_input("Data Incasso", value=date.today())
         if st.button("Registra Incasso", type="primary"):
-            db.paga_rata_specifica(rata['id'], imp, met, dt)
+            contract_repo.pay_rate(rata['id'], imp, met, dt)
             st.success("Saldata!"); st.rerun()
 
     with tab_edit:
@@ -114,11 +128,11 @@ def dialog_edit_rata(rata, totale_contratto):
         
         c1, c2 = st.columns(2)
         if c1.button("💾 Salva", type="primary"):
-            if smart: db.rimodula_piano_rate(rata['id_contratto'], rata['id'], n_imp, n_date)
-            else: db.update_rata_programmata(rata['id'], n_date, n_imp, rata['descrizione'])
+            if smart: contract_repo.remodulate_payment_plan(rata['id_contratto'], rata['id'], n_imp, n_date)
+            else: contract_repo.update_rate(rata['id'], n_date, n_imp, rata['descrizione'])
             st.rerun()
         if c2.button("🗑️ Elimina", type="secondary"):
-            db.elimina_rata(rata['id']); st.rerun()
+            contract_repo.delete_rate(rata['id']); st.rerun()
 
 @st.experimental_dialog("Aggiungi Rata")
 def dialog_add_rata(id_contratto):
@@ -127,7 +141,7 @@ def dialog_add_rata(id_contratto):
     imp = st.number_input("Importo", value=100.0)
     desc = st.text_input("Descrizione", value="Rata Extra")
     if st.button("Aggiungi"):
-        db.aggiungi_rata_manuale(id_contratto, dt, imp, desc); st.rerun()
+        contract_repo.add_manual_rate(id_contratto, dt, imp, desc); st.rerun()
 
 @st.experimental_dialog("Modifica Contratto")
 def dialog_edit_contratto(c):
@@ -139,14 +153,21 @@ def dialog_edit_contratto(c):
     st.markdown("---")
     c1, c2 = st.columns(2)
     if c1.button("💾 Salva Modifiche"):
-        db.update_contratto_dettagli(c['id'], p, cr, scad); st.rerun()
+        contract_repo.update_contract_details(c['id'], p, cr, scad); st.rerun()
     if c2.button("🗑️ ELIMINA", type="primary"):
-        db.delete_contratto(c['id']); st.warning("Eliminato"); st.rerun()
+        contract_repo.delete_contract(c['id']); st.warning("Eliminato"); st.rerun()
 
 # --- MAIN PAGE ---
 with st.sidebar:
     st.header("🗂️ Studio Manager")
-    df = db.get_clienti_df()
+    clienti = client_repo.get_all_active()
+    df = pd.DataFrame([{
+        'id': c.id,
+        'nome': c.nome,
+        'cognome': c.cognome,
+        'telefono': c.telefono,
+        'email': c.email
+    } for c in clienti])
     sel_id = None
     if not df.empty:
         search = st.text_input("🔍 Cerca...", placeholder="Nome...")
@@ -165,13 +186,37 @@ if st.session_state.get('new_c'):
             t = c1.text_input("Telefono"); e = c2.text_input("Email")
             if st.form_submit_button("Crea", type="primary"):
                 if n and c:
-                    db.save_cliente({"nome":n, "cognome":c, "telefono":t, "email":e, "data_nascita":date(1990,1,1), "sesso":"Uomo"})
+                    new_client = ClienteCreate(
+                        nome=n,
+                        cognome=c,
+                        telefono=t or "",
+                        email=e or "",
+                        data_nascita=date(1990, 1, 1),
+                        sesso="Uomo"
+                    )
+                    client_repo.create(new_client)
                     st.session_state['new_c'] = False; st.rerun()
     if st.button("Annulla"): st.session_state['new_c'] = False; st.rerun()
 
 elif sel_id:
-    cli = db.get_cliente_full(sel_id)
-    fin = db.get_cliente_financial_history(sel_id)
+    cli_obj = client_repo.get_by_id(sel_id)
+    if not cli_obj:
+        st.error("Cliente non trovato")
+        st.stop()
+    
+    # Convert to dict for compatibility with existing code
+    cli = {
+        'id': cli_obj.id,
+        'nome': cli_obj.nome,
+        'cognome': cli_obj.cognome,
+        'telefono': cli_obj.telefono or '',
+        'email': cli_obj.email or '',
+        'data_nascita': cli_obj.data_nascita,
+        'sesso': cli_obj.sesso or 'Uomo',
+        'anamnesi_json': cli_obj.anamnesi_json,
+        'lezioni_residue': cli_obj.crediti_residui or 0
+    }
+    fin = client_repo.get_financial_history(sel_id)
     
     with st.container():
         c1, c2, c3, c4 = st.columns([1, 3, 1.5, 1.5])
@@ -213,10 +258,16 @@ elif sel_id:
             
             if st.form_submit_button("💾 Salva Modifiche", type="primary"):
                 new_ana = {**ana, "lavoro":job, "stile":style, "infortuni":inf, "obiettivi":obi}
-                db.save_cliente({
-                    "nome":nm, "cognome":cg, "telefono":tl, "email":em, 
-                    "data_nascita":dn, "sesso":sx, "anamnesi":new_ana
-                }, sel_id)
+                update_data = ClienteUpdate(
+                    nome=nm,
+                    cognome=cg,
+                    telefono=tl,
+                    email=em,
+                    data_nascita=dn,
+                    sesso=sx,
+                    anamnesi_json=json.dumps(new_ana)
+                )
+                client_repo.update(sel_id, update_data)
                 st.success("Aggiornato!"); st.rerun()
 
     with tabs[1]: # Contratti & Pagamenti
@@ -263,7 +314,17 @@ elif sel_id:
                 st.progress(max(0.0, min(progress_val, 1.0)), text=f"{format_currency(c['totale_versato'])} / {format_currency(c['prezzo_totale'])}")
                 
                 # Rate
-                rate = db.get_rate_contratto(c['id'])
+                rate_raw = contract_repo.get_rates_by_contract(c['id'])
+                # Convert Pydantic models to dicts
+                rate = [{
+                    'id': r.id,
+                    'id_contratto': r.id_contratto,
+                    'data_scadenza': r.data_scadenza,
+                    'importo_previsto': r.importo_previsto,
+                    'importo_saldato': r.importo_saldato,
+                    'stato': r.stato,
+                    'descrizione': r.descrizione
+                } for r in rate_raw]
                 if rate:
                     st.caption("📅 Piano Rateale")
                     rate_paid = sum(1 for r in rate if r['stato'] == 'SALDATA')
@@ -309,7 +370,13 @@ elif sel_id:
         
         with sub_tab2:
             # Storico lezioni
-            hist = db.get_storico_lezioni_cliente(sel_id)
+            hist_raw = agenda_repo.get_client_session_history(sel_id)
+            # Convert Pydantic models to dicts
+            hist = [{
+                'data_inizio': h.data_inizio,
+                'titolo': h.titolo or '',
+                'stato': h.stato or 'Programmato'
+            } for h in hist_raw]
             if hist:
                 hist_df = pd.DataFrame(hist)
                 # Ordinare per data decrescente

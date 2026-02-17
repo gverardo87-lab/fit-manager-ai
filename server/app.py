@@ -12,7 +12,7 @@ from datetime import datetime
 # Setup Path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from core.crm_db import CrmDBManager
+from core.repositories import ClientRepository
 
 # ════════════════════════════════════════════════════════════
 # PAGE CONFIG + CUSTOM THEME
@@ -552,7 +552,7 @@ with st.sidebar:
     st.divider()
     
     # User Profile Quick View
-    db = CrmDBManager()
+    client_repo = ClientRepository()
     
     st.markdown("#### 👤 Sezioni Principali")
     st.page_link("pages/01_Agenda.py", label="📅 Agenda", icon="📅")
@@ -576,7 +576,7 @@ with st.sidebar:
     
     # Stats Footer
     try:
-        clienti_count = len(db.get_clienti_attivi())
+        clienti_count = len(client_repo.get_all_active())
         st.metric("Clienti Attivi", clienti_count)
     except:
         pass
@@ -610,10 +610,10 @@ st.markdown("### 📊 Dashboard Veloce")
 
 col1, col2, col3, col4 = st.columns(4, gap="medium")
 
-db = CrmDBManager()
+client_repo = ClientRepository()
 
 try:
-    clienti_attivi = len(db.get_clienti_attivi())
+    clienti_attivi = len(client_repo.get_all_active())
     with col1:
         st.markdown("""
         <div class="card card-primary">

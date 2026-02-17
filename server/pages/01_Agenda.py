@@ -1,13 +1,15 @@
-# file: server/pages/01_Agenda.py (Versione 5.8 - Fully Editable)
+# file: server/pages/01_Agenda.py (Versione 5.9 - FASE 2 Repository Pattern)
 import streamlit as st
 from streamlit_calendar import calendar
 from datetime import datetime, date, timedelta
 import pandas as pd
-from core.crm_db import CrmDBManager
+from core.repositories import ClientRepository, AgendaRepository
+from core.models_v2 import SessioneCreate
 
 # Setup
 st.set_page_config(page_title="Agenda Elite", page_icon="📅", layout="wide")
-db = CrmDBManager()
+client_repo = ClientRepository()
+agenda_repo = AgendaRepository()
 
 # --- GESTIONE STATO ---
 if 'cal_view' not in st.session_state:
@@ -76,15 +78,16 @@ def dialog_add_event(default_date, default_time):
         
         id_cliente = None
         if selected_info["code"] in ["PT", "CONSULENZA"]:
-            clienti = db.get_clienti_attivi()
-            map_cli = {c['id']: f"{c['cognome']} {c['nome']}" for c in clienti}
+            clienti = client_repo.get_all_active()
+            map_cli = {c.id: f"{c.cognome} {c.nome}" for c in clienti}
             id_cliente = st.selectbox("Seleziona Cliente", options=[None] + list(map_cli.keys()), format_func=lambda x: map_cli.get(x, "Scegli..."))
             
             if id_cliente and selected_info["code"] == "PT":
-                info = db.get_cliente_full(id_cliente)
-                res = info.get('lezioni_residue', 0)
-                if res > 0: st.success(f"✅ Crediti Disponibili: {res}")
-                else: st.error(f"⚠️ Crediti Esauriti ({res}).")
+                info = client_repo.get_by_id(id_cliente)
+                if info:
+                    res = info.lezioni_residue
+                    if res > 0: st.success(f"✅ Crediti Disponibili: {res}")
+                    else: st.error(f"⚠️ Crediti Esauriti ({res}).")
 
         c1, c2 = st.columns(2)
         giorno = c1.date_input("Data", value=default_date)
@@ -99,7 +102,15 @@ def dialog_add_event(default_date, default_time):
             dt_end = dt_start + timedelta(minutes=durata)
             
             try:
-                db.add_evento(dt_start, dt_end, selected_info["code"], titolo, id_cliente)
+                session = SessioneCreate(
+                    id_cliente=id_cliente,
+                    data_inizio=dt_start,
+                    data_fine=dt_end,
+                    categoria=selected_info["code"],
+                    titolo=titolo,
+                    stato="Programmato"
+                )
+                agenda_repo.create_event(session)
                 st.success("Evento creato!")
                 st.rerun()
             except Exception as e: st.error(f"Errore: {e}")
@@ -141,7 +152,7 @@ def dialog_view_event(event_id, event_props):
             new_start = datetime.combine(new_date, new_time)
             new_end = new_start + timedelta(minutes=new_dur)
             
-            db.update_evento(event_id, new_start, new_end, new_title)
+            agenda_repo.update_event(event_id, new_start, new_end, new_title)
             st.success("Aggiornato!")
             st.rerun()
             
@@ -152,18 +163,29 @@ def dialog_view_event(event_id, event_props):
     status = props.get('stato', 'N/A')
     if status != 'Fatto':
         if ca.button("✅ Conferma Esecuzione", use_container_width=True):
-            db.confirm_evento(event_id)
+            agenda_repo.confirm_event(event_id)
             st.rerun()
     else:
         ca.success("✅ Già Completato")
 
     if cb.button("🗑️ Elimina Evento", type="primary", use_container_width=True):
-        db.delete_evento(event_id)
+        agenda_repo.delete_event(event_id)
         st.rerun()
 
 # --- CARICAMENTO DATI ---
 today = date.today()
-events_data = db.get_agenda_range(today - timedelta(days=60), today + timedelta(days=180))
+events_raw = agenda_repo.get_events_by_range(today - timedelta(days=60), today + timedelta(days=180))
+
+# Convert Pydantic models to dicts for calendar
+events_data = [{
+    'id': e.id,
+    'data_inizio': e.data_inizio,
+    'data_fine': e.data_fine,
+    'categoria': e.categoria,
+    'titolo': e.titolo,
+    'id_cliente': e.id_cliente,
+    'stato': e.stato
+} for e in events_raw]
 
 calendar_events = []
 todays_count = 0

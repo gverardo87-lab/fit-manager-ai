@@ -19,7 +19,8 @@ import os
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from core.crm_db import CrmDBManager
+from core.repositories import ClientRepository, ContractRepository, FinancialRepository
+from core.models_v2 import MovimentoCassaCreate, SpesaRicorrenteCreate
 from core.ui_components import badge, status_badge, format_currency, loading_message, section_divider_component, empty_state_component
 
 # ════════════════════════════════════════════════════════════
@@ -32,7 +33,9 @@ st.set_page_config(
     layout="wide"
 )
 
-db = CrmDBManager()
+client_repo = ClientRepository()
+contract_repo = ContractRepository()
+financial_repo = FinancialRepository()
 
 # ════════════════════════════════════════════════════════════
 # CSS OTTIMIZZATO
@@ -104,13 +107,15 @@ ultimo_giorno = monthrange(oggi.year, oggi.month)[1]
 ultimo_mese = date(oggi.year, oggi.month, ultimo_giorno)
 
 # Calcola metriche
-bilancio = db.get_bilancio_cassa(primo_mese, ultimo_mese)
-saldo_totale = db.get_bilancio_cassa()['saldo_cassa']
-previsione = db.get_previsione_cash(30)
-rate_pendenti = db.get_rate_pendenti(oggi + timedelta(days=30), solo_future=True)
-rate_scadute = db.get_rate_scadute()
-spese_fisse = db.get_spese_ricorrenti()
-spese_fisse_non_pagate = db.get_spese_fisse_non_pagate()  # Nuova metrica
+bilancio = financial_repo.get_cash_balance(primo_mese, ultimo_mese)
+saldo_totale = financial_repo.get_cash_balance()['saldo_cassa']
+previsione = financial_repo.get_cash_forecast(30)
+rate_pendenti = contract_repo.get_pending_rates(oggi + timedelta(days=30), solo_future=True)
+rate_scadute = contract_repo.get_overdue_rates()
+spese_fisse_raw = financial_repo.get_recurring_expenses()
+# Convert Pydantic models to dicts for compatibility
+spese_fisse = [{'id': s.id, 'nome': s.nome, 'importo': s.importo, 'categoria': s.categoria, 'giorno_scadenza': s.giorno_scadenza, 'frequenza': s.frequenza, 'attiva': s.attiva} for s in spese_fisse_raw]
+spese_fisse_non_pagate = financial_repo.get_unpaid_fixed_expenses()
 
 # ════════════════════════════════════════════════════════════
 # EXECUTIVE SUMMARY (Top Priority)
@@ -195,36 +200,23 @@ with col2:
     """, unsafe_allow_html=True)    
     # Breakdown entrate/uscite questo mese
     with st.expander("📊 Breakdown Mensile"):
-        with db._connect() as conn:
-            # Entrate per categoria
-            entrate_mese = conn.execute("""
-                SELECT categoria, SUM(importo) as totale
-                FROM movimenti_cassa
-                WHERE tipo='ENTRATA' AND data_effettiva BETWEEN ? AND ?
-                GROUP BY categoria
-                ORDER BY totale DESC
-            """, (primo_mese, ultimo_mese)).fetchall()
-            
-            if entrate_mese:
-                st.markdown("**💵 Entrate:**")
-                for cat, tot in entrate_mese:
-                    st.caption(f"{cat}: €{tot:.0f}")
-            
-            st.divider()
-            
-            # Uscite per categoria
-            uscite_mese = conn.execute("""
-                SELECT categoria, SUM(importo) as totale
-                FROM movimenti_cassa
-                WHERE tipo='USCITA' AND data_effettiva BETWEEN ? AND ?
-                GROUP BY categoria
-                ORDER BY totale DESC
-            """, (primo_mese, ultimo_mese)).fetchall()
-            
-            if uscite_mese:
-                st.markdown("**💸 Uscite:**")
-                for cat, tot in uscite_mese:
-                    st.caption(f"{cat}: €{tot:.0f}")
+        # Entrate per categoria
+        entrate_mese = financial_repo.get_cash_breakdown_by_category(primo_mese, ultimo_mese, "ENTRATA")
+        
+        if entrate_mese:
+            st.markdown("**💵 Entrate:**")
+            for item in entrate_mese:
+                st.caption(f"{item['categoria']}: €{item['totale']:.0f}")
+        
+        st.divider()
+        
+        # Uscite per categoria
+        uscite_mese = financial_repo.get_cash_breakdown_by_category(primo_mese, ultimo_mese, "USCITA")
+        
+        if uscite_mese:
+            st.markdown("**💸 Uscite:**")
+            for item in uscite_mese:
+                st.caption(f"{item['categoria']}: €{item['totale']:.0f}")
 with col3:
     st.markdown(f"""
     <div class='kpi-card'>
@@ -299,12 +291,12 @@ with tab1:
             with col:
                 importo_da_pagare = rata['importo_previsto'] - rata.get('importo_saldato', 0)
                 if st.button(f"✅ {rata['nome']}", key=f"paga_scad_{rata['id']}", use_container_width=True):
-                    db.paga_rata_specifica(
-                        id_rata=rata['id'],
-                        importo_versato=importo_da_pagare,
-                        metodo="Contanti",
-                        data_pagamento=oggi,
-                        note="Pagamento sollecitato"
+                    contract_repo.pay_rate(
+                        rate_id=rata['id'],
+                        amount_paid=importo_da_pagare,
+                        payment_method="Contanti",
+                        payment_date=oggi,
+                        notes="Pagamento sollecitato"
                     )
                     st.success(f"✅ €{importo_da_pagare:.0f} registrato! Movimento inserito in fondo alla pagina.")
                     st.balloons()
@@ -363,12 +355,12 @@ with tab2:
             with col:
                 importo_da_pagare = rata['importo_previsto'] - rata.get('importo_saldato', 0)
                 if st.button(f"✅ {rata['nome']}", key=f"paga_pend_{rata['id']}", use_container_width=True):
-                    db.paga_rata_specifica(
-                        id_rata=rata['id'],
-                        importo_versato=importo_da_pagare,
-                        metodo="Contanti",
-                        data_pagamento=oggi,
-                        note="Pagamento anticipato"
+                    contract_repo.pay_rate(
+                        rate_id=rata['id'],
+                        amount_paid=importo_da_pagare,
+                        payment_method="Contanti",
+                        payment_date=oggi,
+                        notes="Pagamento anticipato"
                     )
                     st.success(f"✅ €{importo_da_pagare:.0f} registrato! Movimento inserito in fondo alla pagina.")
                     st.balloons()
@@ -433,14 +425,16 @@ with col_spesa:
         if st.form_submit_button("💾 Salva Spesa", type="primary", use_container_width=True):
             if importo_spesa > 0 and not categoria_sel.startswith("────"):
                 try:
-                    db.registra_spesa(
+                    movimento = MovimentoCassaCreate(
+                        data_effettiva=data_spesa,
+                        tipo="USCITA",
                         categoria=categoria_finale,
                         importo=importo_spesa,
                         metodo="Bonifico",
-                        data_pagamento=data_spesa,
-                        note=note_spesa,
-                        id_spesa_ricorrente=id_spesa_ricorrente  # Collegamento diretto
+                        id_spesa_ricorrente=id_spesa_ricorrente,
+                        note=note_spesa
                     )
+                    financial_repo.register_cash_movement(movimento)
                     st.success(f"✅ Spesa €{importo_spesa:.0f} registrata! Controlla lo storico movimenti sotto.")
                     st.balloons()
                     st.rerun()
@@ -466,7 +460,8 @@ with col_entrata:
             data_entrata = st.date_input("Data", value=oggi, key="data_entrata")
             
             # Cliente opzionale
-            clienti_attivi = db.get_clienti_attivi()
+            clienti_attivi_raw = client_repo.get_all_active()
+            clienti_attivi = [{'id': c.id, 'nome': c.nome, 'cognome': c.cognome} for c in clienti_attivi_raw]
             opzioni_clienti = ["--Nessun cliente--"] + [f"{c['nome']} {c['cognome']}" for c in clienti_attivi]
             cliente_sel = st.selectbox("Cliente (opz.)", opzioni_clienti, key="cli_entrata")
             
@@ -480,14 +475,16 @@ with col_entrata:
                     idx_sel = opzioni_clienti.index(cliente_sel) - 1
                     id_cliente_entrata = clienti_attivi[idx_sel]['id']
                 
-                db.registra_entrata_spot(
+                movimento = MovimentoCassaCreate(
+                    data_effettiva=data_entrata,
+                    tipo="ENTRATA",
                     categoria=categoria_entrata,
                     importo=importo_entrata,
                     metodo="Contanti",
-                    data_pagamento=data_entrata,
                     id_cliente=id_cliente_entrata,
                     note=note_entrata
                 )
+                financial_repo.register_cash_movement(movimento)
                 st.success(f"✅ Entrata €{importo_entrata:.0f} registrata! Controlla lo storico movimenti sotto.")
                 st.balloons()
                 st.rerun()
@@ -514,14 +511,16 @@ with st.expander("📊 Spese Fisse Mensili", expanded=False):
                     
                     if st.button(f"💳 Paga Ora", key=f"quick_paga_{spesa['id']}", use_container_width=True, type="primary"):
                         try:
-                            db.registra_spesa(
+                            movimento = MovimentoCassaCreate(
+                                data_effettiva=oggi,
+                                tipo="USCITA",
                                 categoria=spesa['categoria'],
                                 importo=spesa['importo'],
                                 metodo="Bonifico",
-                                data_pagamento=oggi,
-                                note=f"Pagamento {spesa['nome']} - {oggi.strftime('%B %Y')}",
-                                id_spesa_ricorrente=spesa['id']
+                                id_spesa_ricorrente=spesa['id'],
+                                note=f"Pagamento {spesa['nome']} - {oggi.strftime('%B %Y')}"
                             )
+                            financial_repo.register_cash_movement(movimento)
                             st.success(f"✅ {spesa['nome']} pagata!")
                             st.rerun()
                         except Exception as e:
@@ -617,7 +616,14 @@ with st.expander("📊 Spese Fisse Mensili", expanded=False):
             
             if st.form_submit_button("💾 Salva", type="primary"):
                 if nome_sf and importo_sf > 0:
-                    db.add_spesa_ricorrente(nome_sf, categoria_sf, importo_sf, "MENSILE", giorno_sf)
+                    new_expense = SpesaRicorrenteCreate(
+                        nome=nome_sf,
+                        categoria=categoria_sf,
+                        importo=importo_sf,
+                        frequenza="MENSILE",
+                        giorno_scadenza=giorno_sf
+                    )
+                    financial_repo.add_recurring_expense(new_expense)
                     st.success(f"✅ {nome_sf} aggiunto!")
                     st.rerun()
 
@@ -663,10 +669,10 @@ for i in range(5, -1, -1):
     ultimo = date(mese_calc.year, mese_calc.month, ultimo_g)
     
     # FLUSSO DI CASSA DEL MESE (quanto è entrato/uscito in quel mese)
-    bil_mese = db.get_bilancio_cassa(primo, ultimo)
+    bil_mese = financial_repo.get_cash_balance(primo, ultimo)
     
     # SALDO TOTALE ALLA FINE DEL MESE (tutto dall'inizio dei tempi fino a ultimo giorno del mese)
-    saldo_cumulativo = db.get_bilancio_cassa(data_fine=ultimo)
+    saldo_cumulativo = financial_repo.get_cash_balance(end_date=ultimo)
     
     mesi_dati.append({
         'Mese': primo.strftime('%b %Y'),
@@ -774,7 +780,8 @@ with col_f3:
 
 with col_f4:
     # Carica lista clienti per filtro
-    clienti_attivi = db.get_clienti_attivi()
+    clienti_attivi_raw = client_repo.get_all_active()
+    clienti_attivi = [{'id': c.id, 'nome': c.nome, 'cognome': c.cognome} for c in clienti_attivi_raw]
     opzioni_clienti = ["Tutti i clienti"] + [f"{c['nome']} {c['cognome']}" for c in clienti_attivi]
     filtro_cliente = st.selectbox(
         "Cliente",
@@ -787,10 +794,7 @@ col_f5, col_f6, col_f7, col_f8 = st.columns([1.5, 2, 1.5, 1])
 
 with col_f5:
     # Recupera categorie esistenti dinamicamente
-    with db._connect() as conn:
-        categorie_esistenti = [r[0] for r in conn.execute(
-            "SELECT DISTINCT categoria FROM movimenti_cassa ORDER BY categoria"
-        ).fetchall()]
+    categorie_esistenti = financial_repo.get_movement_categories()
     
     opzioni_categorie = ["Tutte le categorie"] + categorie_esistenti
     filtro_categoria = st.selectbox(
@@ -822,7 +826,7 @@ with col_f8:
     )
 
 # ═══ COSTRUZIONE QUERY DINAMICA ═══
-with db._connect() as conn:
+with financial_repo.get_connection() as conn:
     query = """
         SELECT data_movimento, data_effettiva, tipo, categoria, importo, note, id_cliente, id
         FROM movimenti_cassa
@@ -891,13 +895,9 @@ if movimenti:
         # Cliente info
         cliente_info = "-"
         if m.get('id_cliente'):
-            with db._connect() as conn:
-                cliente = conn.execute(
-                    "SELECT nome, cognome FROM clienti WHERE id=?",
-                    (m['id_cliente'],)
-                ).fetchone()
-                if cliente:
-                    cliente_info = f"{cliente['nome']} {cliente['cognome']}"
+            cliente_obj = client_repo.get_by_id(m['id_cliente'])
+            if cliente_obj:
+                cliente_info = f"{cliente_obj.nome} {cliente_obj.cognome}"
         
         # Parsea data_movimento per estrarre ora
         data_mov_str = m['data_movimento']
@@ -992,13 +992,9 @@ if movimenti:
         # Recupera cliente se presente
         cliente_nome = "-"
         if movimento_dettaglio.get('id_cliente'):
-            with db._connect() as conn:
-                cliente = conn.execute(
-                    "SELECT nome, cognome FROM clienti WHERE id=?",
-                    (movimento_dettaglio['id_cliente'],)
-                ).fetchone()
-                if cliente:
-                    cliente_nome = f"{cliente['nome']} {cliente['cognome']}"
+            cliente_obj = client_repo.get_by_id(movimento_dettaglio['id_cliente'])
+            if cliente_obj:
+                cliente_nome = f"{cliente_obj.nome} {cliente_obj.cognome}"
         
         # Box dettagli con stile
         tipo_icon = "💵" if movimento_dettaglio['tipo'] == 'ENTRATA' else "💸"
@@ -1078,10 +1074,7 @@ if movimenti:
                 
                 with edit_col2:
                     # Categoria
-                    with db._connect() as conn:
-                        categorie_esistenti = [r[0] for r in conn.execute(
-                            "SELECT DISTINCT categoria FROM movimenti_cassa ORDER BY categoria"
-                        ).fetchall()]
+                    categorie_esistenti = financial_repo.get_movement_categories()
                     
                     cat_idx = categorie_esistenti.index(movimento_dettaglio['categoria']) if movimento_dettaglio['categoria'] in categorie_esistenti else 0
                     nuova_categoria = st.selectbox(
@@ -1116,7 +1109,7 @@ if movimenti:
                 
                 if salva_btn:
                     # Esegui UPDATE
-                    with db._connect() as conn:
+                    with financial_repo.get_connection() as conn:
                         conn.execute("""
                             UPDATE movimenti_cassa
                             SET data_effettiva = ?,
@@ -1174,7 +1167,7 @@ if movimenti:
                     disabled=not conferma_eliminazione
                 ):
                     # Esegui DELETE
-                    with db._connect() as conn:
+                    with financial_repo.get_connection() as conn:
                         conn.execute(
                             "DELETE FROM movimenti_cassa WHERE id = ?",
                             (movimento_dettaglio['id'],)
