@@ -10,6 +10,14 @@ import pandas as pd
 import json
 from contextlib import contextmanager
 
+# FASE 2 REFACTORING: Import dei Repository Pattern
+from core.repositories import (
+    ClientRepository,
+    ContractRepository,
+    FinancialRepository,
+    AgendaRepository
+)
+
 # Percorso DB
 DB_FILE = Path(__file__).resolve().parents[1] / "data" / "crm.db"
 
@@ -27,10 +35,31 @@ CATEGORIA_RIMBORSO = "RIMBORSI"
 CATEGORIA_ALTRO = "ALTRO"
 
 class CrmDBManager:
+    """
+    CRM Database Manager - FASE 2: Facade Pattern
+    
+    ARCHITETTURA:
+    - Questa classe ora funge da FACADE per i nuovi Repository Pattern
+    - I metodi migrati delegano alle rispettive repository classes
+    - Metodi legacy (SQL raw) marcati con # TODO: Migrate to repository
+    
+    REPOSITORY ISTANZIATI:
+    - client_repo: ClientRepository (gestione clienti, anamnesi)
+    - contract_repo: ContractRepository (contratti, rate programmate)
+    - financial_repo: FinancialRepository (movimenti cassa, spese ricorrenti)
+    - agenda_repo: AgendaRepository (eventi, sessioni, conferme)
+    """
+    
     def __init__(self, db_path: str | Path = DB_FILE):
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(exist_ok=True)
         self._init_schema()
+        
+        # FASE 2: Istanzia i repository pattern
+        self.client_repo = ClientRepository(db_path=self.db_path)
+        self.contract_repo = ContractRepository(db_path=self.db_path)
+        self.financial_repo = FinancialRepository(db_path=self.db_path)
+        self.agenda_repo = AgendaRepository(db_path=self.db_path)
 
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path)
@@ -440,10 +469,11 @@ class CrmDBManager:
             return id_contr
 
     def delete_contratto(self, id_contratto):
-        with self.transaction() as cur:
-            cur.execute("DELETE FROM movimenti_cassa WHERE id_contratto=?", (id_contratto,))
-            cur.execute("DELETE FROM rate_programmate WHERE id_contratto=?", (id_contratto,))
-            cur.execute("DELETE FROM contratti WHERE id=?", (id_contratto,))
+        """
+        FASE 2 FACADE: Delega a ContractRepository
+        Elimina contratto + rate + movimenti cassa associati (CASCADE)
+        """
+        self.contract_repo.delete_contract(id_contratto)
 
     def update_contratto_dettagli(self, id_contratto, nuovo_prezzo, nuovi_crediti, nuova_scadenza):
         with self.transaction() as cur: cur.execute("UPDATE contratti SET prezzo_totale=?, crediti_totali=?, data_scadenza=? WHERE id=?", (nuovo_prezzo, nuovi_crediti, nuova_scadenza, id_contratto))
@@ -464,7 +494,11 @@ class CrmDBManager:
                 cur.execute("INSERT INTO rate_programmate (id_contratto, data_scadenza, importo_previsto, descrizione) VALUES (?, ?, ?, ?)", (id_contratto, scadenza, importo_rata, desc))
 
     def get_rate_contratto(self, id_contratto):
-        with self._connect() as conn: return [dict(r) for r in conn.execute("SELECT * FROM rate_programmate WHERE id_contratto=? ORDER BY data_scadenza", (id_contratto,)).fetchall()]
+        """
+        FASE 2 FACADE: Delega a ContractRepository
+        """ 
+        rates = self.contract_repo.get_rates_by_contract(id_contratto)
+        return [rate.model_dump() for rate in rates] if rates else []
 
     def update_rata_programmata(self, id_rata, data_scadenza, importo, descrizione):
         with self.transaction() as cur: cur.execute("UPDATE rate_programmate SET data_scadenza=?, importo_previsto=?, descrizione=? WHERE id=?", (data_scadenza, importo, descrizione, id_rata))
@@ -473,7 +507,10 @@ class CrmDBManager:
         with self.transaction() as cur: cur.execute("INSERT INTO rate_programmate (id_contratto, data_scadenza, importo_previsto, descrizione) VALUES (?, ?, ?, ?)", (id_contratto, data_scadenza, importo, descrizione))
 
     def elimina_rata(self, id_rata):
-        with self.transaction() as cur: cur.execute("DELETE FROM rate_programmate WHERE id=?", (id_rata,))
+        """
+        FASE 2 FACADE: Delega a ContractRepository
+        """
+        self.contract_repo.delete_rate(id_rata)
 
     def paga_rata_specifica(self, id_rata, importo_versato, metodo, data_pagamento, note=""):
         """Paga rata programmata con validazione completa
@@ -914,20 +951,10 @@ class CrmDBManager:
 
     def get_rate_scadute(self):
         """
+        FASE 2 FACADE: Delega a ContractRepository
         Ritorna rate SCADUTE e non ancora saldate (da sollecitare).
         """
-        with self._connect() as conn:
-            oggi = date.today()
-            query = """
-                SELECT rp.*, c.id_cliente, c.tipo_pacchetto, cl.nome, cl.cognome
-                FROM rate_programmate rp
-                JOIN contratti c ON rp.id_contratto = c.id
-                JOIN clienti cl ON c.id_cliente = cl.id
-                WHERE rp.stato != 'SALDATA'
-                AND rp.data_scadenza < ?
-                ORDER BY rp.data_scadenza ASC
-            """
-            return [dict(r) for r in conn.execute(query, (oggi,)).fetchall()]
+        return self.contract_repo.get_overdue_rates()
     
     def get_spese_ricorrenti_prossime(self, giorni_futuri=30):
         """
@@ -1039,42 +1066,21 @@ class CrmDBManager:
                 VALUES (?,?,?,?,?,?)
             """, (nome, categoria, importo, frequenza, giorno_scadenza, data_prossima))
     def get_spese_ricorrenti(self):
-        with self._connect() as conn: return [dict(r) for r in conn.execute("SELECT * FROM spese_ricorrenti WHERE attiva=1").fetchall()]
+        """
+        FASE 2 FACADE: Delega a FinancialRepository
+        """
+        expenses = self.financial_repo.get_recurring_expenses(only_active=True)
+        return [exp.model_dump() for exp in expenses] if expenses else []
     
     def get_spese_fisse_non_pagate(self, mese=None):
         """
-        Ritorna spese fisse scadute e non ancora pagate correttamente nel mese specificato.
+        FASE 2 FACADE: Delega a FinancialRepository
         
         Una spesa fissa è considerata "non pagata" se:
         1. Non esiste un movimento collegato nel mese, OPPURE
         2. Esiste un movimento ma l'importo NON corrisponde (diff > 0.01€)
-        
-        Questo permette di rilevare modifiche post-registrazione.
         """
-        if mese is None:
-            mese = date.today()
-        
-        anno_mese = mese.strftime('%Y-%m')
-        giorno_oggi = mese.day
-        
-        with self._connect() as conn:
-            query = """
-                SELECT sf.*, 
-                       mc.id as movimento_id,
-                       mc.importo as importo_pagato
-                FROM spese_ricorrenti sf
-                LEFT JOIN movimenti_cassa mc 
-                    ON sf.id = mc.id_spesa_ricorrente
-                    AND strftime('%Y-%m', mc.data_effettiva) = ?
-                WHERE sf.attiva = 1
-                  AND sf.giorno_scadenza <= ?
-                  AND (
-                      mc.id IS NULL OR                           -- Non esiste movimento
-                      ABS(mc.importo - sf.importo) > 0.01        -- Importo non corrisponde (tolleranza 1 centesimo)
-                  )
-                ORDER BY sf.giorno_scadenza ASC
-            """
-            return [dict(r) for r in conn.execute(query, (anno_mese, giorno_oggi)).fetchall()]
+        return self.financial_repo.get_unpaid_fixed_expenses(month=mese)
 
     def get_storico_pagamenti_cliente(self, id_cliente):
         """Ritorna tutti i movimenti di cassa associati a un cliente specifico"""
@@ -1094,15 +1100,31 @@ class CrmDBManager:
     def get_clienti_df(self):
         with self._connect() as conn: return pd.read_sql("SELECT id, nome, cognome, telefono, email, stato FROM clienti ORDER BY cognome", conn)
     def get_clienti_attivi(self):
-        with self._connect() as conn: return [dict(r) for r in conn.execute("SELECT id, nome, cognome FROM clienti WHERE stato='Attivo' ORDER BY cognome").fetchall()]
+        """
+        FASE 2 FACADE: Delega a ClientRepository
+        """
+        clients = self.client_repo.get_all_active()
+        return [{'id': c.id, 'nome': c.nome, 'cognome': c.cognome} for c in clients] if clients else []
+    
     def get_cliente_full(self, id_cliente):
+        """
+        FASE 2 FACADE: Delega a ClientRepository
+        """
+        cliente = self.client_repo.get_by_id(id_cliente)
+        if not cliente:
+            return None
+        
+        res = cliente.model_dump()
+        
+        # Get active contract for lezioni_residue (TODO: move to ContractRepository)
         with self._connect() as conn:
-            cli = conn.execute("SELECT * FROM clienti WHERE id=?", (id_cliente,)).fetchone()
-            if not cli: return None
-            res = dict(cli)
-            contratto = conn.execute("SELECT * FROM contratti WHERE id_cliente=? AND chiuso=0 ORDER BY data_inizio DESC LIMIT 1", (id_cliente,)).fetchone()
+            contratto = conn.execute(
+                "SELECT * FROM contratti WHERE id_cliente=? AND chiuso=0 ORDER BY data_inizio DESC LIMIT 1", 
+                (id_cliente,)
+            ).fetchone()
             res['lezioni_residue'] = (contratto['crediti_totali'] - contratto['crediti_usati']) if contratto else 0
-            return res
+        
+        return res
     def get_cliente_financial_history(self, id_cliente):
         with self._connect() as conn:
             contratti = conn.execute("SELECT * FROM contratti WHERE id_cliente=? ORDER BY data_vendita DESC", (id_cliente,)).fetchall()
@@ -1115,11 +1137,38 @@ class CrmDBManager:
 
     # --- SAVE ---
     def save_cliente(self, dati, id_cliente=None):
-        anamnesi = json.dumps(dati.get('anamnesi', {}))
-        p = (dati.get('nome'), dati.get('cognome'), dati.get('telefono',''), dati.get('email',''), dati.get('data_nascita'), dati.get('sesso','Uomo'), anamnesi, dati.get('stato','Attivo'))
-        with self.transaction() as cur:
-            if id_cliente: cur.execute("UPDATE clienti SET nome=?, cognome=?, telefono=?, email=?, data_nascita=?, sesso=?, anamnesi_json=?, stato=? WHERE id=?", (*p, id_cliente))
-            else: cur.execute("INSERT INTO clienti (nome, cognome, telefono, email, data_nascita, sesso, anamnesi_json, stato) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", p)
+        """
+        FASE 2 FACADE: Delega a ClientRepository
+        
+        Se id_cliente presente: UPDATE
+        Altrimenti: CREATE
+        """
+        from core.models import ClienteCreate, ClienteUpdate
+        
+        if id_cliente:
+            # UPDATE: usa ClienteUpdate (solo campi non-None vengono aggiornati)
+            update_data = ClienteUpdate(
+                nome=dati.get('nome'),
+                cognome=dati.get('cognome'),
+                telefono=dati.get('telefono') if dati.get('telefono') else None,
+                email=dati.get('email') if dati.get('email') else None,
+                data_nascita=dati.get('data_nascita'),
+                sesso=dati.get('sesso'),
+                anamnesi=dati.get('anamnesi', {})
+            )
+            return self.client_repo.update(id_cliente, update_data)
+        else:
+            # CREATE: usa ClienteCreate
+            new_cliente = ClienteCreate(
+                nome=dati.get('nome'),
+                cognome=dati.get('cognome'),
+                telefono=dati.get('telefono') or '',
+                email=dati.get('email') or '',
+                data_nascita=dati.get('data_nascita'),
+                sesso=dati.get('sesso', 'Uomo'),
+                anamnesi=dati.get('anamnesi', {})
+            )
+            return self.client_repo.create(new_cliente)
 
     # --- AGENDA ---
     def add_evento(self, start, end, categoria, titolo, id_cliente=None, note=""):
@@ -1141,7 +1190,33 @@ class CrmDBManager:
     def confirm_evento(self, id_ev):
         with self._connect() as conn: conn.execute("UPDATE agenda SET stato='Completato' WHERE id=?", (id_ev,)); conn.commit()
     def get_agenda_range(self, start, end):
-        with self._connect() as conn: return [dict(r) for r in conn.execute("SELECT a.*, c.nome, c.cognome FROM agenda a LEFT JOIN clienti c ON a.id_cliente=c.id WHERE date(a.data_inizio) BETWEEN ? AND ?", (start, end)).fetchall()]
+        """
+        FASE 2 FACADE: Delega a AgendaRepository
+        """
+        events = self.agenda_repo.get_events_by_range(start, end)
+        if not events:
+            return []
+        
+        # Convert Pydantic to dict for backwards compatibility
+        # Include client names via separate lookup (repository returns Sessione without nome/cognome)
+        from core.repositories import ClientRepository
+        client_repo = ClientRepository(db_path=self.db_path)
+        all_clients = client_repo.get_all_active()
+        client_map = {c.id: {'nome': c.nome, 'cognome': c.cognome} for c in all_clients}
+        
+        result = []
+        for e in events:
+            event_dict = e.model_dump()
+            # Add client nome/cognome if event has id_cliente
+            if e.id_cliente and e.id_cliente in client_map:
+                event_dict['nome'] = client_map[e.id_cliente]['nome']
+                event_dict['cognome'] = client_map[e.id_cliente]['cognome']
+            else:
+                event_dict['nome'] = None
+                event_dict['cognome'] = None
+            result.append(event_dict)
+        
+        return result
     def get_storico_lezioni_cliente(self, id_cliente):
         with self._connect() as conn: return [dict(r) for r in conn.execute("SELECT a.*, c.tipo_pacchetto FROM agenda a LEFT JOIN contratti c ON a.id_contratto=c.id WHERE a.id_cliente=? ORDER BY a.data_inizio DESC", (id_cliente,)).fetchall()]
     def registra_rata(self, id_contratto, importo, metodo, data_pagamento=None, note=""):

@@ -17,6 +17,8 @@ from typing import Optional, Dict, Any
 from datetime import date, datetime
 import json
 
+from core.error_handler import logger
+
 # Database file path (default)
 DB_FILE = Path(__file__).resolve().parents[2] / "data" / "crm.db"
 
@@ -64,8 +66,11 @@ class BaseRepository:
         - Row factory: accesso colonne per nome
         - Foreign keys enforced
         - Auto commit on success
-        - Auto rollback on exception
+        - Auto rollback on exception (con logging)
         - Auto close connection
+        
+        ROLLBACK AUTOMATICO: Su qualsiasi Exception durante yield, esegue rollback
+        e propaga l'eccezione al decoratore @safe_operation del metodo chiamante.
         
         Usage:
             with self._connect() as conn:
@@ -80,9 +85,10 @@ class BaseRepository:
         try:
             yield conn
             conn.commit()
-        except Exception:
+        except Exception as e:
             conn.rollback()
-            raise
+            logger.error(f"🔄 DB Transaction rollback: {type(e).__name__} - {str(e)[:100]}")
+            raise  # Re-raise per @safe_operation decorator
         finally:
             conn.close()
     
