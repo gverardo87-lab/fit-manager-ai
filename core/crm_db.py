@@ -1139,7 +1139,7 @@ class CrmDBManager:
             if row and row['id_contratto']: cur.execute("UPDATE contratti SET crediti_usati = crediti_usati - 1 WHERE id=?", (row['id_contratto'],))
             cur.execute("DELETE FROM agenda WHERE id=?", (id_ev,))
     def confirm_evento(self, id_ev):
-        with self._connect() as conn: conn.execute("UPDATE agenda SET stato='Fatto' WHERE id=?", (id_ev,)); conn.commit()
+        with self._connect() as conn: conn.execute("UPDATE agenda SET stato='Completato' WHERE id=?", (id_ev,)); conn.commit()
     def get_agenda_range(self, start, end):
         with self._connect() as conn: return [dict(r) for r in conn.execute("SELECT a.*, c.nome, c.cognome FROM agenda a LEFT JOIN clienti c ON a.id_cliente=c.id WHERE date(a.data_inizio) BETWEEN ? AND ?", (start, end)).fetchall()]
     def get_storico_lezioni_cliente(self, id_cliente):

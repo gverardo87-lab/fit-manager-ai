@@ -262,13 +262,23 @@ class SpesaRicorrente(SpesaRicorrenteBase):
 
 class SessioneBase(BaseModel):
     """Base model per Sessione Allenamento"""
-    id_cliente: int = Field(gt=0)
+    id_cliente: Optional[int] = Field(None, gt=0)  # Optional per eventi generici (SALA, CONSULENZA, CORSO)
     data_inizio: datetime
     data_fine: datetime
-    categoria: str = Field(pattern="^(PT|Sala|Nuoto|Yoga|Nutritionist)$")
+    categoria: str  # Validato e normalizzato da field_validator
     titolo: str = Field(min_length=1, max_length=200)
     stato: str = Field(default="Programmato", pattern="^(Programmato|Completato|Cancellato|Rinviato)$")
     note: Optional[str] = Field(None, max_length=500)
+    
+    @field_validator('categoria')
+    @classmethod
+    def validate_categoria(cls, v: str) -> str:
+        """Normalizza e valida categoria (case-insensitive)"""
+        categorie_valide = ["PT", "SALA", "NUOTO", "YOGA", "CONSULENZA", "CORSO"]
+        v_upper = v.upper()
+        if v_upper not in categorie_valide:
+            raise ValueError(f'Categoria deve essere una tra: {", ".join(categorie_valide)}')
+        return v_upper
     
     @field_validator('data_fine')
     @classmethod

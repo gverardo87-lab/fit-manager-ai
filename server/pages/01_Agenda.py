@@ -177,15 +177,20 @@ today = date.today()
 # Extended range to include past events (last 120 days + future 180 days)
 events_raw = agenda_repo.get_events_by_range(today - timedelta(days=120), today + timedelta(days=180))
 
+# Load all active clients for name lookups
+all_clients = client_repo.get_all_active()
+client_names = {c.id: f"{c.nome} {c.cognome}" for c in all_clients}
+
 # Convert Pydantic models to dicts for calendar
 events_data = [{
     'id': e.id,
-    'data_inizio': e.data_inizio,
-    'data_fine': e.data_fine,
+    'data_inizio': e.data_inizio.strftime('%Y-%m-%d %H:%M:%S'),
+    'data_fine': e.data_fine.strftime('%Y-%m-%d %H:%M:%S'),
     'categoria': e.categoria,
     'titolo': e.titolo,
     'id_cliente': e.id_cliente,
-    'stato': e.stato
+    'stato': e.stato,
+    'cliente_nome': client_names.get(e.id_cliente) if e.id_cliente else None
 } for e in events_raw]
 
 calendar_events = []
@@ -203,14 +208,14 @@ for ev in events_data:
     status = ev['stato']
     
     bg = "#95a5a6"
-    if status == 'Fatto': bg = "#2ecc71"
+    if status == 'Completato': bg = "#2ecc71"
     elif 'PT' in cat: bg = "#3498db"
     elif 'SALA' in cat: bg = "#f1c40f"
     elif 'CONSULENZA' in cat: bg = "#9b59b6"
     elif 'CORSO' in cat: bg = "#e67e22"
 
-    title_text = f"{ev['titolo']}"
-    if ev['nome']: title_text = f"{ev['nome']} {ev['cognome']}"
+    # Use cliente_nome if available, otherwise use titolo
+    title_text = ev['cliente_nome'] if ev.get('cliente_nome') else ev['titolo']
     
     icon_map = {"PT": "🏋️", "SALA": "🏢", "CONSULENZA": "🤝", "CORSO": "🧘"}
     icon = ""
@@ -230,8 +235,9 @@ for ev in events_data:
         "borderColor": bg,
         "textColor": "#ffffff" if 'SALA' not in cat else "#2c3e50",
         "extendedProps": {
-            "stato": status, "categoria": cat,
-            "cliente": f"{ev['nome']} {ev['cognome']}" if ev['nome'] else None
+            "stato": status, 
+            "categoria": cat,
+            "cliente": ev.get('cliente_nome')
         }
     })
 

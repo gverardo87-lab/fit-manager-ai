@@ -177,7 +177,7 @@ class AgendaRepository(BaseRepository):
             id: ID evento da eliminare
         
         NOTE:
-            - Se evento='Fatto' con contratto, decrementa crediti_usati (ripristino)
+            - Se evento='Completato' con contratto, decrementa crediti_usati (ripristino)
             - Se evento='Programmato', non tocca crediti (non erano stati consumati)
         """
         with self._connect() as conn:
@@ -187,8 +187,8 @@ class AgendaRepository(BaseRepository):
             cursor.execute("SELECT id_contratto, stato FROM agenda WHERE id = ?", (id,))
             row = cursor.fetchone()
             
-            # Restore credits only if event was completed ('Fatto')
-            if row and row['id_contratto'] and row['stato'] == 'Fatto':
+            # Restore credits only if event was completed ('Completato')
+            if row and row['id_contratto'] and row['stato'] == 'Completato':
                 cursor.execute("""
                     UPDATE contratti 
                     SET crediti_usati = crediti_usati - 1 
@@ -258,7 +258,7 @@ class AgendaRepository(BaseRepository):
     )
     def confirm_event(self, id: int) -> None:
         """
-        Conferma evento (imposta stato='Fatto').
+        Conferma evento (imposta stato='Completato').
         
         Args:
             id: ID evento da confermare
@@ -278,10 +278,10 @@ class AgendaRepository(BaseRepository):
             if not row:
                 return
             
-            # Update event status to 'Fatto'
+            # Update event status to 'Completato'
             cursor.execute("""
                 UPDATE agenda 
-                SET stato = 'Fatto' 
+                SET stato = 'Completato' 
                 WHERE id = ?
             """, (id,))
             
