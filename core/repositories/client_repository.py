@@ -120,6 +120,12 @@ class ClientRepository(BaseRepository):
             
             client_dict = self._row_to_dict(row)
             
+            # Sanitize empty strings to None for backward compatibility with old data
+            if client_dict.get('telefono') == '':
+                client_dict['telefono'] = None
+            if client_dict.get('email') == '':
+                client_dict['email'] = None
+            
             # Calculate lezioni_residue from active contract
             cursor.execute("""
                 SELECT crediti_totali, crediti_usati 
@@ -173,6 +179,12 @@ class ClientRepository(BaseRepository):
             
             for row in rows:
                 client_dict = self._row_to_dict(row)
+                
+                # Sanitize empty strings to None for backward compatibility with old data
+                if client_dict.get('telefono') == '':
+                    client_dict['telefono'] = None
+                if client_dict.get('email') == '':
+                    client_dict['email'] = None
                 
                 # Ensure data_creazione exists
                 if not client_dict.get('data_creazione'):

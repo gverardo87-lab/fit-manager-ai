@@ -273,6 +273,11 @@ class AgendaRepository(BaseRepository):
         """
         with self._connect() as conn:
             cursor = conn.cursor()
+            
+            # Fetch event data first to check for contract
+            cursor.execute("SELECT * FROM agenda WHERE id = ?", (id,))
+            row = cursor.fetchone()
+            
             cursor.execute("""
                 UPDATE agenda 
                 SET stato = 'Fatto' 

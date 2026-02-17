@@ -17,16 +17,28 @@ class ClienteBase(BaseModel):
     """Base model per Cliente (senza ID)"""
     nome: str = Field(min_length=1, max_length=100)
     cognome: str = Field(min_length=1, max_length=100)
-    telefono: Optional[str] = Field(None, pattern=r"^[+]?[0-9\s\-()]{6,20}$")
+    telefono: Optional[str] = None  # Pattern validation moved to validator for backward compatibility
     email: Optional[str] = None
     data_nascita: Optional[date] = None
     sesso: Optional[str] = Field(None, pattern="^(Uomo|Donna|Altro)$")
     
+    @field_validator('telefono')
+    @classmethod
+    def validate_telefono(cls, v: Optional[str]) -> Optional[str]:
+        """Convert empty string to None for backward compatibility with old data"""
+        if v is None or v == '':
+            return None
+        # Validate pattern only if value is provided
+        if not re.match(r"^[+]?[0-9\s\-()]{6,20}$", v):
+            raise ValueError('Telefono non valido')
+        return v
+    
     @field_validator('email')
     @classmethod
     def validate_email(cls, v: Optional[str]) -> Optional[str]:
-        if v is None:
-            return v
+        """Convert empty string to None for backward compatibility with old data"""
+        if v is None or v == '':
+            return None
         if '@' not in v or '.' not in v:
             raise ValueError('Email non valida')
         return v.lower()

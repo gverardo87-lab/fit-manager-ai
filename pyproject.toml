@@ -31,6 +31,8 @@ dependencies = [
     "feedparser",
     "streamlit-calendar", # <--- NUOVA DIPENDENZA FONDAMENTALE
     "watchdog",           # <--- Per gestione file system
+    "pydantic==2.7.4",    # <--- REPOSITORY PATTERN (FASE 2)
+    "python-dateutil",    # <--- Dependency per repository pattern
 
     # --- LANGCHAIN ECOSYSTEM (AI Logic) ---
     "langchain==0.2.5",

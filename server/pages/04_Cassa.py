@@ -1076,7 +1076,8 @@ if movimenti:
                     # Categoria
                     categorie_esistenti = financial_repo.get_movement_categories()
                     
-                    cat_idx = categorie_esistenti.index(movimento_dettaglio['categoria']) if movimento_dettaglio['categoria'] in categorie_esistenti else 0
+                    categoria_attuale = movimento_dettaglio.get('categoria', '')
+                    cat_idx = categorie_esistenti.index(categoria_attuale) if categoria_attuale in categorie_esistenti else 0
                     nuova_categoria = st.selectbox(
                         "Categoria",
                         categorie_esistenti,
