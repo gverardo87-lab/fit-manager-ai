@@ -5,8 +5,9 @@ Garantisce che TUTTI i dati in input siano corretti prima di andare nel DB.
 """
 
 from pydantic import BaseModel, Field, field_validator, EmailStr
-from datetime import date, datetime
-from typing import Optional, List
+from datetime import date, datetime, timedelta
+from typing import Optional, List, Any
+import json
 import re
 
 # ============================================================================
@@ -373,3 +374,185 @@ class AppConfig(BaseModel):
     
     class Config:
         frozen = True  # Immutable config
+
+# ============================================================================
+# ASSESSMENT MODELS
+# ============================================================================
+
+class AssessmentInitialCreate(BaseModel):
+    """Model per creazione assessment iniziale"""
+    id_cliente: int = Field(gt=0)
+    data_assessment: date = Field(default_factory=date.today)
+
+    # Antropometria
+    altezza_cm: Optional[float] = Field(None, ge=100, le=250)
+    peso_kg: Optional[float] = Field(None, ge=20, le=300)
+    massa_grassa_pct: Optional[float] = Field(None, ge=0, le=60)
+
+    # Circonferenze
+    circonferenza_petto_cm: Optional[float] = Field(None, ge=0, le=200)
+    circonferenza_vita_cm: Optional[float] = Field(None, ge=0, le=200)
+    circonferenza_bicipite_sx_cm: Optional[float] = Field(None, ge=0, le=100)
+    circonferenza_bicipite_dx_cm: Optional[float] = Field(None, ge=0, le=100)
+    circonferenza_fianchi_cm: Optional[float] = Field(None, ge=0, le=200)
+    circonferenza_quadricipite_sx_cm: Optional[float] = Field(None, ge=0, le=100)
+    circonferenza_quadricipite_dx_cm: Optional[float] = Field(None, ge=0, le=100)
+    circonferenza_coscia_sx_cm: Optional[float] = Field(None, ge=0, le=100)
+    circonferenza_coscia_dx_cm: Optional[float] = Field(None, ge=0, le=100)
+
+    # Test forza
+    pushups_reps: Optional[int] = Field(None, ge=0)
+    pushups_note: Optional[str] = None
+    panca_peso_kg: Optional[float] = Field(None, ge=0)
+    panca_reps: Optional[int] = Field(None, ge=0)
+    panca_note: Optional[str] = None
+    rematore_peso_kg: Optional[float] = Field(None, ge=0)
+    rematore_reps: Optional[int] = Field(None, ge=0)
+    rematore_note: Optional[str] = None
+    lat_machine_peso_kg: Optional[float] = Field(None, ge=0)
+    lat_machine_reps: Optional[int] = Field(None, ge=0)
+    lat_machine_note: Optional[str] = None
+    squat_bastone_note: Optional[str] = None
+    squat_macchina_peso_kg: Optional[float] = Field(None, ge=0)
+    squat_macchina_reps: Optional[int] = Field(None, ge=0)
+    squat_macchina_note: Optional[str] = None
+
+    # Mobilita
+    mobilita_spalle_note: Optional[str] = None
+    mobilita_gomiti_note: Optional[str] = None
+    mobilita_polsi_note: Optional[str] = None
+    mobilita_anche_note: Optional[str] = None
+    mobilita_schiena_note: Optional[str] = None
+
+    # Anamnesi
+    infortuni_pregessi: Optional[str] = None
+    infortuni_attuali: Optional[str] = None
+    limitazioni: Optional[str] = None
+    storia_medica: Optional[str] = None
+
+    # Obiettivi
+    goals_quantificabili: Optional[str] = None
+    goals_benessere: Optional[str] = None
+
+    # Foto
+    foto_fronte_path: Optional[str] = None
+    foto_lato_path: Optional[str] = None
+    foto_dietro_path: Optional[str] = None
+
+    # Note
+    note_colloquio: Optional[str] = None
+
+class AssessmentInitial(AssessmentInitialCreate):
+    """Model completo Assessment Iniziale (con ID)"""
+    id: int
+    data_creazione: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class AssessmentFollowupCreate(BaseModel):
+    """Model per creazione assessment di follow-up"""
+    id_cliente: int = Field(gt=0)
+    data_followup: date = Field(default_factory=date.today)
+
+    # Antropometria
+    peso_kg: Optional[float] = Field(None, ge=20, le=300)
+    massa_grassa_pct: Optional[float] = Field(None, ge=0, le=60)
+
+    # Circonferenze
+    circonferenza_petto_cm: Optional[float] = Field(None, ge=0, le=200)
+    circonferenza_vita_cm: Optional[float] = Field(None, ge=0, le=200)
+    circonferenza_bicipite_sx_cm: Optional[float] = Field(None, ge=0, le=100)
+    circonferenza_bicipite_dx_cm: Optional[float] = Field(None, ge=0, le=100)
+    circonferenza_fianchi_cm: Optional[float] = Field(None, ge=0, le=200)
+    circonferenza_quadricipite_sx_cm: Optional[float] = Field(None, ge=0, le=100)
+    circonferenza_quadricipite_dx_cm: Optional[float] = Field(None, ge=0, le=100)
+    circonferenza_coscia_sx_cm: Optional[float] = Field(None, ge=0, le=100)
+    circonferenza_coscia_dx_cm: Optional[float] = Field(None, ge=0, le=100)
+
+    # Test forza
+    pushups_reps: Optional[int] = Field(None, ge=0)
+    panca_peso_kg: Optional[float] = Field(None, ge=0)
+    panca_reps: Optional[int] = Field(None, ge=0)
+    rematore_peso_kg: Optional[float] = Field(None, ge=0)
+    rematore_reps: Optional[int] = Field(None, ge=0)
+    squat_peso_kg: Optional[float] = Field(None, ge=0)
+    squat_reps: Optional[int] = Field(None, ge=0)
+
+    # Progress e note
+    goals_progress: Optional[str] = None
+    foto_fronte_path: Optional[str] = None
+    foto_lato_path: Optional[str] = None
+    foto_dietro_path: Optional[str] = None
+    note_followup: Optional[str] = None
+
+class AssessmentFollowup(AssessmentFollowupCreate):
+    """Model completo Assessment Follow-up (con ID)"""
+    id: int
+    data_creazione: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+# ============================================================================
+# WORKOUT PLAN MODELS
+# ============================================================================
+
+class WorkoutPlanCreate(BaseModel):
+    """Model per creazione piano di allenamento"""
+    id_cliente: int = Field(gt=0)
+    data_inizio: date
+    goal: Optional[str] = None
+    level: Optional[str] = None
+    duration_weeks: Optional[int] = Field(None, ge=1, le=52)
+    sessions_per_week: Optional[int] = Field(None, ge=1, le=7)
+    methodology: Optional[str] = None
+    weekly_schedule: Optional[Any] = None  # List/dict, serializzato come JSON nel DB
+    exercises_details: Optional[str] = None
+    progressive_overload_strategy: Optional[str] = None
+    recovery_recommendations: Optional[str] = None
+    sources: Optional[Any] = None  # List, serializzato come JSON nel DB
+    note: Optional[str] = None
+
+class WorkoutPlan(BaseModel):
+    """Model completo Piano Allenamento (con ID)"""
+    id: int
+    id_cliente: int
+    data_creazione: Optional[datetime] = None
+    data_inizio: date
+    goal: Optional[str] = None
+    level: Optional[str] = None
+    duration_weeks: Optional[int] = None
+    sessions_per_week: Optional[int] = None
+    methodology: Optional[str] = None
+    weekly_schedule: Optional[Any] = None
+    exercises_details: Optional[str] = None
+    progressive_overload_strategy: Optional[str] = None
+    recovery_recommendations: Optional[str] = None
+    sources: Optional[Any] = None
+    attivo: bool = True
+    completato: bool = False
+    note: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+# ============================================================================
+# PROGRESS RECORD MODELS
+# ============================================================================
+
+class ProgressRecordCreate(BaseModel):
+    """Model per creazione record di progresso"""
+    id_cliente: int = Field(gt=0)
+    data: date = Field(default_factory=date.today)
+    pushup_reps: Optional[int] = Field(None, ge=0)
+    vo2_estimate: Optional[float] = Field(None, ge=0)
+    note: Optional[str] = None
+
+class ProgressRecord(ProgressRecordCreate):
+    """Model completo Progress Record (con ID)"""
+    id: int
+    data_creazione: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
