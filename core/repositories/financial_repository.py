@@ -511,4 +511,201 @@ class FinancialRepository(BaseRepository):
             """)
             
             return [r[0] for r in cursor.fetchall()]
+    
+    @safe_operation(
+        operation_name="Get Bilancio Competenza",
+        severity=ErrorSeverity.MEDIUM,
+        fallback_return={}
+    )
+    def get_bilancio_competenza(
+        self, 
+        start_date: date, 
+        end_date: date
+    ) -> Dict[str, Any]:
+        """
+        Bilancio per COMPETENZA - Ore vendute nel periodo.
+        
+        Args:
+            start_date: Data inizio periodo
+            end_date: Data fine periodo
+        
+        Returns:
+            Dict con:
+            - ore_vendute: Totale crediti venduti
+            - ore_eseguite: Crediti già usati
+            - ore_rimanenti: Crediti residui
+            - fatturato_potenziale: Totale prezzo contratti
+            - incassato_su_contratti: Totale versato
+            - rate_mancanti: Differenza da incassare
+        
+        NOTE:
+            Base: data_vendita dei contratti (quando è stata fatta la vendita)
+            Uso: Vedere quanto DOVREBBE arrivare
+        """
+        with self._connect() as conn:
+            cursor = conn.cursor()
+            
+            # Ore vendute nel periodo
+            cursor.execute("""
+                SELECT COALESCE(SUM(crediti_totali), 0)
+                FROM contratti
+                WHERE data_vendita BETWEEN ? AND ?
+            """, (start_date, end_date))
+            ore_vendute = cursor.fetchone()[0]
+            
+            # Ore eseguite
+            cursor.execute("""
+                SELECT COALESCE(SUM(crediti_usati), 0)
+                FROM contratti
+                WHERE data_vendita BETWEEN ? AND ?
+            """, (start_date, end_date))
+            ore_eseguite = cursor.fetchone()[0]
+            
+            # Fatturato potenziale
+            cursor.execute("""
+                SELECT COALESCE(SUM(prezzo_totale), 0)
+                FROM contratti
+                WHERE data_vendita BETWEEN ? AND ?
+            """, (start_date, end_date))
+            fatturato_potenziale = cursor.fetchone()[0]
+            
+            # Incassato su contratti
+            cursor.execute("""
+                SELECT COALESCE(SUM(totale_versato), 0)
+                FROM contratti
+                WHERE data_vendita BETWEEN ? AND ?
+            """, (start_date, end_date))
+            incassato = cursor.fetchone()[0]
+            
+            return {
+                'ore_vendute': round(ore_vendute, 2),
+                'ore_eseguite': round(ore_eseguite, 2),
+                'ore_rimanenti': round(ore_vendute - ore_eseguite, 2),
+                'fatturato_potenziale': round(fatturato_potenziale, 2),
+                'incassato_su_contratti': round(incassato, 2),
+                'rate_mancanti': round(fatturato_potenziale - incassato, 2)
+            }
+    
+    @safe_operation(
+        operation_name="Get Daily Metrics Range",
+        severity=ErrorSeverity.MEDIUM,
+        fallback_return=[]
+    )
+    def get_daily_metrics_range(
+        self, 
+        start_date: date, 
+        end_date: date
+    ) -> List[Dict[str, Any]]:
+        """
+        Calcola metriche giornaliere per un range di date.
+        
+        Args:
+            start_date: Data inizio
+            end_date: Data fine
+        
+        Returns:
+            Lista dict con metriche per ogni giorno
+        
+        NOTE:
+            Usa calculate_unified_metrics per ogni giorno
+        """
+        metrics = []
+        current = start_date
+        
+        while current <= end_date:
+            daily = self.calculate_unified_metrics(current, current)
+            daily['data'] = str(current)
+            metrics.append(daily)
+            current += timedelta(days=1)
+        
+        return metrics
+    
+    @safe_operation(
+        operation_name="Get Margine Per Cliente",
+        severity=ErrorSeverity.MEDIUM,
+        fallback_return=[]
+    )
+    def get_margine_per_cliente(
+        self, 
+        start_date: date, 
+        end_date: date
+    ) -> List[Dict[str, Any]]:
+        """
+        Calcola margine per ogni cliente nel periodo.
+        
+        Args:
+            start_date: Data inizio periodo
+            end_date: Data fine periodo
+        
+        Returns:
+            Lista dict con margine per cliente ordinati per fatturato DESC
+            Campi: cliente_id, cliente, sessioni, ore, fatturato, costi, margine, margine_orario
+        
+        NOTE:
+            Calcola ore da durata sessioni in agenda
+            Fatturato da movimenti ENTRATA
+            Costi da movimenti USCITA
+        """
+        with self._connect() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT 
+                    c.id,
+                    c.nome || ' ' || c.cognome as cliente,
+                    COUNT(DISTINCT a.id) as sessioni,
+                    COALESCE(SUM(
+                        (CAST(substr(a.data_fine, 12, 2) AS REAL) + 
+                         CAST(substr(a.data_fine, 15, 2) AS REAL)/60) -
+                        (CAST(substr(a.data_inizio, 12, 2) AS REAL) + 
+                         CAST(substr(a.data_inizio, 15, 2) AS REAL)/60)
+                    ), 0) as ore,
+                    COALESCE(SUM(CASE WHEN m.tipo='ENTRATA' THEN m.importo ELSE 0 END), 0) as fatturato,
+                    COALESCE(SUM(CASE WHEN m.tipo='USCITA' THEN m.importo ELSE 0 END), 0) as costi
+                FROM clienti c
+                LEFT JOIN agenda a ON c.id = a.id_cliente AND DATE(a.data_inizio) BETWEEN ? AND ?
+                LEFT JOIN movimenti_cassa m ON c.id = m.id_cliente AND DATE(m.data_effettiva) BETWEEN ? AND ?
+                GROUP BY c.id
+                ORDER BY fatturato DESC
+            """, (start_date, end_date, start_date, end_date))
+            
+            rows = cursor.fetchall()
+            
+            return [
+                {
+                    'cliente_id': r[0],
+                    'cliente': r[1],
+                    'sessioni': r[2],
+                    'ore': round(r[3], 2),
+                    'fatturato': round(r[4], 2),
+                    'costi': round(r[5], 2),
+                    'margine': round(r[4] - r[5], 2),
+                    'margine_orario': round((r[4] - r[5]) / r[3], 2) if r[3] > 0 else 0
+                }
+                for r in rows if r[3] > 0
+            ]
+    
+    @safe_operation(
+        operation_name="Get Hourly Metrics Period",
+        severity=ErrorSeverity.MEDIUM,
+        fallback_return=[]
+    )
+    def get_hourly_metrics_period(
+        self, 
+        start_date: date, 
+        end_date: date
+    ) -> List[Dict[str, Any]]:
+        """
+        Recupera metriche unificate per un periodo (una per giorno).
+        
+        Args:
+            start_date: Data inizio
+            end_date: Data fine
+        
+        Returns:
+            Lista dict con metriche giornaliere
+        
+        NOTE:
+            Alias di get_daily_metrics_range per compatibilità
+        """
+        return self.get_daily_metrics_range(start_date, end_date)
 

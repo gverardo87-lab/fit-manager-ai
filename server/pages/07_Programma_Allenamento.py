@@ -15,6 +15,7 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from core.crm_db import CrmDBManager
+from core.repositories import ClientRepository
 from core.workout_generator_v2 import WorkoutGeneratorV2
 from core.error_handler import logger
 from core.ui_components import (
@@ -30,6 +31,7 @@ st.set_page_config(page_title="Generatore Programmi", page_icon="🏋️", layou
 
 # INITIALIZATION
 db = CrmDBManager()
+client_repo = ClientRepository()
 workout_gen = WorkoutGeneratorV2()
 
 if 'current_workout' not in st.session_state:
@@ -42,7 +44,8 @@ if 'selected_week' not in st.session_state:
 # SIDEBAR
 with st.sidebar:
     st.markdown("### 🏋️ Generatore Programmi")
-    clienti = db.get_clienti_attivi()
+    clienti_raw = client_repo.get_all_active()
+    clienti = [{'id': c.id, 'nome': c.nome, 'cognome': c.cognome} for c in clienti_raw]
     
     if not clienti:
         st.error("❌ Nessun cliente attivo")
@@ -52,7 +55,17 @@ with st.sidebar:
     cliente_dict = {f"{c['nome']} {c['cognome']}": c['id'] for c in clienti}
     cliente_nome = st.selectbox("Seleziona Cliente", list(cliente_dict.keys()))
     id_cliente = cliente_dict[cliente_nome]
-    cliente_info = db.get_cliente_full(id_cliente)
+    cliente_obj = client_repo.get_by_id(id_cliente)
+    if cliente_obj:
+        cliente_info = {
+            'id': cliente_obj.id,
+            'nome': cliente_obj.nome,
+            'cognome': cliente_obj.cognome,
+            'lezioni_residue': cliente_obj.crediti_residui or 0
+        }
+    else:
+        st.error("Cliente non trovato")
+        st.stop()
 
     st.divider()
 

@@ -5,9 +5,11 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import date
 from core.crm_db import CrmDBManager
+from core.repositories import ClientRepository
 import os
 
 db = CrmDBManager()
+client_repo = ClientRepository()
 
 st.set_page_config(page_title="Assessment & Allenamenti", page_icon="🏋️", layout="wide")
 
@@ -26,7 +28,8 @@ st.info("""
 # ════════════════════════════════════════════════════════════
 
 st.sidebar.subheader("👥 Seleziona Cliente")
-clienti = db.get_clienti_attivi()
+clienti_raw = client_repo.get_all_active()
+clienti = [{'id': c.id, 'nome': c.nome, 'cognome': c.cognome} for c in clienti_raw]
 
 if not clienti:
     st.warning("Nessun cliente attivo nel sistema. Crea un cliente in 👤 Clienti")
@@ -36,7 +39,17 @@ cliente_dict = {f"{c['nome']} {c['cognome']}" : c['id'] for c in clienti}
 cliente_nome = st.sidebar.selectbox("Cliente", list(cliente_dict.keys()))
 id_cliente = cliente_dict[cliente_nome]
 
-cliente_info = db.get_cliente_full(id_cliente)
+cliente_obj = client_repo.get_by_id(id_cliente)
+if cliente_obj:
+    cliente_info = {
+        'id': cliente_obj.id,
+        'nome': cliente_obj.nome,
+        'cognome': cliente_obj.cognome,
+        'lezioni_residue': cliente_obj.crediti_residui or 0
+    }
+else:
+    st.error("Cliente non trovato")
+    st.stop()
 assessment_initial = db.get_assessment_initial(id_cliente)
 
 st.sidebar.divider()

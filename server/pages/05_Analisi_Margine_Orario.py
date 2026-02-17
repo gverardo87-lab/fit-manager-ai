@@ -15,7 +15,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from core.crm_db import CrmDBManager
+from core.repositories import FinancialRepository
 from core.ui_components import (
     render_card, render_metric_box, create_section_header,
     render_success_message, render_error_message
@@ -31,7 +31,7 @@ st.set_page_config(
     layout="wide"
 )
 
-db = CrmDBManager()
+financial_repo = FinancialRepository()
 
 # ════════════════════════════════════════════════════════════
 # SIDEBAR - CONTROLLI TEMPORALI
@@ -95,23 +95,23 @@ st.divider()
 with st.spinner("📊 Calcolo metriche separate (Cassa + Competenza)..."):
     if granularita == "Giornaliera":
         # Logica separata per un giorno
-        bilancio_cassa = db.get_bilancio_cassa(data_sel, data_sel)
-        bilancio_competenza = db.get_bilancio_competenza(data_sel, data_sel)
+        bilancio_cassa = financial_repo.get_cash_balance(data_sel, data_sel)
+        bilancio_competenza = financial_repo.get_bilancio_competenza(data_sel, data_sel)
         periodo_label = f"Giorno {data_sel}"
     elif granularita == "Settimanale":
         # Logica separata: da lunedì a domenica della settimana
         lunedi = data_sel - timedelta(days=data_sel.weekday())
         domenica = lunedi + timedelta(days=6)
-        bilancio_cassa = db.get_bilancio_cassa(lunedi, domenica)
-        bilancio_competenza = db.get_bilancio_competenza(lunedi, domenica)
+        bilancio_cassa = financial_repo.get_cash_balance(lunedi, domenica)
+        bilancio_competenza = financial_repo.get_bilancio_competenza(lunedi, domenica)
         periodo_label = f"Settimana {lunedi.strftime('%d/%m')} - {domenica.strftime('%d/%m/%Y')}"
     else:  # Mensile
         # Logica separata: dall'1 all'ultimo giorno del mese
         anno, mese = data_sel
         primo_giorno = date(anno, mese, 1)
         ultimo_giorno = date(anno, mese, monthrange(anno, mese)[1])
-        bilancio_cassa = db.get_bilancio_cassa(primo_giorno, ultimo_giorno)
-        bilancio_competenza = db.get_bilancio_competenza(primo_giorno, ultimo_giorno)
+        bilancio_cassa = financial_repo.get_cash_balance(primo_giorno, ultimo_giorno)
+        bilancio_competenza = financial_repo.get_bilancio_competenza(primo_giorno, ultimo_giorno)
         periodo_label = f"Mese {primo_giorno.strftime('%B %Y')}"
 
 # ════════════════════════════════════════════════════════════
@@ -185,7 +185,7 @@ with tab1:
         data_inizio = data_sel - timedelta(days=29)  # 30 giorni incluso oggi
         data_fine = data_sel
         
-        daily_data = db.get_daily_metrics_range(data_inizio, data_fine)
+        daily_data = financial_repo.get_daily_metrics_range(data_inizio, data_fine)
         
         # Prepara DataFrame
         df_trend = pd.DataFrame([
@@ -297,7 +297,7 @@ with tab2:
         ultimo_gg = monthrange(data_sel[0], data_sel[1])[1]
         data_fine = date(data_sel[0], data_sel[1], ultimo_gg)
     
-    clienti_margine = db.get_margine_per_cliente(data_inizio, data_fine)
+    clienti_margine = financial_repo.get_margine_per_cliente(data_inizio, data_fine)
     
     if clienti_margine:
         df_clienti = pd.DataFrame(clienti_margine)
@@ -364,7 +364,7 @@ with tab3:
     if granularita == "Giornaliera":
         data_inizio = data_sel - timedelta(days=30)
         data_fine = data_sel
-        daily_data = db.get_hourly_metrics_period(data_inizio, data_fine)
+        daily_data = financial_repo.get_hourly_metrics_period(data_inizio, data_fine)
         
         df_ore_fat = pd.DataFrame([
             {
