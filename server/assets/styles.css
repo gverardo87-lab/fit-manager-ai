@@ -1,0 +1,148 @@
+/* FitManager AI - Design System */
+:root {
+    --primary: #0066cc;
+    --secondary: #00a86b;
+    --accent: #ff6b35;
+    --danger: #e74c3c;
+    --bg-card: #ffffff;
+    --text-primary: #1a1a1a;
+    --text-secondary: #666666;
+    --border-radius: 12px;
+    --shadow-sm: 0 2px 5px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 10px rgba(0,0,0,0.08);
+}
+
+/* Metrics Cards */
+.stMetric {
+    background-color: var(--bg-card);
+    padding: 15px 20px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid #f0f0f0;
+    transition: transform 0.2s;
+}
+
+.stMetric:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+/* Cards */
+.card {
+    background: var(--bg-card);
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid #f0f0f0;
+}
+
+.card h3 {
+    margin-top: 0;
+    color: var(--text-primary);
+}
+
+.card h4 {
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin: 0;
+}
+
+.card h2 {
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+.card-primary { border-left: 4px solid var(--primary); }
+.card-success { border-left: 4px solid var(--secondary); }
+.card-accent { border-left: 4px solid var(--accent); }
+.card-danger { border-left: 4px solid var(--danger); }
+
+/* Badges */
+.badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.badge-primary { background-color: #e6f3ff; color: var(--primary); }
+.badge-success { background-color: #e6f9f0; color: var(--secondary); }
+.badge-warning { background-color: #fff3e6; color: #ff9500; }
+.badge-danger { background-color: #ffe6e6; color: var(--danger); }
+
+/* Status Indicators */
+.status-active { color: var(--secondary); font-weight: 600; }
+.status-inactive { color: #999; font-weight: 600; }
+.status-lead { color: #ff9500; font-weight: 600; }
+
+/* Tables */
+.dataframe {
+    border: none !important;
+    border-radius: var(--border-radius);
+    overflow: hidden;
+}
+
+.dataframe thead tr {
+    background-color: #f8f9fa;
+}
+
+.dataframe tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+/* Buttons */
+.stButton > button {
+    border-radius: 8px;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.stButton > button:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+/* Forms */
+.stForm {
+    background: var(--bg-card);
+    padding: 1.5rem;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-sm);
+}
+
+/* Expanders */
+.streamlit-expanderHeader {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+/* Sidebar */
+section[data-testid="stSidebar"] {
+    background-color: #f8f9fa;
+}
+
+/* Tabs */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 8px;
+}
+
+.stTabs [data-baseweb="tab"] {
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+/* Animations */
+* {
+    transition-property: background-color, color, border-color, box-shadow;
+    transition-duration: 0.2s;
+    transition-timing-function: ease;
+}
+
+/* Utility Classes */
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.mt-2 { margin-top: 1rem; }
+.mb-2 { margin-bottom: 1rem; }
+.p-2 { padding: 1rem; }

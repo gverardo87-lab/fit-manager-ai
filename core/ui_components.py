@@ -8,6 +8,8 @@ Per mantenere coerenza visiva e migliorare lo sviluppo
 import streamlit as st
 from typing import Dict, List, Any, Optional
 import pandas as pd
+from pathlib import Path
+from core.error_handler import safe_operation, ErrorSeverity
 
 # ════════════════════════════════════════════════════════════
 # QUICK WINS - UTILITIES (v2.0)
@@ -564,3 +566,50 @@ if __name__ == "__main__":
     render_success_message("Programma salvato con successo!")
     render_error_message("Errore nel salvataggio")
     render_info_message("Questa è un'informazione importante")
+
+
+# ════════════════════════════════════════════════════════════
+# CSS LOADER (CENTRALIZED STYLING)
+# ════════════════════════════════════════════════════════════
+
+@safe_operation(
+    operation_name="Carica CSS Centralizzato",
+    severity=ErrorSeverity.LOW,
+    fallback_return=None
+)
+def load_custom_css() -> None:
+    """
+    Carica il CSS centralizzato da server/assets/styles.css
+    
+    Chiamare all'inizio di ogni pagina Streamlit per applicare
+    lo stile consistente dell'applicazione.
+    
+    Pattern: Usa @safe_operation (no try/except manuale)
+    Fallback: Se il file CSS non esiste, continua senza errori critici
+    
+    Example:
+        from core.ui_components import load_custom_css
+        
+        load_custom_css()
+        st.title("My Page")
+    """
+    css_path = Path(__file__).resolve().parents[1] / "server" / "assets" / "styles.css"
+    
+    if not css_path.exists():
+        # Fallback: usa CSS inline minimale se file non trovato
+        st.markdown("""
+        <style>
+        :root {
+            --primary: #0066cc;
+            --secondary: #00a86b;
+            --accent: #ff6b35;
+            --danger: #e74c3c;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        return
+    
+    with open(css_path, encoding='utf-8') as f:
+        css_content = f.read()
+    
+    st.markdown(f"<style>{css_content}</style>", unsafe_allow_html=True)

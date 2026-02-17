@@ -33,6 +33,13 @@ logger = logging.getLogger("fitmanager")
 # EXCEPTION HIERARCHY
 # ============================================================================
 
+class ErrorSeverity(Enum):
+    """Livelli di severità degli errori"""
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
 class FitManagerException(Exception):
     """Base exception per FitManager"""
     def __init__(self, message: str, code: str = "UNKNOWN", context: Optional[dict] = None):
@@ -201,6 +208,54 @@ def safe_streamlit_dialog(dialog_name: str = "Dialog") -> Callable[[F], F]:
                 st.write(f"**Dettagli**: {str(e)}")
                 logger.exception(f"Dialog error: {dialog_name}")
                 st.stop()  # Stop dialog execution
+        
+        return wrapper
+    return decorator
+
+def safe_operation(
+    operation_name: str = "unknown",
+    severity: ErrorSeverity = ErrorSeverity.MEDIUM,
+    fallback_return: Any = None
+) -> Callable[[F], F]:
+    """
+    Decorator generico per operazioni con fallback automatico.
+    
+    Pattern standard per tutte le operazioni business logic.
+    Loga errori appropriati e ritorna fallback in caso di failure.
+    
+    Args:
+        operation_name: Nome operazione per logging
+        severity: Livello di severità (LOW, MEDIUM, HIGH, CRITICAL)
+        fallback_return: Valore da ritornare in caso di errore
+    
+    Usage:
+        @safe_operation("Calcola MRR", severity=ErrorSeverity.HIGH, fallback_return=0.0)
+        def calculate_mrr(self) -> float:
+            # business logic
+            return mrr
+    """
+    def decorator(func: F) -> F:
+        @wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            try:
+                logger.debug(f"🔄 Operation: {operation_name}")
+                result = func(*args, **kwargs)
+                logger.debug(f"✅ Operation successful: {operation_name}")
+                return result
+            
+            except Exception as e:
+                # Log con severity appropriata
+                if severity == ErrorSeverity.CRITICAL:
+                    logger.critical(f"❌ CRITICAL Operation failed: {operation_name} - {str(e)}", exc_info=True)
+                elif severity == ErrorSeverity.HIGH:
+                    logger.error(f"❌ HIGH Operation failed: {operation_name} - {str(e)}", exc_info=True)
+                elif severity == ErrorSeverity.MEDIUM:
+                    logger.warning(f"⚠️ MEDIUM Operation failed: {operation_name} - {str(e)}")
+                else:  # LOW
+                    logger.info(f"ℹ️ LOW Operation failed: {operation_name} - {str(e)}")
+                
+                # Ritorna fallback
+                return fallback_return
         
         return wrapper
     return decorator
