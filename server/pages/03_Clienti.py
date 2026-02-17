@@ -291,7 +291,7 @@ elif sel_id:
         fin_cols[3].metric("Residuo", format_currency(tot_residuo), delta="CRITICO" if tot_residuo > 500 else "OK", delta_color="inverse" if tot_residuo > 500 else "normal")
         
         # Status pagamenti
-        rate_scadute = sum(1 for c in fin['contratti'] for r in db.get_rate_contratto(c['id']) if pd.to_datetime(r['data_scadenza']).date() < date.today() and r['stato'] != 'SALDATA')
+        rate_scadute = sum(1 for c in fin['contratti'] for r in contract_repo.get_rates_by_contract(c['id']) if r.data_scadenza < date.today() and r.stato != 'SALDATA')
         fin_cols[4].metric("Rate Scadute", rate_scadute, "⚠️" if rate_scadute > 0 else "✅")
         
         st.divider()
@@ -349,8 +349,8 @@ elif sel_id:
         sub_tab1, sub_tab2 = st.tabs(["💳 Movimenti Finanziari", "📅 Lezioni"])
         
         with sub_tab1:
-            # Storico pagamenti
-            movimenti = db.get_storico_pagamenti_cliente(sel_id) if hasattr(db, 'get_storico_pagamenti_cliente') else []
+            # Storico pagamenti (usa dati già caricati)
+            movimenti = fin['movimenti'] if fin else []
             if movimenti:
                 mov_df = pd.DataFrame(movimenti)
                 mov_df['data'] = pd.to_datetime(mov_df['data_movimento']).dt.strftime('%d/%m/%Y')
