@@ -5,10 +5,12 @@ FASE 2 REFACTORING: Separazione logica accesso dati dal business logic
 
 Architecture:
 - BaseRepository: shared connection logic, context manager, utilities
-- ClientRepository: clienti + misurazioni CRUD ✅ COMPLETATO
-- AgendaRepository: sessioni/eventi CRUD ✅ COMPLETATO
-- ContractRepository: contratti + rate CRUD ✅ COMPLETATO
-- FinancialRepository: movimenti cassa, spese, bilanci ✅ COMPLETATO
+- ClientRepository: clienti + misurazioni CRUD
+- AgendaRepository: sessioni/eventi CRUD
+- ContractRepository: contratti + rate CRUD
+- FinancialRepository: movimenti cassa, spese, bilanci
+- AssessmentRepository: assessment iniziali + follow-up
+- WorkoutRepository: piani allenamento + progress records
 
 Tutti repository:
 - Accettano SOLO Pydantic models in input
@@ -22,6 +24,8 @@ from .client_repository import ClientRepository
 from .agenda_repository import AgendaRepository
 from .contract_repository import ContractRepository
 from .financial_repository import FinancialRepository
+from .assessment_repository import AssessmentRepository
+from .workout_repository import WorkoutRepository
 
 __all__ = [
     "BaseRepository",
@@ -29,4 +33,6 @@ __all__ = [
     "AgendaRepository",
     "ContractRepository",
     "FinancialRepository",
+    "AssessmentRepository",
+    "WorkoutRepository",
 ]
