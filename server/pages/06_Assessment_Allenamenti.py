@@ -4,12 +4,12 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import date
-from core.crm_db import CrmDBManager
-from core.repositories import ClientRepository
+from core.repositories import ClientRepository, AssessmentRepository
+from core.models import AssessmentInitialCreate, AssessmentFollowupCreate
 import os
 
-db = CrmDBManager()
 client_repo = ClientRepository()
+assessment_repo = AssessmentRepository()
 
 st.set_page_config(page_title="Assessment & Allenamenti", page_icon="🏋️", layout="wide")
 
@@ -50,7 +50,8 @@ if cliente_obj:
 else:
     st.error("Cliente non trovato")
     st.stop()
-assessment_initial = db.get_assessment_initial(id_cliente)
+assessment_initial_obj = assessment_repo.get_initial(id_cliente)
+assessment_initial = assessment_initial_obj.model_dump() if assessment_initial_obj else None
 
 st.sidebar.divider()
 st.sidebar.write(f"**📋 Pagina di Assessment e Allenamento**")
@@ -101,7 +102,8 @@ if assessment_initial:
         st.divider()
         
         # Metriche attuali
-        latest_followup = db.get_assessment_followup_latest(id_cliente)
+        latest_followup_obj = assessment_repo.get_latest_followup(id_cliente)
+        latest_followup = latest_followup_obj.model_dump() if latest_followup_obj else None
         current_data = latest_followup if latest_followup else assessment_initial
         
         col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns(5)
@@ -122,7 +124,7 @@ if assessment_initial:
         # TIMELINE ASSESSMENTS
         st.subheader("📋 Timeline Assessments")
         
-        timeline = db.get_assessment_timeline(id_cliente)
+        timeline = assessment_repo.get_timeline(id_cliente)
         
         for i, item in enumerate(timeline):
             data = item['data']
@@ -475,11 +477,15 @@ else:
                 }
                 
                 # Salva nel database
-                db.save_assessment_initial(id_cliente, dati_assessment)
-                
-                st.success("✅ Assessment Iniziale Salvato!")
-                st.balloons()
-                st.rerun()
+                dati_assessment['id_cliente'] = id_cliente
+                try:
+                    assessment = AssessmentInitialCreate(**dati_assessment)
+                    assessment_repo.save_initial(assessment)
+                    st.success("✅ Assessment Iniziale Salvato!")
+                    st.balloons()
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Errore validazione: {e}")
 
 # ════════════════════════════════════════════════════════════
 # TAB 2: NUOVO FOLLOWUP (solo se assessment initial esiste)
@@ -591,11 +597,15 @@ if assessment_initial:
                     **foto_paths_fu
                 }
                 
-                db.save_assessment_followup(id_cliente, dati_followup)
-                
-                st.success("✅ Followup Salvato!")
-                st.balloons()
-                st.rerun()
+                dati_followup['id_cliente'] = id_cliente
+                try:
+                    followup = AssessmentFollowupCreate(**dati_followup)
+                    assessment_repo.save_followup(followup)
+                    st.success("✅ Followup Salvato!")
+                    st.balloons()
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Errore validazione: {e}")
     
     # ════════════════════════════════════════════════════════════
     # TAB 3: GRAFICI PROGRESSIONE
@@ -604,7 +614,7 @@ if assessment_initial:
     with tab3:
         st.subheader("📈 Grafici Progressione")
         
-        timeline = db.get_assessment_timeline(id_cliente)
+        timeline = assessment_repo.get_timeline(id_cliente)
         
         if len(timeline) > 1:
             # Preparare data per grafici
