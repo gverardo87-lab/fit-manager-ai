@@ -18,7 +18,7 @@ from datetime import date, datetime
 from dateutil.relativedelta import relativedelta
 
 from .base_repository import BaseRepository
-from core.models_v2 import Contratto, ContratoCreate, RataProgrammata
+from core.models import Contratto, ContratoCreate, RataProgrammata
 from core.error_handler import safe_operation, ErrorSeverity
 
 # Constants

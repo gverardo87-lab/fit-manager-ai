@@ -20,7 +20,7 @@ from datetime import date, datetime
 import json
 
 from .base_repository import BaseRepository
-from core.models_v2 import (
+from core.models import (
     Cliente, ClienteCreate, ClienteUpdate,
     Misurazione, MisurazioneCreate
 )

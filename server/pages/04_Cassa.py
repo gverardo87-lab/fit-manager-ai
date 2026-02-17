@@ -20,7 +20,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from core.repositories import ClientRepository, ContractRepository, FinancialRepository
-from core.models_v2 import MovimentoCassaCreate, SpesaRicorrenteCreate
+from core.models import MovimentoCassaCreate, SpesaRicorrenteCreate
 from core.ui_components import badge, status_badge, format_currency, loading_message, section_divider_component, empty_state_component
 
 # ════════════════════════════════════════════════════════════

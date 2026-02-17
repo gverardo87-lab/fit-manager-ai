@@ -17,7 +17,7 @@ from typing import Optional, Dict, Any, List
 from datetime import date, datetime, timedelta
 
 from .base_repository import BaseRepository
-from core.models_v2 import MovimentoCassa, MovimentoCassaCreate, SpesaRicorrente, SpesaRicorrenteCreate
+from core.models import MovimentoCassa, MovimentoCassaCreate, SpesaRicorrente, SpesaRicorrenteCreate
 from core.error_handler import safe_operation, ErrorSeverity
 
 # Constants

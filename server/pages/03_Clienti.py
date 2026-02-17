@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 import json
 from datetime import date, datetime, timedelta
 from core.repositories import ClientRepository, ContractRepository, AgendaRepository
-from core.models_v2 import ClienteCreate, ClienteUpdate, ContratoCreate
+from core.models import ClienteCreate, ClienteUpdate, ContratoCreate
 from core.ui_components import badge, status_badge, format_currency, empty_state_component, loading_message
 
 client_repo = ClientRepository()

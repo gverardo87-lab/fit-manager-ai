@@ -198,6 +198,65 @@ class Contratto(ContratoBase):
         from_attributes = True
 
 # ============================================================================
+# FINANCIAL MODELS
+# ============================================================================
+
+class MovimentoCassaBase(BaseModel):
+    """Base model per Movimento Cassa"""
+    tipo: str = Field(pattern="^(ENTRATA|USCITA)$", description="ENTRATA = soldi in, USCITA = soldi out")
+    categoria: str = Field(min_length=1, max_length=100)
+    importo: float = Field(gt=0, le=1_000_000, description="Importo in €, sempre positivo")
+    metodo_pagamento: str = Field(pattern="^(CONTANTI|POS|BONIFICO|ASSEGNO)$")
+    data_transazione: date = Field(default_factory=date.today)
+    data_effettiva: Optional[date] = None
+    id_cliente: Optional[int] = Field(None, gt=0)
+    id_spesa_ricorrente: Optional[int] = None
+    note: Optional[str] = Field(None, max_length=500)
+    
+    @field_validator('data_transazione', 'data_effettiva')
+    @classmethod
+    def validate_data(cls, v: Optional[date]) -> Optional[date]:
+        if v is None:
+            return v
+        if v > date.today() + timedelta(days=30):
+            raise ValueError('Data non può essere più di 30 giorni nel futuro')
+        return v
+
+class MovimentoCassaCreate(MovimentoCassaBase):
+    """Model per creazione movimento cassa"""
+    pass
+
+class MovimentoCassa(MovimentoCassaBase):
+    """Model completo Movimento Cassa"""
+    id: int
+    data_creazione: datetime
+
+    class Config:
+        from_attributes = True
+
+class SpesaRicorrenteBase(BaseModel):
+    """Base model per Spesa Ricorrente"""
+    nome: str = Field(min_length=1, max_length=100, description="Es: 'Affitto palestra'")
+    categoria: str = Field(min_length=1, max_length=100)
+    importo: float = Field(gt=0, le=100_000)
+    frequenza: str = Field(pattern="^(MENSILE|TRIMESTRALE|ANNUALE)$")
+    giorno_scadenza: int = Field(ge=1, le=31, description="Giorno del mese per scadenza")
+    giorno_inizio: int = Field(default=1, ge=1, le=31)
+    data_prossima_scadenza: Optional[date] = None
+    attiva: bool = True
+
+class SpesaRicorrenteCreate(SpesaRicorrenteBase):
+    """Model per creazione spesa ricorrente"""
+    pass
+
+class SpesaRicorrente(SpesaRicorrenteBase):
+    """Model completo Spesa Ricorrente"""
+    id: int
+
+    class Config:
+        from_attributes = True
+
+# ============================================================================
 # AGENDA / SESSIONE MODELLI
 # ============================================================================
 

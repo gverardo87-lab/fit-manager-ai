@@ -17,7 +17,7 @@ from typing import Optional, List
 from datetime import datetime, date
 
 from .base_repository import BaseRepository
-from core.models_v2 import Sessione, SessioneCreate
+from core.models import Sessione, SessioneCreate
 from core.error_handler import safe_operation, ErrorSeverity
 
 

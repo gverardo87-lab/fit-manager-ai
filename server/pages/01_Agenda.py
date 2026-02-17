@@ -4,7 +4,7 @@ from streamlit_calendar import calendar
 from datetime import datetime, date, timedelta
 import pandas as pd
 from core.repositories import ClientRepository, AgendaRepository
-from core.models_v2 import SessioneCreate
+from core.models import SessioneCreate
 
 # Setup
 st.set_page_config(page_title="Agenda Elite", page_icon="📅", layout="wide")
