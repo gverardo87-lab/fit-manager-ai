@@ -14,8 +14,8 @@ import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from core.crm_db import CrmDBManager
-from core.repositories import ClientRepository
+from core.repositories import ClientRepository, WorkoutRepository
+from core.models import WorkoutPlanCreate, ProgressRecordCreate
 from core.workout_generator_v2 import WorkoutGeneratorV2
 from core.error_handler import logger
 from core.ui_components import (
@@ -30,8 +30,8 @@ import json
 st.set_page_config(page_title="Generatore Programmi", page_icon="🏋️", layout="wide")
 
 # INITIALIZATION
-db = CrmDBManager()
 client_repo = ClientRepository()
+workout_repo = WorkoutRepository()
 workout_gen = WorkoutGeneratorV2()
 
 if 'current_workout' not in st.session_state:
@@ -426,7 +426,21 @@ with tab1:
         with col_act1:
             if st.button("💾 Salva", type="primary", use_container_width=True, key="btn_save"):
                 try:
-                    db.save_workout_plan(id_cliente, workout, date.today())
+                    plan = WorkoutPlanCreate(
+                        id_cliente=id_cliente,
+                        data_inizio=date.today(),
+                        goal=workout.get('goal'),
+                        level=workout.get('level'),
+                        duration_weeks=len(workout.get('weekly_schedule', {})),
+                        sessions_per_week=workout.get('sessions_per_week'),
+                        methodology=workout.get('periodization_model'),
+                        weekly_schedule=workout.get('weekly_schedule'),
+                        exercises_details=workout.get('exercises_details'),
+                        progressive_overload_strategy=workout.get('progressive_overload_strategy'),
+                        recovery_recommendations=workout.get('recovery_recommendations'),
+                        sources=workout.get('sources'),
+                    )
+                    workout_repo.save_plan(plan)
                     render_success_message("✅ Programma salvato!")
                 except Exception as e:
                     render_error_message(f"❌ Errore: {str(e)}")
@@ -458,7 +472,8 @@ with tab2:
     create_section_header("Programmi Salvati", "Gestisci i programmi del cliente", "📋")
     
     try:
-        programmi = db.get_workout_plans_for_cliente(id_cliente)
+        programmi_raw = workout_repo.get_plans_by_client(id_cliente)
+        programmi = [p.model_dump() for p in programmi_raw]
         
         if not programmi:
             st.info("📭 Nessun programma. Creane uno dalla tab Genera Nuovo")
@@ -487,7 +502,7 @@ with tab2:
                             st.info("Modifica in sviluppo...")
                     with col_act3:
                         if st.button("🗑️ Elimina", key=f"del_{idx}"):
-                            db.delete_workout_plan(piano.get('id'))
+                            workout_repo.delete_plan(piano.get('id'))
                             render_success_message("Eliminato")
                             st.rerun()
     
@@ -525,7 +540,14 @@ with tab3:
     
     if st.button("💾 Salva Progresso", type="primary", use_container_width=True, key="btn_progress"):
         try:
-            db.add_progress_record(id_cliente, date.today(), pushups, vo2, note)
+            record = ProgressRecordCreate(
+                id_cliente=id_cliente,
+                data=date.today(),
+                pushup_reps=pushups if pushups > 0 else None,
+                vo2_estimate=vo2 if vo2 > 0 else None,
+                note=note if note else None,
+            )
+            workout_repo.add_progress_record(record)
             render_success_message("✅ Progresso registrato!")
         except Exception as e:
             render_error_message(f"❌ Errore: {str(e)}")
