@@ -224,14 +224,13 @@ class MovimentoCassaBase(BaseModel):
     tipo: str = Field(pattern="^(ENTRATA|USCITA)$", description="ENTRATA = soldi in, USCITA = soldi out")
     categoria: str = Field(min_length=1, max_length=100)
     importo: float = Field(gt=0, le=1_000_000, description="Importo in €, sempre positivo")
-    metodo_pagamento: str = Field(pattern="^(CONTANTI|POS|BONIFICO|ASSEGNO)$")
-    data_transazione: date = Field(default_factory=date.today)
-    data_effettiva: Optional[date] = None
+    metodo: str = Field(default="CONTANTI", pattern="^(CONTANTI|POS|BONIFICO|ASSEGNO|ALTRO)$")
+    data_effettiva: date = Field(default_factory=date.today)
     id_cliente: Optional[int] = Field(None, gt=0)
     id_spesa_ricorrente: Optional[int] = None
     note: Optional[str] = Field(None, max_length=500)
-    
-    @field_validator('data_transazione', 'data_effettiva')
+
+    @field_validator('data_effettiva')
     @classmethod
     def validate_data(cls, v: Optional[date]) -> Optional[date]:
         if v is None:
@@ -247,7 +246,7 @@ class MovimentoCassaCreate(MovimentoCassaBase):
 class MovimentoCassa(MovimentoCassaBase):
     """Model completo Movimento Cassa"""
     id: int
-    data_creazione: datetime
+    data_movimento: datetime = Field(default_factory=datetime.now)
 
     class Config:
         from_attributes = True

@@ -58,8 +58,7 @@ class FinancialRepository(BaseRepository):
                 tipo="USCITA",
                 categoria="AFFITTO",
                 importo=1200,
-                metodo_pagamento="BONIFICO",
-                data_transazione=date.today(),
+                metodo="BONIFICO",
                 data_effettiva=date.today(),
                 note="Affitto palestra gennaio"
             )
@@ -74,11 +73,11 @@ class FinancialRepository(BaseRepository):
                     id_cliente, id_spesa_ricorrente, note, operatore
                 ) VALUES (CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, ?, ?, 'Admin')
             """, (
-                movement.data_effettiva or movement.data_transazione,
+                movement.data_effettiva,
                 movement.tipo,
                 movement.categoria,
                 movement.importo,
-                movement.metodo_pagamento,
+                movement.metodo,
                 movement.id_cliente,
                 movement.id_spesa_ricorrente,
                 movement.note
@@ -94,11 +93,7 @@ class FinancialRepository(BaseRepository):
                 return None
             
             movement_dict = self._row_to_dict(row)
-            
-            # Ensure data_creazione exists
-            if not movement_dict.get('data_creazione'):
-                movement_dict['data_creazione'] = datetime.now()
-            
+
             return MovimentoCassa(**movement_dict)
     
     @safe_operation(
@@ -769,7 +764,7 @@ class FinancialRepository(BaseRepository):
         with self._connect() as conn:
             query = """
                 SELECT data_movimento, data_effettiva, tipo, categoria,
-                       importo, note, id_cliente, id
+                       importo, metodo, note, id_cliente, id
                 FROM movimenti_cassa
             """
             conditions = []

@@ -294,7 +294,7 @@ with tab1:
                     contract_repo.pay_rate(
                         rate_id=rata['id'],
                         amount_paid=importo_da_pagare,
-                        payment_method="Contanti",
+                        payment_method="CONTANTI",
                         payment_date=oggi,
                         notes="Pagamento sollecitato"
                     )
@@ -358,7 +358,7 @@ with tab2:
                     contract_repo.pay_rate(
                         rate_id=rata['id'],
                         amount_paid=importo_da_pagare,
-                        payment_method="Contanti",
+                        payment_method="CONTANTI",
                         payment_date=oggi,
                         notes="Pagamento anticipato"
                     )
@@ -430,7 +430,7 @@ with col_spesa:
                         tipo="USCITA",
                         categoria=categoria_finale,
                         importo=importo_spesa,
-                        metodo="Bonifico",
+                        metodo="BONIFICO",
                         id_spesa_ricorrente=id_spesa_ricorrente,
                         note=note_spesa
                     )
@@ -480,7 +480,7 @@ with col_entrata:
                     tipo="ENTRATA",
                     categoria=categoria_entrata,
                     importo=importo_entrata,
-                    metodo="Contanti",
+                    metodo="CONTANTI",
                     id_cliente=id_cliente_entrata,
                     note=note_entrata
                 )
@@ -516,7 +516,7 @@ with st.expander("📊 Spese Fisse Mensili", expanded=False):
                                 tipo="USCITA",
                                 categoria=spesa['categoria'],
                                 importo=spesa['importo'],
-                                metodo="Bonifico",
+                                metodo="BONIFICO",
                                 id_spesa_ricorrente=spesa['id'],
                                 note=f"Pagamento {spesa['nome']} - {oggi.strftime('%B %Y')}"
                             )
@@ -1057,7 +1057,7 @@ if movimenti:
                     
                     # Metodo pagamento
                     metodi = ["CONTANTI", "POS", "BONIFICO", "ASSEGNO", "ALTRO"]
-                    metodo_attuale = movimento_dettaglio.get('metodo', 'CONTANTI')
+                    metodo_attuale = (movimento_dettaglio.get('metodo') or 'CONTANTI').upper()
                     metodo_idx = metodi.index(metodo_attuale) if metodo_attuale in metodi else 0
                     nuovo_metodo = st.selectbox(
                         "Metodo pagamento",
