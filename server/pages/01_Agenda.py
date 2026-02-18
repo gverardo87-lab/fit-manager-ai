@@ -83,11 +83,20 @@ def dialog_add_event(default_date, default_time):
             id_cliente = st.selectbox("Seleziona Cliente", options=[None] + list(map_cli.keys()), format_func=lambda x: map_cli.get(x, "Scegli..."))
             
             if id_cliente and selected_info["code"] == "PT":
-                info = client_repo.get_by_id(id_cliente)
-                if info:
-                    res = info.lezioni_residue
-                    if res > 0: st.success(f"✅ Crediti Disponibili: {res}")
-                    else: st.error(f"⚠️ Crediti Esauriti ({res}).")
+                summary = agenda_repo.get_credit_summary(id_cliente)
+                if summary and summary.contratti_attivi > 0:
+                    mc1, mc2, mc3 = st.columns(3)
+                    mc1.metric("Totali", summary.crediti_totali)
+                    mc2.metric("Prenotati", summary.crediti_prenotati)
+                    mc3.metric("Disponibili", summary.crediti_disponibili)
+                    if summary.crediti_disponibili > 0:
+                        st.success(f"Crediti disponibili: {summary.crediti_disponibili}")
+                    elif summary.crediti_disponibili == 0:
+                        st.warning("Tutti i crediti sono prenotati o completati.")
+                    else:
+                        st.error(f"OVERBOOKING: {abs(summary.crediti_disponibili)} crediti in eccesso!")
+                else:
+                    st.warning("Nessun contratto attivo per questo cliente.")
 
         c1, c2 = st.columns(2)
         giorno = c1.date_input("Data", value=default_date)
@@ -158,17 +167,44 @@ def dialog_view_event(event_id, event_props):
             
     # AZIONI RAPIDE FUORI FORM
     st.markdown("---")
-    ca, cb = st.columns(2)
-    
     status = props.get('stato', 'N/A')
-    if status != 'Fatto':
-        if ca.button("✅ Conferma Esecuzione", use_container_width=True):
+
+    if status == 'Programmato':
+        ca, cb, cc = st.columns(3)
+        if ca.button("✅ Conferma", use_container_width=True):
             agenda_repo.confirm_event(event_id)
             st.rerun()
-    else:
-        ca.success("✅ Già Completato")
+        if cb.button("❌ Cancella", use_container_width=True):
+            agenda_repo.cancel_event(event_id)
+            st.success("Sessione cancellata. Credito liberato.")
+            st.rerun()
+        if cc.button("📅 Rinvia", use_container_width=True):
+            st.session_state[f'reschedule_{event_id}'] = True
+            st.rerun()
+    elif status == 'Completato':
+        st.success("Sessione completata")
+    elif status == 'Cancellato':
+        st.info("Sessione cancellata")
+    elif status == 'Rinviato':
+        st.info("Sessione rinviata a nuova data")
 
-    if cb.button("🗑️ Elimina Evento", type="primary", use_container_width=True):
+    # Reschedule form (shown only when Rinvia clicked)
+    if st.session_state.get(f'reschedule_{event_id}'):
+        st.markdown("**Scegli nuova data e ora:**")
+        rc1, rc2 = st.columns(2)
+        new_resc_date = rc1.date_input("Nuova data", value=start_dt.date(), key=f"resc_date_{event_id}")
+        new_resc_time = rc2.time_input("Nuova ora", value=start_dt.time(), key=f"resc_time_{event_id}")
+        if st.button("Conferma Rinvio", type="primary", key=f"resc_btn_{event_id}"):
+            new_start_dt = datetime.combine(new_resc_date, new_resc_time)
+            new_end_dt = new_start_dt + timedelta(minutes=durata_min)
+            agenda_repo.reschedule_event(event_id, new_start_dt, new_end_dt)
+            del st.session_state[f'reschedule_{event_id}']
+            st.success("Sessione rinviata!")
+            st.rerun()
+
+    # Delete always available
+    st.markdown("---")
+    if st.button("🗑️ Elimina Evento", use_container_width=True, key=f"del_{event_id}"):
         agenda_repo.delete_event(event_id)
         st.rerun()
 
@@ -206,7 +242,11 @@ for ev in events_data:
 
     cat = str(ev['categoria']).upper() if ev['categoria'] else "VARIE"
     status = ev['stato']
-    
+
+    # Hide cancelled and rescheduled events from calendar view
+    if status in ('Cancellato', 'Rinviato'):
+        continue
+
     bg = "#95a5a6"
     if status == 'Completato': bg = "#2ecc71"
     elif 'PT' in cat: bg = "#3498db"
