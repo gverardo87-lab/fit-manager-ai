@@ -56,10 +56,20 @@ FinancialAnalytics (core/financial_analytics.py) eredita da BaseRepository per m
 - Foreign keys attive (PRAGMA foreign_keys = ON)
 - I repository restituiscono oggetti Pydantic, non dict raw
 
+## Sistema Crediti
+
+Formula a 3 livelli (CreditSummary model, calcolato su TUTTI i contratti attivi):
+- crediti_totali = SUM(crediti_totali) da contratti non chiusi
+- crediti_completati = SUM(crediti_usati) da contratti non chiusi
+- crediti_prenotati = COUNT(agenda) con stato='Programmato' e contratto attivo
+- crediti_disponibili = totali - completati - prenotati
+
+Selezione contratto FIFO: il piu' vecchio con disponibilita' viene usato per primo.
+Macchina a stati eventi: Programmato -> Completato | Cancellato | Rinviato.
+lezioni_residue sul modello Cliente e' backward compat (= crediti_disponibili).
+
 ## Problemi noti (debito tecnico)
 
-- Logica crediti/lezioni_residue: non gestisce contratti multipli attivi (LIMIT 1)
-- Consumo crediti: avviene alla conferma evento, non alla creazione - ma non tutto il codice e' allineato
 - @safe_operation usato nei repository ma le pages non gestiscono il caso fallback (return None silenzioso)
 - core/services/dashboard_service.py esiste ma non e' usato da nessuna page
 
