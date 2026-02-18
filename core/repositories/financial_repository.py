@@ -709,3 +709,113 @@ class FinancialRepository(BaseRepository):
         """
         return self.get_daily_metrics_range(start_date, end_date)
 
+    # ------------------------------------------------------------------
+    # CASH MOVEMENTS CRUD (per 04_Cassa)
+    # ------------------------------------------------------------------
+
+    @safe_operation(
+        operation_name="Get Cash Movements Filtered",
+        severity=ErrorSeverity.MEDIUM,
+        fallback_return=[]
+    )
+    def get_cash_movements_filtered(
+        self,
+        date_from: Optional[date] = None,
+        date_to: Optional[date] = None,
+        tipo: Optional[str] = None,
+        cliente_id: Optional[int] = None,
+        categoria: Optional[str] = None,
+        search_text: Optional[str] = None,
+        sort_by: str = "recent",
+        limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        """
+        Recupera movimenti cassa con filtri dinamici.
+        """
+        with self._connect() as conn:
+            query = """
+                SELECT data_movimento, data_effettiva, tipo, categoria,
+                       importo, note, id_cliente, id
+                FROM movimenti_cassa
+            """
+            conditions = []
+            params = []
+
+            if date_from:
+                conditions.append("data_effettiva >= ?")
+                params.append(str(date_from))
+            if date_to:
+                conditions.append("data_effettiva <= ?")
+                params.append(str(date_to))
+            if tipo:
+                conditions.append("tipo = ?")
+                params.append(tipo)
+            if cliente_id is not None:
+                conditions.append("id_cliente = ?")
+                params.append(cliente_id)
+            if categoria:
+                conditions.append("categoria = ?")
+                params.append(categoria)
+            if search_text and search_text.strip():
+                conditions.append("(note LIKE ? OR categoria LIKE ?)")
+                term = f"%{search_text.strip()}%"
+                params.extend([term, term])
+
+            if conditions:
+                query += " WHERE " + " AND ".join(conditions)
+
+            sort_map = {
+                "recent": "data_movimento DESC, id DESC",
+                "oldest": "data_movimento ASC, id ASC",
+                "amount_asc": "importo ASC",
+                "amount_desc": "importo DESC",
+            }
+            query += f" ORDER BY {sort_map.get(sort_by, sort_map['recent'])}"
+            query += f" LIMIT {int(limit)}"
+
+            cursor = conn.cursor()
+            cursor.execute(query, params)
+            return [self._row_to_dict(r) for r in cursor.fetchall()]
+
+    @safe_operation(
+        operation_name="Update Cash Movement",
+        severity=ErrorSeverity.HIGH,
+        fallback_return=False
+    )
+    def update_cash_movement(
+        self,
+        movimento_id: int,
+        data_effettiva: date,
+        tipo: str,
+        importo: float,
+        categoria: str,
+        metodo: str,
+        note: str
+    ) -> bool:
+        """
+        Aggiorna un movimento cassa esistente.
+        """
+        with self._connect() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE movimenti_cassa
+                SET data_effettiva = ?, tipo = ?, importo = ?,
+                    categoria = ?, metodo = ?, note = ?
+                WHERE id = ?
+            """, (data_effettiva, tipo, importo, categoria, metodo, note, movimento_id))
+            return cursor.rowcount > 0
+
+    @safe_operation(
+        operation_name="Delete Cash Movement",
+        severity=ErrorSeverity.HIGH,
+        fallback_return=False
+    )
+    def delete_cash_movement(self, movimento_id: int) -> bool:
+        """
+        Elimina un movimento cassa.
+        """
+        with self._connect() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM movimenti_cassa WHERE id = ?", (movimento_id,))
+            return cursor.rowcount > 0
+

@@ -825,66 +825,37 @@ with col_f8:
         key="limite_mov"
     )
 
-# ═══ COSTRUZIONE QUERY DINAMICA ═══
-with financial_repo.get_connection() as conn:
-    query = """
-        SELECT data_movimento, data_effettiva, tipo, categoria, importo, note, id_cliente, id
-        FROM movimenti_cassa
-    """
-    
-    conditions = []
-    params = []
-    
-    # Filtro date range
-    if data_da:
-        conditions.append("data_effettiva >= ?")
-        params.append(data_da)
-    if data_a:
-        conditions.append("data_effettiva <= ?")
-        params.append(data_a)
-    
-    # Filtro tipo
-    if filtro_tipo == "💵 Solo Entrate":
-        conditions.append("tipo='ENTRATA'")
-    elif filtro_tipo == "💸 Solo Uscite":
-        conditions.append("tipo='USCITA'")
-    
-    # Filtro cliente
-    if filtro_cliente != "Tutti i clienti":
-        idx_cliente = opzioni_clienti.index(filtro_cliente) - 1
-        id_cliente_selezionato = clienti_attivi[idx_cliente]['id']
-        conditions.append("id_cliente=?")
-        params.append(id_cliente_selezionato)
-    
-    # Filtro categoria
-    if filtro_categoria != "Tutte le categorie":
-        conditions.append("categoria=?")
-        params.append(filtro_categoria)
-    
-    # Ricerca testuale in note
-    if ricerca_testo and ricerca_testo.strip():
-        conditions.append("(note LIKE ? OR categoria LIKE ?)")
-        search_term = f"%{ricerca_testo.strip()}%"
-        params.append(search_term)
-        params.append(search_term)
-    
-    # Aggiungi WHERE se ci sono condizioni
-    if conditions:
-        query += " WHERE " + " AND ".join(conditions)
-    
-    # Ordinamento
-    if ordinamento == "Più recenti":
-        query += " ORDER BY data_movimento DESC, id DESC"
-    elif ordinamento == "Meno recenti":
-        query += " ORDER BY data_movimento ASC, id ASC"
-    elif ordinamento == "Importo ↑":
-        query += " ORDER BY importo ASC"
-    elif ordinamento == "Importo ↓":
-        query += " ORDER BY importo DESC"
-    
-    query += f" LIMIT {limite_mov}"
-    
-    movimenti = [dict(r) for r in conn.execute(query, params).fetchall()]
+# ═══ RECUPERO MOVIMENTI FILTRATI ═══
+_tipo_filtro = None
+if filtro_tipo == "💵 Solo Entrate":
+    _tipo_filtro = "ENTRATA"
+elif filtro_tipo == "💸 Solo Uscite":
+    _tipo_filtro = "USCITA"
+
+_cliente_id_filtro = None
+if filtro_cliente != "Tutti i clienti":
+    idx_cliente = opzioni_clienti.index(filtro_cliente) - 1
+    _cliente_id_filtro = clienti_attivi[idx_cliente]['id']
+
+_categoria_filtro = filtro_categoria if filtro_categoria != "Tutte le categorie" else None
+
+_sort_map = {
+    "Più recenti": "recent",
+    "Meno recenti": "oldest",
+    "Importo ↑": "amount_asc",
+    "Importo ↓": "amount_desc",
+}
+
+movimenti = financial_repo.get_cash_movements_filtered(
+    date_from=data_da if data_da else None,
+    date_to=data_a if data_a else None,
+    tipo=_tipo_filtro,
+    cliente_id=_cliente_id_filtro,
+    categoria=_categoria_filtro,
+    search_text=ricerca_testo if ricerca_testo else None,
+    sort_by=_sort_map.get(ordinamento, "recent"),
+    limit=limite_mov,
+)
 
 # ═══ VISUALIZZAZIONE RISULTATI ═══
 if movimenti:
@@ -1109,29 +1080,19 @@ if movimenti:
                     annulla_btn = st.form_submit_button("❌ Annulla", use_container_width=True)
                 
                 if salva_btn:
-                    # Esegui UPDATE
-                    with financial_repo.get_connection() as conn:
-                        conn.execute("""
-                            UPDATE movimenti_cassa
-                            SET data_effettiva = ?,
-                                tipo = ?,
-                                importo = ?,
-                                categoria = ?,
-                                metodo = ?,
-                                note = ?
-                            WHERE id = ?
-                        """, (
-                            nuovo_data,
-                            nuovo_tipo,
-                            nuovo_importo,
-                            nuova_categoria,
-                            nuovo_metodo,
-                            nuove_note,
-                            movimento_dettaglio['id']
-                        ))
-                        conn.commit()
-                    
-                    st.success(f"✅ Movimento #{movimento_dettaglio['id']} modificato con successo!")
+                    success = financial_repo.update_cash_movement(
+                        movimento_id=movimento_dettaglio['id'],
+                        data_effettiva=nuovo_data,
+                        tipo=nuovo_tipo,
+                        importo=nuovo_importo,
+                        categoria=nuova_categoria,
+                        metodo=nuovo_metodo,
+                        note=nuove_note
+                    )
+                    if success:
+                        st.success(f"✅ Movimento #{movimento_dettaglio['id']} modificato con successo!")
+                    else:
+                        st.error("❌ Errore durante la modifica del movimento.")
                     st.session_state.editing_movimento_id = None
                     st.rerun()
                 
@@ -1167,15 +1128,11 @@ if movimenti:
                     type="primary",
                     disabled=not conferma_eliminazione
                 ):
-                    # Esegui DELETE
-                    with financial_repo.get_connection() as conn:
-                        conn.execute(
-                            "DELETE FROM movimenti_cassa WHERE id = ?",
-                            (movimento_dettaglio['id'],)
-                        )
-                        conn.commit()
-                    
-                    st.success(f"✅ Movimento #{movimento_dettaglio['id']} eliminato correttamente!")
+                    success = financial_repo.delete_cash_movement(movimento_dettaglio['id'])
+                    if success:
+                        st.success(f"✅ Movimento #{movimento_dettaglio['id']} eliminato correttamente!")
+                    else:
+                        st.error("❌ Errore durante l'eliminazione del movimento.")
                     st.session_state.deleting_movimento_id = None
                     st.balloons()
                     st.rerun()
