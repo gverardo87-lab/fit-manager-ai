@@ -29,7 +29,8 @@ from core.ui_components import (
     render_card, render_metric_box, render_workout_summary,
     create_section_header, render_success_message, render_error_message,
     render_progress_bar, render_badges, render_status_indicator,
-    render_divider, render_exercise_card
+    render_divider, render_exercise_card,
+    render_confirm_delete, render_confirm_action
 )
 import json
 
@@ -60,6 +61,10 @@ if 'show_workout_details' not in st.session_state:
     st.session_state.show_workout_details = False
 if 'selected_week' not in st.session_state:
     st.session_state.selected_week = 1
+if 'deleting_plan_id' not in st.session_state:
+    st.session_state.deleting_plan_id = None
+if 'deleting_card_id' not in st.session_state:
+    st.session_state.deleting_card_id = None
 
 # SIDEBAR
 with st.sidebar:
@@ -571,9 +576,20 @@ with tab2:
                             st.info("Modifica in sviluppo...")
                     with col_act3:
                         if st.button("🗑️ Elimina", key=f"del_{idx}"):
-                            workout_repo.delete_plan(piano.get('id'))
-                            render_success_message("Eliminato")
+                            st.session_state.deleting_plan_id = piano.get('id')
                             st.rerun()
+
+                    if st.session_state.deleting_plan_id == piano.get('id'):
+                        def _delete_plan(plan_id):
+                            workout_repo.delete_plan(plan_id)
+                            render_success_message("Programma eliminato")
+                        render_confirm_delete(
+                            item_id=piano.get('id'),
+                            session_key='deleting_plan_id',
+                            details=f"Stai per eliminare il programma **{piano.get('nome', 'Senza nome')}**.",
+                            confirm_callback=_delete_plan,
+                            key_prefix=f"confirm_del_plan_{idx}"
+                        )
     
     except Exception as e:
         render_error_message(f"Errore: {str(e)}")
@@ -849,9 +865,21 @@ with tab4:
                         st.success("🧬 Pattern estratti")
                 with col_btn2:
                     if st.button("🗑️ Elimina", key=f"del_card_{card['id']}"):
-                        card_import_repo.delete_card(card['id'])
-                        render_success_message("Scheda eliminata")
+                        st.session_state.deleting_card_id = card['id']
                         st.rerun()
+
+                if st.session_state.deleting_card_id == card['id']:
+                    def _delete_card(card_id):
+                        card_import_repo.delete_card(card_id)
+                        render_success_message("Scheda eliminata")
+                    render_confirm_action(
+                        item_id=card['id'],
+                        session_key='deleting_card_id',
+                        message=f"Vuoi eliminare la scheda **{card.get('nome', 'Importata')}**?",
+                        confirm_label="🗑️ Elimina Scheda",
+                        confirm_callback=_delete_card,
+                        key_prefix=f"confirm_del_card_{card['id']}"
+                    )
 
 # ═════════════════════════════════════════════════════════════
 # TAB 5: TRAINER DNA DASHBOARD

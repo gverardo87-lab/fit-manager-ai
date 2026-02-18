@@ -120,7 +120,19 @@ def dialog_edit_rata(rata, totale_contratto):
             else: contract_repo.update_rate(rata['id'], n_date, n_imp, rata['descrizione'])
             st.rerun()
         if c2.button("🗑️ Elimina", type="secondary"):
-            contract_repo.delete_rate(rata['id']); st.rerun()
+            st.session_state[f'confirm_del_rate_{rata["id"]}'] = True
+            st.rerun()
+
+        if st.session_state.get(f'confirm_del_rate_{rata["id"]}'):
+            st.warning(f"Vuoi eliminare la rata **{rata['descrizione']}** di **€{rata['importo_previsto']:.0f}**?")
+            cr1, cr2 = st.columns(2)
+            if cr1.button("🗑️ Sì, Elimina", type="primary", use_container_width=True, key=f"yes_delr_{rata['id']}"):
+                contract_repo.delete_rate(rata['id'])
+                st.session_state[f'confirm_del_rate_{rata["id"]}'] = False
+                st.rerun()
+            if cr2.button("❌ Annulla", use_container_width=True, key=f"no_delr_{rata['id']}"):
+                st.session_state[f'confirm_del_rate_{rata["id"]}'] = False
+                st.rerun()
 
 @st.experimental_dialog("Aggiungi Rata")
 def dialog_add_rata(id_contratto):
@@ -143,7 +155,33 @@ def dialog_edit_contratto(c):
     if c1.button("💾 Salva Modifiche"):
         contract_repo.update_contract_details(c['id'], p, cr, scad); st.rerun()
     if c2.button("🗑️ ELIMINA", type="primary"):
-        contract_repo.delete_contract(c['id']); st.warning("Eliminato"); st.rerun()
+        st.session_state[f'confirm_del_contract_{c["id"]}'] = True
+        st.rerun()
+
+    if st.session_state.get(f'confirm_del_contract_{c["id"]}'):
+        st.error("### ⚠️ Conferma Eliminazione Contratto")
+        st.warning(
+            f"Stai per eliminare **definitivamente** il contratto:\n"
+            f"- **ID:** #{c['id']}\n"
+            f"- **Totale:** €{c['prezzo_totale']:.0f}\n"
+            f"- **Crediti:** {c['crediti_totali']}\n\n"
+            f"Verranno eliminati anche **tutte le rate** e i **movimenti di cassa** collegati.\n\n"
+            f"⚠️ **Questa azione NON può essere annullata!**"
+        )
+        conferma = st.checkbox(
+            "✓ Sono sicuro di voler eliminare questo contratto e tutti i dati collegati",
+            key=f"check_del_contract_{c['id']}"
+        )
+        dc1, dc2 = st.columns(2)
+        if dc1.button("🗑️ Elimina Definitivamente", use_container_width=True, type="primary",
+                       disabled=not conferma, key=f"yes_delc_{c['id']}"):
+            contract_repo.delete_contract(c['id'])
+            st.session_state[f'confirm_del_contract_{c["id"]}'] = False
+            st.success("Contratto eliminato.")
+            st.rerun()
+        if dc2.button("❌ Annulla", use_container_width=True, key=f"no_delc_{c['id']}"):
+            st.session_state[f'confirm_del_contract_{c["id"]}'] = False
+            st.rerun()
 
 # --- MAIN PAGE ---
 with st.sidebar:
@@ -383,7 +421,18 @@ elif sel_id:
                             agenda_repo.confirm_event(s['id'])
                             st.rerun()
                         if cb.button("Cancella", key=f"cli_stale_no_{s['id']}", use_container_width=True):
+                            st.session_state[f'confirm_cancel_stale_{s["id"]}'] = True
+                            st.rerun()
+
+                    if st.session_state.get(f'confirm_cancel_stale_{s["id"]}'):
+                        st.warning(f"Cancellare la sessione del **{data_str}**? Il credito sarà liberato.")
+                        sc1, sc2 = st.columns(2)
+                        if sc1.button("✅ Sì, Cancella", type="primary", use_container_width=True, key=f"yes_stale_{s['id']}"):
                             agenda_repo.cancel_event(s['id'])
+                            st.session_state[f'confirm_cancel_stale_{s["id"]}'] = False
+                            st.rerun()
+                        if sc2.button("❌ Annulla", use_container_width=True, key=f"no_stale_{s['id']}"):
+                            st.session_state[f'confirm_cancel_stale_{s["id"]}'] = False
                             st.rerun()
                 st.divider()
 

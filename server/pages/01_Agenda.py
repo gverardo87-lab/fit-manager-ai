@@ -149,12 +149,24 @@ def dialog_view_event(event_id, event_props):
             agenda_repo.confirm_event(event_id)
             st.rerun()
         if cb.button("❌ Cancella", use_container_width=True):
-            agenda_repo.cancel_event(event_id)
-            st.success("Sessione cancellata. Credito liberato.")
+            st.session_state[f'confirming_cancel_{event_id}'] = True
             st.rerun()
         if cc.button("📅 Rinvia", use_container_width=True):
             st.session_state[f'reschedule_{event_id}'] = True
             st.rerun()
+
+        # Pannello conferma cancellazione
+        if st.session_state.get(f'confirming_cancel_{event_id}'):
+            st.warning("Vuoi cancellare questa sessione? Il credito prenotato sarà liberato.")
+            cc1, cc2 = st.columns(2)
+            if cc1.button("✅ Sì, Cancella", use_container_width=True, type="primary", key=f"yes_cancel_{event_id}"):
+                agenda_repo.cancel_event(event_id)
+                st.session_state[f'confirming_cancel_{event_id}'] = False
+                st.success("Sessione cancellata. Credito liberato.")
+                st.rerun()
+            if cc2.button("❌ Annulla", use_container_width=True, key=f"no_cancel_{event_id}"):
+                st.session_state[f'confirming_cancel_{event_id}'] = False
+                st.rerun()
     elif status == 'Completato':
         st.success("Sessione completata")
     elif status == 'Cancellato':
@@ -179,8 +191,25 @@ def dialog_view_event(event_id, event_props):
     # Delete always available
     st.markdown("---")
     if st.button("🗑️ Elimina Evento", use_container_width=True, key=f"del_{event_id}"):
-        agenda_repo.delete_event(event_id)
+        st.session_state[f'confirming_delete_{event_id}'] = True
         st.rerun()
+
+    if st.session_state.get(f'confirming_delete_{event_id}'):
+        st.error("### ⚠️ Conferma Eliminazione")
+        st.warning("Stai per eliminare **definitivamente** questo evento.\n\n⚠️ **Questa azione NON può essere annullata!**")
+        conferma = st.checkbox(
+            "✓ Sono sicuro di voler eliminare questo evento",
+            key=f"check_del_{event_id}"
+        )
+        cd1, cd2 = st.columns(2)
+        if cd1.button("🗑️ Elimina Definitivamente", use_container_width=True, type="primary",
+                       disabled=not conferma, key=f"yes_del_{event_id}"):
+            agenda_repo.delete_event(event_id)
+            st.session_state[f'confirming_delete_{event_id}'] = False
+            st.rerun()
+        if cd2.button("❌ Annulla", use_container_width=True, key=f"no_del_{event_id}"):
+            st.session_state[f'confirming_delete_{event_id}'] = False
+            st.rerun()
 
 # --- CARICAMENTO DATI ---
 today = date.today()

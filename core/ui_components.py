@@ -442,6 +442,94 @@ def render_divider(style: str = "normal") -> None:
 
 
 # ════════════════════════════════════════════════════════════
+# CONFIRMATION DIALOGS
+# ════════════════════════════════════════════════════════════
+
+def render_confirm_delete(
+    item_id: Any,
+    session_key: str,
+    details: str,
+    confirm_callback,
+    key_prefix: str = "confirm_del"
+) -> None:
+    """
+    Pannello conferma eliminazione CRITICA (checkbox + bottone disabilitato).
+    Usato per azioni irreversibili come delete contract, delete event.
+
+    Args:
+        item_id: ID dell'elemento da eliminare
+        session_key: Chiave session_state che controlla la visibilita' (es. 'deleting_plan_id')
+        details: Testo markdown con i dettagli dell'elemento
+        confirm_callback: Funzione da chiamare alla conferma (riceve item_id)
+        key_prefix: Prefisso per le chiavi Streamlit (deve essere unico per pagina)
+    """
+    st.markdown("---")
+    st.error("### ⚠️ Conferma Eliminazione")
+    st.warning(f"{details}\n\n⚠️ **Questa azione NON può essere annullata!**")
+
+    conferma = st.checkbox(
+        "✓ Sono sicuro di voler procedere con l'eliminazione",
+        key=f"{key_prefix}_check_{item_id}"
+    )
+
+    col_del, col_cancel = st.columns(2)
+    with col_del:
+        if st.button(
+            "🗑️ Elimina Definitivamente",
+            use_container_width=True,
+            type="primary",
+            disabled=not conferma,
+            key=f"{key_prefix}_btn_{item_id}"
+        ):
+            confirm_callback(item_id)
+            st.session_state[session_key] = None
+            st.rerun()
+    with col_cancel:
+        if st.button("❌ Annulla", use_container_width=True, key=f"{key_prefix}_cancel_{item_id}"):
+            st.session_state[session_key] = None
+            st.rerun()
+
+
+def render_confirm_action(
+    item_id: Any,
+    session_key: str,
+    message: str,
+    confirm_label: str,
+    confirm_callback,
+    key_prefix: str = "confirm_act"
+) -> None:
+    """
+    Pannello conferma LEGGERA (solo warning + 2 bottoni, senza checkbox).
+    Usato per azioni reversibili o a basso impatto come cancel event, delete rate.
+
+    Args:
+        item_id: ID dell'elemento
+        session_key: Chiave session_state che controlla la visibilita'
+        message: Messaggio di warning
+        confirm_label: Testo del bottone conferma (es. "Cancella Sessione")
+        confirm_callback: Funzione da chiamare alla conferma (riceve item_id)
+        key_prefix: Prefisso per le chiavi Streamlit
+    """
+    st.warning(message)
+
+    col_yes, col_no = st.columns(2)
+    with col_yes:
+        if st.button(
+            confirm_label,
+            use_container_width=True,
+            type="primary",
+            key=f"{key_prefix}_btn_{item_id}"
+        ):
+            confirm_callback(item_id)
+            st.session_state[session_key] = None
+            st.rerun()
+    with col_no:
+        if st.button("❌ Annulla", use_container_width=True, key=f"{key_prefix}_cancel_{item_id}"):
+            st.session_state[session_key] = None
+            st.rerun()
+
+
+# ════════════════════════════════════════════════════════════
 # FORM HELPERS
 # ════════════════════════════════════════════════════════════
 
