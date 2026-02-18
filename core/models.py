@@ -572,3 +572,49 @@ class ProgressRecord(ProgressRecordCreate):
 
     class Config:
         from_attributes = True
+
+# ============================================================================
+# TRAINER DNA MODELS (Workout Card Import & Methodology Learning)
+# ============================================================================
+
+class ImportedCardCreate(BaseModel):
+    """Model per importazione scheda allenamento"""
+    id_cliente: Optional[int] = Field(None, gt=0)
+    file_name: str = Field(min_length=1, max_length=255)
+    file_type: str = Field(pattern="^(excel|word)$")
+    file_path: Optional[str] = None
+    raw_content: Optional[str] = None
+    parsed_exercises: Optional[Any] = None
+    parsed_metadata: Optional[Any] = None
+
+class ImportedCard(ImportedCardCreate):
+    """Model completo Imported Card (con ID)"""
+    id: int
+    extraction_status: str = "pending"
+    extraction_error: Optional[str] = None
+    pattern_extracted: bool = False
+    imported_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class TrainerDNAPatternCreate(BaseModel):
+    """Model per creazione pattern DNA trainer"""
+    pattern_type: str = Field(min_length=1, max_length=50)
+    pattern_key: str = Field(min_length=1, max_length=200)
+    pattern_value: Any
+    confidence_score: float = Field(ge=0.0, le=1.0, default=0.5)
+    evidence_count: int = Field(ge=1, default=1)
+    source_card_ids: Optional[List[int]] = None
+
+class TrainerDNASummary(BaseModel):
+    """Riepilogo aggregato del DNA del trainer"""
+    total_cards_imported: int = 0
+    total_patterns: int = 0
+    average_confidence: float = 0.0
+    preferred_exercises: List[str] = Field(default_factory=list)
+    preferred_set_scheme: Optional[str] = None
+    preferred_split: Optional[str] = None
+    accessory_philosophy: Optional[str] = None
+    ordering_style: Optional[str] = None
+    dna_level: str = "learning"  # 'learning' | 'developing' | 'established'
