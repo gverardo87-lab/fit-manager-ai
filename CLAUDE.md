@@ -24,10 +24,29 @@ SQLite  (data/crm.db)
 ```
 
 Pattern attivo: Repository Pattern (completo).
-6 repository: ClientRepository, ContractRepository, AgendaRepository, FinancialRepository, AssessmentRepository, WorkoutRepository.
+8 repository: ClientRepository, ContractRepository, AgendaRepository, FinancialRepository, AssessmentRepository, WorkoutRepository, CardImportRepository, TrainerDNARepository.
 Tutti ereditano da BaseRepository (core/repositories/base_repository.py).
 
 FinancialAnalytics (core/financial_analytics.py) eredita da BaseRepository per metriche avanzate (LTV, CAC, Churn, MRR, Cohort).
+
+### Trainer DNA System (AI-Augmented Programming)
+
+```
+Schede Excel/Word --> CardParser --> CardImportRepo (DB)
+                                          |
+                                    PatternExtractor (LLM) --> TrainerDNARepo (DB)
+                                                                     |
+                                                               MethodologyChain (ChromaDB)
+                                                                     |
+Assessment + DNA + WorkoutGeneratorV2 --> WorkoutAIPipeline --> Programma AI-Enhanced
+```
+
+Componenti:
+- core/card_parser.py: parser Excel (openpyxl) e Word (python-docx) con fuzzy matching esercizi
+- core/pattern_extractor.py: estrae pattern metodologici con LLM (fallback algoritmico)
+- core/methodology_chain.py: RAG separato per metodologie trainer (ChromaDB in knowledge_base/methodology_vectorstore/)
+- core/workout_ai_pipeline.py: pipeline completa che integra assessment, generazione algoritmica e enhancement AI
+- core/db_migrations.py: migrazioni idempotenti per tabelle imported_workout_cards, trainer_dna_patterns, workout_exercise_edits
 
 ## Stato migrazione pagine
 
@@ -85,9 +104,12 @@ lezioni_residue sul modello Cliente e' backward compat (= crediti_disponibili).
 
 - LLM locale via Ollama (default: llama3:8b-instruct-q4_K_M)
 - Embedding: nomic-embed-text
-- Vector store: ChromaDB in knowledge_base/vectorstore/
+- Dual RAG architecture:
+  - knowledge_base/vectorstore/ → teoria, anatomia, nutrizione (usato da Assistente Esperto)
+  - knowledge_base/methodology_vectorstore/ → pattern metodologici trainer (usato da WorkoutAIPipeline)
 - Il RAG funziona anche senza documenti utente (fallback su exercise_database.py con 200+ esercizi)
 - Mai inviare PII (nomi, email, dati salute) nei prompt LLM
+- Trainer DNA: confidence formula = min(0.95, 0.3 + evidence_count * 0.15)
 
 ## Comandi utili
 
@@ -107,11 +129,12 @@ sqlite3 data/crm.db ".schema clienti"
 
 Il progetto ha completato il consolidamento architetturale (Repository Pattern).
 CrmDBManager e' stato eliminato. Tutte le pagine usano i repository.
+Sistema Trainer DNA implementato: import schede, estrazione pattern, dual RAG, pipeline AI.
 
 Prossimi passi naturali:
-- Rendere il service layer operativo (dashboard_service.py)
+- Tab 2 edit mode: editor inline per modificare programmi salvati
+- Service layer operativo (dashboard_service.py)
 - Strutturare test con pytest
-- Risolvere la logica crediti in modo univoco
-- Aggiungere nuove feature (dashboard, report, notifiche)
+- Dashboard report e notifiche
 
 Non ci sono limiti allo sviluppo. Nuove feature, integrazioni, refactoring ambiziosi sono tutti benvenuti.

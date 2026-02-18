@@ -33,6 +33,7 @@ dependencies = [
     "watchdog",           # <--- Per gestione file system
     "pydantic==2.7.4",    # <--- REPOSITORY PATTERN (FASE 2)
     "python-dateutil",    # <--- Dependency per repository pattern
+    "python-docx==1.1.2", # <--- Trainer DNA: import schede Word
 
     # --- LANGCHAIN ECOSYSTEM (AI Logic) ---
     "langchain==0.2.5",

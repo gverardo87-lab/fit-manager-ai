@@ -49,8 +49,11 @@ KNOWLEDGE_BASE_DIR = PROJECT_ROOT / "knowledge_base"
 # Documents: PDF, TXT, DOCX (metodologie allenamento, anatomia, nutrizione)
 DOCUMENTS_DIR = KNOWLEDGE_BASE_DIR / "documents"
 
-# Vector Store: ChromaDB embeddings persistenti
+# Vector Store: ChromaDB embeddings persistenti (teoria, anatomia, nutrizione)
 VECTORSTORE_DIR = KNOWLEDGE_BASE_DIR / "vectorstore"
+
+# Methodology Vector Store: separate ChromaDB for trainer DNA patterns
+METHODOLOGY_VECTORSTORE_DIR = KNOWLEDGE_BASE_DIR / "methodology_vectorstore"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

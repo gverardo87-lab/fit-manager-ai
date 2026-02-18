@@ -14,10 +14,16 @@ import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from core.repositories import ClientRepository, WorkoutRepository
+from core.repositories import ClientRepository, WorkoutRepository, CardImportRepository
 from core.models import WorkoutPlanCreate, ProgressRecordCreate
 from core.workout_generator_v2 import WorkoutGeneratorV2
+from core.card_parser import CardParser, ParsedCard, ParsedExercise, ParsedCardMetadata
+from core.db_migrations import DBMigrations
+from core.pattern_extractor import PatternExtractor
+from core.workout_ai_pipeline import WorkoutAIPipeline
+from core.repositories import TrainerDNARepository
 from core.error_handler import logger
+from core.config import DB_CRM_PATH
 from core.ui_components import (
     render_card, render_metric_box, render_workout_summary,
     create_section_header, render_success_message, render_error_message,
@@ -30,9 +36,21 @@ import json
 st.set_page_config(page_title="Generatore Programmi", page_icon="🏋️", layout="wide")
 
 # INITIALIZATION
+DBMigrations(DB_CRM_PATH).run_all()
 client_repo = ClientRepository()
 workout_repo = WorkoutRepository()
+card_import_repo = CardImportRepository()
 workout_gen = WorkoutGeneratorV2()
+card_parser = CardParser()
+
+@st.cache_resource
+def get_pattern_extractor():
+    return PatternExtractor()
+
+@st.cache_resource
+def get_ai_pipeline():
+    return WorkoutAIPipeline()
+
 
 if 'current_workout' not in st.session_state:
     st.session_state.current_workout = None
@@ -84,7 +102,7 @@ with col_header2:
 st.divider()
 
 # TABS
-tab1, tab2, tab3 = st.tabs(["🆕 Genera Nuovo", "📋 Salvati", "📈 Progresso"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["🆕 Genera Nuovo", "📋 Salvati", "📈 Progresso", "📂 Importa Schede", "🧬 Trainer DNA"])
 
 # ═════════════════════════════════════════════════════════════
 # TAB 1: GENERA NUOVO
@@ -181,9 +199,31 @@ with tab1:
         eq_bands = st.checkbox("🎀 Bande Elastiche", value=False, key="eq_bands")
         eq_suspension = st.checkbox("🔗 TRX/Anelli", value=False, key="eq_trx")
         eq_cardio = st.checkbox("🏃 Cardio Equipment", value=False, key="eq_cardio")
-    
+
     st.divider()
-    
+
+    # AI Enhancement toggles
+    st.markdown("### 🤖 AI Enhancement")
+    col_ai1, col_ai2 = st.columns(2)
+    with col_ai1:
+        use_assessment = st.toggle("📋 Auto-leggi Assessment", value=True, key="toggle_assessment",
+                                    help="Usa dati assessment del cliente (limitazioni, forza, composizione corporea)")
+    with col_ai2:
+        # Check DNA status for caption
+        dna_repo = TrainerDNARepository()
+        dna_status = dna_repo.get_dna_status() or {}
+        dna_cards = dna_status.get('total_cards', 0)
+        dna_level = dna_status.get('dna_level', 'none')
+
+        use_dna = st.toggle("🧬 Applica Trainer DNA", value=(dna_cards >= 2), key="toggle_dna",
+                             help="AI personalizza il programma con il tuo stile")
+        if dna_cards < 2:
+            st.caption(f"DNA in apprendimento ({dna_cards} schede) - importa almeno 2 schede")
+        else:
+            st.caption(f"DNA {dna_level} - {dna_cards} schede, {dna_status.get('total_patterns', 0)} pattern")
+
+    st.divider()
+
     col_btn1, col_btn2, col_btn3 = st.columns([2, 1, 1])
     
     with col_btn1:
@@ -227,19 +267,46 @@ with tab1:
             'equipment': equipment_list if equipment_list else ['barbell', 'dumbbell']
         }
 
-        with st.spinner("🔄 Generazione programma professionale..."):
+        ai_active = use_assessment or use_dna
+        spinner_msg = "🤖 Generazione AI-augmented..." if ai_active else "🔄 Generazione programma..."
+
+        with st.spinner(spinner_msg):
             try:
-                workout_plan = workout_gen.generate_professional_workout(
-                    client_profile=client_profile,
-                    weeks=durata_settimane,
-                    periodization_model=periodization_model,
-                    sessions_per_week=disponibilita_giorni
-                )
+                if ai_active:
+                    pipeline = get_ai_pipeline()
+                    workout_plan = pipeline.generate_with_ai(
+                        client_id=id_cliente,
+                        client_profile=client_profile,
+                        weeks=durata_settimane,
+                        periodization_model=periodization_model,
+                        sessions_per_week=disponibilita_giorni,
+                        use_assessment=use_assessment,
+                        use_trainer_dna=use_dna,
+                    )
+                else:
+                    workout_plan = workout_gen.generate_professional_workout(
+                        client_profile=client_profile,
+                        weeks=durata_settimane,
+                        periodization_model=periodization_model,
+                        sessions_per_week=disponibilita_giorni
+                    )
 
                 if 'error' in workout_plan:
                     render_error_message(workout_plan['error'])
                 else:
-                    render_success_message(f"✨ Programma professionale generato con {periodization_model.upper()} periodization!")
+                    # Show AI enhancement badge if applicable
+                    ai_meta = workout_plan.get('ai_metadata', {})
+                    if ai_meta.get('ai_enhanced'):
+                        score = int(ai_meta.get('style_alignment_score', 0) * 100)
+                        render_success_message(
+                            f"🧬 Programma AI Enhanced! DNA: {ai_meta.get('dna_level', '?')} | "
+                            f"Allineamento stile: {score}% | "
+                            f"{ai_meta.get('suggestions_applied', 0)} modifiche applicate"
+                        )
+                    elif ai_meta.get('assessment_used'):
+                        render_success_message(f"📋 Programma generato con dati Assessment integrati!")
+                    else:
+                        render_success_message(f"✨ Programma generato con {periodization_model.upper()} periodization!")
 
                     st.session_state['current_workout'] = workout_plan
                     st.session_state['show_workout_details'] = True
@@ -551,6 +618,331 @@ with tab3:
             render_success_message("✅ Progresso registrato!")
         except Exception as e:
             render_error_message(f"❌ Errore: {str(e)}")
+
+# ═════════════════════════════════════════════════════════════
+# TAB 4: IMPORTA SCHEDE
+# ═════════════════════════════════════════════════════════════
+
+with tab4:
+    create_section_header("Importa Schede Allenamento", "Carica le tue schede Excel/Word per costruire il Trainer DNA", "📂")
+
+    st.info("📌 Importa le schede dei tuoi clienti per permettere all'AI di imparare il tuo stile di programmazione.")
+
+    col_imp1, col_imp2 = st.columns([2, 1], gap="large")
+
+    with col_imp1:
+        uploaded_file = st.file_uploader(
+            "Carica scheda allenamento",
+            type=['xlsx', 'xls', 'docx', 'doc'],
+            key="card_uploader",
+            help="Formati supportati: Excel (.xlsx, .xls) e Word (.docx, .doc)"
+        )
+
+    with col_imp2:
+        st.markdown("### 👤 Associa a Cliente")
+        assoc_options = {"Template Generico (nessun cliente)": None}
+        for c in clienti:
+            assoc_options[f"{c['nome']} {c['cognome']}"] = c['id']
+        assoc_choice = st.selectbox(
+            "Cliente associato",
+            list(assoc_options.keys()),
+            label_visibility="collapsed",
+            key="import_client_select"
+        )
+        assoc_client_id = assoc_options[assoc_choice]
+
+    if uploaded_file is not None:
+        file_bytes = uploaded_file.read()
+        file_name = uploaded_file.name
+        file_ext = file_name.lower().rsplit(".", 1)[-1] if "." in file_name else ""
+        file_type = "excel" if file_ext in ("xlsx", "xls") else "word"
+
+        if st.button("🔍 Importa e Analizza", type="primary", use_container_width=True, key="btn_import_card"):
+            with st.spinner("📊 Analisi della scheda in corso..."):
+                try:
+                    parsed = card_parser.parse_file(file_bytes, file_name)
+
+                    # Save to DB
+                    exercises_data = [
+                        {
+                            'name': ex.name,
+                            'canonical_id': ex.canonical_id,
+                            'match_score': ex.match_score,
+                            'sets': ex.sets,
+                            'reps': ex.reps,
+                            'rest_seconds': ex.rest_seconds,
+                            'load_note': ex.load_note,
+                            'notes': ex.notes,
+                        }
+                        for ex in parsed.exercises
+                    ]
+                    metadata_data = {
+                        'detected_goal': parsed.metadata.detected_goal,
+                        'detected_split': parsed.metadata.detected_split,
+                        'detected_weeks': parsed.metadata.detected_weeks,
+                        'detected_sessions_per_week': parsed.metadata.detected_sessions_per_week,
+                        'trainer_notes': parsed.metadata.trainer_notes,
+                        'sheet_names': parsed.metadata.sheet_names,
+                    }
+
+                    card_id = card_import_repo.save_card(
+                        id_cliente=assoc_client_id,
+                        file_name=file_name,
+                        file_type=file_type,
+                        raw_content=parsed.raw_text[:10000],  # limit size
+                        parsed_exercises=exercises_data,
+                        parsed_metadata=metadata_data,
+                    )
+
+                    if card_id:
+                        render_success_message(f"✅ Scheda importata! ID: {card_id} - {len(parsed.exercises)} esercizi trovati")
+                        st.session_state['last_parsed_card'] = parsed
+                        st.session_state['last_card_id'] = card_id
+                    else:
+                        render_error_message("❌ Errore nel salvataggio della scheda")
+
+                except Exception as e:
+                    logger.error(f"Card import error: {e}")
+                    render_error_message(f"❌ Errore nell'analisi: {str(e)}")
+
+    # Preview of last parsed card
+    if st.session_state.get('last_parsed_card'):
+        parsed = st.session_state['last_parsed_card']
+
+        st.divider()
+        st.markdown("### 📊 Anteprima Dati Estratti")
+
+        col_prev1, col_prev2, col_prev3, col_prev4 = st.columns(4)
+        with col_prev1:
+            render_metric_box("Esercizi", str(len(parsed.exercises)), "trovati", "🏋️", "primary")
+        with col_prev2:
+            conf_pct = f"{int(parsed.parse_confidence * 100)}%"
+            conf_color = "success" if parsed.parse_confidence >= 0.7 else "default"
+            render_metric_box("Confidenza", conf_pct, "parsing", "🎯", conf_color)
+        with col_prev3:
+            goal_display = parsed.metadata.detected_goal or "Non rilevato"
+            render_metric_box("Goal", goal_display.replace("_", " ").title(), "rilevato", "🎯", "default")
+        with col_prev4:
+            split_display = parsed.metadata.detected_split or "Non rilevato"
+            render_metric_box("Split", split_display.replace("_", " ").title(), "rilevato", "📊", "default")
+
+        # Exercise table
+        with st.expander("📋 Esercizi Estratti", expanded=True):
+            if parsed.exercises:
+                ex_data = []
+                for ex in parsed.exercises:
+                    match_indicator = "✅" if ex.match_score >= 0.8 else ("🟡" if ex.match_score >= 0.6 else "❌")
+                    ex_data.append({
+                        "Match": match_indicator,
+                        "Esercizio": ex.name,
+                        "ID Canonico": ex.canonical_id or "-",
+                        "Score": f"{ex.match_score:.0%}",
+                        "Serie": ex.sets or "-",
+                        "Reps": ex.reps or "-",
+                        "Recupero": f"{ex.rest_seconds}s" if ex.rest_seconds else "-",
+                        "Carico": ex.load_note or "-",
+                    })
+                st.dataframe(pd.DataFrame(ex_data), use_container_width=True, hide_index=True)
+            else:
+                st.warning("⚠️ Nessun esercizio riconosciuto. Prova un file con formato tabellare.")
+
+        # Metadata
+        with st.expander("🔍 Metadata Rilevati"):
+            meta_col1, meta_col2 = st.columns(2)
+            with meta_col1:
+                st.markdown(f"**Goal:** {parsed.metadata.detected_goal or 'Non rilevato'}")
+                st.markdown(f"**Split:** {parsed.metadata.detected_split or 'Non rilevato'}")
+            with meta_col2:
+                st.markdown(f"**Settimane:** {parsed.metadata.detected_weeks or 'Non rilevato'}")
+                st.markdown(f"**Sessioni/sett:** {parsed.metadata.detected_sessions_per_week or 'Non rilevato'}")
+            if parsed.metadata.trainer_notes:
+                st.markdown("**Note del Trainer:**")
+                for note_item in parsed.metadata.trainer_notes[:5]:
+                    st.caption(f"• {note_item}")
+
+    # Imported cards list
+    st.divider()
+    st.markdown("### 📚 Schede Importate")
+
+    all_cards = card_import_repo.get_all_cards()
+    if not all_cards:
+        st.info("📭 Nessuna scheda importata. Carica il tuo primo file Excel/Word!")
+    else:
+        for card in all_cards:
+            client_name = f"{card.get('nome', '')} {card.get('cognome', '')}".strip() or "Template Generico"
+            ex_count = len(card.get('parsed_exercises', []) or [])
+            status_icon = {
+                'parsed': '✅',
+                'extracted': '🧬',
+                'pending': '⏳',
+                'error': '❌',
+            }.get(card.get('extraction_status', 'pending'), '❓')
+
+            with st.expander(
+                f"{status_icon} **{card['file_name']}** - {client_name} ({ex_count} esercizi)",
+                expanded=False
+            ):
+                col_c1, col_c2, col_c3, col_c4 = st.columns(4)
+                with col_c1:
+                    st.metric("Tipo", card.get('file_type', '?').upper())
+                with col_c2:
+                    st.metric("Esercizi", ex_count)
+                with col_c3:
+                    st.metric("Stato", card.get('extraction_status', '?'))
+                with col_c4:
+                    st.metric("Pattern DNA", "Si" if card.get('pattern_extracted') else "No")
+
+                col_btn1, col_btn2 = st.columns(2)
+                with col_btn1:
+                    if card.get('extraction_status') == 'parsed' and not card.get('pattern_extracted'):
+                        if st.button("🧬 Estrai Pattern DNA", key=f"extract_{card['id']}", type="primary"):
+                            with st.spinner("🧠 Analisi pattern in corso..."):
+                                try:
+                                    extractor = get_pattern_extractor()
+                                    # Reconstruct ParsedCard from stored data
+                                    exercises_raw = card.get('parsed_exercises', []) or []
+                                    meta_raw = card.get('parsed_metadata', {}) or {}
+                                    p_exercises = [
+                                        ParsedExercise(
+                                            name=e.get('name', ''),
+                                            canonical_id=e.get('canonical_id'),
+                                            match_score=e.get('match_score', 0),
+                                            sets=e.get('sets'),
+                                            reps=e.get('reps'),
+                                            rest_seconds=e.get('rest_seconds'),
+                                            load_note=e.get('load_note'),
+                                            notes=e.get('notes'),
+                                        )
+                                        for e in exercises_raw
+                                    ]
+                                    p_card = ParsedCard(
+                                        raw_text=card.get('raw_content', ''),
+                                        exercises=p_exercises,
+                                        metadata=ParsedCardMetadata(
+                                            detected_goal=meta_raw.get('detected_goal'),
+                                            detected_split=meta_raw.get('detected_split'),
+                                            detected_weeks=meta_raw.get('detected_weeks'),
+                                            detected_sessions_per_week=meta_raw.get('detected_sessions_per_week'),
+                                            trainer_notes=meta_raw.get('trainer_notes', []),
+                                            sheet_names=meta_raw.get('sheet_names', []),
+                                        ),
+                                        parse_confidence=0.0,
+                                    )
+                                    result = extractor.extract_from_card(card['id'], p_card)
+                                    if result.get('success'):
+                                        render_success_message(
+                                            f"🧬 Pattern estratti! Metodo: {result['method']}, "
+                                            f"{result['patterns_saved']} pattern salvati nel DNA"
+                                        )
+                                        st.rerun()
+                                    else:
+                                        render_error_message(f"❌ {result.get('error', 'Errore sconosciuto')}")
+                                except Exception as e:
+                                    logger.error(f"Pattern extraction error: {e}")
+                                    render_error_message(f"❌ Errore estrazione: {str(e)}")
+                    elif card.get('pattern_extracted'):
+                        st.success("🧬 Pattern estratti")
+                with col_btn2:
+                    if st.button("🗑️ Elimina", key=f"del_card_{card['id']}"):
+                        card_import_repo.delete_card(card['id'])
+                        render_success_message("Scheda eliminata")
+                        st.rerun()
+
+# ═════════════════════════════════════════════════════════════
+# TAB 5: TRAINER DNA DASHBOARD
+# ═════════════════════════════════════════════════════════════
+
+with tab5:
+    create_section_header("Trainer DNA", "Il sistema impara il tuo stile ad ogni scheda importata", "🧬")
+
+    dna_repo_dash = TrainerDNARepository()
+    dna_status_dash = dna_repo_dash.get_dna_status() or {}
+    dna_summary = dna_repo_dash.get_active_patterns()
+
+    total_cards = dna_status_dash.get('total_cards', 0)
+    total_patterns = dna_status_dash.get('total_patterns', 0)
+    avg_conf = dna_status_dash.get('average_confidence', 0)
+    dna_level_dash = dna_status_dash.get('dna_level', 'none')
+
+    # Level indicator
+    level_config = {
+        'learning': {'color': 'default', 'label': 'In Apprendimento', 'icon': '📚', 'progress': 0.2},
+        'developing': {'color': 'primary', 'label': 'In Sviluppo', 'icon': '🔬', 'progress': 0.6},
+        'established': {'color': 'success', 'label': 'Consolidato', 'icon': '🏆', 'progress': 1.0},
+    }
+    lconf = level_config.get(dna_level_dash, level_config['learning'])
+
+    col_dna1, col_dna2, col_dna3, col_dna4 = st.columns(4)
+    with col_dna1:
+        render_metric_box("Schede Importate", str(total_cards), "nel database", "📂", "primary")
+    with col_dna2:
+        render_metric_box("Pattern Appresi", str(total_patterns), "estratti", "🧬", "primary")
+    with col_dna3:
+        render_metric_box("Livello DNA", lconf['label'], lconf['icon'], "🎯", lconf['color'])
+    with col_dna4:
+        render_metric_box("Confidenza Media", f"{int(avg_conf * 100)}%", "dei pattern", "📊", lconf['color'])
+
+    # Progress bar
+    st.divider()
+    st.markdown("### 📈 Progresso DNA")
+    progress_val = min(total_cards / 10, 1.0) if total_cards > 0 else 0.0
+    st.progress(progress_val)
+    if total_cards == 0:
+        st.caption("Importa le tue schede per iniziare a costruire il DNA")
+    elif total_cards < 3:
+        st.caption(f"📚 Fase di apprendimento - {3 - total_cards} schede al prossimo livello")
+    elif total_cards < 10:
+        st.caption(f"🔬 DNA in sviluppo - {10 - total_cards} schede per consolidamento")
+    else:
+        st.caption("🏆 DNA consolidato - il sistema conosce bene il tuo stile!")
+
+    if dna_summary:
+        st.divider()
+
+        # Preferred exercises
+        with st.expander("🏋️ Esercizi Preferiti", expanded=True):
+            if dna_summary.preferred_exercises:
+                cols = st.columns(3)
+                for i, ex in enumerate(dna_summary.preferred_exercises[:15]):
+                    with cols[i % 3]:
+                        st.markdown(f"• {ex}")
+            else:
+                st.info("Nessun esercizio preferito ancora rilevato")
+
+        # Pattern details
+        with st.expander("📊 Pattern Estratti"):
+            pattern_data = []
+            if dna_summary.preferred_set_scheme:
+                pattern_data.append({"Tipo": "Schema Set/Reps", "Valore": dna_summary.preferred_set_scheme})
+            if dna_summary.preferred_split:
+                pattern_data.append({"Tipo": "Split Preferito", "Valore": dna_summary.preferred_split})
+            if dna_summary.accessory_philosophy:
+                pattern_data.append({"Tipo": "Filosofia Accessori", "Valore": dna_summary.accessory_philosophy})
+            if dna_summary.ordering_style:
+                pattern_data.append({"Tipo": "Ordine Esercizi", "Valore": dna_summary.ordering_style})
+
+            if pattern_data:
+                st.dataframe(pd.DataFrame(pattern_data), use_container_width=True, hide_index=True)
+            else:
+                st.info("I pattern verranno estratti dopo l'analisi delle schede importate")
+
+        # Pipeline status
+        with st.expander("🔧 Stato Pipeline AI"):
+            try:
+                pipeline = get_ai_pipeline()
+                status = pipeline.get_pipeline_status()
+                col_s1, col_s2, col_s3 = st.columns(3)
+                with col_s1:
+                    st.metric("LLM", "Attivo" if status.get('llm_available') else "Non disponibile")
+                with col_s2:
+                    st.metric("Methodology RAG", f"{status.get('methodology_docs', 0)} documenti")
+                with col_s3:
+                    st.metric("DNA Level", status.get('dna_level', 'none'))
+            except Exception:
+                st.warning("Pipeline AI non ancora inizializzata")
+    else:
+        st.divider()
+        st.info("📭 Nessun pattern DNA disponibile. Importa le tue schede dalla tab 'Importa Schede' e poi estrai i pattern.")
 
 # FOOTER
 st.divider()
