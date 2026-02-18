@@ -1,772 +1,298 @@
 # file: server/app.py
 """
-ProFit AI - Dashboard Principale
-Esperienza Premium per PT e Clienti
+ProFit AI Studio - Dashboard Principale
+Dark theme professionale con dati live.
 """
 
 import streamlit as st
-import os
 import sys
-from datetime import datetime
+import os
+from datetime import datetime, date, timedelta
+from calendar import monthrange
 
-# Setup Path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from core.repositories import ClientRepository
+from core.repositories import ClientRepository, AgendaRepository, FinancialRepository, ContractRepository
+from core.ui_components import load_custom_css, format_currency
 
 # ════════════════════════════════════════════════════════════
-# PAGE CONFIG + CUSTOM THEME
+# PAGE CONFIG
 # ════════════════════════════════════════════════════════════
 
 st.set_page_config(
     page_title="ProFit AI Studio",
-    page_icon="💪",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
-        "About": "ProFit AI v1.0 - Piattaforma AI per Personal Trainer",
-        "Get Help": "https://github.com/tuoprofit",
-        "Report a bug": "https://github.com/tuoprofit/issues"
+        "About": "ProFit AI v2.0 - Piattaforma AI per Personal Trainer",
     }
 )
 
-# ════════════════════════════════════════════════════════════
-# CUSTOM CSS - TEMA PROFESSIONALE CON DARK MODE SUPPORT
-# ════════════════════════════════════════════════════════════
-
-st.markdown("""
-<style>
-    /* ═══════════════════════════════════════════════════════════════ */
-    /* TEMA ADATTIVO LIGHT/DARK - Base su variabili CSS native */
-    /* ═══════════════════════════════════════════════════════════════ */
-    
-    :root {
-        /* Colori primari del brand */
-        --primary: #0066cc;
-        --primary-dark: #0052a3;
-        --primary-light: #e6f0ff;
-        
-        --secondary: #00a86b;
-        --secondary-dark: #008855;
-        --secondary-light: #e6f9f0;
-        
-        --accent: #ff6b35;
-        --accent-light: #fff5f0;
-        --danger: #e74c3c;
-        
-        /* Colori in light mode (default) */
-        --bg-main: #f8f9fa;
-        --bg-card: #ffffff;
-        --bg-sidebar: #f0f2f5;
-        --text-primary: #1a1a2e;
-        --text-secondary: #5a5a6e;
-        --text-muted: #8f8f9e;
-        --border-color: #e0e0e8;
-        --shadow: 0 2px 8px rgba(0,0,0,0.08);
-        --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
-    }
-    
-    /* Dark mode overrides */
-    @media (prefers-color-scheme: dark) {
-        :root {
-            --bg-main: #0f1419;
-            --bg-card: #1a1e2e;
-            --bg-sidebar: #0a0d15;
-            --text-primary: #f0f0f5;
-            --text-secondary: #b8b8c8;
-            --text-muted: #7a7a8a;
-            --border-color: #2d3142;
-            --shadow: 0 2px 8px rgba(0,0,0,0.3);
-            --shadow-lg: 0 8px 24px rgba(0,0,0,0.4);
-        }
-    }
-
-    /* ═══════════════════════════════════════════════════════════════ */
-    /* MAIN LAYOUT */
-    /* ═══════════════════════════════════════════════════════════════ */
-    
-    .main {
-        background: var(--bg-main);
-    }
-    
-    /* Root container */
-    [data-testid="stAppViewContainer"] {
-        background: var(--bg-main);
-    }
-
-    /* ═══════════════════════════════════════════════════════════════ */
-    /* SIDEBAR - Alto contrasto indipendentemente dal tema */
-    /* ═══════════════════════════════════════════════════════════════ */
-    
-    [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, var(--bg-sidebar) 0%, var(--bg-sidebar) 100%);
-        border-right: 1px solid var(--border-color);
-    }
-    
-    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {
-        color: var(--text-primary) !important;
-    }
-    
-    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h1,
-    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h2,
-    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h3 {
-        color: var(--text-primary) !important;
-    }
-    
-    [data-testid="stSidebar"] .stSelectbox,
-    [data-testid="stSidebar"] .stButton,
-    [data-testid="stSidebar"] select,
-    [data-testid="stSidebar"] input {
-        color: var(--text-primary) !important;
-        background: var(--bg-card) !important;
-        border: 1px solid var(--border-color) !important;
-    }
-    
-    /* Contrasto migliorato per testi sidebar */
-    [data-testid="stSidebar"] label {
-        color: var(--text-primary) !important;
-        font-weight: 600 !important;
-    }
-
-    /* ═══════════════════════════════════════════════════════════════ */
-    /* TYPOGRAPHY */
-    /* ═══════════════════════════════════════════════════════════════ */
-    
-    h1, h2, h3, h4, h5, h6 {
-        color: var(--text-primary);
-        font-weight: 700;
-        letter-spacing: -0.5px;
-    }
-
-    h1 {
-        font-size: 2.5rem;
-        margin-bottom: 0.5rem;
-        background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        text-shadow: none;
-    }
-    
-    h2 {
-        font-size: 1.75rem;
-        color: var(--text-primary);
-        margin-top: 1.5rem;
-        margin-bottom: 0.75rem;
-    }
-    
-    h3 {
-        font-size: 1.25rem;
-        color: var(--text-primary);
-    }
-
-    p {
-        color: var(--text-primary);
-        line-height: 1.6;
-        font-size: 1rem;
-    }
-
-    /* ═══════════════════════════════════════════════════════════════ */
-    /* CARD SYSTEM */
-    /* ═══════════════════════════════════════════════════════════════ */
-    
-    .card {
-        background: var(--bg-card);
-        border-radius: 12px;
-        padding: 1.5rem;
-        margin: 1rem 0;
-        box-shadow: var(--shadow);
-        border: 1px solid var(--border-color);
-        transition: all 0.3s ease;
-    }
-
-    .card:hover {
-        box-shadow: var(--shadow-lg);
-        transform: translateY(-4px);
-    }
-
-    .card-primary {
-        background: linear-gradient(135deg, var(--primary-light) 0%, var(--bg-card) 100%);
-        border-left: 4px solid var(--primary);
-    }
-
-    .card-success {
-        background: linear-gradient(135deg, var(--secondary-light) 0%, var(--bg-card) 100%);
-        border-left: 4px solid var(--secondary);
-    }
-
-    .card-accent {
-        background: linear-gradient(135deg, var(--accent-light) 0%, var(--bg-card) 100%);
-        border-left: 4px solid var(--accent);
-    }
-
-    /* ═══════════════════════════════════════════════════════════════ */
-    /* METRIC BOX */
-    /* ═══════════════════════════════════════════════════════════════ */
-    
-    .metric-box {
-        background: var(--bg-card);
-        border-radius: 10px;
-        padding: 1rem;
-        text-align: center;
-        box-shadow: var(--shadow);
-        border: 1px solid var(--border-color);
-    }
-
-    .metric-value {
-        font-size: 2rem;
-        font-weight: 700;
-        color: var(--primary);
-        margin: 0.5rem 0;
-    }
-
-    .metric-label {
-        font-size: 0.9rem;
-        color: var(--text-secondary);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        font-weight: 600;
-    }
-
-    /* ═══════════════════════════════════════════════════════════════ */
-    /* BUTTON STYLING */
-    /* ═══════════════════════════════════════════════════════════════ */
-    
-    .stButton > button {
-        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%) !important;
-        color: white !important;
-        border: none !important;
-        border-radius: 8px !important;
-        padding: 0.6rem 1.2rem !important;
-        font-weight: 600 !important;
-        transition: all 0.3s ease !important;
-        box-shadow: 0 2px 4px rgba(0, 102, 204, 0.2) !important;
-    }
-
-    .stButton > button:hover {
-        box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3) !important;
-        transform: translateY(-2px) !important;
-    }
-
-    .stButton > button:active {
-        transform: translateY(0) !important;
-    }
-
-    /* ═══════════════════════════════════════════════════════════════ */
-    /* BADGE STYLING */
-    /* ═══════════════════════════════════════════════════════════════ */
-    
-    .badge {
-        display: inline-block;
-        padding: 0.4rem 0.8rem;
-        border-radius: 20px;
-        font-size: 0.85rem;
-        font-weight: 600;
-        margin-right: 0.5rem;
-        margin-bottom: 0.5rem;
-    }
-
-    .badge-primary { 
-        background: var(--primary-light); 
-        color: var(--primary); 
-        font-weight: 600;
-    }
-    
-    .badge-success { 
-        background: var(--secondary-light); 
-        color: var(--secondary); 
-        font-weight: 600;
-    }
-    
-    .badge-accent { 
-        background: var(--accent-light); 
-        color: var(--accent); 
-        font-weight: 600;
-    }
-
-    /* ═══════════════════════════════════════════════════════════════ */
-    /* FORM ELEMENTS */
-    /* ═══════════════════════════════════════════════════════════════ */
-    
-    .stTextInput > div > div > input,
-    .stTextArea > div > div > textarea,
-    .stSelectbox select,
-    .stSlider,
-    .stNumberInput {
-        color: var(--text-primary) !important;
-        background: var(--bg-card) !important;
-        border: 1px solid var(--border-color) !important;
-        border-radius: 6px !important;
-    }
-    
-    .stTextInput > div > div > input::placeholder,
-    .stTextArea > div > div > textarea::placeholder {
-        color: var(--text-muted) !important;
-    }
-
-    /* ═══════════════════════════════════════════════════════════════ */
-    /* ALERTS E MESSAGES */
-    /* ═══════════════════════════════════════════════════════════════ */
-    
-    [data-testid="stAlert"] {
-        border-radius: 8px;
-        border-left: 4px solid var(--primary);
-        background: var(--bg-card);
-        color: var(--text-primary);
-        padding: 1rem;
-    }
-    
-    .stSuccess {
-        border-left-color: var(--secondary) !important;
-    }
-    
-    .stError {
-        border-left-color: var(--danger) !important;
-    }
-    
-    .stWarning {
-        border-left-color: var(--accent) !important;
-    }
-    
-    .stInfo {
-        border-left-color: var(--primary) !important;
-    }
-
-    /* ═══════════════════════════════════════════════════════════════ */
-    /* EXPANDER */
-    /* ═══════════════════════════════════════════════════════════════ */
-    
-    .streamlit-expanderHeader {
-        background: var(--bg-card);
-        border-radius: 8px;
-        border: 1px solid var(--border-color);
-        color: var(--text-primary) !important;
-    }
-    
-    .streamlit-expanderHeader:hover {
-        background: var(--primary-light);
-    }
-
-    /* ═══════════════════════════════════════════════════════════════ */
-    /* DIVIDER */
-    /* ═══════════════════════════════════════════════════════════════ */
-    
-    hr {
-        border: none;
-        height: 1px;
-        background: linear-gradient(90deg, transparent, var(--border-color), transparent);
-        margin: 1.5rem 0;
-    }
-
-    /* ═══════════════════════════════════════════════════════════════ */
-    /* SCROLLBAR */
-    /* ═══════════════════════════════════════════════════════════════ */
-    
-    ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-    }
-    
-    ::-webkit-scrollbar-track {
-        background: var(--bg-main);
-    }
-    
-    ::-webkit-scrollbar-thumb {
-        background: var(--border-color);
-        border-radius: 4px;
-    }
-    
-    ::-webkit-scrollbar-thumb:hover {
-        background: var(--text-secondary);
-    }
-
-    /* ═══════════════════════════════════════════════════════════════ */
-    /* RESPONSIVE DESIGN */
-    /* ═══════════════════════════════════════════════════════════════ */
-    
-    @media (max-width: 768px) {
-        h1 {
-            font-size: 1.75rem;
-        }
-        
-        h2 {
-            font-size: 1.25rem;
-        }
-        
-        .metric-box {
-            padding: 0.75rem;
-        }
-        
-        .card {
-            padding: 1rem;
-        }
-    }
-    
-    @media (max-width: 480px) {
-        h1 {
-            font-size: 1.5rem;
-        }
-        
-        p {
-            font-size: 0.95rem;
-        }
-    }
-
-    /* ═══════════════════════════════════════════════════════════════ */
-    /* CUSTOM UTILITIES - QUICK WINS */
-    /* ═══════════════════════════════════════════════════════════════ */
-    
-    /* Text Colors Semantici */
-    .text-success { color: #155724 !important; }
-    .text-warning { color: #856404 !important; }
-    .text-danger { color: #721C24 !important; }
-    .text-info { color: #0C5460 !important; }
-    .text-muted { color: #7A7A8A !important; }
-    .text-primary { color: #0066CC !important; }
-    
-    /* Background Colors Light */
-    .bg-success-light { background: rgba(0, 200, 81, 0.1) !important; }
-    .bg-warning-light { background: rgba(255, 184, 0, 0.1) !important; }
-    .bg-danger-light { background: rgba(231, 76, 60, 0.1) !important; }
-    .bg-info-light { background: rgba(0, 102, 204, 0.1) !important; }
-    
-    /* Border Radius Utilities */
-    .rounded-sm { border-radius: 4px !important; }
-    .rounded-md { border-radius: 8px !important; }
-    .rounded-lg { border-radius: 12px !important; }
-    .rounded-xl { border-radius: 16px !important; }
-    .rounded-full { border-radius: 9999px !important; }
-    
-    /* Shadow Utilities */
-    .shadow-sm { box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important; }
-    .shadow-md { box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important; }
-    .shadow-lg { box-shadow: 0 10px 15px rgba(0,0,0,0.1) !important; }
-    .shadow-xl { box-shadow: 0 20px 25px rgba(0,0,0,0.15) !important; }
-    
-    /* Spacing Utilities (padding/margin) */
-    .p-0 { padding: 0 !important; }
-    .p-1 { padding: 0.25rem !important; }
-    .p-2 { padding: 0.5rem !important; }
-    .p-3 { padding: 0.75rem !important; }
-    .p-4 { padding: 1rem !important; }
-    .p-5 { padding: 1.5rem !important; }
-    .p-6 { padding: 2rem !important; }
-    
-    .m-0 { margin: 0 !important; }
-    .m-1 { margin: 0.25rem !important; }
-    .m-2 { margin: 0.5rem !important; }
-    .m-3 { margin: 0.75rem !important; }
-    .m-4 { margin: 1rem !important; }
-    .m-5 { margin: 1.5rem !important; }
-    .m-6 { margin: 2rem !important; }
-    
-    .mt-0 { margin-top: 0 !important; }
-    .mt-2 { margin-top: 0.5rem !important; }
-    .mt-3 { margin-top: 0.75rem !important; }
-    .mt-4 { margin-top: 1rem !important; }
-    .mt-5 { margin-top: 1.5rem !important; }
-    .mt-6 { margin-top: 2rem !important; }
-    
-    .mb-0 { margin-bottom: 0 !important; }
-    .mb-2 { margin-bottom: 0.5rem !important; }
-    .mb-3 { margin-bottom: 0.75rem !important; }
-    .mb-4 { margin-bottom: 1rem !important; }
-    .mb-5 { margin-bottom: 1.5rem !important; }
-    .mb-6 { margin-bottom: 2rem !important; }
-    
-    /* Animations */
-    .animate-fade-in {
-        animation: fadeIn 0.3s ease-in;
-    }
-    
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(-10px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-    
-    .hover-lift {
-        transition: transform 0.2s ease, box-shadow 0.2s ease !important;
-    }
-    
-    .hover-lift:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 8px 16px rgba(0,0,0,0.12) !important;
-    }
-    
-    /* Font Utilities */
-    .font-bold { font-weight: 700 !important; }
-    .font-semibold { font-weight: 600 !important; }
-    .font-normal { font-weight: 400 !important; }
-    
-    .text-xs { font-size: 0.75rem !important; }
-    .text-sm { font-size: 0.875rem !important; }
-    .text-base { font-size: 1rem !important; }
-    .text-lg { font-size: 1.125rem !important; }
-    .text-xl { font-size: 1.25rem !important; }
-    .text-2xl { font-size: 1.5rem !important; }
-    
-    /* Display & Flex */
-    .flex { display: flex !important; }
-    .flex-col { flex-direction: column !important; }
-    .items-center { align-items: center !important; }
-    .justify-between { justify-content: space-between !important; }
-    .justify-center { justify-content: center !important; }
-    .gap-2 { gap: 0.5rem !important; }
-    .gap-3 { gap: 0.75rem !important; }
-    .gap-4 { gap: 1rem !important; }
-    
-    .section-header {
-        color: var(--text-primary);
-        margin-bottom: 1rem;
-    }
-    
-    .section-header h2 {
-        color: var(--primary);
-        margin: 0;
-    }
-    
-    .section-header p {
-        color: var(--text-secondary);
-        margin: 0.25rem 0 0 0;
-        font-size: 0.9rem;
-    }
-    
-    /* Animazioni fluide */
-    * {
-        transition-property: background-color, color, border-color, box-shadow;
-        transition-duration: 0.2s;
-        transition-timing-function: ease;
-    }
-    
-</style>
-""", unsafe_allow_html=True)
+load_custom_css()
 
 # ════════════════════════════════════════════════════════════
-# SIDEBAR NAVIGATION
+# DATA - Load once, use everywhere
+# ════════════════════════════════════════════════════════════
+
+client_repo = ClientRepository()
+agenda_repo = AgendaRepository()
+financial_repo = FinancialRepository()
+contract_repo = ContractRepository()
+
+oggi = date.today()
+primo_mese = date(oggi.year, oggi.month, 1)
+ultimo_giorno = monthrange(oggi.year, oggi.month)[1]
+ultimo_mese = date(oggi.year, oggi.month, ultimo_giorno)
+
+# Safe data fetching
+try:
+    clienti_attivi = client_repo.get_all_active()
+    n_clienti = len(clienti_attivi)
+except Exception:
+    clienti_attivi = []
+    n_clienti = 0
+
+try:
+    eventi_oggi = agenda_repo.get_events_by_range(oggi, oggi)
+    n_eventi_oggi = len(eventi_oggi)
+except Exception:
+    eventi_oggi = []
+    n_eventi_oggi = 0
+
+try:
+    bilancio = financial_repo.get_cash_balance(primo_mese, ultimo_mese)
+    entrate_mese = bilancio.get('totale_entrate', 0) or 0
+except Exception:
+    entrate_mese = 0
+
+try:
+    prossimi_eventi = agenda_repo.get_events_by_range(oggi, oggi + timedelta(days=7))
+except Exception:
+    prossimi_eventi = []
+
+# ════════════════════════════════════════════════════════════
+# SIDEBAR
 # ════════════════════════════════════════════════════════════
 
 with st.sidebar:
-    st.markdown("### 💪 ProFit AI")
-    st.caption("Piattaforma Premium per Personal Trainer")
-    
+    st.markdown("""
+    <div style="padding: 0.5rem 0 1rem 0;">
+        <h2 style="margin: 0; font-size: 1.4rem; background: linear-gradient(135deg, #3b82f6, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">ProFit AI</h2>
+        <p style="margin: 0.25rem 0 0 0; color: var(--text-muted); font-size: 0.75rem; letter-spacing: 1px; text-transform: uppercase;">Studio Personal Training</p>
+    </div>
+    """, unsafe_allow_html=True)
+
     st.divider()
-    
-    # User Profile Quick View
-    client_repo = ClientRepository()
-    
-    st.markdown("#### 👤 Sezioni Principali")
-    st.page_link("pages/01_Agenda.py", label="📅 Agenda", icon="📅")
-    st.page_link("pages/03_Clienti.py", label="👥 Clienti", icon="👥")
-    st.page_link("pages/04_Cassa.py", label="💰 Cassa", icon="💰")
-    
+
+    st.markdown('<p style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 0.5rem; font-weight: 700;">Gestione</p>', unsafe_allow_html=True)
+    st.page_link("pages/01_Agenda.py", label="Agenda", icon=":material/calendar_month:")
+    st.page_link("pages/03_Clienti.py", label="Clienti", icon=":material/group:")
+    st.page_link("pages/04_Cassa.py", label="Cassa & Bilancio", icon=":material/account_balance_wallet:")
+
+    st.markdown('<div style="margin-top: 1rem;"></div>', unsafe_allow_html=True)
+    st.markdown('<p style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 0.5rem; font-weight: 700;">Strumenti AI</p>', unsafe_allow_html=True)
+    st.page_link("pages/02_Assistente_Esperto.py", label="Assistente Esperto", icon=":material/psychology:")
+    st.page_link("pages/07_Programma_Allenamento.py", label="Programmi", icon=":material/fitness_center:")
+    st.page_link("pages/06_Assessment_Allenamenti.py", label="Assessment", icon=":material/monitoring:")
+    st.page_link("pages/05_Analisi_Margine_Orario.py", label="Margine Orario", icon=":material/analytics:")
+
+    st.markdown('<div style="margin-top: 1rem;"></div>', unsafe_allow_html=True)
+    st.markdown('<p style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 0.5rem; font-weight: 700;">Risorse</p>', unsafe_allow_html=True)
+    st.page_link("pages/08_Document_Explorer.py", label="Documenti", icon=":material/description:")
+
     st.divider()
-    
-    st.markdown("#### 🤖 Strumenti AI")
-    st.page_link("pages/02_Assistente_Esperto.py", label="🧠 Assistente Esperto", icon="🧠")
-    st.page_link("pages/07_Programma_Allenamento.py", label="🏋️ Generatore Programmi", icon="🏋️")
-    st.page_link("pages/06_Assessment_Allenamenti.py", label="📊 Assessment", icon="📊")
-    st.page_link("pages/05_Analisi_Margine_Orario.py", label="📊 Margine Orario", icon="📊")
-    
-    st.divider()
-    
-    st.markdown("#### 📚 Risorse")
-    st.page_link("pages/08_Document_Explorer.py", label="📚 Documenti", icon="📚")
-    
-    st.divider()
-    
-    # Stats Footer
-    try:
-        clienti_count = len(client_repo.get_all_active())
-        st.metric("Clienti Attivi", clienti_count)
-    except:
-        pass
-    
-    st.caption("🔐 v1.0 | © 2026 ProFit AI")
+
+    # Footer
+    st.markdown(f"""
+    <div style="padding: 0.5rem 0; text-align: center;">
+        <p style="color: var(--text-muted); font-size: 0.7rem; margin: 0;">v2.0 &middot; {oggi.strftime('%d %b %Y')}</p>
+    </div>
+    """, unsafe_allow_html=True)
 
 # ════════════════════════════════════════════════════════════
-# MAIN DASHBOARD
+# HEADER
 # ════════════════════════════════════════════════════════════
 
-# Header con Greeting
 hour = datetime.now().hour
-greeting = "Buongiorno" if hour < 12 else "Buonasera" if hour < 18 else "Buonasera"
+if hour < 12:
+    greeting = "Buongiorno"
+elif hour < 18:
+    greeting = "Buon pomeriggio"
+else:
+    greeting = "Buonasera"
 
 st.markdown(f"""
-<div style="margin-bottom: 2rem;">
-    <h1>💪 {greeting}, Coach!</h1>
-    <p style="font-size: 1.1rem; color: var(--text-secondary); margin: 0;">
-        Bentornato in ProFit AI - La tua piattaforma intelligente per il personal training
+<div style="margin-bottom: 1.5rem;">
+    <h1 style="margin-bottom: 0.25rem;">{greeting}, Coach</h1>
+    <p style="color: var(--text-secondary); margin: 0; font-size: 1rem;">
+        Ecco la tua situazione di oggi, {oggi.strftime('%A %d %B %Y').capitalize()}
     </p>
 </div>
 """, unsafe_allow_html=True)
 
-st.divider()
-
 # ════════════════════════════════════════════════════════════
-# DASHBOARD CARDS - QUICK STATS
+# KPI ROW - Dati reali
 # ════════════════════════════════════════════════════════════
-
-st.markdown("### 📊 Dashboard Veloce")
 
 col1, col2, col3, col4 = st.columns(4, gap="medium")
 
-client_repo = ClientRepository()
-
-try:
-    clienti_attivi = len(client_repo.get_all_active())
-    with col1:
-        st.markdown("""
-        <div class="card card-primary">
-            <div class="metric-box">
-                <div class="metric-label">👥 Clienti Attivi</div>
-                <div class="metric-value">{}</div>
-                <small style="color: var(--text-secondary);">In seguito attualmente</small>
-            </div>
-        </div>
-        """.format(clienti_attivi), unsafe_allow_html=True)
-except:
-    with col1:
-        st.markdown("""
-        <div class="card card-primary">
-            <div class="metric-box">
-                <div class="metric-label">👥 Clienti Attivi</div>
-                <div class="metric-value">-</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+with col1:
+    st.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-label">Clienti Attivi</div>
+        <div class="kpi-value" style="color: var(--primary);">{n_clienti}</div>
+        <div class="kpi-trend neutral">portfolio attuale</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 with col2:
-    st.markdown("""
-    <div class="card card-success">
-        <div class="metric-box">
-            <div class="metric-label">🏋️ Programmi Creati</div>
-            <div class="metric-value">0</div>
-            <small style="color: var(--text-secondary);">Questa settimana</small>
-        </div>
+    trend_class = "positive" if n_eventi_oggi > 0 else "neutral"
+    st.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-label">Sessioni Oggi</div>
+        <div class="kpi-value" style="color: var(--secondary);">{n_eventi_oggi}</div>
+        <div class="kpi-trend {trend_class}">{'in programma' if n_eventi_oggi > 0 else 'nessuna sessione'}</div>
     </div>
     """, unsafe_allow_html=True)
 
 with col3:
-    st.markdown("""
-    <div class="card card-accent">
-        <div class="metric-box">
-            <div class="metric-label">📈 Progressi Tracciati</div>
-            <div class="metric-value">0</div>
-            <small style="color: var(--text-secondary);">Ultimi 7 giorni</small>
-        </div>
+    entrate_formatted = format_currency(entrate_mese, decimals=0)
+    st.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-label">Entrate Mese</div>
+        <div class="kpi-value" style="color: var(--accent);">{entrate_formatted}</div>
+        <div class="kpi-trend neutral">{oggi.strftime('%B %Y').capitalize()}</div>
     </div>
     """, unsafe_allow_html=True)
 
 with col4:
-    st.markdown("""
-    <div class="card">
-        <div class="metric-box">
-            <div class="metric-label">🧠 Ricerche KB</div>
-            <div class="metric-value">0</div>
-            <small style="color: var(--text-secondary);">Assistente esperto</small>
+    n_prossimi = len([e for e in prossimi_eventi if str(e.data_inizio)[:10] != str(oggi)])
+    st.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-label">Prossimi 7 giorni</div>
+        <div class="kpi-value" style="color: var(--info);">{n_prossimi}</div>
+        <div class="kpi-trend neutral">sessioni in agenda</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ════════════════════════════════════════════════════════════
+# CONTENT ROW
+# ════════════════════════════════════════════════════════════
+
+st.markdown("<div style='margin-top: 1.5rem;'></div>", unsafe_allow_html=True)
+
+col_left, col_right = st.columns([3, 2], gap="large")
+
+# ─── Prossime sessioni ───
+with col_left:
+    st.markdown("### Prossime sessioni")
+
+    if prossimi_eventi:
+        # Show next 6 events max
+        for evento in prossimi_eventi[:6]:
+            ev_date = str(evento.data_inizio)[:10] if evento.data_inizio else "?"
+            ev_time = str(evento.data_inizio)[11:16] if evento.data_inizio and len(str(evento.data_inizio)) > 10 else ""
+            ev_tipo = getattr(evento, 'tipo', 'PT') or 'PT'
+            ev_stato = getattr(evento, 'stato', '') or ''
+            ev_cliente_id = getattr(evento, 'id_cliente', None)
+
+            # Get client name
+            client_name = "Evento"
+            if ev_cliente_id:
+                try:
+                    cliente = client_repo.get_by_id(ev_cliente_id)
+                    if cliente:
+                        client_name = f"{cliente.nome} {cliente.cognome}"
+                except Exception:
+                    pass
+
+            # Determine badge
+            is_today = ev_date == str(oggi)
+            date_label = "OGGI" if is_today else ev_date[5:]  # MM-DD
+            date_color = "var(--secondary)" if is_today else "var(--text-muted)"
+
+            st.markdown(f"""
+            <div style="display: flex; align-items: center; gap: 1rem; padding: 0.6rem 0; border-bottom: 1px solid var(--border-subtle);">
+                <div style="min-width: 60px; text-align: center;">
+                    <div style="color: {date_color}; font-weight: 700; font-size: 0.8rem;">{date_label}</div>
+                    <div style="color: var(--text-muted); font-size: 0.75rem;">{ev_time}</div>
+                </div>
+                <div style="flex: 1;">
+                    <div style="color: var(--text-primary); font-weight: 600; font-size: 0.9rem;">{client_name}</div>
+                    <div style="color: var(--text-muted); font-size: 0.75rem;">{ev_tipo}</div>
+                </div>
+                <div>
+                    <span class="badge badge-{'success' if ev_stato in ('CONFERMATO', 'COMPLETATO') else 'primary'}" style="font-size: 0.7rem;">{ev_stato or ev_tipo}</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
+            <p style="font-size: 2rem; margin-bottom: 0.5rem;">0</p>
+            <p style="font-size: 0.9rem;">Nessuna sessione in programma</p>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
-# ════════════════════════════════════════════════════════════
-# QUICK ACTIONS
-# ════════════════════════════════════════════════════════════
+# ─── Azioni rapide + info ───
+with col_right:
+    st.markdown("### Azioni rapide")
 
-st.divider()
-st.markdown("### ⚡ Azioni Rapide")
+    c1, c2 = st.columns(2, gap="small")
+    with c1:
+        if st.button("Nuovo Cliente", use_container_width=True, key="btn_new_client"):
+            st.switch_page("pages/03_Clienti.py")
+    with c2:
+        if st.button("Genera Programma", use_container_width=True, key="btn_new_program"):
+            st.switch_page("pages/07_Programma_Allenamento.py")
 
-col_action1, col_action2, col_action3, col_action4 = st.columns(4, gap="medium")
+    c3, c4 = st.columns(2, gap="small")
+    with c3:
+        if st.button("Chat Esperto", use_container_width=True, key="btn_expert"):
+            st.switch_page("pages/02_Assistente_Esperto.py")
+    with c4:
+        if st.button("Apri Agenda", use_container_width=True, key="btn_calendar"):
+            st.switch_page("pages/01_Agenda.py")
 
-with col_action1:
-    if st.button("➕ Nuovo Cliente", use_container_width=True, key="btn_new_client"):
-        st.switch_page("pages/03_Clienti.py")
+    # AI Status
+    st.markdown("<div style='margin-top: 1.25rem;'></div>", unsafe_allow_html=True)
+    st.markdown("### Status AI")
 
-with col_action2:
-    if st.button("📋 Genera Programma", use_container_width=True, key="btn_new_program"):
-        st.switch_page("pages/07_Programma_Allenamento.py")
+    try:
+        from core.workout_ai_pipeline import WorkoutAIPipeline
+        from unittest.mock import patch
+        with patch.object(WorkoutAIPipeline, '_init_llm'):
+            pipeline = WorkoutAIPipeline()
+            pipeline.llm = None
+            status = pipeline.get_pipeline_status()
 
-with col_action3:
-    if st.button("💬 Chat Esperto", use_container_width=True, key="btn_expert"):
-        st.switch_page("pages/02_Assistente_Esperto.py")
+        dna_cards = status.get('dna_cards', 0)
+        dna_level = status.get('dna_level', 'none')
+        meth_docs = status.get('methodology_docs', 0)
 
-with col_action4:
-    if st.button("📊 Visualizza Calendario", use_container_width=True, key="btn_calendar"):
-        st.switch_page("pages/01_Agenda.py")
+        level_colors = {'none': 'neutral', 'learning': 'accent', 'intermediate': 'primary', 'advanced': 'success'}
+        level_color = level_colors.get(dna_level, 'neutral')
 
-# ════════════════════════════════════════════════════════════
-# FEATURED SECTIONS
-# ════════════════════════════════════════════════════════════
-
-st.divider()
-st.markdown("### 🌟 Funzionalità Principali")
-
-col_feat1, col_feat2 = st.columns(2, gap="large")
-
-with col_feat1:
-    st.markdown("""
-    <div class="card card-primary">
-        <h3 style="margin-top: 0; color: var(--primary);">🧠 Assistente Esperto</h3>
-        <p>Chat intelligente basata su vector store e metodologie avanzate di allenamento. Accedi a una knowledge base di 400+ chunk di documentazione specializzata.</p>
-        <span class="badge badge-primary">RAG Avanzato</span>
-        <span class="badge badge-primary">AI-Powered</span>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col_feat2:
-    st.markdown("""
-    <div class="card card-success">
-        <h3 style="margin-top: 0; color: var(--secondary);">🏋️ Generatore di Programmi</h3>
-        <p>Crea workout personalizzati con IA che tiene conto di goal, livello, disponibilità e limitazioni. Supporta periodizzazione avanzata e strategie di progressione.</p>
-        <span class="badge badge-success">Ipertrofia</span>
-        <span class="badge badge-success">Forza</span>
-        <span class="badge badge-success">Resistenza</span>
-    </div>
-    """, unsafe_allow_html=True)
-
-st.divider()
-
-col_feat3, col_feat4 = st.columns(2, gap="large")
-
-with col_feat3:
-    st.markdown("""
-    <div class="card card-accent">
-        <h3 style="margin-top: 0; color: var(--accent);">📊 Dashboard Analytics</h3>
-        <p>Monitora i progressi dei tuoi clienti con visualizzazioni avanzate. Trackizza forza, volume, peso corporeo e performance nel tempo.</p>
-        <span class="badge badge-accent">Real-time</span>
-        <span class="badge badge-accent">Grafici Interattivi</span>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col_feat4:
-    st.markdown("""
-    <div class="card">
-        <h3 style="margin-top: 0; color: var(--primary);">👥 Gestione Clienti</h3>
-        <p>Interfaccia completa per gestire anagrafe, progressi, programmi assegnati e comunicazioni. Database centralizzato e sempre sincronizzato.</p>
-        <span class="badge badge-primary">Database</span>
-        <span class="badge badge-primary">CRM</span>
-    </div>
-    """, unsafe_allow_html=True)
-
-# ════════════════════════════════════════════════════════════
-# FOOTER
-# ════════════════════════════════════════════════════════════
-
-st.divider()
-
-col_footer1, col_footer2, col_footer3 = st.columns(3)
-
-with col_footer1:
-    st.caption("📧 Support: support@profit-ai.com")
-
-with col_footer2:
-    st.caption("🔐 Privacy & Security | GDPR Compliant")
-
-with col_footer3:
-    st.caption(f"⏰ {datetime.now().strftime('%d %b %Y - %H:%M')}")
-
-st.markdown("""
----
-<center>
-<small>ProFit AI v1.0 | Developed with ❤️ | © 2026</small>
-</center>
-""", unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class="card" style="padding: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span style="color: var(--text-secondary); font-size: 0.85rem;">Trainer DNA</span>
+                <span class="badge badge-{level_color}" style="font-size: 0.7rem;">{dna_level.upper()}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span style="color: var(--text-secondary); font-size: 0.85rem;">Schede importate</span>
+                <span style="color: var(--text-primary); font-weight: 600;">{dna_cards}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="color: var(--text-secondary); font-size: 0.85rem;">Knowledge Base</span>
+                <span style="color: var(--text-primary); font-weight: 600;">{meth_docs} docs</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    except Exception:
+        st.markdown("""
+        <div class="card" style="padding: 1rem;">
+            <span style="color: var(--text-muted); font-size: 0.85rem;">AI non disponibile</span>
+        </div>
+        """, unsafe_allow_html=True)

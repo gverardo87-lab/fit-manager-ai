@@ -6,12 +6,14 @@ import plotly.graph_objects as go
 from datetime import date
 from core.repositories import ClientRepository, AssessmentRepository
 from core.models import AssessmentInitialCreate, AssessmentFollowupCreate
+from core.ui_components import load_custom_css
 import os
 
 client_repo = ClientRepository()
 assessment_repo = AssessmentRepository()
 
-st.set_page_config(page_title="Assessment & Allenamenti", page_icon="🏋️", layout="wide")
+st.set_page_config(page_title="Assessment & Allenamenti", page_icon=":material/monitoring:", layout="wide")
+load_custom_css()
 
 st.title("🏋️ Assessment & Programmi Allenamento")
 

@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 
 from core.knowledge_chain import get_hybrid_chain
 from core.error_handler import logger
+from core.ui_components import load_custom_css
 
 # ════════════════════════════════════════════════════════════
 # PAGE CONFIG
@@ -24,10 +25,11 @@ from core.error_handler import logger
 
 st.set_page_config(
     page_title="Assistente Esperto",
-    page_icon="🧠",
+    page_icon=":material/psychology:",
     layout="wide",
     initial_sidebar_state="expanded"
 )
+load_custom_css()
 
 # ════════════════════════════════════════════════════════════
 # INITIALIZATION

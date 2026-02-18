@@ -25,6 +25,7 @@ from core.repositories import TrainerDNARepository
 from core.error_handler import logger
 from core.config import DB_CRM_PATH
 from core.ui_components import (
+    load_custom_css,
     render_card, render_metric_box, render_workout_summary,
     create_section_header, render_success_message, render_error_message,
     render_progress_bar, render_badges, render_status_indicator,
@@ -33,7 +34,8 @@ from core.ui_components import (
 import json
 
 # PAGE CONFIG
-st.set_page_config(page_title="Generatore Programmi", page_icon="🏋️", layout="wide")
+st.set_page_config(page_title="Generatore Programmi", page_icon=":material/fitness_center:", layout="wide")
+load_custom_css()
 
 # INITIALIZATION
 DBMigrations(DB_CRM_PATH).run_all()

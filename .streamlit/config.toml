@@ -1,8 +1,10 @@
-# .streamlit/config.toml
+# ProFit AI Studio - Streamlit Theme Configuration
+# Light theme professionale - lascia che Streamlit gestisca i suoi widget nativamente
 
 [theme]
-primaryColor="#FFA500"
-backgroundColor="#0E1117"
-secondaryBackgroundColor="#1C2A44"
-textColor="#FFFFFF"
-font="sans serif"
+base = "light"
+primaryColor = "#2563EB"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F8FAFC"
+textColor = "#1E293B"
+font = "sans serif"

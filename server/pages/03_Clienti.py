@@ -1,4 +1,4 @@
-# file: server/pages/02_Clienti.py (Versione 8.0 - Stable NO-FORM)
+# file: server/pages/03_Clienti.py (Versione 8.0 - Stable NO-FORM)
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -7,26 +7,14 @@ import json
 from datetime import date, datetime, timedelta
 from core.repositories import ClientRepository, ContractRepository, AgendaRepository
 from core.models import ClienteCreate, ClienteUpdate, ContratoCreate
-from core.ui_components import badge, status_badge, format_currency, empty_state_component, loading_message
+from core.ui_components import badge, status_badge, format_currency, empty_state_component, loading_message, load_custom_css
 
 client_repo = ClientRepository()
 contract_repo = ContractRepository()
 agenda_repo = AgendaRepository()
 
-st.set_page_config(page_title="Elite Client Manager", page_icon="💎", layout="wide")
-
-# --- CSS PRO ---
-st.markdown("""
-<style>
-    .stMetric { background-color: #ffffff; padding: 15px 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #f0f0f0; transition: transform 0.2s; }
-    .stMetric:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.1); }
-    h1, h2, h3, h4 { font-family: 'Helvetica Neue', sans-serif; letter-spacing: -0.5px; }
-    img { border-radius: 50%; }
-    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
-    .stTabs [data-baseweb="tab"] { height: 50px; border-radius: 10px; padding: 0 20px; background-color: #f8f9fa; border: 1px solid #eee; }
-    .stTabs [aria-selected="true"] { background-color: #e3f2fd; color: #0d47a1; font-weight: bold; border: 1px solid #bbdefb; }
-</style>
-""", unsafe_allow_html=True)
+st.set_page_config(page_title="Clienti", page_icon=":material/group:", layout="wide")
+load_custom_css()
 
 # --- DIALOGHI (NO FORMS per stabilità) ---
 

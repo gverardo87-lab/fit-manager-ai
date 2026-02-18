@@ -5,9 +5,11 @@ from datetime import datetime, date, timedelta
 import pandas as pd
 from core.repositories import ClientRepository, AgendaRepository
 from core.models import SessioneCreate
+from core.ui_components import load_custom_css
 
 # Setup
-st.set_page_config(page_title="Agenda Elite", page_icon="📅", layout="wide")
+st.set_page_config(page_title="Agenda", page_icon=":material/calendar_month:", layout="wide")
+load_custom_css()
 client_repo = ClientRepository()
 agenda_repo = AgendaRepository()
 
@@ -16,34 +18,6 @@ if 'cal_view' not in st.session_state:
     st.session_state.cal_view = "timeGridWeek"
 if 'cal_date' not in st.session_state:
     st.session_state.cal_date = date.today().isoformat()
-
-# --- CSS CUSTOM "ELITE" ---
-st.markdown("""
-<style>
-    .stMetric {
-        background-color: white;
-        padding: 15px;
-        border-radius: 12px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        border: 1px solid #f0f0f0;
-    }
-    .fc-event { 
-        border-radius: 6px !important; 
-        border: none !important; 
-        font-size: 0.9em !important; 
-        font-weight: 500;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        cursor: pointer; 
-        transition: transform 0.1s; 
-        padding: 2px 4px;
-    }
-    .fc-event:hover { transform: scale(1.02); z-index: 10; }
-    .fc-timegrid-slot { height: 50px !important; } 
-    .fc-toolbar-title { font-size: 1.5em !important; font-weight: 600; color: #2c3e50; }
-    .fc-col-header-cell { background-color: #f8f9fa; padding: 10px 0; }
-    footer {visibility: hidden;}
-</style>
-""", unsafe_allow_html=True)
 
 # --- UTILS ROBUSTE ---
 def parse_click_naive(date_str):

@@ -5,8 +5,10 @@ import fitz
 
 # Importiamo il nuovo DocumentManager "Scanner"
 from core.document_manager import NavalDocumentManager
+from core.ui_components import load_custom_css
 
-st.set_page_config(page_title="Naval Document Explorer", page_icon="📚", layout="wide")
+st.set_page_config(page_title="Naval Document Explorer", page_icon=":material/description:", layout="wide")
+load_custom_css()
 
 # Inizializza il manager che scannerizzerà la cartella 'documents'
 # st.cache_resource garantisce che la scansione avvenga solo una volta.

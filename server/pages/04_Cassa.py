@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 
 from core.repositories import ClientRepository, ContractRepository, FinancialRepository
 from core.models import MovimentoCassaCreate, SpesaRicorrenteCreate
-from core.ui_components import badge, status_badge, format_currency, loading_message, section_divider_component, empty_state_component
+from core.ui_components import badge, status_badge, format_currency, loading_message, section_divider_component, empty_state_component, load_custom_css
 
 # ════════════════════════════════════════════════════════════
 # CONFIG
@@ -29,73 +29,15 @@ from core.ui_components import badge, status_badge, format_currency, loading_mes
 
 st.set_page_config(
     page_title="Cassa & Bilancio",
-    page_icon="💰",
+    page_icon=":material/account_balance_wallet:",
     layout="wide"
 )
+
+load_custom_css()
 
 client_repo = ClientRepository()
 contract_repo = ContractRepository()
 financial_repo = FinancialRepository()
-
-# ════════════════════════════════════════════════════════════
-# CSS OTTIMIZZATO
-# ════════════════════════════════════════════════════════════
-
-st.markdown("""
-<style>
-    /* Executive Summary Box */
-    .summary-box {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 30px;
-        border-radius: 12px;
-        margin-bottom: 30px;
-    }
-    
-    /* KPI Cards */
-    .kpi-card {
-        background: white;
-        border: 2px solid #e5e7eb;
-        border-radius: 8px;
-        padding: 20px;
-        text-align: center;
-    }
-    
-    .kpi-value {
-        font-size: 32px;
-        font-weight: bold;
-        margin: 10px 0;
-    }
-    
-    .kpi-label {
-        font-size: 14px;
-        color: #6b7280;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-    
-    /* Colors */
-    .positive { color: #10b981; }
-    .negative { color: #ef4444; }
-    .warning { color: #f59e0b; }
-    .neutral { color: #6b7280; }
-    
-    /* Tables */
-    .dataframe {
-        font-size: 14px;
-    }
-    
-    /* Section Headers */
-    .section-header {
-        font-size: 20px;
-        font-weight: 600;
-        color: #111827;
-        margin: 20px 0 10px 0;
-        padding-bottom: 10px;
-        border-bottom: 2px solid #e5e7eb;
-    }
-</style>
-""", unsafe_allow_html=True)
 
 # ════════════════════════════════════════════════════════════
 # DATI BASE
@@ -972,8 +914,8 @@ if movimenti:
         tipo_color = "green" if movimento_dettaglio['tipo'] == 'ENTRATA' else "red"
         
         st.markdown(f"""
-        <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; border-left: 5px solid {tipo_color};">
-            <h4 style="margin-top: 0;">{tipo_icon} Dettagli Movimento #{movimento_dettaglio['id']}</h4>
+        <div style="background: var(--bg-elevated); padding: 20px; border-radius: 10px; border-left: 5px solid {tipo_color};">
+            <h4 style="margin-top: 0; color: var(--text-primary);">{tipo_icon} Dettagli Movimento #{movimento_dettaglio['id']}</h4>
         </div>
         """, unsafe_allow_html=True)
         

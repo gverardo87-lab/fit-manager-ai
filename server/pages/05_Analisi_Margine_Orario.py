@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from core.repositories import FinancialRepository
 from core.ui_components import (
+    load_custom_css,
     render_card, render_metric_box, create_section_header,
     render_success_message, render_error_message
 )
@@ -27,9 +28,10 @@ from core.ui_components import (
 
 st.set_page_config(
     page_title="Analisi Margine Orario",
-    page_icon="📊",
+    page_icon=":material/analytics:",
     layout="wide"
 )
+load_custom_css()
 
 financial_repo = FinancialRepository()
 
@@ -228,10 +230,10 @@ with tab1:
         )
         
         st.plotly_chart(fig, use_container_width=True)
-        
+
         # KPI nel grafico
         col1, col2, col3 = st.columns(3)
-        
+
         with col1:
             max_margine = df_trend['Margine/Ora'].max()
             st.metric("Massimo Margine", f"€{max_margine:.2f}")
@@ -262,7 +264,7 @@ with tab1:
         )
         
         st.plotly_chart(fig, use_container_width=True)
-        
+
         # KPI settimane
         col1, col2, col3 = st.columns(3)
         
@@ -391,7 +393,7 @@ with tab3:
             )
             
             st.plotly_chart(fig, use_container_width=True)
-            
+
             # Statistiche
             col1, col2, col3 = st.columns(3)
             with col1:
