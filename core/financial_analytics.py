@@ -18,15 +18,11 @@ from datetime import date, datetime, timedelta
 from dateutil.relativedelta import relativedelta
 import pandas as pd
 import numpy as np
-from pathlib import Path
-import sys
 
-# Import DB Manager
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from core.crm_db import CrmDBManager
+from core.repositories.base_repository import BaseRepository
 
 
-class FinancialAnalytics:
+class FinancialAnalytics(BaseRepository):
     """
     Advanced Financial Analytics Engine
 
@@ -36,10 +32,13 @@ class FinancialAnalytics:
     - Churn Rate & Retention
     - Monthly Recurring Revenue (MRR)
     - Cohort Analysis
+
+    Eredita da BaseRepository per accesso diretto al DB
+    senza dipendere dal legacy CrmDBManager.
     """
 
-    def __init__(self, db: CrmDBManager = None):
-        self.db = db or CrmDBManager()
+    def __init__(self):
+        super().__init__()
 
     # ══════════════════════════════════════════════════════════
     # 1. LIFETIME VALUE (LTV) ANALYSIS
@@ -78,7 +77,7 @@ class FinancialAnalytics:
         if as_of_date is None:
             as_of_date = date.today()
 
-        with self.db._connect() as conn:
+        with self._connect() as conn:
             # Recupera dati cliente
             cliente = conn.execute("""
                 SELECT nome, cognome, stato, data_creazione
@@ -179,7 +178,7 @@ class FinancialAnalytics:
         if as_of_date is None:
             as_of_date = date.today()
 
-        with self.db._connect() as conn:
+        with self._connect() as conn:
             # Tutti i clienti attivi
             clienti = conn.execute("""
                 SELECT id FROM clienti WHERE stato = 'Attivo'
@@ -258,7 +257,7 @@ class FinancialAnalytics:
                 'payback_months': float          # Mesi per recuperare CAC
             }
         """
-        with self.db._connect() as conn:
+        with self._connect() as conn:
             # Nuovi clienti nel periodo
             nuovi_clienti = conn.execute("""
                 SELECT id, nome, cognome, data_creazione
@@ -376,7 +375,7 @@ class FinancialAnalytics:
                 'revenue_churn': float         # Revenue persa da churn
             }
         """
-        with self.db._connect() as conn:
+        with self._connect() as conn:
             # Clienti attivi all'inizio del periodo
             customers_start = conn.execute("""
                 SELECT COUNT(*) as count
@@ -545,7 +544,7 @@ class FinancialAnalytics:
             as_of_date = date.today()
 
         # Per ora calcoliamo MRR come media dei contratti attivi
-        with self.db._connect() as conn:
+        with self._connect() as conn:
             # Contratti attivi con scadenza futura
             contratti_attivi = conn.execute("""
                 SELECT
@@ -643,7 +642,7 @@ class FinancialAnalytics:
         if end_date is None:
             end_date = date.today()
 
-        with self.db._connect() as conn:
+        with self._connect() as conn:
             clienti = conn.execute("""
                 SELECT id, nome, cognome, data_creazione
                 FROM clienti
