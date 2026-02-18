@@ -302,6 +302,87 @@ class AgendaRepository(BaseRepository):
                 """, (row['id_contratto'],))
     
     @safe_operation(
+        operation_name="Cancel Event",
+        severity=ErrorSeverity.MEDIUM,
+        fallback_return=False
+    )
+    def cancel_event(self, id: int) -> bool:
+        """
+        Cancella evento (marca come 'Cancellato').
+
+        Solo eventi in stato 'Programmato' possono essere cancellati.
+        Il credito prenotato si libera automaticamente (non era ancora
+        in crediti_usati, quindi nessun decremento necessario).
+        """
+        with self._connect() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE agenda SET stato = 'Cancellato'
+                WHERE id = ? AND stato = 'Programmato'
+            """, (id,))
+            return cursor.rowcount > 0
+
+    @safe_operation(
+        operation_name="Reschedule Event",
+        severity=ErrorSeverity.MEDIUM,
+        fallback_return=None
+    )
+    def reschedule_event(
+        self,
+        id: int,
+        new_data_inizio: datetime,
+        new_data_fine: datetime
+    ) -> Optional[Sessione]:
+        """
+        Rinvia evento a nuova data.
+
+        Logica:
+        1. Marca vecchio evento come 'Rinviato'
+        2. Crea nuovo evento 'Programmato' con stessi dati e nuove date
+        3. Il credito prenotato si trasferisce al nuovo evento
+
+        Returns:
+            Nuovo evento creato o None se errore
+        """
+        with self._connect() as conn:
+            cursor = conn.cursor()
+
+            # Get original event (must be Programmato)
+            cursor.execute("SELECT * FROM agenda WHERE id = ? AND stato = 'Programmato'", (id,))
+            old = cursor.fetchone()
+            if not old:
+                return None
+
+            # Mark old as Rinviato
+            cursor.execute("UPDATE agenda SET stato = 'Rinviato' WHERE id = ?", (id,))
+
+            # Create new event with same details but new dates
+            cursor.execute("""
+                INSERT INTO agenda (
+                    data_inizio, data_fine, categoria, titolo,
+                    id_cliente, id_contratto, stato, note
+                ) VALUES (?, ?, ?, ?, ?, ?, 'Programmato', ?)
+            """, (
+                new_data_inizio, new_data_fine,
+                old['categoria'], old['titolo'],
+                old['id_cliente'], old['id_contratto'],
+                old['note']
+            ))
+
+            new_id = cursor.lastrowid
+            cursor.execute("SELECT * FROM agenda WHERE id = ?", (new_id,))
+            row = cursor.fetchone()
+
+            if not row:
+                return None
+
+            event_dict = self._row_to_dict(row)
+            if not event_dict.get('data_creazione'):
+                event_dict['data_creazione'] = datetime.now()
+
+            return Sessione(**event_dict)
+
+    @safe_operation(
         operation_name="Get Client Session History",
         severity=ErrorSeverity.MEDIUM,
         fallback_return=[]
