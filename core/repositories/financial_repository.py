@@ -180,87 +180,121 @@ class FinancialRepository(BaseRepository):
         end_date: date
     ) -> Dict[str, Any]:
         """
-        Calcola metriche finanziarie unificate per un periodo.
-        
-        LOGICA UNIFICATA (fonte di verità: data_effettiva per movimenti):
+        Calcola metriche finanziarie COMPLETE e COERENTI per un periodo.
+
+        LOGICA UNIFICATA (fonte di verità unica: data_effettiva per movimenti):
         - ENTRATE = SUM(importo) WHERE tipo='ENTRATA' AND data_effettiva IN [start, end]
-        - USCITE = SUM(importo) WHERE tipo='USCITA' AND data_effettiva IN [start, end]
-        - ORE FATTURATE = SUM(crediti_totali) contratti venduti nel periodo
-        - MARGINE = Entrate - Uscite
+        - USCITE TOTALI = SUM(importo) WHERE tipo='USCITA' AND data_effettiva IN [start, end]
+        - USCITE VARIABILI = uscite WHERE categoria IN ('SPESE_ATTREZZATURE', 'ALTRO')
+        - COSTI FISSI = spese_ricorrenti mensili scalate al periodo
+        - ORE FATTURATE = crediti_totali da contratti pagati nel periodo
+        - ORE ESEGUITE = crediti_usati da contratti nel periodo
+        - RATE MANCANTI = rate_programmate non saldate nel periodo
+        - MARGINE = Entrate - Uscite_Variabili - Costi_Fissi_Periodo
         - MARGINE/ORA = Margine / Ore Fatturate
-        
+
         Args:
             start_date: Data inizio periodo
             end_date: Data fine periodo
-        
+
         Returns:
             Dict con metriche complete
         """
         with self._connect() as conn:
             cursor = conn.cursor()
             giorni_periodo = (end_date - start_date).days + 1
-            
-            # 1. Cash balance
-            balance = self.get_cash_balance(start_date, end_date)
-            entrate = balance['incassato']
-            uscite = balance['speso']
-            
-            # 2. Ore fatturate (contracts sold in period)
-            cursor.execute("""
+
+            # 1. ENTRATE (da movimenti_cassa)
+            entrate = cursor.execute("""
+                SELECT COALESCE(SUM(importo), 0)
+                FROM movimenti_cassa
+                WHERE tipo='ENTRATA' AND data_effettiva BETWEEN ? AND ?
+            """, (start_date, end_date)).fetchone()[0]
+
+            # 2. USCITE TOTALI (da movimenti_cassa)
+            uscite_totali = cursor.execute("""
+                SELECT COALESCE(SUM(importo), 0)
+                FROM movimenti_cassa
+                WHERE tipo='USCITA' AND data_effettiva BETWEEN ? AND ?
+            """, (start_date, end_date)).fetchone()[0]
+
+            # 3. USCITE VARIABILI (categorie specifiche)
+            uscite_variabili = cursor.execute("""
+                SELECT COALESCE(SUM(importo), 0)
+                FROM movimenti_cassa
+                WHERE tipo='USCITA'
+                AND categoria IN ('SPESE_ATTREZZATURE', 'ALTRO')
+                AND data_effettiva BETWEEN ? AND ?
+            """, (start_date, end_date)).fetchone()[0]
+
+            # 4. COSTI FISSI (spese ricorrenti scalate al periodo)
+            costi_fissi_mensili = cursor.execute("""
+                SELECT COALESCE(SUM(importo), 0)
+                FROM spese_ricorrenti
+                WHERE attiva = 1 AND frequenza = 'MENSILE'
+            """).fetchone()[0]
+            costi_fissi_periodo = (costi_fissi_mensili / 30) * giorni_periodo
+
+            # 5. ORE FATTURATE (crediti da contratti pagati)
+            ore_fatturate = cursor.execute("""
                 SELECT COALESCE(SUM(crediti_totali), 0)
                 FROM contratti
                 WHERE data_vendita BETWEEN ? AND ?
                 AND totale_versato > 0
-            """, (start_date, end_date))
-            
-            ore_fatturate = cursor.fetchone()[0]
-            
-            # 3. Ore eseguite (credits used)
-            cursor.execute("""
+            """, (start_date, end_date)).fetchone()[0]
+
+            # 6. ORE ESEGUITE (crediti usati)
+            ore_eseguite = cursor.execute("""
                 SELECT COALESCE(SUM(crediti_usati), 0)
                 FROM contratti
                 WHERE data_vendita BETWEEN ? AND ?
-            """, (start_date, end_date))
-            
-            ore_eseguite = cursor.fetchone()[0]
-            
-            # 4. Fixed costs (proportional to period)
-            cursor.execute("""
-                SELECT COALESCE(SUM(importo), 0)
-                FROM spese_ricorrenti
-                WHERE attiva = 1 AND frequenza = 'MENSILE'
-            """)
-            
-            costi_fissi_mensili = cursor.fetchone()[0]
-            costi_fissi_periodo = (costi_fissi_mensili / 30) * giorni_periodo
-            
-            # 5. Calculate margins
-            margine = entrate - uscite
-            margine_orario = (margine / ore_fatturate) if ore_fatturate > 0 else 0
-            
+            """, (start_date, end_date)).fetchone()[0]
+
+            # 7. RATE MANCANTI (non ancora incassate)
+            rate_mancanti = cursor.execute("""
+                SELECT COALESCE(SUM(importo_previsto), 0)
+                FROM rate_programmate
+                WHERE stato != 'SALDATA'
+                AND data_scadenza BETWEEN ? AND ?
+            """, (start_date, end_date)).fetchone()[0]
+
+            # 8. CALCOLI MARGINE
+            margine_lordo = entrate - uscite_variabili - costi_fissi_periodo
+            margine_orario = (margine_lordo / ore_fatturate) if ore_fatturate > 0 else 0
+            fatturato_per_ora = (entrate / ore_fatturate) if ore_fatturate > 0 else 0
+            saldo = entrate - uscite_totali
+
             return {
-                # CASH
-                'entrate': round(entrate, 2),
-                'uscite': round(uscite, 2),
-                'saldo': round(entrate - uscite, 2),
-                
+                'periodo_inizio': str(start_date),
+                'periodo_fine': str(end_date),
+                'giorni': giorni_periodo,
+
                 # ORE
                 'ore_fatturate': round(ore_fatturate, 2),
                 'ore_eseguite': round(ore_eseguite, 2),
                 'ore_rimanenti': round(ore_fatturate - ore_eseguite, 2),
-                
-                # COSTI
+
+                # ENTRATE & SALDO
+                'entrate_totali': round(entrate, 2),
+                'rate_mancanti': round(rate_mancanti, 2),
+                'saldo_effettivo': round(saldo, 2),
+                'fatturato_per_ora': round(fatturato_per_ora, 2),
+
+                # USCITE
+                'uscite_totali': round(uscite_totali, 2),
+                'uscite_variabili': round(uscite_variabili, 2),
+                'costi_fissi_mensili': round(costi_fissi_mensili, 2),
                 'costi_fissi_periodo': round(costi_fissi_periodo, 2),
-                'costi_totali': round(uscite, 2),
-                
+                'costi_totali': round(uscite_variabili + costi_fissi_periodo, 2),
+
                 # MARGINE
-                'margine': round(margine, 2),
+                'margine_lordo': round(margine_lordo, 2),
+                'margine_netto': round(margine_lordo, 2),
                 'margine_orario': round(margine_orario, 2),
-                
+
                 # METADATA
-                'periodo_giorni': giorni_periodo,
-                'data_inizio': str(start_date),
-                'data_fine': str(end_date)
+                'formula': 'Margine = Entrate - Uscite_Variabili - Costi_Fissi_Periodo',
+                'note': 'Tutti i dati basati su data_effettiva (movimenti) e data_vendita (contratti)'
             }
     
     @safe_operation(
