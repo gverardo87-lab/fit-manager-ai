@@ -261,6 +261,11 @@ c1.metric("Appuntamenti Oggi", todays_count, delta="Impegni")
 c2.metric("Focus Data", pd.to_datetime(st.session_state.cal_date).strftime("%d %B %Y"))
 c3.info("👆 Clicca su uno slot per aggiungere. Clicca su un evento per modificare.")
 
+# Warning sessioni stale
+stale_sessions = agenda_repo.get_stale_sessions()
+if stale_sessions:
+    st.warning(f"**{len(stale_sessions)} sessioni passate mai confermate.** Apri ciascun evento per confermare o cancellare.")
+
 st.divider()
 
 calendar_options = {

@@ -366,6 +366,27 @@ elif sel_id:
                 st.info("Nessun movimento registrato per questo cliente.")
         
         with sub_tab2:
+            # Warning sessioni stale per questo cliente
+            client_stale = agenda_repo.get_stale_sessions(client_id=sel_id)
+            if client_stale:
+                st.warning(f"**{len(client_stale)} sessioni passate mai confermate** per questo cliente.")
+                for s in client_stale:
+                    cs1, cs2, cs3 = st.columns([3, 1, 2])
+                    with cs1:
+                        data_str = str(s['data_inizio'])[:16] if s['data_inizio'] else '?'
+                        st.markdown(f"{s['titolo'] or s['categoria'] or 'Sessione'} - {data_str}")
+                    with cs2:
+                        st.caption(f"{s['days_overdue']}g fa")
+                    with cs3:
+                        ca, cb = st.columns(2)
+                        if ca.button("Conferma", key=f"cli_stale_ok_{s['id']}", use_container_width=True):
+                            agenda_repo.confirm_event(s['id'])
+                            st.rerun()
+                        if cb.button("Cancella", key=f"cli_stale_no_{s['id']}", use_container_width=True):
+                            agenda_repo.cancel_event(s['id'])
+                            st.rerun()
+                st.divider()
+
             # Storico lezioni
             hist_raw = agenda_repo.get_client_session_history(sel_id)
             # Convert Pydantic models to dicts
@@ -379,13 +400,13 @@ elif sel_id:
                 # Ordinare per data decrescente
                 hist_df['data_inizio'] = pd.to_datetime(hist_df['data_inizio'])
                 hist_df = hist_df.sort_values('data_inizio', ascending=False)
-                
+
                 # Colonne principali
                 display_df = hist_df[['data_inizio', 'titolo', 'stato']].copy()
                 display_df['data_inizio'] = display_df['data_inizio'].dt.strftime('%d/%m/%Y %H:%M')
-                
+
                 st.dataframe(display_df, use_container_width=True, hide_index=True)
-                
+
                 # Statistiche lezioni
                 st.divider()
                 st.caption("📊 Statistiche Lezioni")
@@ -393,7 +414,7 @@ elif sel_id:
                 num_lezioni = len(hist_df)
                 completate = sum(1 for h in hist if h['stato'] == 'Completato')
                 programmate = sum(1 for h in hist if h['stato'] == 'Programmato')
-                
+
                 stat_col1.metric("Totale Lezioni", num_lezioni)
                 stat_col2.metric("Completate", completate, f"{(completate/num_lezioni*100):.0f}%" if num_lezioni > 0 else "0%")
                 stat_col3.metric("Programmate", programmate)

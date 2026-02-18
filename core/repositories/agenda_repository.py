@@ -493,3 +493,48 @@ class AgendaRepository(BaseRepository):
             """, (contract_id,))
             row = cursor.fetchone()
             return row['cnt'] if row else 0
+
+    @safe_operation("get_stale_sessions", severity=ErrorSeverity.LOW)
+    def get_stale_sessions(self, client_id: int = None, days_threshold: int = 0) -> list:
+        """Sessioni 'Programmato' con data passata: appuntamenti mai confermati.
+
+        Args:
+            client_id: Se specificato, filtra per cliente
+            days_threshold: Giorni di tolleranza (0 = tutte le passate)
+
+        Returns:
+            Lista di dict con: id, data_inizio, data_fine, titolo, categoria,
+            id_cliente, cliente_nome, days_overdue
+        """
+        with self._connect() as conn:
+            cursor = conn.cursor()
+            query = """
+                SELECT a.id, a.data_inizio, a.data_fine, a.titolo, a.categoria,
+                       a.id_cliente, a.stato,
+                       c.nome as cliente_nome, c.cognome as cliente_cognome,
+                       CAST(julianday('now') - julianday(a.data_inizio) AS INTEGER) as days_overdue
+                FROM agenda a
+                LEFT JOIN clienti c ON a.id_cliente = c.id
+                WHERE a.stato = 'Programmato'
+                  AND date(a.data_inizio) < date('now', ?)
+            """
+            params = [f'-{days_threshold} days']
+
+            if client_id is not None:
+                query += " AND a.id_cliente = ?"
+                params.append(client_id)
+
+            query += " ORDER BY a.data_inizio ASC"
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+
+            return [{
+                'id': r['id'],
+                'data_inizio': r['data_inizio'],
+                'data_fine': r['data_fine'],
+                'titolo': r['titolo'],
+                'categoria': r['categoria'],
+                'id_cliente': r['id_cliente'],
+                'cliente_nome': f"{r['cliente_nome']} {r['cliente_cognome']}" if r['cliente_nome'] else None,
+                'days_overdue': r['days_overdue'],
+            } for r in rows]

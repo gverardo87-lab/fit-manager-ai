@@ -62,7 +62,7 @@ except Exception:
 
 try:
     bilancio = financial_repo.get_cash_balance(primo_mese, ultimo_mese)
-    entrate_mese = bilancio.get('totale_entrate', 0) or 0
+    entrate_mese = bilancio.get('incassato', 0) or 0
 except Exception:
     entrate_mese = 0
 
@@ -70,6 +70,11 @@ try:
     prossimi_eventi = agenda_repo.get_events_by_range(oggi, oggi + timedelta(days=7))
 except Exception:
     prossimi_eventi = []
+
+try:
+    sessioni_stale = agenda_repo.get_stale_sessions()
+except Exception:
+    sessioni_stale = []
 
 # ════════════════════════════════════════════════════════════
 # SIDEBAR
@@ -167,14 +172,39 @@ with col3:
     """, unsafe_allow_html=True)
 
 with col4:
-    n_prossimi = len([e for e in prossimi_eventi if str(e.data_inizio)[:10] != str(oggi)])
+    n_stale = len(sessioni_stale)
+    stale_color = "var(--danger)" if n_stale > 0 else "var(--secondary)"
+    stale_trend_class = "negative" if n_stale > 0 else "positive"
+    stale_trend_text = "da gestire!" if n_stale > 0 else "tutto in ordine"
     st.markdown(f"""
     <div class="kpi-card">
-        <div class="kpi-label">Prossimi 7 giorni</div>
-        <div class="kpi-value" style="color: var(--info);">{n_prossimi}</div>
-        <div class="kpi-trend neutral">sessioni in agenda</div>
+        <div class="kpi-label">Sessioni Scadute</div>
+        <div class="kpi-value" style="color: {stale_color};">{n_stale}</div>
+        <div class="kpi-trend {stale_trend_class}">{stale_trend_text}</div>
     </div>
     """, unsafe_allow_html=True)
+
+# ─── Warning sessioni stale ───
+if sessioni_stale:
+    st.divider()
+    st.warning(f"**{len(sessioni_stale)} sessioni passate mai confermate** - Appuntamenti con stato 'Programmato' e data gia' trascorsa.")
+    with st.expander(f"Vedi {len(sessioni_stale)} sessioni da gestire"):
+        for s in sessioni_stale:
+            col_s1, col_s2, col_s3 = st.columns([3, 1, 2])
+            with col_s1:
+                nome = s['cliente_nome'] or s['titolo'] or 'Evento'
+                data_str = str(s['data_inizio'])[:16] if s['data_inizio'] else '?'
+                st.markdown(f"**{nome}** - {data_str}")
+            with col_s2:
+                st.caption(f"{s['days_overdue']}g fa")
+            with col_s3:
+                c_a, c_b = st.columns(2)
+                if c_a.button("Conferma", key=f"stale_ok_{s['id']}", use_container_width=True):
+                    agenda_repo.confirm_event(s['id'])
+                    st.rerun()
+                if c_b.button("Cancella", key=f"stale_no_{s['id']}", use_container_width=True):
+                    agenda_repo.cancel_event(s['id'])
+                    st.rerun()
 
 # ════════════════════════════════════════════════════════════
 # CONTENT ROW
