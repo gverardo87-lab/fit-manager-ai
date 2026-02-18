@@ -16,12 +16,12 @@ Ogni metodo pubblico deve avere @safe_operation con operation_name e severity.
 
 Pydantic v2. Pattern: EntityCreate (input) + Entity (completo con id).
 Usare field_validator per logica custom (email, telefono, date).
-Tabelle assessment ancora senza modelli - da creare.
+Modelli coprono: clienti, contratti, rate, eventi, movimenti cassa, spese ricorrenti, assessment, workout, progress.
 
-## CrmDBManager (core/crm_db.py)
+## Financial Analytics (core/financial_analytics.py)
 
-LEGACY - Non aggiungere nuovi metodi qui. Migrare quelli esistenti ai repository.
-Ancora necessario per pagine 06-07 e per financial_analytics.py.
+Metriche avanzate (LTV, CAC, Churn, MRR, Cohort).
+Eredita da BaseRepository per accesso diretto al DB.
 
 ## Error Handler (core/error_handler.py)
 

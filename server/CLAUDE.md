@@ -4,8 +4,8 @@ Questa cartella contiene SOLO la presentazione. Nessuna logica di business qui.
 
 ## Regole
 
-- Importare solo da core/repositories/, mai da sqlite3 o core/crm_db direttamente
-- Eccezione temporanea: pagine 06 e 07 usano ancora CrmDBManager (da migrare)
+- Importare solo da core/repositories/, mai da sqlite3 direttamente
+- Tutte le pagine sono migrate al Repository Pattern
 - Usare st.form() per input raggruppati
 - Validare con Pydantic PRIMA di chiamare il repository
 - Gestire il caso in cui il repository ritorna None (fallback di @safe_operation)
