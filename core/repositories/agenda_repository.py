@@ -65,22 +65,30 @@ class AgendaRepository(BaseRepository):
         with self._connect() as conn:
             cursor = conn.cursor()
             
-            # Find active contract if PT session (link only, don't consume credits yet)
+            # FIFO: find oldest active contract with available capacity
+            # Available = crediti_totali - crediti_usati - prenotati(Programmato)
             id_contratto = None
             if session.categoria == 'PT' and session.id_cliente:
                 cursor.execute("""
-                    SELECT id FROM contratti 
-                    WHERE id_cliente = ? 
-                    AND chiuso = 0 
-                    AND crediti_usati < crediti_totali 
-                    ORDER BY data_inizio ASC 
-                    LIMIT 1
+                    SELECT c.id, c.crediti_totali, c.crediti_usati,
+                           (SELECT COUNT(*) FROM agenda a
+                            WHERE a.id_contratto = c.id
+                              AND a.stato = 'Programmato') as prenotati
+                    FROM contratti c
+                    WHERE c.id_cliente = ? AND c.chiuso = 0
+                    ORDER BY c.data_inizio ASC
                 """, (session.id_cliente,))
-                
-                row = cursor.fetchone()
-                if row:
-                    id_contratto = row['id']
-                    # NOTE: Credits are consumed only when event is confirmed, not when created
+
+                contracts = cursor.fetchall()
+                for contract in contracts:
+                    disponibili = contract['crediti_totali'] - contract['crediti_usati'] - contract['prenotati']
+                    if disponibili > 0:
+                        id_contratto = contract['id']
+                        break
+
+                # Overbooking: all contracts full, link to newest (UI will warn)
+                if id_contratto is None and contracts:
+                    id_contratto = contracts[-1]['id']
             
             # Insert event
             cursor.execute("""
