@@ -67,12 +67,29 @@ class ClienteUpdate(BaseModel):
     sesso: Optional[str] = None
     anamnesi: Optional[dict] = None
 
+class CreditSummary(BaseModel):
+    """Summary crediti aggregati su tutti i contratti attivi di un cliente.
+
+    Formula:
+        crediti_disponibili = crediti_totali - crediti_completati - crediti_prenotati
+
+    crediti_prenotati = sessioni in stato 'Programmato' (prenotate, non ancora eseguite)
+    crediti_completati = sessioni confermate (crediti_usati nei contratti)
+    """
+    crediti_totali: int = 0
+    crediti_completati: int = 0
+    crediti_prenotati: int = 0
+    crediti_disponibili: int = 0
+    contratti_attivi: int = 0
+
+
 class Cliente(ClienteBase):
     """Model completo Cliente (con ID)"""
     id: int
     data_creazione: datetime
     stato: str = "Attivo"
-    lezioni_residue: int = 0
+    lezioni_residue: int = 0  # backward compat: = crediti_disponibili
+    crediti: Optional[CreditSummary] = None
     anamnesi_json: Optional[str] = None
 
     class Config:

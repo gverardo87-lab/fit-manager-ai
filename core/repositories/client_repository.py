@@ -22,7 +22,7 @@ import json
 from .base_repository import BaseRepository
 from core.models import (
     Cliente, ClienteCreate, ClienteUpdate,
-    Misurazione, MisurazioneCreate
+    Misurazione, MisurazioneCreate, CreditSummary
 )
 from core.error_handler import safe_operation, ErrorSeverity
 
@@ -126,20 +126,41 @@ class ClientRepository(BaseRepository):
             if client_dict.get('email') == '':
                 client_dict['email'] = None
             
-            # Calculate lezioni_residue from active contract
+            # Calculate credits from ALL active contracts (no LIMIT 1)
             cursor.execute("""
-                SELECT crediti_totali, crediti_usati 
-                FROM contratti 
-                WHERE id_cliente = ? AND chiuso = 0 
-                ORDER BY data_inizio DESC 
-                LIMIT 1
+                SELECT
+                    COUNT(*) as num_contratti,
+                    COALESCE(SUM(crediti_totali), 0) as totali,
+                    COALESCE(SUM(crediti_usati), 0) as completati
+                FROM contratti
+                WHERE id_cliente = ? AND chiuso = 0
             """, (id,))
-            
-            contract = cursor.fetchone()
-            if contract:
-                client_dict['lezioni_residue'] = contract['crediti_totali'] - contract['crediti_usati']
-            else:
-                client_dict['lezioni_residue'] = 0
+            contract_sum = cursor.fetchone()
+
+            # Count booked sessions (Programmato) across active contracts
+            cursor.execute("""
+                SELECT COUNT(*) as prenotati
+                FROM agenda a
+                JOIN contratti c ON a.id_contratto = c.id
+                WHERE c.id_cliente = ? AND c.chiuso = 0
+                  AND a.stato = 'Programmato'
+            """, (id,))
+            booked = cursor.fetchone()
+
+            totali = contract_sum['totali'] if contract_sum else 0
+            completati = contract_sum['completati'] if contract_sum else 0
+            prenotati = booked['prenotati'] if booked else 0
+            disponibili = totali - completati - prenotati
+            num_contratti = contract_sum['num_contratti'] if contract_sum else 0
+
+            client_dict['lezioni_residue'] = disponibili  # backward compat
+            client_dict['crediti'] = CreditSummary(
+                crediti_totali=totali,
+                crediti_completati=completati,
+                crediti_prenotati=prenotati,
+                crediti_disponibili=disponibili,
+                contratti_attivi=num_contratti
+            )
             
             # Ensure data_creazione exists (set to now if NULL)
             if not client_dict.get('data_creazione'):

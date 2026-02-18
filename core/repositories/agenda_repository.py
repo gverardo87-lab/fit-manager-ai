@@ -17,7 +17,7 @@ from typing import Optional, List
 from datetime import datetime, date
 
 from .base_repository import BaseRepository
-from core.models import Sessione, SessioneCreate
+from core.models import Sessione, SessioneCreate, CreditSummary
 from core.error_handler import safe_operation, ErrorSeverity
 
 
@@ -334,3 +334,73 @@ class AgendaRepository(BaseRepository):
                 sessions.append(Sessione(**session_dict))
             
             return sessions
+
+    @safe_operation(
+        operation_name="Get Credit Summary",
+        severity=ErrorSeverity.MEDIUM,
+        fallback_return=None
+    )
+    def get_credit_summary(self, client_id: int) -> Optional[CreditSummary]:
+        """
+        Calcola riepilogo crediti su TUTTI i contratti attivi di un cliente.
+
+        Logica:
+        - crediti_totali = SUM(crediti_totali) da contratti attivi
+        - crediti_completati = SUM(crediti_usati) da contratti attivi
+        - crediti_prenotati = COUNT(agenda) WHERE stato='Programmato' e contratto attivo
+        - crediti_disponibili = totali - completati - prenotati
+        """
+        with self._connect() as conn:
+            cursor = conn.cursor()
+
+            # Aggregate across ALL active contracts
+            cursor.execute("""
+                SELECT
+                    COUNT(*) as num_contratti,
+                    COALESCE(SUM(crediti_totali), 0) as totali,
+                    COALESCE(SUM(crediti_usati), 0) as completati
+                FROM contratti
+                WHERE id_cliente = ? AND chiuso = 0
+            """, (client_id,))
+            row = cursor.fetchone()
+
+            if not row or row['num_contratti'] == 0:
+                return CreditSummary()
+
+            totali = row['totali']
+            completati = row['completati']
+            num_contratti = row['num_contratti']
+
+            # Count booked sessions (Programmato) linked to active contracts
+            cursor.execute("""
+                SELECT COUNT(*) as prenotati
+                FROM agenda a
+                JOIN contratti c ON a.id_contratto = c.id
+                WHERE c.id_cliente = ? AND c.chiuso = 0
+                  AND a.stato = 'Programmato'
+            """, (client_id,))
+            prenotati = cursor.fetchone()['prenotati']
+
+            return CreditSummary(
+                crediti_totali=totali,
+                crediti_completati=completati,
+                crediti_prenotati=prenotati,
+                crediti_disponibili=totali - completati - prenotati,
+                contratti_attivi=num_contratti
+            )
+
+    @safe_operation(
+        operation_name="Get Booked Count for Contract",
+        severity=ErrorSeverity.LOW,
+        fallback_return=0
+    )
+    def get_booked_count_for_contract(self, contract_id: int) -> int:
+        """Conta sessioni in stato 'Programmato' per un singolo contratto."""
+        with self._connect() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT COUNT(*) as cnt FROM agenda
+                WHERE id_contratto = ? AND stato = 'Programmato'
+            """, (contract_id,))
+            row = cursor.fetchone()
+            return row['cnt'] if row else 0
