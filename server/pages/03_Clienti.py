@@ -222,7 +222,12 @@ elif sel_id:
         c1, c2, c3, c4 = st.columns([1, 3, 1.5, 1.5])
         c1.image(f"https://api.dicebear.com/9.x/initials/svg?seed={cli['cognome']}", width=80)
         c2.markdown(f"## {cli['nome']} {cli['cognome']}\n📞 {cli['telefono']}")
-        c3.metric("Lezioni", cli.get('lezioni_residue', 0))
+        if cli_obj.crediti and cli_obj.crediti.contratti_attivi > 0:
+            cr = cli_obj.crediti
+            c3.metric("Disponibili", cr.crediti_disponibili,
+                       f"{cr.crediti_prenotati} prenotati / {cr.crediti_totali} totali")
+        else:
+            c3.metric("Crediti", 0, "Nessun contratto")
         saldo = fin['saldo_globale']
         c4.metric("Saldo", f"€ {saldo:.0f}", delta="OK" if saldo <= 0 else "DA SALDARE", delta_color="inverse" if saldo > 0 else "normal")
 
@@ -306,7 +311,11 @@ elif sel_id:
                 status_text = "SALDATO" if c['totale_versato'] >= c['prezzo_totale'] else "PARZIALE" if c['totale_versato'] > 0 else "PENDENTE"
                 status_html = status_badge(status_text)
                 h1.markdown(f"**{c['tipo_pacchetto']}** {status_html}", unsafe_allow_html=True)
-                h2.write(f"Crediti: {c['crediti_usati']}/{c['crediti_totali']}")
+                prenotati_c = agenda_repo.get_booked_count_for_contract(c['id'])
+                if prenotati_c > 0:
+                    h2.write(f"Crediti: {c['crediti_usati']} usati + {prenotati_c} prenotati / {c['crediti_totali']}")
+                else:
+                    h2.write(f"Crediti: {c['crediti_usati']}/{c['crediti_totali']}")
                 if h3.button("✏️", key=f"edc_{c['id']}", help="Modifica / Elimina"): dialog_edit_contratto(c)
                 
                 # Progress bar pagamento (clampato tra 0.0 e 1.0)
