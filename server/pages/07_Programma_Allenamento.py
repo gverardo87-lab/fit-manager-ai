@@ -673,6 +673,7 @@ with tab4:
                             'rest_seconds': ex.rest_seconds,
                             'load_note': ex.load_note,
                             'notes': ex.notes,
+                            'day_section': ex.day_section,
                         }
                         for ex in parsed.exercises
                     ]
@@ -683,6 +684,8 @@ with tab4:
                         'detected_sessions_per_week': parsed.metadata.detected_sessions_per_week,
                         'trainer_notes': parsed.metadata.trainer_notes,
                         'sheet_names': parsed.metadata.sheet_names,
+                        'days_found': getattr(parsed.metadata, 'days_found', []),
+                        'client_name': getattr(parsed.metadata, 'client_name', None),
                     }
 
                     card_id = card_import_repo.save_card(
