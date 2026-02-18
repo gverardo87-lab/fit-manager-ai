@@ -23,12 +23,11 @@ core/models.py  (Pydantic v2 - validazione input)
 SQLite  (data/crm.db)
 ```
 
-Pattern attivo: Repository Pattern (Fase 2).
-4 repository: ClientRepository, ContractRepository, AgendaRepository, FinancialRepository.
+Pattern attivo: Repository Pattern (completo).
+6 repository: ClientRepository, ContractRepository, AgendaRepository, FinancialRepository, AssessmentRepository, WorkoutRepository.
 Tutti ereditano da BaseRepository (core/repositories/base_repository.py).
 
-CrmDBManager (core/crm_db.py) e' il facade LEGACY. Ancora usato da pagine 06 e 07.
-Obiettivo: eliminarlo progressivamente delegando tutto ai repository.
+FinancialAnalytics (core/financial_analytics.py) eredita da BaseRepository per metriche avanzate (LTV, CAC, Churn, MRR, Cohort).
 
 ## Stato migrazione pagine
 
@@ -39,8 +38,8 @@ Obiettivo: eliminarlo progressivamente delegando tutto ai repository.
 | 03_Clienti | SI | ClientRepo + ContractRepo + AgendaRepo |
 | 04_Cassa | SI | FinancialRepo |
 | 05_Analisi_Margine | SI | FinancialRepo |
-| 06_Assessment | NO | Usa ancora CrmDBManager |
-| 07_Programma_Allenamento | NO | Usa ancora CrmDBManager |
+| 06_Assessment | SI | AssessmentRepo + ClientRepo |
+| 07_Programma_Allenamento | SI | WorkoutRepo + ClientRepo |
 | 08_Document_Explorer | SI | RAG, poco DB |
 
 ## Come aggiungere una feature
@@ -59,7 +58,6 @@ Obiettivo: eliminarlo progressivamente delegando tutto ai repository.
 
 ## Problemi noti (debito tecnico)
 
-- Assessment tables (client_assessment_initial, client_assessment_followup) non hanno modelli Pydantic
 - Logica crediti/lezioni_residue: non gestisce contratti multipli attivi (LIMIT 1)
 - Consumo crediti: avviene alla conferma evento, non alla creazione - ma non tutto il codice e' allineato
 - @safe_operation usato nei repository ma le pages non gestiscono il caso fallback (return None silenzioso)
@@ -97,12 +95,13 @@ sqlite3 data/crm.db ".schema clienti"
 
 ## Direzione di sviluppo
 
-Il progetto e' in fase di consolidamento architetturale (Repository Pattern).
+Il progetto ha completato il consolidamento architetturale (Repository Pattern).
+CrmDBManager e' stato eliminato. Tutte le pagine usano i repository.
+
 Prossimi passi naturali:
-- Completare migrazione pagine 06-07 ai repository
-- Creare modelli Pydantic per le tabelle assessment
 - Rendere il service layer operativo (dashboard_service.py)
 - Strutturare test con pytest
 - Risolvere la logica crediti in modo univoco
+- Aggiungere nuove feature (dashboard, report, notifiche)
 
 Non ci sono limiti allo sviluppo. Nuove feature, integrazioni, refactoring ambiziosi sono tutti benvenuti.
