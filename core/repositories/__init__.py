@@ -26,6 +26,8 @@ from .contract_repository import ContractRepository
 from .financial_repository import FinancialRepository
 from .assessment_repository import AssessmentRepository
 from .workout_repository import WorkoutRepository
+from .card_import_repository import CardImportRepository
+from .trainer_dna_repository import TrainerDNARepository
 
 __all__ = [
     "BaseRepository",
@@ -35,4 +37,6 @@ __all__ = [
     "FinancialRepository",
     "AssessmentRepository",
     "WorkoutRepository",
+    "CardImportRepository",
+    "TrainerDNARepository",
 ]
