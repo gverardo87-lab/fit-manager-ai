@@ -78,12 +78,12 @@ class ContractRepository(BaseRepository):
         """
         with self._connect() as conn:
             cursor = conn.cursor()
-            
+
             # Insert contract
             cursor.execute("""
                 INSERT INTO contratti (
                     id_cliente, tipo_pacchetto, data_inizio, data_scadenza,
-                    crediti_totali, prezzo_totale, totale_versato, 
+                    crediti_totali, prezzo_totale, totale_versato,
                     stato_pagamento, note
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDENTE', ?)
             """, (
@@ -96,9 +96,9 @@ class ContractRepository(BaseRepository):
                 contract.acconto,  # totale_versato = acconto iniziale
                 contract.note
             ))
-            
+
             contract_id = cursor.lastrowid
-            
+
             # Register acconto as cash movement if > 0
             if contract.acconto > 0:
                 data_acconto = date.today()  # Acconto today by default
@@ -116,8 +116,10 @@ class ContractRepository(BaseRepository):
                     contract.id_cliente,
                     contract_id
                 ))
-            
-            return self.get_contract_by_id(contract_id)
+
+        # Fetch AFTER commit - get_contract_by_id opens a new connection
+        # that can only see committed data
+        return self.get_contract_by_id(contract_id)
     
     @safe_operation(
         operation_name="Get Contract by ID",
@@ -226,13 +228,13 @@ class ContractRepository(BaseRepository):
         
         with self._connect() as conn:
             cursor = conn.cursor()
-            
+
             # Delete existing PENDING rates
             cursor.execute("""
-                DELETE FROM rate_programmate 
+                DELETE FROM rate_programmate
                 WHERE id_contratto = ? AND stato = 'PENDENTE'
             """, (contract_id,))
-            
+
             # Generate new rates
             for i in range(n_rates):
                 # Calculate due date based on frequency
@@ -244,17 +246,17 @@ class ContractRepository(BaseRepository):
                     due_date = start_date + relativedelta(months=i*3)
                 else:
                     due_date = start_date + relativedelta(months=i)  # Default monthly
-                
+
                 description = f"Rata {i+1}/{n_rates}"
-                
+
                 cursor.execute("""
                     INSERT INTO rate_programmate (
                         id_contratto, data_scadenza, importo_previsto, descrizione
                     ) VALUES (?, ?, ?, ?)
                 """, (contract_id, due_date, rate_amount, description))
-            
-            # Return created rates
-            return self.get_rates_by_contract(contract_id)
+
+        # Fetch AFTER commit - get_rates_by_contract opens a new connection
+        return self.get_rates_by_contract(contract_id)
     
     @safe_operation(
         operation_name="Get Rates by Contract",

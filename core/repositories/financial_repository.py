@@ -311,15 +311,16 @@ class FinancialRepository(BaseRepository):
             - costi_previsti: Costi fissi proporzionali
             - saldo_previsto: saldo_oggi + rate_scadenti - costi_previsti
         """
+        # Fetch balance BEFORE opening connection (avoid nested connections)
+        balance = self.get_cash_balance()
+        saldo_oggi = balance['saldo_cassa']
+
+        oggi = date.today()
+        data_fine_prev = oggi + timedelta(days=days)
+
         with self._connect() as conn:
             cursor = conn.cursor()
-            oggi = date.today()
-            data_fine_prev = oggi + timedelta(days=days)
-            
-            # Current cash balance
-            balance = self.get_cash_balance()
-            saldo_oggi = balance['saldo_cassa']
-            
+
             # Upcoming rates
             cursor.execute("""
                 SELECT COALESCE(SUM(importo_previsto), 0)
@@ -327,26 +328,26 @@ class FinancialRepository(BaseRepository):
                 WHERE data_scadenza BETWEEN ? AND ?
                 AND stato != 'SALDATA'
             """, (oggi, data_fine_prev))
-            
+
             rate_scadenti = cursor.fetchone()[0]
-            
+
             # Fixed costs proportional
             cursor.execute("""
                 SELECT COALESCE(SUM(importo), 0)
                 FROM spese_ricorrenti
                 WHERE attiva = 1 AND frequenza = 'MENSILE'
             """)
-            
+
             costi_fissi_mensili = cursor.fetchone()[0]
             costi_previsti = (costi_fissi_mensili / 30) * days
-            
-            return {
-                'saldo_oggi': round(saldo_oggi, 2),
-                'rate_scadenti': round(rate_scadenti, 2),
-                'costi_previsti': round(costi_previsti, 2),
-                'saldo_previsto': round(saldo_oggi + rate_scadenti - costi_previsti, 2),
-                'periodo': f"{oggi} + {days} giorni"
-            }
+
+        return {
+            'saldo_oggi': round(saldo_oggi, 2),
+            'rate_scadenti': round(rate_scadenti, 2),
+            'costi_previsti': round(costi_previsti, 2),
+            'saldo_previsto': round(saldo_oggi + rate_scadenti - costi_previsti, 2),
+            'periodo': f"{oggi} + {days} giorni"
+        }
     
     @safe_operation(
         operation_name="Add Recurring Expense",

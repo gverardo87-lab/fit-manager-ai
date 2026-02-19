@@ -73,7 +73,7 @@ class ClientRepository(BaseRepository):
             cursor = conn.cursor()
             cursor.execute("""
                 INSERT INTO clienti (
-                    nome, cognome, telefono, email, data_nascita, sesso, 
+                    nome, cognome, telefono, email, data_nascita, sesso,
                     anamnesi_json, stato
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, 'Attivo')
             """, (
@@ -85,9 +85,11 @@ class ClientRepository(BaseRepository):
                 cliente.sesso or 'Uomo',
                 anamnesi_json
             ))
-            
+
             client_id = cursor.lastrowid
-            return self.get_by_id(client_id)
+
+        # Fetch AFTER commit - get_by_id opens a new connection
+        return self.get_by_id(client_id)
     
     @safe_operation(
         operation_name="Get Client by ID",
