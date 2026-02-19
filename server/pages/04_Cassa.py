@@ -189,25 +189,29 @@ with tab1:
             dati_scadute.append({
                 'Cliente': f"{r['nome']} {r['cognome']}",
                 'Pacchetto': r['tipo_pacchetto'],
-                'Scadenza': data_sc.strftime('%d/%m/%Y'),
+                'Scadenza': data_sc,
                 'Giorni Ritardo': giorni_ritardo,
-                'Importo': f"€{importo_rimanente:.0f}",
-                'Parziale': "Sì" if r.get('importo_saldato', 0) > 0 else "No",
+                'Da Incassare': importo_rimanente,
+                'Pagato %': round((r.get('importo_saldato', 0) / r['importo_previsto']) * 100) if r['importo_previsto'] > 0 else 0,
                 '_id': r['id'],
-                '_importo_num': importo_rimanente
             })
         
         df_scadute = pd.DataFrame(dati_scadute)
         
         # Mostra tabella
         st.dataframe(
-            df_scadute[['Cliente', 'Pacchetto', 'Scadenza', 'Giorni Ritardo', 'Importo', 'Parziale']],
+            df_scadute[['Cliente', 'Pacchetto', 'Scadenza', 'Giorni Ritardo', 'Da Incassare', 'Pagato %']],
             use_container_width=True,
-            hide_index=True
+            hide_index=True,
+            column_config={
+                "Scadenza": st.column_config.DateColumn("Scadenza", format="DD/MM/YYYY"),
+                "Da Incassare": st.column_config.NumberColumn("Da Incassare", format="€ %.0f"),
+                "Pagato %": st.column_config.ProgressColumn("Pagato", min_value=0, max_value=100, format="%d%%"),
+            }
         )
-        
+
         # Totale con breakdown dettagliato
-        totale_scadute = df_scadute['_importo_num'].sum()
+        totale_scadute = df_scadute['Da Incassare'].sum()
         st.error(f"**TOTALE DA RECUPERARE: {format_currency(totale_scadute, 0)}**")
         
         # Breakdown per cliente (expander)
@@ -216,11 +220,12 @@ with tab1:
                 col_d1, col_d2 = st.columns([3, 1])
                 with col_d1:
                     st.markdown(f"**{row['Cliente']}** · {row['Pacchetto']}")
-                    st.caption(f"Scadenza: {row['Scadenza']} ({row['Giorni Ritardo']} giorni fa)")
+                    sc_str = row['Scadenza'].strftime('%d/%m/%Y') if hasattr(row['Scadenza'], 'strftime') else str(row['Scadenza'])
+                    st.caption(f"Scadenza: {sc_str} ({row['Giorni Ritardo']} giorni fa)")
                 with col_d2:
-                    st.markdown(f"**{row['Importo']}**")
-                    if row['Parziale'] == "Sì":
-                        st.caption("🟡 Parziale")
+                    st.markdown(f"**{format_currency(row['Da Incassare'], 0)}**")
+                    if row['Pagato %'] > 0:
+                        st.caption(f"🟡 Pagato {row['Pagato %']}%")
                 st.divider()
         
         # Buttons per pagamento veloce
@@ -255,25 +260,29 @@ with tab2:
             dati_pendenti.append({
                 'Cliente': f"{r['nome']} {r['cognome']}",
                 'Pacchetto': r['tipo_pacchetto'],
-                'Scadenza': data_sc.strftime('%d/%m/%Y'),
+                'Scadenza': data_sc,
                 'Tra Giorni': giorni_mancanti,
-                'Importo': f"€{importo_rimanente:.0f}",
-                'Urgente': "🔴" if giorni_mancanti <= 7 else "",
+                'Da Incassare': importo_rimanente,
+                'Pagato %': round((r.get('importo_saldato', 0) / r['importo_previsto']) * 100) if r['importo_previsto'] > 0 else 0,
                 '_id': r['id'],
-                '_importo_num': importo_rimanente
             })
         
         df_pendenti = pd.DataFrame(dati_pendenti)
         
         # Mostra tabella
         st.dataframe(
-            df_pendenti[['Urgente', 'Cliente', 'Pacchetto', 'Scadenza', 'Tra Giorni', 'Importo']],
+            df_pendenti[['Cliente', 'Pacchetto', 'Scadenza', 'Tra Giorni', 'Da Incassare', 'Pagato %']],
             use_container_width=True,
-            hide_index=True
+            hide_index=True,
+            column_config={
+                "Scadenza": st.column_config.DateColumn("Scadenza", format="DD/MM/YYYY"),
+                "Da Incassare": st.column_config.NumberColumn("Da Incassare", format="€ %.0f"),
+                "Pagato %": st.column_config.ProgressColumn("Pagato", min_value=0, max_value=100, format="%d%%"),
+            }
         )
-        
+
         # Totale con breakdown dettagliato
-        totale_pendenti = df_pendenti['_importo_num'].sum()
+        totale_pendenti = df_pendenti['Da Incassare'].sum()
         st.info(f"**TOTALE ATTESO: {format_currency(totale_pendenti, 0)}**")
         
         # Breakdown per cliente (expander)
@@ -512,13 +521,17 @@ with st.expander("📊 Spese Fisse Mensili", expanded=False):
                 dati_fisse.append({
                     'Nome': s['nome'],
                     'Categoria': s['categoria'],
-                    'Importo': format_currency(s['importo'], 0),
+                    'Importo': s['importo'],
                     'Scadenza': f"{s['giorno_scadenza']}° del mese",
                     'Status': status
                 })
             
             df_fisse = pd.DataFrame(dati_fisse)
-            st.dataframe(df_fisse, use_container_width=True, hide_index=True)
+            st.dataframe(df_fisse, use_container_width=True, hide_index=True,
+                column_config={
+                    "Importo": st.column_config.NumberColumn("Importo", format="€ %.0f"),
+                }
+            )
         
         with col_sf_right:
             st.metric("Totale Mensile", format_currency(totale_fisso, 0))
@@ -574,31 +587,11 @@ st.divider()
 
 st.markdown("### 📈 Analisi Trend Flusso di Cassa")
 st.caption("""
-💰 **FLUSSO DI CASSA** = Movimenti effettivi registrati (quanto è entrato/uscito in quel mese)  
+💰 **FLUSSO DI CASSA** = Movimenti effettivi registrati (quanto è entrato/uscito in quel mese)
 💎 **SALDO TOTALE** = Capitale cumulativo alla fine del mese (tutti i movimenti dall'inizio fino a quella data)
 """)
 
-# Metrica prominente: SALDO ATTUALE
-col_saldo_attuale, col_variazione = st.columns([2, 1])
-with col_saldo_attuale:
-    st.metric(
-        "💰 Saldo Totale Attuale",
-        format_currency(saldo_totale),
-        delta=f"{format_currency(bilancio['saldo_cassa'], 0)} questo mese",
-        delta_color="normal" if bilancio['saldo_cassa'] >= 0 else "inverse"
-    )
-with col_variazione:
-    perc_var = (bilancio['saldo_cassa'] / saldo_totale * 100) if saldo_totale != 0 else 0
-    st.metric(
-        "Variazione Mensile",
-        f"{perc_var:.1f}%",
-        delta="positivo" if bilancio['saldo_cassa'] >= 0 else "negativo",
-        delta_color="off"
-    )
-
-st.caption("---")
-
-# Calcola ultimi 6 mesi con saldo progressivo
+# Calcola ultimi 6 mesi (usato per sparkline E per grafico/tabella sotto)
 mesi_dati = []
 
 for i in range(5, -1, -1):
@@ -606,13 +599,10 @@ for i in range(5, -1, -1):
     primo = date(mese_calc.year, mese_calc.month, 1)
     ultimo_g = monthrange(mese_calc.year, mese_calc.month)[1]
     ultimo = date(mese_calc.year, mese_calc.month, ultimo_g)
-    
-    # FLUSSO DI CASSA DEL MESE (quanto è entrato/uscito in quel mese)
+
     bil_mese = financial_repo.get_cash_balance(primo, ultimo)
-    
-    # SALDO TOTALE ALLA FINE DEL MESE (tutto dall'inizio dei tempi fino a ultimo giorno del mese)
     saldo_cumulativo = financial_repo.get_cash_balance(end_date=ultimo)
-    
+
     mesi_dati.append({
         'Mese': primo.strftime('%b %Y'),
         'Entrate': bil_mese['incassato'],
@@ -622,6 +612,32 @@ for i in range(5, -1, -1):
     })
 
 df_mesi = pd.DataFrame(mesi_dati)
+saldi_trend = [m['Saldo Totale'] for m in mesi_dati]
+flussi_trend = [m['Saldo Mese'] for m in mesi_dati]
+
+# Metrica prominente con sparkline trend 6 mesi
+col_saldo_attuale, col_variazione = st.columns([2, 1])
+with col_saldo_attuale:
+    st.metric(
+        "💰 Saldo Totale Attuale",
+        format_currency(saldo_totale),
+        delta=f"{format_currency(bilancio['saldo_cassa'], 0)} questo mese",
+        delta_color="normal" if bilancio['saldo_cassa'] >= 0 else "inverse",
+        border=True,
+        chart_data=saldi_trend,
+        chart_type="area"
+    )
+with col_variazione:
+    perc_var = (bilancio['saldo_cassa'] / saldo_totale * 100) if saldo_totale != 0 else 0
+    st.metric(
+        "Variazione Mensile",
+        f"{perc_var:.1f}%",
+        delta="positivo" if bilancio['saldo_cassa'] >= 0 else "negativo",
+        delta_color="off",
+        border=True,
+        chart_data=flussi_trend,
+        chart_type="bar"
+    )
 
 # Grafico combinato con linea saldo totale
 import plotly.graph_objects as go
@@ -679,7 +695,14 @@ fig.update_layout(
 st.plotly_chart(fig, use_container_width=True)
 
 # Tabella riassuntiva
-st.dataframe(df_mesi, use_container_width=True, hide_index=True)
+st.dataframe(df_mesi, use_container_width=True, hide_index=True,
+    column_config={
+        "Entrate": st.column_config.NumberColumn("Entrate", format="€ %.0f"),
+        "Uscite": st.column_config.NumberColumn("Uscite", format="€ %.0f"),
+        "Saldo Mese": st.column_config.NumberColumn("Flusso Mese", format="€ %.0f"),
+        "Saldo Totale": st.column_config.NumberColumn("Saldo Totale", format="€ %.0f"),
+    }
+)
 
 st.divider()
 

@@ -325,12 +325,12 @@ with tab2:
             df_clienti_filtered[['cliente', 'sessioni', 'ore', 'fatturato', 'margine', 'margine_orario']],
             use_container_width=True,
             column_config={
-                'cliente': 'Cliente',
-                'sessioni': '# Sessioni',
-                'ore': 'Ore',
-                'fatturato': 'Fatturato (€)',
-                'margine': 'Margine (€)',
-                'margine_orario': 'Margine/Ora (€)'
+                'cliente': st.column_config.TextColumn('Cliente'),
+                'sessioni': st.column_config.NumberColumn('# Sessioni', format="%d"),
+                'ore': st.column_config.NumberColumn('Ore', format="%.1f"),
+                'fatturato': st.column_config.NumberColumn('Fatturato (€)', format="€ %.0f"),
+                'margine': st.column_config.NumberColumn('Margine (€)', format="€ %.0f"),
+                'margine_orario': st.column_config.NumberColumn('€/Ora', format="€ %.1f"),
             }
         )
         

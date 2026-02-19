@@ -390,7 +390,15 @@ elif sel_id:
                 mov_df = pd.DataFrame(movimenti)
                 mov_df['data'] = pd.to_datetime(mov_df['data_movimento']).dt.strftime('%d/%m/%Y')
                 mov_df = mov_df[['data', 'tipo', 'importo', 'metodo', 'note']]
-                st.dataframe(mov_df, use_container_width=True, hide_index=True)
+                st.dataframe(mov_df, use_container_width=True, hide_index=True,
+                    column_config={
+                        "data": st.column_config.TextColumn("Data"),
+                        "tipo": st.column_config.TextColumn("Tipo"),
+                        "importo": st.column_config.NumberColumn("Importo", format="€ %.2f"),
+                        "metodo": st.column_config.TextColumn("Metodo"),
+                        "note": st.column_config.TextColumn("Note"),
+                    }
+                )
                 
                 # Statistiche movimenti
                 st.divider()
@@ -454,7 +462,13 @@ elif sel_id:
                 display_df = hist_df[['data_inizio', 'titolo', 'stato']].copy()
                 display_df['data_inizio'] = display_df['data_inizio'].dt.strftime('%d/%m/%Y %H:%M')
 
-                st.dataframe(display_df, use_container_width=True, hide_index=True)
+                st.dataframe(display_df, use_container_width=True, hide_index=True,
+                    column_config={
+                        "data_inizio": st.column_config.TextColumn("Data/Ora"),
+                        "titolo": st.column_config.TextColumn("Titolo"),
+                        "stato": st.column_config.TextColumn("Stato"),
+                    }
+                )
 
                 # Statistiche lezioni
                 st.divider()
