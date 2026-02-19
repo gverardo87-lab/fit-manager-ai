@@ -143,6 +143,46 @@ def dialog_add_rata(id_contratto):
     if st.button("Aggiungi"):
         contract_repo.add_manual_rate(id_contratto, dt, imp, desc); st.rerun()
 
+@st.dialog("Genera Piano Rate")
+def dialog_genera_piano(id_contratto, residuo, data_inizio):
+    st.markdown("### 📅 Genera Piano Rateale")
+
+    # Check existing pending rates
+    existing_rates = contract_repo.get_rates_by_contract(id_contratto)
+    n_pending = sum(1 for r in existing_rates if r.stato == 'PENDENTE')
+    n_paid = sum(1 for r in existing_rates if r.stato in ('SALDATA', 'PARZIALE'))
+
+    if n_pending > 0:
+        st.warning(f"**{n_pending} rate pendenti** verranno sostituite dal nuovo piano. Le {n_paid} rate gia' saldate restano intatte.")
+
+    st.info(f"Residuo da rateizzare: **{format_currency(residuo, 0)}**")
+
+    tipo_calc = st.radio("Calcola in base a:", ["Numero Rate", "Importo Rata"], horizontal=True)
+
+    if tipo_calc == "Numero Rate":
+        n_rate = st.number_input("Numero Rate", 2, 24, 3, step=1)
+        rata_calc = residuo / n_rate
+        st.metric("Importo per Rata", format_currency(rata_calc))
+    else:
+        target_rata = st.number_input("Importo Desiderato (€)", value=100.0, step=10.0)
+        if target_rata > 0:
+            n_rate = max(1, int(residuo // target_rata))
+            resto = residuo - (n_rate * target_rata)
+            st.metric("Numero Rate", n_rate)
+            if resto > 0:
+                st.warning(f"+ Maxi-rata finale: {format_currency(resto)}")
+        else:
+            n_rate = 1
+
+    freq = st.selectbox("Cadenza", ["MENSILE", "SETTIMANALE"])
+    start = st.date_input("Prima scadenza", value=data_inizio)
+
+    btn_label = "✅ Rigenera Piano" if n_pending > 0 else "✅ Genera Piano"
+    if st.button(btn_label, type="primary", use_container_width=True):
+        contract_repo.generate_payment_plan(id_contratto, residuo, n_rate, start, freq)
+        st.success(f"{n_rate} rate generate!")
+        st.rerun()
+
 @st.dialog("Modifica Contratto")
 def dialog_edit_contratto(c):
     st.markdown("### Gestione Contratto")
@@ -333,7 +373,7 @@ elif sel_id:
         for c in fin['contratti']:
             with st.container(border=True):
                 # Header contratto con status
-                h1, h2, h3 = st.columns([3, 1.5, 1.5])
+                h1, h2 = st.columns([3, 2])
                 status_text = "SALDATO" if c['totale_versato'] >= c['prezzo_totale'] else "PARZIALE" if c['totale_versato'] > 0 else "PENDENTE"
                 status_html = status_badge(status_text)
                 h1.markdown(f"**{c['tipo_pacchetto']}** {status_html}", unsafe_allow_html=True)
@@ -342,7 +382,6 @@ elif sel_id:
                     h2.write(f"Crediti: {c['crediti_usati']} usati + {prenotati_c} prenotati / {c['crediti_totali']}")
                 else:
                     h2.write(f"Crediti: {c['crediti_usati']}/{c['crediti_totali']}")
-                if h3.button("✏️", key=f"edc_{c['id']}", help="Modifica / Elimina"): dialog_edit_contratto(c)
                 
                 # Progress bar pagamento (clampato tra 0.0 e 1.0)
                 progress_val = (c['totale_versato'] / c['prezzo_totale']) if c['prezzo_totale'] > 0 else 0
@@ -360,11 +399,14 @@ elif sel_id:
                     'stato': r.stato,
                     'descrizione': r.descrizione
                 } for r in rate_raw]
+                residuo_contratto = c['prezzo_totale'] - c['totale_versato']
+
+                # --- Rate list ---
                 if rate:
                     st.caption("📅 Piano Rateale")
                     rate_paid = sum(1 for r in rate if r['stato'] == 'SALDATA')
                     st.text(f"{rate_paid}/{len(rate)} rate saldate")
-                    
+
                     for r in rate:
                         c_d, c_desc, c_imp, c_btn = st.columns([2, 3, 2, 2])
                         is_late = pd.to_datetime(r['data_scadenza']).date() < date.today() and r['stato'] != 'SALDATA'
@@ -372,11 +414,30 @@ elif sel_id:
                         c_d.markdown(f":{color}[{pd.to_datetime(r['data_scadenza']).strftime('%d/%m')}]")
                         c_desc.caption(r['descrizione'])
                         c_imp.write(f"€ {r['importo_previsto']:.0f}")
-                        if r['stato'] == 'SALDATA': c_btn.success("✅")
+                        if r['stato'] == 'SALDATA':
+                            c_btn.success("✅")
                         else:
                             if c_btn.button("🔴 PAGA" if is_late else "⚙️", key=f"r_{r['id']}", type="primary" if is_late else "secondary"):
                                 dialog_edit_rata(r, c['prezzo_totale'])
-                    if st.button("➕ Rata", key=f"ar_{c['id']}"): dialog_add_rata(c['id'])
+                elif residuo_contratto > 0:
+                    st.warning(f"⚠️ Nessun piano rateale — **{format_currency(residuo_contratto, 0)}** da incassare")
+
+                # --- Action row (always visible) ---
+                data_inizio = pd.to_datetime(c['data_inizio']).date() if c.get('data_inizio') else date.today()
+                n_pending = sum(1 for r in rate if r['stato'] == 'PENDENTE')
+
+                act1, act2, act3 = st.columns(3)
+                with act1:
+                    if residuo_contratto > 0:
+                        lbl = "📅 Genera Rate" if not rate else f"📅 Rigenera Rate ({n_pending} pendenti)"
+                        if st.button(lbl, key=f"gen_{c['id']}", use_container_width=True):
+                            dialog_genera_piano(c['id'], residuo_contratto, data_inizio)
+                with act2:
+                    if st.button("➕ Rata Singola", key=f"ar_{c['id']}", use_container_width=True):
+                        dialog_add_rata(c['id'])
+                with act3:
+                    if st.button("✏️ Modifica / Elimina", key=f"edc2_{c['id']}", use_container_width=True):
+                        dialog_edit_contratto(c)
     
     with tabs[2]: # Storico Pagamenti + Lezioni
         st.subheader("📜 Storico Attività")
