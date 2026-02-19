@@ -6,7 +6,7 @@ Garantisce che TUTTI i dati in input siano corretti prima di andare nel DB.
 
 from pydantic import BaseModel, Field, field_validator, EmailStr
 from datetime import date, datetime, timedelta
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Dict
 import json
 import re
 
@@ -618,3 +618,25 @@ class TrainerDNASummary(BaseModel):
     accessory_philosophy: Optional[str] = None
     ordering_style: Optional[str] = None
     dna_level: str = "learning"  # 'learning' | 'developing' | 'established'
+
+
+# ============================================================================
+# BACKUP MODELS
+# ============================================================================
+
+class BackupManifest(BaseModel):
+    """Metadati del backup per verifica integrita' e info ripristino."""
+    app_name: str = "FitManager AI Studio"
+    app_version: str = "3.0.0"
+    backup_date: datetime
+    db_checksum: str  # SHA-256 hex digest of crm.db
+    db_size_bytes: int
+    tables: Dict[str, int]  # table_name -> row_count
+    total_records: int
+
+    @field_validator('db_checksum')
+    @classmethod
+    def validate_checksum(cls, v: str) -> str:
+        if len(v) != 64 or not all(c in '0123456789abcdef' for c in v):
+            raise ValueError('Checksum SHA-256 non valido')
+        return v

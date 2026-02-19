@@ -72,7 +72,7 @@ except Exception:
     prossimi_eventi = []
 
 try:
-    sessioni_stale = agenda_repo.get_stale_sessions()
+    sessioni_stale = agenda_repo.get_stale_sessions() or []
 except Exception:
     sessioni_stale = []
 
