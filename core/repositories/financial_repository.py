@@ -321,9 +321,9 @@ class FinancialRepository(BaseRepository):
         with self._connect() as conn:
             cursor = conn.cursor()
 
-            # Upcoming rates
+            # Upcoming rates (remaining amount = previsto - already paid)
             cursor.execute("""
-                SELECT COALESCE(SUM(importo_previsto), 0)
+                SELECT COALESCE(SUM(importo_previsto - importo_saldato), 0)
                 FROM rate_programmate
                 WHERE data_scadenza BETWEEN ? AND ?
                 AND stato != 'SALDATA'

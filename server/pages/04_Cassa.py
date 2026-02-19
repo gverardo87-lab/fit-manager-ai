@@ -52,7 +52,7 @@ ultimo_mese = date(oggi.year, oggi.month, ultimo_giorno)
 bilancio = financial_repo.get_cash_balance(primo_mese, ultimo_mese)
 saldo_totale = financial_repo.get_cash_balance()['saldo_cassa']
 previsione = financial_repo.get_cash_forecast(30)
-rate_pendenti = contract_repo.get_pending_rates(oggi + timedelta(days=30), solo_future=True)
+rate_pendenti = contract_repo.get_pending_rates(oggi + timedelta(days=30), only_future=True)
 rate_scadute = contract_repo.get_overdue_rates()
 spese_fisse_raw = financial_repo.get_recurring_expenses()
 # Convert Pydantic models to dicts for compatibility
@@ -290,10 +290,13 @@ with tab2:
             for _, row in df_pendenti.iterrows():
                 col_d1, col_d2 = st.columns([3, 1])
                 with col_d1:
-                    st.markdown(f"{row['Urgente']} **{row['Cliente']}** · {row['Pacchetto']}")
-                    st.caption(f"Scadenza: {row['Scadenza']} (tra {row['Tra Giorni']} giorni)")
+                    st.markdown(f"**{row['Cliente']}** · {row['Pacchetto']}")
+                    sc_str = row['Scadenza'].strftime('%d/%m/%Y') if hasattr(row['Scadenza'], 'strftime') else str(row['Scadenza'])
+                    st.caption(f"Scadenza: {sc_str} (tra {row['Tra Giorni']} giorni)")
                 with col_d2:
-                    st.markdown(f"**{row['Importo']}**")
+                    st.markdown(f"**{format_currency(row['Da Incassare'], 0)}**")
+                    if row['Pagato %'] > 0:
+                        st.caption(f"🟡 Pagato {row['Pagato %']}%")
                 st.divider()
         
         # Buttons per pagamento veloce
