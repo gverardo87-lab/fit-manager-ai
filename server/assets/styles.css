@@ -104,6 +104,11 @@
 .kpi-trend.negative { color: var(--danger); }
 .kpi-trend.neutral  { color: var(--text-muted); }
 
+.kpi-icon {
+    font-size: 1.5rem;
+    margin-bottom: 0.25rem;
+}
+
 /* ─── Metric Box (legacy compat) ────────────────────────────────── */
 .metric-box {
     background: var(--bg-card);

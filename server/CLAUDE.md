@@ -16,6 +16,16 @@ Questa cartella contiene SOLO la presentazione. ~5.000 LOC.
   ```
 - Azioni distruttive: SEMPRE con conferma (render_confirm_delete / render_confirm_action)
 
+## Navigazione
+
+`app.py` e' il router centrale. Usa `st.navigation()` con sezioni:
+- "" (Dashboard, default)
+- "Gestione" (Agenda, Clienti, Cassa)
+- "Strumenti AI" (Assistente, Programmi, Assessment, Margine Orario)
+- "Risorse" (Documenti, Impostazioni)
+
+Le pagine NON definiscono la sidebar di navigazione. Ogni pagina puo' chiamare `st.set_page_config()` additivamente per sovrascrivere titolo/icona del browser tab.
+
 ## Struttura pagina standard
 
 ```python
@@ -33,10 +43,6 @@ repo = ClientRepository()
 if 'my_key' not in st.session_state:
     st.session_state.my_key = None
 
-# Sidebar per filtri/selezione
-with st.sidebar:
-    ...
-
 # Contenuto principale
 # Form con validazione Pydantic on submit
 # Gestione None returns
@@ -46,7 +52,8 @@ with st.sidebar:
 
 | Pagina | LOC | Repository usati | Responsabilita' |
 |--------|-----|-----------------|-----------------|
-| app.py | 328 | Client, Agenda, Financial, Contract | Dashboard, KPI, sessioni imminenti, alert |
+| app.py | ~55 | - | Router st.navigation(), definisce sezioni sidebar |
+| app_dashboard.py | ~250 | Client, Agenda, Financial, Contract | Dashboard, KPI, sessioni imminenti, alert |
 | 01_Agenda | 344 | Client, Agenda | Calendario FullCalendar, CRUD eventi, crediti |
 | 02_Assistente_Esperto | 347 | KnowledgeChain | Chat RAG, viewer PDF, fonti |
 | 03_Clienti | 472 | Client, Contract, Agenda | Profilo, contratti, rate, storico |
@@ -66,7 +73,7 @@ Componenti riutilizzabili da usare INVECE di HTML inline:
 | `badge(text, variant)` | Badge colorato (success, warning, danger, info) |
 | `status_badge(status)` | Badge automatico per stati comuni |
 | `format_currency(value)` | Formato europeo: € 1.234,56 |
-| `render_metric_box(label, value)` | KPI box stilizzato |
+| `render_metric_box(label, value, subtext, icon, card_type, value_color, trend_class)` | KPI box stilizzato (colore e trend configurabili) |
 | `render_card(title, content)` | Card con varianti |
 | `render_confirm_delete(item_id, session_key, details, callback)` | Conferma CRITICA: checkbox + bottone disabilitato |
 | `render_confirm_action(item_id, session_key, message, label, callback)` | Conferma LEGGERA: warning + 2 bottoni |
@@ -84,7 +91,8 @@ CSS centralizzato in `server/assets/styles.css` con variabili:
 Tema Streamlit in `.streamlit/config.toml` (light mode).
 
 **Problema noto**: alcune pagine usano colori hardcoded (#0066cc) invece di var(--primary). Da uniformare.
-**Problema noto**: mix di st.metric() e HTML KPI cards. Scegliere un pattern unico.
+
+Pattern KPI: `render_metric_box()` per hero KPI (dashboard top, sezioni principali); `st.metric()` per contesti inline e dove serve `delta`. Mai usare HTML `.kpi-card` inline - sempre passare per `render_metric_box()`.
 
 ## Pattern Session State
 

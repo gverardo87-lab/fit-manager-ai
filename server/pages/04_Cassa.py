@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 
 from core.repositories import ClientRepository, ContractRepository, FinancialRepository
 from core.models import MovimentoCassaCreate, SpesaRicorrenteCreate
-from core.ui_components import badge, status_badge, format_currency, loading_message, section_divider_component, empty_state_component, load_custom_css
+from core.ui_components import badge, status_badge, format_currency, loading_message, section_divider_component, empty_state_component, load_custom_css, render_metric_box
 
 # ════════════════════════════════════════════════════════════
 # CONFIG
@@ -124,22 +124,20 @@ st.caption("💰 FLUSSO DI CASSA = Movimenti reali già registrati | 📈 PREVIS
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.markdown(f"""
-    <div class='kpi-card'>
-        <div class='kpi-label'>💰 Saldo in Cassa (REALE)</div>
-        <div class='kpi-value {"positive" if saldo_totale >= 0 else "negative"}'>{format_currency(saldo_totale, 0)}</div>
-        <small>Capitale effettivo accumulato</small>
-    </div>
-    """, unsafe_allow_html=True)
+    render_metric_box(
+        "Saldo in Cassa (REALE)", format_currency(saldo_totale, 0),
+        "Capitale effettivo accumulato", "💰",
+        value_color="var(--secondary)" if saldo_totale >= 0 else "var(--danger)",
+        trend_class="positive" if saldo_totale >= 0 else "negative"
+    )
 
 with col2:
-    st.markdown(f"""
-    <div class='kpi-card'>
-        <div class='kpi-label'>💰 Flusso Questo Mese (REALE)</div>
-        <div class='kpi-value {"positive" if bilancio["saldo_cassa"] >= 0 else "negative"}'>{format_currency(bilancio['saldo_cassa'], 0)}</div>
-        <small>{format_currency(bilancio['incassato'], 0)} entrate · {format_currency(bilancio['speso'], 0)} uscite</small>
-    </div>
-    """, unsafe_allow_html=True)    
+    render_metric_box(
+        "Flusso Questo Mese (REALE)", format_currency(bilancio['saldo_cassa'], 0),
+        f"{format_currency(bilancio['incassato'], 0)} entrate · {format_currency(bilancio['speso'], 0)} uscite", "💰",
+        value_color="var(--secondary)" if bilancio["saldo_cassa"] >= 0 else "var(--danger)",
+        trend_class="positive" if bilancio["saldo_cassa"] >= 0 else "negative"
+    )    
     # Breakdown entrate/uscite questo mese
     with st.expander("📊 Breakdown Mensile"):
         # Entrate per categoria
@@ -160,13 +158,12 @@ with col2:
             for item in uscite_mese:
                 st.caption(f"{item['categoria']}: €{item['totale']:.0f}")
 with col3:
-    st.markdown(f"""
-    <div class='kpi-card'>
-        <div class='kpi-label'>📈 Previsione 30gg (STIMA)</div>
-        <div class='kpi-value {"positive" if previsione["saldo_previsto"] >= 0 else "negative"}'>{format_currency(previsione['saldo_previsto'], 0)}</div>
-        <small>Saldo attuale + rate future - costi attesi</small>
-    </div>
-    """, unsafe_allow_html=True)
+    render_metric_box(
+        "Previsione 30gg (STIMA)", format_currency(previsione['saldo_previsto'], 0),
+        "Saldo attuale + rate future - costi attesi", "📈",
+        value_color="var(--secondary)" if previsione["saldo_previsto"] >= 0 else "var(--danger)",
+        trend_class="positive" if previsione["saldo_previsto"] >= 0 else "negative"
+    )
 
 st.divider()
 

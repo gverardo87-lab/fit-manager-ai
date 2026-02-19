@@ -15,6 +15,9 @@ Questo significa:
 ## Architettura
 
 ```
+server/app.py           (Router centrale - st.navigation() con sezioni)
+       |
+server/app_dashboard.py (Dashboard principale - KPI, sessioni, azioni rapide)
 server/pages/*.py       (UI Streamlit - SOLO presentazione)
        |
 core/ui_components.py   (componenti UI riusabili - badge, card, conferme)
@@ -179,7 +182,7 @@ pytest tests/ -v
 - 16 tabelle DB attive, FK enforced
 - 9 repository con 86 metodi totali (76 decorati con @safe_operation)
 - 21 modelli Pydantic con cross-field validation
-- 8 pagine Streamlit + dashboard, tutte su Repository Pattern
+- 9 pagine Streamlit + dashboard, tutte su Repository Pattern, navigazione st.navigation()
 - 7 file test (copertura stimata 10-15%, da strutturare)
 - 0 dipendenze cloud, 0 dati verso terzi
 
@@ -189,9 +192,11 @@ Il progetto ha completato:
 - Repository Pattern (tutte le 8 pagine migrate, CrmDBManager eliminato)
 - Sistema Trainer DNA (import schede, estrazione pattern, dual RAG, pipeline AI)
 - Conferme su azioni distruttive (7 azioni protette)
+- Backup crittografato (.fitbackup con Fernet/PBKDF2)
+- Upgrade Streamlit 1.54 + theming avanzato (Inter, palette estesa, border radius)
+- Navigazione st.navigation() con sezioni + KPI unificati (render_metric_box)
 
 Prossimi passi:
-- Consistenza UI: unificare componenti (st.metric vs HTML custom KPI), palette colori
 - Responsivita' mobile: media queries CSS, layout adattivo
 - Notifiche proattive: alert crediti, rate scadute, contratti in scadenza
 - Service layer: CreditService, integrare dashboard_service.py

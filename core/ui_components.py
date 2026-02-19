@@ -191,15 +191,23 @@ def render_metric_box(
     value: str,
     subtext: str = "",
     icon: str = "",
-    card_type: str = "default"
+    card_type: str = "default",
+    value_color: str = "",
+    trend_class: str = "neutral"
 ) -> None:
-    """Renderizza una metrica in stile KPI box."""
+    """Renderizza una metrica in stile KPI box.
+
+    Args:
+        value_color: colore CSS per il valore, es. "var(--primary)". Default: colore tema.
+        trend_class: classe CSS per il trend: "positive", "negative", "neutral".
+    """
+    color_style = f' style="color: {value_color};"' if value_color else ''
     st.markdown(f"""
     <div class="kpi-card">
         <div class="kpi-icon">{icon}</div>
         <div class="kpi-label">{label}</div>
-        <div class="kpi-value">{value}</div>
-        {f'<div class="kpi-trend neutral">{subtext}</div>' if subtext else ''}
+        <div class="kpi-value"{color_style}>{value}</div>
+        {f'<div class="kpi-trend {trend_class}">{subtext}</div>' if subtext else ''}
     </div>
     """, unsafe_allow_html=True)
 
