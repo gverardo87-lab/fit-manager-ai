@@ -90,7 +90,7 @@ Tema Streamlit in `.streamlit/config.toml` (light mode).
 
 - Inizializzare SEMPRE all'inizio della pagina: `if 'key' not in st.session_state: st.session_state.key = None`
 - Per conferme distruttive: `st.session_state.deleting_X_id = item_id` -> mostra pannello -> reset a None
-- Per dialog (@st.experimental_dialog): `st.rerun()` re-renderizza il dialog, non chiude la finestra
+- Per dialog (@st.dialog): `st.rerun()` re-renderizza il dialog, non chiude la finestra
 - Chiavi dinamiche (es. `f'confirm_{id}'`): funzionano ma creano chiavi "garbage" nel session state
 
 ## Problemi noti UI

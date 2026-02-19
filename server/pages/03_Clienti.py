@@ -18,7 +18,7 @@ load_custom_css()
 
 # --- DIALOGHI (NO FORMS per stabilità) ---
 
-@st.experimental_dialog("Nuovo Contratto")
+@st.dialog("Nuovo Contratto")
 def dialog_vendita(id_cl):
     st.markdown("### 📝 Configurazione Accordo")
     
@@ -95,7 +95,7 @@ def dialog_vendita(id_cl):
         
         st.success("Contratto creato!"); st.rerun()
 
-@st.experimental_dialog("Gestione Rata")
+@st.dialog("Gestione Rata")
 def dialog_edit_rata(rata, totale_contratto):
     st.markdown(f"### Modifica: {rata['descrizione']}")
     tab_pay, tab_edit = st.tabs(["💳 Incassa", "✏️ Modifica"])
@@ -134,7 +134,7 @@ def dialog_edit_rata(rata, totale_contratto):
                 st.session_state[f'confirm_del_rate_{rata["id"]}'] = False
                 st.rerun()
 
-@st.experimental_dialog("Aggiungi Rata")
+@st.dialog("Aggiungi Rata")
 def dialog_add_rata(id_contratto):
     st.markdown("### ➕ Nuova Rata")
     dt = st.date_input("Scadenza", value=date.today() + timedelta(days=30))
@@ -143,7 +143,7 @@ def dialog_add_rata(id_contratto):
     if st.button("Aggiungi"):
         contract_repo.add_manual_rate(id_contratto, dt, imp, desc); st.rerun()
 
-@st.experimental_dialog("Modifica Contratto")
+@st.dialog("Modifica Contratto")
 def dialog_edit_contratto(c):
     st.markdown("### Gestione Contratto")
     p = st.number_input("Totale (€)", value=float(c['prezzo_totale']))

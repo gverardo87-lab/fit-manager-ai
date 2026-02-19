@@ -34,7 +34,7 @@ def parse_click_naive(date_str):
 
 # --- DIALOGHI ---
 
-@st.experimental_dialog("📅 Nuovo Appuntamento")
+@st.dialog("📅 Nuovo Appuntamento")
 def dialog_add_event(default_date, default_time):
     st.caption(f"Inserimento per il **{default_date.strftime('%d/%m/%Y')}** alle **{default_time.strftime('%H:%M')}**")
     
@@ -98,7 +98,7 @@ def dialog_add_event(default_date, default_time):
                 st.rerun()
             except Exception as e: st.error(f"Errore: {e}")
 
-@st.experimental_dialog("Gestione Evento")
+@st.dialog("Gestione Evento")
 def dialog_view_event(event_id, event_props):
     st.subheader("Modifica Appuntamento")
     

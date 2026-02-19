@@ -21,7 +21,7 @@ classifiers = [
 ]
 dependencies = [
     # --- CORE LIBS (Base) ---
-    "streamlit==1.36.0",
+    "streamlit>=1.54.0",
     "pandas==2.2.2",
     "numpy==1.26.4",
     "requests",
@@ -34,6 +34,7 @@ dependencies = [
     "pydantic==2.7.4",    # <--- REPOSITORY PATTERN (FASE 2)
     "python-dateutil",    # <--- Dependency per repository pattern
     "python-docx==1.1.2", # <--- Trainer DNA: import schede Word
+    "cryptography",       # <--- Backup crittografato (.fitbackup)
 
     # --- LANGCHAIN ECOSYSTEM (AI Logic) ---
     "langchain==0.2.5",
