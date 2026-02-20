@@ -31,10 +31,18 @@ dependencies = [
     "feedparser",
     "streamlit-calendar", # <--- NUOVA DIPENDENZA FONDAMENTALE
     "watchdog",           # <--- Per gestione file system
-    "pydantic==2.7.4",    # <--- REPOSITORY PATTERN (FASE 2)
+    "pydantic>=2.7.4",    # <--- REPOSITORY PATTERN
     "python-dateutil",    # <--- Dependency per repository pattern
     "python-docx==1.1.2", # <--- Trainer DNA: import schede Word
     "cryptography",       # <--- Backup crittografato (.fitbackup)
+
+    # --- API LAYER (FastAPI + Auth) ---
+    "fastapi",
+    "uvicorn[standard]",
+    "sqlmodel",           # <--- ORM (SQLAlchemy + Pydantic) — database-agnostic
+    "python-jose[cryptography]",  # <--- JWT tokens
+    "bcrypt",             # <--- Password hashing
+    "python-multipart",   # <--- Form data per auth
 
     # --- LANGCHAIN ECOSYSTEM (AI Logic) ---
     "langchain==0.2.5",
@@ -60,5 +68,5 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["core*", "server*", "tools*", "knowledge_base*"]
+include = ["core*", "server*", "api*", "tools*", "knowledge_base*"]
 exclude = ["data*", "venv*"]
