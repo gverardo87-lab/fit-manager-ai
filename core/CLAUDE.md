@@ -82,10 +82,9 @@ FitManagerException (base)
 
 Decoratori:
 - `@safe_operation` - USARE SEMPRE nei repository (76 metodi decorati). Rilancia FitManagerException, cattura errori infrastruttura.
-- `@safe_db_operation` - DEPRECATO (sostituito da @safe_operation)
 
 ErrorHandler singleton: log_error(), get_error_history(), clear_history().
-Zero import Streamlit. Funzioni dead code (`handle_streamlit_errors`, `safe_streamlit_dialog`, `show_error_details`) rimosse.
+Zero import Streamlit. Dead code rimosso: `handle_streamlit_errors`, `safe_streamlit_dialog`, `show_error_details`, `safe_db_operation`.
 
 ## Financial Analytics (core/financial_analytics.py, 698 LOC)
 
@@ -120,7 +119,7 @@ Centralizzato con env vars:
 - EMBEDDING_MODEL, CROSS_ENCODER_MODEL
 - VECTORSTORE_DIR, DOCUMENTS_DIR
 
-## Codice morto da eliminare
+## Codice morto (eliminato)
 
-- `core/schedule_db.py` (92 LOC) - mai importato, gestisce schedule.db vuoto
-- `core/services/dashboard_service.py` (115 LOC) - preparato ma non integrato
+- ~~`core/schedule_db.py` (92 LOC)~~ — ELIMINATO
+- ~~`core/services/dashboard_service.py` (115 LOC)~~ — ELIMINATO

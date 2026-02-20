@@ -99,32 +99,6 @@ class PermissionDenied(FitManagerException):
 
 F = TypeVar('F', bound=Callable)
 
-def safe_db_operation(operation_name: str = "unknown") -> Callable[[F], F]:
-    """
-    Decorator per operazioni database con rollback automatico.
-    
-    Usage:
-        @safe_db_operation("add_misurazione")
-        def add_misurazione_completa(self, id_cliente, dati):
-            pass
-    """
-    def decorator(func: F) -> F:
-        @wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
-            try:
-                logger.debug(f"🔄 DB Operation: {operation_name}")
-                result = func(*args, **kwargs)
-                logger.info(f"✅ DB Operation successful: {operation_name}")
-                return result
-            
-            except Exception as e:
-                logger.error(f"❌ DB Operation failed: {operation_name} - {str(e)}")
-                # Se la funzione ha transaction context, verrà rollbacked automaticamente
-                raise DatabaseError(str(e), operation=operation_name)
-        
-        return wrapper
-    return decorator
-
 def safe_operation(
     operation_name: str = "unknown",
     severity: ErrorSeverity = ErrorSeverity.MEDIUM,

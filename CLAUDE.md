@@ -395,11 +395,10 @@ Da unificare in un CreditService.
 - `methodology_vectorstore/` non in .gitignore (dati generati)
 - Paginazione mancante su `get_all_active()`
 
-### Codice morto da eliminare
-- `core/schedule_db.py` (92 LOC) — mai importato
-- `core/services/dashboard_service.py` (115 LOC) — mai usato, contiene `@st.cache_data`
-- ~~`@handle_streamlit_errors`~~ → ELIMINATO
-- `@safe_db_operation` — deprecato, rimpiazzato da `@safe_operation`
+### Codice morto (eliminato)
+- ~~`core/schedule_db.py` (92 LOC)~~ → ELIMINATO
+- ~~`core/services/dashboard_service.py` (115 LOC)~~ → ELIMINATO
+- ~~`@handle_streamlit_errors`, `@safe_streamlit_dialog`, `@safe_db_operation`~~ → ELIMINATI
 
 ---
 
