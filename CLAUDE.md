@@ -377,10 +377,10 @@ Da unificare in un CreditService.
 ## Debito Tecnico (Stato Attuale)
 
 ### Critico (da risolvere prima di nuove feature)
-- `core/error_handler.py` importa `streamlit` → viola separazione core/UI
-- `core/document_manager.py` importa `streamlit` → stessa violazione
-- `core/knowledge_chain.py` usa `@st.cache_resource` e `print()` → accoppiamento + no logging
-- Magic strings ovunque: "Programmato", "Completato", "SALDATO" senza costanti centrali
+- ~~`core/error_handler.py` importa `streamlit`~~ → RISOLTO (rimosso import + eliminato dead code)
+- ~~`core/document_manager.py` importa `streamlit`~~ → RISOLTO (sostituito con logger)
+- ~~`core/knowledge_chain.py` usa `@st.cache_resource` e `print()`~~ → RISOLTO (lru_cache + logger)
+- ~~Magic strings ovunque~~ → RISOLTO (core/constants.py con 6 enum centralizzate)
 - Pages non gestiscono sempre `None` da `@safe_operation`
 
 ### Alto (da pianificare)
@@ -397,8 +397,8 @@ Da unificare in un CreditService.
 
 ### Codice morto da eliminare
 - `core/schedule_db.py` (92 LOC) — mai importato
-- `core/services/dashboard_service.py` (115 LOC) — mai usato
-- `@handle_streamlit_errors` — definito ma non adottato in nessuna page
+- `core/services/dashboard_service.py` (115 LOC) — mai usato, contiene `@st.cache_data`
+- ~~`@handle_streamlit_errors`~~ → ELIMINATO
 - `@safe_db_operation` — deprecato, rimpiazzato da `@safe_operation`
 
 ---

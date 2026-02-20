@@ -4,7 +4,6 @@ Sistema di error handling coerente per FitManager AI.
 Tutti gli errori passano da qui per logging, UI display e recovery.
 """
 
-import streamlit as st
 import logging
 import traceback
 from typing import Callable, TypeVar, Any, Optional
@@ -100,67 +99,6 @@ class PermissionDenied(FitManagerException):
 
 F = TypeVar('F', bound=Callable)
 
-def handle_streamlit_errors(page_name: str = "unknown") -> Callable[[F], F]:
-    """
-    Decorator per gestire errori nelle pagine Streamlit.
-    Mostra messaggi user-friendly e loga errori dettagliati.
-    
-    Usage:
-        @handle_streamlit_errors("02_Clienti")
-        def my_page_logic():
-            pass
-    """
-    def decorator(func: F) -> F:
-        @wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
-            try:
-                logger.info(f"📄 Page {page_name} - Executing {func.__name__}")
-                return func(*args, **kwargs)
-            
-            except ValidationError as e:
-                st.error(f"⚠️ Errore di validazione")
-                st.write(f"**Dettagli**: {e.message}")
-                if e.field:
-                    st.write(f"**Campo**: {e.field}")
-                logger.warning(f"Validation error in {page_name}: {e.message}")
-            
-            except ClienteNotFound as e:
-                st.error(f"❌ {e.message}")
-                st.info("💡 Seleziona un cliente valido dalla lista a sinistra")
-                logger.warning(f"Cliente non trovato in {page_name}: {e.context}")
-            
-            except ContratoInvalido as e:
-                st.error(f"❌ {e.message}")
-                logger.warning(f"Contratto invalido in {page_name}: {e.context}")
-            
-            except DatabaseError as e:
-                st.error(f"❌ Errore nel database")
-                st.write(f"**Operazione**: {e.context.get('operation', 'unknown')}")
-                st.warning("👨‍💻 Contatta l'amministratore se il problema persiste")
-                logger.error(f"DB error in {page_name}: {e.message}", exc_info=True)
-            
-            except ConflictError as e:
-                st.error(f"❌ {e.message}")
-                st.info("💡 Controlla i turni overlapping e riprova")
-                logger.warning(f"Conflict in {page_name}: {e.message}")
-            
-            except PermissionDenied as e:
-                st.error(f"❌ {e.message}")
-                logger.warning(f"Permission denied in {page_name}: {e.context}")
-            
-            except Exception as e:
-                # Unexpected error
-                error_id = f"{datetime.now().timestamp()}"
-                st.error(f"❌ Errore critico (ID: {error_id})")
-                st.write("```")
-                st.write(str(e))
-                st.write("```")
-                st.warning(f"👨‍💻 Contatta support con ID: **{error_id}**")
-                logger.exception(f"UNEXPECTED error in {page_name}: {error_id}")
-        
-        return wrapper
-    return decorator
-
 def safe_db_operation(operation_name: str = "unknown") -> Callable[[F], F]:
     """
     Decorator per operazioni database con rollback automatico.
@@ -183,31 +121,6 @@ def safe_db_operation(operation_name: str = "unknown") -> Callable[[F], F]:
                 logger.error(f"❌ DB Operation failed: {operation_name} - {str(e)}")
                 # Se la funzione ha transaction context, verrà rollbacked automaticamente
                 raise DatabaseError(str(e), operation=operation_name)
-        
-        return wrapper
-    return decorator
-
-def safe_streamlit_dialog(dialog_name: str = "Dialog") -> Callable[[F], F]:
-    """
-    Decorator per dialoghi Streamlit con error recovery.
-    
-    Usage:
-        @safe_streamlit_dialog("Misurazione")
-        def dialog_misurazione(id_cliente, dati_pre=None):
-            pass
-    """
-    def decorator(func: F) -> F:
-        @wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
-            try:
-                logger.info(f"🎯 Dialog {dialog_name} opened")
-                return func(*args, **kwargs)
-            
-            except Exception as e:
-                st.error(f"❌ Errore in {dialog_name}")
-                st.write(f"**Dettagli**: {str(e)}")
-                logger.exception(f"Dialog error: {dialog_name}")
-                st.stop()  # Stop dialog execution
         
         return wrapper
     return decorator
@@ -329,15 +242,6 @@ def get_error_handler() -> ErrorHandler:
     """Factory per ottenere singleton ErrorHandler"""
     return ErrorHandler()
 
-def show_error_details(exception: FitManagerException) -> None:
-    """Mostra dettagli errore in Streamlit"""
-    with st.expander("🔍 Dettagli Errore"):
-        st.write(f"**Codice**: {exception.code}")
-        st.write(f"**Messaggio**: {exception.message}")
-        if exception.context:
-            st.write(f"**Context**: {exception.context}")
-        st.write(f"**Timestamp**: {exception.timestamp.isoformat()}")
-
 def log_page_activity(page_name: str, action: str, details: Optional[dict] = None) -> None:
     """Log attività delle pagine"""
     log_msg = f"📄 {page_name} - {action}"
@@ -357,7 +261,7 @@ def validate_model(model_class, data: dict) -> tuple[bool, Any, Optional[str]]:
     Usage:
         is_valid, data, error = validate_model(MisurazioneDTO, {"peso": 75, ...})
         if not is_valid:
-            st.error(error)
+            logger.warning(error)  # or show in UI
     """
     try:
         validated = model_class(**data)

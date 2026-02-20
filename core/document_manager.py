@@ -1,8 +1,10 @@
 # core/document_manager.py (Nuova versione "Scanner")
 from pathlib import Path
 import hashlib
+import logging
 from typing import Dict, List, Optional
-import streamlit as st
+
+logger = logging.getLogger("fitmanager.documents")
 
 # La cartella 'documents' è la nostra unica fonte di verità.
 DOCUMENTS_ROOT = Path("./knowledge_base/documents")
@@ -32,7 +34,7 @@ class NavalDocumentManager:
         """
         index = {}
         if not self.base_path.is_dir():
-            st.error(f"La cartella dei documenti non esiste: {self.base_path.resolve()}")
+            logger.error(f"La cartella dei documenti non esiste: {self.base_path.resolve()}")
             return {}
 
         # Cerca tutti i file PDF, anche in sottocartelle

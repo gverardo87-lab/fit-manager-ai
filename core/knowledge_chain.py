@@ -12,6 +12,8 @@ Upgrade: quando utente carica PDF, ibridizza con built-in.
 
 import os
 import sys
+import logging
+from functools import lru_cache
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 
@@ -29,8 +31,9 @@ from langchain_ollama import OllamaEmbeddings
 from langchain_ollama.llms import OllamaLLM
 from langchain.prompts import PromptTemplate
 from langchain_core.documents import Document
-import streamlit as st
 from sentence_transformers.cross_encoder import CrossEncoder
+
+logger = logging.getLogger("fitmanager.knowledge")
 
 
 class HybridKnowledgeChain:
@@ -57,7 +60,7 @@ class HybridKnowledgeChain:
     
     def _load_kb_optional(self):
         """Carica KB se disponibile, fallback a built-in"""
-        print("--- Inizializzazione Hybrid Knowledge Chain... ---")
+        logger.info("Inizializzazione Hybrid Knowledge Chain...")
         
         # Prova a caricare KB user
         if Path(VECTORSTORE_DIR).is_dir():
@@ -66,29 +69,29 @@ class HybridKnowledgeChain:
                 vectorstore = Chroma(persist_directory=str(VECTORSTORE_DIR), embedding_function=embeddings)
                 self.retriever = vectorstore.as_retriever(search_kwargs={"k": 10})
                 self.kb_available = True
-                print("[OK] Knowledge Base utente caricata")
+                logger.info("Knowledge Base utente caricata")
             except Exception as e:
-                print(f"[WARN] KB non disponibile: {e}")
+                logger.warning(f"KB non disponibile: {e}")
                 self.kb_available = False
         else:
-            print("[WARN] Knowledge Base vuota - usando built-in knowledge")
+            logger.warning("Knowledge Base vuota - usando built-in knowledge")
             self.kb_available = False
         
         # Carica cross-encoder se KB disponibile
         if self.kb_available:
             try:
                 self.cross_encoder = CrossEncoder(CROSS_ENCODER_MODEL)
-                print("[OK] Cross-Encoder caricato")
+                logger.info("Cross-Encoder caricato")
             except Exception as e:
-                print(f"[WARN] Cross-Encoder fallito: {e}")
+                logger.warning(f"Cross-Encoder fallito: {e}")
     
     def _load_llm(self):
         """Carica LLM"""
         try:
             self.llm = OllamaLLM(model=MAIN_LLM_MODEL, temperature=0.2)
-            print("[OK] LLM caricato")
+            logger.info("LLM caricato")
         except Exception as e:
-            print(f"[WARN] LLM fallito: {e}")
+            logger.warning(f"LLM fallito: {e}")
             self.llm = None
     
     def get_exercise_methodology(self, goal: str, level: str) -> Dict[str, Any]:
@@ -212,13 +215,13 @@ class HybridKnowledgeChain:
 _hybrid_chain = HybridKnowledgeChain()
 
 
-@st.cache_resource
+@lru_cache(maxsize=1)
 def get_knowledge_chain():
     """Legacy function - ritorna retriever e llm"""
     return _hybrid_chain.retriever, _hybrid_chain.llm
 
 
-@st.cache_resource
+@lru_cache(maxsize=1)
 def get_cross_encoder():
     """Legacy function - ritorna cross encoder"""
     return _hybrid_chain.cross_encoder
@@ -234,7 +237,7 @@ def rerank_documents(query: str, documents: List[Document], cross_encoder) -> Li
     if not documents or cross_encoder is None:
         return documents
     
-    print(f"--- Riordino di {len(documents)} documenti... ---")
+    logger.info(f"Riordino di {len(documents)} documenti...")
     pairs = [[query, doc.page_content] for doc in documents]
     scores = cross_encoder.predict(pairs)
     
@@ -242,7 +245,7 @@ def rerank_documents(query: str, documents: List[Document], cross_encoder) -> Li
         documents[i].metadata['relevance_score'] = scores[i]
     
     reranked_docs = sorted(documents, key=lambda x: x.metadata['relevance_score'], reverse=True)
-    print(f"--- Documenti riordinati. Top score: {reranked_docs[0].metadata['relevance_score']:.2f} ---")
+    logger.info(f"Documenti riordinati. Top score: {reranked_docs[0].metadata['relevance_score']:.2f}")
     return reranked_docs[:4]
 
 

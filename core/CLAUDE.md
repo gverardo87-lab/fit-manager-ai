@@ -5,7 +5,8 @@ Questa cartella contiene TUTTA la logica di business. ~13.500 LOC.
 ## Regola fondamentale
 
 **Nessun import di Streamlit (st.\*) in questa cartella.**
-Violazioni attuali da risolvere: error_handler.py (st.error/st.write nelle funzioni di display), document_manager.py (st.error).
+Unica eccezione consentita: `ui_components.py` (bridge UI per design).
+Violazioni risolte: error_handler.py, knowledge_chain.py, document_manager.py.
 
 ## Repository (core/repositories/)
 
@@ -66,7 +67,7 @@ Pydantic v2. Pattern: EntityCreate (input) -> Entity (completo con id).
 - Workout: WorkoutPlanCreate, WorkoutPlan, ProgressRecordCreate, ProgressRecord
 - DNA: ImportedCardCreate, ImportedCard, TrainerDNAPatternCreate, TrainerDNASummary
 
-## Error Handler (core/error_handler.py, 403 LOC)
+## Error Handler (core/error_handler.py, ~310 LOC)
 
 Gerarchia eccezioni:
 ```
@@ -80,13 +81,11 @@ FitManagerException (base)
 ```
 
 Decoratori:
-- `@safe_operation` - USARE SEMPRE nei repository (76 metodi decorati)
-- `@handle_streamlit_errors` - disponibile, non ancora adottato
+- `@safe_operation` - USARE SEMPRE nei repository (76 metodi decorati). Rilancia FitManagerException, cattura errori infrastruttura.
 - `@safe_db_operation` - DEPRECATO (sostituito da @safe_operation)
 
 ErrorHandler singleton: log_error(), get_error_history(), clear_history().
-
-**DEBITO**: Contiene import streamlit e funzioni che chiamano st.error/st.write (linee 121-149). Da refactorizzare per restituire strutture dati, lasciando il display alle pages.
+Zero import Streamlit. Funzioni dead code (`handle_streamlit_errors`, `safe_streamlit_dialog`, `show_error_details`) rimosse.
 
 ## Financial Analytics (core/financial_analytics.py, 698 LOC)
 
