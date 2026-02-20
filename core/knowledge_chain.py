@@ -3,7 +3,7 @@
 Hybrid Knowledge Chain System
 
 Supporta due modalità:
-1. Built-in Knowledge (sempre disponibile): exercise_database.py
+1. Built-in Knowledge (sempre disponibile): exercise_archive.py
 2. User Knowledge Base (opzionale): PDF caricati dall'utente
 
 Fallback automatico: se KB non caricato, usa built-in knowledge.
@@ -23,7 +23,7 @@ from core.config import (
     MAIN_LLM_MODEL,
     CROSS_ENCODER_MODEL
 )
-from core.exercise_database import exercise_db, PeriodizationTemplates, ProgressionStrategies
+from core.exercise_archive import ExerciseArchive, PeriodizationTemplates, ProgressionStrategies
 from langchain_community.vectorstores import Chroma
 from langchain_ollama import OllamaEmbeddings
 from langchain_ollama.llms import OllamaLLM
@@ -47,7 +47,7 @@ class HybridKnowledgeChain:
         self.retriever = None
         self.llm = None
         self.cross_encoder = None
-        self.exercise_db = exercise_db
+        self.exercise_db = ExerciseArchive()
         self._initialize()
     
     def _initialize(self):
@@ -116,10 +116,9 @@ class HybridKnowledgeChain:
                 pass
         
         # Fallback a built-in
-        template = exercise_db.get_workout_template(goal, level)
         return {
             'source': 'built_in',
-            'template': template,
+            'template': {'goal': goal, 'level': level},
             'note': '[OK] Utilizziamo metodologia built-in (carica PDF per customizzazione)'
         }
     
@@ -127,11 +126,11 @@ class HybridKnowledgeChain:
         """Recupera informazioni su un esercizio"""
         
         # Prova built-in prima
-        exercises = exercise_db.search_exercises(exercise_name)
+        exercises = self.exercise_db.search(exercise_name)
         if exercises:
             return {
                 'source': 'built_in',
-                'exercise': exercises[0].to_dict(),
+                'exercise': exercises[0],
             }
         
         # Fallback a KB se disponibile
@@ -196,7 +195,7 @@ class HybridKnowledgeChain:
     def get_knowledge_status(self) -> Dict[str, Any]:
         """Ritorna status della knowledge chain"""
         return {
-            'built_in_exercises': exercise_db.count_exercises(),
+            'built_in_exercises': self.exercise_db.count(),
             'kb_loaded': self.kb_available,
             'kb_available_for_enhancement': not self.kb_available,
             'llm_available': self.llm is not None,

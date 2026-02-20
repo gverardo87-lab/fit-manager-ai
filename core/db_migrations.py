@@ -1,5 +1,5 @@
 """
-DB Migrations - Schema extensions for Trainer DNA system
+DB Migrations - Schema extensions for Trainer DNA system + Exercise Archive
 
 Idempotent migrations (CREATE TABLE IF NOT EXISTS).
 Called at page startup - safe to run multiple times.
@@ -25,6 +25,7 @@ class DBMigrations:
             self._migration_imported_cards(conn)
             self._migration_trainer_dna(conn)
             self._migration_exercise_edits(conn)
+            self._migration_exercise_archive(conn)
 
             conn.commit()
             conn.close()
@@ -79,5 +80,29 @@ class DBMigrations:
                 edit_reason TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (id_workout_plan) REFERENCES workout_plans(id) ON DELETE CASCADE
+            )
+        """)
+
+    def _migration_exercise_archive(self, conn: sqlite3.Connection):
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS exercises (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                italian_name TEXT,
+                category TEXT NOT NULL,
+                movement_pattern TEXT NOT NULL,
+                primary_muscles TEXT NOT NULL,
+                secondary_muscles TEXT,
+                equipment TEXT NOT NULL,
+                difficulty TEXT NOT NULL,
+                rep_range_strength TEXT,
+                rep_range_hypertrophy TEXT,
+                rep_range_endurance TEXT,
+                recovery_hours INTEGER DEFAULT 48,
+                instructions TEXT,
+                contraindications TEXT,
+                is_custom INTEGER DEFAULT 0,
+                source TEXT DEFAULT 'builtin',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         """)

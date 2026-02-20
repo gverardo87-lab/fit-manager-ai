@@ -6,7 +6,7 @@ Verifica funzionalità base senza dipendenze pesanti
 import sys
 sys.path.insert(0, 'c:\\Users\\gvera\\Projects\\FitManager_AI_Studio')
 
-from core.exercise_database import exercise_db, DifficultyLevel, MuscleGroup
+from core.exercise_archive import ExerciseArchive
 
 def test_smart_selection():
     """Test delle nuove funzioni smart"""

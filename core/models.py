@@ -621,6 +621,42 @@ class TrainerDNASummary(BaseModel):
 
 
 # ============================================================================
+# EXERCISE ARCHIVE MODELS
+# ============================================================================
+
+class ExerciseCreate(BaseModel):
+    """Model per creazione/seed esercizio nell'archivio."""
+    name: str = Field(min_length=1, max_length=100)
+    italian_name: Optional[str] = Field(None, max_length=100)
+    category: str = Field(pattern="^(compound|isolation|bodyweight|cardio)$")
+    movement_pattern: str = Field(
+        pattern="^(push_h|push_v|pull_h|pull_v|squat|hinge|carry|rotation|core)$"
+    )
+    primary_muscles: List[str] = Field(min_length=1)
+    secondary_muscles: List[str] = Field(default_factory=list)
+    equipment: str = Field(
+        pattern="^(barbell|dumbbell|machine|cable|bodyweight|kettlebell|band|trx)$"
+    )
+    difficulty: str = Field(pattern="^(beginner|intermediate|advanced)$")
+    rep_range_strength: Optional[str] = None      # "3-6"
+    rep_range_hypertrophy: Optional[str] = None    # "8-12"
+    rep_range_endurance: Optional[str] = None      # "15-20"
+    recovery_hours: int = Field(default=48, ge=12, le=96)
+    instructions: Optional[Dict[str, Any]] = None  # {setup, execution, breathing, common_mistakes}
+    contraindications: List[str] = Field(default_factory=list)
+
+
+class ExerciseDB(ExerciseCreate):
+    """Model completo Esercizio dall'archivio (con ID)."""
+    id: int
+    is_custom: bool = False
+    source: str = "builtin"  # builtin | dna_import | manual
+
+    class Config:
+        from_attributes = True
+
+
+# ============================================================================
 # BACKUP MODELS
 # ============================================================================
 

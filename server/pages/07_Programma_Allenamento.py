@@ -16,11 +16,11 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 
 from core.repositories import ClientRepository, WorkoutRepository, CardImportRepository
 from core.models import WorkoutPlanCreate, ProgressRecordCreate
-from core.workout_generator_v2 import WorkoutGeneratorV2
 from core.card_parser import CardParser, ParsedCard, ParsedExercise, ParsedCardMetadata
 from core.db_migrations import DBMigrations
 from core.pattern_extractor import PatternExtractor
 from core.workout_ai_pipeline import WorkoutAIPipeline
+from core.exercise_archive import ExerciseArchive
 from core.repositories import TrainerDNARepository
 from core.error_handler import logger
 from core.config import DB_CRM_PATH
@@ -43,7 +43,6 @@ DBMigrations(DB_CRM_PATH).run_all()
 client_repo = ClientRepository()
 workout_repo = WorkoutRepository()
 card_import_repo = CardImportRepository()
-workout_gen = WorkoutGeneratorV2()
 card_parser = CardParser()
 
 @st.cache_resource
@@ -94,9 +93,9 @@ with st.sidebar:
 
     st.divider()
 
-    st.markdown("#### 🏋️ Workout Generator V2")
+    st.markdown("#### 🏋️ Workout Generator")
     st.success("✅ Professional Mode", icon="⭐")
-    st.caption("500+ esercizi | 5 modelli periodizzazione")
+    st.caption("174+ esercizi | 5 modelli periodizzazione | 3 modalita'")
 
 # MAIN CONTENT
 col_header1, col_header2 = st.columns([3, 1])
@@ -109,7 +108,10 @@ with col_header2:
 st.divider()
 
 # TABS
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["🆕 Genera Nuovo", "📋 Salvati", "📈 Progresso", "📂 Importa Schede", "🧬 Trainer DNA"])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    "🆕 Genera Nuovo", "📋 Salvati", "📈 Progresso",
+    "📂 Importa Schede", "🧬 Trainer DNA", "🗃️ Archivio Esercizi"
+])
 
 # ═════════════════════════════════════════════════════════════
 # TAB 1: GENERA NUOVO
@@ -209,25 +211,51 @@ with tab1:
 
     st.divider()
 
-    # AI Enhancement toggles
-    st.markdown("### 🤖 AI Enhancement")
-    col_ai1, col_ai2 = st.columns(2)
-    with col_ai1:
-        use_assessment = st.toggle("📋 Auto-leggi Assessment", value=True, key="toggle_assessment",
-                                    help="Usa dati assessment del cliente (limitazioni, forza, composizione corporea)")
-    with col_ai2:
-        # Check DNA status for caption
-        dna_repo = TrainerDNARepository()
-        dna_status = dna_repo.get_dna_status() or {}
-        dna_cards = dna_status.get('total_cards', 0)
-        dna_level = dna_status.get('dna_level', 'none')
+    # Modalita' Generazione + Enhancement
+    st.markdown("### 🤖 Modalita' Generazione")
 
-        use_dna = st.toggle("🧬 Applica Trainer DNA", value=(dna_cards >= 2), key="toggle_dna",
-                             help="AI personalizza il programma con il tuo stile")
-        if dna_cards < 2:
-            st.caption(f"DNA in apprendimento ({dna_cards} schede) - importa almeno 2 schede")
-        else:
+    # Check DNA status
+    dna_repo = TrainerDNARepository()
+    dna_status = dna_repo.get_dna_status() or {}
+    dna_cards = dna_status.get('total_cards', 0)
+    dna_level = dna_status.get('dna_level', 'none')
+    has_dna = dna_cards >= 1
+
+    col_mode, col_ai1, col_ai2 = st.columns([2, 1, 1])
+
+    with col_mode:
+        mode_options = ["Solo Archivio"]
+        mode_values = ["archive"]
+        if has_dna:
+            mode_options.append("Solo DNA")
+            mode_values.append("dna")
+            mode_options.append("Combinata (DNA + Archivio)")
+            mode_values.append("combined")
+
+        mode_display = st.selectbox(
+            "Scegli la strategia di generazione",
+            mode_options,
+            index=0,
+            help=(
+                "**Solo Archivio**: usa 174+ esercizi catalogati + templates scientifici\n\n"
+                "**Solo DNA**: usa la struttura delle tue schede importate\n\n"
+                "**Combinata**: struttura DNA + selezione dall'archivio"
+            ),
+            key="gen_mode",
+        )
+        gen_mode = mode_values[mode_options.index(mode_display)]
+
+        if not has_dna:
+            st.caption("Importa almeno 1 scheda per sbloccare DNA e Combinata")
+        elif gen_mode != 'archive':
             st.caption(f"DNA {dna_level} - {dna_cards} schede, {dna_status.get('total_patterns', 0)} pattern")
+
+    with col_ai1:
+        use_assessment = st.toggle("📋 Assessment", value=True, key="toggle_assessment",
+                                    help="Arricchisce profilo da assessment (limitazioni, forza, composizione corporea)")
+    with col_ai2:
+        use_ai = st.toggle("🧠 Coaching AI", value=True, key="toggle_ai",
+                            help="Aggiunge cues tecnici via LLM (richiede Ollama)")
 
     st.divider()
 
@@ -259,8 +287,8 @@ with tab1:
         if eq_cable: equipment_list.append("cable")
         if eq_smith: equipment_list.append("smith_machine")
         if eq_bodyweight: equipment_list.append("bodyweight")
-        if eq_bands: equipment_list.append("resistance_band")
-        if eq_suspension: equipment_list.append("suspension_trainer")
+        if eq_bands: equipment_list.append("band")
+        if eq_suspension: equipment_list.append("trx")
         if eq_cardio: equipment_list.append("cardio_machine")
 
         client_profile = {
@@ -274,46 +302,34 @@ with tab1:
             'equipment': equipment_list if equipment_list else ['barbell', 'dumbbell']
         }
 
-        ai_active = use_assessment or use_dna
-        spinner_msg = "🤖 Generazione AI-augmented..." if ai_active else "🔄 Generazione programma..."
+        mode_labels = {'archive': 'Solo Archivio', 'dna': 'Solo DNA', 'combined': 'Combinata'}
+        spinner_msg = f"🤖 Generazione ({mode_labels.get(gen_mode, gen_mode)})..."
 
         with st.spinner(spinner_msg):
             try:
-                if ai_active:
-                    pipeline = get_ai_pipeline()
-                    workout_plan = pipeline.generate_with_ai(
-                        client_id=id_cliente,
-                        client_profile=client_profile,
-                        weeks=durata_settimane,
-                        periodization_model=periodization_model,
-                        sessions_per_week=disponibilita_giorni,
-                        use_assessment=use_assessment,
-                        use_trainer_dna=use_dna,
-                    )
-                else:
-                    workout_plan = workout_gen.generate_professional_workout(
-                        client_profile=client_profile,
-                        weeks=durata_settimane,
-                        periodization_model=periodization_model,
-                        sessions_per_week=disponibilita_giorni
-                    )
+                pipeline = get_ai_pipeline()
+                workout_plan = pipeline.generate_with_ai(
+                    client_id=id_cliente,
+                    client_profile=client_profile,
+                    weeks=durata_settimane,
+                    periodization_model=periodization_model,
+                    sessions_per_week=disponibilita_giorni,
+                    mode=gen_mode,
+                    use_assessment=use_assessment,
+                    use_ai=use_ai,
+                )
 
                 if 'error' in workout_plan:
                     render_error_message(workout_plan['error'])
                 else:
-                    # Show AI enhancement badge if applicable
                     ai_meta = workout_plan.get('ai_metadata', {})
+                    mode_used = ai_meta.get('mode', gen_mode)
+                    parts = [f"Modalita': {mode_labels.get(mode_used, mode_used)}"]
+                    if ai_meta.get('assessment_used'):
+                        parts.append("Assessment integrato")
                     if ai_meta.get('ai_enhanced'):
-                        score = int(ai_meta.get('style_alignment_score', 0) * 100)
-                        render_success_message(
-                            f"🧬 Programma AI Enhanced! DNA: {ai_meta.get('dna_level', '?')} | "
-                            f"Allineamento stile: {score}% | "
-                            f"{ai_meta.get('suggestions_applied', 0)} modifiche applicate"
-                        )
-                    elif ai_meta.get('assessment_used'):
-                        render_success_message(f"📋 Programma generato con dati Assessment integrati!")
-                    else:
-                        render_success_message(f"✨ Programma generato con {periodization_model.upper()} periodization!")
+                        parts.append(f"{ai_meta.get('coaching_cues_added', 0)} coaching cues AI")
+                    render_success_message(f"✨ Programma generato! {' | '.join(parts)}")
 
                     st.session_state['current_workout'] = workout_plan
                     st.session_state['show_workout_details'] = True
@@ -977,12 +993,107 @@ with tab5:
         st.divider()
         st.info("📭 Nessun pattern DNA disponibile. Importa le tue schede dalla tab 'Importa Schede' e poi estrai i pattern.")
 
+# ═════════════════════════════════════════════════════════════
+# TAB 6: ARCHIVIO ESERCIZI
+# ═════════════════════════════════════════════════════════════
+
+with tab6:
+    create_section_header("Archivio Esercizi", "174+ esercizi catalogati con metadata completa", "🗃️")
+
+    @st.cache_resource
+    def get_exercise_archive():
+        return ExerciseArchive()
+
+    archive = get_exercise_archive()
+
+    # KPI
+    total_count = archive.count()
+    col_ak1, col_ak2, col_ak3 = st.columns(3)
+    with col_ak1:
+        render_metric_box("Esercizi Totali", str(total_count), "nel database", "🏋️", "primary")
+    with col_ak2:
+        render_metric_box("Pattern", "9", "movement patterns", "🔄", "default")
+    with col_ak3:
+        render_metric_box("Equipment", "8", "tipologie attrezzi", "🔧", "default")
+
+    st.divider()
+
+    # Filtri
+    col_f1, col_f2, col_f3, col_f4 = st.columns(4)
+    with col_f1:
+        filter_pattern = st.selectbox(
+            "Movement Pattern",
+            ["Tutti", "push_h", "push_v", "pull_h", "pull_v", "squat", "hinge", "core", "rotation", "carry"],
+            key="arch_pattern"
+        )
+    with col_f2:
+        filter_equipment = st.selectbox(
+            "Equipment",
+            ["Tutti", "barbell", "dumbbell", "machine", "cable", "bodyweight", "kettlebell", "band", "trx"],
+            key="arch_equip"
+        )
+    with col_f3:
+        filter_difficulty = st.selectbox(
+            "Difficolta'",
+            ["Tutti", "beginner", "intermediate", "advanced"],
+            format_func=lambda x: {"Tutti": "Tutti", "beginner": "Principiante", "intermediate": "Intermedio", "advanced": "Avanzato"}.get(x, x),
+            key="arch_diff"
+        )
+    with col_f4:
+        filter_search = st.text_input("Cerca per nome", key="arch_search", placeholder="Es: squat, bench...")
+
+    # Carica e filtra
+    all_exercises = archive.get_all()
+    filtered = all_exercises
+
+    if filter_pattern != "Tutti":
+        filtered = [e for e in filtered if e.get('movement_pattern') == filter_pattern]
+    if filter_equipment != "Tutti":
+        filtered = [e for e in filtered if e.get('equipment') == filter_equipment]
+    if filter_difficulty != "Tutti":
+        filtered = [e for e in filtered if e.get('difficulty') == filter_difficulty]
+    if filter_search:
+        search_lower = filter_search.lower()
+        filtered = [e for e in filtered if search_lower in (e.get('name', '') + ' ' + (e.get('italian_name') or '')).lower()]
+
+    st.caption(f"Mostrando {len(filtered)} di {total_count} esercizi")
+
+    if filtered:
+        # Tabella
+        table_data = []
+        for ex in filtered:
+            muscles = ex.get('primary_muscles', [])
+            if isinstance(muscles, str):
+                try:
+                    muscles = json.loads(muscles)
+                except (json.JSONDecodeError, TypeError):
+                    muscles = [muscles]
+            table_data.append({
+                "Nome": ex.get('name', ''),
+                "Italiano": ex.get('italian_name') or '-',
+                "Pattern": ex.get('movement_pattern', ''),
+                "Muscoli": ', '.join(muscles[:3]) if muscles else '-',
+                "Equipment": ex.get('equipment', ''),
+                "Livello": ex.get('difficulty', ''),
+                "Forza": ex.get('rep_range_strength') or '-',
+                "Ipertrofia": ex.get('rep_range_hypertrophy') or '-',
+            })
+
+        st.dataframe(
+            pd.DataFrame(table_data),
+            use_container_width=True,
+            hide_index=True,
+            height=500,
+        )
+    else:
+        st.info("Nessun esercizio trovato con i filtri selezionati")
+
 # FOOTER
 st.divider()
-col_f1, col_f2, col_f3 = st.columns(3)
-with col_f1:
+col_foot1, col_foot2, col_foot3 = st.columns(3)
+with col_foot1:
     st.caption(f"Cliente: {cliente_info['nome']}")
-with col_f2:
-    st.caption("v2.0 Premium UI")
-with col_f3:
+with col_foot2:
+    st.caption("v3.0 Unified Generator")
+with col_foot3:
     st.caption(datetime.now().strftime('%d %b %Y - %H:%M'))

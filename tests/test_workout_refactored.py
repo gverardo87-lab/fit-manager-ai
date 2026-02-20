@@ -7,7 +7,7 @@ Verifica:
 - Anti-duplicate tracking
 """
 
-from core.workout_generator_v2 import WorkoutGeneratorV2
+from core.workout_generator import WorkoutGenerator
 from core.models import ClienteDB, Goal, DifficultyLevel
 from datetime import date, datetime
 import json

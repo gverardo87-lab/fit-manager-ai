@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from core.workout_generator_v2 import WorkoutGeneratorV2
+from core.workout_generator import WorkoutGenerator
 import json
 
 def test_v3_features():

@@ -12,9 +12,9 @@ PROBLEMA RISOLTO:
 - Ora: Day 2 (Squat Focus) ≠ Day 4 (Hinge Focus)
 """
 
-from core.workout_generator_v2 import WorkoutGeneratorV2
+from core.workout_generator import WorkoutGenerator
 from core.periodization_models import Goal
-from core.exercise_database import DifficultyLevel
+# DifficultyLevel removed from core.exercise_database (module deleted)
 
 def test_upper_lower_intra_week_variation():
     print("=" * 80)

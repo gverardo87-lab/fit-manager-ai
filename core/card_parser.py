@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from typing import List, Optional, Tuple
 
-from core.exercise_database import ExerciseDatabase
+from core.exercise_archive import ExerciseArchive
 
 
 # ============================================================================
@@ -176,11 +176,16 @@ class CardParser:
     """Parses workout cards from Excel and Word files."""
 
     def __init__(self):
-        self.exercise_db = ExerciseDatabase()
         self._exercise_names = {}
-        for ex_id, ex in self.exercise_db.exercises.items():
-            self._exercise_names[ex.italian_name.lower()] = ex_id
-            self._exercise_names[ex.name.lower()] = ex_id
+        archive = ExerciseArchive()
+        for ex in archive.get_all():
+            name = ex.get('name', '').lower()
+            italian = (ex.get('italian_name') or '').lower()
+            ex_id = str(ex.get('id', ''))
+            if name:
+                self._exercise_names[name] = ex_id
+            if italian:
+                self._exercise_names[italian] = ex_id
 
     def parse_file(self, file_bytes: bytes, filename: str) -> ParsedCard:
         """Auto-detect file format and parse."""
