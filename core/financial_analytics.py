@@ -20,6 +20,7 @@ import pandas as pd
 import numpy as np
 
 from core.repositories.base_repository import BaseRepository
+from core.constants import MovementType, RateStatus
 
 
 class FinancialAnalytics(BaseRepository):
@@ -282,10 +283,10 @@ class FinancialAnalytics(BaseRepository):
             spese_marketing_db = conn.execute("""
                 SELECT COALESCE(SUM(importo), 0) as totale
                 FROM movimenti_cassa
-                WHERE tipo = 'USCITA'
+                WHERE tipo = ?
                   AND categoria IN ('Marketing', 'Pubblicità', 'Ads')
                   AND data_effettiva BETWEEN ? AND ?
-            """, (data_inizio, data_fine)).fetchone()
+            """, (MovementType.USCITA.value, data_inizio, data_fine)).fetchone()
 
             total_acquisition_cost = (
                 costi_marketing +
@@ -552,10 +553,10 @@ class FinancialAnalytics(BaseRepository):
                     data_inizio, data_scadenza,
                     crediti_totali, crediti_usati
                 FROM contratti
-                WHERE stato_pagamento != 'PENDENTE'
+                WHERE stato_pagamento != ?
                   AND DATE(data_scadenza) >= ?
                   AND chiuso = 0
-            """, (as_of_date,)).fetchall()
+            """, (RateStatus.PENDENTE.value, as_of_date)).fetchall()
 
             if not contratti_attivi:
                 return {

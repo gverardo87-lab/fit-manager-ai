@@ -10,6 +10,11 @@ from typing import Optional, List, Any, Dict
 import json
 import re
 
+from core.constants import (
+    EventStatus, RateStatus, MovementType, PaymentMethod,
+    SessionCategory, ExpenseFrequency,
+)
+
 # ============================================================================
 # CLIENTE MODELS
 # ============================================================================
@@ -163,7 +168,7 @@ class RataProgrammata(BaseModel):
     data_scadenza: date
     importo_previsto: float = Field(gt=0)
     descrizione: Optional[str] = None
-    stato: str = Field(default="PENDENTE", pattern="^(PENDENTE|SALDATA)$")
+    stato: RateStatus = Field(default=RateStatus.PENDENTE)
     importo_saldato: float = Field(default=0, ge=0)
 
 class ContratoBase(BaseModel):
@@ -179,7 +184,7 @@ class ContratoBase(BaseModel):
     data_inizio: date
     data_scadenza: date
     acconto: float = Field(default=0, ge=0)
-    metodo_acconto: Optional[str] = Field(None, pattern="^(CONTANTI|POS|BONIFICO)$")
+    metodo_acconto: Optional[PaymentMethod] = None
     note: Optional[str] = Field(None, max_length=500)
     
     @field_validator('data_scadenza')
@@ -221,10 +226,10 @@ class Contratto(ContratoBase):
 
 class MovimentoCassaBase(BaseModel):
     """Base model per Movimento Cassa"""
-    tipo: str = Field(pattern="^(ENTRATA|USCITA)$", description="ENTRATA = soldi in, USCITA = soldi out")
+    tipo: MovementType = Field(description="ENTRATA = soldi in, USCITA = soldi out")
     categoria: str = Field(min_length=1, max_length=100)
     importo: float = Field(gt=0, le=1_000_000, description="Importo in €, sempre positivo")
-    metodo: str = Field(default="CONTANTI", pattern="^(CONTANTI|POS|BONIFICO|ASSEGNO|ALTRO)$")
+    metodo: PaymentMethod = Field(default=PaymentMethod.CONTANTI)
     data_effettiva: date = Field(default_factory=date.today)
     id_cliente: Optional[int] = Field(None, gt=0)
     id_spesa_ricorrente: Optional[int] = None
@@ -256,7 +261,7 @@ class SpesaRicorrenteBase(BaseModel):
     nome: str = Field(min_length=1, max_length=100, description="Es: 'Affitto palestra'")
     categoria: str = Field(min_length=1, max_length=100)
     importo: float = Field(gt=0, le=100_000)
-    frequenza: str = Field(pattern="^(MENSILE|TRIMESTRALE|ANNUALE)$")
+    frequenza: ExpenseFrequency
     giorno_scadenza: int = Field(ge=1, le=31, description="Giorno del mese per scadenza")
     giorno_inizio: int = Field(default=1, ge=1, le=31)
     data_prossima_scadenza: Optional[date] = None
@@ -282,20 +287,18 @@ class SessioneBase(BaseModel):
     id_cliente: Optional[int] = Field(None, gt=0)  # Optional per eventi generici (SALA, CONSULENZA, CORSO)
     data_inizio: datetime
     data_fine: datetime
-    categoria: str  # Validato e normalizzato da field_validator
+    categoria: SessionCategory
     titolo: str = Field(min_length=1, max_length=200)
-    stato: str = Field(default="Programmato", pattern="^(Programmato|Completato|Cancellato|Rinviato)$")
+    stato: EventStatus = Field(default=EventStatus.PROGRAMMATO)
     note: Optional[str] = Field(None, max_length=500)
-    
-    @field_validator('categoria')
+
+    @field_validator('categoria', mode='before')
     @classmethod
-    def validate_categoria(cls, v: str) -> str:
-        """Normalizza e valida categoria (case-insensitive)"""
-        categorie_valide = ["PT", "SALA", "NUOTO", "YOGA", "CONSULENZA", "CORSO"]
-        v_upper = v.upper()
-        if v_upper not in categorie_valide:
-            raise ValueError(f'Categoria deve essere una tra: {", ".join(categorie_valide)}')
-        return v_upper
+    def normalize_categoria(cls, v):
+        """Normalizza categoria a uppercase prima della validazione Enum."""
+        if isinstance(v, str):
+            return v.upper()
+        return v
     
     @field_validator('data_fine')
     @classmethod

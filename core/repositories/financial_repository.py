@@ -18,11 +18,8 @@ from datetime import date, datetime, timedelta
 
 from .base_repository import BaseRepository
 from core.models import MovimentoCassa, MovimentoCassaCreate, SpesaRicorrente, SpesaRicorrenteCreate
-from core.error_handler import safe_operation, ErrorSeverity
-
-# Constants
-TIPO_ENTRATA = "ENTRATA"
-TIPO_USCITA = "USCITA"
+from core.error_handler import safe_operation, ErrorSeverity, ConflictError
+from core.constants import MovementType, RateStatus, ExpenseFrequency
 
 
 class FinancialRepository(BaseRepository):
@@ -66,7 +63,22 @@ class FinancialRepository(BaseRepository):
         """
         with self._connect() as conn:
             cursor = conn.cursor()
-            
+
+            # Duplicate protection: prevent paying same recurring expense twice in a month
+            if movement.id_spesa_ricorrente is not None:
+                anno_mese = movement.data_effettiva.strftime('%Y-%m')
+                cursor.execute("""
+                    SELECT id FROM movimenti_cassa
+                    WHERE id_spesa_ricorrente = ?
+                      AND strftime('%Y-%m', data_effettiva) = ?
+                """, (movement.id_spesa_ricorrente, anno_mese))
+                existing = cursor.fetchone()
+                if existing:
+                    raise ConflictError(
+                        f"Spesa ricorrente #{movement.id_spesa_ricorrente} "
+                        f"già pagata nel mese {anno_mese} (movimento #{existing[0]})"
+                    )
+
             cursor.execute("""
                 INSERT INTO movimenti_cassa (
                     data_movimento, data_effettiva, tipo, categoria, importo, metodo,
@@ -152,7 +164,7 @@ class FinancialRepository(BaseRepository):
                 WHERE 1=1{where_clause}
             """
             
-            cursor.execute(query, [TIPO_ENTRATA, TIPO_USCITA] + params)
+            cursor.execute(query, [MovementType.ENTRATA.value, MovementType.USCITA.value] + params)
             result = cursor.fetchone()
             
             incassato = result['entrate']
@@ -203,31 +215,31 @@ class FinancialRepository(BaseRepository):
             entrate = cursor.execute("""
                 SELECT COALESCE(SUM(importo), 0)
                 FROM movimenti_cassa
-                WHERE tipo='ENTRATA' AND data_effettiva BETWEEN ? AND ?
-            """, (start_date, end_date)).fetchone()[0]
+                WHERE tipo = ? AND data_effettiva BETWEEN ? AND ?
+            """, (MovementType.ENTRATA.value, start_date, end_date)).fetchone()[0]
 
             # 2. USCITE TOTALI (da movimenti_cassa)
             uscite_totali = cursor.execute("""
                 SELECT COALESCE(SUM(importo), 0)
                 FROM movimenti_cassa
-                WHERE tipo='USCITA' AND data_effettiva BETWEEN ? AND ?
-            """, (start_date, end_date)).fetchone()[0]
+                WHERE tipo = ? AND data_effettiva BETWEEN ? AND ?
+            """, (MovementType.USCITA.value, start_date, end_date)).fetchone()[0]
 
             # 3. USCITE VARIABILI (categorie specifiche)
             uscite_variabili = cursor.execute("""
                 SELECT COALESCE(SUM(importo), 0)
                 FROM movimenti_cassa
-                WHERE tipo='USCITA'
+                WHERE tipo = ?
                 AND categoria IN ('SPESE_ATTREZZATURE', 'ALTRO')
                 AND data_effettiva BETWEEN ? AND ?
-            """, (start_date, end_date)).fetchone()[0]
+            """, (MovementType.USCITA.value, start_date, end_date)).fetchone()[0]
 
             # 4. COSTI FISSI (spese ricorrenti scalate al periodo)
             costi_fissi_mensili = cursor.execute("""
                 SELECT COALESCE(SUM(importo), 0)
                 FROM spese_ricorrenti
-                WHERE attiva = 1 AND frequenza = 'MENSILE'
-            """).fetchone()[0]
+                WHERE attiva = 1 AND frequenza = ?
+            """, (ExpenseFrequency.MENSILE.value,)).fetchone()[0]
             costi_fissi_periodo = (costi_fissi_mensili / 30) * giorni_periodo
 
             # 5. ORE FATTURATE (crediti da contratti pagati)
@@ -249,9 +261,9 @@ class FinancialRepository(BaseRepository):
             rate_mancanti = cursor.execute("""
                 SELECT COALESCE(SUM(importo_previsto), 0)
                 FROM rate_programmate
-                WHERE stato != 'SALDATA'
+                WHERE stato != ?
                 AND data_scadenza BETWEEN ? AND ?
-            """, (start_date, end_date)).fetchone()[0]
+            """, (RateStatus.SALDATA.value, start_date, end_date)).fetchone()[0]
 
             # 8. CALCOLI MARGINE
             margine_lordo = entrate - uscite_variabili - costi_fissi_periodo
@@ -326,20 +338,34 @@ class FinancialRepository(BaseRepository):
                 SELECT COALESCE(SUM(importo_previsto - importo_saldato), 0)
                 FROM rate_programmate
                 WHERE data_scadenza BETWEEN ? AND ?
-                AND stato != 'SALDATA'
-            """, (oggi, data_fine_prev))
+                AND stato != ?
+            """, (oggi, data_fine_prev, RateStatus.SALDATA.value))
 
             rate_scadenti = cursor.fetchone()[0]
 
-            # Fixed costs proportional
+            # Fixed costs: total monthly
             cursor.execute("""
                 SELECT COALESCE(SUM(importo), 0)
                 FROM spese_ricorrenti
-                WHERE attiva = 1 AND frequenza = 'MENSILE'
-            """)
+                WHERE attiva = 1 AND frequenza = ?
+            """, (ExpenseFrequency.MENSILE.value,))
 
             costi_fissi_mensili = cursor.fetchone()[0]
-            costi_previsti = (costi_fissi_mensili / 30) * days
+
+            # Already paid this month (avoid double-counting with saldo_oggi)
+            anno_mese = oggi.strftime('%Y-%m')
+            cursor.execute("""
+                SELECT COALESCE(SUM(mc.importo), 0)
+                FROM movimenti_cassa mc
+                WHERE mc.id_spesa_ricorrente IS NOT NULL
+                  AND strftime('%Y-%m', mc.data_effettiva) = ?
+            """, (anno_mese,))
+            gia_pagati_mese = cursor.fetchone()[0]
+
+            # Forecast: full projection minus what's already been paid
+            # (paid expenses are already deducted from saldo_oggi as USCITA)
+            costi_previsti_lordi = (costi_fissi_mensili / 30) * days
+            costi_previsti = max(0, costi_previsti_lordi - gia_pagati_mese)
 
         return {
             'saldo_oggi': round(saldo_oggi, 2),
@@ -434,7 +460,60 @@ class FinancialRepository(BaseRepository):
             
             cursor.execute(query, params)
             return [SpesaRicorrente(**self._row_to_dict(r)) for r in cursor.fetchall()]
-    
+
+    @safe_operation(
+        operation_name="Update Recurring Expense",
+        severity=ErrorSeverity.HIGH,
+        fallback_return=False
+    )
+    def update_recurring_expense(
+        self,
+        expense_id: int,
+        nome: str,
+        importo: float,
+        categoria: str,
+        giorno_scadenza: int
+    ) -> bool:
+        """Aggiorna una spesa ricorrente esistente."""
+        with self._connect() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE spese_ricorrenti
+                SET nome = ?, importo = ?, categoria = ?, giorno_scadenza = ?
+                WHERE id = ?
+            """, (nome, importo, categoria, giorno_scadenza, expense_id))
+            return cursor.rowcount > 0
+
+    @safe_operation(
+        operation_name="Toggle Recurring Expense",
+        severity=ErrorSeverity.MEDIUM,
+        fallback_return=False
+    )
+    def toggle_recurring_expense(self, expense_id: int, attiva: bool) -> bool:
+        """Attiva/disattiva una spesa ricorrente (soft delete)."""
+        with self._connect() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE spese_ricorrenti SET attiva = ? WHERE id = ?",
+                (1 if attiva else 0, expense_id)
+            )
+            return cursor.rowcount > 0
+
+    @safe_operation(
+        operation_name="Delete Recurring Expense",
+        severity=ErrorSeverity.HIGH,
+        fallback_return=False
+    )
+    def delete_recurring_expense(self, expense_id: int) -> bool:
+        """Elimina definitivamente una spesa ricorrente."""
+        with self._connect() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "DELETE FROM spese_ricorrenti WHERE id = ?",
+                (expense_id,)
+            )
+            return cursor.rowcount > 0
+
     @safe_operation(
         operation_name="Get Unpaid Fixed Expenses",
         severity=ErrorSeverity.MEDIUM,
@@ -494,7 +573,7 @@ class FinancialRepository(BaseRepository):
         self, 
         start_date: date, 
         end_date: date, 
-        tipo: str = "ENTRATA"
+        tipo: str = MovementType.ENTRATA.value
     ) -> List[Dict[str, Any]]:
         """
         Ottiene breakdown movimenti per categoria nel periodo.

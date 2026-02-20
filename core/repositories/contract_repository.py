@@ -20,10 +20,9 @@ from dateutil.relativedelta import relativedelta
 from .base_repository import BaseRepository
 from core.models import Contratto, ContratoCreate, RataProgrammata
 from core.error_handler import safe_operation, ErrorSeverity
+from core.constants import MovementType, RateStatus
 
-# Constants
-TIPO_ENTRATA = "ENTRATA"
-TIPO_USCITA = "USCITA"
+# Categorie movimento cassa per contratti
 CATEGORIA_ACCONTO = "ACCONTO_CONTRATTO"
 CATEGORIA_RATA = "PAGAMENTO_RATA"
 
@@ -85,7 +84,7 @@ class ContractRepository(BaseRepository):
                     id_cliente, tipo_pacchetto, data_inizio, data_scadenza,
                     crediti_totali, prezzo_totale, totale_versato,
                     stato_pagamento, note
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDENTE', ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 contract.id_cliente,
                 contract.tipo_pacchetto,
@@ -94,6 +93,7 @@ class ContractRepository(BaseRepository):
                 contract.crediti_totali,
                 contract.prezzo_totale,
                 contract.acconto,  # totale_versato = acconto iniziale
+                RateStatus.PENDENTE.value,
                 contract.note
             ))
 
@@ -109,10 +109,10 @@ class ContractRepository(BaseRepository):
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, 'Acconto contestuale')
                 """, (
                     data_acconto,
-                    TIPO_ENTRATA,
+                    MovementType.ENTRATA.value,
                     CATEGORIA_ACCONTO,
                     contract.acconto,
-                    contract.metodo_acconto,
+                    contract.metodo_acconto.value if contract.metodo_acconto else None,
                     contract.id_cliente,
                     contract_id
                 ))
@@ -232,8 +232,8 @@ class ContractRepository(BaseRepository):
             # Delete existing PENDING rates
             cursor.execute("""
                 DELETE FROM rate_programmate
-                WHERE id_contratto = ? AND stato = 'PENDENTE'
-            """, (contract_id,))
+                WHERE id_contratto = ? AND stato = ?
+            """, (contract_id, RateStatus.PENDENTE.value))
 
             # Generate new rates
             for i in range(n_rates):
@@ -337,7 +337,7 @@ class ContractRepository(BaseRepository):
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 payment_date,
-                TIPO_ENTRATA,
+                MovementType.ENTRATA.value,
                 CATEGORIA_RATA,
                 amount_paid,
                 payment_method,
@@ -350,7 +350,7 @@ class ContractRepository(BaseRepository):
             # Update rate
             new_paid_amount = rate['importo_saldato'] + amount_paid
             # Rate is SALDATA if paid amount >= expected (with 0.1€ tolerance)
-            new_status = 'SALDATA' if new_paid_amount >= rate['importo_previsto'] - 0.1 else 'PARZIALE'
+            new_status = RateStatus.SALDATA.value if new_paid_amount >= rate['importo_previsto'] - 0.1 else RateStatus.PARZIALE.value
             
             cursor.execute("""
                 UPDATE rate_programmate 
@@ -398,10 +398,10 @@ class ContractRepository(BaseRepository):
                 FROM rate_programmate rp
                 JOIN contratti c ON rp.id_contratto = c.id
                 JOIN clienti cl ON c.id_cliente = cl.id
-                WHERE rp.stato != 'SALDATA'
+                WHERE rp.stato != ?
             """
-            params = []
-            
+            params = [RateStatus.SALDATA.value]
+
             # Filter only future rates
             if only_future:
                 query += " AND rp.data_scadenza >= ?"
@@ -441,10 +441,10 @@ class ContractRepository(BaseRepository):
                 FROM rate_programmate rp
                 JOIN contratti c ON rp.id_contratto = c.id
                 JOIN clienti cl ON c.id_cliente = cl.id
-                WHERE rp.stato != 'SALDATA'
+                WHERE rp.stato != ?
                 AND rp.data_scadenza < ?
                 ORDER BY rp.data_scadenza ASC
-            """, (oggi,))
+            """, (RateStatus.SALDATA.value, oggi))
             
             return [self._row_to_dict(r) for r in cursor.fetchall()]
     
@@ -640,9 +640,9 @@ class ContractRepository(BaseRepository):
                 SELECT * FROM rate_programmate 
                 WHERE id_contratto = ? 
                 AND id > ? 
-                AND stato = 'PENDENTE'
+                AND stato = ?
                 ORDER BY data_scadenza ASC
-            """, (contract_id, starting_rate_id))
+            """, (contract_id, starting_rate_id, RateStatus.PENDENTE.value))
             
             subsequent_rates = cursor.fetchall()
             

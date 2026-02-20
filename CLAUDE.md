@@ -1,52 +1,81 @@
-# FitManager AI Studio
+# FitManager AI Studio — Manifesto Architetturale
+
+> *"Il codice, in primis, deve essere elegante e facilmente rileggibile.
+> L'eleganza non e' un vezzo estetico: e' la base della manutenibilita'."*
+
+Questo file e' la **Costituzione** del progetto. Ogni riga di codice, ogni commit,
+ogni decisione tecnica deve rispettarla. Se una regola viene violata, il codice
+non e' pronto per il merge — senza eccezioni.
+
+---
+
+## Identita' del Progetto
 
 CRM gestionale per personal trainer e liberi professionisti del fitness.
-Stack: Python 3.9+ / Streamlit / SQLite / Ollama (LLM locale) / LangChain + ChromaDB (RAG).
-Privacy-first: tutto gira in locale, zero cloud, zero dati verso terzi.
+Il software gestisce la salute fisica e i soldi delle persone reali.
+Non tolleriamo approssimazione.
 
-L'utente NON e' un programmatore esperto. Sta imparando il coding con l'aiuto dell'AI.
-Questo significa:
+**Stack**: Python 3.9+ / Streamlit 1.54+ / SQLite / Ollama (LLM locale) / LangChain + ChromaDB (RAG)
+**Filosofia**: Privacy-first. Tutto gira in locale, zero cloud, zero dati verso terzi.
+**Utente**: Non programmatore esperto, sta imparando il coding con l'aiuto dell'AI.
+
+Cosa significa per noi:
 - Spiega brevemente il "perche'" delle scelte tecniche quando rilevante
-- Non dare per scontata la conoscenza di pattern o concetti avanzati
-- Proponi soluzioni ambiziose ma implementale tu in modo completo, non lasciare "esercizi al lettore"
+- Non dare per scontata la conoscenza di pattern avanzati
+- Proponi soluzioni ambiziose ma implementale in modo completo, mai lasciare "esercizi al lettore"
 - Se qualcosa puo' rompersi, previenilo nel codice invece di documentarlo e basta
-- Quando crei codice, assicurati che funzioni end-to-end: modello, repository, UI
+- Ogni feature deve funzionare end-to-end: modello, repository, UI
+
+---
+
+## La Regola d'Oro: Eleganza e Leggibilita'
+
+Un Senior Engineer deve poter leggere qualsiasi funzione e capire il flusso
+in meno di 30 secondi. Questo si ottiene con:
+
+1. **Funzioni corte e focalizzate** — max 25 righe nei repository, max 40 nelle pages
+2. **Un livello di astrazione per funzione** — non mescolare logica di business con formattazione UI
+3. **Nomi che raccontano l'intenzione** — `calculate_available_credits()`, non `calc()` o `do_stuff()`
+4. **Nessun commento che spiega il "cosa"** — il codice deve parlare da solo. I commenti spiegano solo il "perche'"
+
+---
 
 ## Architettura
 
 ```
-server/app.py           (Router centrale - st.navigation() con sezioni)
+server/app.py              Router centrale (st.navigation con sezioni)
        |
-server/app_dashboard.py (Dashboard principale - KPI, sessioni, azioni rapide)
-server/pages/*.py       (UI Streamlit - SOLO presentazione)
+server/app_dashboard.py    Dashboard KPI, sessioni, azioni rapide
+server/pages/*.py          UI Streamlit — SOLO presentazione
        |
-core/ui_components.py   (componenti UI riusabili - badge, card, conferme)
+core/ui_components.py      Componenti UI riusabili (badge, card, conferme)
        |
-core/repositories/      (CRUD, validazione, accesso DB)
+core/constants.py          Enumerazioni e costanti (stati, categorie)
        |
-core/models.py          (Pydantic v2 - validazione input)
+core/repositories/         CRUD, validazione, accesso DB
        |
-SQLite                  (data/crm.db - 16 tabelle attive)
+core/models.py             Pydantic v2 — validazione input
+       |
+SQLite                     data/crm.db — 17 tabelle attive
 ```
-
-Pattern: Repository Pattern (completo, tutte le 8 pagine migrate).
-9 repository + 1 analytics class, tutti ereditano da BaseRepository.
 
 ### Repository
 
-| Repository | Dominio | Metodi | Tabelle |
-|------------|---------|--------|---------|
-| ClientRepository | Clienti + misurazioni | 11 | clienti, misurazioni |
-| ContractRepository | Contratti + rate pagamento | 13 | contratti, rate_programmate |
-| AgendaRepository | Sessioni/eventi + crediti | 16 | agenda |
-| FinancialRepository | Cassa + spese ricorrenti | 20 | movimenti_cassa, spese_ricorrenti, hourly_tracking |
-| AssessmentRepository | Assessment iniziale + followup | 8 | client_assessment_initial, client_assessment_followup |
-| WorkoutRepository | Programmi + progressi | 7 | workout_plans, workout_exercise_edits |
-| CardImportRepository | Schede importate | 6 | imported_workout_cards |
-| TrainerDNARepository | Pattern metodologici | 8 | trainer_dna_patterns |
-| FinancialAnalytics | Metriche avanzate (LTV, CAC, Churn, MRR) | ~15 | Legge da contratti, movimenti |
+| Repository | Dominio | Tabelle |
+|------------|---------|---------|
+| ClientRepository | Clienti + misurazioni | clienti, misurazioni |
+| ContractRepository | Contratti + rate pagamento | contratti, rate_programmate |
+| AgendaRepository | Sessioni/eventi + crediti | agenda |
+| FinancialRepository | Cassa + spese ricorrenti | movimenti_cassa, spese_ricorrenti |
+| AssessmentRepository | Assessment iniziale + followup | client_assessment_initial, client_assessment_followup |
+| WorkoutRepository | Programmi + progressi | workout_plans, progress_records |
+| CardImportRepository | Schede importate | imported_workout_cards |
+| TrainerDNARepository | Pattern metodologici | trainer_dna_patterns |
+| FinancialAnalytics | Metriche avanzate (LTV, CAC, Churn, MRR) | Legge da contratti, movimenti |
 
-### Trainer DNA System (AI-Augmented Programming)
+Tutti ereditano da `BaseRepository`. Tutti i metodi pubblici decorati con `@safe_operation`.
+
+### Trainer DNA System
 
 ```
 Schede Excel/Word --> CardParser --> CardImportRepo (DB)
@@ -55,152 +84,367 @@ Schede Excel/Word --> CardParser --> CardImportRepo (DB)
                                                                      |
                                                                MethodologyChain (ChromaDB)
                                                                      |
-Assessment + DNA + WorkoutGeneratorV2 --> WorkoutAIPipeline --> Programma AI-Enhanced
+Assessment + DNA + WorkoutGenerator --> WorkoutAIPipeline --> Programma AI-Enhanced
 ```
 
-Componenti:
-- core/card_parser.py (1087 LOC): parser Excel/Word con fuzzy matching esercizi
-- core/pattern_extractor.py (328 LOC): estrae pattern con LLM (fallback algoritmico)
-- core/methodology_chain.py: RAG per metodologie (ChromaDB in knowledge_base/methodology_vectorstore/)
-- core/workout_ai_pipeline.py (957 LOC): pipeline completa assessment + DNA + AI
-- core/workout_generator_v2.py (1363 LOC): generazione algoritmica (5 modelli periodizzazione)
-- core/exercise_database.py (2147 LOC): 500+ esercizi + template periodizzazione
-- core/db_migrations.py: migrazioni idempotenti per tabelle DNA
+---
 
-## Regole fondamentali
+## Design Pattern Obbligatori
 
-### Separazione UI / Core (CRITICA)
-- Mai importare `sqlite3` nelle pages
-- Mai mettere `st.*` nel core (NOTA: error_handler.py e document_manager.py violano questa regola - debito tecnico da risolvere)
-- Le pages importano SOLO da core/repositories/, core/models.py, core/ui_components.py
-- I repository restituiscono oggetti Pydantic, mai dict raw
+### 1. Bouncer Pattern (Early Returns)
 
-### DB
-- Sempre query parametrizzate: `cursor.execute("... WHERE id = ?", (id,))`
-- Sempre context manager: `with self._connect() as conn:`
-- Foreign keys attive (PRAGMA foreign_keys = ON in BaseRepository)
-- Ogni metodo pubblico del repository: `@safe_operation(operation_name, severity, fallback_return)`
+Ogni funzione inizia verificando le pre-condizioni e uscendo subito se non sono soddisfatte.
+Il flusso principale non e' mai annidato piu' di 2 livelli.
 
-### Validazione
-- Sempre Pydantic prima di toccare il DB
-- Pattern modelli: EntityCreate (input) + Entity (completo con id)
-- Cross-field validation con `@field_validator` e `info.data`
+```python
+# CORRETTO — Bouncer Pattern
+def confirm_event(self, event_id: int) -> bool:
+    event = self.get_event_by_id(event_id)
+    if not event:
+        raise ClienteNotFound(f"Evento {event_id} non trovato")
+    if event.stato != EventStatus.PROGRAMMATO:
+        raise ConflictError(f"Evento in stato {event.stato}, non confermabile")
 
-### Azioni distruttive
-- Ogni delete/cancel nell'UI DEVE avere conferma esplicita
-- Azioni CRITICHE (delete contract CASCADE): checkbox + bottone disabilitato
-- Azioni MEDIE (cancel event, delete rate): warning + 2 bottoni (Conferma/Annulla)
-- Componenti riutilizzabili: `render_confirm_delete()`, `render_confirm_action()` in ui_components.py
+    # Flusso principale: piatto, leggibile
+    with self._connect() as conn:
+        conn.execute("UPDATE agenda SET stato = ? WHERE id = ?",
+                     (EventStatus.COMPLETATO.value, event_id))
+    return True
 
-## Come aggiungere una feature
+# VIETATO — Arrow Code
+def confirm_event(self, event_id: int) -> bool:
+    event = self.get_event_by_id(event_id)
+    if event:
+        if event.stato == "Programmato":
+            try:
+                with self._connect() as conn:
+                    conn.execute(...)
+                    return True
+            except Exception:
+                return False
+        else:
+            return False
+    else:
+        return False
+```
 
-1. Modello Pydantic in core/models.py (Create + entita' completa)
-2. Metodo nel repository appropriato con @safe_operation
-3. UI in server/pages/ che importa solo dal repository
-4. Usare componenti da core/ui_components.py per elementi comuni
-5. Gestire il caso `None` dal repository (fallback di @safe_operation)
+### 2. Repository Pattern (Consolidato)
+
+- Ogni accesso al DB passa da un repository
+- Ogni metodo pubblico ha `@safe_operation(name, severity, fallback_return)`
+- I repository restituiscono **modelli Pydantic**, mai dict raw
+- Context manager obbligatorio: `with self._connect() as conn:`
+- Query sempre parametrizzate: `cursor.execute("... WHERE id = ?", (id,))`
+- Foreign keys sempre attive (PRAGMA foreign_keys = ON in BaseRepository)
+
+### 3. Validazione Pydantic-First
+
+```
+Input utente --> Modello Pydantic (Create) --> Repository --> DB
+                                                   |
+DB --> Repository --> Modello Pydantic (Entity) --> UI
+```
+
+- Pattern modelli: `EntityCreate` (input) + `Entity` (completo con id)
+- Cross-field validation con `@field_validator` e `@model_validator`
+- **Mai** scrivere nel DB senza passare da un modello Pydantic
+
+### 4. Separazione UI / Core (Il Muro di Berlino)
+
+Questa regola e' **inviolabile**:
+
+| Zona | Puo' importare | NON puo' importare |
+|------|---------------|-------------------|
+| `core/` | stdlib, pydantic, sqlite3, langchain, ollama | `streamlit` |
+| `core/ui_components.py` | streamlit (unica eccezione nel core) | sqlite3 |
+| `server/pages/` | core.repositories, core.models, core.ui_components | sqlite3 |
+| `server/pages/` | streamlit | — |
+
+`core/ui_components.py` e' il **ponte** tra core e UI: contiene componenti Streamlit
+riusabili (badge, card, conferme) ma **zero logica di business**.
+
+### 5. Conferme su Azioni Distruttive
+
+Ogni delete/cancel nell'UI DEVE avere conferma esplicita:
+- **CRITICHE** (delete contratto CASCADE): checkbox + bottone disabilitato → `render_confirm_delete()`
+- **MEDIE** (cancel evento, delete rata): warning + 2 bottoni → `render_confirm_action()`
+- Componenti in `core/ui_components.py`, gia' adottati su tutte le 7 azioni
+
+### 6. Error Handling Centralizzato
+
+Gerarchia eccezioni: `FitManagerException` → `ValidationError`, `ClienteNotFound`,
+`ContratoInvalido`, `DatabaseError`, `ConflictError`, `PermissionDenied`.
+
+- **Nei repository**: SOLO `@safe_operation`. Mai try/except manuale.
+- **Nelle pages**: `try/except` SOLO per `ValidationError` sui form di input.
+  Per tutto il resto, il fallback di `@safe_operation` gestisce l'errore.
+- **Severity**: LOW, MEDIUM, HIGH, CRITICAL — ogni metodo ha la sua.
+- Le pages DEVONO gestire il caso `None` (fallback di `@safe_operation`):
+
+```python
+# CORRETTO
+clienti = client_repo.get_all_active()
+if not clienti:
+    st.info("Nessun cliente trovato.")
+    return
+
+# VIETATO
+clienti = client_repo.get_all_active()
+for c in clienti:  # Crash se None!
+    ...
+```
+
+---
+
+## Anti-Pattern Severamente Vietati
+
+### 1. DIVIETO: try/except pigro
+
+```python
+# VIETATO — Catch-all che nasconde bug
+try:
+    risultato = repo.operazione_complessa()
+except Exception:
+    pass  # Silenzio criminale
+
+# VIETATO — Bare except
+try:
+    data = parse_date(value)
+except:
+    data = None
+
+# CORRETTO — Eccezione specifica o nessun try/except
+data = parse_date(value) if value else None
+# Oppure, se serve gestire l'errore:
+try:
+    data = parse_date(value)
+except ValueError:
+    logger.warning(f"Data non parsabile: {value}")
+    data = None
+```
+
+Le uniche eccezioni ammesse nelle pages sono:
+- `except ValidationError` — per form input Pydantic
+- `except ValueError` — per conversioni tipo esplicite
+- `except (ConnectionError, TimeoutError)` — per chiamate LLM/RAG
+
+### 2. DIVIETO: Magic Strings
+
+```python
+# VIETATO
+if evento.stato == "Programmato":
+    ...
+movimento = {"tipo": "ENTRATA", "categoria": "Sessione"}
+
+# CORRETTO — Usare costanti da core/constants.py
+if evento.stato == EventStatus.PROGRAMMATO:
+    ...
+movimento = {"tipo": MovementType.ENTRATA, "categoria": MovementCategory.SESSIONE}
+```
+
+Tutte le stringhe ripetute in piu' file DEVONO essere enumerazioni o costanti in `core/constants.py`.
+
+### 3. DIVIETO: Streamlit nel Core
+
+```python
+# VIETATO — in qualsiasi file sotto core/ (tranne ui_components.py)
+import streamlit as st
+st.error("Qualcosa e' andato storto")
+
+# CORRETTO — Il core solleva eccezioni, la UI le mostra
+raise DatabaseError("Connessione DB fallita", context={"db": "crm.db"})
+```
+
+### 4. DIVIETO: Arrow Code (Nesting > 3 livelli)
+
+```python
+# VIETATO
+if client:
+    if client.attivo:
+        for contratto in client.contratti:
+            if contratto.chiuso == 0:
+                for rata in contratto.rate:
+                    if rata.stato == "PENDENTE":
+                        ...
+
+# CORRETTO — Bouncer + list comprehension
+if not client or not client.attivo:
+    return []
+
+contratti_attivi = [c for c in client.contratti if not c.chiuso]
+rate_pendenti = [
+    rata
+    for contratto in contratti_attivi
+    for rata in contratto.rate
+    if rata.stato == RateStatus.PENDENTE
+]
+```
+
+### 5. DIVIETO: print() per logging
+
+```python
+# VIETATO
+print(f"[WARN] KB non disponibile: {e}")
+
+# CORRETTO
+logger.warning(f"Knowledge Base non disponibile: {e}")
+```
+
+Usare SEMPRE il `logger` da `core/error_handler.py`. I print finiscono nel vuoto,
+i log finiscono in `logs/fitmanager.log` dove possiamo debuggare.
+
+### 6. DIVIETO: Dict raw dai repository
+
+```python
+# VIETATO — Restituire dict senza tipo
+def get_cash_balance(self) -> dict:
+    return {"entrate": 1000, "uscite": 500}
+
+# CORRETTO — Restituire modello Pydantic tipizzato
+def get_cash_balance(self) -> Optional[CashBalance]:
+    return CashBalance(entrate=1000, uscite=500)
+```
+
+Eccezione temporanea: `FinancialRepository` e `CardImportRepository` hanno ancora
+metodi che restituiscono dict. Questo e' debito tecnico da risolvere.
+
+---
+
+## Workflow di Sviluppo (I 4 Comandamenti)
+
+Ogni feature, bug fix o refactoring segue questi 4 step **in ordine**.
+Il codice NON passa allo step successivo finche' il precedente non e' solido.
+Alla fine di ogni step, si chiede conferma prima di proseguire.
+
+### Step 1: Modello e Costanti
+- Definire/aggiornare il modello Pydantic in `core/models.py`
+- Aggiungere costanti/enum necessarie in `core/constants.py`
+- Validazioni cross-field dove servono
+- **Checkpoint**: "I modelli sono definiti. Procedo con la logica?"
+
+### Step 2: Repository
+- Aggiungere il metodo nel repository appropriato con `@safe_operation`
+- Usare Bouncer Pattern: validazioni subito, flusso piatto
+- Restituire modelli Pydantic, mai dict
+- **Checkpoint**: "La logica core e' pronta. Procedo con la UI?"
+
+### Step 3: UI
+- Creare/aggiornare la pagina Streamlit in `server/pages/`
+- Usare componenti da `core/ui_components.py`
+- Gestire il caso `None` dal repository
+- Conferme su azioni distruttive
+- **Checkpoint**: "La UI e' funzionante. Testo e verifico."
+
+### Step 4: Verifica e Pulizia
+- Testare il flusso end-to-end con `streamlit run server/app.py`
+- Verificare che non ci siano import vietati (st.* nel core, sqlite3 nelle pages)
+- Rimuovere codice morto, commenti superflui, print di debug
+- Commit con messaggio chiaro
+
+---
 
 ## Sistema Crediti
 
-Formula a 3 livelli (CreditSummary model, calcolato su contratti non chiusi):
-- crediti_totali = SUM(crediti_totali) da contratti con chiuso=0
-- crediti_completati = SUM(crediti_usati) da contratti con chiuso=0
-- crediti_prenotati = COUNT(agenda) con stato='Programmato' e contratto attivo
-- crediti_disponibili = totali - completati - prenotati
+Formula a 3 livelli (`CreditSummary` model, calcolato su contratti non chiusi):
+- `crediti_totali` = SUM(crediti_totali) da contratti con chiuso=0
+- `crediti_completati` = SUM(crediti_usati) da contratti con chiuso=0
+- `crediti_prenotati` = COUNT(agenda) con stato=PROGRAMMATO e contratto attivo
+- `crediti_disponibili` = totali - completati - prenotati
 
 Selezione contratto FIFO: il piu' vecchio con disponibilita' viene usato per primo.
-Macchina a stati eventi: Programmato -> Completato | Cancellato | Rinviato.
-lezioni_residue sul modello Cliente e' backward compat (= crediti_disponibili).
+Macchina a stati eventi: Programmato → Completato | Cancellato | Rinviato.
 
-**Problema noto**: logica crediti distribuita in 3 file (ClientRepository.get_by_id, AgendaRepository.get_credit_summary, AgendaRepository.create_event). Da unificare in un CreditService.
+**Debito tecnico**: logica crediti distribuita in 3 file (ClientRepository.get_by_id,
+AgendaRepository.get_credit_summary, AgendaRepository.create_event).
+Da unificare in un CreditService.
 
-## Error Handling
-
-Gerarchia eccezioni custom: FitManagerException -> ValidationError, ClienteNotFound, ContratoInvalido, DatabaseError, ConflictError, PermissionDenied.
-
-Decoratori:
-- `@safe_operation(operation_name, severity, fallback_return)` - USARE SEMPRE nei repository (76 metodi decorati)
-- `@handle_streamlit_errors(page_name)` - disponibile ma NON ancora adottato nelle pages
-- Severity: LOW, MEDIUM, HIGH, CRITICAL
-
-**Problema noto**: le pages non gestiscono sempre il caso `fallback_return=None`. Aggiungere check espliciti.
+---
 
 ## AI / RAG
 
 - LLM locale via Ollama (default: llama3:8b-instruct-q4_K_M)
 - Embedding: nomic-embed-text
 - Cross-encoder: ms-marco-MiniLM-L-6-v2 (re-ranking)
-- Dual RAG architecture:
-  - knowledge_base/vectorstore/ -> teoria, anatomia, nutrizione (Assistente Esperto)
-  - knowledge_base/methodology_vectorstore/ -> pattern metodologici trainer (WorkoutAIPipeline)
-- Fallback: se KB vuota, usa exercise_database.py (500+ esercizi built-in)
+- Dual RAG:
+  - `knowledge_base/vectorstore/` → teoria, anatomia, nutrizione
+  - `knowledge_base/methodology_vectorstore/` → pattern metodologici trainer
+- Fallback: se KB vuota, usa ExerciseArchive (174 esercizi in SQLite)
 - Mai inviare PII (nomi, email, dati salute) nei prompt LLM
-- Trainer DNA confidence: min(0.95, 0.3 + evidence_count * 0.15)
+- Trainer DNA confidence: `min(0.95, 0.3 + evidence_count * 0.15)`
 
-## Debito tecnico (stato attuale)
+---
 
-### Da risolvere (alta priorita')
-- `core/error_handler.py` importa `streamlit` (st.error, st.write) - viola regola "no st.* nel core"
-- Pages non gestiscono il `None` restituito da @safe_operation (crash silenzioso possibile)
-- Logica crediti distribuita in 3 file senza source of truth unica
-- `core/knowledge_chain.py` usa `print()` invece di `logger` (10 istanze)
+## Debito Tecnico (Stato Attuale)
 
-### Codice morto / inutilizzato
-- `core/schedule_db.py` (92 LOC) - mai importato da nessuno, da eliminare
-- `core/services/dashboard_service.py` (115 LOC) - esiste ma non usato da app.py
-- Tabella `slot_disponibili` - creata ma mai letta/scritta
-- `@handle_streamlit_errors` - definito ma non adottato in nessuna page
-- `data/schedule.db`, `data/fit_manager.db`, `data/fit_manager_ai.db` - DB vuoti legacy
+### Critico (da risolvere prima di nuove feature)
+- `core/error_handler.py` importa `streamlit` → viola separazione core/UI
+- `core/document_manager.py` importa `streamlit` → stessa violazione
+- `core/knowledge_chain.py` usa `@st.cache_resource` e `print()` → accoppiamento + no logging
+- Magic strings ovunque: "Programmato", "Completato", "SALDATO" senza costanti centrali
+- Pages non gestiscono sempre `None` da `@safe_operation`
 
-### Da migliorare (media priorita')
-- Nessuna infrastruttura pytest (7 test file esistono ma senza conftest/runner)
-- Nessun CI/CD (no GitHub Actions)
-- `knowledge_base/methodology_vectorstore/` non in .gitignore (dati generati)
-- Paginazione mancante su get_all_active() (problema con 10k+ clienti)
-- 04_Cassa.py ha 1117 LOC - candidato per split in sotto-componenti
+### Alto (da pianificare)
+- `FinancialRepository`: 15+ metodi restituiscono dict raw invece di Pydantic
+- `CardImportRepository`: tutti i getter restituiscono dict raw
+- Logica crediti distribuita in 3 file senza CreditService
+- `04_Cassa.py` (1140 LOC) e `07_Programma_Allenamento.py` (1099 LOC) troppo grandi
+- Silent failures: `except: continue` e `except Exception: pass` in dashboard e agenda
 
-## Comandi utili
+### Medio (backlog)
+- Nessuna infrastruttura pytest (no conftest.py, no pytest.ini)
+- `methodology_vectorstore/` non in .gitignore (dati generati)
+- Paginazione mancante su `get_all_active()`
+
+### Codice morto da eliminare
+- `core/schedule_db.py` (92 LOC) — mai importato
+- `core/services/dashboard_service.py` (115 LOC) — mai usato
+- `@handle_streamlit_errors` — definito ma non adottato in nessuna page
+- `@safe_db_operation` — deprecato, rimpiazzato da `@safe_operation`
+
+---
+
+## Sicurezza (Non Negoziabile)
+
+1. **Solo LLM locale** — Mai inviare dati a cloud senza consenso esplicito
+2. **Query parametrizzate** — `cursor.execute("... WHERE id = ?", (id,))`, sempre
+3. **Niente PII nei prompt** — Usare attributi anonimi (eta', livello, obiettivo)
+4. **Backup crittografato** — .fitbackup con Fernet/PBKDF2
+
+---
+
+## Comandi Utili
 
 ```bash
-# Avvia app
-streamlit run server/app.py
-
-# Controlla Ollama
-ollama list
-
-# Ispeziona DB
-sqlite3 data/crm.db ".tables"
+streamlit run server/app.py      # Avvia app
+ollama list                      # Controlla modelli LLM
+sqlite3 data/crm.db ".tables"   # Ispeziona DB
 sqlite3 data/crm.db ".schema clienti"
-
-# Run tests (quando configurato)
-pytest tests/ -v
+pytest tests/ -v                 # Run tests (quando configurato)
 ```
 
-## Metriche progetto
+---
 
-- ~18.400 LOC di codice produzione (core + server)
-- 16 tabelle DB attive, FK enforced
-- 9 repository con 86 metodi totali (76 decorati con @safe_operation)
+## Metriche Progetto
+
+- ~18.400 LOC produzione (core + server)
+- 17 tabelle DB attive, FK enforced
+- 9 repository + 1 analytics, 86 metodi totali (76 con @safe_operation)
 - 21 modelli Pydantic con cross-field validation
-- 9 pagine Streamlit + dashboard, tutte su Repository Pattern, navigazione st.navigation()
-- 7 file test (copertura stimata 10-15%, da strutturare)
+- 9 pagine Streamlit + dashboard, navigazione st.navigation()
 - 0 dipendenze cloud, 0 dati verso terzi
 
-## Direzione di sviluppo
+---
 
-Il progetto ha completato:
-- Repository Pattern (tutte le 8 pagine migrate, CrmDBManager eliminato)
-- Sistema Trainer DNA (import schede, estrazione pattern, dual RAG, pipeline AI)
-- Conferme su azioni distruttive (7 azioni protette)
-- Backup crittografato (.fitbackup con Fernet/PBKDF2)
-- Upgrade Streamlit 1.54 + theming avanzato (Inter, palette estesa, border radius)
-- Navigazione st.navigation() con sezioni + KPI unificati (render_metric_box)
+## Completato
 
-Prossimi passi:
-- Responsivita' mobile: media queries CSS, layout adattivo
-- Notifiche proattive: alert crediti, rate scadute, contratti in scadenza
-- Service layer: CreditService, integrare dashboard_service.py
-- Test infrastructure: pytest + conftest + coverage
-- Pulizia debito tecnico: rimuovere st.* da core, eliminare codice morto
+- Repository Pattern (tutte le pagine migrate, CrmDBManager eliminato)
+- Trainer DNA (import schede, estrazione pattern, dual RAG, pipeline AI)
+- Conferme azioni distruttive (7 azioni protette, 4 file)
+- Backup crittografato (.fitbackup)
+- Streamlit 1.54 + theming (Inter, palette estesa)
+- Navigazione st.navigation() con sezioni + KPI unificati
+- Workout System riscritto: ExerciseArchive + SessionTemplate + WorkoutGenerator unico
 
-Non ci sono limiti allo sviluppo. Nuove feature, integrazioni, refactoring ambiziosi sono tutti benvenuti.
+---
+
+*Questo file e' la legge. Il codice che non la rispetta non viene mergiato.*

@@ -19,6 +19,7 @@ from datetime import datetime, date
 from .base_repository import BaseRepository
 from core.models import Sessione, SessioneCreate, CreditSummary
 from core.error_handler import safe_operation, ErrorSeverity
+from core.constants import EventStatus, SessionCategory
 
 
 class AgendaRepository(BaseRepository):
@@ -68,16 +69,16 @@ class AgendaRepository(BaseRepository):
             # FIFO: find oldest active contract with available capacity
             # Available = crediti_totali - crediti_usati - prenotati(Programmato)
             id_contratto = None
-            if session.categoria == 'PT' and session.id_cliente:
+            if session.categoria == SessionCategory.PT and session.id_cliente:
                 cursor.execute("""
                     SELECT c.id, c.crediti_totali, c.crediti_usati,
                            (SELECT COUNT(*) FROM agenda a
                             WHERE a.id_contratto = c.id
-                              AND a.stato = 'Programmato') as prenotati
+                              AND a.stato = ?) as prenotati
                     FROM contratti c
                     WHERE c.id_cliente = ? AND c.chiuso = 0
                     ORDER BY c.data_inizio ASC
-                """, (session.id_cliente,))
+                """, (EventStatus.PROGRAMMATO.value, session.id_cliente))
 
                 contracts = cursor.fetchall()
                 for contract in contracts:
@@ -195,8 +196,8 @@ class AgendaRepository(BaseRepository):
             cursor.execute("SELECT id_contratto, stato FROM agenda WHERE id = ?", (id,))
             row = cursor.fetchone()
             
-            # Restore credits only if event was completed ('Completato')
-            if row and row['id_contratto'] and row['stato'] == 'Completato':
+            # Restore credits only if event was completed
+            if row and row['id_contratto'] and row['stato'] == EventStatus.COMPLETATO.value:
                 cursor.execute("""
                     UPDATE contratti 
                     SET crediti_usati = crediti_usati - 1 
@@ -286,12 +287,12 @@ class AgendaRepository(BaseRepository):
             if not row:
                 return
             
-            # Update event status to 'Completato'
+            # Update event status to Completato
             cursor.execute("""
-                UPDATE agenda 
-                SET stato = 'Completato' 
+                UPDATE agenda
+                SET stato = ?
                 WHERE id = ?
-            """, (id,))
+            """, (EventStatus.COMPLETATO.value, id))
             
             # If event is linked to contract, increment credits used
             if row['id_contratto']:
@@ -317,9 +318,9 @@ class AgendaRepository(BaseRepository):
         with self._connect() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                UPDATE agenda SET stato = 'Cancellato'
-                WHERE id = ? AND stato = 'Programmato'
-            """, (id,))
+                UPDATE agenda SET stato = ?
+                WHERE id = ? AND stato = ?
+            """, (EventStatus.CANCELLATO.value, id, EventStatus.PROGRAMMATO.value))
             return cursor.rowcount > 0
 
     @safe_operation(
@@ -348,24 +349,27 @@ class AgendaRepository(BaseRepository):
             cursor = conn.cursor()
 
             # Get original event (must be Programmato)
-            cursor.execute("SELECT * FROM agenda WHERE id = ? AND stato = 'Programmato'", (id,))
+            cursor.execute("SELECT * FROM agenda WHERE id = ? AND stato = ?",
+                           (id, EventStatus.PROGRAMMATO.value))
             old = cursor.fetchone()
             if not old:
                 return None
 
             # Mark old as Rinviato
-            cursor.execute("UPDATE agenda SET stato = 'Rinviato' WHERE id = ?", (id,))
+            cursor.execute("UPDATE agenda SET stato = ? WHERE id = ?",
+                           (EventStatus.RINVIATO.value, id))
 
             # Create new event with same details but new dates
             cursor.execute("""
                 INSERT INTO agenda (
                     data_inizio, data_fine, categoria, titolo,
                     id_cliente, id_contratto, stato, note
-                ) VALUES (?, ?, ?, ?, ?, ?, 'Programmato', ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 new_data_inizio, new_data_fine,
                 old['categoria'], old['titolo'],
                 old['id_cliente'], old['id_contratto'],
+                EventStatus.PROGRAMMATO.value,
                 old['note']
             ))
 
@@ -466,8 +470,8 @@ class AgendaRepository(BaseRepository):
                 FROM agenda a
                 JOIN contratti c ON a.id_contratto = c.id
                 WHERE c.id_cliente = ? AND c.chiuso = 0
-                  AND a.stato = 'Programmato'
-            """, (client_id,))
+                  AND a.stato = ?
+            """, (client_id, EventStatus.PROGRAMMATO.value))
             prenotati = cursor.fetchone()['prenotati']
 
             return CreditSummary(
@@ -484,13 +488,13 @@ class AgendaRepository(BaseRepository):
         fallback_return=0
     )
     def get_booked_count_for_contract(self, contract_id: int) -> int:
-        """Conta sessioni in stato 'Programmato' per un singolo contratto."""
+        """Conta sessioni in stato Programmato per un singolo contratto."""
         with self._connect() as conn:
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT COUNT(*) as cnt FROM agenda
-                WHERE id_contratto = ? AND stato = 'Programmato'
-            """, (contract_id,))
+                WHERE id_contratto = ? AND stato = ?
+            """, (contract_id, EventStatus.PROGRAMMATO.value))
             row = cursor.fetchone()
             return row['cnt'] if row else 0
 
@@ -515,10 +519,10 @@ class AgendaRepository(BaseRepository):
                        CAST(julianday('now') - julianday(a.data_inizio) AS INTEGER) as days_overdue
                 FROM agenda a
                 LEFT JOIN clienti c ON a.id_cliente = c.id
-                WHERE a.stato = 'Programmato'
+                WHERE a.stato = ?
                   AND date(a.data_inizio) < date('now', ?)
             """
-            params = [f'-{days_threshold} days']
+            params = [EventStatus.PROGRAMMATO.value, f'-{days_threshold} days']
 
             if client_id is not None:
                 query += " AND a.id_cliente = ?"

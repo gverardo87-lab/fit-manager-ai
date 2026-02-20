@@ -5,6 +5,7 @@ from datetime import datetime, date, timedelta
 import pandas as pd
 from core.repositories import ClientRepository, AgendaRepository
 from core.models import SessioneCreate
+from core.constants import EventStatus, SessionCategory
 from core.ui_components import load_custom_css
 
 # Setup
@@ -41,22 +42,22 @@ def dialog_add_event(default_date, default_time):
     with st.form("add_event_form"):
         # Mappa Attività
         ACTIVITY_MAP = {
-            "PT 🏋️": {"code": "PT", "title": "Allenamento"},
-            "Sala Pesi 🏢": {"code": "SALA", "title": "Ingresso Sala"},
-            "Consulenza 🤝": {"code": "CONSULENZA", "title": "Consulenza Tecnica"},
-            "Corso 🧘": {"code": "CORSO", "title": "Lezione Group"}
+            "PT 🏋️": {"code": SessionCategory.PT, "title": "Allenamento"},
+            "Sala Pesi 🏢": {"code": SessionCategory.SALA, "title": "Ingresso Sala"},
+            "Consulenza 🤝": {"code": SessionCategory.CONSULENZA, "title": "Consulenza Tecnica"},
+            "Corso 🧘": {"code": SessionCategory.CORSO, "title": "Lezione Group"}
         }
         
         tipo_sel = st.selectbox("Tipo Attività", list(ACTIVITY_MAP.keys()))
         selected_info = ACTIVITY_MAP[tipo_sel]
         
         id_cliente = None
-        if selected_info["code"] in ["PT", "CONSULENZA"]:
+        if selected_info["code"] in [SessionCategory.PT, SessionCategory.CONSULENZA]:
             clienti = client_repo.get_all_active()
             map_cli = {c.id: f"{c.cognome} {c.nome}" for c in clienti}
             id_cliente = st.selectbox("Seleziona Cliente", options=[None] + list(map_cli.keys()), format_func=lambda x: map_cli.get(x, "Scegli..."))
             
-            if id_cliente and selected_info["code"] == "PT":
+            if id_cliente and selected_info["code"] == SessionCategory.PT:
                 summary = agenda_repo.get_credit_summary(id_cliente)
                 if summary and summary.contratti_attivi > 0:
                     mc1, mc2, mc3 = st.columns(3)
@@ -91,7 +92,7 @@ def dialog_add_event(default_date, default_time):
                     data_fine=dt_end,
                     categoria=selected_info["code"],
                     titolo=titolo,
-                    stato="Programmato"
+                    stato=EventStatus.PROGRAMMATO
                 )
                 agenda_repo.create_event(session)
                 st.success("Evento creato!")
@@ -143,7 +144,7 @@ def dialog_view_event(event_id, event_props):
     st.markdown("---")
     status = props.get('stato', 'N/A')
 
-    if status == 'Programmato':
+    if status == EventStatus.PROGRAMMATO:
         ca, cb, cc = st.columns(3)
         if ca.button("✅ Conferma", use_container_width=True):
             agenda_repo.confirm_event(event_id)
@@ -167,11 +168,11 @@ def dialog_view_event(event_id, event_props):
             if cc2.button("❌ Annulla", use_container_width=True, key=f"no_cancel_{event_id}"):
                 st.session_state[f'confirming_cancel_{event_id}'] = False
                 st.rerun()
-    elif status == 'Completato':
+    elif status == EventStatus.COMPLETATO:
         st.success("Sessione completata")
-    elif status == 'Cancellato':
+    elif status == EventStatus.CANCELLATO:
         st.info("Sessione cancellata")
-    elif status == 'Rinviato':
+    elif status == EventStatus.RINVIATO:
         st.info("Sessione rinviata a nuova data")
 
     # Reschedule form (shown only when Rinvia clicked)
@@ -247,11 +248,11 @@ for ev in events_data:
     status = ev['stato']
 
     # Hide cancelled and rescheduled events from calendar view
-    if status in ('Cancellato', 'Rinviato'):
+    if status in (EventStatus.CANCELLATO, EventStatus.RINVIATO):
         continue
 
     bg = "#95a5a6"
-    if status == 'Completato': bg = "#2ecc71"
+    if status == EventStatus.COMPLETATO: bg = "#2ecc71"
     elif 'PT' in cat: bg = "#3498db"
     elif 'SALA' in cat: bg = "#f1c40f"
     elif 'CONSULENZA' in cat: bg = "#9b59b6"

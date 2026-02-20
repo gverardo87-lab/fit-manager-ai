@@ -25,6 +25,7 @@ from core.models import (
     Misurazione, MisurazioneCreate, CreditSummary
 )
 from core.error_handler import safe_operation, ErrorSeverity
+from core.constants import EventStatus
 
 
 class ClientRepository(BaseRepository):
@@ -145,8 +146,8 @@ class ClientRepository(BaseRepository):
                 FROM agenda a
                 JOIN contratti c ON a.id_contratto = c.id
                 WHERE c.id_cliente = ? AND c.chiuso = 0
-                  AND a.stato = 'Programmato'
-            """, (id,))
+                  AND a.stato = ?
+            """, (id, EventStatus.PROGRAMMATO.value))
             booked = cursor.fetchone()
 
             totali = contract_sum['totali'] if contract_sum else 0

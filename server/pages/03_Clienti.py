@@ -7,6 +7,7 @@ import json
 from datetime import date, datetime, timedelta
 from core.repositories import ClientRepository, ContractRepository, AgendaRepository
 from core.models import ClienteCreate, ClienteUpdate, ContratoCreate
+from core.constants import EventStatus, RateStatus
 from core.ui_components import badge, status_badge, format_currency, empty_state_component, loading_message, load_custom_css
 
 client_repo = ClientRepository()
@@ -149,8 +150,8 @@ def dialog_genera_piano(id_contratto, residuo, data_inizio):
 
     # Check existing pending rates
     existing_rates = contract_repo.get_rates_by_contract(id_contratto)
-    n_pending = sum(1 for r in existing_rates if r.stato == 'PENDENTE')
-    n_paid = sum(1 for r in existing_rates if r.stato in ('SALDATA', 'PARZIALE'))
+    n_pending = sum(1 for r in existing_rates if r.stato == RateStatus.PENDENTE)
+    n_paid = sum(1 for r in existing_rates if r.stato in (RateStatus.SALDATA, RateStatus.PARZIALE))
 
     if n_pending > 0:
         st.warning(f"**{n_pending} rate pendenti** verranno sostituite dal nuovo piano. Le {n_paid} rate gia' saldate restano intatte.")
@@ -362,7 +363,7 @@ elif sel_id:
         fin_cols[3].metric("Residuo", format_currency(tot_residuo), delta="CRITICO" if tot_residuo > 500 else "OK", delta_color="inverse" if tot_residuo > 500 else "normal")
         
         # Status pagamenti
-        rate_scadute = sum(1 for c in fin['contratti'] for r in contract_repo.get_rates_by_contract(c['id']) if r.data_scadenza < date.today() and r.stato != 'SALDATA')
+        rate_scadute = sum(1 for c in fin['contratti'] for r in contract_repo.get_rates_by_contract(c['id']) if r.data_scadenza < date.today() and r.stato != RateStatus.SALDATA)
         fin_cols[4].metric("Rate Scadute", rate_scadute, "⚠️" if rate_scadute > 0 else "✅")
         
         st.divider()
@@ -404,17 +405,17 @@ elif sel_id:
                 # --- Rate list ---
                 if rate:
                     st.caption("📅 Piano Rateale")
-                    rate_paid = sum(1 for r in rate if r['stato'] == 'SALDATA')
+                    rate_paid = sum(1 for r in rate if r['stato'] == RateStatus.SALDATA)
                     st.text(f"{rate_paid}/{len(rate)} rate saldate")
 
                     for r in rate:
                         c_d, c_desc, c_imp, c_btn = st.columns([2, 3, 2, 2])
-                        is_late = pd.to_datetime(r['data_scadenza']).date() < date.today() and r['stato'] != 'SALDATA'
+                        is_late = pd.to_datetime(r['data_scadenza']).date() < date.today() and r['stato'] != RateStatus.SALDATA
                         color = "red" if is_late else "gray"
                         c_d.markdown(f":{color}[{pd.to_datetime(r['data_scadenza']).strftime('%d/%m')}]")
                         c_desc.caption(r['descrizione'])
                         c_imp.write(f"€ {r['importo_previsto']:.0f}")
-                        if r['stato'] == 'SALDATA':
+                        if r['stato'] == RateStatus.SALDATA:
                             c_btn.success("✅")
                         else:
                             if c_btn.button("🔴 PAGA" if is_late else "⚙️", key=f"r_{r['id']}", type="primary" if is_late else "secondary"):
@@ -424,7 +425,7 @@ elif sel_id:
 
                 # --- Action row (always visible) ---
                 data_inizio = pd.to_datetime(c['data_inizio']).date() if c.get('data_inizio') else date.today()
-                n_pending = sum(1 for r in rate if r['stato'] == 'PENDENTE')
+                n_pending = sum(1 for r in rate if r['stato'] == RateStatus.PENDENTE)
 
                 act1, act2, act3 = st.columns(3)
                 with act1:
@@ -511,7 +512,7 @@ elif sel_id:
             hist = [{
                 'data_inizio': h.data_inizio,
                 'titolo': h.titolo or '',
-                'stato': h.stato or 'Programmato'
+                'stato': h.stato or EventStatus.PROGRAMMATO
             } for h in hist_raw]
             if hist:
                 hist_df = pd.DataFrame(hist)
@@ -536,8 +537,8 @@ elif sel_id:
                 st.caption("📊 Statistiche Lezioni")
                 stat_col1, stat_col2, stat_col3 = st.columns(3)
                 num_lezioni = len(hist_df)
-                completate = sum(1 for h in hist if h['stato'] == 'Completato')
-                programmate = sum(1 for h in hist if h['stato'] == 'Programmato')
+                completate = sum(1 for h in hist if h['stato'] == EventStatus.COMPLETATO)
+                programmate = sum(1 for h in hist if h['stato'] == EventStatus.PROGRAMMATO)
 
                 stat_col1.metric("Totale Lezioni", num_lezioni)
                 stat_col2.metric("Completate", completate, f"{(completate/num_lezioni*100):.0f}%" if num_lezioni > 0 else "0%")

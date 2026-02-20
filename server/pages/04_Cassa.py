@@ -21,6 +21,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 
 from core.repositories import ClientRepository, ContractRepository, FinancialRepository
 from core.models import MovimentoCassaCreate, SpesaRicorrenteCreate
+from core.constants import MovementType, PaymentMethod, ExpenseFrequency
+from core.error_handler import ConflictError
 from core.ui_components import badge, status_badge, format_currency, loading_message, section_divider_component, empty_state_component, load_custom_css, render_metric_box
 
 # ════════════════════════════════════════════════════════════
@@ -141,7 +143,7 @@ with col2:
     # Breakdown entrate/uscite questo mese
     with st.expander("📊 Breakdown Mensile"):
         # Entrate per categoria
-        entrate_mese = financial_repo.get_cash_breakdown_by_category(primo_mese, ultimo_mese, "ENTRATA")
+        entrate_mese = financial_repo.get_cash_breakdown_by_category(primo_mese, ultimo_mese, MovementType.ENTRATA)
         
         if entrate_mese:
             st.markdown("**💵 Entrate:**")
@@ -151,7 +153,7 @@ with col2:
         st.divider()
         
         # Uscite per categoria
-        uscite_mese = financial_repo.get_cash_breakdown_by_category(primo_mese, ultimo_mese, "USCITA")
+        uscite_mese = financial_repo.get_cash_breakdown_by_category(primo_mese, ultimo_mese, MovementType.USCITA)
         
         if uscite_mese:
             st.markdown("**💸 Uscite:**")
@@ -238,7 +240,7 @@ with tab1:
                     contract_repo.pay_rate(
                         rate_id=rata['id'],
                         amount_paid=importo_da_pagare,
-                        payment_method="CONTANTI",
+                        payment_method=PaymentMethod.CONTANTI,
                         payment_date=oggi,
                         notes="Pagamento sollecitato"
                     )
@@ -309,7 +311,7 @@ with tab2:
                     contract_repo.pay_rate(
                         rate_id=rata['id'],
                         amount_paid=importo_da_pagare,
-                        payment_method="CONTANTI",
+                        payment_method=PaymentMethod.CONTANTI,
                         payment_date=oggi,
                         notes="Pagamento anticipato"
                     )
@@ -378,10 +380,10 @@ with col_spesa:
                 try:
                     movimento = MovimentoCassaCreate(
                         data_effettiva=data_spesa,
-                        tipo="USCITA",
+                        tipo=MovementType.USCITA,
                         categoria=categoria_finale,
                         importo=importo_spesa,
-                        metodo="BONIFICO",
+                        metodo=PaymentMethod.BONIFICO,
                         id_spesa_ricorrente=id_spesa_ricorrente,
                         note=note_spesa
                     )
@@ -389,7 +391,7 @@ with col_spesa:
                     st.success(f"✅ Spesa €{importo_spesa:.0f} registrata! Controlla lo storico movimenti sotto.")
                     st.balloons()
                     st.rerun()
-                except ValueError as e:
+                except ConflictError as e:
                     # Protezione doppi pagamenti spese ricorrenti
                     st.error(f"🚫 **Pagamento duplicato bloccato!**\n\n{str(e)}\n\nRicarica la pagina per vedere lo status aggiornato.")
             elif categoria_sel.startswith("────"):
@@ -428,10 +430,10 @@ with col_entrata:
                 
                 movimento = MovimentoCassaCreate(
                     data_effettiva=data_entrata,
-                    tipo="ENTRATA",
+                    tipo=MovementType.ENTRATA,
                     categoria=categoria_entrata,
                     importo=importo_entrata,
-                    metodo="CONTANTI",
+                    metodo=PaymentMethod.CONTANTI,
                     id_cliente=id_cliente_entrata,
                     note=note_entrata
                 )
@@ -464,18 +466,18 @@ with st.expander("📊 Spese Fisse Mensili", expanded=False):
                         try:
                             movimento = MovimentoCassaCreate(
                                 data_effettiva=oggi,
-                                tipo="USCITA",
+                                tipo=MovementType.USCITA,
                                 categoria=spesa['categoria'],
                                 importo=spesa['importo'],
-                                metodo="BONIFICO",
+                                metodo=PaymentMethod.BONIFICO,
                                 id_spesa_ricorrente=spesa['id'],
                                 note=f"Pagamento {spesa['nome']} - {oggi.strftime('%B %Y')}"
                             )
                             financial_repo.register_cash_movement(movimento)
                             st.success(f"✅ {spesa['nome']} pagata!")
                             st.rerun()
-                        except Exception as e:
-                            st.error(f"Errore: {str(e)}")
+                        except ConflictError as e:
+                            st.error(f"🚫 **Pagamento duplicato!** {str(e)}")
             
             if len(non_pagate) > 3:
                 st.info(f"➕ {len(non_pagate)-3} altre spese da pagare (vedi dropdown sopra)")
@@ -493,72 +495,94 @@ with st.expander("📊 Spese Fisse Mensili", expanded=False):
         
         st.divider()
     
-    # Tabella completa spese fisse
+    # Tabella completa spese fisse con azioni
     if spese_fisse:
         st.markdown("**📋 Tutte le Spese Fisse Configurate**")
         totale_fisso = sum(s['importo'] for s in spese_fisse)
-        
-        col_sf_left, col_sf_right = st.columns([2, 1])
-        
-        with col_sf_left:
-            # Tabella spese fisse con status dettagliato
-            dati_fisse = []
-            
-            # Crea dizionari per lookup veloce
-            non_pagate_dict = {s['id']: s for s in spese_fisse_non_pagate if s.get('movimento_id') is None}
-            pagate_male_dict = {s['id']: s for s in spese_fisse_non_pagate if s.get('movimento_id') is not None}
-            
-            for s in spese_fisse:
-                # Determina status preciso
-                if s['id'] in pagate_male_dict:
-                    pm = pagate_male_dict[s['id']]
-                    status = f"⚠️ Importo errato ({format_currency(pm.get('importo_pagato', 0), 0)} vs {format_currency(s['importo'], 0)})"
-                elif s['id'] in non_pagate_dict:
-                    if s['giorno_scadenza'] > oggi.day:
-                        status = "⏳ Futura"
-                    else:
-                        status = "❌ Non Pagata"
-                else:
-                    status = "✅ Pagata"
-                
-                dati_fisse.append({
-                    'Nome': s['nome'],
-                    'Categoria': s['categoria'],
-                    'Importo': s['importo'],
-                    'Scadenza': f"{s['giorno_scadenza']}° del mese",
-                    'Status': status
-                })
-            
-            df_fisse = pd.DataFrame(dati_fisse)
-            st.dataframe(df_fisse, use_container_width=True, hide_index=True,
-                column_config={
-                    "Importo": st.column_config.NumberColumn("Importo", format="€ %.0f"),
-                }
-            )
-        
-        with col_sf_right:
-            st.metric("Totale Mensile", format_currency(totale_fisso, 0))
-            
-            # Breakdown preciso: pagate correttamente / pagate male / non pagate
-            spese_pagate_male = [s for s in spese_fisse_non_pagate if s.get('movimento_id') is not None]
-            spese_non_pagate = [s for s in spese_fisse_non_pagate if s.get('movimento_id') is None]
-            spese_pagate_ok = [s for s in spese_fisse if s['id'] not in [sp['id'] for sp in spese_fisse_non_pagate]]
-            
-            totale_pagato_ok = sum(s['importo'] for s in spese_pagate_ok)
-            totale_non_pagato = sum(s['importo'] for s in spese_non_pagate)
-            totale_pagato_male = sum(s['importo'] for s in spese_pagate_male)
-            
-            st.caption(f"✅ Pagate correttamente: {format_currency(totale_pagato_ok, 0)}")
-            if totale_pagato_male > 0:
-                st.caption(f"⚠️ Pagate con errore: {format_currency(totale_pagato_male, 0)}")
-            st.caption(f"❌ Da pagare: {format_currency(totale_non_pagato, 0)}")
+
+        # Lookup veloce per status
+        non_pagate_dict = {s['id']: s for s in spese_fisse_non_pagate if s.get('movimento_id') is None}
+        pagate_male_dict = {s['id']: s for s in spese_fisse_non_pagate if s.get('movimento_id') is not None}
+
+        # Riepilogo compatto
+        spese_pagate_ok = [s for s in spese_fisse if s['id'] not in [sp['id'] for sp in spese_fisse_non_pagate]]
+        totale_pagato_ok = sum(s['importo'] for s in spese_pagate_ok)
+        totale_non_pagato = sum(s['importo'] for s in non_pagate_dict.values())
+
+        riepilogo_cols = st.columns(3)
+        riepilogo_cols[0].metric("Totale Mensile", format_currency(totale_fisso, 0))
+        riepilogo_cols[1].metric("Pagate", format_currency(totale_pagato_ok, 0), f"{len(spese_pagate_ok)}/{len(spese_fisse)}")
+        riepilogo_cols[2].metric("Da Pagare", format_currency(totale_non_pagato, 0),
+                                  f"{len(non_pagate_dict)} rimaste" if non_pagate_dict else "Tutto OK")
+
+        # Lista interattiva spese fisse
+        for s in spese_fisse:
+            # Status
+            if s['id'] in pagate_male_dict:
+                pm = pagate_male_dict[s['id']]
+                status_icon = "⚠️"
+                status_text = f"Importo errato ({format_currency(pm.get('importo_pagato', 0), 0)} vs {format_currency(s['importo'], 0)})"
+            elif s['id'] in non_pagate_dict:
+                status_icon = "⏳" if s['giorno_scadenza'] > oggi.day else "❌"
+                status_text = "Futura" if s['giorno_scadenza'] > oggi.day else "Non Pagata"
+            else:
+                status_icon = "✅"
+                status_text = "Pagata"
+
+            col_info, col_imp, col_status, col_actions = st.columns([3, 1.5, 1.5, 2])
+            col_info.markdown(f"**{s['nome']}** · {s['categoria']} · {s['giorno_scadenza']}° del mese")
+            col_imp.markdown(f"**{format_currency(s['importo'], 0)}**")
+            col_status.caption(f"{status_icon} {status_text}")
+
+            with col_actions:
+                btn_c1, btn_c2, btn_c3 = st.columns(3)
+                if btn_c1.button("✏️", key=f"edit_sf_{s['id']}", help="Modifica"):
+                    st.session_state[f'editing_sf_{s["id"]}'] = True
+                if btn_c2.button("⏸️", key=f"toggle_sf_{s['id']}", help="Disattiva"):
+                    financial_repo.toggle_recurring_expense(s['id'], False)
+                    st.rerun()
+                if btn_c3.button("🗑️", key=f"del_sf_{s['id']}", help="Elimina"):
+                    st.session_state[f'confirm_del_sf_{s["id"]}'] = True
+
+            # --- Pannello modifica inline ---
+            if st.session_state.get(f'editing_sf_{s["id"]}'):
+                with st.container(border=True):
+                    st.caption(f"Modifica: **{s['nome']}**")
+                    ec1, ec2, ec3, ec4 = st.columns([3, 2, 1.5, 1.5])
+                    new_nome = ec1.text_input("Nome", value=s['nome'], key=f"edn_{s['id']}")
+                    new_cat = ec2.selectbox("Categoria", ["Affitto", "Utenze", "Assicurazioni", "Altro"],
+                                            index=["Affitto", "Utenze", "Assicurazioni", "Altro"].index(s['categoria'])
+                                            if s['categoria'] in ["Affitto", "Utenze", "Assicurazioni", "Altro"] else 3,
+                                            key=f"edc_{s['id']}")
+                    new_imp = ec3.number_input("€", value=float(s['importo']), step=10.0, key=f"edi_{s['id']}")
+                    new_gg = ec4.number_input("Giorno", value=int(s['giorno_scadenza']), min_value=1, max_value=28, key=f"edg_{s['id']}")
+                    sc1, sc2 = st.columns(2)
+                    if sc1.button("💾 Salva", key=f"save_sf_{s['id']}", type="primary", use_container_width=True):
+                        financial_repo.update_recurring_expense(s['id'], new_nome, new_imp, new_cat, new_gg)
+                        st.session_state[f'editing_sf_{s["id"]}'] = False
+                        st.rerun()
+                    if sc2.button("Annulla", key=f"cancel_sf_{s['id']}", use_container_width=True):
+                        st.session_state[f'editing_sf_{s["id"]}'] = False
+                        st.rerun()
+
+            # --- Conferma eliminazione ---
+            if st.session_state.get(f'confirm_del_sf_{s["id"]}'):
+                st.warning(f"Eliminare **{s['nome']}** ({format_currency(s['importo'], 0)}/mese)?")
+                dc1, dc2 = st.columns(2)
+                if dc1.button("🗑️ Conferma", key=f"yes_del_sf_{s['id']}", type="primary", use_container_width=True):
+                    financial_repo.delete_recurring_expense(s['id'])
+                    st.session_state[f'confirm_del_sf_{s["id"]}'] = False
+                    st.rerun()
+                if dc2.button("❌ Annulla", key=f"no_del_sf_{s['id']}", use_container_width=True):
+                    st.session_state[f'confirm_del_sf_{s["id"]}'] = False
+                    st.rerun()
     else:
         st.info("Nessuna spesa fissa configurata")
-    
-    # Form per aggiungere spesa fissa (usa checkbox per mostrare/nascondere)
+
+    # Form per aggiungere spesa fissa
     st.divider()
     mostra_form = st.checkbox("➕ Aggiungi Spesa Fissa", key="mostra_form_spesa_fissa")
-    
+
     if mostra_form:
         with st.form("add_spesa_fissa"):
             nome_sf = st.text_input("Nome", placeholder="es: Affitto Studio")
@@ -568,14 +592,14 @@ with st.expander("📊 Spese Fisse Mensili", expanded=False):
                 importo_sf = st.number_input("Importo mensile €", min_value=0.0, step=50.0)
             with col_sf2:
                 giorno_sf = st.number_input("Giorno scadenza", min_value=1, max_value=28, value=1)
-            
+
             if st.form_submit_button("💾 Salva", type="primary"):
                 if nome_sf and importo_sf > 0:
                     new_expense = SpesaRicorrenteCreate(
                         nome=nome_sf,
                         categoria=categoria_sf,
                         importo=importo_sf,
-                        frequenza="MENSILE",
+                        frequenza=ExpenseFrequency.MENSILE,
                         giorno_scadenza=giorno_sf
                     )
                     financial_repo.add_recurring_expense(new_expense)
@@ -793,9 +817,9 @@ with col_f8:
 # ═══ RECUPERO MOVIMENTI FILTRATI ═══
 _tipo_filtro = None
 if filtro_tipo == "💵 Solo Entrate":
-    _tipo_filtro = "ENTRATA"
+    _tipo_filtro = MovementType.ENTRATA
 elif filtro_tipo == "💸 Solo Uscite":
-    _tipo_filtro = "USCITA"
+    _tipo_filtro = MovementType.USCITA
 
 _cliente_id_filtro = None
 if filtro_cliente != "Tutti i clienti":
@@ -862,7 +886,7 @@ if movimenti:
             data_display = f"{data_eff.strftime('%d/%m/%Y')} {ora_str}"
         
         # Badge tipo con colori
-        if m['tipo'] == 'ENTRATA':
+        if m['tipo'] == MovementType.ENTRATA:
             tipo_badge = badge("ENTRATA", "success", "💵")
         else:
             tipo_badge = badge("USCITA", "danger", "💸")
@@ -885,8 +909,8 @@ if movimenti:
     # ═══ STATISTICHE PERIODO FILTRATO ═══
     st.markdown("<br>", unsafe_allow_html=True)
     
-    totale_entrate_filt = sum(m['importo'] for m in movimenti if m['tipo'] == 'ENTRATA')
-    totale_uscite_filt = sum(m['importo'] for m in movimenti if m['tipo'] == 'USCITA')
+    totale_entrate_filt = sum(m['importo'] for m in movimenti if m['tipo'] == MovementType.ENTRATA)
+    totale_uscite_filt = sum(m['importo'] for m in movimenti if m['tipo'] == MovementType.USCITA)
     saldo_filt = totale_entrate_filt - totale_uscite_filt
     
     stat_col1, stat_col2, stat_col3, stat_col4 = st.columns(4)
@@ -933,8 +957,8 @@ if movimenti:
                 cliente_nome = f"{cliente_obj.nome} {cliente_obj.cognome}"
         
         # Box dettagli con stile
-        tipo_icon = "💵" if movimento_dettaglio['tipo'] == 'ENTRATA' else "💸"
-        tipo_color = "green" if movimento_dettaglio['tipo'] == 'ENTRATA' else "red"
+        tipo_icon = "💵" if movimento_dettaglio['tipo'] == MovementType.ENTRATA else "💸"
+        tipo_color = "green" if movimento_dettaglio['tipo'] == MovementType.ENTRATA else "red"
         
         st.markdown(f"""
         <div style="background: var(--bg-elevated); padding: 20px; border-radius: 10px; border-left: 5px solid {tipo_color};">
@@ -992,7 +1016,7 @@ if movimenti:
                     )
                     
                     # Tipo
-                    tipo_idx = 0 if movimento_dettaglio['tipo'] == 'ENTRATA' else 1
+                    tipo_idx = 0 if movimento_dettaglio['tipo'] == MovementType.ENTRATA else 1
                     nuovo_tipo = st.selectbox(
                         "Tipo",
                         ["ENTRATA", "USCITA"],

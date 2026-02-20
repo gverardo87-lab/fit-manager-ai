@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from core.repositories import ClientRepository, AgendaRepository, FinancialRepository, ContractRepository
 from core.ui_components import load_custom_css, format_currency, render_metric_box
+from core.constants import EventStatus
 
 load_custom_css()
 
@@ -188,7 +189,7 @@ with col_left:
                     <div style="color: var(--text-muted); font-size: 0.75rem;">{ev_tipo}</div>
                 </div>
                 <div>
-                    <span class="badge badge-{'success' if ev_stato in ('CONFERMATO', 'COMPLETATO') else 'primary'}" style="font-size: 0.7rem;">{ev_stato or ev_tipo}</span>
+                    <span class="badge badge-{'success' if ev_stato == EventStatus.COMPLETATO else 'primary'}" style="font-size: 0.7rem;">{ev_stato or ev_tipo}</span>
                 </div>
             </div>
             """, unsafe_allow_html=True)

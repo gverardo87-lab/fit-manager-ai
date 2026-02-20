@@ -243,8 +243,12 @@ def safe_operation(
                 logger.debug(f"✅ Operation successful: {operation_name}")
                 return result
             
+            except FitManagerException:
+                # Business logic errors: propagate to caller (UI must handle)
+                raise
+
             except Exception as e:
-                # Log con severity appropriata
+                # Infrastructure errors: log and return fallback
                 if severity == ErrorSeverity.CRITICAL:
                     logger.critical(f"❌ CRITICAL Operation failed: {operation_name} - {str(e)}", exc_info=True)
                 elif severity == ErrorSeverity.HIGH:
@@ -253,8 +257,7 @@ def safe_operation(
                     logger.warning(f"⚠️ MEDIUM Operation failed: {operation_name} - {str(e)}")
                 else:  # LOW
                     logger.info(f"ℹ️ LOW Operation failed: {operation_name} - {str(e)}")
-                
-                # Ritorna fallback
+
                 return fallback_return
         
         return wrapper
