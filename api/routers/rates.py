@@ -1,0 +1,353 @@
+# api/routers/rates.py
+"""
+Endpoint Rate — CRUD con Deep Relational IDOR + Pagamento Atomico.
+
+Sicurezza — Deep Relational IDOR:
+  Ogni operazione su una Rata verifica l'ownership attraverso la catena:
+    Rate.id_contratto -> Contract.trainer_id == current_trainer.id
+
+  Implementazione: JOIN esplicita nella query SQL.
+  Se la query non restituisce nulla -> 404 (mai 403).
+
+Pagamento Atomico (POST /api/rates/{id}/pay):
+  Operazione transazionale in 5 passi:
+  A) Deep IDOR check
+  B) Verifica rata non gia' SALDATA
+  C) Aggiorna importo_saldato e stato rata
+  D) Ricalcola totale_versato contratto (somma tutte le rate SALDATE)
+  E) Se totale_versato >= prezzo_totale -> stato_pagamento = SALDATO
+  F) session.commit() SOLO alla fine (rollback automatico su eccezione)
+"""
+
+from typing import List, Optional
+from datetime import date
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlmodel import Session, select
+
+from api.database import get_session
+from api.dependencies import get_current_trainer
+from api.models.trainer import Trainer
+from api.models.contract import Contract
+from api.models.rate import Rate
+from api.schemas.financial import (
+    RateCreate, RateUpdate, RatePayment,
+    RateResponse, PaymentPlanCreate,
+)
+
+router = APIRouter(prefix="/rates", tags=["rates"])
+
+
+# ════════════════════════════════════════════════════════════
+# HELPERS — Deep Relational IDOR
+# ════════════════════════════════════════════════════════════
+
+def _bouncer_rate(session: Session, rate_id: int, trainer_id: int) -> Rate:
+    """
+    Deep Relational IDOR: Rate -> Contract -> trainer_id.
+
+    JOIN esplicita: una sola query per verificare ownership.
+    Se non trovata -> HTTPException 404.
+    """
+    rate = session.exec(
+        select(Rate)
+        .join(Contract, Rate.id_contratto == Contract.id)
+        .where(Rate.id == rate_id, Contract.trainer_id == trainer_id)
+    ).first()
+
+    if not rate:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rata non trovata")
+
+    return rate
+
+
+def _bouncer_contract(session: Session, contract_id: int, trainer_id: int) -> Contract:
+    """
+    Bouncer diretto su Contract: verifica trainer_id.
+    Usato per operazioni che partono dal contratto (POST rata, genera piano).
+    """
+    contract = session.exec(
+        select(Contract).where(Contract.id == contract_id, Contract.trainer_id == trainer_id)
+    ).first()
+
+    if not contract:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contratto non trovato")
+
+    return contract
+
+
+# ════════════════════════════════════════════════════════════
+# GET: Lista rate per contratto
+# ════════════════════════════════════════════════════════════
+
+@router.get("", response_model=dict)
+def list_rates(
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+    id_contratto: int = Query(..., description="ID contratto (obbligatorio)"),
+    stato: Optional[str] = Query(default=None, description="Filtra per stato (PENDENTE, PARZIALE, SALDATA)"),
+):
+    """
+    Lista rate di un contratto.
+
+    Bouncer: verifica che il contratto appartenga al trainer.
+    """
+    # Bouncer sul contratto
+    _bouncer_contract(session, id_contratto, trainer.id)
+
+    # Fetch rate
+    query = select(Rate).where(Rate.id_contratto == id_contratto)
+    if stato:
+        query = query.where(Rate.stato == stato)
+    query = query.order_by(Rate.data_scadenza)
+
+    rates = session.exec(query).all()
+
+    return {
+        "items": [RateResponse.model_validate(r) for r in rates],
+        "total": len(rates),
+    }
+
+
+# ════════════════════════════════════════════════════════════
+# GET: Dettaglio singola rata
+# ════════════════════════════════════════════════════════════
+
+@router.get("/{rate_id}", response_model=RateResponse)
+def get_rate(
+    rate_id: int,
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """
+    Dettaglio rata.
+
+    Deep Relational IDOR: Rate -> Contract -> trainer_id via JOIN.
+    """
+    rate = _bouncer_rate(session, rate_id, trainer.id)
+    return RateResponse.model_validate(rate)
+
+
+# ════════════════════════════════════════════════════════════
+# POST: Crea rata manuale
+# ════════════════════════════════════════════════════════════
+
+@router.post("", response_model=RateResponse, status_code=status.HTTP_201_CREATED)
+def create_rate(
+    data: RateCreate,
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """
+    Crea rata manuale per un contratto.
+
+    Bouncer: verifica che il contratto appartenga al trainer.
+    """
+    # Bouncer sul contratto
+    _bouncer_contract(session, data.id_contratto, trainer.id)
+
+    rate = Rate(
+        id_contratto=data.id_contratto,
+        data_scadenza=data.data_scadenza,
+        importo_previsto=data.importo_previsto,
+        descrizione=data.descrizione,
+    )
+    session.add(rate)
+    session.commit()
+    session.refresh(rate)
+
+    return RateResponse.model_validate(rate)
+
+
+# ════════════════════════════════════════════════════════════
+# PUT: Aggiorna rata (solo PENDENTI)
+# ════════════════════════════════════════════════════════════
+
+@router.put("/{rate_id}", response_model=RateResponse)
+def update_rate(
+    rate_id: int,
+    data: RateUpdate,
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """
+    Aggiorna una rata (partial update, solo rate PENDENTI).
+
+    Deep Relational IDOR + business rule: rate SALDATE sono immutabili.
+    """
+    rate = _bouncer_rate(session, rate_id, trainer.id)
+
+    # Business rule: rate gia' saldate non si modificano
+    if rate.stato == "SALDATA":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Impossibile modificare una rata gia' saldata",
+        )
+
+    update_data = data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(rate, field, value)
+
+    session.add(rate)
+    session.commit()
+    session.refresh(rate)
+
+    return RateResponse.model_validate(rate)
+
+
+# ════════════════════════════════════════════════════════════
+# DELETE: Elimina rata (solo PENDENTI)
+# ════════════════════════════════════════════════════════════
+
+@router.delete("/{rate_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_rate(
+    rate_id: int,
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """
+    Elimina una rata.
+
+    Deep Relational IDOR + business rule: rate SALDATE non si eliminano.
+    """
+    rate = _bouncer_rate(session, rate_id, trainer.id)
+
+    if rate.stato == "SALDATA":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Impossibile eliminare una rata gia' saldata",
+        )
+
+    session.delete(rate)
+    session.commit()
+
+
+# ════════════════════════════════════════════════════════════
+# POST /{id}/pay — PAGAMENTO ATOMICO (Unit of Work)
+# ════════════════════════════════════════════════════════════
+
+@router.post("/{rate_id}/pay", response_model=RateResponse)
+def pay_rate(
+    rate_id: int,
+    data: RatePayment,
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """
+    Pagamento rata — Operazione atomica transazionale.
+
+    Step:
+    A) Deep IDOR: verifica Rate -> Contract -> trainer_id
+    B) Business rule: rata gia' SALDATA -> 400
+    C) Aggiorna importo_saldato e stato rata
+    D) Ricalcola totale_versato contratto (somma importo_saldato di TUTTE le rate)
+    E) Se totale_versato >= prezzo_totale -> stato_pagamento = SALDATO
+    F) session.commit() SOLO qui (atomicita')
+
+    Rollback automatico: se qualsiasi step solleva eccezione,
+    FastAPI chiude la session senza commit -> nessuna modifica salvata.
+    """
+    # A) Deep Relational IDOR
+    rate = _bouncer_rate(session, rate_id, trainer.id)
+
+    # B) Rata gia' saldata?
+    if rate.stato == "SALDATA":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Rata gia' saldata",
+        )
+
+    # C) Aggiorna rata
+    rate.importo_saldato = rate.importo_saldato + data.importo
+
+    # Stato: SALDATA se pagato >= previsto (tolleranza 0.01€), altrimenti PARZIALE
+    if rate.importo_saldato >= rate.importo_previsto - 0.01:
+        rate.stato = "SALDATA"
+    else:
+        rate.stato = "PARZIALE"
+
+    session.add(rate)
+
+    # D) Aggiorna totale_versato contratto (incrementale)
+    #    Approccio incrementale: totale_versato += importo pagato.
+    #    Questo preserva l'acconto iniziale (gia' nel totale_versato alla creazione).
+    contract = session.get(Contract, rate.id_contratto)
+    contract.totale_versato = contract.totale_versato + data.importo
+
+    # E) Stato contratto: SALDATO se totale pagato copre il prezzo
+    if contract.prezzo_totale and contract.totale_versato >= contract.prezzo_totale - 0.01:
+        contract.stato_pagamento = "SALDATO"
+    elif contract.totale_versato > 0:
+        contract.stato_pagamento = "PARZIALE"
+
+    session.add(contract)
+
+    # F) Commit atomico — tutto o niente
+    session.commit()
+    session.refresh(rate)
+
+    return RateResponse.model_validate(rate)
+
+
+# ════════════════════════════════════════════════════════════
+# POST /contracts/{id}/payment-plan — Genera piano rate
+# ════════════════════════════════════════════════════════════
+
+@router.post("/generate-plan/{contract_id}", response_model=dict, status_code=status.HTTP_201_CREATED)
+def generate_payment_plan(
+    contract_id: int,
+    data: PaymentPlanCreate,
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """
+    Genera piano rate automatico per un contratto.
+
+    Bouncer: verifica che il contratto appartenga al trainer.
+    Elimina rate PENDENTI esistenti, mantiene SALDATE.
+    """
+    from dateutil.relativedelta import relativedelta
+
+    # Bouncer sul contratto
+    contract = _bouncer_contract(session, contract_id, trainer.id)
+
+    # Elimina rate PENDENTI esistenti
+    pending_rates = session.exec(
+        select(Rate).where(Rate.id_contratto == contract_id, Rate.stato == "PENDENTE")
+    ).all()
+    for r in pending_rates:
+        session.delete(r)
+
+    # Genera nuove rate
+    rate_amount = data.importo_da_rateizzare / data.numero_rate
+    created = []
+
+    for i in range(data.numero_rate):
+        if data.frequenza == "MENSILE":
+            due_date = data.data_prima_rata + relativedelta(months=i)
+        elif data.frequenza == "SETTIMANALE":
+            due_date = data.data_prima_rata + relativedelta(weeks=i)
+        elif data.frequenza == "TRIMESTRALE":
+            due_date = data.data_prima_rata + relativedelta(months=i * 3)
+        else:
+            due_date = data.data_prima_rata + relativedelta(months=i)
+
+        rate = Rate(
+            id_contratto=contract_id,
+            data_scadenza=due_date,
+            importo_previsto=round(rate_amount, 2),
+            descrizione=f"Rata {i + 1}/{data.numero_rate}",
+        )
+        session.add(rate)
+        created.append(rate)
+
+    session.commit()
+
+    # Refresh per avere gli ID
+    for r in created:
+        session.refresh(r)
+
+    return {
+        "items": [RateResponse.model_validate(r) for r in created],
+        "total": len(created),
+        "contract_id": contract_id,
+    }

@@ -1,0 +1,213 @@
+# api/schemas/financial.py
+"""
+Pydantic schemas per il dominio finanziario (Contratti + Rate).
+
+SICUREZZA - Mass Assignment Prevention:
+- ContractCreate: NO trainer_id (injected da JWT nel router)
+- RateCreate: NO trainer_id, NO id_cliente (derivano dal contratto)
+- RatePayment: NO id_contratto, NO id_cliente (derivano dalla rata target)
+
+Deep Relational IDOR chain:
+  Rate -> Contract.trainer_id (verifica diretta)
+  Contract -> Client.trainer_id (verifica coerenza Relational IDOR)
+"""
+
+from datetime import date
+from typing import Optional, List
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+
+# ════════════════════════════════════════════════════════════
+# COSTANTI VALIDE (allineate a core/constants.py)
+# ════════════════════════════════════════════════════════════
+
+VALID_PAYMENT_METHODS = {"CONTANTI", "POS", "BONIFICO", "ASSEGNO", "ALTRO"}
+VALID_RATE_STATUSES = {"PENDENTE", "PARZIALE", "SALDATA"}
+VALID_PAYMENT_STATUSES = {"PENDENTE", "PARZIALE", "SALDATO"}
+
+
+# ════════════════════════════════════════════════════════════
+# CONTRACT SCHEMAS
+# ════════════════════════════════════════════════════════════
+
+class ContractCreate(BaseModel):
+    """
+    Schema per creazione contratto.
+
+    BLINDATO: nessun trainer_id — iniettato dal JWT nel router.
+    id_cliente: verificato via Relational IDOR (deve appartenere al trainer).
+    """
+    model_config = {"extra": "forbid"}
+
+    id_cliente: int = Field(gt=0)
+    tipo_pacchetto: str = Field(min_length=1, max_length=100)
+    crediti_totali: int = Field(ge=1, le=1000)
+    prezzo_totale: float = Field(ge=0, le=1_000_000)
+    data_inizio: date
+    data_scadenza: date
+    acconto: float = Field(default=0, ge=0, le=1_000_000)
+    metodo_acconto: Optional[str] = None
+    note: Optional[str] = Field(None, max_length=500)
+
+    @model_validator(mode="after")
+    def validate_dates_and_acconto(self):
+        """Validazione cross-field: date coerenti + acconto <= prezzo."""
+        if self.data_scadenza <= self.data_inizio:
+            raise ValueError("data_scadenza deve essere dopo data_inizio")
+        if self.acconto > self.prezzo_totale:
+            raise ValueError("acconto non puo' essere maggiore del prezzo_totale")
+        if self.acconto > 0 and not self.metodo_acconto:
+            raise ValueError("metodo_acconto obbligatorio se acconto > 0")
+        if self.metodo_acconto and self.metodo_acconto not in VALID_PAYMENT_METHODS:
+            raise ValueError(f"metodo_acconto invalido. Validi: {sorted(VALID_PAYMENT_METHODS)}")
+        return self
+
+
+class ContractUpdate(BaseModel):
+    """
+    Schema per aggiornamento contratto (partial update).
+
+    BLINDATO:
+    - NO trainer_id (non trasferibile)
+    - NO id_cliente (non trasferibile)
+    - NO crediti_usati, totale_versato (calcolati automaticamente)
+    - NO chiuso (gestito da logica di business separata)
+    """
+    model_config = {"extra": "forbid"}
+
+    tipo_pacchetto: Optional[str] = Field(None, min_length=1, max_length=100)
+    crediti_totali: Optional[int] = Field(None, ge=1, le=1000)
+    prezzo_totale: Optional[float] = Field(None, ge=0, le=1_000_000)
+    data_inizio: Optional[date] = None
+    data_scadenza: Optional[date] = None
+    note: Optional[str] = Field(None, max_length=500)
+
+
+class ContractResponse(BaseModel):
+    """Response model per contratto con rate."""
+    id: int
+    id_cliente: int
+    tipo_pacchetto: Optional[str] = None
+    data_vendita: Optional[date] = None
+    data_inizio: Optional[date] = None
+    data_scadenza: Optional[date] = None
+    crediti_totali: Optional[int] = None
+    crediti_usati: int = 0
+    prezzo_totale: Optional[float] = None
+    totale_versato: float = 0
+    stato_pagamento: str = "PENDENTE"
+    note: Optional[str] = None
+    chiuso: bool = False
+
+    model_config = {"from_attributes": True}
+
+
+# ════════════════════════════════════════════════════════════
+# RATE SCHEMAS
+# ════════════════════════════════════════════════════════════
+
+class RateCreate(BaseModel):
+    """
+    Schema per creazione singola rata manuale.
+
+    BLINDATO:
+    - NO trainer_id (derivato dal contratto)
+    - NO id_cliente (derivato dal contratto)
+    - id_contratto: verificato via Bouncer (contratto deve appartenere al trainer)
+    """
+    model_config = {"extra": "forbid"}
+
+    id_contratto: int = Field(gt=0)
+    data_scadenza: date
+    importo_previsto: float = Field(gt=0, le=1_000_000)
+    descrizione: Optional[str] = Field(None, max_length=200)
+
+
+class RateUpdate(BaseModel):
+    """
+    Schema per aggiornamento rata (partial update, solo rate PENDENTI).
+
+    BLINDATO:
+    - NO id_contratto (non trasferibile)
+    - NO stato (gestito solo via pagamento)
+    - NO importo_saldato (gestito solo via pagamento)
+    """
+    model_config = {"extra": "forbid"}
+
+    data_scadenza: Optional[date] = None
+    importo_previsto: Optional[float] = Field(None, gt=0, le=1_000_000)
+    descrizione: Optional[str] = Field(None, max_length=200)
+
+
+class RatePayment(BaseModel):
+    """
+    Schema per pagamento rata — Unit of Work.
+
+    Operazione atomica:
+    1. Aggiorna rate_programmate.importo_saldato += importo
+    2. Aggiorna rate_programmate.stato (PARZIALE | SALDATA)
+    3. Aggiorna contratti.totale_versato += importo
+    4. Crea movimento_cassa ENTRATA
+
+    BLINDATO:
+    - NO id_contratto, NO id_cliente (derivano dalla rata target)
+    - importo: strettamente positivo
+    """
+    model_config = {"extra": "forbid"}
+
+    importo: float = Field(gt=0, le=1_000_000)
+    metodo: str = Field(default="CONTANTI")
+    data_pagamento: date = Field(default_factory=date.today)
+    note: Optional[str] = Field(None, max_length=500)
+
+    @field_validator("metodo")
+    @classmethod
+    def validate_metodo(cls, v: str) -> str:
+        if v not in VALID_PAYMENT_METHODS:
+            raise ValueError(f"Metodo invalido. Validi: {sorted(VALID_PAYMENT_METHODS)}")
+        return v
+
+
+class RateResponse(BaseModel):
+    """Response model per singola rata."""
+    id: int
+    id_contratto: int
+    data_scadenza: date
+    importo_previsto: float
+    descrizione: Optional[str] = None
+    stato: str = "PENDENTE"
+    importo_saldato: float = 0
+
+    model_config = {"from_attributes": True}
+
+
+class ContractWithRatesResponse(ContractResponse):
+    """Response model per contratto con lista rate embedded."""
+    rate: List[RateResponse] = []
+
+
+# ════════════════════════════════════════════════════════════
+# PAYMENT PLAN GENERATION SCHEMA
+# ════════════════════════════════════════════════════════════
+
+class PaymentPlanCreate(BaseModel):
+    """
+    Schema per generazione piano rate automatico.
+
+    Elimina rate PENDENTI esistenti e ne crea di nuove.
+    Rate gia' SALDATE vengono mantenute.
+    """
+    model_config = {"extra": "forbid"}
+
+    importo_da_rateizzare: float = Field(gt=0, le=1_000_000)
+    numero_rate: int = Field(ge=1, le=60)
+    data_prima_rata: date
+    frequenza: str = Field(default="MENSILE")
+
+    @field_validator("frequenza")
+    @classmethod
+    def validate_frequenza(cls, v: str) -> str:
+        valid = {"MENSILE", "SETTIMANALE", "TRIMESTRALE"}
+        if v not in valid:
+            raise ValueError(f"Frequenza invalida. Valide: {sorted(valid)}")
+        return v
