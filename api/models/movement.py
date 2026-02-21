@@ -49,6 +49,9 @@ class CashMovement(SQLModel, table=True):
     note: Optional[str] = None
     operatore: str = Field(default="API")
     id_spesa_ricorrente: Optional[int] = Field(default=None, foreign_key="spese_ricorrenti.id")
+    # Chiave di deduplicazione per spese ricorrenti (es. "2026-02").
+    # Usata con UNIQUE(trainer_id, id_spesa_ricorrente, mese_anno) per prevenire duplicati.
+    mese_anno: Optional[str] = Field(default=None, max_length=7)
 
     # Relationships
     contract: Optional["Contract"] = Relationship(back_populates="movements")

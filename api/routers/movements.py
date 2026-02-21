@@ -8,14 +8,14 @@ Sicurezza multi-tenant:
 
 Ledger Integrity:
 - POST crea SOLO movimenti manuali (niente id_contratto/id_rata/id_cliente)
-- DELETE elimina SOLO movimenti manuali (quelli di sistema sono intoccabili)
+- DELETE elimina movimenti manuali e spese fisse (contratti protetti)
 - I movimenti di sistema (ACCONTO_CONTRATTO, PAGAMENTO_RATA, SPESA_FISSA)
   vengono creati esclusivamente da create_contract, pay_rate, e sync engine.
 
 Sync Engine (spese ricorrenti):
-- Prima di ogni GET (lista e stats), sync_recurring_expenses_for_month()
+- Prima di GET /stats, sync_recurring_expenses_for_month()
   genera CashMovement reali dalle RecurringExpense attive.
-- Idempotente: se il movimento per quel mese esiste gia', lo salta.
+- Immune a race condition: INSERT atomico con NOT EXISTS + UNIQUE constraint DB.
 - Single Source of Truth: le stats derivano SOLO da CashMovement.
 """
 
@@ -28,7 +28,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import extract
-from sqlmodel import Session, select, func
+from sqlmodel import Session, select, func, text
 
 from api.database import get_session
 from api.dependencies import get_current_trainer
@@ -53,9 +53,13 @@ def sync_recurring_expenses_for_month(
     """
     Genera CashMovement reali per le spese ricorrenti attive del mese.
 
-    Idempotenza: per ogni RecurringExpense, controlla se esiste gia'
-    un CashMovement con lo stesso id_spesa_ricorrente nello stesso mese.
-    Se esiste, lo salta. Se non esiste, lo crea.
+    Immune a race condition: usa INSERT con sub-SELECT NOT EXISTS
+    in una singola istruzione SQL atomica. Se il movimento esiste gia'
+    (stesso trainer + spesa + mese), non viene inserito.
+
+    La UNIQUE constraint su (trainer_id, id_spesa_ricorrente, mese_anno)
+    e' la safety net finale — se due richieste concorrenti superano
+    entrambe il NOT EXISTS, una delle due fallira' con IntegrityError.
 
     Returns: numero di movimenti creati (0 = nessun lavoro da fare).
     """
@@ -71,36 +75,43 @@ def sync_recurring_expenses_for_month(
 
     created = 0
     days_in_month = calendar.monthrange(anno, mese)[1]
+    mese_anno = f"{anno:04d}-{mese:02d}"
 
     for expense in recurring:
-        # Check idempotenza: esiste gia' un movimento per questa spesa in questo mese?
-        existing = session.exec(
-            select(CashMovement.id).where(
-                CashMovement.trainer_id == trainer_id,
-                CashMovement.id_spesa_ricorrente == expense.id,
-                extract("year", CashMovement.data_effettiva) == anno,
-                extract("month", CashMovement.data_effettiva) == mese,
-            )
-        ).first()
-
-        if existing is not None:
-            continue
-
-        # Giorno scadenza capped al massimo del mese (es. 31 in feb -> 28/29)
         giorno = min(expense.giorno_scadenza, days_in_month)
+        data_effettiva = date(anno, mese, giorno)
 
-        movement = CashMovement(
-            trainer_id=trainer_id,
-            data_effettiva=date(anno, mese, giorno),
-            tipo="USCITA",
-            categoria="SPESA_FISSA",
-            importo=expense.importo,
-            note=f"Spesa ricorrente: {expense.nome}",
-            operatore="SISTEMA_RECURRING",
-            id_spesa_ricorrente=expense.id,
+        # INSERT atomico con guard NOT EXISTS — immune a race condition.
+        # Se un'altra richiesta concorrente ha gia' inserito lo stesso
+        # movimento, il NOT EXISTS blocca l'inserimento a livello SQL.
+        result = session.exec(
+            text("""
+                INSERT INTO movimenti_cassa
+                    (trainer_id, data_effettiva, tipo, categoria, importo,
+                     note, operatore, id_spesa_ricorrente, mese_anno)
+                SELECT :trainer_id, :data_effettiva, :tipo, :categoria, :importo,
+                       :note, :operatore, :id_spesa, :mese_anno
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM movimenti_cassa
+                    WHERE trainer_id = :trainer_id
+                      AND id_spesa_ricorrente = :id_spesa
+                      AND mese_anno = :mese_anno
+                )
+            """),
+            {
+                "trainer_id": trainer_id,
+                "data_effettiva": data_effettiva.isoformat(),
+                "tipo": "USCITA",
+                "categoria": "SPESA_FISSA",
+                "importo": expense.importo,
+                "note": f"Spesa ricorrente: {expense.nome}",
+                "operatore": "SISTEMA_RECURRING",
+                "id_spesa": expense.id,
+                "mese_anno": mese_anno,
+            },
         )
-        session.add(movement)
-        created += 1
+        if result.rowcount > 0:
+            created += 1
 
     if created > 0:
         session.commit()
@@ -129,12 +140,10 @@ def list_movements(
     """
     Lista movimenti del trainer autenticato con paginazione e filtri.
 
-    Sync Engine: se anno+mese sono forniti, sincronizza le spese ricorrenti
-    prima di restituire i risultati (idempotente, zero-cost se gia' sincronizzato).
+    Il sync delle spese ricorrenti avviene in GET /stats (che il frontend
+    chiama sempre insieme a questo endpoint). Nessun sync qui — evita
+    race condition da chiamate parallele.
     """
-    # Sync spese ricorrenti per il mese richiesto
-    if anno is not None and mese is not None:
-        sync_recurring_expenses_for_month(session, trainer.id, anno, mese)
 
     # Base query con Bouncer
     query = select(CashMovement).where(CashMovement.trainer_id == trainer.id)
@@ -305,12 +314,12 @@ def delete_movement(
     session: Session = Depends(get_session),
 ):
     """
-    Elimina un movimento — SOLO se manuale.
+    Elimina un movimento — manuali e spese fisse.
 
     Bouncer: query singola movement.id + trainer_id.
     Business Rules:
-    - Movimenti legati a contratti (id_contratto != null) -> 400
-    - Movimenti generati da spese ricorrenti (id_spesa_ricorrente != null) -> 400
+    - Movimenti legati a contratti (id_contratto != null) -> 400 (protetti)
+    - Movimenti manuali e spese fisse -> eliminabili
     """
     movement = session.exec(
         select(CashMovement).where(
@@ -325,17 +334,11 @@ def delete_movement(
             detail="Movimento non trovato",
         )
 
-    # Business Rule: movimenti di sistema sono protetti
+    # Business Rule: movimenti contrattuali sono protetti (acconto, pagamento rata)
     if movement.id_contratto is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Impossibile eliminare un movimento di sistema (legato a un contratto)",
-        )
-
-    if movement.id_spesa_ricorrente is not None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Impossibile eliminare un movimento di spesa fissa (generato automaticamente)",
         )
 
     session.delete(movement)

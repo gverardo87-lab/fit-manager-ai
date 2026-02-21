@@ -117,6 +117,47 @@ def _run_migrations() -> None:
         conn.commit()
         logger.info("Migration: backfill acconto su %d contratti", backfilled)
 
+    # --- Migrazione 8: colonna mese_anno + dedup spese ricorrenti ---
+    cursor.execute("PRAGMA table_info(movimenti_cassa)")
+    mov_cols_v2 = [col[1] for col in cursor.fetchall()]
+    if "mese_anno" not in mov_cols_v2:
+        logger.info("Migration 8: aggiunta colonna mese_anno a movimenti_cassa")
+        cursor.execute("ALTER TABLE movimenti_cassa ADD COLUMN mese_anno TEXT")
+
+        # Backfill: popola mese_anno per movimenti di spese ricorrenti esistenti
+        cursor.execute("""
+            UPDATE movimenti_cassa
+            SET mese_anno = strftime('%Y-%m', data_effettiva)
+            WHERE id_spesa_ricorrente IS NOT NULL AND mese_anno IS NULL
+        """)
+        backfilled = cursor.rowcount
+        logger.info("Migration 8: backfill mese_anno su %d movimenti", backfilled)
+
+        # Cleanup duplicati: per ogni (trainer_id, id_spesa_ricorrente, mese_anno)
+        # con piu' di un record, elimina tutti tranne il primo (MIN id)
+        cursor.execute("""
+            DELETE FROM movimenti_cassa
+            WHERE id NOT IN (
+                SELECT MIN(id)
+                FROM movimenti_cassa
+                WHERE id_spesa_ricorrente IS NOT NULL
+                GROUP BY trainer_id, id_spesa_ricorrente, mese_anno
+            )
+            AND id_spesa_ricorrente IS NOT NULL
+        """)
+        cleaned = cursor.rowcount
+        if cleaned > 0:
+            logger.info("Migration 8: rimossi %d movimenti duplicati spese fisse", cleaned)
+
+        # UNIQUE parziale: impedisce futuri duplicati a livello DB
+        cursor.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_recurring_per_month
+            ON movimenti_cassa (trainer_id, id_spesa_ricorrente, mese_anno)
+            WHERE id_spesa_ricorrente IS NOT NULL
+        """)
+        conn.commit()
+        logger.info("Migration 8: indice univoco uq_recurring_per_month creato")
+
     # --- Migrazione 7: backfill trainer_id orfani ---
     # Se Streamlit crea record senza trainer_id, li assegna al primo trainer.
     cursor.execute("SELECT MIN(id) FROM trainers")
