@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import apiClient from "@/lib/api-client";
 import type {
   Contract,
+  ContractListItem,
   ContractCreate,
   ContractUpdate,
   ContractWithRates,
@@ -29,10 +30,10 @@ interface UseContractsParams {
 export function useContracts(params: UseContractsParams = {}) {
   const { page = 1, pageSize = 50, idCliente, chiuso } = params;
 
-  return useQuery<PaginatedResponse<Contract>>({
+  return useQuery<PaginatedResponse<ContractListItem>>({
     queryKey: ["contracts", { page, pageSize, idCliente, chiuso }],
     queryFn: async () => {
-      const { data } = await apiClient.get<PaginatedResponse<Contract>>(
+      const { data } = await apiClient.get<PaginatedResponse<ContractListItem>>(
         "/contracts",
         {
           params: {

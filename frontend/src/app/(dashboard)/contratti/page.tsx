@@ -2,15 +2,13 @@
 "use client";
 
 /**
- * Pagina Contratti — lista con tabella, creazione e modifica via Sheet.
+ * Pagina Contratti — lista con tabella enriched, creazione e modifica via Sheet.
  *
- * Complessita' relazionale:
- * - Carica sia contratti che clienti (per risolvere id_cliente → nome)
- * - Costruisce una Map<id, nome> per la tabella
- * - Il form usa useClients() internamente per il Select
+ * Il backend restituisce ContractListResponse con nome cliente e KPI rate
+ * gia' calcolati (batch fetch, zero N+1). Nessuna query clienti separata.
  */
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Plus, FileText } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -20,30 +18,17 @@ import { ContractSheet } from "@/components/contracts/ContractSheet";
 import { ContractDetailSheet } from "@/components/contracts/ContractDetailSheet";
 import { DeleteContractDialog } from "@/components/contracts/DeleteContractDialog";
 import { useContracts } from "@/hooks/useContracts";
-import { useClients } from "@/hooks/useClients";
-import type { Contract } from "@/types/api";
+import type { ContractListItem } from "@/types/api";
 
 export default function ContrattiPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [selectedContract, setSelectedContract] = useState<Contract | null>(
+  const [selectedContract, setSelectedContract] = useState<ContractListItem | null>(
     null
   );
 
   const { data: contractsData, isLoading, isError, refetch } = useContracts();
-  const { data: clientsData } = useClients({ pageSize: 200 });
-
-  // Mappa id → "Cognome Nome" per la tabella
-  const clientMap = useMemo(() => {
-    const map = new Map<number, string>();
-    if (clientsData?.items) {
-      for (const c of clientsData.items) {
-        map.set(c.id, `${c.cognome} ${c.nome}`);
-      }
-    }
-    return map;
-  }, [clientsData]);
 
   // ── Handlers ──
 
@@ -52,20 +37,25 @@ export default function ContrattiPage() {
     setSheetOpen(true);
   };
 
-  const handleManage = (contract: Contract) => {
+  const handleManage = (contract: ContractListItem) => {
     setSelectedContract(contract);
     setDetailOpen(true);
   };
 
-  const handleEdit = (contract: Contract) => {
+  const handleEdit = (contract: ContractListItem) => {
     setSelectedContract(contract);
     setSheetOpen(true);
   };
 
-  const handleDelete = (contract: Contract) => {
+  const handleDelete = (contract: ContractListItem) => {
     setSelectedContract(contract);
     setDeleteOpen(true);
   };
+
+  // Nome cliente derivato dal backend (zero clientMap)
+  const clientName = selectedContract
+    ? `${selectedContract.client_cognome} ${selectedContract.client_nome}`
+    : undefined;
 
   return (
     <div className="space-y-6">
@@ -113,7 +103,6 @@ export default function ContrattiPage() {
       {contractsData && (
         <ContractsTable
           contracts={contractsData.items}
-          clientMap={clientMap}
           onManage={handleManage}
           onEdit={handleEdit}
           onDelete={handleDelete}
@@ -132,11 +121,7 @@ export default function ContrattiPage() {
         open={detailOpen}
         onOpenChange={setDetailOpen}
         contractId={selectedContract?.id ?? null}
-        clientName={
-          selectedContract
-            ? clientMap.get(selectedContract.id_cliente)
-            : undefined
-        }
+        clientName={clientName}
       />
 
       {/* ── Dialog elimina ── */}
@@ -144,11 +129,7 @@ export default function ContrattiPage() {
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
         contract={selectedContract}
-        clientName={
-          selectedContract
-            ? clientMap.get(selectedContract.id_cliente)
-            : undefined
-        }
+        clientName={clientName}
       />
     </div>
   );

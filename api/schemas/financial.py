@@ -182,6 +182,22 @@ class RateResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ContractListResponse(ContractResponse):
+    """
+    Response arricchita per la lista contratti con KPI aggregati.
+
+    Campi extra (calcolati nel router via batch fetch):
+    - client_nome/cognome: nome del cliente (evita JOIN lato frontend)
+    - rate_totali/rate_pagate: conteggi per progress badge
+    - ha_rate_scadute: true se almeno una rata PENDENTE/PARZIALE e' oltre scadenza
+    """
+    client_nome: str = ""
+    client_cognome: str = ""
+    rate_totali: int = 0
+    rate_pagate: int = 0
+    ha_rate_scadute: bool = False
+
+
 class ContractWithRatesResponse(ContractResponse):
     """Response model per contratto con lista rate embedded."""
     rate: List[RateResponse] = []

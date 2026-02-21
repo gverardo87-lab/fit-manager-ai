@@ -2,16 +2,19 @@
 "use client";
 
 /**
- * Tabella contratti — colonne: Cliente, Pacchetto, Importo, Crediti, Scadenza, Stato, Azioni.
+ * Tabella contratti enriched — colonne: Cliente, Pacchetto, Importo, Crediti, Scadenza, Rate, Azioni.
  *
- * Il nome cliente viene risolto dalla mappa clientMap (id → nome),
- * passata dal parent che ha gia' caricato i clienti.
+ * Il nome cliente arriva direttamente dal backend (ContractListResponse)
+ * grazie al batch fetch. Niente piu' clientMap lato frontend.
  *
- * Filtro client-side istantaneo su pacchetto e nome cliente.
+ * Colonna Rate: badge con stato pagamento derivato dalle rate:
+ * - ha_rate_scadute → rosso "Scaduto"
+ * - totale_versato >= prezzo_totale → verde "Saldato"
+ * - altrimenti → blu "In corso (X/Y)"
  */
 
 import { useState, useMemo } from "react";
-import { format, parseISO, isPast } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import {
   MoreHorizontal,
@@ -39,14 +42,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { Contract } from "@/types/api";
+import type { ContractListItem } from "@/types/api";
 
 interface ContractsTableProps {
-  contracts: Contract[];
-  clientMap: Map<number, string>;
-  onManage: (contract: Contract) => void;
-  onEdit: (contract: Contract) => void;
-  onDelete: (contract: Contract) => void;
+  contracts: ContractListItem[];
+  onManage: (contract: ContractListItem) => void;
+  onEdit: (contract: ContractListItem) => void;
+  onDelete: (contract: ContractListItem) => void;
 }
 
 function formatCurrency(amount: number | null): string {
@@ -57,43 +59,52 @@ function formatCurrency(amount: number | null): string {
   }).format(amount);
 }
 
-function getStatusBadge(contract: Contract) {
+function getPaymentBadge(contract: ContractListItem) {
+  // Priorita' 1: contratto chiuso
   if (contract.chiuso) {
-    return (
-      <Badge variant="secondary">Chiuso</Badge>
-    );
+    return <Badge variant="secondary">Chiuso</Badge>;
   }
-  if (contract.data_scadenza && isPast(parseISO(contract.data_scadenza))) {
+
+  // Priorita' 2: rate scadute non pagate
+  if (contract.ha_rate_scadute) {
     return (
       <Badge className="bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400">
         Scaduto
       </Badge>
     );
   }
-  if (contract.stato_pagamento === "SALDATO") {
+
+  // Priorita' 3: tutto pagato
+  if (
+    contract.prezzo_totale &&
+    contract.totale_versato >= contract.prezzo_totale - 0.01
+  ) {
     return (
       <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400">
         Saldato
       </Badge>
     );
   }
-  if (contract.stato_pagamento === "PARZIALE") {
+
+  // Priorita' 4: in corso con progress rate
+  if (contract.rate_totali > 0) {
     return (
-      <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400">
-        Parziale
+      <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400">
+        In corso ({contract.rate_pagate}/{contract.rate_totali})
       </Badge>
     );
   }
+
+  // Nessuna rata creata
   return (
-    <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400">
-      Attivo
+    <Badge className="bg-zinc-100 text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-800 dark:text-zinc-400">
+      Nessuna rata
     </Badge>
   );
 }
 
 export function ContractsTable({
   contracts,
-  clientMap,
   onManage,
   onEdit,
   onDelete,
@@ -105,13 +116,13 @@ export function ContractsTable({
 
     const q = search.toLowerCase();
     return contracts.filter((c) => {
-      const clientName = clientMap.get(c.id_cliente) ?? "";
+      const clientName = `${c.client_cognome} ${c.client_nome}`.toLowerCase();
       return (
-        clientName.toLowerCase().includes(q) ||
+        clientName.includes(q) ||
         c.tipo_pacchetto?.toLowerCase().includes(q)
       );
     });
-  }, [contracts, clientMap, search]);
+  }, [contracts, search]);
 
   return (
     <div className="space-y-4">
@@ -142,7 +153,7 @@ export function ContractsTable({
                 <TableHead className="text-right">Importo</TableHead>
                 <TableHead className="text-center">Crediti</TableHead>
                 <TableHead>Scadenza</TableHead>
-                <TableHead>Stato</TableHead>
+                <TableHead>Rate</TableHead>
                 <TableHead className="w-[80px]">Azioni</TableHead>
               </TableRow>
             </TableHeader>
@@ -151,7 +162,7 @@ export function ContractsTable({
                 <TableRow key={contract.id}>
                   {/* ── Cliente ── */}
                   <TableCell className="font-medium">
-                    {clientMap.get(contract.id_cliente) ?? `Cliente #${contract.id_cliente}`}
+                    {contract.client_cognome} {contract.client_nome}
                   </TableCell>
 
                   {/* ── Pacchetto ── */}
@@ -184,8 +195,8 @@ export function ContractsTable({
                       : "—"}
                   </TableCell>
 
-                  {/* ── Stato ── */}
-                  <TableCell>{getStatusBadge(contract)}</TableCell>
+                  {/* ── Rate (payment badge) ── */}
+                  <TableCell>{getPaymentBadge(contract)}</TableCell>
 
                   {/* ── Azioni ── */}
                   <TableCell>

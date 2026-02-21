@@ -197,6 +197,15 @@ export interface Contract {
   chiuso: boolean;
 }
 
+/** ContractListResponse — GET /api/contracts (enriched with rate KPI) */
+export interface ContractListItem extends Contract {
+  client_nome: string;
+  client_cognome: string;
+  rate_totali: number;
+  rate_pagate: number;
+  ha_rate_scadute: boolean;
+}
+
 /** ContractWithRatesResponse — GET /api/contracts/{id} */
 export interface ContractWithRates extends Contract {
   rate: Rate[];

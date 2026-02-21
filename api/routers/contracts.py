@@ -12,6 +12,7 @@ Mai 403, mai rivelare l'esistenza di dati altrui.
 """
 
 from typing import List, Optional
+from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import Session, select, func
 
@@ -24,7 +25,7 @@ from api.models.rate import Rate
 from api.models.movement import CashMovement
 from api.schemas.financial import (
     ContractCreate, ContractUpdate,
-    ContractResponse, ContractWithRatesResponse, RateResponse,
+    ContractResponse, ContractListResponse, ContractWithRatesResponse, RateResponse,
 )
 
 # Categoria movimento cassa per acconto (allineata a ContractRepository)
@@ -78,7 +79,16 @@ def list_contracts(
     id_cliente: Optional[int] = Query(default=None, description="Filtra per cliente"),
     chiuso: Optional[bool] = Query(default=None, description="Filtra per stato chiuso"),
 ):
-    """Lista contratti del trainer autenticato con paginazione e filtri."""
+    """
+    Lista contratti enriched con KPI aggregati.
+
+    3 query batch (zero N+1):
+    1. Contratti (paginati + filtrati)
+    2. Rate per quei contratti (batch IN)
+    3. Clienti per quei contratti (batch IN)
+
+    Response arricchita: nome cliente, conteggi rate, flag scaduti.
+    """
     query = select(Contract).where(Contract.trainer_id == trainer.id)
 
     if id_cliente is not None:
@@ -99,8 +109,48 @@ def list_contracts(
     query = query.order_by(Contract.data_vendita.desc()).offset(offset).limit(page_size)
     contracts = session.exec(query).all()
 
+    if not contracts:
+        return {"items": [], "total": total, "page": page, "page_size": page_size}
+
+    # ── Batch fetch: rate per tutti i contratti (1 query) ──
+    contract_ids = [c.id for c in contracts]
+    all_rates = session.exec(
+        select(Rate).where(Rate.id_contratto.in_(contract_ids))
+    ).all()
+
+    rates_by_contract: dict[int, list[Rate]] = {}
+    for r in all_rates:
+        rates_by_contract.setdefault(r.id_contratto, []).append(r)
+
+    # ── Batch fetch: clienti per tutti i contratti (1 query) ──
+    client_ids = list({c.id_cliente for c in contracts})
+    clients = session.exec(
+        select(Client).where(Client.id.in_(client_ids))
+    ).all()
+    client_map = {c.id: c for c in clients}
+
+    # ── Build enriched responses ──
+    today = date.today()
+    results = []
+
+    for contract in contracts:
+        client = client_map.get(contract.id_cliente)
+        rates = rates_by_contract.get(contract.id, [])
+
+        results.append(ContractListResponse(
+            **ContractResponse.model_validate(contract).model_dump(),
+            client_nome=client.nome if client else "",
+            client_cognome=client.cognome if client else "",
+            rate_totali=len(rates),
+            rate_pagate=sum(1 for r in rates if r.stato == "SALDATA"),
+            ha_rate_scadute=any(
+                r.data_scadenza < today and r.stato != "SALDATA"
+                for r in rates
+            ),
+        ))
+
     return {
-        "items": [_to_response(c) for c in contracts],
+        "items": results,
         "total": total,
         "page": page,
         "page_size": page_size,
