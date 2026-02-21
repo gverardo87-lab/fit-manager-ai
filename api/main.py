@@ -11,7 +11,7 @@ Cosa succede al startup:
 3. Aggiunge colonna 'trainer_id' a 'agenda' se non esiste
 4. Aggiunge colonna 'trainer_id' a 'contratti' se non esiste
 5. Aggiunge colonna 'trainer_id' a 'movimenti_cassa' se non esiste
-6. Registra tutti i router (auth, clients, agenda, contracts, rates)
+6. Registra tutti i router (auth, clients, agenda, contracts, rates, movements, dashboard)
 """
 
 import logging
@@ -27,6 +27,8 @@ from api.routers.clients import router as clients_router
 from api.routers.agenda import router as agenda_router
 from api.routers.contracts import router as contracts_router
 from api.routers.rates import router as rates_router
+from api.routers.movements import router as movements_router
+from api.routers.dashboard import router as dashboard_router
 
 logger = logging.getLogger("fitmanager.api")
 
@@ -132,6 +134,8 @@ app.include_router(clients_router, prefix=API_PREFIX)
 app.include_router(agenda_router, prefix=API_PREFIX)
 app.include_router(contracts_router, prefix=API_PREFIX)
 app.include_router(rates_router, prefix=API_PREFIX)
+app.include_router(movements_router, prefix=API_PREFIX)
+app.include_router(dashboard_router, prefix=API_PREFIX)
 
 
 @app.get("/health")

@@ -1,18 +1,19 @@
 # api/schemas/financial.py
 """
-Pydantic schemas per il dominio finanziario (Contratti + Rate).
+Pydantic schemas per il dominio finanziario (Contratti + Rate + Movimenti + Dashboard).
 
 SICUREZZA - Mass Assignment Prevention:
 - ContractCreate: NO trainer_id (injected da JWT nel router)
 - RateCreate: NO trainer_id, NO id_cliente (derivano dal contratto)
 - RatePayment: NO id_contratto, NO id_cliente (derivano dalla rata target)
+- MovementManualCreate: NO id_contratto, NO id_rata, NO id_cliente (Ledger Integrity)
 
 Deep Relational IDOR chain:
   Rate -> Contract.trainer_id (verifica diretta)
   Contract -> Client.trainer_id (verifica coerenza Relational IDOR)
 """
 
-from datetime import date
+from datetime import date, datetime
 from typing import Optional, List
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -211,3 +212,83 @@ class PaymentPlanCreate(BaseModel):
         if v not in valid:
             raise ValueError(f"Frequenza invalida. Valide: {sorted(valid)}")
         return v
+
+
+# ════════════════════════════════════════════════════════════
+# MOVEMENT SCHEMAS (Ledger)
+# ════════════════════════════════════════════════════════════
+
+VALID_MOVEMENT_TYPES = {"ENTRATA", "USCITA"}
+
+
+class MovementManualCreate(BaseModel):
+    """
+    Schema per creazione movimento manuale (spese, incassi extra).
+
+    BLINDATO (Ledger Integrity):
+    - NO id_contratto (solo movimenti di sistema — pagamenti rata, acconti)
+    - NO id_rata (solo movimenti di sistema)
+    - NO id_cliente (solo movimenti di sistema)
+    - NO trainer_id (injected da JWT nel router)
+
+    L'utente puo' creare solo movimenti "liberi" (affitto, attrezzatura, ecc.).
+    I movimenti legati a contratti/rate vengono creati SOLO dal sistema
+    tramite pay_rate e create_contract.
+    """
+    model_config = {"extra": "forbid"}
+
+    importo: float = Field(gt=0, le=1_000_000)
+    tipo: str
+    categoria: Optional[str] = Field(None, max_length=100)
+    metodo: Optional[str] = None
+    data_effettiva: date
+    note: Optional[str] = Field(None, max_length=500)
+
+    @field_validator("tipo")
+    @classmethod
+    def validate_tipo(cls, v: str) -> str:
+        if v not in VALID_MOVEMENT_TYPES:
+            raise ValueError(f"Tipo invalido. Validi: {sorted(VALID_MOVEMENT_TYPES)}")
+        return v
+
+    @field_validator("metodo")
+    @classmethod
+    def validate_metodo(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in VALID_PAYMENT_METHODS:
+            raise ValueError(f"Metodo invalido. Validi: {sorted(VALID_PAYMENT_METHODS)}")
+        return v
+
+
+class MovementResponse(BaseModel):
+    """Response model per movimento cassa."""
+    id: int
+    data_movimento: Optional[datetime] = None
+    data_effettiva: date
+    tipo: str
+    categoria: Optional[str] = None
+    importo: float
+    metodo: Optional[str] = None
+    id_cliente: Optional[int] = None
+    id_contratto: Optional[int] = None
+    id_rata: Optional[int] = None
+    note: Optional[str] = None
+    operatore: str = "API"
+
+    model_config = {"from_attributes": True}
+
+
+# ════════════════════════════════════════════════════════════
+# DASHBOARD SCHEMA
+# ════════════════════════════════════════════════════════════
+
+class DashboardSummary(BaseModel):
+    """
+    KPI aggregati per la dashboard.
+
+    Tutti calcolati con query SQL aggregate (func.count, func.sum)
+    per latenza zero — nessun record caricato in Python.
+    """
+    active_clients: int = 0
+    monthly_revenue: float = 0.0
+    pending_rates: int = 0
+    todays_appointments: int = 0
