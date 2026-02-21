@@ -1,0 +1,116 @@
+// src/hooks/useContracts.ts
+/**
+ * Custom hooks per il modulo Contratti.
+ *
+ * Pattern identico a useClients: una funzione per operazione,
+ * invalidation su ["contracts"] + ["dashboard"], toast su ogni mutation.
+ */
+
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import apiClient from "@/lib/api-client";
+import type {
+  Contract,
+  ContractCreate,
+  ContractUpdate,
+  PaginatedResponse,
+} from "@/types/api";
+
+// ── Query: lista contratti (paginata, filtrabile) ──
+
+interface UseContractsParams {
+  page?: number;
+  pageSize?: number;
+  idCliente?: number;
+  chiuso?: boolean;
+}
+
+export function useContracts(params: UseContractsParams = {}) {
+  const { page = 1, pageSize = 50, idCliente, chiuso } = params;
+
+  return useQuery<PaginatedResponse<Contract>>({
+    queryKey: ["contracts", { page, pageSize, idCliente, chiuso }],
+    queryFn: async () => {
+      const { data } = await apiClient.get<PaginatedResponse<Contract>>(
+        "/contracts",
+        {
+          params: {
+            page,
+            page_size: pageSize,
+            id_cliente: idCliente ?? undefined,
+            chiuso: chiuso ?? undefined,
+          },
+        }
+      );
+      return data;
+    },
+  });
+}
+
+// ── Mutation: crea contratto ──
+
+export function useCreateContract() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: ContractCreate) => {
+      const { data } = await apiClient.post<Contract>("/contracts", payload);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success("Contratto creato");
+    },
+    onError: () => {
+      toast.error("Errore nella creazione del contratto");
+    },
+  });
+}
+
+// ── Mutation: aggiorna contratto ──
+
+export function useUpdateContract() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      ...payload
+    }: ContractUpdate & { id: number }) => {
+      const { data } = await apiClient.put<Contract>(
+        `/contracts/${id}`,
+        payload
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success("Contratto aggiornato");
+    },
+    onError: () => {
+      toast.error("Errore nell'aggiornamento del contratto");
+    },
+  });
+}
+
+// ── Mutation: elimina contratto ──
+
+export function useDeleteContract() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: number) => {
+      await apiClient.delete(`/contracts/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success("Contratto eliminato");
+    },
+    onError: () => {
+      toast.error("Errore nell'eliminazione del contratto");
+    },
+  });
+}
