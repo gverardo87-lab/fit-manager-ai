@@ -13,7 +13,7 @@ from typing import Optional
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlmodel import Session, select, func
 
 from api.database import get_session
@@ -22,6 +22,8 @@ from api.models.trainer import Trainer
 from api.models.recurring_expense import RecurringExpense
 
 router = APIRouter(prefix="/recurring-expenses", tags=["recurring-expenses"])
+
+VALID_FREQUENCIES = {"MENSILE", "SETTIMANALE", "TRIMESTRALE"}
 
 
 # ── Schemas ──
@@ -34,6 +36,22 @@ class RecurringExpenseCreate(BaseModel):
     categoria: Optional[str] = Field(default=None, max_length=100)
     importo: float = Field(gt=0, le=100_000)
     giorno_scadenza: int = Field(default=1, ge=1, le=31)
+    frequenza: str = Field(default="MENSILE")
+
+    @field_validator("categoria", mode="before")
+    @classmethod
+    def sanitize_categoria(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        v = v.strip()
+        return v if v else None
+
+    @field_validator("frequenza")
+    @classmethod
+    def validate_frequenza(cls, v: str) -> str:
+        if v not in VALID_FREQUENCIES:
+            raise ValueError(f"Frequenza invalida. Valide: {sorted(VALID_FREQUENCIES)}")
+        return v
 
 
 class RecurringExpenseUpdate(BaseModel):
@@ -44,7 +62,23 @@ class RecurringExpenseUpdate(BaseModel):
     categoria: Optional[str] = Field(default=None, max_length=100)
     importo: Optional[float] = Field(default=None, gt=0, le=100_000)
     giorno_scadenza: Optional[int] = Field(default=None, ge=1, le=31)
+    frequenza: Optional[str] = None
     attiva: Optional[bool] = None
+
+    @field_validator("categoria", mode="before")
+    @classmethod
+    def sanitize_categoria(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        v = v.strip()
+        return v if v else None
+
+    @field_validator("frequenza")
+    @classmethod
+    def validate_frequenza(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in VALID_FREQUENCIES:
+            raise ValueError(f"Frequenza invalida. Valide: {sorted(VALID_FREQUENCIES)}")
+        return v
 
 
 class RecurringExpenseResponse(BaseModel):
@@ -55,9 +89,11 @@ class RecurringExpenseResponse(BaseModel):
     nome: str
     categoria: Optional[str] = None
     importo: float
+    frequenza: str = "MENSILE"
     giorno_scadenza: int
     attiva: bool
     data_creazione: Optional[datetime] = None
+    data_disattivazione: Optional[datetime] = None
 
 
 # ════════════════════════════════════════════════════════════
@@ -105,6 +141,7 @@ def create_recurring_expense(
         categoria=data.categoria,
         importo=data.importo,
         giorno_scadenza=data.giorno_scadenza,
+        frequenza=data.frequenza,
     )
     session.add(expense)
     session.commit()
@@ -139,6 +176,14 @@ def update_recurring_expense(
         )
 
     update_data = data.model_dump(exclude_unset=True)
+
+    # Storico disattivazione: timestamp quando passa da attiva a disattiva
+    if "attiva" in update_data:
+        if update_data["attiva"] is False and expense.attiva:
+            expense.data_disattivazione = datetime.utcnow()
+        elif update_data["attiva"] is True and not expense.attiva:
+            expense.data_disattivazione = None
+
     for key, value in update_data.items():
         setattr(expense, key, value)
 

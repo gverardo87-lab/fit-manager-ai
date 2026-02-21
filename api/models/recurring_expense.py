@@ -34,3 +34,4 @@ class RecurringExpense(SQLModel, table=True):
     data_prossima_scadenza: Optional[date] = None
     attiva: bool = Field(default=True)
     data_creazione: Optional[datetime] = Field(default_factory=datetime.utcnow)
+    data_disattivazione: Optional[datetime] = Field(default=None)

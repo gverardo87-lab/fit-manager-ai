@@ -305,6 +305,14 @@ class MovementManualCreate(BaseModel):
             raise ValueError(f"Tipo invalido. Validi: {sorted(VALID_MOVEMENT_TYPES)}")
         return v
 
+    @field_validator("categoria", mode="before")
+    @classmethod
+    def sanitize_categoria(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        v = v.strip()
+        return v if v else None
+
     @field_validator("metodo")
     @classmethod
     def validate_metodo(cls, v: Optional[str]) -> Optional[str]:

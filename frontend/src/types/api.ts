@@ -337,6 +337,7 @@ export interface RecurringExpenseCreate {
   categoria?: string | null;
   importo: number;
   giorno_scadenza?: number;
+  frequenza?: "MENSILE" | "SETTIMANALE" | "TRIMESTRALE";
 }
 
 /** PUT /api/recurring-expenses/{id} */
@@ -345,6 +346,7 @@ export interface RecurringExpenseUpdate {
   categoria?: string | null;
   importo?: number;
   giorno_scadenza?: number;
+  frequenza?: "MENSILE" | "SETTIMANALE" | "TRIMESTRALE";
   attiva?: boolean;
 }
 
@@ -354,9 +356,11 @@ export interface RecurringExpense {
   nome: string;
   categoria: string | null;
   importo: number;
+  frequenza: "MENSILE" | "SETTIMANALE" | "TRIMESTRALE";
   giorno_scadenza: number;
   attiva: boolean;
   data_creazione: string | null;
+  data_disattivazione: string | null;
 }
 
 // ════════════════════════════════════════════════════════════

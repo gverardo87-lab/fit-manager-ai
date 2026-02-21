@@ -47,19 +47,67 @@ router = APIRouter(prefix="/movements", tags=["movements"])
 # SYNC ENGINE: Spese Ricorrenti → CashMovement (idempotente)
 # ════════════════════════════════════════════════════════════
 
+VALID_FREQUENCIES = {"MENSILE", "SETTIMANALE", "TRIMESTRALE"}
+
+
+def _get_occurrences_in_month(
+    expense: RecurringExpense, anno: int, mese: int
+) -> list[tuple[date, str]]:
+    """
+    Calcola le occorrenze di una spesa ricorrente in un dato mese.
+
+    Returns: lista di (data_effettiva, mese_anno_key) per ogni occorrenza.
+    La chiave mese_anno e' usata per la deduplicazione (UNIQUE constraint).
+
+    Frequenze supportate:
+    - MENSILE: 1 occorrenza per mese, key = "2026-02"
+    - SETTIMANALE: ~4 per mese (ogni 7 giorni), key = "2026-02-W1", "2026-02-W2"...
+    - TRIMESTRALE: 1 ogni 3 mesi (ancorata al mese di creazione), key = "2026-02"
+    """
+    days_in_month = calendar.monthrange(anno, mese)[1]
+    freq = expense.frequenza or "MENSILE"
+
+    if freq == "MENSILE":
+        giorno = min(expense.giorno_scadenza, days_in_month)
+        return [(date(anno, mese, giorno), f"{anno:04d}-{mese:02d}")]
+
+    if freq == "SETTIMANALE":
+        base = min(expense.giorno_scadenza, 7)
+        occurrences = []
+        day = base
+        week = 1
+        while day <= days_in_month:
+            key = f"{anno:04d}-{mese:02d}-W{week}"
+            occurrences.append((date(anno, mese, day), key))
+            day += 7
+            week += 1
+        return occurrences
+
+    if freq == "TRIMESTRALE":
+        creation_month = expense.data_creazione.month if expense.data_creazione else 1
+        if (mese - creation_month) % 3 != 0:
+            return []
+        giorno = min(expense.giorno_scadenza, days_in_month)
+        return [(date(anno, mese, giorno), f"{anno:04d}-{mese:02d}")]
+
+    # Frequenza sconosciuta: fallback a MENSILE
+    giorno = min(expense.giorno_scadenza, days_in_month)
+    return [(date(anno, mese, giorno), f"{anno:04d}-{mese:02d}")]
+
+
 def sync_recurring_expenses_for_month(
     session: Session, trainer_id: int, anno: int, mese: int
 ) -> int:
     """
-    Genera CashMovement reali per le spese ricorrenti attive del mese.
+    Genera CashMovement reali per le spese ricorrenti attive.
 
-    Immune a race condition: usa INSERT con sub-SELECT NOT EXISTS
-    in una singola istruzione SQL atomica. Se il movimento esiste gia'
-    (stesso trainer + spesa + mese), non viene inserito.
+    Backfill automatico: per ogni spesa, genera i movimenti mancanti
+    da gennaio dell'anno target (o dal mese di creazione, se successivo)
+    fino al mese richiesto. Grazie al guard NOT EXISTS, i mesi gia'
+    sincronizzati non generano duplicati (~0.1ms per check).
 
-    La UNIQUE constraint su (trainer_id, id_spesa_ricorrente, mese_anno)
-    e' la safety net finale — se due richieste concorrenti superano
-    entrambe il NOT EXISTS, una delle due fallira' con IntegrityError.
+    Supporto frequenze: MENSILE (1/mese), SETTIMANALE (~4/mese),
+    TRIMESTRALE (1 ogni 3 mesi).
 
     Returns: numero di movimenti creati (0 = nessun lavoro da fare).
     """
@@ -74,50 +122,52 @@ def sync_recurring_expenses_for_month(
         return 0
 
     created = 0
-    days_in_month = calendar.monthrange(anno, mese)[1]
-    mese_anno = f"{anno:04d}-{mese:02d}"
 
     for expense in recurring:
-        giorno = min(expense.giorno_scadenza, days_in_month)
-        data_effettiva = date(anno, mese, giorno)
+        # Backfill: da inizio anno (o mese creazione) fino al mese target
+        start_month = 1
+        if expense.data_creazione:
+            if expense.data_creazione.year == anno:
+                start_month = expense.data_creazione.month
+            elif expense.data_creazione.year > anno:
+                continue  # Spesa creata dopo l'anno target
 
-        # INSERT atomico con guard NOT EXISTS — immune a race condition.
-        # Se un'altra richiesta concorrente ha gia' inserito lo stesso
-        # movimento, il NOT EXISTS blocca l'inserimento a livello SQL.
-        # NB: session.execute (non .exec) per raw SQL con parametri.
-        result = session.execute(
-            text("""
-                INSERT INTO movimenti_cassa
-                    (trainer_id, data_effettiva, tipo, categoria, importo,
-                     note, operatore, id_spesa_ricorrente, mese_anno)
-                SELECT :trainer_id, :data_effettiva, :tipo, :categoria, :importo,
-                       :note, :operatore, :id_spesa, :mese_anno
-                WHERE NOT EXISTS (
-                    SELECT 1 FROM movimenti_cassa
-                    WHERE trainer_id = :trainer_id
-                      AND id_spesa_ricorrente = :id_spesa
-                      AND mese_anno = :mese_anno
+        for m in range(start_month, mese + 1):
+            occurrences = _get_occurrences_in_month(expense, anno, m)
+            for data_effettiva, mese_anno_key in occurrences:
+                result = session.execute(
+                    text("""
+                        INSERT INTO movimenti_cassa
+                            (trainer_id, data_effettiva, tipo, categoria, importo,
+                             note, operatore, id_spesa_ricorrente, mese_anno)
+                        SELECT :trainer_id, :data_effettiva, :tipo, :categoria, :importo,
+                               :note, :operatore, :id_spesa, :mese_anno
+                        WHERE NOT EXISTS (
+                            SELECT 1 FROM movimenti_cassa
+                            WHERE trainer_id = :trainer_id
+                              AND id_spesa_ricorrente = :id_spesa
+                              AND mese_anno = :mese_anno
+                        )
+                    """),
+                    {
+                        "trainer_id": trainer_id,
+                        "data_effettiva": data_effettiva.isoformat(),
+                        "tipo": "USCITA",
+                        "categoria": "SPESA_FISSA",
+                        "importo": expense.importo,
+                        "note": f"Spesa ricorrente: {expense.nome}",
+                        "operatore": "SISTEMA_RECURRING",
+                        "id_spesa": expense.id,
+                        "mese_anno": mese_anno_key,
+                    },
                 )
-            """),
-            {
-                "trainer_id": trainer_id,
-                "data_effettiva": data_effettiva.isoformat(),
-                "tipo": "USCITA",
-                "categoria": "SPESA_FISSA",
-                "importo": expense.importo,
-                "note": f"Spesa ricorrente: {expense.nome}",
-                "operatore": "SISTEMA_RECURRING",
-                "id_spesa": expense.id,
-                "mese_anno": mese_anno,
-            },
-        )
-        if result.rowcount > 0:
-            created += 1
+                if result.rowcount > 0:
+                    created += 1
 
     if created > 0:
         session.commit()
         logger.info(
-            "Sync: %d movimenti spese fisse creati per %d/%d (trainer %d)",
+            "Sync: %d movimenti spese fisse creati (target %d/%d, trainer %d)",
             created, mese, anno, trainer_id,
         )
 

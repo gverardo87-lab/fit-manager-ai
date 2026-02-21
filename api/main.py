@@ -158,6 +158,40 @@ def _run_migrations() -> None:
         conn.commit()
         logger.info("Migration 8: indice univoco uq_recurring_per_month creato")
 
+    # --- Migrazione 9: riconciliazione pagamenti legacy Streamlit ---
+    # Streamlit aggiornava totale_versato direttamente senza creare CashMovement.
+    # Per ogni contratto con delta > 0.01, crea un movimento ENTRATA di riconciliazione.
+    cursor.execute("""
+        SELECT c.id, c.id_cliente, c.trainer_id, c.totale_versato, c.data_inizio,
+               COALESCE(SUM(CASE WHEN m.tipo = 'ENTRATA' THEN m.importo ELSE 0 END), 0) as ledger
+        FROM contratti c
+        LEFT JOIN movimenti_cassa m ON m.id_contratto = c.id
+        GROUP BY c.id
+        HAVING ROUND(c.totale_versato - ledger, 2) > 0.01
+    """)
+    legacy_gaps = cursor.fetchall()
+    for gap in legacy_gaps:
+        cid, cliente_id, tid, versato, data_inizio, ledger = gap
+        delta = round(versato - ledger, 2)
+        # Controlla se esiste gia' un movimento di riconciliazione per questo contratto
+        cursor.execute("""
+            SELECT 1 FROM movimenti_cassa
+            WHERE id_contratto = ? AND categoria = 'RICONCILIAZIONE_LEGACY'
+        """, (cid,))
+        if cursor.fetchone():
+            continue
+        cursor.execute("""
+            INSERT INTO movimenti_cassa
+                (trainer_id, data_effettiva, tipo, categoria, importo, note,
+                 operatore, id_contratto, id_cliente)
+            VALUES (?, ?, 'ENTRATA', 'RICONCILIAZIONE_LEGACY', ?, ?, 'MIGRAZIONE', ?, ?)
+        """, (tid, data_inizio, delta,
+              f"Riconciliazione pagamento legacy Streamlit ({delta:.2f} EUR)",
+              cid, cliente_id))
+        logger.info("Migration 9: riconciliazione +%.2f EUR per contratto %d", delta, cid)
+    if legacy_gaps:
+        conn.commit()
+
     # --- Migrazione 7: backfill trainer_id orfani ---
     # Se Streamlit crea record senza trainer_id, li assegna al primo trainer.
     cursor.execute("SELECT MIN(id) FROM trainers")
@@ -172,6 +206,14 @@ def _run_migrations() -> None:
             if cursor.rowcount > 0:
                 logger.info("Migration: %d record orfani in %s assegnati a trainer %d",
                             cursor.rowcount, table, first_trainer)
+        conn.commit()
+
+    # --- Migrazione 10: data_disattivazione su spese_ricorrenti ---
+    cursor.execute("PRAGMA table_info(spese_ricorrenti)")
+    spese_cols_v2 = [col[1] for col in cursor.fetchall()]
+    if "data_disattivazione" not in spese_cols_v2:
+        logger.info("Migration 10: aggiunta colonna data_disattivazione a spese_ricorrenti")
+        cursor.execute("ALTER TABLE spese_ricorrenti ADD COLUMN data_disattivazione TIMESTAMP")
         conn.commit()
 
     conn.close()

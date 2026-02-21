@@ -23,6 +23,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -94,10 +101,17 @@ export function RecurringExpensesTab() {
 
 // ── Form inline ──
 
+const FREQUENZA_LABELS: Record<string, string> = {
+  MENSILE: "Mensile",
+  SETTIMANALE: "Settimanale",
+  TRIMESTRALE: "Trimestrale",
+};
+
 function AddExpenseForm() {
   const [nome, setNome] = useState("");
   const [importo, setImporto] = useState("");
   const [giorno, setGiorno] = useState("1");
+  const [frequenza, setFrequenza] = useState<"MENSILE" | "SETTIMANALE" | "TRIMESTRALE">("MENSILE");
 
   const createMutation = useCreateRecurringExpense();
 
@@ -110,12 +124,14 @@ function AddExpenseForm() {
         nome: nome.trim(),
         importo: parseFloat(importo),
         giorno_scadenza: parseInt(giorno, 10) || 1,
+        frequenza,
       },
       {
         onSuccess: () => {
           setNome("");
           setImporto("");
           setGiorno("1");
+          setFrequenza("MENSILE");
         },
       }
     );
@@ -154,6 +170,19 @@ function AddExpenseForm() {
             onChange={(e) => setGiorno(e.target.value)}
           />
         </div>
+        <div className="w-36 space-y-1.5">
+          <Label className="text-xs">Frequenza</Label>
+          <Select value={frequenza} onValueChange={(v) => setFrequenza(v as typeof frequenza)}>
+            <SelectTrigger className="h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="MENSILE">Mensile</SelectItem>
+              <SelectItem value="SETTIMANALE">Settimanale</SelectItem>
+              <SelectItem value="TRIMESTRALE">Trimestrale</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <Button
           type="submit"
           size="sm"
@@ -172,6 +201,12 @@ function AddExpenseForm() {
 
 // ── Tabella spese ──
 
+function formatDisattivazione(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return d.toLocaleDateString("it-IT", { day: "2-digit", month: "short", year: "numeric" });
+}
+
 function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
   const updateMutation = useUpdateRecurringExpense();
   const deleteMutation = useDeleteRecurringExpense();
@@ -187,6 +222,7 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
           <TableRow>
             <TableHead>Nome</TableHead>
             <TableHead className="text-right">Importo</TableHead>
+            <TableHead className="text-center">Frequenza</TableHead>
             <TableHead className="text-center">Giorno</TableHead>
             <TableHead className="text-center">Stato</TableHead>
             <TableHead className="w-[100px]">Azioni</TableHead>
@@ -202,6 +238,9 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
               <TableCell className="text-right font-bold tabular-nums text-red-600 dark:text-red-400">
                 {formatCurrency(expense.importo)}
               </TableCell>
+              <TableCell className="text-center text-xs text-muted-foreground">
+                {FREQUENZA_LABELS[expense.frequenza] ?? expense.frequenza}
+              </TableCell>
               <TableCell className="text-center text-sm text-muted-foreground">
                 {expense.giorno_scadenza}° del mese
               </TableCell>
@@ -211,7 +250,14 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
                     Attiva
                   </Badge>
                 ) : (
-                  <Badge variant="secondary">Disattiva</Badge>
+                  <div className="flex flex-col items-center gap-0.5">
+                    <Badge variant="secondary">Disattiva</Badge>
+                    {expense.data_disattivazione && (
+                      <span className="text-[10px] text-muted-foreground">
+                        dal {formatDisattivazione(expense.data_disattivazione)}
+                      </span>
+                    )}
+                  </div>
                 )}
               </TableCell>
               <TableCell>
