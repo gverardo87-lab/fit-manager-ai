@@ -87,6 +87,22 @@ def _run_migrations() -> None:
         cursor.execute("ALTER TABLE movimenti_cassa ADD COLUMN trainer_id INTEGER REFERENCES trainers(id)")
         conn.commit()
 
+    # --- Migrazione 5: backfill trainer_id orfani ---
+    # Se Streamlit crea record senza trainer_id, li assegna al primo trainer.
+    cursor.execute("SELECT MIN(id) FROM trainers")
+    row = cursor.fetchone()
+    first_trainer = row[0] if row else None
+    if first_trainer:
+        for table in ["clienti", "agenda", "contratti", "movimenti_cassa"]:
+            cursor.execute(
+                f"UPDATE {table} SET trainer_id = ? WHERE trainer_id IS NULL",
+                (first_trainer,),
+            )
+            if cursor.rowcount > 0:
+                logger.info("Migration: %d record orfani in %s assegnati a trainer %d",
+                            cursor.rowcount, table, first_trainer)
+        conn.commit()
+
     conn.close()
 
 

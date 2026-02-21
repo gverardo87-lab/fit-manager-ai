@@ -39,3 +39,4 @@ class Event(SQLModel, table=True):
     id_contratto: Optional[int] = None
     stato: str = Field(default="Programmato")
     note: Optional[str] = None
+    data_creazione: Optional[datetime] = Field(default_factory=datetime.utcnow)

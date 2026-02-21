@@ -14,6 +14,7 @@ import { useState } from "react";
 import { Menu } from "lucide-react";
 
 import { Sidebar } from "@/components/layout/Sidebar";
+import { AuthGuard } from "@/components/auth/AuthGuard";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -30,6 +31,7 @@ export default function DashboardLayout({
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
+    <AuthGuard>
     <div className="flex min-h-screen bg-zinc-50 dark:bg-zinc-950">
       {/* ── Sidebar desktop (fissa, visibile da lg in su) ── */}
       <aside className="hidden lg:flex lg:w-64 lg:flex-col lg:border-r lg:bg-white dark:lg:bg-zinc-900">
@@ -61,5 +63,6 @@ export default function DashboardLayout({
         </main>
       </div>
     </div>
+    </AuthGuard>
   );
 }
