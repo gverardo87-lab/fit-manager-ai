@@ -279,6 +279,58 @@ export interface CashMovement {
 }
 
 // ════════════════════════════════════════════════════════════
+// MOVEMENT STATS (api/routers/movements.py)
+// ════════════════════════════════════════════════════════════
+
+/** Punto dati per il grafico giornaliero entrate/uscite */
+export interface ChartDataPoint {
+  giorno: number;
+  entrate: number;
+  uscite: number;
+}
+
+/** GET /api/movements/stats?anno=X&mese=Y */
+export interface MovementStats {
+  totale_entrate: number;
+  totale_uscite_variabili: number;
+  totale_uscite_fisse: number;
+  margine_netto: number;
+  chart_data: ChartDataPoint[];
+}
+
+// ════════════════════════════════════════════════════════════
+// RECURRING EXPENSES (api/routers/recurring_expenses.py)
+// ════════════════════════════════════════════════════════════
+
+/** POST /api/recurring-expenses */
+export interface RecurringExpenseCreate {
+  nome: string;
+  categoria?: string | null;
+  importo: number;
+  giorno_scadenza?: number;
+}
+
+/** PUT /api/recurring-expenses/{id} */
+export interface RecurringExpenseUpdate {
+  nome?: string;
+  categoria?: string | null;
+  importo?: number;
+  giorno_scadenza?: number;
+  attiva?: boolean;
+}
+
+/** Risposta da GET/POST/PUT */
+export interface RecurringExpense {
+  id: number;
+  nome: string;
+  categoria: string | null;
+  importo: number;
+  giorno_scadenza: number;
+  attiva: boolean;
+  data_creazione: string | null;
+}
+
+// ════════════════════════════════════════════════════════════
 // DASHBOARD (api/schemas/financial.py)
 // ════════════════════════════════════════════════════════════
 

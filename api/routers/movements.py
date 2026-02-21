@@ -13,8 +13,12 @@ Ledger Integrity:
   creati esclusivamente da create_contract e pay_rate.
 """
 
+import calendar
+from collections import defaultdict
 from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 from sqlalchemy import extract
 from sqlmodel import Session, select, func
 
@@ -22,6 +26,7 @@ from api.database import get_session
 from api.dependencies import get_current_trainer
 from api.models.trainer import Trainer
 from api.models.movement import CashMovement
+from api.models.recurring_expense import RecurringExpense
 from api.schemas.financial import (
     MovementManualCreate, MovementResponse,
 )
@@ -81,6 +86,91 @@ def list_movements(
         "page": page,
         "page_size": page_size,
     }
+
+
+# ════════════════════════════════════════════════════════════
+# GET: Statistiche mensili con chart_data
+# ════════════════════════════════════════════════════════════
+
+class ChartDataPoint(BaseModel):
+    giorno: int
+    entrate: float
+    uscite: float
+
+class MovementStatsResponse(BaseModel):
+    totale_entrate: float
+    totale_uscite_variabili: float
+    totale_uscite_fisse: float
+    margine_netto: float
+    chart_data: list[ChartDataPoint]
+
+
+@router.get("/stats", response_model=MovementStatsResponse)
+def get_movement_stats(
+    anno: int = Query(ge=2000, le=2100),
+    mese: int = Query(ge=1, le=12),
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """
+    Statistiche finanziarie del mese: entrate, uscite variabili,
+    uscite fisse (spese ricorrenti attive), margine netto.
+
+    Restituisce anche chart_data: array giornaliero entrate/uscite
+    per il grafico a barre.
+    """
+    # Movimenti del mese
+    movements = session.exec(
+        select(CashMovement).where(
+            CashMovement.trainer_id == trainer.id,
+            extract("year", CashMovement.data_effettiva) == anno,
+            extract("month", CashMovement.data_effettiva) == mese,
+        )
+    ).all()
+
+    # Somme
+    totale_entrate = sum(m.importo for m in movements if m.tipo == "ENTRATA")
+    totale_uscite_variabili = sum(m.importo for m in movements if m.tipo == "USCITA")
+
+    # Spese fisse attive del trainer
+    recurring = session.exec(
+        select(RecurringExpense).where(
+            RecurringExpense.trainer_id == trainer.id,
+            RecurringExpense.attiva == True,
+        )
+    ).all()
+    totale_uscite_fisse = sum(r.importo for r in recurring)
+
+    margine_netto = totale_entrate - totale_uscite_variabili - totale_uscite_fisse
+
+    # Chart data: raggruppamento per giorno del mese
+    days_in_month = calendar.monthrange(anno, mese)[1]
+    entrate_per_giorno: dict[int, float] = defaultdict(float)
+    uscite_per_giorno: dict[int, float] = defaultdict(float)
+
+    for m in movements:
+        day = m.data_effettiva.day
+        if m.tipo == "ENTRATA":
+            entrate_per_giorno[day] += m.importo
+        else:
+            uscite_per_giorno[day] += m.importo
+
+    chart_data = [
+        ChartDataPoint(
+            giorno=d,
+            entrate=round(entrate_per_giorno.get(d, 0), 2),
+            uscite=round(uscite_per_giorno.get(d, 0), 2),
+        )
+        for d in range(1, days_in_month + 1)
+    ]
+
+    return MovementStatsResponse(
+        totale_entrate=round(totale_entrate, 2),
+        totale_uscite_variabili=round(totale_uscite_variabili, 2),
+        totale_uscite_fisse=round(totale_uscite_fisse, 2),
+        margine_netto=round(margine_netto, 2),
+        chart_data=chart_data,
+    )
 
 
 # ════════════════════════════════════════════════════════════

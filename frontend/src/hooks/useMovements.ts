@@ -15,6 +15,7 @@ import apiClient from "@/lib/api-client";
 import type {
   CashMovement,
   MovementManualCreate,
+  MovementStats,
   PaginatedResponse,
 } from "@/types/api";
 
@@ -53,6 +54,20 @@ export function useMovements({
   });
 }
 
+// ── Query: statistiche mensili (KPI + chart) ──
+
+export function useMovementStats(anno: number, mese: number) {
+  return useQuery<MovementStats>({
+    queryKey: ["movement-stats", { anno, mese }],
+    queryFn: async () => {
+      const { data } = await apiClient.get<MovementStats>(
+        `/movements/stats?anno=${anno}&mese=${mese}`
+      );
+      return data;
+    },
+  });
+}
+
 // ── Mutation: crea movimento manuale ──
 
 export function useCreateMovement() {
@@ -68,6 +83,7 @@ export function useCreateMovement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["movements"] });
+      queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       toast.success("Movimento registrato");
     },
@@ -88,6 +104,7 @@ export function useDeleteMovement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["movements"] });
+      queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       toast.success("Movimento eliminato");
     },

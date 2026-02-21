@@ -2,15 +2,25 @@
 "use client";
 
 /**
- * Pagina Cassa — Ledger con filtri server-side e KPI riassuntivi.
+ * Pagina Cassa — Financial Intelligence Dashboard.
  *
- * Filtri: Mese (Select), Anno (Select), ricerca testuale client-side.
- * KPI: Entrate totali, Uscite totali, Saldo periodo.
- * Tabella: MovementsTable con badge Sistema/Manuale e protezione elimina.
+ * Layout:
+ * 1. Header con filtri globali Mese/Anno
+ * 2. Hero Section: 4 KPI cards (Entrate, Uscite Var, Uscite Fisse, Margine Netto)
+ * 3. BarChart giornaliero Entrate vs Uscite (recharts via shadcn/chart)
+ * 4. Tabs: "Libro Mastro" (tabella movimenti) + "Spese Fisse" (ricorrenti)
  */
 
-import { useState, useMemo } from "react";
-import { Plus, Landmark, TrendingUp, TrendingDown, Scale } from "lucide-react";
+import { useState } from "react";
+import {
+  Plus,
+  Landmark,
+  TrendingUp,
+  TrendingDown,
+  Building2,
+  Target,
+} from "lucide-react";
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,13 +31,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+} from "@/components/ui/chart";
 import { MovementsTable } from "@/components/movements/MovementsTable";
 import { MovementSheet } from "@/components/movements/MovementSheet";
 import { DeleteMovementDialog } from "@/components/movements/DeleteMovementDialog";
-import { useMovements } from "@/hooks/useMovements";
+import { RecurringExpensesTab } from "@/components/movements/RecurringExpensesTab";
+import { useMovements, useMovementStats } from "@/hooks/useMovements";
 import type { CashMovement } from "@/types/api";
 
-// ── Costanti per i Select ──
+// ── Costanti ──
 
 const MESI = [
   { value: "1", label: "Gennaio" },
@@ -56,6 +76,17 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+const chartConfig: ChartConfig = {
+  entrate: {
+    label: "Entrate",
+    color: "var(--color-emerald-500)",
+  },
+  uscite: {
+    label: "Uscite",
+    color: "var(--color-red-500)",
+  },
+};
+
 // ════════════════════════════════════════════════════════════
 // Pagina
 // ════════════════════════════════════════════════════════════
@@ -69,30 +100,17 @@ export default function CassaPage() {
   const [selectedMovement, setSelectedMovement] =
     useState<CashMovement | null>(null);
 
-  const { data, isLoading, isError, refetch } = useMovements({
-    anno,
-    mese,
-  });
-
-  // ── KPI calcolati dai dati ──
-  const kpi = useMemo(() => {
-    if (!data?.items) return { entrate: 0, uscite: 0, saldo: 0 };
-
-    let entrate = 0;
-    let uscite = 0;
-    for (const m of data.items) {
-      if (m.tipo === "ENTRATA") entrate += m.importo;
-      else uscite += m.importo;
-    }
-    return { entrate, uscite, saldo: entrate - uscite };
-  }, [data]);
-
-  // ── Handlers ──
+  const { data: movementsData, isLoading: movementsLoading, isError, refetch } =
+    useMovements({ anno, mese });
+  const { data: stats, isLoading: statsLoading } =
+    useMovementStats(anno, mese);
 
   const handleDelete = (movement: CashMovement) => {
     setSelectedMovement(movement);
     setDeleteOpen(true);
   };
+
+  const meseLabel = MESI.find((m) => m.value === String(mese))?.label ?? "";
 
   return (
     <div className="space-y-6">
@@ -104,16 +122,14 @@ export default function CassaPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Cassa</h1>
-            {data && (
-              <p className="text-sm text-muted-foreground">
-                {data.total} moviment{data.total !== 1 ? "i" : "o"} nel periodo
-              </p>
-            )}
+            <p className="text-sm text-muted-foreground">
+              {meseLabel} {anno}
+              {movementsData && ` — ${movementsData.total} movimenti`}
+            </p>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          {/* ── Filtro Mese ── */}
           <Select
             value={String(mese)}
             onValueChange={(v) => setMese(parseInt(v, 10))}
@@ -130,7 +146,6 @@ export default function CassaPage() {
             </SelectContent>
           </Select>
 
-          {/* ── Filtro Anno ── */}
           <Select
             value={String(anno)}
             onValueChange={(v) => setAnno(parseInt(v, 10))}
@@ -154,39 +169,60 @@ export default function CassaPage() {
         </div>
       </div>
 
-      {/* ── KPI Cards ── */}
-      {data && <KpiCards entrate={kpi.entrate} uscite={kpi.uscite} saldo={kpi.saldo} />}
+      {/* ── Hero Section: 4 KPI ── */}
+      {statsLoading && <KpiSkeleton />}
+      {stats && <KpiCards stats={stats} />}
 
-      {/* ── Contenuto ── */}
-      {isLoading && <TableSkeleton />}
-
-      {isError && (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-6 text-center">
-          <p className="text-destructive">
-            Errore nel caricamento dei movimenti.
-          </p>
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-3"
-            onClick={() => refetch()}
-          >
-            Riprova
-          </Button>
-        </div>
+      {/* ── Grafico Entrate vs Uscite ── */}
+      {stats && stats.chart_data.length > 0 && (
+        <DailyChart data={stats.chart_data} meseLabel={meseLabel} />
       )}
 
-      {data && (
-        <MovementsTable
-          movements={data.items}
-          onDelete={handleDelete}
-        />
-      )}
+      {/* ── Tabs: Libro Mastro + Spese Fisse ── */}
+      <Tabs defaultValue="ledger" className="w-full">
+        <TabsList>
+          <TabsTrigger value="ledger" className="flex-1">
+            Libro Mastro
+          </TabsTrigger>
+          <TabsTrigger value="recurring" className="flex-1">
+            Spese Fisse
+          </TabsTrigger>
+        </TabsList>
 
-      {/* ── Sheet nuovo movimento ── */}
+        <TabsContent value="ledger" className="mt-4">
+          {isError && (
+            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-6 text-center">
+              <p className="text-destructive">
+                Errore nel caricamento dei movimenti.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3"
+                onClick={() => refetch()}
+              >
+                Riprova
+              </Button>
+            </div>
+          )}
+
+          {movementsLoading && <TableSkeleton />}
+
+          {movementsData && (
+            <MovementsTable
+              movements={movementsData.items}
+              onDelete={handleDelete}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="recurring" className="mt-4">
+          <RecurringExpensesTab />
+        </TabsContent>
+      </Tabs>
+
+      {/* ── Modals ── */}
       <MovementSheet open={sheetOpen} onOpenChange={setSheetOpen} />
-
-      {/* ── Dialog elimina ── */}
       <DeleteMovementDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
@@ -201,69 +237,91 @@ export default function CassaPage() {
 // ════════════════════════════════════════════════════════════
 
 function KpiCards({
-  entrate,
-  uscite,
-  saldo,
+  stats,
 }: {
-  entrate: number;
-  uscite: number;
-  saldo: number;
+  stats: {
+    totale_entrate: number;
+    totale_uscite_variabili: number;
+    totale_uscite_fisse: number;
+    margine_netto: number;
+  };
 }) {
+  const isPositive = stats.margine_netto >= 0;
+
   return (
-    <div className="grid grid-cols-3 gap-4">
+    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
       {/* Entrate */}
       <div className="flex items-start gap-3 rounded-xl border bg-white p-4 shadow-sm dark:bg-zinc-900">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
           <TrendingUp className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
         </div>
-        <div>
+        <div className="min-w-0">
           <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
             Entrate
           </p>
           <p className="text-xl font-bold tracking-tight text-emerald-700 dark:text-emerald-400">
-            {formatCurrency(entrate)}
+            {formatCurrency(stats.totale_entrate)}
           </p>
         </div>
       </div>
 
-      {/* Uscite */}
+      {/* Uscite Variabili */}
       <div className="flex items-start gap-3 rounded-xl border bg-white p-4 shadow-sm dark:bg-zinc-900">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-100 dark:bg-red-900/30">
           <TrendingDown className="h-5 w-5 text-red-600 dark:text-red-400" />
         </div>
-        <div>
+        <div className="min-w-0">
           <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-            Uscite
+            Uscite Variabili
           </p>
           <p className="text-xl font-bold tracking-tight text-red-700 dark:text-red-400">
-            {formatCurrency(uscite)}
+            {formatCurrency(stats.totale_uscite_variabili)}
           </p>
         </div>
       </div>
 
-      {/* Saldo */}
+      {/* Uscite Fisse */}
       <div className="flex items-start gap-3 rounded-xl border bg-white p-4 shadow-sm dark:bg-zinc-900">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-900/30">
+          <Building2 className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+            Uscite Fisse
+          </p>
+          <p className="text-xl font-bold tracking-tight text-orange-700 dark:text-orange-400">
+            {formatCurrency(stats.totale_uscite_fisse)}
+          </p>
+        </div>
+      </div>
+
+      {/* Margine Netto */}
+      <div className={`flex items-start gap-3 rounded-xl border p-4 shadow-sm ${
+        isPositive
+          ? "bg-white dark:bg-zinc-900"
+          : "border-red-200 bg-red-50/50 dark:border-red-900/50 dark:bg-red-950/20"
+      }`}>
         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
-          saldo >= 0
+          isPositive
             ? "bg-blue-100 dark:bg-blue-900/30"
-            : "bg-amber-100 dark:bg-amber-900/30"
+            : "bg-red-100 dark:bg-red-900/30"
         }`}>
-          <Scale className={`h-5 w-5 ${
-            saldo >= 0
+          <Target className={`h-5 w-5 ${
+            isPositive
               ? "text-blue-600 dark:text-blue-400"
-              : "text-amber-600 dark:text-amber-400"
+              : "text-red-600 dark:text-red-400"
           }`} />
         </div>
-        <div>
+        <div className="min-w-0">
           <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-            Saldo Periodo
+            Margine Netto
           </p>
           <p className={`text-xl font-bold tracking-tight ${
-            saldo >= 0
+            isPositive
               ? "text-blue-700 dark:text-blue-400"
-              : "text-amber-700 dark:text-amber-400"
+              : "text-red-700 dark:text-red-400"
           }`}>
-            {formatCurrency(saldo)}
+            {formatCurrency(stats.margine_netto)}
           </p>
         </div>
       </div>
@@ -271,16 +329,94 @@ function KpiCards({
   );
 }
 
-// ── Skeleton ──
+// ════════════════════════════════════════════════════════════
+// Grafico giornaliero
+// ════════════════════════════════════════════════════════════
+
+function DailyChart({
+  data,
+  meseLabel,
+}: {
+  data: { giorno: number; entrate: number; uscite: number }[];
+  meseLabel: string;
+}) {
+  // Filtra solo i giorni con dati per il grafico
+  const hasData = data.some((d) => d.entrate > 0 || d.uscite > 0);
+  if (!hasData) return null;
+
+  return (
+    <div className="rounded-xl border bg-white p-5 shadow-sm dark:bg-zinc-900">
+      <div className="mb-4">
+        <h3 className="text-sm font-semibold">
+          Andamento Giornaliero — {meseLabel}
+        </h3>
+        <p className="text-xs text-muted-foreground">
+          Entrate e uscite per giorno del mese
+        </p>
+      </div>
+
+      <ChartContainer config={chartConfig} className="h-[240px] w-full">
+        <BarChart data={data} accessibilityLayer>
+          <CartesianGrid vertical={false} strokeDasharray="3 3" />
+          <XAxis
+            dataKey="giorno"
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            fontSize={11}
+          />
+          <YAxis
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            fontSize={11}
+            tickFormatter={(v) => `€${v}`}
+          />
+          <ChartTooltip
+            content={
+              <ChartTooltipContent
+                formatter={(value, name) => (
+                  <span>
+                    {name === "entrate" ? "Entrate" : "Uscite"}: {formatCurrency(Number(value))}
+                  </span>
+                )}
+              />
+            }
+          />
+          <ChartLegend content={<ChartLegendContent />} />
+          <Bar
+            dataKey="entrate"
+            fill="var(--color-emerald-500)"
+            radius={[4, 4, 0, 0]}
+            maxBarSize={20}
+          />
+          <Bar
+            dataKey="uscite"
+            fill="var(--color-red-500)"
+            radius={[4, 4, 0, 0]}
+            maxBarSize={20}
+          />
+        </BarChart>
+      </ChartContainer>
+    </div>
+  );
+}
+
+// ── Skeletons ──
+
+function KpiSkeleton() {
+  return (
+    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <Skeleton key={i} className="h-20 w-full rounded-xl" />
+      ))}
+    </div>
+  );
+}
 
 function TableSkeleton() {
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-3 gap-4">
-        <Skeleton className="h-20 w-full rounded-xl" />
-        <Skeleton className="h-20 w-full rounded-xl" />
-        <Skeleton className="h-20 w-full rounded-xl" />
-      </div>
       <Skeleton className="h-10 w-full" />
       {Array.from({ length: 5 }).map((_, i) => (
         <Skeleton key={i} className="h-14 w-full" />

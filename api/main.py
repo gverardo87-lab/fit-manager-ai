@@ -28,6 +28,7 @@ from api.routers.agenda import router as agenda_router
 from api.routers.contracts import router as contracts_router
 from api.routers.rates import router as rates_router
 from api.routers.movements import router as movements_router
+from api.routers.recurring_expenses import router as recurring_expenses_router
 from api.routers.dashboard import router as dashboard_router
 
 logger = logging.getLogger("fitmanager.api")
@@ -87,13 +88,21 @@ def _run_migrations() -> None:
         cursor.execute("ALTER TABLE movimenti_cassa ADD COLUMN trainer_id INTEGER REFERENCES trainers(id)")
         conn.commit()
 
-    # --- Migrazione 5: backfill trainer_id orfani ---
+    # --- Migrazione 5: trainer_id su spese_ricorrenti ---
+    cursor.execute("PRAGMA table_info(spese_ricorrenti)")
+    spese_cols = [col[1] for col in cursor.fetchall()]
+    if "trainer_id" not in spese_cols:
+        logger.info("Migration: aggiunta colonna trainer_id a spese_ricorrenti")
+        cursor.execute("ALTER TABLE spese_ricorrenti ADD COLUMN trainer_id INTEGER REFERENCES trainers(id)")
+        conn.commit()
+
+    # --- Migrazione 6: backfill trainer_id orfani ---
     # Se Streamlit crea record senza trainer_id, li assegna al primo trainer.
     cursor.execute("SELECT MIN(id) FROM trainers")
     row = cursor.fetchone()
     first_trainer = row[0] if row else None
     if first_trainer:
-        for table in ["clienti", "agenda", "contratti", "movimenti_cassa"]:
+        for table in ["clienti", "agenda", "contratti", "movimenti_cassa", "spese_ricorrenti"]:
             cursor.execute(
                 f"UPDATE {table} SET trainer_id = ? WHERE trainer_id IS NULL",
                 (first_trainer,),
@@ -151,6 +160,7 @@ app.include_router(agenda_router, prefix=API_PREFIX)
 app.include_router(contracts_router, prefix=API_PREFIX)
 app.include_router(rates_router, prefix=API_PREFIX)
 app.include_router(movements_router, prefix=API_PREFIX)
+app.include_router(recurring_expenses_router, prefix=API_PREFIX)
 app.include_router(dashboard_router, prefix=API_PREFIX)
 
 
