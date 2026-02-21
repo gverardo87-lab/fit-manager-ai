@@ -347,3 +347,25 @@ class DashboardSummary(BaseModel):
     monthly_revenue: float = 0.0
     pending_rates: int = 0
     todays_appointments: int = 0
+    ledger_alerts: int = 0
+
+
+# ════════════════════════════════════════════════════════════
+# RICONCILIAZIONE CONTRATTI vs LEDGER
+# ════════════════════════════════════════════════════════════
+
+class ReconciliationItem(BaseModel):
+    """Singolo contratto con divergenza tra totale_versato e libro mastro."""
+    contract_id: int
+    client_name: str
+    totale_versato: float
+    ledger_total: float
+    delta: float
+
+
+class ReconciliationResponse(BaseModel):
+    """Risultato audit riconciliazione: contratti allineati vs divergenti."""
+    total_contracts: int
+    aligned: int
+    divergent: int
+    items: List[ReconciliationItem] = []
