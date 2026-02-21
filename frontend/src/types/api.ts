@@ -210,6 +210,18 @@ export interface ContractListItem extends Contract {
 /** ContractWithRatesResponse — GET /api/contracts/{id} */
 export interface ContractWithRates extends Contract {
   rate: Rate[];
+  // KPI computati dal backend (unica fonte di verita')
+  residuo: number;
+  percentuale_versata: number;
+  importo_da_rateizzare: number;
+  somma_rate_previste: number;
+  somma_rate_saldate: number;
+  somma_rate_pendenti: number;
+  piano_allineato: boolean;
+  importo_disallineamento: number;
+  rate_totali: number;
+  rate_pagate: number;
+  rate_scadute: number;
 }
 
 // ════════════════════════════════════════════════════════════
@@ -250,6 +262,10 @@ export interface Rate {
   importo_saldato: number;
   data_pagamento: string | null;   // Ricevuta: data effettiva pagamento
   metodo_pagamento: string | null; // Ricevuta: metodo usato (CONTANTI, POS, etc.)
+  // Computed dal backend
+  importo_residuo: number;
+  is_scaduta: boolean;
+  giorni_ritardo: number;
 }
 
 /** POST /api/rates/generate-plan/{contract_id} */

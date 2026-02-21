@@ -49,24 +49,75 @@ def _to_response_with_rates(
     receipt_map: dict[int, CashMovement] | None = None,
 ) -> ContractWithRatesResponse:
     """
-    Converte Contract + Rate in ContractWithRatesResponse.
+    Converte Contract + Rate in ContractWithRatesResponse con KPI computati.
+
+    Unica fonte di verita' per tutti i valori finanziari.
+    Il frontend legge i campi, non calcola nulla.
 
     receipt_map: {rate_id: ultimo CashMovement PAGAMENTO_RATA} per arricchire
     le rate SALDATE con data_pagamento e metodo_pagamento.
     """
+    today = date.today()
+
+    # ── Enrich rate con campi computati ──
     enriched_rates = []
+    somma_saldate = 0.0
+    somma_pendenti = 0.0
+    somma_tutte = 0.0
+    n_pagate = 0
+    n_scadute = 0
+
     for r in rates:
         rate_data = RateResponse.model_validate(r).model_dump()
-        # Arricchisci con ricevuta se disponibile
+
+        # Ricevuta pagamento
         if receipt_map and r.id in receipt_map:
             mov = receipt_map[r.id]
             rate_data["data_pagamento"] = mov.data_effettiva
             rate_data["metodo_pagamento"] = mov.metodo
+
+        # Campi computati per singola rata
+        rate_data["importo_residuo"] = round(r.importo_previsto - r.importo_saldato, 2)
+        is_scaduta = r.stato != "SALDATA" and r.data_scadenza < today
+        rate_data["is_scaduta"] = is_scaduta
+        rate_data["giorni_ritardo"] = max(0, (today - r.data_scadenza).days) if is_scaduta else 0
+
         enriched_rates.append(RateResponse(**rate_data))
+
+        # Accumula aggregati
+        somma_tutte += r.importo_previsto
+        if r.stato == "SALDATA":
+            somma_saldate += r.importo_previsto
+            n_pagate += 1
+        else:
+            somma_pendenti += r.importo_previsto
+        if is_scaduta:
+            n_scadute += 1
+
+    # ── KPI contratto ──
+    prezzo = contract.prezzo_totale or 0
+    versato = contract.totale_versato or 0
+    acconto = contract.acconto or 0
+
+    residuo = round(max(0, prezzo - versato), 2)
+    percentuale = round((versato / prezzo) * 100) if prezzo > 0 else 0
+    importo_da_rateizzare = round(max(0, prezzo - acconto - somma_saldate), 2)
+    disallineamento = round(importo_da_rateizzare - somma_pendenti, 2)
 
     return ContractWithRatesResponse(
         **ContractResponse.model_validate(contract).model_dump(),
         rate=enriched_rates,
+        residuo=residuo,
+        percentuale_versata=percentuale,
+        importo_da_rateizzare=importo_da_rateizzare,
+        somma_rate_previste=round(somma_tutte, 2),
+        somma_rate_saldate=round(somma_saldate, 2),
+        somma_rate_pendenti=round(somma_pendenti, 2),
+        piano_allineato=abs(disallineamento) < 0.01,
+        importo_disallineamento=disallineamento,
+        rate_totali=len(rates),
+        rate_pagate=n_pagate,
+        rate_scadute=n_scadute,
     )
 
 

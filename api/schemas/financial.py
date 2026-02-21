@@ -177,6 +177,11 @@ class RateResponse(BaseModel):
     Campi ricevuta (opzionali, popolati solo per rate SALDATE):
     - data_pagamento: data effettiva del pagamento (da CashMovement)
     - metodo_pagamento: metodo usato (CONTANTI, POS, etc.)
+
+    Campi computati (calcolati nel router, mai dal frontend):
+    - importo_residuo: quanto manca per saldare questa rata
+    - is_scaduta: true se non saldata e oltre la data_scadenza
+    - giorni_ritardo: giorni di ritardo (0 se non scaduta)
     """
     id: int
     id_contratto: int
@@ -187,6 +192,11 @@ class RateResponse(BaseModel):
     importo_saldato: float = 0
     data_pagamento: Optional[date] = None
     metodo_pagamento: Optional[str] = None
+
+    # ── Computed (calcolati nel router) ──
+    importo_residuo: float = 0
+    is_scaduta: bool = False
+    giorni_ritardo: int = 0
 
     model_config = {"from_attributes": True}
 
@@ -208,8 +218,27 @@ class ContractListResponse(ContractResponse):
 
 
 class ContractWithRatesResponse(ContractResponse):
-    """Response model per contratto con lista rate embedded."""
+    """
+    Response model per contratto con lista rate embedded.
+
+    KPI computati (calcolati in _to_response_with_rates, unica fonte di verita'):
+    - Il frontend NON calcola nessun valore finanziario, li legge da qui.
+    - Formula chiave: importo_da_rateizzare = prezzo - acconto - somma_saldate
+    """
     rate: List[RateResponse] = []
+
+    # ── KPI Computed (calcolati nel router) ──
+    residuo: float = 0                  # prezzo_totale - totale_versato
+    percentuale_versata: int = 0        # round((totale_versato / prezzo_totale) * 100)
+    importo_da_rateizzare: float = 0    # prezzo - acconto - somma(SALDATA)
+    somma_rate_previste: float = 0      # sum(ALL importo_previsto)
+    somma_rate_saldate: float = 0       # sum(SALDATA importo_previsto)
+    somma_rate_pendenti: float = 0      # sum(non-SALDATA importo_previsto)
+    piano_allineato: bool = True        # abs(importo_da_rateizzare - somma_rate_pendenti) < 0.01
+    importo_disallineamento: float = 0  # importo_da_rateizzare - somma_rate_pendenti
+    rate_totali: int = 0
+    rate_pagate: int = 0
+    rate_scadute: int = 0
 
 
 # ════════════════════════════════════════════════════════════

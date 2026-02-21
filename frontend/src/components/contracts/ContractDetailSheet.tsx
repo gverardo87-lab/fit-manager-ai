@@ -11,7 +11,6 @@
  * Usa useContract(id) per caricare contratto + rate in una sola chiamata.
  */
 
-import { isPast, parseISO } from "date-fns";
 import {
   Wallet,
   TrendingUp,
@@ -133,23 +132,17 @@ export function ContractDetailSheet({
 // ════════════════════════════════════════════════════════════
 
 function FinancialHero({ contract }: { contract: ContractWithRates }) {
+  // Tutti i valori dal backend — zero calcoli frontend
   const totale = contract.prezzo_totale ?? 0;
   const acconto = contract.acconto;
   const versato = contract.totale_versato;
-  const residuo = Math.max(0, totale - versato);
-  const percentuale = totale > 0 ? Math.round((versato / totale) * 100) : 0;
-
-  const rates = contract.rate ?? [];
-  const ratePagate = rates.filter((r) => r.stato === "SALDATA").length;
-  const rateTotali = rates.length;
-  const rateScadute = rates.filter(
-    (r) => r.stato !== "SALDATA" && isPast(parseISO(r.data_scadenza))
-  ).length;
-
-  // Residuo da rateizzare: quanto manca al piano rate per coprire il contratto
-  const sommaRatePreviste = rates.reduce((s, r) => s + r.importo_previsto, 0);
-  const daRateizzare = Math.max(0, totale - acconto - sommaRatePreviste);
-  const pianoCoperto = daRateizzare < 0.01;
+  const residuo = contract.residuo;
+  const percentuale = contract.percentuale_versata;
+  const ratePagate = contract.rate_pagate;
+  const rateTotali = contract.rate_totali;
+  const rateScadute = contract.rate_scadute;
+  const daRateizzare = contract.importo_da_rateizzare;
+  const pianoCoperto = contract.piano_allineato;
 
   return (
     <div className="rounded-xl border bg-gradient-to-br from-zinc-50 to-zinc-100/50 p-5 dark:from-zinc-900 dark:to-zinc-800/50">

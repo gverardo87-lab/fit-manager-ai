@@ -14,7 +14,7 @@
  */
 
 import { useState } from "react";
-import { format, parseISO, isPast, differenceInDays } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import {
   CheckCircle2,
@@ -103,9 +103,8 @@ export function PaymentPlanTab({ contract }: PaymentPlanTabProps) {
 // ════════════════════════════════════════════════════════════
 
 function GeneratePlanForm({ contract }: { contract: ContractWithRates }) {
-  // Importo da rateizzare = prezzo - acconto (mai sottrarre i pagamenti rate)
-  const remaining =
-    (contract.prezzo_totale ?? 0) - contract.acconto;
+  // Importo dal backend: prezzo - acconto - rate saldate (unica fonte di verita')
+  const remaining = contract.importo_da_rateizzare;
 
   const [numeroRate, setNumeroRate] = useState(3);
   const [frequenza, setFrequenza] = useState("MENSILE");
@@ -120,7 +119,7 @@ function GeneratePlanForm({ contract }: { contract: ContractWithRates }) {
 
     generateMutation.mutate({
       contractId: contract.id,
-      importo_da_rateizzare: Math.max(0, remaining),
+      importo_da_rateizzare: remaining,
       numero_rate: numeroRate,
       data_prima_rata: format(dataPrimaRata, "yyyy-MM-dd"),
       frequenza,
@@ -138,7 +137,7 @@ function GeneratePlanForm({ contract }: { contract: ContractWithRates }) {
         <div className="space-y-2">
           <Label>Importo da rateizzare</Label>
           <Input
-            value={formatCurrency(Math.max(0, remaining))}
+            value={formatCurrency(remaining)}
             disabled
           />
         </div>
@@ -220,17 +219,15 @@ function RatesList({
     return new Date(a.data_scadenza).getTime() - new Date(b.data_scadenza).getTime();
   });
 
-  const overdueCount = rates.filter(
-    (r) => r.stato !== "SALDATA" && isPast(parseISO(r.data_scadenza))
-  ).length;
-
-  // Breakdown finanziario — formula chiara con acconto first-class
+  // Tutti i valori dal backend — zero calcoli frontend
+  const overdueCount = contract.rate_scadute;
   const prezzoTotale = contract.prezzo_totale ?? 0;
   const acconto = contract.acconto;
-  const daRateizzare = prezzoTotale - acconto;
-  const sommaRatePreviste = rates.reduce((sum, r) => sum + r.importo_previsto, 0);
-  const mancante = Math.round((daRateizzare - sommaRatePreviste) * 100) / 100;
-  const hasMismatch = Math.abs(mancante) > 0.01;
+  const sommaSaldate = contract.somma_rate_saldate;
+  const daRateizzare = contract.importo_da_rateizzare;
+  const sommaRatePendenti = contract.somma_rate_pendenti;
+  const mancante = contract.importo_disallineamento;
+  const hasMismatch = !contract.piano_allineato;
 
   return (
     <div className="space-y-3">
@@ -252,20 +249,28 @@ function RatesList({
                 </td>
               </tr>
             )}
+            {sommaSaldate > 0 && (
+              <tr>
+                <td className="py-0.5 text-muted-foreground">Gia' incassato (rate)</td>
+                <td className="py-0.5 text-right font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
+                  &minus;{formatCurrency(sommaSaldate)}
+                </td>
+              </tr>
+            )}
             <tr className="border-t">
-              <td className="pt-1 font-medium">Da rateizzare</td>
+              <td className="pt-1 font-medium">Ancora da incassare</td>
               <td className="pt-1 text-right font-bold tabular-nums">
                 {formatCurrency(daRateizzare)}
               </td>
             </tr>
             <tr>
-              <td className="py-0.5 text-muted-foreground">Rate generate</td>
+              <td className="py-0.5 text-muted-foreground">Rate pendenti</td>
               <td className={`py-0.5 text-right font-semibold tabular-nums ${
                 hasMismatch
                   ? "text-amber-700 dark:text-amber-400"
                   : "text-emerald-700 dark:text-emerald-400"
               }`}>
-                {formatCurrency(sommaRatePreviste)}
+                {formatCurrency(sommaRatePendenti)}
                 {!hasMismatch && " ✓"}
               </td>
             </tr>
@@ -280,8 +285,8 @@ function RatesList({
           <AlertTitle>Piano rate da allineare</AlertTitle>
           <AlertDescription>
             {mancante > 0
-              ? `Il piano rate copre ${formatCurrency(sommaRatePreviste)} su ${formatCurrency(daRateizzare)} da rateizzare. Mancano ${formatCurrency(mancante)}.`
-              : `Le rate superano il dovuto di ${formatCurrency(Math.abs(mancante))}. Aggiusta gli importi.`
+              ? `Le rate pendenti coprono ${formatCurrency(sommaRatePendenti)} su ${formatCurrency(daRateizzare)} da incassare. Mancano ${formatCurrency(mancante)}.`
+              : `Le rate pendenti superano il dovuto di ${formatCurrency(Math.abs(mancante))}. Aggiusta gli importi.`
             }
             {" "}Rigenera il piano per allinearlo.
           </AlertDescription>
@@ -387,7 +392,7 @@ function RatesList({
 /** Peso per ordinamento: scadute (0) → pendenti (1) → parziali (2) → saldate (3) */
 function rateWeight(rate: Rate): number {
   if (rate.stato === "SALDATA") return 3;
-  if (isPast(parseISO(rate.data_scadenza))) return 0;
+  if (rate.is_scaduta) return 0;
   if (rate.stato === "PARZIALE") return 2;
   return 1;
 }
@@ -411,10 +416,8 @@ function RateCard({
   const [showPayForm, setShowPayForm] = useState(false);
 
   const isSaldata = rate.stato === "SALDATA";
-  const isOverdue = !isSaldata && isPast(parseISO(rate.data_scadenza));
-  const overdueDays = isOverdue
-    ? differenceInDays(new Date(), parseISO(rate.data_scadenza))
-    : 0;
+  const isOverdue = rate.is_scaduta;
+  const overdueDays = rate.giorni_ritardo;
 
   const cardClasses = isOverdue
     ? "rounded-lg border-2 border-red-200 bg-red-50/50 p-4 dark:border-red-900/60 dark:bg-red-950/20"
@@ -629,8 +632,7 @@ function PayRateForm({
   payMutation: ReturnType<typeof usePayRate>;
   onCancel: () => void;
 }) {
-  const remaining = rate.importo_previsto - rate.importo_saldato;
-  const [importo, setImporto] = useState(remaining);
+  const [importo, setImporto] = useState(rate.importo_residuo);
   const [metodo, setMetodo] = useState("CONTANTI");
 
   const handlePay = () => {
