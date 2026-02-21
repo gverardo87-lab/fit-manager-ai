@@ -314,6 +314,75 @@ def pay_rate(
 
 
 # ════════════════════════════════════════════════════════════
+# POST /{id}/unpay — REVOCA PAGAMENTO (Unit of Work inversa)
+# ════════════════════════════════════════════════════════════
+
+@router.post("/{rate_id}/unpay", response_model=RateResponse)
+def unpay_rate(
+    rate_id: int,
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """
+    Revoca pagamento rata — Operazione atomica inversa.
+
+    Step:
+    A) Deep IDOR: verifica Rate -> Contract -> trainer_id
+    B) Business rule: rata NON saldata -> 400
+    C) Riporta rata a PENDENTE, azzera importo_saldato
+    D) Sottrai importo dal totale_versato contratto
+    E) Ricalcola stato_pagamento contratto
+    F) Trova ed elimina il CashMovement associato (id_rata + tipo=ENTRATA)
+    G) session.commit() SOLO qui (atomicita')
+    """
+    # A) Deep Relational IDOR
+    rate = _bouncer_rate(session, rate_id, trainer.id)
+
+    # B) Solo rate SALDATE possono essere revocate
+    if rate.stato != "SALDATA":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Solo le rate saldate possono essere revocate",
+        )
+
+    # C) Riporta rata a PENDENTE
+    importo_da_stornare = rate.importo_saldato
+    rate.importo_saldato = 0
+    rate.stato = "PENDENTE"
+    session.add(rate)
+
+    # D) Aggiorna totale_versato contratto
+    contract = session.get(Contract, rate.id_contratto)
+    contract.totale_versato = max(0, contract.totale_versato - importo_da_stornare)
+
+    # E) Ricalcola stato_pagamento
+    if contract.totale_versato <= 0:
+        contract.stato_pagamento = "PENDENTE"
+    elif contract.prezzo_totale and contract.totale_versato >= contract.prezzo_totale - 0.01:
+        contract.stato_pagamento = "SALDATO"
+    else:
+        contract.stato_pagamento = "PARZIALE"
+    session.add(contract)
+
+    # F) Elimina il CashMovement associato
+    movement = session.exec(
+        select(CashMovement).where(
+            CashMovement.id_rata == rate_id,
+            CashMovement.tipo == "ENTRATA",
+            CashMovement.trainer_id == trainer.id,
+        )
+    ).first()
+    if movement:
+        session.delete(movement)
+
+    # G) Commit atomico
+    session.commit()
+    session.refresh(rate)
+
+    return RateResponse.model_validate(rate)
+
+
+# ════════════════════════════════════════════════════════════
 # POST /contracts/{id}/payment-plan — Genera piano rate
 # ════════════════════════════════════════════════════════════
 

@@ -177,6 +177,9 @@ def create_contract(
 
     # 3. Se acconto > 0, registra nel libro mastro (CashMovement ENTRATA)
     if data.acconto > 0:
+        client = session.get(Client, data.id_cliente)
+        client_label = f"{client.nome} {client.cognome}" if client else f"Cliente #{data.id_cliente}"
+
         movement = CashMovement(
             trainer_id=trainer.id,
             data_effettiva=data.data_inizio,
@@ -186,7 +189,7 @@ def create_contract(
             metodo=data.metodo_acconto,
             id_cliente=data.id_cliente,
             id_contratto=contract.id,
-            note=f"Acconto contratto #{contract.id}",
+            note=f"Acconto Contratto - {client_label}",
         )
         session.add(movement)
 

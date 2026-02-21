@@ -28,6 +28,7 @@ import {
   MoreVertical,
   Pencil,
   Trash2,
+  Undo2,
 } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -67,6 +68,7 @@ import {
   useDeleteRate,
 } from "@/hooks/useRates";
 import { RateEditDialog } from "./RateEditDialog";
+import { RateUnpayDialog } from "./RateUnpayDialog";
 import type { Rate, ContractWithRates } from "@/types/api";
 import { PAYMENT_METHODS, PLAN_FREQUENCIES } from "@/types/api";
 
@@ -205,6 +207,7 @@ function RatesList({
 }) {
   const [editRate, setEditRate] = useState<Rate | null>(null);
   const [deleteRate, setDeleteRate] = useState<Rate | null>(null);
+  const [unpayRate, setUnpayRate] = useState<Rate | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const deleteMutation = useDeleteRate();
 
@@ -220,10 +223,13 @@ function RatesList({
     (r) => r.stato !== "SALDATA" && isPast(parseISO(r.data_scadenza))
   ).length;
 
-  // Financial Mismatch Alert
-  const importoDaSaldare = (contract.prezzo_totale ?? 0) - contract.totale_versato;
+  // Financial Mismatch Alert — formula corretta con acconto derivato
+  // acconto = totale_versato - sum(importo_saldato delle rate)
+  const sommaRateSaldate = rates.reduce((sum, r) => sum + r.importo_saldato, 0);
+  const acconto = contract.totale_versato - sommaRateSaldate;
+  const importoTarget = (contract.prezzo_totale ?? 0) - Math.max(0, acconto);
   const sommaRateTotali = rates.reduce((sum, r) => sum + r.importo_previsto, 0);
-  const hasMismatch = Math.abs(sommaRateTotali - importoDaSaldare) > 0.01;
+  const hasMismatch = Math.abs(importoTarget - sommaRateTotali) > 0.01;
 
   return (
     <div className="space-y-3">
@@ -233,7 +239,7 @@ function RatesList({
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Incongruenza Finanziaria</AlertTitle>
           <AlertDescription>
-            Il totale da rateizzare e' {formatCurrency(importoDaSaldare)}, ma la
+            Il totale da rateizzare e' {formatCurrency(importoTarget)}, ma la
             somma delle rate attuali e' {formatCurrency(sommaRateTotali)}.
             Aggiusta gli importi.
           </AlertDescription>
@@ -250,7 +256,7 @@ function RatesList({
         </div>
       )}
 
-      <ScrollArea className="max-h-[340px]">
+      <ScrollArea className="max-h-[50vh]">
         <div className="space-y-2.5 pr-4">
           {sorted.map((rate) => (
             <RateCard
@@ -258,6 +264,7 @@ function RatesList({
               rate={rate}
               onEdit={setEditRate}
               onDelete={setDeleteRate}
+              onUnpay={setUnpayRate}
             />
           ))}
         </div>
@@ -286,6 +293,13 @@ function RatesList({
         rate={editRate}
         open={editRate !== null}
         onOpenChange={(open) => { if (!open) setEditRate(null); }}
+      />
+
+      {/* ── Unpay Dialog (conferma con "ANNULLA") ── */}
+      <RateUnpayDialog
+        rate={unpayRate}
+        open={unpayRate !== null}
+        onOpenChange={(open) => { if (!open) setUnpayRate(null); }}
       />
 
       {/* ── Delete Confirm ── */}
@@ -344,10 +358,12 @@ function RateCard({
   rate,
   onEdit,
   onDelete,
+  onUnpay,
 }: {
   rate: Rate;
   onEdit: (rate: Rate) => void;
   onDelete: (rate: Rate) => void;
+  onUnpay: (rate: Rate) => void;
 }) {
   const payMutation = usePayRate();
   const [showPayForm, setShowPayForm] = useState(false);
@@ -404,30 +420,40 @@ function RateCard({
           </div>
           <RateStatusBadge stato={rate.stato} isOverdue={isOverdue} />
 
-          {/* ── Dropdown azioni (nascosto su SALDATE) ── */}
-          {!isSaldata && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7">
-                  <MoreVertical className="h-4 w-4" />
-                  <span className="sr-only">Azioni rata</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onEdit(rate)}>
-                  <Pencil className="mr-2 h-4 w-4" />
-                  Modifica
-                </DropdownMenuItem>
+          {/* ── Dropdown azioni ── */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7">
+                <MoreVertical className="h-4 w-4" />
+                <span className="sr-only">Azioni rata</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {isSaldata ? (
                 <DropdownMenuItem
-                  onClick={() => onDelete(rate)}
+                  onClick={() => onUnpay(rate)}
                   className="text-destructive focus:text-destructive"
                 >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Elimina
+                  <Undo2 className="mr-2 h-4 w-4" />
+                  Revoca Pagamento
                 </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+              ) : (
+                <>
+                  <DropdownMenuItem onClick={() => onEdit(rate)}>
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Modifica
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onDelete(rate)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Elimina
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

@@ -116,6 +116,30 @@ export function useDeleteRate() {
   });
 }
 
+// ── Mutation: revoca pagamento rata ──
+
+export function useUnpayRate() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (rateId: number) => {
+      const { data } = await apiClient.post<Rate>(`/rates/${rateId}/unpay`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["contract"] });
+      queryClient.invalidateQueries({ queryKey: ["contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["movements"] });
+      queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
+      toast.success("Pagamento revocato");
+    },
+    onError: () => {
+      toast.error("Errore nella revoca del pagamento");
+    },
+  });
+}
+
 // ── Mutation: pagamento rata (atomico) ──
 
 export function usePayRate() {
