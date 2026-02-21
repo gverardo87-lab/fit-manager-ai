@@ -28,6 +28,7 @@ from sqlmodel import Session, select
 from api.database import get_session
 from api.dependencies import get_current_trainer
 from api.models.trainer import Trainer
+from api.models.client import Client
 from api.models.contract import Contract
 from api.models.rate import Rate
 from api.models.movement import CashMovement
@@ -287,6 +288,10 @@ def pay_rate(
     session.add(contract)
 
     # E-bis) Registra nel libro mastro (CashMovement ENTRATA)
+    # Nome cliente per descrizione contestuale nel Libro Mastro
+    client = session.get(Client, contract.id_cliente)
+    client_label = f"{client.nome} {client.cognome}" if client else f"Cliente #{contract.id_cliente}"
+
     movement = CashMovement(
         trainer_id=trainer.id,
         data_effettiva=data.data_pagamento,
@@ -297,7 +302,7 @@ def pay_rate(
         id_cliente=contract.id_cliente,
         id_contratto=contract.id,
         id_rata=rate.id,
-        note=data.note or f"Pagamento rata contratto #{contract.id}",
+        note=data.note or f"Pagamento Rata - {client_label}",
     )
     session.add(movement)
 

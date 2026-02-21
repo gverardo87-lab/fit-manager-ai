@@ -2,14 +2,15 @@
 "use client";
 
 /**
- * Tab Piano Pagamenti — interattivita' finanziaria.
+ * Tab Piano Pagamenti — Advanced Billing Engine.
  *
- * Due stati:
+ * Tre stati:
  * A) Nessuna rata → form per generare piano automatico
- * B) Rate esistenti → lista card premium con alert scadenze
- *
- * Il riepilogo finanziario e' nella Hero Section (ContractDetailSheet),
- * qui mostriamo solo il contenuto operativo.
+ * B) Rate esistenti → lista card premium con:
+ *    - Dropdown Modifica/Elimina (nascosto su SALDATE)
+ *    - Alert scadenze overdue
+ *    - Financial Mismatch Alert (somma rate ≠ importo da saldare)
+ * C) Bottone "+ Aggiungi Rata" per rate manuali fuori piano
  */
 
 import { useState } from "react";
@@ -19,12 +20,17 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
+  AlertTriangle,
   Loader2,
   Banknote,
   Plus,
   CalendarClock,
+  MoreVertical,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,9 +42,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { DatePicker } from "@/components/ui/date-picker";
-import { useGeneratePaymentPlan, usePayRate } from "@/hooks/useRates";
+import {
+  useGeneratePaymentPlan,
+  usePayRate,
+  useCreateRate,
+  useDeleteRate,
+} from "@/hooks/useRates";
+import { RateEditDialog } from "./RateEditDialog";
 import type { Rate, ContractWithRates } from "@/types/api";
 import { PAYMENT_METHODS, PLAN_FREQUENCIES } from "@/types/api";
 
@@ -62,7 +90,7 @@ export function PaymentPlanTab({ contract }: PaymentPlanTabProps) {
   const hasRates = rates.length > 0;
 
   return hasRates ? (
-    <RatesList rates={rates} />
+    <RatesList rates={rates} contract={contract} />
   ) : (
     <GeneratePlanForm contract={contract} />
   );
@@ -168,7 +196,18 @@ function GeneratePlanForm({ contract }: { contract: ContractWithRates }) {
 // Caso B: Rate esistenti → lista premium
 // ════════════════════════════════════════════════════════════
 
-function RatesList({ rates }: { rates: Rate[] }) {
+function RatesList({
+  rates,
+  contract,
+}: {
+  rates: Rate[];
+  contract: ContractWithRates;
+}) {
+  const [editRate, setEditRate] = useState<Rate | null>(null);
+  const [deleteRate, setDeleteRate] = useState<Rate | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const deleteMutation = useDeleteRate();
+
   // Ordina: scadute prima, poi pendenti/parziali, poi saldate
   const sorted = [...rates].sort((a, b) => {
     const aWeight = rateWeight(a);
@@ -181,8 +220,26 @@ function RatesList({ rates }: { rates: Rate[] }) {
     (r) => r.stato !== "SALDATA" && isPast(parseISO(r.data_scadenza))
   ).length;
 
+  // Financial Mismatch Alert
+  const importoDaSaldare = (contract.prezzo_totale ?? 0) - contract.totale_versato;
+  const sommaRateTotali = rates.reduce((sum, r) => sum + r.importo_previsto, 0);
+  const hasMismatch = Math.abs(sommaRateTotali - importoDaSaldare) > 0.01;
+
   return (
     <div className="space-y-3">
+      {/* Financial Mismatch Alert */}
+      {hasMismatch && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Incongruenza Finanziaria</AlertTitle>
+          <AlertDescription>
+            Il totale da rateizzare e' {formatCurrency(importoDaSaldare)}, ma la
+            somma delle rate attuali e' {formatCurrency(sommaRateTotali)}.
+            Aggiusta gli importi.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Alert banner per rate scadute */}
       {overdueCount > 0 && (
         <div className="flex items-center gap-2.5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900/50 dark:bg-red-950/30">
@@ -193,13 +250,80 @@ function RatesList({ rates }: { rates: Rate[] }) {
         </div>
       )}
 
-      <ScrollArea className="max-h-[380px]">
+      <ScrollArea className="max-h-[340px]">
         <div className="space-y-2.5 pr-4">
           {sorted.map((rate) => (
-            <RateCard key={rate.id} rate={rate} />
+            <RateCard
+              key={rate.id}
+              rate={rate}
+              onEdit={setEditRate}
+              onDelete={setDeleteRate}
+            />
           ))}
         </div>
       </ScrollArea>
+
+      {/* ── Bottone Aggiungi Rata ── */}
+      {showAddForm ? (
+        <AddRateForm
+          contractId={contract.id}
+          onClose={() => setShowAddForm(false)}
+        />
+      ) : (
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full border-dashed"
+          onClick={() => setShowAddForm(true)}
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          Aggiungi Rata
+        </Button>
+      )}
+
+      {/* ── Edit Dialog ── */}
+      <RateEditDialog
+        rate={editRate}
+        open={editRate !== null}
+        onOpenChange={(open) => { if (!open) setEditRate(null); }}
+      />
+
+      {/* ── Delete Confirm ── */}
+      <AlertDialog
+        open={deleteRate !== null}
+        onOpenChange={(open) => { if (!open) setDeleteRate(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminare questa rata?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteRate?.descrizione ?? `Rata #${deleteRate?.id}`} —{" "}
+              {deleteRate ? formatCurrency(deleteRate.importo_previsto) : ""}
+              . Questa azione e' irreversibile.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>
+              Annulla
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              disabled={deleteMutation.isPending}
+              onClick={() => {
+                if (!deleteRate) return;
+                deleteMutation.mutate(deleteRate.id, {
+                  onSuccess: () => setDeleteRate(null),
+                });
+              }}
+            >
+              {deleteMutation.isPending && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Elimina
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -213,17 +337,24 @@ function rateWeight(rate: Rate): number {
 }
 
 // ════════════════════════════════════════════════════════════
-// Rate Card — design premium
+// Rate Card — design premium con dropdown azioni
 // ════════════════════════════════════════════════════════════
 
-function RateCard({ rate }: { rate: Rate }) {
+function RateCard({
+  rate,
+  onEdit,
+  onDelete,
+}: {
+  rate: Rate;
+  onEdit: (rate: Rate) => void;
+  onDelete: (rate: Rate) => void;
+}) {
   const payMutation = usePayRate();
   const [showPayForm, setShowPayForm] = useState(false);
 
   const isSaldata = rate.stato === "SALDATA";
   const isOverdue = !isSaldata && isPast(parseISO(rate.data_scadenza));
 
-  // Card border & bg cambiano in base allo stato
   const cardClasses = isOverdue
     ? "rounded-lg border-2 border-red-200 bg-red-50/50 p-4 dark:border-red-900/60 dark:bg-red-950/20"
     : isSaldata
@@ -257,8 +388,8 @@ function RateCard({ rate }: { rate: Rate }) {
           </div>
         </div>
 
-        {/* ── Importo + badge ── */}
-        <div className="flex items-center gap-3 shrink-0">
+        {/* ── Importo + badge + azioni ── */}
+        <div className="flex items-center gap-2 shrink-0">
           <div className="text-right">
             <p className={`text-sm font-bold tabular-nums ${
               isSaldata ? "text-emerald-700 dark:text-emerald-400" : ""
@@ -272,6 +403,31 @@ function RateCard({ rate }: { rate: Rate }) {
             )}
           </div>
           <RateStatusBadge stato={rate.stato} isOverdue={isOverdue} />
+
+          {/* ── Dropdown azioni (nascosto su SALDATE) ── */}
+          {!isSaldata && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7">
+                  <MoreVertical className="h-4 w-4" />
+                  <span className="sr-only">Azioni rata</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onEdit(rate)}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Modifica
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onDelete(rate)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Elimina
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </div>
 
@@ -439,6 +595,93 @@ function PayRateForm({
           size="sm"
           onClick={onCancel}
           disabled={payMutation.isPending}
+        >
+          Annulla
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// Form aggiunta rata manuale
+// ════════════════════════════════════════════════════════════
+
+function AddRateForm({
+  contractId,
+  onClose,
+}: {
+  contractId: number;
+  onClose: () => void;
+}) {
+  const createMutation = useCreateRate();
+  const [importo, setImporto] = useState("");
+  const [descrizione, setDescrizione] = useState("");
+  const [dataScadenza, setDataScadenza] = useState<Date | undefined>(undefined);
+
+  const handleCreate = () => {
+    if (!dataScadenza || !importo) return;
+
+    createMutation.mutate(
+      {
+        id_contratto: contractId,
+        importo_previsto: parseFloat(importo),
+        data_scadenza: format(dataScadenza, "yyyy-MM-dd"),
+        descrizione: descrizione.trim() || undefined,
+      },
+      { onSuccess: onClose }
+    );
+  };
+
+  return (
+    <div className="space-y-3 rounded-lg border border-dashed bg-zinc-50/50 p-4 dark:bg-zinc-800/30">
+      <p className="text-sm font-semibold">Nuova Rata Manuale</p>
+      <div className="grid grid-cols-3 gap-3">
+        <div className="space-y-1.5">
+          <Label className="text-xs">Importo</Label>
+          <Input
+            type="number"
+            step="0.01"
+            min="0.01"
+            placeholder="0,00"
+            value={importo}
+            onChange={(e) => setImporto(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Data Scadenza</Label>
+          <DatePicker
+            value={dataScadenza}
+            onChange={setDataScadenza}
+            placeholder="Seleziona..."
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Descrizione</Label>
+          <Input
+            placeholder="es. Rata extra"
+            value={descrizione}
+            onChange={(e) => setDescrizione(e.target.value)}
+          />
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          onClick={handleCreate}
+          disabled={createMutation.isPending || !importo || !dataScadenza}
+          className="flex-1"
+        >
+          {createMutation.isPending && (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          )}
+          Crea Rata
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onClose}
+          disabled={createMutation.isPending}
         >
           Annulla
         </Button>

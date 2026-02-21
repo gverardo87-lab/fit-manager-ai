@@ -11,7 +11,14 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import apiClient from "@/lib/api-client";
-import type { Rate, PaymentPlanCreate, RatePayment, ListResponse } from "@/types/api";
+import type {
+  Rate,
+  RateCreate,
+  RateUpdate,
+  PaymentPlanCreate,
+  RatePayment,
+  ListResponse,
+} from "@/types/api";
 
 // ── Mutation: genera piano rate automatico ──
 
@@ -37,6 +44,74 @@ export function useGeneratePaymentPlan() {
     },
     onError: () => {
       toast.error("Errore nella generazione del piano rate");
+    },
+  });
+}
+
+// ── Mutation: crea rata manuale ──
+
+export function useCreateRate() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: RateCreate) => {
+      const { data } = await apiClient.post<Rate>("/rates", payload);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["contract"] });
+      queryClient.invalidateQueries({ queryKey: ["contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success("Rata aggiunta");
+    },
+    onError: () => {
+      toast.error("Errore nella creazione della rata");
+    },
+  });
+}
+
+// ── Mutation: aggiorna rata ──
+
+export function useUpdateRate() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      rateId,
+      ...payload
+    }: RateUpdate & { rateId: number }) => {
+      const { data } = await apiClient.put<Rate>(`/rates/${rateId}`, payload);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["contract"] });
+      queryClient.invalidateQueries({ queryKey: ["contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success("Rata aggiornata");
+    },
+    onError: () => {
+      toast.error("Errore nell'aggiornamento della rata");
+    },
+  });
+}
+
+// ── Mutation: elimina rata ──
+
+export function useDeleteRate() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (rateId: number) => {
+      await apiClient.delete(`/rates/${rateId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["contract"] });
+      queryClient.invalidateQueries({ queryKey: ["contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success("Rata eliminata");
+    },
+    onError: () => {
+      toast.error("Errore nell'eliminazione della rata");
     },
   });
 }
