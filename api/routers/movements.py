@@ -15,6 +15,7 @@ Ledger Integrity:
 
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import extract
 from sqlmodel import Session, select, func
 
 from api.database import get_session
@@ -51,16 +52,15 @@ def list_movements(
     query = select(CashMovement).where(CashMovement.trainer_id == trainer.id)
     count_q = select(func.count(CashMovement.id)).where(CashMovement.trainer_id == trainer.id)
 
-    # Filtro anno
+    # Filtro anno (db-agnostic: extract funziona su SQLite, PostgreSQL, MySQL)
     if anno is not None:
-        query = query.where(func.strftime("%Y", CashMovement.data_effettiva) == str(anno))
-        count_q = count_q.where(func.strftime("%Y", CashMovement.data_effettiva) == str(anno))
+        query = query.where(extract("year", CashMovement.data_effettiva) == anno)
+        count_q = count_q.where(extract("year", CashMovement.data_effettiva) == anno)
 
-    # Filtro mese
+    # Filtro mese (db-agnostic)
     if mese is not None:
-        mese_str = f"{mese:02d}"
-        query = query.where(func.strftime("%m", CashMovement.data_effettiva) == mese_str)
-        count_q = count_q.where(func.strftime("%m", CashMovement.data_effettiva) == mese_str)
+        query = query.where(extract("month", CashMovement.data_effettiva) == mese)
+        count_q = count_q.where(extract("month", CashMovement.data_effettiva) == mese)
 
     # Filtro tipo
     if tipo is not None:
