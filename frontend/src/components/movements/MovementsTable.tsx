@@ -8,8 +8,8 @@
  *
  * Regole UX:
  * - Importi ENTRATA in verde, USCITA in rosso
- * - Badge "Sistema" (id_contratto !== null) o "Manuale"
- * - Elimina disabilitato su movimenti di sistema (Ledger Integrity)
+ * - Badge tri-stato: "Sistema" | "Spesa Fissa" | "Manuale"
+ * - Elimina disabilitato su movimenti protetti (Ledger Integrity)
  */
 
 import { useState, useMemo } from "react";
@@ -22,6 +22,7 @@ import {
   ArrowUpCircle,
   ArrowDownCircle,
   Lock,
+  CalendarClock,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -139,7 +140,13 @@ function MovementRow({
   onDelete: (m: CashMovement) => void;
 }) {
   const isEntrata = movement.tipo === "ENTRATA";
-  const isSystem = movement.id_contratto !== null;
+  const isContract = movement.id_contratto !== null;
+  const isRecurring = movement.id_spesa_ricorrente !== null;
+  const isProtected = isContract || isRecurring;
+
+  const tooltipText = isContract
+    ? "Movimento di sistema — non eliminabile"
+    : "Spesa fissa generata automaticamente — non eliminabile";
 
   return (
     <TableRow>
@@ -156,7 +163,7 @@ function MovementRow({
           <span className="text-sm truncate max-w-[200px]">
             {movement.note || "—"}
           </span>
-          <OriginBadge isSystem={isSystem} />
+          <OriginBadge isContract={isContract} isRecurring={isRecurring} />
         </div>
       </TableCell>
 
@@ -199,17 +206,21 @@ function MovementRow({
 
       {/* ── Azioni ── */}
       <TableCell>
-        {isSystem ? (
+        {isProtected ? (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8" disabled>
-                  <Lock className="h-4 w-4 text-muted-foreground" />
+                  {isRecurring ? (
+                    <CalendarClock className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Lock className="h-4 w-4 text-muted-foreground" />
+                  )}
                   <span className="sr-only">Protetto</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Movimento di sistema — non eliminabile</p>
+                <p>{tooltipText}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -237,16 +248,26 @@ function MovementRow({
   );
 }
 
-// ── Badge origine (Sistema / Manuale) ──
+// ── Badge origine (Sistema / Spesa Fissa / Manuale) ──
 
-function OriginBadge({ isSystem }: { isSystem: boolean }) {
-  if (isSystem) {
+function OriginBadge({ isContract, isRecurring }: { isContract: boolean; isRecurring: boolean }) {
+  if (isContract) {
     return (
       <Badge
         variant="outline"
         className="shrink-0 border-violet-200 bg-violet-50 text-violet-700 text-[10px] px-1.5 py-0 dark:border-violet-800 dark:bg-violet-900/30 dark:text-violet-400"
       >
         Sistema
+      </Badge>
+    );
+  }
+  if (isRecurring) {
+    return (
+      <Badge
+        variant="outline"
+        className="shrink-0 border-amber-200 bg-amber-50 text-amber-700 text-[10px] px-1.5 py-0 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
+      >
+        Spesa Fissa
       </Badge>
     );
   }

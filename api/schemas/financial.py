@@ -271,6 +271,7 @@ class MovementResponse(BaseModel):
     id_cliente: Optional[int] = None
     id_contratto: Optional[int] = None
     id_rata: Optional[int] = None
+    id_spesa_ricorrente: Optional[int] = None
     note: Optional[str] = None
     operatore: str = "API"
 

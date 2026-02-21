@@ -274,6 +274,7 @@ export interface CashMovement {
   id_cliente: number | null;
   id_contratto: number | null;
   id_rata: number | null;
+  id_spesa_ricorrente: number | null;
   note: string | null;
   operatore: string;
 }

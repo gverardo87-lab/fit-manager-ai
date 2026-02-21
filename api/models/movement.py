@@ -48,7 +48,7 @@ class CashMovement(SQLModel, table=True):
     id_rata: Optional[int] = Field(default=None, foreign_key="rate_programmate.id")
     note: Optional[str] = None
     operatore: str = Field(default="API")
-    id_spesa_ricorrente: Optional[int] = None
+    id_spesa_ricorrente: Optional[int] = Field(default=None, foreign_key="spese_ricorrenti.id")
 
     # Relationships
     contract: Optional["Contract"] = Relationship(back_populates="movements")
