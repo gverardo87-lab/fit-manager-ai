@@ -222,8 +222,7 @@ function RatesList({
   // Tutti i valori dal backend — zero calcoli frontend
   const overdueCount = contract.rate_scadute;
   const prezzoTotale = contract.prezzo_totale ?? 0;
-  const acconto = contract.acconto;
-  const sommaSaldate = contract.somma_rate_saldate;
+  const versato = contract.totale_versato;
   const daRateizzare = contract.importo_da_rateizzare;
   const sommaRatePendenti = contract.somma_rate_pendenti;
   const mancante = contract.importo_disallineamento;
@@ -241,19 +240,11 @@ function RatesList({
                 {formatCurrency(prezzoTotale)}
               </td>
             </tr>
-            {acconto > 0 && (
+            {versato > 0 && (
               <tr>
-                <td className="py-0.5 text-muted-foreground">Acconto</td>
-                <td className="py-0.5 text-right font-semibold tabular-nums text-blue-700 dark:text-blue-400">
-                  &minus;{formatCurrency(acconto)}
-                </td>
-              </tr>
-            )}
-            {sommaSaldate > 0 && (
-              <tr>
-                <td className="py-0.5 text-muted-foreground">Gia' incassato (rate)</td>
+                <td className="py-0.5 text-muted-foreground">Totale versato</td>
                 <td className="py-0.5 text-right font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
-                  &minus;{formatCurrency(sommaSaldate)}
+                  &minus;{formatCurrency(versato)}
                 </td>
               </tr>
             )}

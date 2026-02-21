@@ -101,7 +101,8 @@ def _to_response_with_rates(
 
     residuo = round(max(0, prezzo - versato), 2)
     percentuale = round((versato / prezzo) * 100) if prezzo > 0 else 0
-    importo_da_rateizzare = round(max(0, prezzo - acconto - somma_saldate), 2)
+    # totale_versato e' la fonte di verita' (include acconto + rate + pagamenti legacy)
+    importo_da_rateizzare = residuo
     disallineamento = round(importo_da_rateizzare - somma_pendenti, 2)
 
     return ContractWithRatesResponse(
