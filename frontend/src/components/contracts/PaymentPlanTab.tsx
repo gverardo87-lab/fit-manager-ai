@@ -6,9 +6,10 @@
  *
  * Due stati:
  * A) Nessuna rata → form per generare piano automatico
- * B) Rate esistenti → lista con badge stato + bottone "Paga" per ogni rata
+ * B) Rate esistenti → lista card premium con alert scadenze
  *
- * Tutte le operazioni aggiornano la UI istantaneamente via invalidation.
+ * Il riepilogo finanziario e' nella Hero Section (ContractDetailSheet),
+ * qui mostriamo solo il contenuto operativo.
  */
 
 import { useState } from "react";
@@ -17,10 +18,11 @@ import { it } from "date-fns/locale";
 import {
   CheckCircle2,
   Clock,
-  AlertTriangle,
+  AlertCircle,
   Loader2,
   Banknote,
   Plus,
+  CalendarClock,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -35,7 +37,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { DatePicker } from "@/components/ui/date-picker";
 import { useGeneratePaymentPlan, usePayRate } from "@/hooks/useRates";
 import type { Rate, ContractWithRates } from "@/types/api";
@@ -60,58 +61,10 @@ export function PaymentPlanTab({ contract }: PaymentPlanTabProps) {
   const rates = contract.rate ?? [];
   const hasRates = rates.length > 0;
 
-  return (
-    <div className="space-y-6">
-      {/* ── Riepilogo finanziario ── */}
-      <FinancialSummary contract={contract} />
-
-      <Separator />
-
-      {/* ── Contenuto condizionale ── */}
-      {hasRates ? (
-        <RatesList rates={rates} />
-      ) : (
-        <GeneratePlanForm contract={contract} />
-      )}
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════
-// Riepilogo finanziario
-// ════════════════════════════════════════════════════════════
-
-function FinancialSummary({ contract }: { contract: ContractWithRates }) {
-  const remaining =
-    (contract.prezzo_totale ?? 0) - contract.totale_versato;
-
-  return (
-    <div className="grid grid-cols-3 gap-4">
-      <div className="rounded-lg border bg-zinc-50 p-3 dark:bg-zinc-800/50">
-        <p className="text-xs font-medium text-muted-foreground">
-          Prezzo Totale
-        </p>
-        <p className="text-lg font-bold">
-          {formatCurrency(contract.prezzo_totale ?? 0)}
-        </p>
-      </div>
-      <div className="rounded-lg border bg-emerald-50 p-3 dark:bg-emerald-900/20">
-        <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
-          Versato
-        </p>
-        <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">
-          {formatCurrency(contract.totale_versato)}
-        </p>
-      </div>
-      <div className="rounded-lg border bg-amber-50 p-3 dark:bg-amber-900/20">
-        <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
-          Rimanente
-        </p>
-        <p className="text-lg font-bold text-amber-700 dark:text-amber-400">
-          {formatCurrency(Math.max(0, remaining))}
-        </p>
-      </div>
-    </div>
+  return hasRates ? (
+    <RatesList rates={rates} />
+  ) : (
+    <GeneratePlanForm contract={contract} />
   );
 }
 
@@ -212,63 +165,109 @@ function GeneratePlanForm({ contract }: { contract: ContractWithRates }) {
 }
 
 // ════════════════════════════════════════════════════════════
-// Caso B: Rate esistenti → lista interattiva
+// Caso B: Rate esistenti → lista premium
 // ════════════════════════════════════════════════════════════
 
 function RatesList({ rates }: { rates: Rate[] }) {
+  // Ordina: scadute prima, poi pendenti/parziali, poi saldate
+  const sorted = [...rates].sort((a, b) => {
+    const aWeight = rateWeight(a);
+    const bWeight = rateWeight(b);
+    if (aWeight !== bWeight) return aWeight - bWeight;
+    return new Date(a.data_scadenza).getTime() - new Date(b.data_scadenza).getTime();
+  });
+
+  const overdueCount = rates.filter(
+    (r) => r.stato !== "SALDATA" && isPast(parseISO(r.data_scadenza))
+  ).length;
+
   return (
-    <ScrollArea className="max-h-[400px]">
-      <div className="space-y-3 pr-4">
-        {rates.map((rate) => (
-          <RateCard key={rate.id} rate={rate} />
-        ))}
-      </div>
-    </ScrollArea>
+    <div className="space-y-3">
+      {/* Alert banner per rate scadute */}
+      {overdueCount > 0 && (
+        <div className="flex items-center gap-2.5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900/50 dark:bg-red-950/30">
+          <AlertCircle className="h-4.5 w-4.5 shrink-0 text-red-600 dark:text-red-400" />
+          <p className="text-sm font-medium text-red-700 dark:text-red-400">
+            {overdueCount} rat{overdueCount === 1 ? "a scaduta" : "e scadute"} — azione richiesta
+          </p>
+        </div>
+      )}
+
+      <ScrollArea className="max-h-[380px]">
+        <div className="space-y-2.5 pr-4">
+          {sorted.map((rate) => (
+            <RateCard key={rate.id} rate={rate} />
+          ))}
+        </div>
+      </ScrollArea>
+    </div>
   );
 }
+
+/** Peso per ordinamento: scadute (0) → pendenti (1) → parziali (2) → saldate (3) */
+function rateWeight(rate: Rate): number {
+  if (rate.stato === "SALDATA") return 3;
+  if (isPast(parseISO(rate.data_scadenza))) return 0;
+  if (rate.stato === "PARZIALE") return 2;
+  return 1;
+}
+
+// ════════════════════════════════════════════════════════════
+// Rate Card — design premium
+// ════════════════════════════════════════════════════════════
 
 function RateCard({ rate }: { rate: Rate }) {
   const payMutation = usePayRate();
   const [showPayForm, setShowPayForm] = useState(false);
 
   const isSaldata = rate.stato === "SALDATA";
-  const isOverdue =
-    !isSaldata && isPast(parseISO(rate.data_scadenza));
+  const isOverdue = !isSaldata && isPast(parseISO(rate.data_scadenza));
+
+  // Card border & bg cambiano in base allo stato
+  const cardClasses = isOverdue
+    ? "rounded-lg border-2 border-red-200 bg-red-50/50 p-4 dark:border-red-900/60 dark:bg-red-950/20"
+    : isSaldata
+      ? "rounded-lg border border-emerald-200/60 bg-emerald-50/30 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/10"
+      : "rounded-lg border bg-white p-4 dark:bg-zinc-900";
 
   return (
-    <div className="rounded-lg border p-4">
-      <div className="flex items-center justify-between">
-        {/* ── Info rata ── */}
-        <div className="flex items-center gap-3">
-          {isSaldata ? (
-            <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-          ) : isOverdue ? (
-            <AlertTriangle className="h-5 w-5 text-red-500" />
-          ) : (
-            <Clock className="h-5 w-5 text-amber-500" />
-          )}
-          <div>
-            <p className="text-sm font-medium">
+    <div className={cardClasses}>
+      <div className="flex items-center justify-between gap-3">
+        {/* ── Icona + info ── */}
+        <div className="flex items-center gap-3 min-w-0">
+          <StatusIcon isSaldata={isSaldata} isOverdue={isOverdue} />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold truncate">
               {rate.descrizione ?? `Rata #${rate.id}`}
             </p>
-            <p className="text-xs text-muted-foreground">
-              Scadenza:{" "}
-              {format(parseISO(rate.data_scadenza), "dd MMM yyyy", {
-                locale: it,
-              })}
-            </p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <CalendarClock className={`h-3 w-3 ${
+                isOverdue ? "text-red-500" : "text-muted-foreground"
+              }`} />
+              <p className={`text-xs ${
+                isOverdue
+                  ? "font-semibold text-red-600 dark:text-red-400"
+                  : "text-muted-foreground"
+              }`}>
+                {format(parseISO(rate.data_scadenza), "dd MMMM yyyy", {
+                  locale: it,
+                })}
+              </p>
+            </div>
           </div>
         </div>
 
         {/* ── Importo + badge ── */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           <div className="text-right">
-            <p className="text-sm font-bold">
+            <p className={`text-sm font-bold tabular-nums ${
+              isSaldata ? "text-emerald-700 dark:text-emerald-400" : ""
+            }`}>
               {formatCurrency(rate.importo_previsto)}
             </p>
             {rate.importo_saldato > 0 && !isSaldata && (
-              <p className="text-xs text-muted-foreground">
-                Versato: {formatCurrency(rate.importo_saldato)}
+              <p className="text-[11px] text-muted-foreground tabular-nums">
+                Versato {formatCurrency(rate.importo_saldato)}
               </p>
             )}
           </div>
@@ -276,16 +275,20 @@ function RateCard({ rate }: { rate: Rate }) {
         </div>
       </div>
 
-      {/* ── Bottone Paga (solo se non saldata) ── */}
+      {/* ── Azione pagamento ── */}
       {!isSaldata && !showPayForm && (
         <Button
-          variant="outline"
+          variant={isOverdue ? "default" : "outline"}
           size="sm"
-          className="mt-3 w-full"
+          className={`mt-3 w-full ${
+            isOverdue
+              ? "bg-red-600 text-white hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600"
+              : ""
+          }`}
           onClick={() => setShowPayForm(true)}
         >
           <Banknote className="mr-2 h-4 w-4" />
-          Segna come Pagata
+          {isOverdue ? "Paga Ora — Rata Scaduta" : "Segna come Pagata"}
         </Button>
       )}
 
@@ -297,6 +300,30 @@ function RateCard({ rate }: { rate: Rate }) {
           onCancel={() => setShowPayForm(false)}
         />
       )}
+    </div>
+  );
+}
+
+// ── Icona stato ──
+
+function StatusIcon({ isSaldata, isOverdue }: { isSaldata: boolean; isOverdue: boolean }) {
+  if (isSaldata) {
+    return (
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
+        <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+      </div>
+    );
+  }
+  if (isOverdue) {
+    return (
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100 animate-pulse dark:bg-red-900/30">
+        <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+      </div>
+    );
+  }
+  return (
+    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
+      <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
     </div>
   );
 }
@@ -319,7 +346,7 @@ function RateStatusBadge({
   }
   if (isOverdue) {
     return (
-      <Badge className="bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400">
+      <Badge variant="destructive" className="animate-pulse">
         Scaduta
       </Badge>
     );
@@ -338,7 +365,9 @@ function RateStatusBadge({
   );
 }
 
-// ── Form pagamento inline ──
+// ════════════════════════════════════════════════════════════
+// Form pagamento inline
+// ════════════════════════════════════════════════════════════
 
 function PayRateForm({
   rate,
@@ -366,10 +395,10 @@ function PayRateForm({
   };
 
   return (
-    <div className="mt-3 space-y-3 rounded-lg border bg-zinc-50 p-3 dark:bg-zinc-800/50">
+    <div className="mt-3 space-y-3 rounded-lg border bg-zinc-50/80 p-4 dark:bg-zinc-800/50">
       <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <Label className="text-xs">Importo</Label>
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium">Importo</Label>
           <Input
             type="number"
             step="0.01"
@@ -377,8 +406,8 @@ function PayRateForm({
             onChange={(e) => setImporto(parseFloat(e.target.value) || 0)}
           />
         </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Metodo</Label>
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium">Metodo</Label>
           <Select value={metodo} onValueChange={setMetodo}>
             <SelectTrigger>
               <SelectValue />
