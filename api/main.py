@@ -8,7 +8,8 @@ Poi apri: http://localhost:8000/docs (Swagger UI interattiva)
 Cosa succede al startup:
 1. Crea tabella 'trainers' se non esiste
 2. Aggiunge colonna 'trainer_id' a 'clienti' se non esiste
-3. Registra tutti i router (auth, clients, ...)
+3. Aggiunge colonna 'trainer_id' a 'agenda' se non esiste
+4. Registra tutti i router (auth, clients, agenda, ...)
 """
 
 import logging
@@ -21,6 +22,7 @@ from api.config import API_PREFIX
 from api.database import create_db_and_tables, engine
 from api.auth.router import router as auth_router
 from api.routers.clients import router as clients_router
+from api.routers.agenda import router as agenda_router
 
 logger = logging.getLogger("fitmanager.api")
 
@@ -29,7 +31,10 @@ def _run_migrations() -> None:
     """
     Migrazioni al startup — idempotenti, sicure da rieseguire.
 
-    Fase 1: Aggiunge trainer_id a clienti (nullable, per convivenza con Streamlit).
+    Aggiunge trainer_id (nullable) alle tabelle esistenti per multi-tenancy:
+    - clienti: FK verso trainers per filtrare clienti per trainer
+    - agenda: FK verso trainers per filtrare TUTTI gli eventi (anche quelli senza cliente)
+
     Le tabelle nuove (trainers) vengono create da SQLModel.metadata.create_all().
     """
     import sqlite3
@@ -38,22 +43,25 @@ def _run_migrations() -> None:
     if not DATABASE_URL.startswith("sqlite"):
         return  # Solo per SQLite — PostgreSQL usera' Alembic
 
-    # Estrai path dal URL sqlite:///path/to/db
     db_path = DATABASE_URL.replace("sqlite:///", "")
-
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
-    # Controlla se trainer_id esiste gia' in clienti
+    # --- Migrazione 1: trainer_id su clienti ---
     cursor.execute("PRAGMA table_info(clienti)")
-    columns = [col[1] for col in cursor.fetchall()]
-
-    if "trainer_id" not in columns:
+    clienti_cols = [col[1] for col in cursor.fetchall()]
+    if "trainer_id" not in clienti_cols:
         logger.info("Migration: aggiunta colonna trainer_id a clienti")
         cursor.execute("ALTER TABLE clienti ADD COLUMN trainer_id INTEGER REFERENCES trainers(id)")
         conn.commit()
-    else:
-        logger.debug("Migration: trainer_id gia' presente in clienti")
+
+    # --- Migrazione 2: trainer_id su agenda ---
+    cursor.execute("PRAGMA table_info(agenda)")
+    agenda_cols = [col[1] for col in cursor.fetchall()]
+    if "trainer_id" not in agenda_cols:
+        logger.info("Migration: aggiunta colonna trainer_id a agenda")
+        cursor.execute("ALTER TABLE agenda ADD COLUMN trainer_id INTEGER REFERENCES trainers(id)")
+        conn.commit()
 
     conn.close()
 
@@ -99,6 +107,7 @@ app.add_middleware(
 # Registra router
 app.include_router(auth_router, prefix=API_PREFIX)
 app.include_router(clients_router, prefix=API_PREFIX)
+app.include_router(agenda_router, prefix=API_PREFIX)
 
 
 @app.get("/health")
