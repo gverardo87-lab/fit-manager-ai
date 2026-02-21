@@ -1,0 +1,309 @@
+// src/types/api.ts
+/**
+ * Type Synchronization — Design by Contract.
+ *
+ * Queste interfacce sono la traduzione 1:1 degli schema Pydantic
+ * del backend Python. Ogni campo Optional[X] diventa X | null.
+ *
+ * Sorgenti:
+ *   - api/auth/schemas.py         -> Auth types
+ *   - api/routers/clients.py      -> Client types (inline schemas)
+ *   - api/routers/agenda.py       -> Event types (inline schemas)
+ *   - api/schemas/financial.py    -> Contract, Rate, Movement, Dashboard
+ *
+ * REGOLA: se cambi uno schema Pydantic, DEVI aggiornare qui.
+ */
+
+// ════════════════════════════════════════════════════════════
+// COSTANTI (allineate a api/schemas/financial.py)
+// ════════════════════════════════════════════════════════════
+
+export const PAYMENT_METHODS = ["CONTANTI", "POS", "BONIFICO", "ASSEGNO", "ALTRO"] as const;
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+
+export const RATE_STATUSES = ["PENDENTE", "PARZIALE", "SALDATA"] as const;
+export type RateStatus = (typeof RATE_STATUSES)[number];
+
+export const PAYMENT_STATUSES = ["PENDENTE", "PARZIALE", "SALDATO"] as const;
+export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
+
+export const MOVEMENT_TYPES = ["ENTRATA", "USCITA"] as const;
+export type MovementType = (typeof MOVEMENT_TYPES)[number];
+
+export const EVENT_CATEGORIES = ["PT", "SALA", "NUOTO", "YOGA", "CONSULENZA", "CORSO"] as const;
+export type EventCategory = (typeof EVENT_CATEGORIES)[number];
+
+export const EVENT_STATUSES = ["Programmato", "Completato", "Cancellato", "Rinviato"] as const;
+export type EventStatus = (typeof EVENT_STATUSES)[number];
+
+export const PLAN_FREQUENCIES = ["MENSILE", "SETTIMANALE", "TRIMESTRALE"] as const;
+export type PlanFrequency = (typeof PLAN_FREQUENCIES)[number];
+
+// ════════════════════════════════════════════════════════════
+// AUTH (api/auth/schemas.py)
+// ════════════════════════════════════════════════════════════
+
+/** POST /api/auth/register */
+export interface TrainerRegister {
+  email: string;
+  nome: string;
+  cognome: string;
+  password: string;
+}
+
+/** POST /api/auth/login */
+export interface TrainerLogin {
+  email: string;
+  password: string;
+}
+
+/** Risposta login/register — TokenResponse */
+export interface TokenResponse {
+  access_token: string;
+  token_type: string;
+  trainer_id: number;
+  nome: string;
+  cognome: string;
+}
+
+/** Dati pubblici trainer — TrainerPublic */
+export interface Trainer {
+  id: number;
+  email: string;
+  nome: string;
+  cognome: string;
+  is_active: boolean;
+}
+
+// ════════════════════════════════════════════════════════════
+// CLIENT (api/routers/clients.py — inline schemas)
+// ════════════════════════════════════════════════════════════
+
+/** POST /api/clients */
+export interface ClientCreate {
+  nome: string;
+  cognome: string;
+  telefono?: string | null;
+  email?: string | null;
+  data_nascita?: string | null; // ISO date string "YYYY-MM-DD"
+  sesso?: "Uomo" | "Donna" | "Altro" | null;
+  anamnesi?: Record<string, unknown>;
+  stato?: "Attivo" | "Inattivo";
+}
+
+/** PUT /api/clients/{id} (partial update) */
+export interface ClientUpdate {
+  nome?: string | null;
+  cognome?: string | null;
+  telefono?: string | null;
+  email?: string | null;
+  data_nascita?: string | null;
+  sesso?: "Uomo" | "Donna" | "Altro" | null;
+  anamnesi?: Record<string, unknown> | null;
+  stato?: "Attivo" | "Inattivo" | null;
+}
+
+/** ClientResponse — restituito da GET/POST/PUT */
+export interface Client {
+  id: number;
+  nome: string;
+  cognome: string;
+  telefono: string | null;
+  email: string | null;
+  data_nascita: string | null; // Backend restituisce come string
+  sesso: string | null;
+  stato: string;
+}
+
+// ════════════════════════════════════════════════════════════
+// EVENT (api/routers/agenda.py — inline schemas)
+// ════════════════════════════════════════════════════════════
+
+/** POST /api/agenda */
+export interface EventCreate {
+  data_inizio: string; // ISO datetime "YYYY-MM-DDTHH:MM:SS"
+  data_fine: string;
+  categoria: string;
+  titolo: string;
+  id_cliente?: number | null;
+  id_contratto?: number | null;
+  stato?: string;
+  note?: string | null;
+}
+
+/** PUT /api/agenda/{id} (partial update) */
+export interface EventUpdate {
+  data_inizio?: string | null;
+  data_fine?: string | null;
+  titolo?: string | null;
+  note?: string | null;
+  stato?: string | null;
+}
+
+/** EventResponse — restituito da GET/POST/PUT */
+export interface Event {
+  id: number;
+  data_inizio: string; // ISO datetime string
+  data_fine: string;
+  categoria: string;
+  titolo: string | null;
+  id_cliente: number | null;
+  id_contratto: number | null;
+  stato: string;
+  note: string | null;
+}
+
+// ════════════════════════════════════════════════════════════
+// CONTRACT (api/schemas/financial.py)
+// ════════════════════════════════════════════════════════════
+
+/** POST /api/contracts */
+export interface ContractCreate {
+  id_cliente: number;
+  tipo_pacchetto: string;
+  crediti_totali: number;
+  prezzo_totale: number;
+  data_inizio: string; // ISO date "YYYY-MM-DD"
+  data_scadenza: string;
+  acconto?: number;
+  metodo_acconto?: string | null;
+  note?: string | null;
+}
+
+/** PUT /api/contracts/{id} (partial update) */
+export interface ContractUpdate {
+  tipo_pacchetto?: string | null;
+  crediti_totali?: number | null;
+  prezzo_totale?: number | null;
+  data_inizio?: string | null;
+  data_scadenza?: string | null;
+  note?: string | null;
+}
+
+/** ContractResponse — restituito da GET/POST/PUT */
+export interface Contract {
+  id: number;
+  id_cliente: number;
+  tipo_pacchetto: string | null;
+  data_vendita: string | null; // ISO date
+  data_inizio: string | null;
+  data_scadenza: string | null;
+  crediti_totali: number | null;
+  crediti_usati: number;
+  prezzo_totale: number | null;
+  totale_versato: number;
+  stato_pagamento: string;
+  note: string | null;
+  chiuso: boolean;
+}
+
+/** ContractWithRatesResponse — GET /api/contracts/{id} */
+export interface ContractWithRates extends Contract {
+  rate: Rate[];
+}
+
+// ════════════════════════════════════════════════════════════
+// RATE (api/schemas/financial.py)
+// ════════════════════════════════════════════════════════════
+
+/** POST /api/rates */
+export interface RateCreate {
+  id_contratto: number;
+  data_scadenza: string;
+  importo_previsto: number;
+  descrizione?: string | null;
+}
+
+/** PUT /api/rates/{id} (partial update, solo PENDENTI) */
+export interface RateUpdate {
+  data_scadenza?: string | null;
+  importo_previsto?: number | null;
+  descrizione?: string | null;
+}
+
+/** POST /api/rates/{id}/pay — Pagamento atomico */
+export interface RatePayment {
+  importo: number;
+  metodo?: string;
+  data_pagamento?: string;
+  note?: string | null;
+}
+
+/** RateResponse — restituito da GET/POST/PUT/PAY */
+export interface Rate {
+  id: number;
+  id_contratto: number;
+  data_scadenza: string; // ISO date
+  importo_previsto: number;
+  descrizione: string | null;
+  stato: string;
+  importo_saldato: number;
+}
+
+/** POST /api/rates/generate-plan/{contract_id} */
+export interface PaymentPlanCreate {
+  importo_da_rateizzare: number;
+  numero_rate: number;
+  data_prima_rata: string;
+  frequenza?: string;
+}
+
+// ════════════════════════════════════════════════════════════
+// CASH MOVEMENT (api/schemas/financial.py)
+// ════════════════════════════════════════════════════════════
+
+/** POST /api/movements (solo manuali — Ledger Integrity) */
+export interface MovementManualCreate {
+  importo: number;
+  tipo: MovementType;
+  categoria?: string | null;
+  metodo?: string | null;
+  data_effettiva: string; // ISO date
+  note?: string | null;
+}
+
+/** MovementResponse — restituito da GET/POST */
+export interface CashMovement {
+  id: number;
+  data_movimento: string | null; // ISO datetime
+  data_effettiva: string; // ISO date
+  tipo: string;
+  categoria: string | null;
+  importo: number;
+  metodo: string | null;
+  id_cliente: number | null;
+  id_contratto: number | null;
+  id_rata: number | null;
+  note: string | null;
+  operatore: string;
+}
+
+// ════════════════════════════════════════════════════════════
+// DASHBOARD (api/schemas/financial.py)
+// ════════════════════════════════════════════════════════════
+
+/** GET /api/dashboard/summary */
+export interface DashboardSummary {
+  active_clients: number;
+  monthly_revenue: number;
+  pending_rates: number;
+  todays_appointments: number;
+}
+
+// ════════════════════════════════════════════════════════════
+// GENERIC PAGINATED RESPONSE
+// ════════════════════════════════════════════════════════════
+
+/** Wrapper paginato generico — usato da GET /clients, /contracts, /movements */
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+/** Wrapper lista semplice — usato da GET /rates, /rates/generate-plan */
+export interface ListResponse<T> {
+  items: T[];
+  total: number;
+}
