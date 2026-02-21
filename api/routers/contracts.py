@@ -21,10 +21,14 @@ from api.models.trainer import Trainer
 from api.models.client import Client
 from api.models.contract import Contract
 from api.models.rate import Rate
+from api.models.movement import CashMovement
 from api.schemas.financial import (
     ContractCreate, ContractUpdate,
     ContractResponse, ContractWithRatesResponse, RateResponse,
 )
+
+# Categoria movimento cassa per acconto (allineata a ContractRepository)
+CATEGORIA_ACCONTO = "ACCONTO_CONTRATTO"
 
 router = APIRouter(prefix="/contracts", tags=["contracts"])
 
@@ -167,6 +171,25 @@ def create_contract(
         note=data.note,
     )
     session.add(contract)
+
+    # Flush per ottenere l'ID del contratto (necessario per il CashMovement)
+    session.flush()
+
+    # 3. Se acconto > 0, registra nel libro mastro (CashMovement ENTRATA)
+    if data.acconto > 0:
+        movement = CashMovement(
+            trainer_id=trainer.id,
+            data_effettiva=data.data_inizio,
+            tipo="ENTRATA",
+            categoria=CATEGORIA_ACCONTO,
+            importo=data.acconto,
+            metodo=data.metodo_acconto,
+            id_cliente=data.id_cliente,
+            id_contratto=contract.id,
+            note=f"Acconto contratto #{contract.id}",
+        )
+        session.add(movement)
+
     session.commit()
     session.refresh(contract)
 

@@ -475,9 +475,125 @@ ok("GET dopo DELETE -> 404") if r.status_code == 404 else fail(f"ancora presente
 
 
 # ════════════════════════════════════════════════════════════
+# TEST 26: Verifica CashMovement acconto creato
+# ════════════════════════════════════════════════════════════
+print("\n=== TEST 26: CashMovement acconto ===")
+# Creo un contratto fresco con acconto per testare il ledger
+r = requests.post(f"{BASE}/contracts", json={
+    "id_cliente": client_a["id"],
+    "tipo_pacchetto": "Ledger Test",
+    "crediti_totali": 5,
+    "prezzo_totale": 300,
+    "data_inizio": "2026-03-01",
+    "data_scadenza": "2026-06-01",
+    "acconto": 50,
+    "metodo_acconto": "CONTANTI",
+}, headers=headers_a)
+if r.status_code == 201:
+    ledger_contract = r.json()
+    # Verifico che esiste un movimento cassa per l'acconto
+    import sqlite3
+    conn = sqlite3.connect("data/crm.db")
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT * FROM movimenti_cassa WHERE id_contratto = ? AND categoria = 'ACCONTO_CONTRATTO'",
+        (ledger_contract["id"],)
+    )
+    mov = cur.fetchone()
+    if mov and mov["importo"] == 50 and mov["tipo"] == "ENTRATA" and mov["metodo"] == "CONTANTI":
+        ok(f"CashMovement acconto creato: {mov['importo']}€ {mov['metodo']} ({mov['categoria']})")
+    else:
+        fail(f"CashMovement acconto non trovato o errato: {dict(mov) if mov else 'None'}")
+    conn.close()
+else:
+    fail(f"atteso 201, ricevuto {r.status_code}")
+
+
+# ════════════════════════════════════════════════════════════
+# TEST 27: Verifica CashMovement pagamento rata
+# ════════════════════════════════════════════════════════════
+print("\n=== TEST 27: CashMovement pagamento rata ===")
+# Genero una rata e la pago
+r = requests.post(f"{BASE}/rates/generate-plan/{ledger_contract['id']}", json={
+    "importo_da_rateizzare": 250,
+    "numero_rate": 2,
+    "data_prima_rata": "2026-04-01",
+}, headers=headers_a)
+if r.status_code == 201:
+    ledger_rates = r.json()["items"]
+    # Pago la prima rata
+    r = requests.post(f"{BASE}/rates/{ledger_rates[0]['id']}/pay", json={
+        "importo": 125, "metodo": "BONIFICO", "note": "Test ledger"
+    }, headers=headers_a)
+    if r.status_code == 200:
+        conn = sqlite3.connect("data/crm.db")
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT * FROM movimenti_cassa WHERE id_rata = ? AND categoria = 'PAGAMENTO_RATA'",
+            (ledger_rates[0]["id"],)
+        )
+        mov = cur.fetchone()
+        if mov and mov["importo"] == 125 and mov["tipo"] == "ENTRATA" and mov["metodo"] == "BONIFICO":
+            ok(f"CashMovement rata creato: {mov['importo']}€ {mov['metodo']} (rata #{mov['id_rata']})")
+        else:
+            fail(f"CashMovement rata non trovato: {dict(mov) if mov else 'None'}")
+
+        # Verifico che id_contratto e id_cliente sono collegati
+        if mov and mov["id_contratto"] == ledger_contract["id"] and mov["id_cliente"] == client_a["id"]:
+            ok(f"CashMovement linkato: contratto={mov['id_contratto']}, cliente={mov['id_cliente']}")
+        else:
+            fail("CashMovement non linkato correttamente")
+        conn.close()
+    else:
+        fail(f"pagamento fallito: {r.status_code}")
+else:
+    fail(f"piano rate fallito: {r.status_code}")
+
+
+# ════════════════════════════════════════════════════════════
+# TEST 28: Rounding — il centesimo non si perde
+# ════════════════════════════════════════════════════════════
+print("\n=== TEST 28: Rounding corretto (centesimo perduto) ===")
+# 100€ / 3 rate -> 33.34 + 33.33 + 33.33 = 100.00
+r = requests.post(f"{BASE}/rates/generate-plan/{ledger_contract['id']}", json={
+    "importo_da_rateizzare": 100,
+    "numero_rate": 3,
+    "data_prima_rata": "2026-05-01",
+}, headers=headers_a)
+if r.status_code == 201:
+    rounding_rates = r.json()["items"]
+    amounts = [rt["importo_previsto"] for rt in rounding_rates]
+    total_sum = sum(amounts)
+    if abs(total_sum - 100.0) < 0.001:
+        ok(f"Somma rate = {total_sum} (rate: {amounts})")
+    else:
+        fail(f"Somma rate = {total_sum} != 100.00 (rate: {amounts})")
+    # La prima rata deve avere il resto
+    if amounts[0] > amounts[1]:
+        ok(f"Resto sulla prima rata: {amounts[0]} > {amounts[1]}")
+    else:
+        fail(f"Resto non sulla prima rata: {amounts}")
+else:
+    fail(f"piano rate fallito: {r.status_code}")
+
+
+# ════════════════════════════════════════════════════════════
 # CLEANUP
 # ════════════════════════════════════════════════════════════
+# Pulisci movimenti cassa creati dal test
+import sqlite3
+conn = sqlite3.connect("data/crm.db")
+cur = conn.cursor()
+if 'ledger_contract' in dir():
+    cur.execute("DELETE FROM movimenti_cassa WHERE id_contratto = ?", (ledger_contract["id"],))
+    conn.commit()
+conn.close()
+
 requests.delete(f"{BASE}/contracts/{contract_a['id']}", headers=headers_a)
+if 'ledger_contract' in dir():
+    requests.delete(f"{BASE}/contracts/{ledger_contract['id']}", headers=headers_a)
 requests.delete(f"{BASE}/clients/{client_a['id']}", headers=headers_a)
 requests.delete(f"{BASE}/clients/{client_b['id']}", headers=headers_b)
 

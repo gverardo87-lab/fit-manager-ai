@@ -15,8 +15,12 @@ per l'ownership sul contratto.
 """
 
 from datetime import date
-from typing import Optional
-from sqlmodel import SQLModel, Field
+from typing import Optional, List, TYPE_CHECKING
+from sqlmodel import SQLModel, Field, Relationship
+
+if TYPE_CHECKING:
+    from api.models.contract import Contract
+    from api.models.movement import CashMovement
 
 
 class Rate(SQLModel, table=True):
@@ -25,6 +29,10 @@ class Rate(SQLModel, table=True):
 
     Mappa 1:1 le colonne SQLite. L'ownership e' derivata:
     Rate -> Contract -> trainer_id (Deep Relational IDOR).
+
+    Relationships:
+    - contract: Contract padre (N:1)
+    - movements: lista CashMovement associate (1:N)
     """
     __tablename__ = "rate_programmate"
 
@@ -35,3 +43,7 @@ class Rate(SQLModel, table=True):
     descrizione: Optional[str] = None
     stato: str = Field(default="PENDENTE")
     importo_saldato: float = Field(default=0)
+
+    # Relationships
+    contract: Optional["Contract"] = Relationship(back_populates="rates")
+    movements: List["CashMovement"] = Relationship(back_populates="rate")

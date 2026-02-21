@@ -10,12 +10,13 @@ Sicurezza — Deep Relational IDOR:
   Se la query non restituisce nulla -> 404 (mai 403).
 
 Pagamento Atomico (POST /api/rates/{id}/pay):
-  Operazione transazionale in 5 passi:
+  Operazione transazionale in 6 passi:
   A) Deep IDOR check
   B) Verifica rata non gia' SALDATA
   C) Aggiorna importo_saldato e stato rata
-  D) Ricalcola totale_versato contratto (somma tutte le rate SALDATE)
+  D) Aggiorna totale_versato contratto (incrementale, preserva acconto)
   E) Se totale_versato >= prezzo_totale -> stato_pagamento = SALDATO
+  E-bis) Registra CashMovement ENTRATA nel libro mastro
   F) session.commit() SOLO alla fine (rollback automatico su eccezione)
 """
 
@@ -29,10 +30,14 @@ from api.dependencies import get_current_trainer
 from api.models.trainer import Trainer
 from api.models.contract import Contract
 from api.models.rate import Rate
+from api.models.movement import CashMovement
 from api.schemas.financial import (
     RateCreate, RateUpdate, RatePayment,
     RateResponse, PaymentPlanCreate,
 )
+
+# Categorie movimento cassa (allineate a ContractRepository)
+CATEGORIA_PAGAMENTO_RATA = "PAGAMENTO_RATA"
 
 router = APIRouter(prefix="/rates", tags=["rates"])
 
@@ -281,6 +286,21 @@ def pay_rate(
 
     session.add(contract)
 
+    # E-bis) Registra nel libro mastro (CashMovement ENTRATA)
+    movement = CashMovement(
+        trainer_id=trainer.id,
+        data_effettiva=data.data_pagamento,
+        tipo="ENTRATA",
+        categoria=CATEGORIA_PAGAMENTO_RATA,
+        importo=data.importo,
+        metodo=data.metodo,
+        id_cliente=contract.id_cliente,
+        id_contratto=contract.id,
+        id_rata=rate.id,
+        note=data.note or f"Pagamento rata contratto #{contract.id}",
+    )
+    session.add(movement)
+
     # F) Commit atomico — tutto o niente
     session.commit()
     session.refresh(rate)
@@ -317,8 +337,10 @@ def generate_payment_plan(
     for r in pending_rates:
         session.delete(r)
 
-    # Genera nuove rate
-    rate_amount = data.importo_da_rateizzare / data.numero_rate
+    # Genera nuove rate — aritmetica corretta per evitare il centesimo perduto
+    # Es: 100€ / 3 rate -> 33.34 + 33.33 + 33.33 = 100.00
+    base_amount = round(data.importo_da_rateizzare / data.numero_rate, 2)
+    remainder = round(data.importo_da_rateizzare - (base_amount * data.numero_rate), 2)
     created = []
 
     for i in range(data.numero_rate):
@@ -331,10 +353,13 @@ def generate_payment_plan(
         else:
             due_date = data.data_prima_rata + relativedelta(months=i)
 
+        # Il resto va sulla prima rata
+        amount = base_amount + remainder if i == 0 else base_amount
+
         rate = Rate(
             id_contratto=contract_id,
             data_scadenza=due_date,
-            importo_previsto=round(rate_amount, 2),
+            importo_previsto=amount,
             descrizione=f"Rata {i + 1}/{data.numero_rate}",
         )
         session.add(rate)

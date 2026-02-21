@@ -15,8 +15,12 @@ Deep Relational IDOR chain:
 """
 
 from datetime import date, datetime
-from typing import Optional
-from sqlmodel import SQLModel, Field
+from typing import Optional, List, TYPE_CHECKING
+from sqlmodel import SQLModel, Field, Relationship
+
+if TYPE_CHECKING:
+    from api.models.rate import Rate
+    from api.models.movement import CashMovement
 
 
 class Contract(SQLModel, table=True):
@@ -25,6 +29,10 @@ class Contract(SQLModel, table=True):
 
     Mappa 1:1 le colonne SQLite. Il campo trainer_id e' la FK
     per la multi-tenancy: ogni contratto appartiene a un trainer.
+
+    Relationships:
+    - rates: lista Rate associate (1:N)
+    - movements: lista CashMovement associate (1:N)
     """
     __tablename__ = "contratti"
 
@@ -42,3 +50,7 @@ class Contract(SQLModel, table=True):
     stato_pagamento: str = Field(default="PENDENTE")
     note: Optional[str] = None
     chiuso: bool = Field(default=False)
+
+    # Relationships (lazy-loaded, non incluse in JSON di default)
+    rates: List["Rate"] = Relationship(back_populates="contract")
+    movements: List["CashMovement"] = Relationship(back_populates="contract")

@@ -10,7 +10,8 @@ Cosa succede al startup:
 2. Aggiunge colonna 'trainer_id' a 'clienti' se non esiste
 3. Aggiunge colonna 'trainer_id' a 'agenda' se non esiste
 4. Aggiunge colonna 'trainer_id' a 'contratti' se non esiste
-5. Registra tutti i router (auth, clients, agenda, ...)
+5. Aggiunge colonna 'trainer_id' a 'movimenti_cassa' se non esiste
+6. Registra tutti i router (auth, clients, agenda, contracts, rates)
 """
 
 import logging
@@ -38,6 +39,7 @@ def _run_migrations() -> None:
     - clienti: FK verso trainers per filtrare clienti per trainer
     - agenda: FK verso trainers per filtrare TUTTI gli eventi (anche quelli senza cliente)
     - contratti: FK verso trainers per filtrare contratti (Deep Relational IDOR base)
+    - movimenti_cassa: FK verso trainers per filtrare il libro mastro
 
     Le tabelle nuove (trainers) vengono create da SQLModel.metadata.create_all().
     """
@@ -73,6 +75,14 @@ def _run_migrations() -> None:
     if "trainer_id" not in contratti_cols:
         logger.info("Migration: aggiunta colonna trainer_id a contratti")
         cursor.execute("ALTER TABLE contratti ADD COLUMN trainer_id INTEGER REFERENCES trainers(id)")
+        conn.commit()
+
+    # --- Migrazione 4: trainer_id su movimenti_cassa ---
+    cursor.execute("PRAGMA table_info(movimenti_cassa)")
+    movimenti_cols = [col[1] for col in cursor.fetchall()]
+    if "trainer_id" not in movimenti_cols:
+        logger.info("Migration: aggiunta colonna trainer_id a movimenti_cassa")
+        cursor.execute("ALTER TABLE movimenti_cassa ADD COLUMN trainer_id INTEGER REFERENCES trainers(id)")
         conn.commit()
 
     conn.close()
