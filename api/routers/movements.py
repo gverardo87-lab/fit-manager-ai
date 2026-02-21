@@ -84,7 +84,8 @@ def sync_recurring_expenses_for_month(
         # INSERT atomico con guard NOT EXISTS — immune a race condition.
         # Se un'altra richiesta concorrente ha gia' inserito lo stesso
         # movimento, il NOT EXISTS blocca l'inserimento a livello SQL.
-        result = session.exec(
+        # NB: session.execute (non .exec) per raw SQL con parametri.
+        result = session.execute(
             text("""
                 INSERT INTO movimenti_cassa
                     (trainer_id, data_effettiva, tipo, categoria, importo,
