@@ -328,21 +328,21 @@ def unpay_rate(
 
     Step:
     A) Deep IDOR: verifica Rate -> Contract -> trainer_id
-    B) Business rule: rata NON saldata -> 400
+    B) Business rule: rata PENDENTE (nulla da stornare) -> 400
     C) Riporta rata a PENDENTE, azzera importo_saldato
     D) Sottrai importo dal totale_versato contratto
     E) Ricalcola stato_pagamento contratto
-    F) Trova ed elimina il CashMovement associato (id_rata + tipo=ENTRATA)
+    F) Trova ed elimina i CashMovement associati (id_rata + tipo=ENTRATA)
     G) session.commit() SOLO qui (atomicita')
     """
     # A) Deep Relational IDOR
     rate = _bouncer_rate(session, rate_id, trainer.id)
 
-    # B) Solo rate SALDATE possono essere revocate
-    if rate.stato != "SALDATA":
+    # B) Nulla da stornare se importo_saldato == 0
+    if rate.importo_saldato <= 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Solo le rate saldate possono essere revocate",
+            detail="Nessun pagamento da revocare su questa rata",
         )
 
     # C) Riporta rata a PENDENTE
@@ -364,15 +364,16 @@ def unpay_rate(
         contract.stato_pagamento = "PARZIALE"
     session.add(contract)
 
-    # F) Elimina il CashMovement associato
-    movement = session.exec(
+    # F) Elimina TUTTI i CashMovement associati (puo' averne piu' di uno
+    #    se la rata ha ricevuto pagamenti parziali multipli)
+    movements = session.exec(
         select(CashMovement).where(
             CashMovement.id_rata == rate_id,
             CashMovement.tipo == "ENTRATA",
             CashMovement.trainer_id == trainer.id,
         )
-    ).first()
-    if movement:
+    ).all()
+    for movement in movements:
         session.delete(movement)
 
     # G) Commit atomico

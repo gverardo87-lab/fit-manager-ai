@@ -90,7 +90,9 @@ def _to_response_with_rates(
             somma_saldate += r.importo_previsto
             n_pagate += 1
         else:
-            somma_pendenti += r.importo_previsto
+            # Usa importo_residuo (previsto - saldato) per rate PARZIALI.
+            # Es: previsto=400, saldato=100 → conta 300, non 400.
+            somma_pendenti += r.importo_previsto - r.importo_saldato
         if is_scaduta:
             n_scadute += 1
 
