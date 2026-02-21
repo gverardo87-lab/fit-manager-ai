@@ -14,7 +14,7 @@
  */
 
 import { useState } from "react";
-import { format, parseISO, isPast } from "date-fns";
+import { format, parseISO, isPast, differenceInDays } from "date-fns";
 import { it } from "date-fns/locale";
 import {
   CheckCircle2,
@@ -103,8 +103,9 @@ export function PaymentPlanTab({ contract }: PaymentPlanTabProps) {
 // ════════════════════════════════════════════════════════════
 
 function GeneratePlanForm({ contract }: { contract: ContractWithRates }) {
+  // Importo da rateizzare = prezzo - acconto (mai sottrarre i pagamenti rate)
   const remaining =
-    (contract.prezzo_totale ?? 0) - contract.totale_versato;
+    (contract.prezzo_totale ?? 0) - contract.acconto;
 
   const [numeroRate, setNumeroRate] = useState(3);
   const [frequenza, setFrequenza] = useState("MENSILE");
@@ -223,25 +224,66 @@ function RatesList({
     (r) => r.stato !== "SALDATA" && isPast(parseISO(r.data_scadenza))
   ).length;
 
-  // Financial Mismatch Alert — formula corretta con acconto derivato
-  // acconto = totale_versato - sum(importo_saldato delle rate)
-  const sommaRateSaldate = rates.reduce((sum, r) => sum + r.importo_saldato, 0);
-  const acconto = contract.totale_versato - sommaRateSaldate;
-  const importoTarget = (contract.prezzo_totale ?? 0) - Math.max(0, acconto);
-  const sommaRateTotali = rates.reduce((sum, r) => sum + r.importo_previsto, 0);
-  const hasMismatch = Math.abs(importoTarget - sommaRateTotali) > 0.01;
+  // Breakdown finanziario — formula chiara con acconto first-class
+  const prezzoTotale = contract.prezzo_totale ?? 0;
+  const acconto = contract.acconto;
+  const daRateizzare = prezzoTotale - acconto;
+  const sommaRatePreviste = rates.reduce((sum, r) => sum + r.importo_previsto, 0);
+  const mancante = Math.round((daRateizzare - sommaRatePreviste) * 100) / 100;
+  const hasMismatch = Math.abs(mancante) > 0.01;
 
   return (
     <div className="space-y-3">
-      {/* Financial Mismatch Alert */}
+      {/* ── Breakdown Finanziario ── */}
+      <div className="rounded-lg border bg-zinc-50/80 p-4 dark:bg-zinc-800/30">
+        <table className="w-full text-sm">
+          <tbody>
+            <tr>
+              <td className="py-0.5 text-muted-foreground">Prezzo totale</td>
+              <td className="py-0.5 text-right font-semibold tabular-nums">
+                {formatCurrency(prezzoTotale)}
+              </td>
+            </tr>
+            {acconto > 0 && (
+              <tr>
+                <td className="py-0.5 text-muted-foreground">Acconto</td>
+                <td className="py-0.5 text-right font-semibold tabular-nums text-blue-700 dark:text-blue-400">
+                  &minus;{formatCurrency(acconto)}
+                </td>
+              </tr>
+            )}
+            <tr className="border-t">
+              <td className="pt-1 font-medium">Da rateizzare</td>
+              <td className="pt-1 text-right font-bold tabular-nums">
+                {formatCurrency(daRateizzare)}
+              </td>
+            </tr>
+            <tr>
+              <td className="py-0.5 text-muted-foreground">Rate generate</td>
+              <td className={`py-0.5 text-right font-semibold tabular-nums ${
+                hasMismatch
+                  ? "text-amber-700 dark:text-amber-400"
+                  : "text-emerald-700 dark:text-emerald-400"
+              }`}>
+                {formatCurrency(sommaRatePreviste)}
+                {!hasMismatch && " ✓"}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mismatch Alert — linguaggio chiaro */}
       {hasMismatch && (
-        <Alert variant="destructive">
+        <Alert variant={mancante > 0 ? "destructive" : "default"}>
           <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Incongruenza Finanziaria</AlertTitle>
+          <AlertTitle>Piano rate da allineare</AlertTitle>
           <AlertDescription>
-            Il totale da rateizzare e' {formatCurrency(importoTarget)}, ma la
-            somma delle rate attuali e' {formatCurrency(sommaRateTotali)}.
-            Aggiusta gli importi.
+            {mancante > 0
+              ? `Il piano rate copre ${formatCurrency(sommaRatePreviste)} su ${formatCurrency(daRateizzare)} da rateizzare. Mancano ${formatCurrency(mancante)}.`
+              : `Le rate superano il dovuto di ${formatCurrency(Math.abs(mancante))}. Aggiusta gli importi.`
+            }
+            {" "}Rigenera il piano per allinearlo.
           </AlertDescription>
         </Alert>
       )}
@@ -370,6 +412,9 @@ function RateCard({
 
   const isSaldata = rate.stato === "SALDATA";
   const isOverdue = !isSaldata && isPast(parseISO(rate.data_scadenza));
+  const overdueDays = isOverdue
+    ? differenceInDays(new Date(), parseISO(rate.data_scadenza))
+    : 0;
 
   const cardClasses = isOverdue
     ? "rounded-lg border-2 border-red-200 bg-red-50/50 p-4 dark:border-red-900/60 dark:bg-red-950/20"
@@ -401,6 +446,16 @@ function RateCard({
                 })}
               </p>
             </div>
+            {/* ── Alert scaduta intelligente: giorni di ritardo ── */}
+            {isOverdue && (
+              <p className={`text-[11px] font-bold mt-0.5 ${
+                overdueDays > 30
+                  ? "text-red-700 dark:text-red-400"
+                  : "text-amber-700 dark:text-amber-400"
+              }`}>
+                Scaduta da {overdueDays} giorn{overdueDays === 1 ? "o" : "i"}
+              </p>
+            )}
           </div>
         </div>
 
@@ -457,6 +512,17 @@ function RateCard({
         </div>
       </div>
 
+      {/* ── Ricevuta pagamento (solo rate SALDATE) ── */}
+      {isSaldata && rate.data_pagamento && (
+        <div className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+          <span>
+            Pagata il {format(parseISO(rate.data_pagamento), "dd MMM yyyy", { locale: it })}
+            {rate.metodo_pagamento && ` — ${rate.metodo_pagamento}`}
+          </span>
+        </div>
+      )}
+
       {/* ── Azione pagamento ── */}
       {!isSaldata && !showPayForm && (
         <Button
@@ -470,7 +536,10 @@ function RateCard({
           onClick={() => setShowPayForm(true)}
         >
           <Banknote className="mr-2 h-4 w-4" />
-          {isOverdue ? "Paga Ora — Rata Scaduta" : "Segna come Pagata"}
+          {isOverdue
+            ? `Paga Ora — ${overdueDays}g di ritardo`
+            : "Segna come Pagata"
+          }
         </Button>
       )}
 

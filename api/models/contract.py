@@ -46,6 +46,7 @@ class Contract(SQLModel, table=True):
     crediti_totali: Optional[int] = None
     crediti_usati: int = Field(default=0)
     prezzo_totale: Optional[float] = None
+    acconto: float = Field(default=0)
     totale_versato: float = Field(default=0)
     stato_pagamento: str = Field(default="PENDENTE")
     note: Optional[str] = None

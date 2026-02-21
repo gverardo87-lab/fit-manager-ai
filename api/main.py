@@ -96,7 +96,28 @@ def _run_migrations() -> None:
         cursor.execute("ALTER TABLE spese_ricorrenti ADD COLUMN trainer_id INTEGER REFERENCES trainers(id)")
         conn.commit()
 
-    # --- Migrazione 6: backfill trainer_id orfani ---
+    # --- Migrazione 6: acconto su contratti ---
+    cursor.execute("PRAGMA table_info(contratti)")
+    contratti_cols_v2 = [col[1] for col in cursor.fetchall()]
+    if "acconto" not in contratti_cols_v2:
+        logger.info("Migration: aggiunta colonna acconto a contratti")
+        cursor.execute("ALTER TABLE contratti ADD COLUMN acconto REAL DEFAULT 0")
+        # Backfill: recupera acconto da CashMovement ACCONTO_CONTRATTO
+        cursor.execute("""
+            UPDATE contratti SET acconto = COALESCE(
+                (SELECT SUM(m.importo)
+                 FROM movimenti_cassa m
+                 WHERE m.id_contratto = contratti.id
+                   AND m.categoria = 'ACCONTO_CONTRATTO'
+                   AND m.tipo = 'ENTRATA'),
+                0
+            )
+        """)
+        backfilled = cursor.rowcount
+        conn.commit()
+        logger.info("Migration: backfill acconto su %d contratti", backfilled)
+
+    # --- Migrazione 7: backfill trainer_id orfani ---
     # Se Streamlit crea record senza trainer_id, li assegna al primo trainer.
     cursor.execute("SELECT MIN(id) FROM trainers")
     row = cursor.fetchone()

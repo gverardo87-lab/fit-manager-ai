@@ -43,11 +43,30 @@ def _to_response(contract: Contract) -> ContractResponse:
     return ContractResponse.model_validate(contract)
 
 
-def _to_response_with_rates(contract: Contract, rates: list[Rate]) -> ContractWithRatesResponse:
-    """Converte Contract + Rate in ContractWithRatesResponse."""
+def _to_response_with_rates(
+    contract: Contract,
+    rates: list[Rate],
+    receipt_map: dict[int, CashMovement] | None = None,
+) -> ContractWithRatesResponse:
+    """
+    Converte Contract + Rate in ContractWithRatesResponse.
+
+    receipt_map: {rate_id: ultimo CashMovement PAGAMENTO_RATA} per arricchire
+    le rate SALDATE con data_pagamento e metodo_pagamento.
+    """
+    enriched_rates = []
+    for r in rates:
+        rate_data = RateResponse.model_validate(r).model_dump()
+        # Arricchisci con ricevuta se disponibile
+        if receipt_map and r.id in receipt_map:
+            mov = receipt_map[r.id]
+            rate_data["data_pagamento"] = mov.data_effettiva
+            rate_data["metodo_pagamento"] = mov.metodo
+        enriched_rates.append(RateResponse(**rate_data))
+
     return ContractWithRatesResponse(
         **ContractResponse.model_validate(contract).model_dump(),
-        rate=[RateResponse.model_validate(r) for r in rates],
+        rate=enriched_rates,
     )
 
 
@@ -184,7 +203,23 @@ def get_contract(
         select(Rate).where(Rate.id_contratto == contract_id).order_by(Rate.data_scadenza)
     ).all())
 
-    return _to_response_with_rates(contract, rates)
+    # Batch fetch ricevute pagamento per rate SALDATE (1 query, zero N+1)
+    saldata_ids = [r.id for r in rates if r.stato == "SALDATA"]
+    receipt_map: dict[int, CashMovement] = {}
+    if saldata_ids:
+        movements = session.exec(
+            select(CashMovement).where(
+                CashMovement.id_rata.in_(saldata_ids),
+                CashMovement.tipo == "ENTRATA",
+                CashMovement.trainer_id == trainer.id,
+            ).order_by(CashMovement.data_effettiva.desc())
+        ).all()
+        # Per ogni rata, prendi il pagamento piu' recente
+        for mov in movements:
+            if mov.id_rata and mov.id_rata not in receipt_map:
+                receipt_map[mov.id_rata] = mov
+
+    return _to_response_with_rates(contract, rates, receipt_map)
 
 
 # ════════════════════════════════════════════════════════════
@@ -216,6 +251,7 @@ def create_contract(
         prezzo_totale=data.prezzo_totale,
         data_inizio=data.data_inizio,
         data_scadenza=data.data_scadenza,
+        acconto=data.acconto,
         totale_versato=data.acconto,
         stato_pagamento="PENDENTE",
         note=data.note,

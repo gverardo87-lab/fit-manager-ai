@@ -404,6 +404,25 @@ def generate_payment_plan(
     # Bouncer sul contratto
     contract = _bouncer_contract(session, contract_id, trainer.id)
 
+    # Validazione: importo_da_rateizzare deve corrispondere al residuo reale
+    # Residuo = prezzo_totale - acconto - somma rate SALDATE gia' pagate
+    saldate = session.exec(
+        select(Rate).where(Rate.id_contratto == contract_id, Rate.stato == "SALDATA")
+    ).all()
+    somma_saldate = sum(r.importo_previsto for r in saldate)
+    residuo_atteso = round((contract.prezzo_totale or 0) - contract.acconto - somma_saldate, 2)
+
+    if abs(data.importo_da_rateizzare - residuo_atteso) > 0.01:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"importo_da_rateizzare ({data.importo_da_rateizzare:.2f}) "
+                f"non corrisponde al residuo ({residuo_atteso:.2f}). "
+                f"Formula: prezzo_totale ({contract.prezzo_totale}) - acconto ({contract.acconto}) "
+                f"- rate saldate ({somma_saldate:.2f})"
+            ),
+        )
+
     # Elimina rate PENDENTI esistenti
     pending_rates = session.exec(
         select(Rate).where(Rate.id_contratto == contract_id, Rate.stato == "PENDENTE")

@@ -191,6 +191,7 @@ export interface Contract {
   crediti_totali: number | null;
   crediti_usati: number;
   prezzo_totale: number | null;
+  acconto: number;
   totale_versato: number;
   stato_pagamento: string;
   note: string | null;
@@ -247,6 +248,8 @@ export interface Rate {
   descrizione: string | null;
   stato: string;
   importo_saldato: number;
+  data_pagamento: string | null;   // Ricevuta: data effettiva pagamento
+  metodo_pagamento: string | null; // Ricevuta: metodo usato (CONTANTI, POS, etc.)
 }
 
 /** POST /api/rates/generate-plan/{contract_id} */

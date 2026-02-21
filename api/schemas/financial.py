@@ -95,6 +95,7 @@ class ContractResponse(BaseModel):
     crediti_totali: Optional[int] = None
     crediti_usati: int = 0
     prezzo_totale: Optional[float] = None
+    acconto: float = 0
     totale_versato: float = 0
     stato_pagamento: str = "PENDENTE"
     note: Optional[str] = None
@@ -170,7 +171,13 @@ class RatePayment(BaseModel):
 
 
 class RateResponse(BaseModel):
-    """Response model per singola rata."""
+    """
+    Response model per singola rata.
+
+    Campi ricevuta (opzionali, popolati solo per rate SALDATE):
+    - data_pagamento: data effettiva del pagamento (da CashMovement)
+    - metodo_pagamento: metodo usato (CONTANTI, POS, etc.)
+    """
     id: int
     id_contratto: int
     data_scadenza: date
@@ -178,6 +185,8 @@ class RateResponse(BaseModel):
     descrizione: Optional[str] = None
     stato: str = "PENDENTE"
     importo_saldato: float = 0
+    data_pagamento: Optional[date] = None
+    metodo_pagamento: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
