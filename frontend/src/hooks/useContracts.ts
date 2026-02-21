@@ -13,6 +13,7 @@ import type {
   Contract,
   ContractCreate,
   ContractUpdate,
+  ContractWithRates,
   PaginatedResponse,
 } from "@/types/api";
 
@@ -44,6 +45,21 @@ export function useContracts(params: UseContractsParams = {}) {
       );
       return data;
     },
+  });
+}
+
+// ── Query: dettaglio contratto con rate (Master-Detail) ──
+
+export function useContract(id: number | null) {
+  return useQuery<ContractWithRates>({
+    queryKey: ["contract", id],
+    queryFn: async () => {
+      const { data } = await apiClient.get<ContractWithRates>(
+        `/contracts/${id}`
+      );
+      return data;
+    },
+    enabled: id !== null,
   });
 }
 

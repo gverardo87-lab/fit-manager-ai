@@ -19,6 +19,7 @@ import {
   Trash2,
   Search,
   CreditCard,
+  Settings2,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -43,6 +44,7 @@ import type { Contract } from "@/types/api";
 interface ContractsTableProps {
   contracts: Contract[];
   clientMap: Map<number, string>;
+  onManage: (contract: Contract) => void;
   onEdit: (contract: Contract) => void;
   onDelete: (contract: Contract) => void;
 }
@@ -92,6 +94,7 @@ function getStatusBadge(contract: Contract) {
 export function ContractsTable({
   contracts,
   clientMap,
+  onManage,
   onEdit,
   onDelete,
 }: ContractsTableProps) {
@@ -194,6 +197,10 @@ export function ContractsTable({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => onManage(contract)}>
+                          <Settings2 className="mr-2 h-4 w-4" />
+                          Gestisci
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onEdit(contract)}>
                           <Pencil className="mr-2 h-4 w-4" />
                           Modifica
