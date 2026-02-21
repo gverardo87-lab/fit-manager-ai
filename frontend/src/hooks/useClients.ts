@@ -5,9 +5,12 @@
  * Pattern: una funzione per operazione, ognuna con la propria queryKey.
  * Le mutations invalidano ["clients"] su successo → la tabella si aggiorna
  * istantaneamente senza ricaricare la pagina.
+ *
+ * Ogni mutation mostra un toast (sonner) di successo o errore.
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import apiClient from "@/lib/api-client";
 import type {
   Client,
@@ -57,9 +60,13 @@ export function useCreateClient() {
       const { data } = await apiClient.post<Client>("/clients", payload);
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (client) => {
       queryClient.invalidateQueries({ queryKey: ["clients"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success(`${client.nome} ${client.cognome} aggiunto`);
+    },
+    onError: () => {
+      toast.error("Errore nella creazione del cliente");
     },
   });
 }
@@ -80,9 +87,13 @@ export function useUpdateClient() {
       );
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (client) => {
       queryClient.invalidateQueries({ queryKey: ["clients"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success(`${client.nome} ${client.cognome} aggiornato`);
+    },
+    onError: () => {
+      toast.error("Errore nell'aggiornamento del cliente");
     },
   });
 }
@@ -99,6 +110,10 @@ export function useDeleteClient() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["clients"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success("Cliente eliminato");
+    },
+    onError: () => {
+      toast.error("Errore nell'eliminazione del cliente");
     },
   });
 }

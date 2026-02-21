@@ -5,18 +5,17 @@
  * Pagina Clienti — lista con tabella, creazione e modifica via Sheet.
  *
  * Architettura:
- * - useClients() per i dati (React Query)
- * - ClientsTable per la presentazione
+ * - useClients() carica tutti i clienti (React Query)
+ * - ClientsTable gestisce il filtro client-side (istantaneo)
  * - ClientSheet per il form a comparsa (crea/modifica)
  * - DeleteClientDialog per conferma eliminazione
- * - Stato locale per apertura sheet/dialog e cliente selezionato
+ * - Toast (sonner) per feedback su ogni operazione
  */
 
 import { useState } from "react";
-import { Plus, Users, Search } from "lucide-react";
+import { Plus, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ClientsTable } from "@/components/clients/ClientsTable";
 import { ClientSheet } from "@/components/clients/ClientSheet";
@@ -25,16 +24,11 @@ import { useClients } from "@/hooks/useClients";
 import type { Client } from "@/types/api";
 
 export default function ClientiPage() {
-  // Stato UI locale
-  const [search, setSearch] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
-  // Dati dal server
-  const { data, isLoading, isError, refetch } = useClients({
-    search: search || undefined,
-  });
+  const { data, isLoading, isError, refetch } = useClients();
 
   // ── Handlers ──
 
@@ -74,17 +68,6 @@ export default function ClientiPage() {
           <Plus className="mr-2 h-4 w-4" />
           Nuovo Cliente
         </Button>
-      </div>
-
-      {/* ── Barra ricerca ── */}
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Cerca per nome o cognome..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-10"
-        />
       </div>
 
       {/* ── Contenuto ── */}
