@@ -7,7 +7,7 @@ Poi apri: http://localhost:8000/docs (Swagger UI interattiva)
 
 Cosa succede al startup:
 1. Crea tabelle SQLModel (trainers, audit_log) — CREATE IF NOT EXISTS
-2. Registra tutti i router (auth, clients, agenda, contracts, rates, movements, dashboard)
+2. Registra tutti i router (auth, clients, agenda, contracts, rates, movements, dashboard, backup)
 
 Migrazioni schema gestite da Alembic: `alembic upgrade head`
 """
@@ -28,6 +28,7 @@ from api.routers.rates import router as rates_router
 from api.routers.movements import router as movements_router
 from api.routers.recurring_expenses import router as recurring_expenses_router
 from api.routers.dashboard import router as dashboard_router
+from api.routers.backup import router as backup_router
 
 logger = logging.getLogger("fitmanager.api")
 
@@ -77,6 +78,7 @@ app.include_router(rates_router, prefix=API_PREFIX)
 app.include_router(movements_router, prefix=API_PREFIX)
 app.include_router(recurring_expenses_router, prefix=API_PREFIX)
 app.include_router(dashboard_router, prefix=API_PREFIX)
+app.include_router(backup_router, prefix=API_PREFIX)
 
 
 @app.get("/health")
