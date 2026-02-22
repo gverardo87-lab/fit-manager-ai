@@ -42,6 +42,8 @@ dependencies = [
     "bcrypt",
     "python-multipart",
     "alembic",
+    "pytest",
+    "httpx",
 
     # --- LANGCHAIN ECOSYSTEM (AI Logic — core/) ---
     "langchain==0.2.5",
