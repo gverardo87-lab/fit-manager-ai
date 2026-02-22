@@ -168,13 +168,14 @@ def _calc_credits_batch(
     ).all()
     credits_map: Dict[int, int] = {row[0]: int(row[1]) for row in credit_rows}
 
-    # Query 2: sedute PT usate per cliente (non cancellate)
+    # Query 2: sedute PT usate per cliente (non cancellate, solo QUESTO trainer)
     usage_rows = session.exec(
         select(Event.id_cliente, func.count(Event.id))
         .where(
             Event.id_cliente.in_(client_ids),
             Event.categoria == "PT",
             Event.stato != "Cancellato",
+            Event.trainer_id == trainer_id,
         )
         .group_by(Event.id_cliente)
     ).all()

@@ -11,6 +11,7 @@
  */
 
 import { useState, useCallback, useMemo } from "react";
+import { format } from "date-fns";
 import { Calendar, Views, type View, type SlotInfo } from "react-big-calendar";
 import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop";
 
@@ -58,6 +59,20 @@ export function AgendaCalendar({
     (event: CalendarEvent) => ({ style: getEventStyle(event) }),
     []
   );
+
+  /** Tooltip nativo HTML: dettagli completi su hover */
+  const tooltipAccessor = useCallback((event: CalendarEvent) => {
+    const parts: string[] = [];
+    if (event.cliente_nome) {
+      parts.push(`Cliente: ${event.cliente_nome} ${event.cliente_cognome ?? ""}`);
+    }
+    parts.push(`Titolo: ${event.title}`);
+    parts.push(`Orario: ${format(event.start, "HH:mm")} - ${format(event.end, "HH:mm")}`);
+    parts.push(`Categoria: ${event.categoria}`);
+    parts.push(`Stato: ${event.stato}`);
+    if (event.note) parts.push(`Note: ${event.note}`);
+    return parts.join("\n");
+  }, []);
 
   /**
    * onRangeChange riceve formati diversi a seconda della vista:
@@ -117,6 +132,7 @@ export function AgendaCalendar({
       onEventDrop={handleEventDrop}
       onEventResize={handleEventResize}
       eventPropGetter={eventPropGetter}
+      tooltipAccessor={tooltipAccessor}
       messages={italianMessages}
       components={{
         toolbar: CustomToolbar,

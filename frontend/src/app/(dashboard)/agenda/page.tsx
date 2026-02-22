@@ -18,12 +18,17 @@ import { Plus, CalendarDays } from "lucide-react";
 import type { SlotInfo } from "react-big-calendar";
 
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AgendaCalendar } from "@/components/agenda/AgendaCalendar";
 import { EventSheet } from "@/components/agenda/EventSheet";
 import { DeleteEventDialog } from "@/components/agenda/DeleteEventDialog";
 import { useEvents, useUpdateEvent } from "@/hooks/useAgenda";
-import type { CalendarEvent } from "@/components/agenda/calendar-setup";
+import {
+  STATUS_LEGEND,
+  CATEGORY_LEGEND,
+  type CalendarEvent,
+} from "@/components/agenda/calendar-setup";
 
 /** Range iniziale: mese corrente +/- 1 mese di buffer. */
 function getInitialRange() {
@@ -143,6 +148,9 @@ export default function AgendaPage() {
         </Button>
       </div>
 
+      {/* ── Legenda ── */}
+      <StatusLegendBar />
+
       {/* ── Contenuto: 3-state rendering ── */}
       {isLoading && <CalendarSkeleton />}
 
@@ -189,6 +197,46 @@ export default function AgendaPage() {
         onOpenChange={setDeleteOpen}
         event={selectedEvent}
       />
+    </div>
+  );
+}
+
+// ── Legenda colori (categoria x stato) ──
+
+function StatusLegendBar() {
+  return (
+    <div className="flex flex-wrap items-center gap-4 rounded-lg border bg-card px-4 py-2">
+      {/* Indicatori categoria (bordo sinistro) */}
+      <span className="text-xs font-medium text-muted-foreground">Categoria:</span>
+      {CATEGORY_LEGEND.map((cat) => (
+        <div key={cat.categoria} className="flex items-center gap-1.5">
+          <div
+            className="h-3 w-1 rounded-full"
+            style={{ backgroundColor: cat.borderColor }}
+          />
+          <span className="text-xs">{cat.label}</span>
+        </div>
+      ))}
+
+      {/* Separatore */}
+      <div className="h-4 w-px bg-border" />
+
+      {/* Indicatori stato (sfondo) */}
+      <span className="text-xs font-medium text-muted-foreground">Stato:</span>
+      {STATUS_LEGEND.map((s) => (
+        <Badge
+          key={s.stato}
+          variant="outline"
+          className="text-[10px] px-2 py-0"
+          style={{
+            backgroundColor: s.backgroundColor,
+            color: s.color,
+            borderColor: "transparent",
+          }}
+        >
+          {s.label}
+        </Badge>
+      ))}
     </div>
   );
 }
