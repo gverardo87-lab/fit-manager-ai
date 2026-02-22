@@ -215,3 +215,75 @@ def test_unpay_reopens_closed_contract(client, auth_headers, sample_client):
     check2 = client.get(f"/api/contracts/{contract['id']}", headers=auth_headers)
     assert check2.json()["chiuso"] is False
     assert check2.json()["stato_pagamento"] != "SALDATO"
+
+
+# ── Delete contract guards ──
+
+
+def test_delete_contract_blocked_if_paid_rates(client, auth_headers, sample_contract_with_plan):
+    """Delete contratto con rate pagate → 409."""
+    contract = sample_contract_with_plan["contract"]
+    rate = sample_contract_with_plan["rates"][0]
+
+    # Paga una rata
+    client.post(f"/api/rates/{rate['id']}/pay", json={
+        "importo": rate["importo_previsto"],
+        "metodo": "POS",
+        "data_pagamento": "2026-02-01",
+    }, headers=auth_headers)
+
+    # Tentativo di delete → bloccato
+    r = client.delete(f"/api/contracts/{contract['id']}", headers=auth_headers)
+    assert r.status_code == 409
+    assert "pagamenti" in r.json()["detail"].lower()
+
+
+def test_delete_contract_detaches_events(client, auth_headers, sample_client, sample_contract):
+    """Delete contratto → eventi collegati perdono id_contratto (detach)."""
+    # Crea evento PT con id_contratto
+    er = client.post("/api/events", json={
+        "data_inizio": "2026-03-01T09:00:00",
+        "data_fine": "2026-03-01T10:00:00",
+        "categoria": "PT",
+        "titolo": "Sessione test",
+        "id_cliente": sample_client["id"],
+        "id_contratto": sample_contract["id"],
+    }, headers=auth_headers)
+    assert er.status_code == 201
+    event_id = er.json()["id"]
+
+    # Delete contratto
+    dr = client.delete(f"/api/contracts/{sample_contract['id']}", headers=auth_headers)
+    assert dr.status_code == 204
+
+    # Evento esiste ancora ma senza id_contratto
+    ev = client.get(f"/api/events/{event_id}", headers=auth_headers)
+    assert ev.status_code == 200
+    assert ev.json()["id_contratto"] is None
+
+
+# ── Credit engine: contratti chiusi ──
+
+
+def test_credits_include_closed_contracts(client, auth_headers, sample_client):
+    """Crediti residui includono contratti chiusi (chiuso non invalida crediti)."""
+    # Crea contratto con 5 crediti
+    cr = client.post("/api/contracts", json={
+        "id_cliente": sample_client["id"],
+        "tipo_pacchetto": "Test 5",
+        "crediti_totali": 5,
+        "prezzo_totale": 500.0,
+        "data_inizio": "2026-01-01",
+        "data_scadenza": "2026-12-31",
+    }, headers=auth_headers)
+    assert cr.status_code == 201
+    contract = cr.json()
+
+    # Chiudi il contratto
+    client.put(f"/api/contracts/{contract['id']}", json={
+        "chiuso": True,
+    }, headers=auth_headers)
+
+    # Crediti del cliente devono includere i 5 del contratto chiuso
+    cl = client.get(f"/api/clients/{sample_client['id']}", headers=auth_headers)
+    assert cl.json()["crediti_residui"] == 5

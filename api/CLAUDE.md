@@ -92,6 +92,19 @@ clients = session.exec(select(Client).where(Client.id.in_(client_ids))).all()  #
 event_counts = session.exec(select(Event.id_contratto, func.count(...)).group_by(...))  # 4. crediti usati
 ```
 
+### Contract Integrity Engine
+Il contratto e' il nodo centrale del sistema. 5 livelli di protezione:
+
+1. **Residual validation** (`create_rate`): `sum(rate attive) + nuova ≤ prezzo - acconto`
+2. **Chiuso guard**: `create_rate`, `generate_payment_plan`, `create_event(id_contratto)`
+   rifiutano operazioni su contratti chiusi (400)
+3. **Overpayment check** (`pay_rate`):
+   - B-bis: importo ≤ residuo rata
+   - B-ter: importo ≤ residuo contratto (prezzo - totale_versato)
+4. **Auto-close**: se `stato_pagamento == SALDATO` + `crediti_usati >= crediti_totali`
+   → `chiuso = True` (trigger in `pay_rate` e `create_event`)
+5. **Auto-reopen**: `unpay_rate` riapre se non piu' SALDATO (`chiuso = False`)
+
 ### Idempotent Sync Engine
 `sync_recurring_expenses_for_month()`: genera CashMovement per spese ricorrenti.
 Check esistenza prima di creare. Sicuro rieseguire.
@@ -126,8 +139,8 @@ Il libro mastro (`movimenti_cassa`) e' sacro:
 Tutte le tabelle business hanno `deleted_at: Optional[datetime]`.
 - SELECT: filtrano sempre `deleted_at == None`
 - DELETE: impostano `deleted_at = datetime.now(timezone.utc)`
-- Cascade: delete contratto → soft-delete rate associate
-- Restrict: delete cliente bloccato se ha contratti attivi (non eliminati)
+- Cascade: delete contratto → soft-delete rate associate (solo PENDENTI)
+- Restrict: delete cliente bloccato se ha contratti attivi (chiuso=False, non eliminati)
 - Sync engine: il NOT EXISTS filtra `AND deleted_at IS NULL`
 - UNIQUE index: `uq_recurring_per_month` esclude record con `deleted_at IS NOT NULL`
 
@@ -143,10 +156,14 @@ Tabella `audit_log` + helper `log_audit()` in `api/routers/_audit.py`.
 
 Due famiglie di test:
 
-**pytest** (`tests/test_pay_rate.py`, `test_unpay_rate.py`, `test_soft_delete_integrity.py`, `test_sync_recurring.py`):
-- DB SQLite in-memory, isolamento totale
-- Coprono: soft delete, sync engine, unpay, audit
-- Run: `pytest tests/test_pay_rate.py tests/test_unpay_rate.py tests/test_soft_delete_integrity.py tests/test_sync_recurring.py -v`
+**pytest** (`tests/` — 33 test):
+- DB SQLite in-memory, isolamento totale (StaticPool)
+- `test_pay_rate.py` (10): pagamento atomico, overpayment, deep IDOR
+- `test_unpay_rate.py` (4): revoca pagamento, decrements, soft delete movement
+- `test_soft_delete_integrity.py` (5): cascade, restrict, stats filtrate
+- `test_sync_recurring.py` (4): idempotenza, disabled, resync
+- `test_contract_integrity.py` (10): residual validation, chiuso guard, auto-close/reopen
+- Run: `pytest tests/ -v`
 
 **E2E** (`tools/admin_scripts/test_*.py`):
 - Richiedono server avviato + DB reale

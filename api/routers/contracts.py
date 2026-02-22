@@ -410,7 +410,7 @@ def update_contract(
     Aggiorna un contratto esistente (partial update).
 
     Bouncer: query singola contract.id + trainer_id.
-    Campi protetti: trainer_id, id_cliente, crediti_usati, totale_versato, chiuso.
+    Campi protetti: trainer_id, id_cliente, crediti_usati, totale_versato.
     """
     contract = session.exec(
         select(Contract).where(
@@ -459,10 +459,11 @@ def delete_contract(
     session: Session = Depends(get_session),
 ):
     """
-    Soft-delete contratto e rate associate (cascade).
+    Soft-delete contratto con guardie di integrità.
 
     Bouncer: query singola contract.id + trainer_id + non eliminato.
-    CASCADE: soft-delete anche tutte le rate non eliminate.
+    RESTRICT: se il contratto ha rate PARZIALI o SALDATE -> 409 (storia finanziaria).
+    CASCADE: soft-delete rate PENDENTI + detach eventi collegati.
     """
     contract = session.exec(
         select(Contract).where(
@@ -473,8 +474,23 @@ def delete_contract(
     if not contract:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contratto non trovato")
 
-    # Cascade: soft-delete tutte le rate non eliminate
+    # RESTRICT: rate con pagamenti registrati → blocco cancellazione
+    paid_rates = session.exec(
+        select(func.count(Rate.id)).where(
+            Rate.id_contratto == contract_id,
+            Rate.importo_saldato > 0,
+            Rate.deleted_at == None,
+        )
+    ).one()
+    if paid_rates > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Impossibile eliminare: il contratto ha {paid_rates} rate con pagamenti registrati",
+        )
+
     now = datetime.now(timezone.utc)
+
+    # CASCADE: soft-delete rate PENDENTI
     rates = session.exec(
         select(Rate).where(Rate.id_contratto == contract_id, Rate.deleted_at == None)
     ).all()
@@ -482,6 +498,14 @@ def delete_contract(
         rate.deleted_at = now
         session.add(rate)
         log_audit(session, "rate", rate.id, "DELETE", trainer.id)
+
+    # DETACH: eventi collegati → nullifica id_contratto (non elimina l'evento)
+    events = session.exec(
+        select(Event).where(Event.id_contratto == contract_id, Event.deleted_at == None)
+    ).all()
+    for event in events:
+        event.id_contratto = None
+        session.add(event)
 
     contract.deleted_at = now
     session.add(contract)

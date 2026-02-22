@@ -161,12 +161,12 @@ def _calc_credits_batch(
     if not client_ids:
         return {}
 
-    # Query 1: crediti acquistati per cliente (contratti attivi, non eliminati)
+    # Query 1: crediti acquistati per cliente (tutti i contratti non eliminati)
+    # NOTA: chiuso NON filtrato — chiuso blocca nuove operazioni, non invalida i crediti
     credit_rows = session.exec(
         select(Contract.id_cliente, func.coalesce(func.sum(Contract.crediti_totali), 0))
         .where(
             Contract.id_cliente.in_(client_ids),
-            Contract.chiuso == False,
             Contract.trainer_id == trainer_id,
             Contract.deleted_at == None,
         )

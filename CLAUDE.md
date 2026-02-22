@@ -77,6 +77,14 @@ Se non trovato → 404. Mai 403 (non rivelare esistenza di dati altrui).
 Operazioni multi-tabella (pay_rate, unpay_rate) usano un singolo `session.commit()`.
 Se qualsiasi step fallisce → rollback automatico. Tutto o niente.
 
+### 3b. Contract Integrity Engine (Backend)
+Il contratto e' l'entita' centrale: collega pagamenti, crediti, sessioni.
+- **Residual validation**: `create_rate` verifica che `sum(rate) ≤ prezzo - acconto`
+- **Chiuso guard**: rate, piani, eventi bloccati su contratti chiusi
+- **Auto-close**: contratto diventa `chiuso=True` quando SALDATO + crediti esauriti
+- **Auto-reopen**: `unpay_rate` riapre automaticamente se non piu' SALDATO
+- **Overpayment check**: `pay_rate` verifica sia rata-level che contract-level
+
 ### 4. React Query + Toast (Frontend)
 Ogni hook: `useQuery` per lettura, `useMutation` per scrittura.
 Ogni mutation invalida le query correlate + mostra toast (sonner).
@@ -151,8 +159,8 @@ alembic upgrade head          # applica migrazioni pendenti
 alembic revision -m "desc"    # crea nuova migrazione
 alembic current               # mostra versione corrente
 
-# Test (pytest — soft delete, sync, unpay)
-pytest tests/test_pay_rate.py tests/test_unpay_rate.py tests/test_soft_delete_integrity.py tests/test_sync_recurring.py -v
+# Test (pytest — 33 test, tutti i domini)
+pytest tests/ -v
 
 # Test (E2E — richiede server avviato)
 python tools/admin_scripts/test_crud_idor.py
@@ -179,7 +187,7 @@ ollama list
 - **frontend/**: ~10,400 LOC TypeScript — 51 componenti, 7 hook modules, 6 pagine
 - **core/**: ~11,100 LOC Python — moduli AI (workout, RAG, DNA) in attesa di API endpoints
 - **DB**: 19 tabelle SQLite, FK enforced, multi-tenant via trainer_id
-- **Test**: 20 pytest + 67 E2E
+- **Test**: 33 pytest + 67 E2E
 - **Sicurezza**: JWT auth, bcrypt, Deep Relational IDOR, 3-layer route protection
 - **Cloud**: 0 dipendenze, 0 dati verso terzi
 
