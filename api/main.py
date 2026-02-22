@@ -224,6 +224,165 @@ def _run_migrations() -> None:
         cursor.execute("ALTER TABLE agenda ADD COLUMN data_creazione TIMESTAMP")
         conn.commit()
 
+    # --- Migrazione 12: FK Integrity Enforcement ---
+    # SQLite non supporta ALTER TABLE ADD CONSTRAINT. Per aggiungere FK
+    # a tabelle esistenti serve il "table rebuild": creare una nuova tabella
+    # con i constraint, copiare i dati, eliminare la vecchia, rinominare.
+    #
+    # Ordine critico (le FK creano dipendenze tra tabelle):
+    # 1. contratti      (riferisce clienti)
+    # 2. rate_programmate (riferisce contratti)
+    # 3. agenda          (riferisce clienti + contratti)
+    # 4. movimenti_cassa (riferisce clienti + contratti + rate + spese)
+    cursor.execute("PRAGMA foreign_key_list(rate_programmate)")
+    rate_fks = {row[2] for row in cursor.fetchall()}
+    if "contratti" not in rate_fks:
+        logger.info("Migration 12: FK Integrity Enforcement — inizio rebuild tabelle")
+
+        # FK OFF durante il rebuild per evitare violation temporanee
+        cursor.execute("PRAGMA foreign_keys = OFF")
+
+        # Step 0: cleanup 3 record orfani in movimenti_cassa
+        cursor.execute("""
+            UPDATE movimenti_cassa SET id_spesa_ricorrente = NULL
+            WHERE id_spesa_ricorrente IS NOT NULL
+              AND id_spesa_ricorrente NOT IN (SELECT id FROM spese_ricorrenti)
+        """)
+        orphans_cleaned = cursor.rowcount
+        if orphans_cleaned > 0:
+            logger.info("Migration 12: puliti %d record orfani (id_spesa_ricorrente → NULL)",
+                        orphans_cleaned)
+
+        # Step 1: rebuild contratti (aggiunge FK id_cliente → clienti ON DELETE RESTRICT)
+        cursor.execute("""
+            CREATE TABLE contratti_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id_cliente INTEGER NOT NULL REFERENCES clienti(id) ON DELETE RESTRICT,
+                tipo_pacchetto TEXT,
+                data_vendita DATE DEFAULT CURRENT_DATE,
+                data_inizio DATE,
+                data_scadenza DATE,
+                crediti_totali INTEGER,
+                crediti_usati INTEGER DEFAULT 0,
+                prezzo_totale REAL,
+                totale_versato REAL DEFAULT 0,
+                stato_pagamento TEXT DEFAULT 'PENDENTE',
+                note TEXT,
+                chiuso BOOLEAN DEFAULT 0,
+                trainer_id INTEGER REFERENCES trainers(id),
+                acconto REAL DEFAULT 0
+            )
+        """)
+        cursor.execute("""
+            INSERT INTO contratti_new
+                (id, id_cliente, tipo_pacchetto, data_vendita, data_inizio,
+                 data_scadenza, crediti_totali, crediti_usati, prezzo_totale,
+                 totale_versato, stato_pagamento, note, chiuso, trainer_id, acconto)
+            SELECT id, id_cliente, tipo_pacchetto, data_vendita, data_inizio,
+                   data_scadenza, crediti_totali, crediti_usati, prezzo_totale,
+                   totale_versato, stato_pagamento, note, chiuso, trainer_id, acconto
+            FROM contratti
+        """)
+        cursor.execute("DROP TABLE contratti")
+        cursor.execute("ALTER TABLE contratti_new RENAME TO contratti")
+        logger.info("Migration 12: rebuild contratti — FK id_cliente RESTRICT")
+
+        # Step 2: rebuild rate_programmate (aggiunge FK id_contratto → contratti ON DELETE CASCADE)
+        cursor.execute("""
+            CREATE TABLE rate_programmate_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id_contratto INTEGER NOT NULL REFERENCES contratti(id) ON DELETE CASCADE,
+                data_scadenza DATE NOT NULL,
+                importo_previsto REAL NOT NULL,
+                descrizione TEXT,
+                stato TEXT DEFAULT 'PENDENTE',
+                importo_saldato REAL DEFAULT 0
+            )
+        """)
+        cursor.execute("""
+            INSERT INTO rate_programmate_new
+                (id, id_contratto, data_scadenza, importo_previsto, descrizione,
+                 stato, importo_saldato)
+            SELECT id, id_contratto, data_scadenza, importo_previsto, descrizione,
+                   stato, importo_saldato
+            FROM rate_programmate
+        """)
+        cursor.execute("DROP TABLE rate_programmate")
+        cursor.execute("ALTER TABLE rate_programmate_new RENAME TO rate_programmate")
+        logger.info("Migration 12: rebuild rate_programmate — FK id_contratto CASCADE")
+
+        # Step 3: rebuild agenda (aggiunge FK id_cliente + id_contratto ON DELETE SET NULL)
+        cursor.execute("""
+            CREATE TABLE agenda_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                data_inizio DATETIME NOT NULL,
+                data_fine DATETIME NOT NULL,
+                categoria TEXT NOT NULL,
+                titolo TEXT,
+                id_cliente INTEGER REFERENCES clienti(id) ON DELETE SET NULL,
+                id_contratto INTEGER REFERENCES contratti(id) ON DELETE SET NULL,
+                stato TEXT DEFAULT 'Programmato',
+                note TEXT,
+                trainer_id INTEGER REFERENCES trainers(id),
+                data_creazione TIMESTAMP
+            )
+        """)
+        cursor.execute("""
+            INSERT INTO agenda_new
+                (id, data_inizio, data_fine, categoria, titolo, id_cliente,
+                 id_contratto, stato, note, trainer_id, data_creazione)
+            SELECT id, data_inizio, data_fine, categoria, titolo, id_cliente,
+                   id_contratto, stato, note, trainer_id, data_creazione
+            FROM agenda
+        """)
+        cursor.execute("DROP TABLE agenda")
+        cursor.execute("ALTER TABLE agenda_new RENAME TO agenda")
+        logger.info("Migration 12: rebuild agenda — FK id_cliente/id_contratto SET NULL")
+
+        # Step 4: rebuild movimenti_cassa (aggiunge tutte le FK mancanti ON DELETE SET NULL)
+        cursor.execute("""
+            CREATE TABLE movimenti_cassa_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                data_movimento DATETIME DEFAULT CURRENT_TIMESTAMP,
+                data_effettiva DATE NOT NULL DEFAULT CURRENT_DATE,
+                tipo TEXT NOT NULL,
+                categoria TEXT,
+                importo REAL NOT NULL,
+                metodo TEXT,
+                id_cliente INTEGER REFERENCES clienti(id) ON DELETE SET NULL,
+                id_contratto INTEGER REFERENCES contratti(id) ON DELETE SET NULL,
+                id_rata INTEGER REFERENCES rate_programmate(id) ON DELETE SET NULL,
+                note TEXT,
+                operatore TEXT DEFAULT 'Admin',
+                id_spesa_ricorrente INTEGER REFERENCES spese_ricorrenti(id) ON DELETE SET NULL,
+                trainer_id INTEGER REFERENCES trainers(id),
+                mese_anno TEXT
+            )
+        """)
+        cursor.execute("""
+            INSERT INTO movimenti_cassa_new
+                (id, data_movimento, data_effettiva, tipo, categoria, importo,
+                 metodo, id_cliente, id_contratto, id_rata, note, operatore,
+                 id_spesa_ricorrente, trainer_id, mese_anno)
+            SELECT id, data_movimento, data_effettiva, tipo, categoria, importo,
+                   metodo, id_cliente, id_contratto, id_rata, note, operatore,
+                   id_spesa_ricorrente, trainer_id, mese_anno
+            FROM movimenti_cassa
+        """)
+        cursor.execute("DROP TABLE movimenti_cassa")
+        cursor.execute("ALTER TABLE movimenti_cassa_new RENAME TO movimenti_cassa")
+        # Ricrea indice UNIQUE parziale per dedup spese ricorrenti
+        cursor.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_recurring_per_month
+            ON movimenti_cassa (trainer_id, id_spesa_ricorrente, mese_anno)
+            WHERE id_spesa_ricorrente IS NOT NULL
+        """)
+        logger.info("Migration 12: rebuild movimenti_cassa — 4 FK SET NULL + indice ricreato")
+
+        conn.commit()
+        cursor.execute("PRAGMA foreign_keys = ON")
+        logger.info("Migration 12: FK Integrity Enforcement — completata")
+
     conn.close()
 
 
