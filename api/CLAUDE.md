@@ -23,13 +23,15 @@ api/
 │   ├── movement.py      movimenti_cassa (ledger)
 │   └── recurring_expense.py  spese_ricorrenti
 ├── routers/             REST endpoints con Bouncer Pattern
+│   ├── _audit.py        log_audit() helper condiviso
 │   ├── clients.py       CRUD clienti
 │   ├── contracts.py     CRUD contratti + batch fetch enriched
 │   ├── rates.py         CRUD rate + pay/unpay atomic
 │   ├── agenda.py        CRUD eventi + credit sync
 │   ├── movements.py     Ledger + recurring sync engine
 │   ├── recurring_expenses.py  CRUD spese fisse
-│   └── dashboard.py     KPI aggregati (SQL func.count/func.sum)
+│   ├── dashboard.py     KPI aggregati (SQL func.count/func.sum)
+│   └── backup.py        Backup/Restore/Export (5 endpoint)
 └── schemas/
     └── financial.py     Contract/Rate/Movement/Dashboard DTOs
 ```
@@ -100,7 +102,7 @@ Check esistenza prima di creare. Sicuro rieseguire.
 - Response: sempre Pydantic `model_validate(orm_object)` con `from_attributes=True`
 - Error response: `HTTPException` con status code + detail string
 - Logging: `import logging; logger = logging.getLogger(__name__)`
-- Migrations: idempotenti in `main.py._run_migrations()` (ALTER TABLE IF NOT EXISTS)
+- Migrations: Alembic (`alembic/versions/`). Nuova migrazione: `alembic revision -m "desc"` → edit → `alembic upgrade head`
 
 ## Dipendenze
 
@@ -118,3 +120,39 @@ Il libro mastro (`movimenti_cassa`) e' sacro:
 - Ogni acconto contratto → CashMovement ENTRATA
 - Ogni spesa ricorrente → CashMovement USCITA (sync engine)
 - operatore: "API" (manuale), "SISTEMA_RECURRING" (sync automatico)
+
+## Soft Delete
+
+Tutte le tabelle business hanno `deleted_at: Optional[datetime]`.
+- SELECT: filtrano sempre `deleted_at == None`
+- DELETE: impostano `deleted_at = datetime.now(timezone.utc)`
+- Cascade: delete contratto → soft-delete rate associate
+- Restrict: delete cliente bloccato se ha contratti attivi (non eliminati)
+- Sync engine: il NOT EXISTS filtra `AND deleted_at IS NULL`
+- UNIQUE index: `uq_recurring_per_month` esclude record con `deleted_at IS NOT NULL`
+
+## Audit Trail
+
+Tabella `audit_log` + helper `log_audit()` in `api/routers/_audit.py`.
+- Ogni CREATE/UPDATE/DELETE su entity business viene loggato
+- Il campo `changes` contiene JSON diff campo-per-campo (solo UPDATE)
+- `log_audit()` NON fa commit — il chiamante committa atomicamente
+- `pay_rate` e `unpay_rate` generano 2 audit entries: rata + contratto
+
+## Test
+
+Due famiglie di test:
+
+**pytest** (`tests/test_pay_rate.py`, `test_unpay_rate.py`, `test_soft_delete_integrity.py`, `test_sync_recurring.py`):
+- DB SQLite in-memory, isolamento totale
+- Coprono: soft delete, sync engine, unpay, audit
+- Run: `pytest tests/test_pay_rate.py tests/test_unpay_rate.py tests/test_soft_delete_integrity.py tests/test_sync_recurring.py -v`
+
+**E2E** (`tools/admin_scripts/test_*.py`):
+- Richiedono server avviato + DB reale
+- Coprono: CRUD, IDOR, multi-tenant, mass assignment, pagamento atomico, dashboard
+- Run: `python tools/admin_scripts/test_crud_idor.py` (etc.)
+
+**Legacy** (`tests/legacy/`):
+- Rotti — referenziano moduli eliminati (WorkoutGeneratorV2, ExerciseArchive)
+- Da non eseguire finche' core/ non viene aggiornato

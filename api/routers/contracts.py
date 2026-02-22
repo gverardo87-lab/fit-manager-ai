@@ -190,13 +190,10 @@ def list_contracts(
     if chiuso is not None:
         query = query.where(Contract.chiuso == chiuso)
 
-    # Count totale
-    count_q = select(func.count(Contract.id)).where(Contract.trainer_id == trainer.id, Contract.deleted_at == None)
-    if id_cliente is not None:
-        count_q = count_q.where(Contract.id_cliente == id_cliente)
-    if chiuso is not None:
-        count_q = count_q.where(Contract.chiuso == chiuso)
-    total = session.exec(count_q).one()
+    # Count dalla stessa query base (zero duplicazione filtri)
+    total = session.exec(
+        select(func.count()).select_from(query.subquery())
+    ).one()
 
     # Paginazione
     offset = (page - 1) * page_size

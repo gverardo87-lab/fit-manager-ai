@@ -146,6 +146,24 @@ cd frontend && npm run dev
 # Build check (OBBLIGATORIO prima di ogni commit)
 cd frontend && npx next build
 
+# Migrazioni (Alembic)
+alembic upgrade head          # applica migrazioni pendenti
+alembic revision -m "desc"    # crea nuova migrazione
+alembic current               # mostra versione corrente
+
+# Test (pytest — soft delete, sync, unpay)
+pytest tests/test_pay_rate.py tests/test_unpay_rate.py tests/test_soft_delete_integrity.py tests/test_sync_recurring.py -v
+
+# Test (E2E — richiede server avviato)
+python tools/admin_scripts/test_crud_idor.py
+python tools/admin_scripts/test_financial_idor.py
+python tools/admin_scripts/test_agenda_idor.py
+python tools/admin_scripts/test_ledger_dashboard.py
+
+# Backup API
+# POST /api/backup/create     (richiede JWT)
+# GET  /api/backup/export     (JSON dati trainer)
+
 # Database
 sqlite3 data/crm.db ".tables"
 
@@ -157,10 +175,11 @@ ollama list
 
 ## Metriche Progetto
 
-- **api/**: ~3,900 LOC Python — 7 modelli ORM, 8 router, 1 schema module
+- **api/**: ~3,700 LOC Python — 8 modelli ORM, 9 router, 1 schema module
 - **frontend/**: ~10,400 LOC TypeScript — 51 componenti, 7 hook modules, 6 pagine
 - **core/**: ~11,100 LOC Python — moduli AI (workout, RAG, DNA) in attesa di API endpoints
 - **DB**: 19 tabelle SQLite, FK enforced, multi-tenant via trainer_id
+- **Test**: 20 pytest + 67 E2E
 - **Sicurezza**: JWT auth, bcrypt, Deep Relational IDOR, 3-layer route protection
 - **Cloud**: 0 dipendenze, 0 dati verso terzi
 

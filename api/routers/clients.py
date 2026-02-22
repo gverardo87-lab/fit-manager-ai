@@ -222,16 +222,10 @@ def list_clients(
             (Client.nome.ilike(pattern)) | (Client.cognome.ilike(pattern))
         )
 
-    # Count totale (prima della paginazione)
-    count_query = select(Client.id).where(Client.trainer_id == trainer.id, Client.deleted_at == None)
-    if stato:
-        count_query = count_query.where(Client.stato == stato)
-    if search:
-        pattern = f"%{search}%"
-        count_query = count_query.where(
-            (Client.nome.ilike(pattern)) | (Client.cognome.ilike(pattern))
-        )
-    total = len(session.exec(count_query).all())
+    # Count dalla stessa query base (zero duplicazione filtri)
+    total = session.exec(
+        select(func.count()).select_from(query.subquery())
+    ).one()
 
     # Paginazione
     offset = (page - 1) * page_size
