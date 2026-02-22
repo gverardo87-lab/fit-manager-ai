@@ -149,6 +149,7 @@ def sync_recurring_expenses_for_month(
                             WHERE trainer_id = :trainer_id
                               AND id_spesa_ricorrente = :id_spesa
                               AND mese_anno = :mese_anno
+                              AND deleted_at IS NULL
                         )
                     """),
                     {

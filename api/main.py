@@ -408,6 +408,20 @@ def _run_migrations() -> None:
     conn.commit()
     logger.info("Migration 14: tabella audit_log pronta")
 
+    # --- Migrazione 15: UNIQUE index soft-delete aware ---
+    # L'indice uq_recurring_per_month (Migration 8/12) non esclude i record
+    # soft-deleted. Se un movimento viene cancellato (deleted_at != NULL),
+    # il sync engine non puo' ricrearlo perche' il UNIQUE lo blocca.
+    # Fix: ricreare l'indice con filtro "AND deleted_at IS NULL".
+    cursor.execute("DROP INDEX IF EXISTS uq_recurring_per_month")
+    cursor.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_recurring_per_month
+        ON movimenti_cassa (trainer_id, id_spesa_ricorrente, mese_anno)
+        WHERE id_spesa_ricorrente IS NOT NULL AND deleted_at IS NULL
+    """)
+    conn.commit()
+    logger.info("Migration 15: indice uq_recurring_per_month aggiornato (soft-delete aware)")
+
     conn.close()
 
 
