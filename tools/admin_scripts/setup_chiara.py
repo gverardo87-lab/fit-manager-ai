@@ -13,7 +13,7 @@ Uso: python -m tools.admin_scripts.setup_chiara
 
 import sqlite3
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import bcrypt
@@ -66,7 +66,7 @@ def run() -> None:
         INSERT INTO trainers (email, nome, cognome, hashed_password, is_active, created_at)
         VALUES (?, ?, ?, ?, 1, ?)
         """,
-        (CHIARA["email"], CHIARA["nome"], CHIARA["cognome"], hashed, datetime.utcnow().isoformat()),
+        (CHIARA["email"], CHIARA["nome"], CHIARA["cognome"], hashed, datetime.now(timezone.utc).isoformat()),
     )
     chiara_id = cursor.lastrowid
     print(f"[3/4] Trainer creato: {CHIARA['nome']} {CHIARA['cognome']} (id={chiara_id})")

@@ -292,6 +292,7 @@ def export_trainer_data(
         return result
 
     export = {
+        "version": "1.0",
         "trainer": {
             "id": trainer.id,
             "email": trainer.email,
