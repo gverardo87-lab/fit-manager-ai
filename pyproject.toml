@@ -41,6 +41,7 @@ dependencies = [
     "python-jose[cryptography]",
     "bcrypt",
     "python-multipart",
+    "alembic",
 
     # --- LANGCHAIN ECOSYSTEM (AI Logic — core/) ---
     "langchain==0.2.5",
