@@ -152,6 +152,8 @@ export interface Event {
   id_contratto: number | null;
   stato: string;
   note: string | null;
+  cliente_nome: string | null;
+  cliente_cognome: string | null;
 }
 
 // ════════════════════════════════════════════════════════════

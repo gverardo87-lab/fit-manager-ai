@@ -22,7 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AgendaCalendar } from "@/components/agenda/AgendaCalendar";
 import { EventSheet } from "@/components/agenda/EventSheet";
 import { DeleteEventDialog } from "@/components/agenda/DeleteEventDialog";
-import { useEvents } from "@/hooks/useAgenda";
+import { useEvents, useUpdateEvent } from "@/hooks/useAgenda";
 import type { CalendarEvent } from "@/components/agenda/calendar-setup";
 
 /** Range iniziale: mese corrente +/- 1 mese di buffer. */
@@ -59,6 +59,9 @@ export default function AgendaPage() {
   const { data: eventsData, isLoading, isError, refetch } = useEvents(queryParams);
   const events = eventsData?.items ?? [];
 
+  // ── Mutation per Drag & Drop ──
+  const updateEvent = useUpdateEvent();
+
   // ── Handlers ──
 
   const handleNewEvent = () => {
@@ -94,6 +97,30 @@ export default function AgendaPage() {
       end: endOfMonth(addMonths(range.end, 1)),
     });
   }, []);
+
+  /** D&D: evento spostato in un nuovo slot */
+  const handleEventDrop = useCallback(
+    ({ event, start, end }: { event: CalendarEvent; start: Date; end: Date }) => {
+      updateEvent.mutate({
+        id: event.id,
+        data_inizio: start.toISOString(),
+        data_fine: end.toISOString(),
+      });
+    },
+    [updateEvent]
+  );
+
+  /** D&D: evento ridimensionato */
+  const handleEventResize = useCallback(
+    ({ event, start, end }: { event: CalendarEvent; start: Date; end: Date }) => {
+      updateEvent.mutate({
+        id: event.id,
+        data_inizio: start.toISOString(),
+        data_fine: end.toISOString(),
+      });
+    },
+    [updateEvent]
+  );
 
   return (
     <div className="space-y-6">
@@ -141,6 +168,8 @@ export default function AgendaPage() {
           onSelectSlot={handleSelectSlot}
           onSelectEvent={handleSelectEvent}
           onRangeChange={handleRangeChange}
+          onEventDrop={handleEventDrop}
+          onEventResize={handleEventResize}
         />
       )}
 

@@ -35,6 +35,8 @@ export interface CalendarEvent {
   id_cliente: number | null;
   id_contratto: number | null;
   note: string | null;
+  cliente_nome: string | null;
+  cliente_cognome: string | null;
 }
 
 /**
@@ -51,6 +53,8 @@ export function toCalendarEvent(event: EventHydrated): CalendarEvent {
     id_cliente: event.id_cliente,
     id_contratto: event.id_contratto,
     note: event.note,
+    cliente_nome: event.cliente_nome,
+    cliente_cognome: event.cliente_cognome,
   };
 }
 

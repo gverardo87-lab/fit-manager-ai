@@ -18,7 +18,7 @@ Validazioni:
 """
 
 from datetime import datetime
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import Session, select
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -124,7 +124,7 @@ class EventUpdate(BaseModel):
 # --- Response schemas ---
 
 class EventResponse(BaseModel):
-    """Dati evento restituiti dall'API."""
+    """Dati evento restituiti dall'API. Include nome cliente per eventi PT."""
     id: int
     data_inizio: str
     data_fine: str
@@ -134,6 +134,8 @@ class EventResponse(BaseModel):
     id_contratto: Optional[int] = None
     stato: str
     note: Optional[str] = None
+    cliente_nome: Optional[str] = None
+    cliente_cognome: Optional[str] = None
 
 
 class EventListResponse(BaseModel):
@@ -199,8 +201,25 @@ def _check_overlap(
         )
 
 
-def _to_response(event: Event) -> EventResponse:
-    """Converte un Event ORM in EventResponse."""
+def _load_client_names_batch(
+    session: Session, client_ids: set[int]
+) -> Dict[int, Tuple[str, str]]:
+    """Batch load client names. Returns {id: (nome, cognome)}. Zero N+1."""
+    if not client_ids:
+        return {}
+    rows = session.exec(
+        select(Client.id, Client.nome, Client.cognome)
+        .where(Client.id.in_(list(client_ids)))
+    ).all()
+    return {r[0]: (r[1], r[2]) for r in rows}
+
+
+def _to_response(
+    event: Event,
+    cliente_nome: Optional[str] = None,
+    cliente_cognome: Optional[str] = None,
+) -> EventResponse:
+    """Converte un Event ORM in EventResponse con nome cliente opzionale."""
     return EventResponse(
         id=event.id,
         data_inizio=str(event.data_inizio),
@@ -211,6 +230,8 @@ def _to_response(event: Event) -> EventResponse:
         id_contratto=event.id_contratto,
         stato=event.stato,
         note=event.note,
+        cliente_nome=cliente_nome,
+        cliente_cognome=cliente_cognome,
     )
 
 
@@ -249,8 +270,20 @@ def list_events(
     query = query.order_by(Event.data_inizio)
     events = session.exec(query).all()
 
+    # Batch load client names (1 query aggiuntiva, zero N+1)
+    client_ids = {e.id_cliente for e in events if e.id_cliente}
+    client_names = _load_client_names_batch(session, client_ids)
+
+    def _names(cid: Optional[int]) -> Tuple[Optional[str], Optional[str]]:
+        if not cid:
+            return (None, None)
+        return client_names.get(cid, (None, None))
+
     return EventListResponse(
-        items=[_to_response(e) for e in events],
+        items=[
+            _to_response(e, *_names(e.id_cliente))
+            for e in events
+        ],
         total=len(events),
     )
 
@@ -269,7 +302,10 @@ def get_event(
     if not event:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Evento non trovato")
 
-    return _to_response(event)
+    names = _load_client_names_batch(session, {event.id_cliente} if event.id_cliente else set())
+    nome, cognome = names.get(event.id_cliente, (None, None)) if event.id_cliente else (None, None)
+
+    return _to_response(event, nome, cognome)
 
 
 # --- POST: Crea evento ---
@@ -311,7 +347,10 @@ def create_event(
     session.commit()
     session.refresh(event)
 
-    return _to_response(event)
+    names = _load_client_names_batch(session, {event.id_cliente} if event.id_cliente else set())
+    nome, cognome = names.get(event.id_cliente, (None, None)) if event.id_cliente else (None, None)
+
+    return _to_response(event, nome, cognome)
 
 
 # --- PUT: Aggiorna evento (partial update) ---
@@ -371,7 +410,10 @@ def update_event(
     session.commit()
     session.refresh(event)
 
-    return _to_response(event)
+    names = _load_client_names_batch(session, {event.id_cliente} if event.id_cliente else set())
+    nome, cognome = names.get(event.id_cliente, (None, None)) if event.id_cliente else (None, None)
+
+    return _to_response(event, nome, cognome)
 
 
 # --- DELETE: Elimina evento ---

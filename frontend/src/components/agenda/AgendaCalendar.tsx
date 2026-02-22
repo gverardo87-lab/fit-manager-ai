@@ -2,13 +2,17 @@
 "use client";
 
 /**
- * Wrapper react-big-calendar — vista settimanale default, slot 30 min.
- *
- * Riceve EventHydrated[] (date gia' idratate come Date objects).
+ * Wrapper react-big-calendar con:
+ * - Drag & Drop (withDragAndDrop HOC)
+ * - Controlled state (date + view)
+ * - Custom Toolbar (shadcn/ui)
+ * - Custom Event (nome cliente per PT)
+ * - Vista settimanale default, slot 30 min, 06:00-22:00
  */
 
-import { useCallback, useMemo } from "react";
-import { Calendar, Views, type SlotInfo } from "react-big-calendar";
+import { useState, useCallback, useMemo } from "react";
+import { Calendar, Views, type View, type SlotInfo } from "react-big-calendar";
+import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop";
 
 import {
   localizer,
@@ -17,13 +21,20 @@ import {
   toCalendarEvent,
   type CalendarEvent,
 } from "./calendar-setup";
+import { CustomToolbar } from "./CustomToolbar";
+import { CustomEvent } from "./CustomEvent";
 import type { EventHydrated } from "@/hooks/useAgenda";
+
+// HOC: abilita drag & drop + resize sugli eventi
+const DnDCalendar = withDragAndDrop<CalendarEvent>(Calendar);
 
 interface AgendaCalendarProps {
   events: EventHydrated[];
   onSelectSlot: (slotInfo: SlotInfo) => void;
   onSelectEvent: (event: CalendarEvent) => void;
   onRangeChange: (range: { start: Date; end: Date }) => void;
+  onEventDrop: (args: { event: CalendarEvent; start: Date; end: Date }) => void;
+  onEventResize: (args: { event: CalendarEvent; start: Date; end: Date }) => void;
 }
 
 export function AgendaCalendar({
@@ -31,7 +42,13 @@ export function AgendaCalendar({
   onSelectSlot,
   onSelectEvent,
   onRangeChange,
+  onEventDrop,
+  onEventResize,
 }: AgendaCalendarProps) {
+  // ── Controlled state: data corrente + vista attiva ──
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentView, setCurrentView] = useState<View>(Views.WEEK);
+
   const calendarEvents = useMemo(
     () => events.map(toCalendarEvent),
     [events]
@@ -59,18 +76,52 @@ export function AgendaCalendar({
     [onRangeChange]
   );
 
+  /** D&D: evento trascinato in un nuovo slot */
+  const handleEventDrop = useCallback(
+    ({ event, start, end }: { event: CalendarEvent; start: string | Date; end: string | Date }) => {
+      onEventDrop({
+        event,
+        start: new Date(start),
+        end: new Date(end),
+      });
+    },
+    [onEventDrop]
+  );
+
+  /** D&D: evento ridimensionato (resize bordo inferiore) */
+  const handleEventResize = useCallback(
+    ({ event, start, end }: { event: CalendarEvent; start: string | Date; end: string | Date }) => {
+      onEventResize({
+        event,
+        start: new Date(start),
+        end: new Date(end),
+      });
+    },
+    [onEventResize]
+  );
+
   return (
-    <Calendar<CalendarEvent>
+    <DnDCalendar
       localizer={localizer}
       events={calendarEvents}
+      date={currentDate}
+      view={currentView}
+      onNavigate={setCurrentDate}
+      onView={setCurrentView}
       views={[Views.MONTH, Views.WEEK, Views.DAY]}
-      defaultView={Views.WEEK}
       selectable
+      resizable
       onSelectSlot={onSelectSlot}
       onSelectEvent={onSelectEvent}
       onRangeChange={handleRangeChange}
+      onEventDrop={handleEventDrop}
+      onEventResize={handleEventResize}
       eventPropGetter={eventPropGetter}
       messages={italianMessages}
+      components={{
+        toolbar: CustomToolbar,
+        event: CustomEvent,
+      }}
       step={30}
       timeslots={2}
       min={new Date(0, 0, 0, 6, 0)}
