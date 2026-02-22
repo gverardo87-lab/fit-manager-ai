@@ -123,6 +123,7 @@ knowledge_base/documents/*
 
 # Ignora i file di database SQLite nella cartella data
 data/*.db
+data/backups/
 
 # File della Knowledge Base (PDF, DOCX, etc.)
 knowledge_base/documents/*

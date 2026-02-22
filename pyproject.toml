@@ -67,6 +67,10 @@ dependencies = [
 [project.urls]
 "Homepage" = "https://github.com/gverardo87-lab/fit-manager-ai"
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = ["tests/legacy"]
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["core*", "api*", "tools*", "knowledge_base*"]
