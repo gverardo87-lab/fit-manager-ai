@@ -139,7 +139,8 @@ Il libro mastro (`movimenti_cassa`) e' sacro:
 Tutte le tabelle business hanno `deleted_at: Optional[datetime]`.
 - SELECT: filtrano sempre `deleted_at == None`
 - DELETE: impostano `deleted_at = datetime.now(timezone.utc)`
-- Cascade: delete contratto → soft-delete rate associate (solo PENDENTI)
+- Delete contratto: RESTRICT se rate non-saldate o crediti residui (409)
+  CASCADE: soft-delete rate SALDATE + tutti CashMovement + detach eventi
 - Restrict: delete cliente bloccato se ha contratti attivi (chiuso=False, non eliminati)
 - Sync engine: il NOT EXISTS filtra `AND deleted_at IS NULL`
 - UNIQUE index: `uq_recurring_per_month` esclude record con `deleted_at IS NOT NULL`
@@ -156,13 +157,13 @@ Tabella `audit_log` + helper `log_audit()` in `api/routers/_audit.py`.
 
 Due famiglie di test:
 
-**pytest** (`tests/` — 38 test):
+**pytest** (`tests/` — 39 test):
 - DB SQLite in-memory, isolamento totale (StaticPool)
 - `test_pay_rate.py` (10): pagamento atomico, overpayment, deep IDOR
 - `test_unpay_rate.py` (4): revoca pagamento, decrements, soft delete movement
 - `test_soft_delete_integrity.py` (5): delete blocked with rates, restrict, stats filtrate
 - `test_sync_recurring.py` (4): idempotenza, disabled, resync
-- `test_contract_integrity.py` (15): residual validation, chiuso guard, auto-close/reopen, delete guards strict
+- `test_contract_integrity.py` (16): residual, chiuso guard, auto-close, delete guards + cascade
 - Run: `pytest tests/ -v`
 
 **E2E** (`tools/admin_scripts/test_*.py`):

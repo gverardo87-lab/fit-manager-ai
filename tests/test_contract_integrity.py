@@ -229,12 +229,12 @@ def test_delete_contract_blocked_if_pending_rates(client, auth_headers, sample_c
     assert "rate" in r.json()["detail"].lower()
 
 
-def test_delete_contract_blocked_if_events(client, auth_headers, sample_client):
-    """Delete contratto con sedute collegate → 409."""
-    # Crea contratto pulito (senza acconto, senza rate)
+def test_delete_contract_blocked_if_credits_residui(client, auth_headers, sample_client):
+    """Delete contratto con crediti residui (sedute non consumate) → 409."""
+    # Crea contratto con 5 crediti, senza rate
     cr = client.post("/api/contracts", json={
         "id_cliente": sample_client["id"],
-        "tipo_pacchetto": "Test eventi",
+        "tipo_pacchetto": "Test crediti",
         "crediti_totali": 5,
         "prezzo_totale": 500.0,
         "data_inizio": "2026-01-01",
@@ -243,7 +243,7 @@ def test_delete_contract_blocked_if_events(client, auth_headers, sample_client):
     assert cr.status_code == 201
     contract = cr.json()
 
-    # Crea evento PT collegato al contratto
+    # Crea 1 evento PT (consuma 1 credito, ne restano 4)
     client.post("/api/events", json={
         "data_inizio": "2026-03-01T09:00:00",
         "data_fine": "2026-03-01T10:00:00",
@@ -253,14 +253,14 @@ def test_delete_contract_blocked_if_events(client, auth_headers, sample_client):
         "id_contratto": contract["id"],
     }, headers=auth_headers)
 
-    # Delete → bloccato per eventi
+    # Delete → bloccato per crediti residui (4 su 5)
     r = client.delete(f"/api/contracts/{contract['id']}", headers=auth_headers)
     assert r.status_code == 409
-    assert "sedute" in r.json()["detail"].lower()
+    assert "crediti" in r.json()["detail"].lower()
 
 
 def test_delete_clean_contract_ok(client, auth_headers, sample_client):
-    """Delete contratto pulito (zero rate, zero eventi) → 204."""
+    """Delete contratto senza rate e crediti esauriti → 204."""
     cr = client.post("/api/contracts", json={
         "id_cliente": sample_client["id"],
         "tipo_pacchetto": "Errore",
@@ -272,6 +272,16 @@ def test_delete_clean_contract_ok(client, auth_headers, sample_client):
     assert cr.status_code == 201
     contract = cr.json()
 
+    # Consuma l'unico credito con 1 evento PT
+    client.post("/api/events", json={
+        "data_inizio": "2026-02-01T09:00:00",
+        "data_fine": "2026-02-01T10:00:00",
+        "categoria": "PT",
+        "titolo": "Consumo credito",
+        "id_cliente": sample_client["id"],
+        "id_contratto": contract["id"],
+    }, headers=auth_headers)
+
     r = client.delete(f"/api/contracts/{contract['id']}", headers=auth_headers)
     assert r.status_code == 204
 
@@ -281,7 +291,7 @@ def test_delete_clean_contract_ok(client, auth_headers, sample_client):
 
 
 def test_delete_contract_cascades_acconto_movement(client, auth_headers, sample_client):
-    """Delete contratto pulito con acconto → CashMovement acconto soft-deleted."""
+    """Delete contratto con acconto → CashMovement acconto soft-deleted."""
     # Crea contratto con acconto (genera CashMovement automaticamente)
     cr = client.post("/api/contracts", json={
         "id_cliente": sample_client["id"],
@@ -296,6 +306,16 @@ def test_delete_contract_cascades_acconto_movement(client, auth_headers, sample_
     assert cr.status_code == 201
     contract = cr.json()
 
+    # Consuma l'unico credito
+    client.post("/api/events", json={
+        "data_inizio": "2026-02-01T09:00:00",
+        "data_fine": "2026-02-01T10:00:00",
+        "categoria": "PT",
+        "titolo": "Consumo credito",
+        "id_cliente": sample_client["id"],
+        "id_contratto": contract["id"],
+    }, headers=auth_headers)
+
     # Verifica che il movimento acconto esista (mese gennaio 2026)
     mr = client.get("/api/movements?anno=2026&mese=1", headers=auth_headers)
     acconto_before = [m for m in mr.json()["items"] if m.get("id_contratto") == contract["id"]]
@@ -309,6 +329,76 @@ def test_delete_contract_cascades_acconto_movement(client, auth_headers, sample_
     mr2 = client.get("/api/movements?anno=2026&mese=1", headers=auth_headers)
     acconto_after = [m for m in mr2.json()["items"] if m.get("id_contratto") == contract["id"]]
     assert len(acconto_after) == 0
+
+
+def test_delete_completed_contract_full_cascade(client, auth_headers, sample_client):
+    """Delete contratto completato (tutto SALDATO + crediti esauriti) → 204 + cascade."""
+    # Crea contratto: 1 credito, 100€, zero acconto
+    cr = client.post("/api/contracts", json={
+        "id_cliente": sample_client["id"],
+        "tipo_pacchetto": "Mini 1",
+        "crediti_totali": 1,
+        "prezzo_totale": 100.0,
+        "data_inizio": "2026-01-01",
+        "data_scadenza": "2026-12-31",
+    }, headers=auth_headers)
+    assert cr.status_code == 201
+    contract = cr.json()
+
+    # Crea 1 rata da 100
+    rr = client.post("/api/rates", json={
+        "id_contratto": contract["id"],
+        "data_scadenza": "2026-02-01",
+        "importo_previsto": 100.0,
+    }, headers=auth_headers)
+    assert rr.status_code == 201
+    rate = rr.json()
+
+    # Crea 1 evento PT (consuma il credito)
+    er = client.post("/api/events", json={
+        "data_inizio": "2026-02-01T09:00:00",
+        "data_fine": "2026-02-01T10:00:00",
+        "categoria": "PT",
+        "titolo": "Sessione completata",
+        "id_cliente": sample_client["id"],
+        "id_contratto": contract["id"],
+    }, headers=auth_headers)
+    assert er.status_code == 201
+    event_id = er.json()["id"]
+
+    # Paga la rata → SALDATA + auto-close
+    pr = client.post(f"/api/rates/{rate['id']}/pay", json={
+        "importo": 100.0,
+        "metodo": "POS",
+        "data_pagamento": "2026-02-01",
+    }, headers=auth_headers)
+    assert pr.status_code == 200
+
+    # Verifica pre-delete: contratto chiuso e saldato
+    check = client.get(f"/api/contracts/{contract['id']}", headers=auth_headers)
+    assert check.json()["chiuso"] is True
+    assert check.json()["stato_pagamento"] == "SALDATO"
+
+    # DELETE → deve passare (zero rate pendenti, zero crediti residui)
+    dr = client.delete(f"/api/contracts/{contract['id']}", headers=auth_headers)
+    assert dr.status_code == 204
+
+    # CASCADE verifiche:
+    # 1. Contratto non piu' accessibile
+    assert client.get(f"/api/contracts/{contract['id']}", headers=auth_headers).status_code == 404
+
+    # 2. Rata SALDATA soft-deleted
+    assert client.get(f"/api/rates/{rate['id']}", headers=auth_headers).status_code == 404
+
+    # 3. Evento detached (esiste ma senza id_contratto)
+    ev = client.get(f"/api/events/{event_id}", headers=auth_headers)
+    assert ev.status_code == 200
+    assert ev.json()["id_contratto"] is None
+
+    # 4. CashMovement pagamento non piu' visibile
+    mr = client.get("/api/movements?anno=2026&mese=2", headers=auth_headers)
+    contract_movements = [m for m in mr.json()["items"] if m.get("id_contratto") == contract["id"]]
+    assert len(contract_movements) == 0
 
 
 # ── Credit engine: contratti chiusi ──
