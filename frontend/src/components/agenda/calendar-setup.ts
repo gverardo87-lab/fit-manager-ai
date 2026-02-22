@@ -8,8 +8,8 @@
 import { dateFnsLocalizer } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay } from "date-fns";
 import { it } from "date-fns/locale";
-import { parseISO } from "date-fns";
-import type { Event as ApiEvent, EventCategory } from "@/types/api";
+import type { EventCategory } from "@/types/api";
+import type { EventHydrated } from "@/hooks/useAgenda";
 
 // ── Localizer italiano (lunedi' primo giorno) ──
 
@@ -18,7 +18,7 @@ const locales = { "it-IT": it };
 export const localizer = dateFnsLocalizer({
   format,
   parse,
-  startOfWeek: () => startOfWeek(new Date(), { weekStartsOn: 1 }),
+  startOfWeek: (date: Date) => startOfWeek(date, { locale: it }),
   getDay,
   locales,
 });
@@ -38,17 +38,14 @@ export interface CalendarEvent {
 }
 
 /**
- * Converte un Event del backend in CalendarEvent per react-big-calendar.
- *
- * Il backend serializza con spazio ("2026-02-22 10:00:00") o T.
- * parseISO di date-fns gestisce entrambi.
+ * Converte un EventHydrated (date gia' Date objects) in CalendarEvent.
  */
-export function toCalendarEvent(event: ApiEvent): CalendarEvent {
+export function toCalendarEvent(event: EventHydrated): CalendarEvent {
   return {
     id: event.id,
     title: event.titolo || event.categoria,
-    start: parseISO(event.data_inizio.replace(" ", "T")),
-    end: parseISO(event.data_fine.replace(" ", "T")),
+    start: event.data_inizio,
+    end: event.data_fine,
     categoria: event.categoria,
     stato: event.stato,
     id_cliente: event.id_cliente,
@@ -66,12 +63,10 @@ interface CategoryStyle {
 }
 
 const CATEGORY_STYLE_MAP: Record<string, CategoryStyle> = {
-  PT:          { backgroundColor: "#dbeafe", borderColor: "#3b82f6", color: "#1e3a5f" },
-  SALA:        { backgroundColor: "#f4f4f5", borderColor: "#a1a1aa", color: "#3f3f46" },
-  NUOTO:       { backgroundColor: "#cffafe", borderColor: "#06b6d4", color: "#164e63" },
-  YOGA:        { backgroundColor: "#f3e8ff", borderColor: "#a855f7", color: "#581c87" },
-  CONSULENZA:  { backgroundColor: "#fef3c7", borderColor: "#f59e0b", color: "#78350f" },
-  CORSO:       { backgroundColor: "#d1fae5", borderColor: "#10b981", color: "#064e3b" },
+  PT:         { backgroundColor: "#dbeafe", borderColor: "#3b82f6", color: "#1e3a5f" },
+  SALA:       { backgroundColor: "#f4f4f5", borderColor: "#a1a1aa", color: "#3f3f46" },
+  CORSO:      { backgroundColor: "#d1fae5", borderColor: "#10b981", color: "#064e3b" },
+  COLLOQUIO:  { backgroundColor: "#fef3c7", borderColor: "#f59e0b", color: "#78350f" },
 };
 
 const DEFAULT_STYLE: CategoryStyle = {
@@ -115,8 +110,6 @@ export const italianMessages = {
 export const CATEGORY_LABELS: Record<EventCategory, string> = {
   PT: "Personal Training",
   SALA: "Sala",
-  NUOTO: "Nuoto",
-  YOGA: "Yoga",
-  CONSULENZA: "Consulenza",
   CORSO: "Corso",
+  COLLOQUIO: "Colloquio",
 };

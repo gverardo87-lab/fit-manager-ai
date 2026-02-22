@@ -30,7 +30,7 @@ export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 export const MOVEMENT_TYPES = ["ENTRATA", "USCITA"] as const;
 export type MovementType = (typeof MOVEMENT_TYPES)[number];
 
-export const EVENT_CATEGORIES = ["PT", "SALA", "NUOTO", "YOGA", "CONSULENZA", "CORSO"] as const;
+export const EVENT_CATEGORIES = ["PT", "SALA", "CORSO", "COLLOQUIO"] as const;
 export type EventCategory = (typeof EVENT_CATEGORIES)[number];
 
 export const EVENT_STATUSES = ["Programmato", "Completato", "Cancellato", "Rinviato"] as const;
@@ -113,6 +113,7 @@ export interface Client {
   data_nascita: string | null; // Backend restituisce come string
   sesso: string | null;
   stato: string;
+  crediti_residui: number;
 }
 
 // ════════════════════════════════════════════════════════════

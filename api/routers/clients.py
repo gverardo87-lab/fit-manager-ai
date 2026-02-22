@@ -14,15 +14,17 @@ Sicurezza (Design by Contract):
 import json
 import re
 from datetime import date
-from typing import List, Optional
+from typing import Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlmodel import Session, select
+from sqlmodel import Session, select, func
 from pydantic import BaseModel, Field, field_validator
 
 from api.database import get_session
 from api.dependencies import get_current_trainer
 from api.models.trainer import Trainer
 from api.models.client import Client
+from api.models.contract import Contract
+from api.models.event import Event
 
 router = APIRouter(prefix="/clients", tags=["clients"])
 
@@ -127,6 +129,7 @@ class ClientResponse(BaseModel):
     data_nascita: Optional[str] = None
     sesso: Optional[str] = None
     stato: str
+    crediti_residui: int = 0
 
 
 class ClientListResponse(BaseModel):
@@ -135,6 +138,52 @@ class ClientListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+# --- Credit Engine helpers ---
+
+def _calc_credits_batch(
+    session: Session, client_ids: List[int], trainer_id: int
+) -> Dict[int, int]:
+    """
+    Calcola crediti_residui per un batch di clienti in 2 query SQL.
+
+    crediti_residui = crediti_acquistati - sedute_PT_usate
+
+    - crediti_acquistati: SUM(crediti_totali) da contratti attivi (chiuso=False)
+    - sedute_PT_usate: COUNT(eventi) con categoria='PT' e stato!='Cancellato'
+    """
+    if not client_ids:
+        return {}
+
+    # Query 1: crediti acquistati per cliente (contratti attivi)
+    credit_rows = session.exec(
+        select(Contract.id_cliente, func.coalesce(func.sum(Contract.crediti_totali), 0))
+        .where(
+            Contract.id_cliente.in_(client_ids),
+            Contract.chiuso == False,
+            Contract.trainer_id == trainer_id,
+        )
+        .group_by(Contract.id_cliente)
+    ).all()
+    credits_map: Dict[int, int] = {row[0]: int(row[1]) for row in credit_rows}
+
+    # Query 2: sedute PT usate per cliente (non cancellate)
+    usage_rows = session.exec(
+        select(Event.id_cliente, func.count(Event.id))
+        .where(
+            Event.id_cliente.in_(client_ids),
+            Event.categoria == "PT",
+            Event.stato != "Cancellato",
+        )
+        .group_by(Event.id_cliente)
+    ).all()
+    usage_map: Dict[int, int] = {row[0]: int(row[1]) for row in usage_rows}
+
+    return {
+        cid: credits_map.get(cid, 0) - usage_map.get(cid, 0)
+        for cid in client_ids
+    }
 
 
 # --- Endpoints ---
@@ -153,6 +202,7 @@ def list_clients(
 
     Filtro multi-tenancy: WHERE trainer_id = <trainer_corrente>.
     Supporta paginazione, filtro per stato, ricerca per nome.
+    Include crediti_residui calcolati in batch (3 query totali, zero N+1).
     """
     # Query base: solo clienti di QUESTO trainer
     query = select(Client).where(Client.trainer_id == trainer.id)
@@ -185,8 +235,12 @@ def list_clients(
 
     clients = session.exec(query).all()
 
+    # Batch credit calculation (2 query per tutti i clienti)
+    client_ids = [c.id for c in clients]
+    credits = _calc_credits_batch(session, client_ids, trainer.id)
+
     return ClientListResponse(
-        items=[_to_response(c) for c in clients],
+        items=[_to_response(c, credits.get(c.id, 0)) for c in clients],
         total=total,
         page=page,
         page_size=page_size,
@@ -199,7 +253,7 @@ def get_client(
     trainer: Trainer = Depends(get_current_trainer),
     session: Session = Depends(get_session),
 ):
-    """Dettaglio singolo cliente. Bouncer: query filtra per trainer_id."""
+    """Dettaglio singolo cliente con crediti. Bouncer: query filtra per trainer_id."""
     client = session.exec(
         select(Client).where(Client.id == client_id, Client.trainer_id == trainer.id)
     ).first()
@@ -207,7 +261,9 @@ def get_client(
     if not client:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cliente non trovato")
 
-    return _to_response(client)
+    credits = _calc_credits_batch(session, [client.id], trainer.id)
+
+    return _to_response(client, credits.get(client.id, 0))
 
 
 # --- POST: Crea cliente ---
@@ -239,7 +295,7 @@ def create_client(
     session.commit()
     session.refresh(client)
 
-    return _to_response(client)
+    return _to_response(client, 0)
 
 
 # --- PUT: Aggiorna cliente (partial update) ---
@@ -278,7 +334,9 @@ def update_client(
     session.commit()
     session.refresh(client)
 
-    return _to_response(client)
+    credits = _calc_credits_batch(session, [client.id], trainer.id)
+
+    return _to_response(client, credits.get(client.id, 0))
 
 
 # --- DELETE: Elimina cliente ---
@@ -310,7 +368,7 @@ def delete_client(
 
 # --- Helper ---
 
-def _to_response(client: Client) -> ClientResponse:
+def _to_response(client: Client, crediti_residui: int = 0) -> ClientResponse:
     """Converte un Client ORM in ClientResponse. Centralizza la conversione."""
     return ClientResponse(
         id=client.id,
@@ -321,4 +379,5 @@ def _to_response(client: Client) -> ClientResponse:
         data_nascita=str(client.data_nascita) if client.data_nascita else None,
         sesso=client.sesso,
         stato=client.stato,
+        crediti_residui=crediti_residui,
     )

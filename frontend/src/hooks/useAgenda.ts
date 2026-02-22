@@ -2,12 +2,12 @@
 /**
  * Custom hooks per il modulo Agenda.
  *
- * - useEvents({ start, end }): lista eventi in un range temporale
+ * - useEvents({ start, end }): lista eventi con date idratate (Date objects)
  * - useCreateEvent(): crea evento (gestisce 409 sovrapposizione)
  * - useUpdateEvent(): aggiorna evento (gestisce 409 sovrapposizione)
  * - useDeleteEvent(): elimina evento
  *
- * Ogni mutation invalida ["events"] + ["dashboard"] (todays_appointments).
+ * Ogni mutation invalida ["events"] + ["dashboard"] + ["clients"] (crediti).
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -21,6 +21,22 @@ import type {
   ListResponse,
 } from "@/types/api";
 
+// ── Evento con date idratate (Date objects, non stringhe) ──
+
+export interface EventHydrated extends Omit<Event, "data_inizio" | "data_fine"> {
+  data_inizio: Date;
+  data_fine: Date;
+}
+
+/** Converte stringhe ISO (o con spazio) in Date objects. */
+function hydrateEvent(e: Event): EventHydrated {
+  return {
+    ...e,
+    data_inizio: new Date(e.data_inizio.replace(" ", "T")),
+    data_fine: new Date(e.data_fine.replace(" ", "T")),
+  };
+}
+
 // ── Query: lista eventi per range temporale ──
 
 interface UseEventsParams {
@@ -31,7 +47,7 @@ interface UseEventsParams {
 export function useEvents(params: UseEventsParams = {}) {
   const { start, end } = params;
 
-  return useQuery<ListResponse<Event>>({
+  return useQuery({
     queryKey: ["events", { start, end }],
     queryFn: async () => {
       const { data } = await apiClient.get<ListResponse<Event>>("/events", {
@@ -39,6 +55,10 @@ export function useEvents(params: UseEventsParams = {}) {
       });
       return data;
     },
+    select: (data): ListResponse<EventHydrated> => ({
+      ...data,
+      items: data.items.map(hydrateEvent),
+    }),
     enabled: !!start && !!end,
   });
 }
@@ -56,6 +76,7 @@ export function useCreateEvent() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["events"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
       toast.success("Evento creato");
     },
     onError: (error) => {
@@ -86,6 +107,7 @@ export function useUpdateEvent() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["events"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
       toast.success("Evento aggiornato");
     },
     onError: (error) => {
@@ -112,6 +134,7 @@ export function useDeleteEvent() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["events"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
       toast.success("Evento eliminato");
     },
     onError: () => {

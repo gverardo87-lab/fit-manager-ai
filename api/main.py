@@ -216,6 +216,14 @@ def _run_migrations() -> None:
         cursor.execute("ALTER TABLE spese_ricorrenti ADD COLUMN data_disattivazione TIMESTAMP")
         conn.commit()
 
+    # --- Migrazione 11: data_creazione su agenda ---
+    cursor.execute("PRAGMA table_info(agenda)")
+    agenda_cols = [col[1] for col in cursor.fetchall()]
+    if "data_creazione" not in agenda_cols:
+        logger.info("Migration 11: aggiunta colonna data_creazione a agenda")
+        cursor.execute("ALTER TABLE agenda ADD COLUMN data_creazione TIMESTAMP")
+        conn.commit()
+
     conn.close()
 
 

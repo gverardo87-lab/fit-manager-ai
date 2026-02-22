@@ -4,21 +4,20 @@
 /**
  * Form evento — creazione e modifica.
  *
- * Campi:
- * - Titolo, Categoria, Stato
- * - Cliente (opzionale, solo per PT e CONSULENZA)
- * - Data/Ora inizio e fine (DatePicker + Input time)
- * - Note
- *
- * Le date vengono combinate con gli orari in stringhe ISO per il backend.
+ * Business logic:
+ * - Categoria PT: cliente OBBLIGATORIO, mostra crediti residui
+ * - Categoria COLLOQUIO: cliente opzionale
+ * - SALA, CORSO: nessun cliente
+ * - Safety Rail: warning se il cliente ha crediti <= 0
  */
 
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
-import { Loader2, Trash2 } from "lucide-react";
+import { AlertTriangle, Loader2, Trash2 } from "lucide-react";
 
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -57,6 +56,10 @@ const eventSchema = z
       return end > start;
     },
     { message: "La fine deve essere dopo l'inizio", path: ["ora_fine"] }
+  )
+  .refine(
+    (data) => data.categoria !== "PT" || !!data.id_cliente,
+    { message: "Cliente obbligatorio per sessioni PT", path: ["id_cliente"] }
   );
 
 export type EventFormValues = z.infer<typeof eventSchema>;
@@ -136,7 +139,17 @@ export function EventForm({
   });
 
   const categoria = watch("categoria");
-  const showClientSelect = categoria === "PT" || categoria === "CONSULENZA";
+  const idCliente = watch("id_cliente");
+
+  const showClientSelect = categoria === "PT" || categoria === "COLLOQUIO";
+  const isClientRequired = categoria === "PT";
+
+  // Crediti del cliente selezionato
+  const selectedClient = clientsData?.items.find((c) => c.id === idCliente);
+  const showCreditWarning =
+    isClientRequired &&
+    selectedClient &&
+    selectedClient.crediti_residui <= 0;
 
   const handleFormSubmit = (values: EventFormValues) => {
     const start = combineDateAndTime(values.data_inizio_date, values.ora_inizio);
@@ -222,10 +235,10 @@ export function EventForm({
         </div>
       </div>
 
-      {/* ── Cliente (solo PT / CONSULENZA) ── */}
+      {/* ── Cliente (PT obbligatorio, COLLOQUIO opzionale) ── */}
       {showClientSelect && (
         <div className="space-y-2">
-          <Label>Cliente</Label>
+          <Label>Cliente {isClientRequired ? "*" : ""}</Label>
           <Controller
             control={control}
             name="id_cliente"
@@ -240,13 +253,28 @@ export function EventForm({
                 <SelectContent>
                   {clientsData?.items.map((client) => (
                     <SelectItem key={client.id} value={client.id.toString()}>
-                      {client.cognome} {client.nome}
+                      {client.nome} {client.cognome} ({client.crediti_residui} crediti)
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             )}
           />
+          {errors.id_cliente && (
+            <p className="text-sm text-destructive">
+              {errors.id_cliente.message}
+            </p>
+          )}
+
+          {/* Safety Rail: warning crediti esauriti */}
+          {showCreditWarning && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                Attenzione: Il cliente ha esaurito i crediti o non ha pacchetti attivi.
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
       )}
 

@@ -4,10 +4,7 @@
 /**
  * Wrapper react-big-calendar — vista settimanale default, slot 30 min.
  *
- * Props callback per interazione:
- * - onSelectSlot: click su slot vuoto -> crea evento
- * - onSelectEvent: click su evento -> modifica
- * - onRangeChange: navigazione -> aggiorna date range per API query
+ * Riceve EventHydrated[] (date gia' idratate come Date objects).
  */
 
 import { useCallback, useMemo } from "react";
@@ -20,10 +17,10 @@ import {
   toCalendarEvent,
   type CalendarEvent,
 } from "./calendar-setup";
-import type { Event as ApiEvent } from "@/types/api";
+import type { EventHydrated } from "@/hooks/useAgenda";
 
 interface AgendaCalendarProps {
-  events: ApiEvent[];
+  events: EventHydrated[];
   onSelectSlot: (slotInfo: SlotInfo) => void;
   onSelectEvent: (event: CalendarEvent) => void;
   onRangeChange: (range: { start: Date; end: Date }) => void;

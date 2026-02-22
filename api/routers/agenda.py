@@ -32,7 +32,7 @@ from api.models.client import Client
 router = APIRouter(prefix="/events", tags=["events"])
 
 # Categorie valide (mirror di core/constants.py SessionCategory)
-VALID_CATEGORIES = {"PT", "SALA", "NUOTO", "YOGA", "CONSULENZA", "CORSO"}
+VALID_CATEGORIES = {"PT", "SALA", "CORSO", "COLLOQUIO"}
 
 # Stati validi (mirror di core/constants.py EventStatus)
 VALID_STATUSES = {"Programmato", "Completato", "Cancellato", "Rinviato"}
