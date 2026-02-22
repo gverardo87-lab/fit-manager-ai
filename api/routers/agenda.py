@@ -20,7 +20,7 @@ Validazioni:
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlmodel import Session, select
+from sqlmodel import Session, select, func
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from api.database import get_session
@@ -28,6 +28,7 @@ from api.dependencies import get_current_trainer
 from api.models.trainer import Trainer
 from api.models.event import Event
 from api.models.client import Client
+from api.models.contract import Contract
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -235,6 +236,53 @@ def _to_response(
     )
 
 
+def _auto_assign_contract(
+    session: Session, client_id: int, trainer_id: int
+) -> Optional[int]:
+    """
+    Auto-FIFO: assegna l'evento PT al contratto attivo piu' vecchio
+    con crediti residui > 0.
+
+    2 query batch:
+    1. Contratti attivi del cliente, ordinati per data_inizio ASC (FIFO)
+    2. Conteggio PT events (non cancellati) per contratto
+
+    Returns: contract.id oppure None se nessun contratto ha crediti.
+    """
+    contracts = session.exec(
+        select(Contract).where(
+            Contract.id_cliente == client_id,
+            Contract.trainer_id == trainer_id,
+            Contract.chiuso == False,
+        ).order_by(Contract.data_inizio.asc())
+    ).all()
+
+    if not contracts:
+        return None
+
+    # Batch count PT events per contratto (zero N+1)
+    contract_ids = [c.id for c in contracts]
+    usage_rows = session.exec(
+        select(Event.id_contratto, func.count(Event.id))
+        .where(
+            Event.id_contratto.in_(contract_ids),
+            Event.categoria == "PT",
+            Event.stato != "Cancellato",
+        )
+        .group_by(Event.id_contratto)
+    ).all()
+    usage_map: Dict[int, int] = {row[0]: int(row[1]) for row in usage_rows}
+
+    # FIFO: primo contratto con crediti residui
+    for contract in contracts:
+        totali = contract.crediti_totali or 0
+        usati = usage_map.get(contract.id, 0)
+        if totali - usati > 0:
+            return contract.id
+
+    return None
+
+
 # --- Endpoints ---
 
 @router.get("", response_model=EventListResponse)
@@ -331,6 +379,13 @@ def create_event(
     # Bouncer 2: Anti-Overlapping — ho gia' un evento in questo slot?
     _check_overlap(session, trainer.id, data.data_inizio, data.data_fine)
 
+    # Auto-FIFO: assegna contratto per eventi PT senza contratto esplicito
+    assigned_contract_id = data.id_contratto
+    if data.categoria == "PT" and data.id_cliente and not data.id_contratto:
+        assigned_contract_id = _auto_assign_contract(
+            session, data.id_cliente, trainer.id
+        )
+
     # Tutto ok: salva
     event = Event(
         trainer_id=trainer.id,
@@ -339,7 +394,7 @@ def create_event(
         categoria=data.categoria,
         titolo=data.titolo,
         id_cliente=data.id_cliente,
-        id_contratto=data.id_contratto,
+        id_contratto=assigned_contract_id,
         stato=data.stato,
         note=data.note,
     )

@@ -225,6 +225,11 @@ export interface ContractWithRates extends Contract {
   rate_totali: number;
   rate_pagate: number;
   rate_scadute: number;
+  // Credit breakdown (computed on read da eventi PT)
+  sedute_programmate: number;
+  sedute_completate: number;
+  sedute_rinviate: number;
+  crediti_residui: number;
 }
 
 // ════════════════════════════════════════════════════════════

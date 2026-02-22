@@ -23,6 +23,7 @@ from api.models.client import Client
 from api.models.contract import Contract
 from api.models.rate import Rate
 from api.models.movement import CashMovement
+from api.models.event import Event
 from api.schemas.financial import (
     ContractCreate, ContractUpdate,
     ContractResponse, ContractListResponse, ContractWithRatesResponse, RateResponse,
@@ -47,6 +48,7 @@ def _to_response_with_rates(
     contract: Contract,
     rates: list[Rate],
     receipt_map: dict[int, CashMovement] | None = None,
+    credit_breakdown: dict[str, int] | None = None,
 ) -> ContractWithRatesResponse:
     """
     Converte Contract + Rate in ContractWithRatesResponse con KPI computati.
@@ -107,8 +109,20 @@ def _to_response_with_rates(
     importo_da_rateizzare = residuo
     disallineamento = round(importo_da_rateizzare - somma_pendenti, 2)
 
+    # ── Credit breakdown (computed on read) ──
+    cb = credit_breakdown or {}
+    programmate = cb.get("Programmato", 0)
+    completate = cb.get("Completato", 0)
+    rinviate = cb.get("Rinviato", 0)
+    crediti_totali = contract.crediti_totali or 0
+    crediti_usati_computed = programmate + completate + rinviate
+
+    # Override crediti_usati nel dict base (sovrascrive il valore ORM = 0)
+    contract_data = ContractResponse.model_validate(contract).model_dump()
+    contract_data["crediti_usati"] = crediti_usati_computed
+
     return ContractWithRatesResponse(
-        **ContractResponse.model_validate(contract).model_dump(),
+        **contract_data,
         rate=enriched_rates,
         residuo=residuo,
         percentuale_versata=percentuale,
@@ -121,6 +135,10 @@ def _to_response_with_rates(
         rate_totali=len(rates),
         rate_pagate=n_pagate,
         rate_scadute=n_scadute,
+        sedute_programmate=programmate,
+        sedute_completate=completate,
+        sedute_rinviate=rinviate,
+        crediti_residui=max(0, crediti_totali - crediti_usati_computed),
     )
 
 
@@ -202,6 +220,18 @@ def list_contracts(
     ).all()
     client_map = {c.id: c for c in clients}
 
+    # ── Batch fetch: crediti usati per contratto (1 query, zero N+1) ──
+    credit_rows = session.exec(
+        select(Event.id_contratto, func.count(Event.id))
+        .where(
+            Event.id_contratto.in_(contract_ids),
+            Event.categoria == "PT",
+            Event.stato != "Cancellato",
+        )
+        .group_by(Event.id_contratto)
+    ).all()
+    credits_used_map: dict[int, int] = {row[0]: int(row[1]) for row in credit_rows}
+
     # ── Build enriched responses ──
     today = date.today()
     results = []
@@ -210,8 +240,12 @@ def list_contracts(
         client = client_map.get(contract.id_cliente)
         rates = rates_by_contract.get(contract.id, [])
 
+        # Override crediti_usati: computed on read (non dal valore ORM)
+        contract_data = ContractResponse.model_validate(contract).model_dump()
+        contract_data["crediti_usati"] = credits_used_map.get(contract.id, 0)
+
         results.append(ContractListResponse(
-            **ContractResponse.model_validate(contract).model_dump(),
+            **contract_data,
             client_nome=client.nome if client else "",
             client_cognome=client.cognome if client else "",
             rate_totali=len(rates),
@@ -273,7 +307,21 @@ def get_contract(
             if mov.id_rata and mov.id_rata not in receipt_map:
                 receipt_map[mov.id_rata] = mov
 
-    return _to_response_with_rates(contract, rates, receipt_map)
+    # Credit breakdown: PT events GROUP BY stato (1 query)
+    credit_breakdown: dict[str, int] = {}
+    credit_rows = session.exec(
+        select(Event.stato, func.count(Event.id))
+        .where(
+            Event.id_contratto == contract_id,
+            Event.categoria == "PT",
+            Event.stato != "Cancellato",
+        )
+        .group_by(Event.stato)
+    ).all()
+    for row in credit_rows:
+        credit_breakdown[row[0]] = int(row[1])
+
+    return _to_response_with_rates(contract, rates, receipt_map, credit_breakdown)
 
 
 # ════════════════════════════════════════════════════════════

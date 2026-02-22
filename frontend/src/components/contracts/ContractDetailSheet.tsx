@@ -19,6 +19,10 @@ import {
   HandCoins,
   AlertTriangle,
   CheckCircle2,
+  Dumbbell,
+  Clock,
+  Target,
+  CalendarCheck,
 } from "lucide-react";
 
 import {
@@ -143,6 +147,10 @@ function FinancialHero({ contract }: { contract: ContractWithRates }) {
   const rateScadute = contract.rate_scadute;
   const daRateizzare = contract.importo_da_rateizzare;
   const pianoCoperto = contract.piano_allineato;
+  const creditiTotali = contract.crediti_totali ?? 0;
+  const programmate = contract.sedute_programmate;
+  const completate = contract.sedute_completate;
+  const creditiResidui = contract.crediti_residui;
 
   return (
     <div className="rounded-xl border bg-gradient-to-br from-zinc-50 to-zinc-100/50 p-5 dark:from-zinc-900 dark:to-zinc-800/50">
@@ -240,6 +248,50 @@ function FinancialHero({ contract }: { contract: ContractWithRates }) {
             subtitleClass="text-red-600 dark:text-red-400"
           />
         </div>
+
+        {/* ── Riga 3: Crediti Sedute (solo se il contratto ha crediti) ── */}
+        {creditiTotali > 0 && (
+          <div className="grid grid-cols-4 gap-3">
+            <KpiCard
+              icon={<Dumbbell className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />}
+              iconBg="bg-indigo-100 dark:bg-indigo-900/30"
+              label="Crediti Totali"
+              value={`${creditiTotali}`}
+            />
+            <KpiCard
+              icon={<Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />}
+              iconBg="bg-blue-100 dark:bg-blue-900/30"
+              label="Programmate"
+              value={`${programmate}`}
+              valueClass={programmate > 0 ? "text-blue-700 dark:text-blue-400" : undefined}
+            />
+            <KpiCard
+              icon={<CalendarCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />}
+              iconBg="bg-emerald-100 dark:bg-emerald-900/30"
+              label="Completate"
+              value={`${completate}`}
+              valueClass={completate > 0 ? "text-emerald-700 dark:text-emerald-400" : undefined}
+            />
+            <KpiCard
+              icon={<Target className={`h-4 w-4 ${
+                creditiResidui > 0
+                  ? "text-amber-600 dark:text-amber-400"
+                  : "text-emerald-600 dark:text-emerald-400"
+              }`} />}
+              iconBg={creditiResidui > 0
+                ? "bg-amber-100 dark:bg-amber-900/30"
+                : "bg-emerald-100 dark:bg-emerald-900/30"
+              }
+              label="Residui"
+              value={`${creditiResidui}`}
+              valueClass={creditiResidui > 0
+                ? "text-amber-700 dark:text-amber-400"
+                : "text-emerald-700 dark:text-emerald-400"
+              }
+              subtitle={creditiResidui === 0 ? "Crediti esauriti" : undefined}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

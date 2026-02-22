@@ -240,6 +240,12 @@ class ContractWithRatesResponse(ContractResponse):
     rate_pagate: int = 0
     rate_scadute: int = 0
 
+    # ── Credit breakdown (computed on read da eventi PT) ──
+    sedute_programmate: int = 0   # stato=Programmato
+    sedute_completate: int = 0    # stato=Completato
+    sedute_rinviate: int = 0      # stato=Rinviato
+    crediti_residui: int = 0      # crediti_totali - programmate - completate
+
 
 # ════════════════════════════════════════════════════════════
 # PAYMENT PLAN GENERATION SCHEMA
