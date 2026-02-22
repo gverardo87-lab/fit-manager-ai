@@ -291,6 +291,8 @@ def pay_rate(
     #    Approccio incrementale: totale_versato += importo pagato.
     #    Questo preserva l'acconto iniziale (gia' nel totale_versato alla creazione).
     contract = session.get(Contract, rate.id_contratto)
+    old_totale_versato = contract.totale_versato
+    old_stato_pagamento = contract.stato_pagamento
     contract.totale_versato = contract.totale_versato + data.importo
 
     # E) Stato contratto: SALDATO se totale pagato copre il prezzo
@@ -324,6 +326,10 @@ def pay_rate(
     log_audit(session, "rate", rate.id, "UPDATE", trainer.id, {
         "importo_saldato": {"old": old_importo_saldato, "new": rate.importo_saldato},
         "stato": {"old": old_stato, "new": rate.stato},
+    })
+    log_audit(session, "contract", contract.id, "UPDATE", trainer.id, {
+        "totale_versato": {"old": old_totale_versato, "new": contract.totale_versato},
+        "stato_pagamento": {"old": old_stato_pagamento, "new": contract.stato_pagamento},
     })
     session.commit()
     session.refresh(rate)
@@ -373,6 +379,8 @@ def unpay_rate(
 
     # D) Aggiorna totale_versato contratto
     contract = session.get(Contract, rate.id_contratto)
+    old_totale_versato = contract.totale_versato
+    old_stato_pagamento = contract.stato_pagamento
     contract.totale_versato = max(0, contract.totale_versato - importo_da_stornare)
 
     # E) Ricalcola stato_pagamento
@@ -404,6 +412,10 @@ def unpay_rate(
     log_audit(session, "rate", rate.id, "UPDATE", trainer.id, {
         "importo_saldato": {"old": old_importo_saldato, "new": 0},
         "stato": {"old": old_stato, "new": "PENDENTE"},
+    })
+    log_audit(session, "contract", contract.id, "UPDATE", trainer.id, {
+        "totale_versato": {"old": old_totale_versato, "new": contract.totale_versato},
+        "stato_pagamento": {"old": old_stato_pagamento, "new": contract.stato_pagamento},
     })
     session.commit()
     session.refresh(rate)
