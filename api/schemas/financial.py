@@ -72,7 +72,6 @@ class ContractUpdate(BaseModel):
     - NO trainer_id (non trasferibile)
     - NO id_cliente (non trasferibile)
     - NO crediti_usati, totale_versato (calcolati automaticamente)
-    - NO chiuso (gestito da logica di business separata)
     """
     model_config = {"extra": "forbid"}
 
@@ -82,6 +81,7 @@ class ContractUpdate(BaseModel):
     data_inizio: Optional[date] = None
     data_scadenza: Optional[date] = None
     note: Optional[str] = Field(None, max_length=500)
+    chiuso: Optional[bool] = None
 
 
 class ContractResponse(BaseModel):

@@ -386,7 +386,27 @@ def create_event(
     if data.id_cliente:
         _check_client_ownership(session, data.id_cliente, trainer.id)
 
-    # Bouncer 2: Anti-Overlapping — ho gia' un evento in questo slot?
+    # Bouncer 2: Validazione id_contratto esplicito (ownership + chiuso)
+    if data.id_contratto:
+        contract = session.exec(
+            select(Contract).where(
+                Contract.id == data.id_contratto,
+                Contract.trainer_id == trainer.id,
+                Contract.deleted_at == None,
+            )
+        ).first()
+        if not contract:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Contratto non trovato",
+            )
+        if contract.chiuso:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Impossibile assegnare eventi a un contratto chiuso",
+            )
+
+    # Bouncer 3: Anti-Overlapping — ho gia' un evento in questo slot?
     _check_overlap(session, trainer.id, data.data_inizio, data.data_fine)
 
     # Auto-FIFO: assegna contratto per eventi PT senza contratto esplicito
@@ -411,6 +431,24 @@ def create_event(
     session.add(event)
     session.flush()
     log_audit(session, "event", event.id, "CREATE", trainer.id)
+
+    # Auto-close: se evento PT con contratto, verifica crediti esauriti + saldato
+    if event.categoria == "PT" and event.id_contratto:
+        ev_contract = session.get(Contract, event.id_contratto)
+        if ev_contract and not ev_contract.chiuso and ev_contract.crediti_totali:
+            crediti_usati = session.exec(
+                select(func.count(Event.id)).where(
+                    Event.id_contratto == ev_contract.id,
+                    Event.categoria == "PT",
+                    Event.stato != "Cancellato",
+                    Event.deleted_at == None,
+                )
+            ).one()
+            if (crediti_usati >= ev_contract.crediti_totali
+                    and ev_contract.stato_pagamento == "SALDATO"):
+                ev_contract.chiuso = True
+                session.add(ev_contract)
+
     session.commit()
     session.refresh(event)
 

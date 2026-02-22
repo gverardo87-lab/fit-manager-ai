@@ -23,7 +23,7 @@ Pagamento Atomico (POST /api/rates/{id}/pay):
 from typing import List, Optional
 from datetime import date, datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlmodel import Session, select
+from sqlmodel import Session, select, func
 
 from api.database import get_session
 from api.dependencies import get_current_trainer
@@ -32,6 +32,7 @@ from api.models.client import Client
 from api.models.contract import Contract
 from api.models.rate import Rate
 from api.models.movement import CashMovement
+from api.models.event import Event
 from api.schemas.financial import (
     RateCreate, RateUpdate, RatePayment,
     RateResponse, PaymentPlanCreate,
@@ -150,9 +151,33 @@ def create_rate(
     Crea rata manuale per un contratto.
 
     Bouncer: verifica che il contratto appartenga al trainer.
+    Validazione: importo non supera il residuo rateizzabile del contratto.
     """
     # Bouncer sul contratto
-    _bouncer_contract(session, data.id_contratto, trainer.id)
+    contract = _bouncer_contract(session, data.id_contratto, trainer.id)
+
+    # Contratto chiuso: no nuove rate
+    if contract.chiuso:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Impossibile aggiungere rate a un contratto chiuso",
+        )
+
+    # Validazione residuo: somma rate attive + nuova <= prezzo - acconto
+    if contract.prezzo_totale:
+        somma_rate_attive = session.exec(
+            select(func.coalesce(func.sum(Rate.importo_previsto), 0)).where(
+                Rate.id_contratto == data.id_contratto,
+                Rate.deleted_at == None,
+            )
+        ).one()
+        cap = round((contract.prezzo_totale or 0) - (contract.acconto or 0), 2)
+        spazio = round(cap - float(somma_rate_attive), 2)
+        if round(float(somma_rate_attive) + data.importo_previsto, 2) > cap + 0.01:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Importo ({data.importo_previsto:.2f}) eccede il residuo rateizzabile ({max(0, spazio):.2f})",
+            )
 
     rate = Rate(
         id_contratto=data.id_contratto,
@@ -256,9 +281,13 @@ def pay_rate(
     Step:
     A) Deep IDOR: verifica Rate -> Contract -> trainer_id
     B) Business rule: rata gia' SALDATA -> 400
+    B-bis) Validazione: importo non supera residuo rata
+    B-ter) Validazione: importo non supera residuo contratto
     C) Aggiorna importo_saldato e stato rata
-    D) Ricalcola totale_versato contratto (somma importo_saldato di TUTTE le rate)
+    D) Aggiorna totale_versato contratto (incrementale)
     E) Se totale_versato >= prezzo_totale -> stato_pagamento = SALDATO
+    E-auto) Auto-close: se saldato + crediti esauriti -> chiuso
+    E-bis) Registra CashMovement ENTRATA nel libro mastro
     F) session.commit() SOLO qui (atomicita')
 
     Rollback automatico: se qualsiasi step solleva eccezione,
@@ -282,6 +311,16 @@ def pay_rate(
             detail=f"Importo ({data.importo:.2f}) supera il residuo della rata ({importo_residuo:.2f})",
         )
 
+    # B-ter) Validazione livello contratto: pagamento non eccede prezzo totale
+    contract = session.get(Contract, rate.id_contratto)
+    if contract.prezzo_totale:
+        residuo_contratto = round(contract.prezzo_totale - contract.totale_versato, 2)
+        if data.importo > residuo_contratto + 0.01:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Importo ({data.importo:.2f}) supera il residuo del contratto ({residuo_contratto:.2f})",
+            )
+
     # C) Aggiorna rata (cattura old values per audit)
     old_importo_saldato = rate.importo_saldato
     old_stato = rate.stato
@@ -296,9 +335,7 @@ def pay_rate(
     session.add(rate)
 
     # D) Aggiorna totale_versato contratto (incrementale)
-    #    Approccio incrementale: totale_versato += importo pagato.
-    #    Questo preserva l'acconto iniziale (gia' nel totale_versato alla creazione).
-    contract = session.get(Contract, rate.id_contratto)
+    #    contract gia' fetchato in B-ter. Approccio incrementale: totale_versato += importo.
     old_totale_versato = contract.totale_versato
     old_stato_pagamento = contract.stato_pagamento
     contract.totale_versato = contract.totale_versato + data.importo
@@ -308,6 +345,19 @@ def pay_rate(
         contract.stato_pagamento = "SALDATO"
     elif contract.totale_versato > 0:
         contract.stato_pagamento = "PARZIALE"
+
+    # E-auto) Auto-close: contratto saldato + crediti esauriti → chiuso
+    if contract.stato_pagamento == "SALDATO" and contract.crediti_totali:
+        crediti_usati = session.exec(
+            select(func.count(Event.id)).where(
+                Event.id_contratto == contract.id,
+                Event.categoria == "PT",
+                Event.stato != "Cancellato",
+                Event.deleted_at == None,
+            )
+        ).one()
+        if crediti_usati >= contract.crediti_totali:
+            contract.chiuso = True
 
     session.add(contract)
 
@@ -398,6 +448,11 @@ def unpay_rate(
         contract.stato_pagamento = "SALDATO"
     else:
         contract.stato_pagamento = "PARZIALE"
+
+    # E-auto) Auto-reopen: se non piu' saldato, riapri contratto chiuso
+    if contract.chiuso and contract.stato_pagamento != "SALDATO":
+        contract.chiuso = False
+
     session.add(contract)
 
     # F) Soft-delete TUTTI i CashMovement associati (puo' averne piu' di uno
@@ -452,6 +507,13 @@ def generate_payment_plan(
 
     # Bouncer sul contratto
     contract = _bouncer_contract(session, contract_id, trainer.id)
+
+    # Contratto chiuso: no piano rate
+    if contract.chiuso:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Impossibile generare piano rate per un contratto chiuso",
+        )
 
     # Validazione: importo_da_rateizzare deve corrispondere al residuo reale
     # totale_versato e' la fonte di verita' (include acconto + rate + pagamenti legacy)
