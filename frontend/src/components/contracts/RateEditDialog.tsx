@@ -8,7 +8,7 @@
  * Rate SALDATE non arrivano qui (il bottone è nascosto).
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { format, parseISO } from "date-fns";
 import { Loader2 } from "lucide-react";
 
@@ -44,15 +44,14 @@ export function RateEditDialog({
   const [descrizione, setDescrizione] = useState("");
   const [dataScadenza, setDataScadenza] = useState<Date | undefined>(undefined);
 
-  // Sync state when dialog opens with a new rate
-  const handleOpenChange = (isOpen: boolean) => {
-    if (isOpen && rate) {
+  // Sync state quando la rata cambia (prop-driven open)
+  useEffect(() => {
+    if (rate && open) {
       setImporto(String(rate.importo_previsto));
       setDescrizione(rate.descrizione ?? "");
       setDataScadenza(parseISO(rate.data_scadenza));
     }
-    onOpenChange(isOpen);
-  };
+  }, [rate, open]);
 
   const handleSave = () => {
     if (!rate || !dataScadenza) return;
@@ -71,7 +70,7 @@ export function RateEditDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[420px]">
         <DialogHeader>
           <DialogTitle>Modifica Rata</DialogTitle>

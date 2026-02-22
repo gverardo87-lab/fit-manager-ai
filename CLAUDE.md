@@ -157,10 +157,10 @@ ollama list
 
 ## Metriche Progetto
 
-- **api/**: ~3,250 LOC Python — 7 modelli ORM, 8 router, 1 schema module
-- **frontend/**: ~8,750 LOC TypeScript — 30+ componenti, 6 hook modules, 5 pagine
-- **core/**: ~9,500 LOC Python — moduli AI (workout, RAG, DNA) in attesa di API endpoints
-- **DB**: 17 tabelle SQLite, FK enforced, multi-tenant via trainer_id
+- **api/**: ~3,900 LOC Python — 7 modelli ORM, 8 router, 1 schema module
+- **frontend/**: ~10,400 LOC TypeScript — 51 componenti, 7 hook modules, 6 pagine
+- **core/**: ~11,100 LOC Python — moduli AI (workout, RAG, DNA) in attesa di API endpoints
+- **DB**: 19 tabelle SQLite, FK enforced, multi-tenant via trainer_id
 - **Sicurezza**: JWT auth, bcrypt, Deep Relational IDOR, 3-layer route protection
 - **Cloud**: 0 dipendenze, 0 dati verso terzi
 

@@ -12,7 +12,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import apiClient from "@/lib/api-client";
+import apiClient, { extractErrorMessage } from "@/lib/api-client";
 import type {
   RecurringExpense,
   RecurringExpenseCreate,
@@ -52,8 +52,8 @@ export function useCreateRecurringExpense() {
       queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
       toast.success("Spesa ricorrente creata");
     },
-    onError: () => {
-      toast.error("Errore nella creazione della spesa ricorrente");
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Errore nella creazione della spesa ricorrente"));
     },
   });
 }
@@ -79,8 +79,8 @@ export function useUpdateRecurringExpense() {
       queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
       toast.success("Spesa ricorrente aggiornata");
     },
-    onError: () => {
-      toast.error("Errore nell'aggiornamento della spesa ricorrente");
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Errore nell'aggiornamento della spesa ricorrente"));
     },
   });
 }
@@ -99,8 +99,8 @@ export function useDeleteRecurringExpense() {
       queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
       toast.success("Spesa ricorrente eliminata");
     },
-    onError: () => {
-      toast.error("Errore nell'eliminazione della spesa ricorrente");
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Errore nell'eliminazione della spesa ricorrente"));
     },
   });
 }

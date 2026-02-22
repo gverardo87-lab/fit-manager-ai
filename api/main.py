@@ -100,7 +100,7 @@ def _run_migrations() -> None:
     cursor.execute("PRAGMA table_info(contratti)")
     contratti_cols_v2 = [col[1] for col in cursor.fetchall()]
     if "acconto" not in contratti_cols_v2:
-        logger.info("Migration: aggiunta colonna acconto a contratti")
+        logger.info("Migration 6: aggiunta colonna acconto a contratti")
         cursor.execute("ALTER TABLE contratti ADD COLUMN acconto REAL DEFAULT 0")
         # Backfill: recupera acconto da CashMovement ACCONTO_CONTRATTO
         cursor.execute("""
@@ -115,7 +115,23 @@ def _run_migrations() -> None:
         """)
         backfilled = cursor.rowcount
         conn.commit()
-        logger.info("Migration: backfill acconto su %d contratti", backfilled)
+        logger.info("Migration 6: backfill acconto su %d contratti", backfilled)
+
+    # --- Migrazione 7: backfill trainer_id orfani ---
+    # Record creati da Streamlit senza trainer_id → assegna al primo trainer.
+    cursor.execute("SELECT MIN(id) FROM trainers")
+    row = cursor.fetchone()
+    first_trainer = row[0] if row else None
+    if first_trainer:
+        for table in ["clienti", "agenda", "contratti", "movimenti_cassa", "spese_ricorrenti"]:
+            cursor.execute(
+                f"UPDATE {table} SET trainer_id = ? WHERE trainer_id IS NULL",
+                (first_trainer,),
+            )
+            if cursor.rowcount > 0:
+                logger.info("Migration 7: %d record orfani in %s assegnati a trainer %d",
+                            cursor.rowcount, table, first_trainer)
+        conn.commit()
 
     # --- Migrazione 8: colonna mese_anno + dedup spese ricorrenti ---
     cursor.execute("PRAGMA table_info(movimenti_cassa)")
@@ -192,22 +208,6 @@ def _run_migrations() -> None:
     if legacy_gaps:
         conn.commit()
 
-    # --- Migrazione 7: backfill trainer_id orfani ---
-    # Se Streamlit crea record senza trainer_id, li assegna al primo trainer.
-    cursor.execute("SELECT MIN(id) FROM trainers")
-    row = cursor.fetchone()
-    first_trainer = row[0] if row else None
-    if first_trainer:
-        for table in ["clienti", "agenda", "contratti", "movimenti_cassa", "spese_ricorrenti"]:
-            cursor.execute(
-                f"UPDATE {table} SET trainer_id = ? WHERE trainer_id IS NULL",
-                (first_trainer,),
-            )
-            if cursor.rowcount > 0:
-                logger.info("Migration: %d record orfani in %s assegnati a trainer %d",
-                            cursor.rowcount, table, first_trainer)
-        conn.commit()
-
     # --- Migrazione 10: data_disattivazione su spese_ricorrenti ---
     cursor.execute("PRAGMA table_info(spese_ricorrenti)")
     spese_cols_v2 = [col[1] for col in cursor.fetchall()]
@@ -256,9 +256,8 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000",    # React dev server
-        "http://localhost:8501",    # Streamlit (se servira')
-        "http://localhost:5173",    # Vite dev server
+        "http://localhost:3000",    # Next.js dev server
+        "http://localhost:5173",    # Vite dev server (fallback)
     ],
     allow_credentials=True,
     allow_methods=["*"],

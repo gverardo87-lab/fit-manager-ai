@@ -66,3 +66,16 @@ apiClient.interceptors.response.use(
 );
 
 export default apiClient;
+
+// ════════════════════════════════════════════════════════════
+// ERROR EXTRACTION — Estrae detail dal backend FastAPI
+// ════════════════════════════════════════════════════════════
+
+/** Estrae `error.response.data.detail` da errori Axios, con fallback generico. */
+export function extractErrorMessage(error: unknown, fallback: string): string {
+  if (axios.isAxiosError(error)) {
+    const detail = error.response?.data?.detail;
+    if (typeof detail === "string") return detail;
+  }
+  return fallback;
+}

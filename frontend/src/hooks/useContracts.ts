@@ -8,7 +8,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import apiClient from "@/lib/api-client";
+import apiClient, { extractErrorMessage } from "@/lib/api-client";
 import type {
   Contract,
   ContractListItem,
@@ -79,8 +79,8 @@ export function useCreateContract() {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       toast.success("Contratto creato");
     },
-    onError: () => {
-      toast.error("Errore nella creazione del contratto");
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Errore nella creazione del contratto"));
     },
   });
 }
@@ -106,8 +106,8 @@ export function useUpdateContract() {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       toast.success("Contratto aggiornato");
     },
-    onError: () => {
-      toast.error("Errore nell'aggiornamento del contratto");
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Errore nell'aggiornamento del contratto"));
     },
   });
 }
@@ -126,8 +126,8 @@ export function useDeleteContract() {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       toast.success("Contratto eliminato");
     },
-    onError: () => {
-      toast.error("Errore nell'eliminazione del contratto");
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Errore nell'eliminazione del contratto"));
     },
   });
 }

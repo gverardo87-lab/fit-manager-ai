@@ -46,6 +46,7 @@ import { DeleteMovementDialog } from "@/components/movements/DeleteMovementDialo
 import { RecurringExpensesTab } from "@/components/movements/RecurringExpensesTab";
 import { useMovements, useMovementStats } from "@/hooks/useMovements";
 import type { CashMovement } from "@/types/api";
+import { formatCurrency } from "@/lib/format";
 
 // ── Costanti ──
 
@@ -67,13 +68,6 @@ const MESI = [
 function getYearRange(): number[] {
   const current = new Date().getFullYear();
   return Array.from({ length: 5 }, (_, i) => current - 2 + i);
-}
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("it-IT", {
-    style: "currency",
-    currency: "EUR",
-  }).format(amount);
 }
 
 const chartConfig: ChartConfig = {

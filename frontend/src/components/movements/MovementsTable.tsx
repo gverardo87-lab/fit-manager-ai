@@ -49,17 +49,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { CashMovement } from "@/types/api";
+import { formatCurrency } from "@/lib/format";
 
 interface MovementsTableProps {
   movements: CashMovement[];
   onDelete: (movement: CashMovement) => void;
-}
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("it-IT", {
-    style: "currency",
-    currency: "EUR",
-  }).format(amount);
 }
 
 export function MovementsTable({

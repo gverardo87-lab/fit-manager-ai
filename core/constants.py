@@ -59,13 +59,11 @@ class PaymentMethod(str, Enum):
 # ════════════════════════════════════════════════════════════
 
 class SessionCategory(str, Enum):
-    """Categorie di sessione/evento."""
+    """Categorie di sessione/evento — allineate a api/routers/agenda.py VALID_CATEGORIES."""
     PT = "PT"
     SALA = "SALA"
-    NUOTO = "NUOTO"
-    YOGA = "YOGA"
-    CONSULENZA = "CONSULENZA"
     CORSO = "CORSO"
+    COLLOQUIO = "COLLOQUIO"
 
 
 # ════════════════════════════════════════════════════════════
@@ -73,7 +71,7 @@ class SessionCategory(str, Enum):
 # ════════════════════════════════════════════════════════════
 
 class ExpenseFrequency(str, Enum):
-    """Frequenze per spese ricorrenti."""
+    """Frequenze per spese ricorrenti — allineate a frontend PLAN_FREQUENCIES."""
     MENSILE = "MENSILE"
+    SETTIMANALE = "SETTIMANALE"
     TRIMESTRALE = "TRIMESTRALE"
-    ANNUALE = "ANNUALE"

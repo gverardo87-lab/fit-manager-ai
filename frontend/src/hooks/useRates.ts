@@ -10,7 +10,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import apiClient from "@/lib/api-client";
+import apiClient, { extractErrorMessage } from "@/lib/api-client";
 import type {
   Rate,
   RateCreate,
@@ -42,8 +42,8 @@ export function useGeneratePaymentPlan() {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       toast.success(`Piano generato: ${data.total} rate create`);
     },
-    onError: () => {
-      toast.error("Errore nella generazione del piano rate");
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Errore nella generazione del piano rate"));
     },
   });
 }
@@ -64,8 +64,8 @@ export function useCreateRate() {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       toast.success("Rata aggiunta");
     },
-    onError: () => {
-      toast.error("Errore nella creazione della rata");
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Errore nella creazione della rata"));
     },
   });
 }
@@ -89,8 +89,8 @@ export function useUpdateRate() {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       toast.success("Rata aggiornata");
     },
-    onError: () => {
-      toast.error("Errore nell'aggiornamento della rata");
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Errore nell'aggiornamento della rata"));
     },
   });
 }
@@ -110,8 +110,8 @@ export function useDeleteRate() {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       toast.success("Rata eliminata");
     },
-    onError: () => {
-      toast.error("Errore nell'eliminazione della rata");
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Errore nell'eliminazione della rata"));
     },
   });
 }
@@ -134,8 +134,8 @@ export function useUnpayRate() {
       queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
       toast.success("Pagamento revocato");
     },
-    onError: () => {
-      toast.error("Errore nella revoca del pagamento");
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Errore nella revoca del pagamento"));
     },
   });
 }
@@ -162,8 +162,8 @@ export function usePayRate() {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       toast.success("Pagamento registrato");
     },
-    onError: () => {
-      toast.error("Errore nel pagamento della rata");
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Errore nel pagamento della rata"));
     },
   });
 }

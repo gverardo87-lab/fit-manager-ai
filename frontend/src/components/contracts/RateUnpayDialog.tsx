@@ -25,18 +25,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useUnpayRate } from "@/hooks/useRates";
 import type { Rate } from "@/types/api";
+import { formatCurrency } from "@/lib/format";
 
 interface RateUnpayDialogProps {
   rate: Rate | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("it-IT", {
-    style: "currency",
-    currency: "EUR",
-  }).format(amount);
 }
 
 export function RateUnpayDialog({

@@ -14,9 +14,9 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { ContractForm, type ContractFormValues } from "./ContractForm";
+import { ContractForm, type ContractSubmitPayload } from "./ContractForm";
 import { useCreateContract, useUpdateContract } from "@/hooks/useContracts";
-import type { Contract, ContractUpdate } from "@/types/api";
+import type { Contract } from "@/types/api";
 
 interface ContractSheetProps {
   open: boolean;
@@ -35,19 +35,17 @@ export function ContractSheet({
 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
-  const handleSubmit = (values: ContractFormValues) => {
-    // Le date sono gia' convertite in stringa ISO dal form (handleFormSubmit)
+  const handleSubmit = (values: ContractSubmitPayload) => {
     if (isEdit) {
       const { id_cliente, acconto, metodo_acconto, ...updatePayload } = values;
       updateMutation.mutate(
-        { id: contract.id, ...updatePayload } as unknown as ContractUpdate & { id: number },
+        { id: contract.id, ...updatePayload },
         { onSuccess: () => onOpenChange(false) }
       );
     } else {
-      createMutation.mutate(
-        values as unknown as Parameters<typeof createMutation.mutate>[0],
-        { onSuccess: () => onOpenChange(false) }
-      );
+      createMutation.mutate(values, {
+        onSuccess: () => onOpenChange(false),
+      });
     }
   };
 

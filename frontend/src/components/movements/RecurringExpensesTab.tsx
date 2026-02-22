@@ -45,13 +45,7 @@ import {
 } from "@/hooks/useRecurringExpenses";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { RecurringExpense } from "@/types/api";
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("it-IT", {
-    style: "currency",
-    currency: "EUR",
-  }).format(amount);
-}
+import { formatCurrency } from "@/lib/format";
 
 export function RecurringExpensesTab() {
   const { data, isLoading } = useRecurringExpenses();

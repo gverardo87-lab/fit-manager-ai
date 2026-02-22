@@ -11,7 +11,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import apiClient from "@/lib/api-client";
+import apiClient, { extractErrorMessage } from "@/lib/api-client";
 import type {
   Client,
   ClientCreate,
@@ -65,8 +65,8 @@ export function useCreateClient() {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       toast.success(`${client.nome} ${client.cognome} aggiunto`);
     },
-    onError: () => {
-      toast.error("Errore nella creazione del cliente");
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Errore nella creazione del cliente"));
     },
   });
 }
@@ -92,8 +92,8 @@ export function useUpdateClient() {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       toast.success(`${client.nome} ${client.cognome} aggiornato`);
     },
-    onError: () => {
-      toast.error("Errore nell'aggiornamento del cliente");
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Errore nell'aggiornamento del cliente"));
     },
   });
 }
@@ -112,8 +112,8 @@ export function useDeleteClient() {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       toast.success("Cliente eliminato");
     },
-    onError: () => {
-      toast.error("Errore nell'eliminazione del cliente");
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Errore nell'eliminazione del cliente"));
     },
   });
 }

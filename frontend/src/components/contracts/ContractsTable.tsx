@@ -43,6 +43,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { ContractListItem } from "@/types/api";
+import { formatCurrency } from "@/lib/format";
 
 interface ContractsTableProps {
   contracts: ContractListItem[];
@@ -51,12 +52,9 @@ interface ContractsTableProps {
   onDelete: (contract: ContractListItem) => void;
 }
 
-function formatCurrency(amount: number | null): string {
+function formatCurrencyNullable(amount: number | null): string {
   if (amount == null) return "—";
-  return new Intl.NumberFormat("it-IT", {
-    style: "currency",
-    currency: "EUR",
-  }).format(amount);
+  return formatCurrency(amount);
 }
 
 function getPaymentBadge(contract: ContractListItem) {
@@ -172,7 +170,7 @@ export function ContractsTable({
                   <TableCell className="text-right">
                     <div className="flex flex-col items-end">
                       <span className="font-medium">
-                        {formatCurrency(contract.prezzo_totale)}
+                        {formatCurrencyNullable(contract.prezzo_totale)}
                       </span>
                       <span className="text-xs text-muted-foreground">
                         <CreditCard className="mr-1 inline h-3 w-3" />

@@ -71,16 +71,10 @@ import { RateEditDialog } from "./RateEditDialog";
 import { RateUnpayDialog } from "./RateUnpayDialog";
 import type { Rate, ContractWithRates } from "@/types/api";
 import { PAYMENT_METHODS, PLAN_FREQUENCIES } from "@/types/api";
+import { formatCurrency } from "@/lib/format";
 
 interface PaymentPlanTabProps {
   contract: ContractWithRates;
-}
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("it-IT", {
-    style: "currency",
-    currency: "EUR",
-  }).format(amount);
 }
 
 // ════════════════════════════════════════════════════════════

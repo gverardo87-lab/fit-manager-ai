@@ -82,11 +82,12 @@ session.commit()  # UNICO commit — tutto o niente
 ```
 
 ### Batch Fetch (anti N+1)
-Liste enriched usano 3 query batch:
+Liste enriched usano 4 query batch:
 ```python
 contracts = session.exec(query).all()  # 1. contratti
 all_rates = session.exec(select(Rate).where(Rate.id_contratto.in_(ids))).all()  # 2. rate
 clients = session.exec(select(Client).where(Client.id.in_(client_ids))).all()  # 3. clienti
+event_counts = session.exec(select(Event.id_contratto, func.count(...)).group_by(...))  # 4. crediti usati
 ```
 
 ### Idempotent Sync Engine

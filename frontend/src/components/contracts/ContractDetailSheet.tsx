@@ -34,19 +34,12 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
-import { ContractForm, type ContractFormValues } from "./ContractForm";
+import { ContractForm, type ContractSubmitPayload } from "./ContractForm";
 import { PaymentPlanTab } from "./PaymentPlanTab";
 import { useContract, useUpdateContract } from "@/hooks/useContracts";
-import type { ContractUpdate, ContractWithRates } from "@/types/api";
+import type { ContractWithRates } from "@/types/api";
 
-// ── Formattazione valuta centralizzata ──
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("it-IT", {
-    style: "currency",
-    currency: "EUR",
-  }).format(amount);
-}
+import { formatCurrency } from "@/lib/format";
 
 // ════════════════════════════════════════════════════════════
 // Props & Component
@@ -68,11 +61,11 @@ export function ContractDetailSheet({
   const { data: contract, isLoading } = useContract(open ? contractId : null);
   const updateMutation = useUpdateContract();
 
-  const handleUpdateSubmit = (values: ContractFormValues) => {
+  const handleUpdateSubmit = (values: ContractSubmitPayload) => {
     if (!contractId) return;
     const { id_cliente, acconto, metodo_acconto, ...updatePayload } = values;
     updateMutation.mutate(
-      { id: contractId, ...updatePayload } as unknown as ContractUpdate & { id: number },
+      { id: contractId, ...updatePayload },
       { onSuccess: () => onOpenChange(false) }
     );
   };

@@ -12,6 +12,7 @@ frontend/src/
 │   │   ├── page.tsx         Dashboard KPI
 │   │   ├── clienti/         Pagina clienti
 │   │   ├── contratti/       Pagina contratti
+│   │   ├── agenda/          Pagina agenda/calendario
 │   │   └── cassa/           Pagina libro mastro
 │   ├── login/page.tsx       Login pubblico
 │   └── layout.tsx           Root layout (Providers, fonts)
@@ -20,12 +21,14 @@ frontend/src/
 │   ├── layout/Sidebar.tsx   Navigazione + trainer info
 │   ├── clients/             Componenti dominio clienti
 │   ├── contracts/           Componenti dominio contratti
+│   ├── agenda/              Componenti dominio agenda/calendario
 │   ├── movements/           Componenti dominio cassa
-│   └── ui/                  shadcn/ui primitives (24 componenti)
+│   └── ui/                  shadcn/ui primitives
 ├── hooks/                   React Query hooks (1 per dominio)
 ├── lib/
-│   ├── api-client.ts        Axios + JWT interceptor
+│   ├── api-client.ts        Axios + JWT interceptor + extractErrorMessage
 │   ├── auth.ts              Login/logout/cookie management
+│   ├── format.ts            formatCurrency centralizzato
 │   └── providers.tsx        QueryClientProvider
 └── types/
     └── api.ts               TypeScript interfaces (mirror Pydantic)
@@ -96,12 +99,19 @@ export default function PageName() {
 
 ### Formattazione Valuta
 ```typescript
-function formatCurrency(amount: number | null): string {
-  if (amount == null) return "—";
-  return new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(amount);
+import { formatCurrency } from "@/lib/format";
+```
+Funzione centralizzata in `lib/format.ts`. Importata in tutti i componenti.
+
+### Error Handling
+```typescript
+import { extractErrorMessage } from "@/lib/api-client";
+// In ogni mutation onError:
+onError: (error) => {
+  toast.error(extractErrorMessage(error, "Messaggio fallback"));
 }
 ```
-Definita in ogni componente che la usa (nessun import centralizzato — keep it simple).
+Estrae `error.response.data.detail` dal backend FastAPI, mostra il messaggio reale all'utente.
 
 ## Convenzioni
 

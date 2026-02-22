@@ -1,4 +1,4 @@
-# pyproject.toml (Versione FitManager 3.0 - Agenda Update)
+# pyproject.toml — FitManager AI Studio v3 (FastAPI + Next.js era)
 
 [build-system]
 requires = ["setuptools>=61.0"]
@@ -6,22 +6,21 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fit-manager-ai"
-version = "3.0.0" # Aggiornato alla v3
+version = "3.0.0"
 authors = [
   { name="G. Verardo", email="tuo.email@example.com" },
 ]
-description = "Piattaforma AI per la gestione di studi fitness, atleti e nutrizione."
+description = "CRM AI per personal trainer e professionisti fitness a P.IVA."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT License" }
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
-    "Framework :: Streamlit",
+    "Framework :: FastAPI",
 ]
 dependencies = [
     # --- CORE LIBS (Base) ---
-    "streamlit>=1.54.0",
     "pandas==2.2.2",
     "numpy==1.26.4",
     "requests",
@@ -29,22 +28,21 @@ dependencies = [
     "python-dotenv==1.0.1",
     "plotly==5.22.0",
     "feedparser",
-    "streamlit-calendar", # <--- NUOVA DIPENDENZA FONDAMENTALE
-    "watchdog",           # <--- Per gestione file system
-    "pydantic>=2.7.4",    # <--- REPOSITORY PATTERN
-    "python-dateutil",    # <--- Dependency per repository pattern
-    "python-docx==1.1.2", # <--- Trainer DNA: import schede Word
-    "cryptography",       # <--- Backup crittografato (.fitbackup)
+    "watchdog",
+    "pydantic>=2.7.4",
+    "python-dateutil",
+    "python-docx==1.1.2",
+    "cryptography",
 
     # --- API LAYER (FastAPI + Auth) ---
     "fastapi",
     "uvicorn[standard]",
-    "sqlmodel",           # <--- ORM (SQLAlchemy + Pydantic) — database-agnostic
-    "python-jose[cryptography]",  # <--- JWT tokens
-    "bcrypt",             # <--- Password hashing
-    "python-multipart",   # <--- Form data per auth
+    "sqlmodel",
+    "python-jose[cryptography]",
+    "bcrypt",
+    "python-multipart",
 
-    # --- LANGCHAIN ECOSYSTEM (AI Logic) ---
+    # --- LANGCHAIN ECOSYSTEM (AI Logic — core/) ---
     "langchain==0.2.5",
     "langchain-community",
     "langchain-core",
@@ -52,7 +50,7 @@ dependencies = [
     "langchain-ollama",
     "langchain-text-splitters",
 
-    # --- RAG & ML (Motore AI Locale) ---
+    # --- RAG & ML (Motore AI Locale — core/) ---
     "ollama==0.5.4",
     "PyMuPDF==1.24.1",
     "chromadb==0.4.24",
@@ -64,9 +62,9 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/tuo-user/fit-manager-ai"
+"Homepage" = "https://github.com/gverardo87-lab/fit-manager-ai"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["core*", "server*", "api*", "tools*", "knowledge_base*"]
+include = ["core*", "api*", "tools*", "knowledge_base*"]
 exclude = ["data*", "venv*"]

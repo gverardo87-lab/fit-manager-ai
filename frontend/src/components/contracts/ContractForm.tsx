@@ -67,9 +67,22 @@ const contractSchema = z
 
 export type ContractFormValues = z.infer<typeof contractSchema>;
 
+/** Payload effettivo dopo conversione Date → string ISO (pronto per API). */
+export interface ContractSubmitPayload {
+  id_cliente: number;
+  tipo_pacchetto: string;
+  crediti_totali: number;
+  prezzo_totale: number;
+  data_inizio: string;
+  data_scadenza: string;
+  acconto?: number;
+  metodo_acconto?: string;
+  note?: string;
+}
+
 interface ContractFormProps {
   contract?: Contract | null;
-  onSubmit: (values: ContractFormValues) => void;
+  onSubmit: (values: ContractSubmitPayload) => void;
   isPending: boolean;
 }
 
@@ -111,10 +124,13 @@ export function ContractForm({
 
   const handleFormSubmit = (values: ContractFormValues) => {
     // Converti Date in string ISO per il backend
-    const payload = {
-      ...values,
-      data_inizio: format(values.data_inizio, "yyyy-MM-dd") as unknown as Date,
-      data_scadenza: format(values.data_scadenza, "yyyy-MM-dd") as unknown as Date,
+    const payload: ContractSubmitPayload = {
+      id_cliente: values.id_cliente,
+      tipo_pacchetto: values.tipo_pacchetto,
+      crediti_totali: values.crediti_totali,
+      prezzo_totale: values.prezzo_totale,
+      data_inizio: format(values.data_inizio, "yyyy-MM-dd"),
+      data_scadenza: format(values.data_scadenza, "yyyy-MM-dd"),
       note: values.note || undefined,
       acconto: values.acconto || 0,
       metodo_acconto: values.metodo_acconto || undefined,

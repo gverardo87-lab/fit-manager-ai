@@ -22,18 +22,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useDeleteMovement } from "@/hooks/useMovements";
 import type { CashMovement } from "@/types/api";
+import { formatCurrency } from "@/lib/format";
 
 interface DeleteMovementDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   movement: CashMovement | null;
-}
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("it-IT", {
-    style: "currency",
-    currency: "EUR",
-  }).format(amount);
 }
 
 export function DeleteMovementDialog({

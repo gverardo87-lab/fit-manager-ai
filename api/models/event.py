@@ -36,7 +36,7 @@ class Event(SQLModel, table=True):
     categoria: str
     titolo: Optional[str] = None
     id_cliente: Optional[int] = Field(default=None, foreign_key="clienti.id")
-    id_contratto: Optional[int] = None
+    id_contratto: Optional[int] = Field(default=None, foreign_key="contratti.id")
     stato: str = Field(default="Programmato")
     note: Optional[str] = None
     data_creazione: Optional[datetime] = Field(default_factory=datetime.utcnow)

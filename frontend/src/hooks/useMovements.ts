@@ -11,7 +11,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import apiClient from "@/lib/api-client";
+import apiClient, { extractErrorMessage } from "@/lib/api-client";
 import type {
   CashMovement,
   MovementManualCreate,
@@ -87,8 +87,8 @@ export function useCreateMovement() {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       toast.success("Movimento registrato");
     },
-    onError: () => {
-      toast.error("Errore nella registrazione del movimento");
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Errore nella registrazione del movimento"));
     },
   });
 }
@@ -108,8 +108,8 @@ export function useDeleteMovement() {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       toast.success("Movimento eliminato");
     },
-    onError: () => {
-      toast.error("Errore nell'eliminazione del movimento");
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Errore nell'eliminazione del movimento"));
     },
   });
 }

@@ -13,7 +13,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import axios from "axios";
-import apiClient from "@/lib/api-client";
+import apiClient, { extractErrorMessage } from "@/lib/api-client";
 import type {
   Event,
   EventCreate,
@@ -83,12 +83,10 @@ export function useCreateEvent() {
     },
     onError: (error) => {
       if (axios.isAxiosError(error) && error.response?.status === 409) {
-        toast.error(
-          "Sovrapposizione oraria: hai gia' un impegno in questo slot"
-        );
+        toast.error("Sovrapposizione oraria: hai gia' un impegno in questo slot");
         return;
       }
-      toast.error("Errore nella creazione dell'evento");
+      toast.error(extractErrorMessage(error, "Errore nella creazione dell'evento"));
     },
   });
 }
@@ -116,12 +114,10 @@ export function useUpdateEvent() {
     },
     onError: (error) => {
       if (axios.isAxiosError(error) && error.response?.status === 409) {
-        toast.error(
-          "Sovrapposizione oraria: hai gia' un impegno in questo slot"
-        );
+        toast.error("Sovrapposizione oraria: hai gia' un impegno in questo slot");
         return;
       }
-      toast.error("Errore nell'aggiornamento dell'evento");
+      toast.error(extractErrorMessage(error, "Errore nell'aggiornamento dell'evento"));
     },
   });
 }
@@ -143,8 +139,8 @@ export function useDeleteEvent() {
       queryClient.invalidateQueries({ queryKey: ["contract"] });
       toast.success("Evento eliminato");
     },
-    onError: () => {
-      toast.error("Errore nell'eliminazione dell'evento");
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Errore nell'eliminazione dell'evento"));
     },
   });
 }
