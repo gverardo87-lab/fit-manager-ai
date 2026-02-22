@@ -159,7 +159,7 @@ alembic upgrade head          # applica migrazioni pendenti
 alembic revision -m "desc"    # crea nuova migrazione
 alembic current               # mostra versione corrente
 
-# Test (pytest — 39 test, tutti i domini)
+# Test (pytest — 48 test, tutti i domini)
 pytest tests/ -v
 
 # Test (E2E — richiede server avviato)
@@ -187,7 +187,7 @@ ollama list
 - **frontend/**: ~10,400 LOC TypeScript — 51 componenti, 7 hook modules, 6 pagine
 - **core/**: ~11,100 LOC Python — moduli AI (workout, RAG, DNA) in attesa di API endpoints
 - **DB**: 19 tabelle SQLite, FK enforced, multi-tenant via trainer_id
-- **Test**: 39 pytest + 67 E2E
+- **Test**: 48 pytest + 67 E2E
 - **Sicurezza**: JWT auth, bcrypt, Deep Relational IDOR, 3-layer route protection
 - **Cloud**: 0 dipendenze, 0 dati verso terzi
 

@@ -206,20 +206,46 @@ def update_rate(
     session: Session = Depends(get_session),
 ):
     """
-    Aggiorna una rata (partial update, solo rate PENDENTI).
+    Aggiorna una rata (partial update, solo rate PENDENTI senza pagamenti).
 
-    Deep Relational IDOR + business rule: rate SALDATE sono immutabili.
+    Deep Relational IDOR + business rules:
+    - Rate con pagamenti (SALDATA o PARZIALE) sono immutabili
+    - Se importo_previsto cambia, re-validazione residuo contratto
     """
     rate = _bouncer_rate(session, rate_id, trainer.id)
 
-    # Business rule: rate gia' saldate non si modificano
-    if rate.stato == "SALDATA":
+    # Business rule: rate con qualsiasi pagamento sono immutabili
+    if rate.importo_saldato > 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Impossibile modificare una rata gia' saldata",
+            detail="Impossibile modificare una rata con pagamenti. "
+                   "Revoca prima il pagamento.",
         )
 
     update_data = data.model_dump(exclude_unset=True)
+
+    # Re-validazione residuo se importo_previsto cambia
+    if "importo_previsto" in update_data:
+        contract = session.get(Contract, rate.id_contratto)
+        if contract and contract.prezzo_totale:
+            # Somma rate attive ESCLUSA la corrente
+            somma_altre = session.exec(
+                select(func.coalesce(func.sum(Rate.importo_previsto), 0)).where(
+                    Rate.id_contratto == rate.id_contratto,
+                    Rate.id != rate.id,
+                    Rate.deleted_at == None,
+                )
+            ).one()
+            cap = round((contract.prezzo_totale or 0) - (contract.acconto or 0), 2)
+            nuovo_totale = round(float(somma_altre) + update_data["importo_previsto"], 2)
+            if nuovo_totale > cap + 0.01:
+                spazio = round(cap - float(somma_altre), 2)
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Importo ({update_data['importo_previsto']:.2f}) eccede il "
+                           f"residuo rateizzabile ({max(0, spazio):.2f})",
+                )
+
     changes = {}
     for field, value in update_data.items():
         old_val = getattr(rate, field)
@@ -246,16 +272,19 @@ def delete_rate(
     session: Session = Depends(get_session),
 ):
     """
-    Elimina una rata.
+    Elimina una rata (solo PENDENTI senza pagamenti).
 
-    Deep Relational IDOR + business rule: rate SALDATE non si eliminano.
+    Deep Relational IDOR + business rule:
+    rate con qualsiasi pagamento (PARZIALE/SALDATA) non eliminabili.
+    Revoca prima il pagamento (unpay), poi elimina.
     """
     rate = _bouncer_rate(session, rate_id, trainer.id)
 
-    if rate.stato == "SALDATA":
+    if rate.importo_saldato > 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Impossibile eliminare una rata gia' saldata",
+            detail="Impossibile eliminare una rata con pagamenti. "
+                   "Revoca prima il pagamento.",
         )
 
     rate.deleted_at = datetime.now(timezone.utc)

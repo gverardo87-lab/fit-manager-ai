@@ -157,10 +157,11 @@ Tabella `audit_log` + helper `log_audit()` in `api/routers/_audit.py`.
 
 Due famiglie di test:
 
-**pytest** (`tests/` — 39 test):
+**pytest** (`tests/` — 48 test):
 - DB SQLite in-memory, isolamento totale (StaticPool)
 - `test_pay_rate.py` (10): pagamento atomico, overpayment, deep IDOR
 - `test_unpay_rate.py` (4): revoca pagamento, decrements, soft delete movement
+- `test_rate_guards.py` (9): immutabilita' rate con pagamenti, residuo su update
 - `test_soft_delete_integrity.py` (5): delete blocked with rates, restrict, stats filtrate
 - `test_sync_recurring.py` (4): idempotenza, disabled, resync
 - `test_contract_integrity.py` (16): residual, chiuso guard, auto-close, delete guards + cascade
