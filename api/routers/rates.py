@@ -21,7 +21,7 @@ Pagamento Atomico (POST /api/rates/{id}/pay):
 """
 
 from typing import List, Optional
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import Session, select
 
@@ -233,7 +233,7 @@ def delete_rate(
             detail="Impossibile eliminare una rata gia' saldata",
         )
 
-    rate.deleted_at = datetime.utcnow()
+    rate.deleted_at = datetime.now(timezone.utc)
     session.add(rate)
     log_audit(session, "rate", rate.id, "DELETE", trainer.id)
     session.commit()
@@ -386,7 +386,7 @@ def unpay_rate(
 
     # F) Soft-delete TUTTI i CashMovement associati (puo' averne piu' di uno
     #    se la rata ha ricevuto pagamenti parziali multipli)
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     movements = session.exec(
         select(CashMovement).where(
             CashMovement.id_rata == rate_id,
@@ -449,7 +449,7 @@ def generate_payment_plan(
         )
 
     # Soft-delete rate PENDENTI esistenti
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     pending_rates = session.exec(
         select(Rate).where(
             Rate.id_contratto == contract_id, Rate.stato == "PENDENTE", Rate.deleted_at == None

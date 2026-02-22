@@ -7,7 +7,7 @@ Il trainer_id e' la chiave di multi-tenancy: ogni dato nel DB
 appartiene a UN trainer e solo lui puo' vederlo.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from sqlmodel import SQLModel, Field
 
@@ -27,4 +27,4 @@ class Trainer(SQLModel, table=True):
     cognome: str = Field(max_length=100)
     hashed_password: str
     is_active: bool = Field(default=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

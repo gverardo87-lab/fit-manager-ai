@@ -12,7 +12,7 @@ Mai 403, mai rivelare l'esistenza di dati altrui.
 """
 
 from typing import List, Optional
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import Session, select, func
 
@@ -477,7 +477,7 @@ def delete_contract(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contratto non trovato")
 
     # Cascade: soft-delete tutte le rate non eliminate
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     rates = session.exec(
         select(Rate).where(Rate.id_contratto == contract_id, Rate.deleted_at == None)
     ).all()

@@ -17,7 +17,7 @@ Validazioni:
 - Conflict Prevention: no sovrapposizioni temporali per lo stesso trainer
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import Session, select, func
@@ -504,7 +504,7 @@ def delete_event(
     if not event:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Evento non trovato")
 
-    event.deleted_at = datetime.utcnow()
+    event.deleted_at = datetime.now(timezone.utc)
     session.add(event)
     log_audit(session, "event", event.id, "DELETE", trainer.id)
     session.commit()

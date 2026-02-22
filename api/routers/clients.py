@@ -13,7 +13,7 @@ Sicurezza (Design by Contract):
 
 import json
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import Session, select, func
@@ -396,7 +396,7 @@ def delete_client(
             detail="Impossibile eliminare: il cliente ha contratti attivi",
         )
 
-    client.deleted_at = datetime.utcnow()
+    client.deleted_at = datetime.now(timezone.utc)
     session.add(client)
     log_audit(session, "client", client.id, "DELETE", trainer.id)
     session.commit()

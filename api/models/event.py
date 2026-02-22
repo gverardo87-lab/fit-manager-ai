@@ -15,7 +15,7 @@ Un evento puo' essere:
 - Generico (SALA, CORSO, YOGA): ha solo trainer_id, nessun cliente
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from sqlmodel import SQLModel, Field
 
@@ -39,5 +39,5 @@ class Event(SQLModel, table=True):
     id_contratto: Optional[int] = Field(default=None, foreign_key="contratti.id")
     stato: str = Field(default="Programmato")
     note: Optional[str] = None
-    data_creazione: Optional[datetime] = Field(default_factory=datetime.utcnow)
+    data_creazione: Optional[datetime] = Field(default_factory=lambda: datetime.now(timezone.utc))
     deleted_at: Optional[datetime] = None

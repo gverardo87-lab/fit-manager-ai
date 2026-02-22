@@ -22,7 +22,7 @@ Sync Engine (spese ricorrenti):
 import calendar
 import logging
 from collections import defaultdict
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -399,7 +399,7 @@ def delete_movement(
             detail="Impossibile eliminare un movimento di sistema (legato a un contratto)",
         )
 
-    movement.deleted_at = datetime.utcnow()
+    movement.deleted_at = datetime.now(timezone.utc)
     session.add(movement)
     log_audit(session, "movement", movement.id, "DELETE", trainer.id)
     session.commit()

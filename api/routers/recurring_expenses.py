@@ -10,7 +10,7 @@ nell'endpoint /movements/stats.
 """
 
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field, field_validator
@@ -184,7 +184,7 @@ def update_recurring_expense(
     # Storico disattivazione: timestamp quando passa da attiva a disattiva
     if "attiva" in update_data:
         if update_data["attiva"] is False and expense.attiva:
-            expense.data_disattivazione = datetime.utcnow()
+            expense.data_disattivazione = datetime.now(timezone.utc)
         elif update_data["attiva"] is True and not expense.attiva:
             expense.data_disattivazione = None
 
@@ -228,7 +228,7 @@ def delete_recurring_expense(
             detail="Spesa ricorrente non trovata",
         )
 
-    expense.deleted_at = datetime.utcnow()
+    expense.deleted_at = datetime.now(timezone.utc)
     session.add(expense)
     log_audit(session, "recurring_expense", expense.id, "DELETE", trainer.id)
     session.commit()

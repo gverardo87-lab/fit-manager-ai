@@ -8,7 +8,7 @@ Il campo 'changes' contiene un JSON con i valori prima/dopo per gli UPDATE.
 Multi-tenancy: trainer_id diretto (chi ha fatto l'azione).
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from sqlmodel import SQLModel, Field
 
@@ -29,4 +29,4 @@ class AuditLog(SQLModel, table=True):
     action: str
     changes: Optional[str] = None
     trainer_id: int = Field(foreign_key="trainers.id")
-    created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
+    created_at: Optional[datetime] = Field(default_factory=lambda: datetime.now(timezone.utc))

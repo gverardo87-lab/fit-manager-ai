@@ -13,7 +13,7 @@ Ogni pagamento rata e ogni acconto DEVONO generare un CashMovement
 per mantenere la coerenza contabile.
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Optional, TYPE_CHECKING
 from sqlmodel import SQLModel, Field, Relationship
 
@@ -37,7 +37,7 @@ class CashMovement(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     trainer_id: Optional[int] = Field(default=None, foreign_key="trainers.id", index=True)
-    data_movimento: Optional[datetime] = Field(default_factory=datetime.utcnow)
+    data_movimento: Optional[datetime] = Field(default_factory=lambda: datetime.now(timezone.utc))
     data_effettiva: date = Field(default_factory=date.today)
     tipo: str  # ENTRATA | USCITA
     categoria: Optional[str] = None

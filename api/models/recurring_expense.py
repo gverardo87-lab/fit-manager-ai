@@ -9,7 +9,7 @@ La tabella esiste gia' nel DB legacy (creata da Streamlit).
 La colonna trainer_id viene aggiunta dalla migrazione in api/main.py.
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Optional
 from sqlmodel import SQLModel, Field
 
@@ -33,6 +33,6 @@ class RecurringExpense(SQLModel, table=True):
     giorno_scadenza: int = Field(default=1)
     data_prossima_scadenza: Optional[date] = None
     attiva: bool = Field(default=True)
-    data_creazione: Optional[datetime] = Field(default_factory=datetime.utcnow)
+    data_creazione: Optional[datetime] = Field(default_factory=lambda: datetime.now(timezone.utc))
     data_disattivazione: Optional[datetime] = Field(default=None)
     deleted_at: Optional[datetime] = None

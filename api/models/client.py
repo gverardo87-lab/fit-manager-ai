@@ -7,7 +7,7 @@ ma la usa per le query ORM. La colonna trainer_id viene aggiunta
 dalla migrazione in api/main.py al primo avvio.
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Optional
 from sqlmodel import SQLModel, Field
 
@@ -31,5 +31,5 @@ class Client(SQLModel, table=True):
     sesso: Optional[str] = None
     anamnesi_json: Optional[str] = None
     stato: str = Field(default="Attivo")
-    data_creazione: Optional[datetime] = Field(default_factory=datetime.utcnow)
+    data_creazione: Optional[datetime] = Field(default_factory=lambda: datetime.now(timezone.utc))
     deleted_at: Optional[datetime] = None

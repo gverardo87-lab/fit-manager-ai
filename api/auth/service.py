@@ -7,7 +7,7 @@ Token: JWT con expiry configurabile. Il token contiene solo il trainer_id
 e l'email — mai dati sensibili.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 import bcrypt
 from jose import jwt, JWTError
@@ -32,7 +32,7 @@ def create_access_token(trainer_id: int, email: str, expires_delta: Optional[tim
     Il token e' firmato con JWT_SECRET (HS256). Chi possiede il token
     puo' chiamare le API come quel trainer. Per questo ha un'expiry.
     """
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=JWT_EXPIRE_MINUTES))
+    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=JWT_EXPIRE_MINUTES))
     payload = {
         "sub": str(trainer_id),
         "email": email,
