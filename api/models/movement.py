@@ -52,6 +52,7 @@ class CashMovement(SQLModel, table=True):
     # Chiave di deduplicazione per spese ricorrenti (es. "2026-02").
     # Usata con UNIQUE(trainer_id, id_spesa_ricorrente, mese_anno) per prevenire duplicati.
     mese_anno: Optional[str] = Field(default=None, max_length=7)
+    deleted_at: Optional[datetime] = None
 
     # Relationships
     contract: Optional["Contract"] = Relationship(back_populates="movements")

@@ -20,6 +20,7 @@ from api.database import get_session
 from api.dependencies import get_current_trainer
 from api.models.trainer import Trainer
 from api.models.recurring_expense import RecurringExpense
+from api.routers._audit import log_audit
 
 router = APIRouter(prefix="/recurring-expenses", tags=["recurring-expenses"])
 
@@ -107,8 +108,8 @@ def list_recurring_expenses(
     attiva: Optional[bool] = Query(default=None, description="Filtra per stato attiva/disattiva"),
 ):
     """Lista spese ricorrenti del trainer autenticato."""
-    query = select(RecurringExpense).where(RecurringExpense.trainer_id == trainer.id)
-    count_q = select(func.count(RecurringExpense.id)).where(RecurringExpense.trainer_id == trainer.id)
+    query = select(RecurringExpense).where(RecurringExpense.trainer_id == trainer.id, RecurringExpense.deleted_at == None)
+    count_q = select(func.count(RecurringExpense.id)).where(RecurringExpense.trainer_id == trainer.id, RecurringExpense.deleted_at == None)
 
     if attiva is not None:
         query = query.where(RecurringExpense.attiva == attiva)
@@ -144,6 +145,8 @@ def create_recurring_expense(
         frequenza=data.frequenza,
     )
     session.add(expense)
+    session.flush()
+    log_audit(session, "recurring_expense", expense.id, "CREATE", trainer.id)
     session.commit()
     session.refresh(expense)
 
@@ -166,6 +169,7 @@ def update_recurring_expense(
         select(RecurringExpense).where(
             RecurringExpense.id == expense_id,
             RecurringExpense.trainer_id == trainer.id,
+            RecurringExpense.deleted_at == None,
         )
     ).first()
 
@@ -184,9 +188,14 @@ def update_recurring_expense(
         elif update_data["attiva"] is True and not expense.attiva:
             expense.data_disattivazione = None
 
+    changes = {}
     for key, value in update_data.items():
+        old_val = getattr(expense, key)
         setattr(expense, key, value)
+        if value != old_val:
+            changes[key] = {"old": old_val, "new": value}
 
+    log_audit(session, "recurring_expense", expense.id, "UPDATE", trainer.id, changes or None)
     session.add(expense)
     session.commit()
     session.refresh(expense)
@@ -209,6 +218,7 @@ def delete_recurring_expense(
         select(RecurringExpense).where(
             RecurringExpense.id == expense_id,
             RecurringExpense.trainer_id == trainer.id,
+            RecurringExpense.deleted_at == None,
         )
     ).first()
 
@@ -218,5 +228,7 @@ def delete_recurring_expense(
             detail="Spesa ricorrente non trovata",
         )
 
-    session.delete(expense)
+    expense.deleted_at = datetime.utcnow()
+    session.add(expense)
+    log_audit(session, "recurring_expense", expense.id, "DELETE", trainer.id)
     session.commit()

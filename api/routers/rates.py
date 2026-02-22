@@ -21,7 +21,7 @@ Pagamento Atomico (POST /api/rates/{id}/pay):
 """
 
 from typing import List, Optional
-from datetime import date
+from datetime import date, datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import Session, select
 
@@ -36,6 +36,7 @@ from api.schemas.financial import (
     RateCreate, RateUpdate, RatePayment,
     RateResponse, PaymentPlanCreate,
 )
+from api.routers._audit import log_audit
 
 # Categorie movimento cassa (allineate a ContractRepository)
 CATEGORIA_PAGAMENTO_RATA = "PAGAMENTO_RATA"
@@ -57,7 +58,7 @@ def _bouncer_rate(session: Session, rate_id: int, trainer_id: int) -> Rate:
     rate = session.exec(
         select(Rate)
         .join(Contract, Rate.id_contratto == Contract.id)
-        .where(Rate.id == rate_id, Contract.trainer_id == trainer_id)
+        .where(Rate.id == rate_id, Contract.trainer_id == trainer_id, Rate.deleted_at == None)
     ).first()
 
     if not rate:
@@ -72,7 +73,9 @@ def _bouncer_contract(session: Session, contract_id: int, trainer_id: int) -> Co
     Usato per operazioni che partono dal contratto (POST rata, genera piano).
     """
     contract = session.exec(
-        select(Contract).where(Contract.id == contract_id, Contract.trainer_id == trainer_id)
+        select(Contract).where(
+            Contract.id == contract_id, Contract.trainer_id == trainer_id, Contract.deleted_at == None
+        )
     ).first()
 
     if not contract:
@@ -101,7 +104,7 @@ def list_rates(
     _bouncer_contract(session, id_contratto, trainer.id)
 
     # Fetch rate
-    query = select(Rate).where(Rate.id_contratto == id_contratto)
+    query = select(Rate).where(Rate.id_contratto == id_contratto, Rate.deleted_at == None)
     if stato:
         query = query.where(Rate.stato == stato)
     query = query.order_by(Rate.data_scadenza)
@@ -158,6 +161,8 @@ def create_rate(
         descrizione=data.descrizione,
     )
     session.add(rate)
+    session.flush()
+    log_audit(session, "rate", rate.id, "CREATE", trainer.id)
     session.commit()
     session.refresh(rate)
 
@@ -190,9 +195,14 @@ def update_rate(
         )
 
     update_data = data.model_dump(exclude_unset=True)
+    changes = {}
     for field, value in update_data.items():
+        old_val = getattr(rate, field)
         setattr(rate, field, value)
+        if value != old_val:
+            changes[field] = {"old": old_val, "new": value}
 
+    log_audit(session, "rate", rate.id, "UPDATE", trainer.id, changes or None)
     session.add(rate)
     session.commit()
     session.refresh(rate)
@@ -223,7 +233,9 @@ def delete_rate(
             detail="Impossibile eliminare una rata gia' saldata",
         )
 
-    session.delete(rate)
+    rate.deleted_at = datetime.utcnow()
+    session.add(rate)
+    log_audit(session, "rate", rate.id, "DELETE", trainer.id)
     session.commit()
 
 
@@ -262,7 +274,9 @@ def pay_rate(
             detail="Rata gia' saldata",
         )
 
-    # C) Aggiorna rata
+    # C) Aggiorna rata (cattura old values per audit)
+    old_importo_saldato = rate.importo_saldato
+    old_stato = rate.stato
     rate.importo_saldato = rate.importo_saldato + data.importo
 
     # Stato: SALDATA se pagato >= previsto (tolleranza 0.01€), altrimenti PARZIALE
@@ -306,7 +320,11 @@ def pay_rate(
     )
     session.add(movement)
 
-    # F) Commit atomico — tutto o niente
+    # F) Audit + Commit atomico — tutto o niente
+    log_audit(session, "rate", rate.id, "UPDATE", trainer.id, {
+        "importo_saldato": {"old": old_importo_saldato, "new": rate.importo_saldato},
+        "stato": {"old": old_stato, "new": rate.stato},
+    })
     session.commit()
     session.refresh(rate)
 
@@ -345,7 +363,9 @@ def unpay_rate(
             detail="Nessun pagamento da revocare su questa rata",
         )
 
-    # C) Riporta rata a PENDENTE
+    # C) Riporta rata a PENDENTE (cattura old values per audit)
+    old_importo_saldato = rate.importo_saldato
+    old_stato = rate.stato
     importo_da_stornare = rate.importo_saldato
     rate.importo_saldato = 0
     rate.stato = "PENDENTE"
@@ -364,19 +384,27 @@ def unpay_rate(
         contract.stato_pagamento = "PARZIALE"
     session.add(contract)
 
-    # F) Elimina TUTTI i CashMovement associati (puo' averne piu' di uno
+    # F) Soft-delete TUTTI i CashMovement associati (puo' averne piu' di uno
     #    se la rata ha ricevuto pagamenti parziali multipli)
+    now = datetime.utcnow()
     movements = session.exec(
         select(CashMovement).where(
             CashMovement.id_rata == rate_id,
             CashMovement.tipo == "ENTRATA",
             CashMovement.trainer_id == trainer.id,
+            CashMovement.deleted_at == None,
         )
     ).all()
     for movement in movements:
-        session.delete(movement)
+        movement.deleted_at = now
+        session.add(movement)
+        log_audit(session, "movement", movement.id, "DELETE", trainer.id)
 
-    # G) Commit atomico
+    # G) Audit + Commit atomico
+    log_audit(session, "rate", rate.id, "UPDATE", trainer.id, {
+        "importo_saldato": {"old": old_importo_saldato, "new": 0},
+        "stato": {"old": old_stato, "new": "PENDENTE"},
+    })
     session.commit()
     session.refresh(rate)
 
@@ -420,12 +448,17 @@ def generate_payment_plan(
             ),
         )
 
-    # Elimina rate PENDENTI esistenti
+    # Soft-delete rate PENDENTI esistenti
+    now = datetime.utcnow()
     pending_rates = session.exec(
-        select(Rate).where(Rate.id_contratto == contract_id, Rate.stato == "PENDENTE")
+        select(Rate).where(
+            Rate.id_contratto == contract_id, Rate.stato == "PENDENTE", Rate.deleted_at == None
+        )
     ).all()
     for r in pending_rates:
-        session.delete(r)
+        r.deleted_at = now
+        session.add(r)
+        log_audit(session, "rate", r.id, "DELETE", trainer.id)
 
     # Genera nuove rate — aritmetica corretta per evitare il centesimo perduto
     # Es: 100€ / 3 rate -> 33.34 + 33.33 + 33.33 = 100.00
@@ -455,6 +488,9 @@ def generate_payment_plan(
         session.add(rate)
         created.append(rate)
 
+    session.flush()
+    for r in created:
+        log_audit(session, "rate", r.id, "CREATE", trainer.id)
     session.commit()
 
     # Refresh per avere gli ID

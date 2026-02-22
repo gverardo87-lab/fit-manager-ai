@@ -50,6 +50,7 @@ def get_dashboard_summary(
         select(func.count(Client.id)).where(
             Client.trainer_id == trainer.id,
             Client.stato == "Attivo",
+            Client.deleted_at == None,
         )
     ).one()
 
@@ -66,6 +67,7 @@ def get_dashboard_summary(
             CashMovement.tipo == "ENTRATA",
             CashMovement.data_effettiva >= first_of_month,
             CashMovement.data_effettiva < first_of_next,
+            CashMovement.deleted_at == None,
         )
     ).one()
     monthly_revenue = revenue_result or 0.0
@@ -82,6 +84,8 @@ def get_dashboard_summary(
             Contract.trainer_id == trainer.id,
             Rate.stato.in_(["PENDENTE", "PARZIALE"]),
             Rate.data_scadenza <= deadline,
+            Rate.deleted_at == None,
+            Contract.deleted_at == None,
         )
     ).one()
 
@@ -93,6 +97,7 @@ def get_dashboard_summary(
             Event.trainer_id == trainer.id,
             Event.data_inizio >= today_start,
             Event.data_inizio <= today_end,
+            Event.deleted_at == None,
         )
     ).one()
 
@@ -101,8 +106,9 @@ def get_dashboard_summary(
         SELECT COUNT(*) FROM (
             SELECT c.id
             FROM contratti c
-            LEFT JOIN movimenti_cassa m ON m.id_contratto = c.id AND m.tipo = 'ENTRATA'
-            WHERE c.trainer_id = :tid
+            LEFT JOIN movimenti_cassa m ON m.id_contratto = c.id
+                AND m.tipo = 'ENTRATA' AND m.deleted_at IS NULL
+            WHERE c.trainer_id = :tid AND c.deleted_at IS NULL
             GROUP BY c.id
             HAVING ROUND(c.totale_versato - COALESCE(SUM(m.importo), 0), 2) > 0.01
                OR ROUND(COALESCE(SUM(m.importo), 0) - c.totale_versato, 2) > 0.01
@@ -138,8 +144,8 @@ def get_reconciliation(
                COALESCE(SUM(CASE WHEN m.tipo = 'ENTRATA' THEN m.importo ELSE 0 END), 0) as ledger
         FROM contratti c
         LEFT JOIN clienti cl ON cl.id = c.id_cliente
-        LEFT JOIN movimenti_cassa m ON m.id_contratto = c.id
-        WHERE c.trainer_id = :tid
+        LEFT JOIN movimenti_cassa m ON m.id_contratto = c.id AND m.deleted_at IS NULL
+        WHERE c.trainer_id = :tid AND c.deleted_at IS NULL
         GROUP BY c.id
     """), {"tid": trainer.id}).fetchall()
 

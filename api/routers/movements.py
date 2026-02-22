@@ -22,7 +22,7 @@ Sync Engine (spese ricorrenti):
 import calendar
 import logging
 from collections import defaultdict
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -38,6 +38,7 @@ from api.models.recurring_expense import RecurringExpense
 from api.schemas.financial import (
     MovementManualCreate, MovementResponse,
 )
+from api.routers._audit import log_audit
 
 logger = logging.getLogger("fitmanager.api")
 router = APIRouter(prefix="/movements", tags=["movements"])
@@ -115,6 +116,7 @@ def sync_recurring_expenses_for_month(
         select(RecurringExpense).where(
             RecurringExpense.trainer_id == trainer_id,
             RecurringExpense.attiva == True,
+            RecurringExpense.deleted_at == None,
         )
     ).all()
 
@@ -196,9 +198,9 @@ def list_movements(
     race condition da chiamate parallele.
     """
 
-    # Base query con Bouncer
-    query = select(CashMovement).where(CashMovement.trainer_id == trainer.id)
-    count_q = select(func.count(CashMovement.id)).where(CashMovement.trainer_id == trainer.id)
+    # Base query con Bouncer (escludi eliminati)
+    query = select(CashMovement).where(CashMovement.trainer_id == trainer.id, CashMovement.deleted_at == None)
+    count_q = select(func.count(CashMovement.id)).where(CashMovement.trainer_id == trainer.id, CashMovement.deleted_at == None)
 
     # Filtro anno
     if anno is not None:
@@ -268,12 +270,13 @@ def get_movement_stats(
     # Sync spese ricorrenti (idempotente)
     sync_recurring_expenses_for_month(session, trainer.id, anno, mese)
 
-    # Tutti i movimenti del mese (single query)
+    # Tutti i movimenti del mese (single query, escludi eliminati)
     movements = session.exec(
         select(CashMovement).where(
             CashMovement.trainer_id == trainer.id,
             extract("year", CashMovement.data_effettiva) == anno,
             extract("month", CashMovement.data_effettiva) == mese,
+            CashMovement.deleted_at == None,
         )
     ).all()
 
@@ -348,6 +351,8 @@ def create_manual_movement(
         operatore="MANUALE",
     )
     session.add(movement)
+    session.flush()
+    log_audit(session, "movement", movement.id, "CREATE", trainer.id)
     session.commit()
     session.refresh(movement)
 
@@ -376,6 +381,7 @@ def delete_movement(
         select(CashMovement).where(
             CashMovement.id == movement_id,
             CashMovement.trainer_id == trainer.id,
+            CashMovement.deleted_at == None,
         )
     ).first()
 
@@ -392,5 +398,7 @@ def delete_movement(
             detail="Impossibile eliminare un movimento di sistema (legato a un contratto)",
         )
 
-    session.delete(movement)
+    movement.deleted_at = datetime.utcnow()
+    session.add(movement)
+    log_audit(session, "movement", movement.id, "DELETE", trainer.id)
     session.commit()

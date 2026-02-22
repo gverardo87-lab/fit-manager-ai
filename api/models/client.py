@@ -32,3 +32,4 @@ class Client(SQLModel, table=True):
     anamnesi_json: Optional[str] = None
     stato: str = Field(default="Attivo")
     data_creazione: Optional[datetime] = Field(default_factory=datetime.utcnow)
+    deleted_at: Optional[datetime] = None

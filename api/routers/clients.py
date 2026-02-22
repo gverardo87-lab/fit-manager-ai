@@ -13,7 +13,7 @@ Sicurezza (Design by Contract):
 
 import json
 import re
-from datetime import date
+from datetime import date, datetime
 from typing import Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import Session, select, func
@@ -25,6 +25,7 @@ from api.models.trainer import Trainer
 from api.models.client import Client
 from api.models.contract import Contract
 from api.models.event import Event
+from api.routers._audit import log_audit
 
 router = APIRouter(prefix="/clients", tags=["clients"])
 
@@ -156,19 +157,20 @@ def _calc_credits_batch(
     if not client_ids:
         return {}
 
-    # Query 1: crediti acquistati per cliente (contratti attivi)
+    # Query 1: crediti acquistati per cliente (contratti attivi, non eliminati)
     credit_rows = session.exec(
         select(Contract.id_cliente, func.coalesce(func.sum(Contract.crediti_totali), 0))
         .where(
             Contract.id_cliente.in_(client_ids),
             Contract.chiuso == False,
             Contract.trainer_id == trainer_id,
+            Contract.deleted_at == None,
         )
         .group_by(Contract.id_cliente)
     ).all()
     credits_map: Dict[int, int] = {row[0]: int(row[1]) for row in credit_rows}
 
-    # Query 2: sedute PT usate per cliente (non cancellate, solo QUESTO trainer)
+    # Query 2: sedute PT usate per cliente (non cancellate, non eliminate)
     usage_rows = session.exec(
         select(Event.id_cliente, func.count(Event.id))
         .where(
@@ -176,6 +178,7 @@ def _calc_credits_batch(
             Event.categoria == "PT",
             Event.stato != "Cancellato",
             Event.trainer_id == trainer_id,
+            Event.deleted_at == None,
         )
         .group_by(Event.id_cliente)
     ).all()
@@ -205,8 +208,8 @@ def list_clients(
     Supporta paginazione, filtro per stato, ricerca per nome.
     Include crediti_residui calcolati in batch (3 query totali, zero N+1).
     """
-    # Query base: solo clienti di QUESTO trainer
-    query = select(Client).where(Client.trainer_id == trainer.id)
+    # Query base: solo clienti di QUESTO trainer, non eliminati
+    query = select(Client).where(Client.trainer_id == trainer.id, Client.deleted_at == None)
 
     # Filtro opzionale per stato
     if stato:
@@ -220,7 +223,7 @@ def list_clients(
         )
 
     # Count totale (prima della paginazione)
-    count_query = select(Client.id).where(Client.trainer_id == trainer.id)
+    count_query = select(Client.id).where(Client.trainer_id == trainer.id, Client.deleted_at == None)
     if stato:
         count_query = count_query.where(Client.stato == stato)
     if search:
@@ -256,7 +259,9 @@ def get_client(
 ):
     """Dettaglio singolo cliente con crediti. Bouncer: query filtra per trainer_id."""
     client = session.exec(
-        select(Client).where(Client.id == client_id, Client.trainer_id == trainer.id)
+        select(Client).where(
+            Client.id == client_id, Client.trainer_id == trainer.id, Client.deleted_at == None
+        )
     ).first()
 
     if not client:
@@ -293,6 +298,8 @@ def create_client(
         stato=data.stato,
     )
     session.add(client)
+    session.flush()
+    log_audit(session, "client", client.id, "CREATE", trainer.id)
     session.commit()
     session.refresh(client)
 
@@ -315,9 +322,11 @@ def update_client(
     Se il cliente non esiste O appartiene a un altro trainer -> 404.
     Mai 403: non riveliamo l'esistenza di risorse altrui.
     """
-    # Bouncer: una sola query, filtro combinato id + trainer_id
+    # Bouncer: una sola query, filtro combinato id + trainer_id + non eliminato
     client = session.exec(
-        select(Client).where(Client.id == client_id, Client.trainer_id == trainer.id)
+        select(Client).where(
+            Client.id == client_id, Client.trainer_id == trainer.id, Client.deleted_at == None
+        )
     ).first()
 
     if not client:
@@ -325,12 +334,20 @@ def update_client(
 
     # Partial update: applica solo i campi effettivamente inviati
     update_data = data.model_dump(exclude_unset=True)
+    changes = {}
     for field, value in update_data.items():
         if field == "anamnesi":
+            old_val = client.anamnesi_json
             client.anamnesi_json = json.dumps(value) if value else None
+            if client.anamnesi_json != old_val:
+                changes[field] = {"old": old_val, "new": client.anamnesi_json}
         else:
+            old_val = getattr(client, field)
             setattr(client, field, value)
+            if value != old_val:
+                changes[field] = {"old": old_val, "new": value}
 
+    log_audit(session, "client", client.id, "UPDATE", trainer.id, changes or None)
     session.add(client)
     session.commit()
     session.refresh(client)
@@ -349,21 +366,39 @@ def delete_client(
     session: Session = Depends(get_session),
 ):
     """
-    Elimina un cliente.
+    Soft-delete un cliente.
 
-    Bouncer Pattern: query singola con id + trainer_id.
-    Se il cliente non esiste O appartiene a un altro trainer -> 404.
+    Bouncer Pattern: query singola con id + trainer_id + non eliminato.
+    RESTRICT: se il cliente ha contratti attivi (non eliminati) → 400.
     Nessun response body (204 No Content).
     """
-    # Bouncer: una sola query, filtro combinato id + trainer_id
+    # Bouncer: filtro combinato id + trainer_id + non eliminato
     client = session.exec(
-        select(Client).where(Client.id == client_id, Client.trainer_id == trainer.id)
+        select(Client).where(
+            Client.id == client_id, Client.trainer_id == trainer.id, Client.deleted_at == None
+        )
     ).first()
 
     if not client:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cliente non trovato")
 
-    session.delete(client)
+    # RESTRICT: verifica nessun contratto attivo (non eliminato)
+    active_contracts = session.exec(
+        select(func.count(Contract.id)).where(
+            Contract.id_cliente == client_id,
+            Contract.trainer_id == trainer.id,
+            Contract.deleted_at == None,
+        )
+    ).one()
+    if active_contracts > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Impossibile eliminare: il cliente ha contratti attivi",
+        )
+
+    client.deleted_at = datetime.utcnow()
+    session.add(client)
+    log_audit(session, "client", client.id, "DELETE", trainer.id)
     session.commit()
 
 

@@ -383,6 +383,31 @@ def _run_migrations() -> None:
         cursor.execute("PRAGMA foreign_keys = ON")
         logger.info("Migration 12: FK Integrity Enforcement — completata")
 
+    # --- Migrazione 13: Soft Delete — deleted_at su tutte le tabelle business ---
+    for table in ["clienti", "contratti", "rate_programmate",
+                  "agenda", "movimenti_cassa", "spese_ricorrenti"]:
+        cursor.execute(f"PRAGMA table_info({table})")
+        cols = [col[1] for col in cursor.fetchall()]
+        if "deleted_at" not in cols:
+            cursor.execute(f"ALTER TABLE {table} ADD COLUMN deleted_at TIMESTAMP")
+            logger.info("Migration 13: aggiunta colonna deleted_at a %s", table)
+    conn.commit()
+
+    # --- Migrazione 14: Audit Trail — tabella audit_log ---
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS audit_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            entity_type TEXT NOT NULL,
+            entity_id INTEGER NOT NULL,
+            action TEXT NOT NULL,
+            changes TEXT,
+            trainer_id INTEGER NOT NULL REFERENCES trainers(id),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.commit()
+    logger.info("Migration 14: tabella audit_log pronta")
+
     conn.close()
 
 

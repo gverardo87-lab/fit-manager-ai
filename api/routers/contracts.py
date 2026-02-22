@@ -12,7 +12,7 @@ Mai 403, mai rivelare l'esistenza di dati altrui.
 """
 
 from typing import List, Optional
-from datetime import date
+from datetime import date, datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import Session, select, func
 
@@ -28,6 +28,7 @@ from api.schemas.financial import (
     ContractCreate, ContractUpdate,
     ContractResponse, ContractListResponse, ContractWithRatesResponse, RateResponse,
 )
+from api.routers._audit import log_audit
 
 # Categoria movimento cassa per acconto (allineata a ContractRepository)
 CATEGORIA_ACCONTO = "ACCONTO_CONTRATTO"
@@ -148,7 +149,9 @@ def _check_client_ownership(session: Session, client_id: int, trainer_id: int) -
     Se non trovato -> 404 (mai 403).
     """
     client = session.exec(
-        select(Client).where(Client.id == client_id, Client.trainer_id == trainer_id)
+        select(Client).where(
+            Client.id == client_id, Client.trainer_id == trainer_id, Client.deleted_at == None
+        )
     ).first()
     if not client:
         raise HTTPException(
@@ -180,7 +183,7 @@ def list_contracts(
 
     Response arricchita: nome cliente, conteggi rate, flag scaduti.
     """
-    query = select(Contract).where(Contract.trainer_id == trainer.id)
+    query = select(Contract).where(Contract.trainer_id == trainer.id, Contract.deleted_at == None)
 
     if id_cliente is not None:
         query = query.where(Contract.id_cliente == id_cliente)
@@ -188,7 +191,7 @@ def list_contracts(
         query = query.where(Contract.chiuso == chiuso)
 
     # Count totale
-    count_q = select(func.count(Contract.id)).where(Contract.trainer_id == trainer.id)
+    count_q = select(func.count(Contract.id)).where(Contract.trainer_id == trainer.id, Contract.deleted_at == None)
     if id_cliente is not None:
         count_q = count_q.where(Contract.id_cliente == id_cliente)
     if chiuso is not None:
@@ -206,7 +209,7 @@ def list_contracts(
     # ── Batch fetch: rate per tutti i contratti (1 query) ──
     contract_ids = [c.id for c in contracts]
     all_rates = session.exec(
-        select(Rate).where(Rate.id_contratto.in_(contract_ids))
+        select(Rate).where(Rate.id_contratto.in_(contract_ids), Rate.deleted_at == None)
     ).all()
 
     rates_by_contract: dict[int, list[Rate]] = {}
@@ -227,6 +230,7 @@ def list_contracts(
             Event.id_contratto.in_(contract_ids),
             Event.categoria == "PT",
             Event.stato != "Cancellato",
+            Event.deleted_at == None,
         )
         .group_by(Event.id_contratto)
     ).all()
@@ -280,15 +284,19 @@ def get_contract(
     Bouncer: query singola contract.id + trainer_id.
     """
     contract = session.exec(
-        select(Contract).where(Contract.id == contract_id, Contract.trainer_id == trainer.id)
+        select(Contract).where(
+            Contract.id == contract_id, Contract.trainer_id == trainer.id, Contract.deleted_at == None
+        )
     ).first()
 
     if not contract:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contratto non trovato")
 
-    # Fetch rate associate
+    # Fetch rate associate (non eliminate)
     rates = list(session.exec(
-        select(Rate).where(Rate.id_contratto == contract_id).order_by(Rate.data_scadenza)
+        select(Rate).where(
+            Rate.id_contratto == contract_id, Rate.deleted_at == None
+        ).order_by(Rate.data_scadenza)
     ).all())
 
     # Batch fetch ricevute pagamento per rate SALDATE (1 query, zero N+1)
@@ -300,6 +308,7 @@ def get_contract(
                 CashMovement.id_rata.in_(saldata_ids),
                 CashMovement.tipo == "ENTRATA",
                 CashMovement.trainer_id == trainer.id,
+                CashMovement.deleted_at == None,
             ).order_by(CashMovement.data_effettiva.desc())
         ).all()
         # Per ogni rata, prendi il pagamento piu' recente
@@ -315,6 +324,7 @@ def get_contract(
             Event.id_contratto == contract_id,
             Event.categoria == "PT",
             Event.stato != "Cancellato",
+            Event.deleted_at == None,
         )
         .group_by(Event.stato)
     ).all()
@@ -381,6 +391,7 @@ def create_contract(
         )
         session.add(movement)
 
+    log_audit(session, "contract", contract.id, "CREATE", trainer.id)
     session.commit()
     session.refresh(contract)
 
@@ -405,7 +416,9 @@ def update_contract(
     Campi protetti: trainer_id, id_cliente, crediti_usati, totale_versato, chiuso.
     """
     contract = session.exec(
-        select(Contract).where(Contract.id == contract_id, Contract.trainer_id == trainer.id)
+        select(Contract).where(
+            Contract.id == contract_id, Contract.trainer_id == trainer.id, Contract.deleted_at == None
+        )
     ).first()
 
     if not contract:
@@ -423,9 +436,14 @@ def update_contract(
             detail="data_scadenza deve essere dopo data_inizio",
         )
 
+    changes = {}
     for field, value in update_data.items():
+        old_val = getattr(contract, field)
         setattr(contract, field, value)
+        if value != old_val:
+            changes[field] = {"old": old_val, "new": value}
 
+    log_audit(session, "contract", contract.id, "UPDATE", trainer.id, changes or None)
     session.add(contract)
     session.commit()
     session.refresh(contract)
@@ -444,22 +462,31 @@ def delete_contract(
     session: Session = Depends(get_session),
 ):
     """
-    Elimina contratto e rate associate.
+    Soft-delete contratto e rate associate (cascade).
 
-    Bouncer: query singola contract.id + trainer_id.
-    CASCADE: elimina anche le rate associate.
+    Bouncer: query singola contract.id + trainer_id + non eliminato.
+    CASCADE: soft-delete anche tutte le rate non eliminate.
     """
     contract = session.exec(
-        select(Contract).where(Contract.id == contract_id, Contract.trainer_id == trainer.id)
+        select(Contract).where(
+            Contract.id == contract_id, Contract.trainer_id == trainer.id, Contract.deleted_at == None
+        )
     ).first()
 
     if not contract:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contratto non trovato")
 
-    # Elimina rate associate prima del contratto
-    rates = session.exec(select(Rate).where(Rate.id_contratto == contract_id)).all()
+    # Cascade: soft-delete tutte le rate non eliminate
+    now = datetime.utcnow()
+    rates = session.exec(
+        select(Rate).where(Rate.id_contratto == contract_id, Rate.deleted_at == None)
+    ).all()
     for rate in rates:
-        session.delete(rate)
+        rate.deleted_at = now
+        session.add(rate)
+        log_audit(session, "rate", rate.id, "DELETE", trainer.id)
 
-    session.delete(contract)
+    contract.deleted_at = now
+    session.add(contract)
+    log_audit(session, "contract", contract.id, "DELETE", trainer.id)
     session.commit()

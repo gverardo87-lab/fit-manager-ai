@@ -51,6 +51,7 @@ class Contract(SQLModel, table=True):
     stato_pagamento: str = Field(default="PENDENTE")
     note: Optional[str] = None
     chiuso: bool = Field(default=False)
+    deleted_at: Optional[datetime] = None
 
     # Relationships (lazy-loaded, non incluse in JSON di default)
     rates: List["Rate"] = Relationship(back_populates="contract")

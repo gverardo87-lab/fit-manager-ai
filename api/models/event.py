@@ -40,3 +40,4 @@ class Event(SQLModel, table=True):
     stato: str = Field(default="Programmato")
     note: Optional[str] = None
     data_creazione: Optional[datetime] = Field(default_factory=datetime.utcnow)
+    deleted_at: Optional[datetime] = None

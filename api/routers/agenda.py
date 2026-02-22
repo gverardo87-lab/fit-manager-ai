@@ -29,6 +29,7 @@ from api.models.trainer import Trainer
 from api.models.event import Event
 from api.models.client import Client
 from api.models.contract import Contract
+from api.routers._audit import log_audit
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -157,7 +158,9 @@ def _check_client_ownership(
     Mai rivelare l'esistenza di clienti altrui.
     """
     client = session.exec(
-        select(Client).where(Client.id == client_id, Client.trainer_id == trainer_id)
+        select(Client).where(
+            Client.id == client_id, Client.trainer_id == trainer_id, Client.deleted_at == None
+        )
     ).first()
 
     if not client:
@@ -188,6 +191,7 @@ def _check_overlap(
         Event.data_inizio < data_fine,
         Event.data_fine > data_inizio,
         Event.stato != "Cancellato",  # eventi cancellati non contano
+        Event.deleted_at == None,
     )
 
     if exclude_event_id is not None:
@@ -254,6 +258,7 @@ def _auto_assign_contract(
             Contract.id_cliente == client_id,
             Contract.trainer_id == trainer_id,
             Contract.chiuso == False,
+            Contract.deleted_at == None,
         ).order_by(Contract.data_inizio.asc())
     ).all()
 
@@ -268,6 +273,7 @@ def _auto_assign_contract(
             Event.id_contratto.in_(contract_ids),
             Event.categoria == "PT",
             Event.stato != "Cancellato",
+            Event.deleted_at == None,
         )
         .group_by(Event.id_contratto)
     ).all()
@@ -301,7 +307,7 @@ def list_events(
     Supporta filtri per range temporale, categoria, stato, cliente.
     Nessuna paginazione: il calendario ha bisogno di tutti gli eventi nel range.
     """
-    query = select(Event).where(Event.trainer_id == trainer.id)
+    query = select(Event).where(Event.trainer_id == trainer.id, Event.deleted_at == None)
 
     if start:
         query = query.where(Event.data_inizio >= start)
@@ -344,7 +350,7 @@ def get_event(
 ):
     """Dettaglio evento. Bouncer: trainer_id filter."""
     event = session.exec(
-        select(Event).where(Event.id == event_id, Event.trainer_id == trainer.id)
+        select(Event).where(Event.id == event_id, Event.trainer_id == trainer.id, Event.deleted_at == None)
     ).first()
 
     if not event:
@@ -399,6 +405,8 @@ def create_event(
         note=data.note,
     )
     session.add(event)
+    session.flush()
+    log_audit(session, "event", event.id, "CREATE", trainer.id)
     session.commit()
     session.refresh(event)
 
@@ -426,9 +434,9 @@ def update_event(
     3. Check sovrapposizione (escludendo se' stesso) -> 409 se conflitto
     4. Applica partial update
     """
-    # Bouncer 1: l'evento e' mio?
+    # Bouncer 1: l'evento e' mio? (non eliminato)
     event = session.exec(
-        select(Event).where(Event.id == event_id, Event.trainer_id == trainer.id)
+        select(Event).where(Event.id == event_id, Event.trainer_id == trainer.id, Event.deleted_at == None)
     ).first()
 
     if not event:
@@ -458,9 +466,14 @@ def update_event(
 
     # Tutto ok: applica partial update
     update_data = data.model_dump(exclude_unset=True)
+    changes = {}
     for field, value in update_data.items():
+        old_val = getattr(event, field)
         setattr(event, field, value)
+        if value != old_val:
+            changes[field] = {"old": old_val, "new": value}
 
+    log_audit(session, "event", event.id, "UPDATE", trainer.id, changes or None)
     session.add(event)
     session.commit()
     session.refresh(event)
@@ -485,11 +498,13 @@ def delete_event(
     Bouncer: trainer_id filter. 404 se non mio o non esiste.
     """
     event = session.exec(
-        select(Event).where(Event.id == event_id, Event.trainer_id == trainer.id)
+        select(Event).where(Event.id == event_id, Event.trainer_id == trainer.id, Event.deleted_at == None)
     ).first()
 
     if not event:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Evento non trovato")
 
-    session.delete(event)
+    event.deleted_at = datetime.utcnow()
+    session.add(event)
+    log_audit(session, "event", event.id, "DELETE", trainer.id)
     session.commit()

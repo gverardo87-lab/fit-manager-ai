@@ -14,7 +14,7 @@ Questa scelta evita ridondanza e mantiene il single source of truth
 per l'ownership sul contratto.
 """
 
-from datetime import date
+from datetime import date, datetime
 from typing import Optional, List, TYPE_CHECKING
 from sqlmodel import SQLModel, Field, Relationship
 
@@ -43,6 +43,7 @@ class Rate(SQLModel, table=True):
     descrizione: Optional[str] = None
     stato: str = Field(default="PENDENTE")
     importo_saldato: float = Field(default=0)
+    deleted_at: Optional[datetime] = None
 
     # Relationships
     contract: Optional["Contract"] = Relationship(back_populates="rates")
