@@ -25,7 +25,14 @@ DATABASE_URL: str = os.getenv(
 )
 
 # JWT Authentication
-JWT_SECRET: str = os.getenv("JWT_SECRET", "dev-secret-change-in-production")
+JWT_SECRET: str = os.getenv("JWT_SECRET", "")
+if not JWT_SECRET:
+    import logging
+    logging.getLogger("fitmanager.config").warning(
+        "JWT_SECRET non configurato — uso default di sviluppo. "
+        "NON usare in produzione!"
+    )
+    JWT_SECRET = "dev-secret-change-in-production"
 JWT_ALGORITHM: str = "HS256"
 JWT_EXPIRE_MINUTES: int = int(os.getenv("JWT_EXPIRE_MINUTES", "480"))  # 8 ore
 
