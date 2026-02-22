@@ -109,14 +109,16 @@ def list_recurring_expenses(
 ):
     """Lista spese ricorrenti del trainer autenticato."""
     query = select(RecurringExpense).where(RecurringExpense.trainer_id == trainer.id, RecurringExpense.deleted_at == None)
-    count_q = select(func.count(RecurringExpense.id)).where(RecurringExpense.trainer_id == trainer.id, RecurringExpense.deleted_at == None)
 
     if attiva is not None:
         query = query.where(RecurringExpense.attiva == attiva)
-        count_q = count_q.where(RecurringExpense.attiva == attiva)
+
+    # Count dalla stessa query base (zero duplicazione filtri)
+    total = session.exec(
+        select(func.count()).select_from(query.subquery())
+    ).one()
 
     query = query.order_by(RecurringExpense.nome)
-    total = session.exec(count_q).one()
     expenses = session.exec(query).all()
 
     return {

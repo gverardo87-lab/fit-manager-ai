@@ -55,6 +55,8 @@ class EventCreate(BaseModel):
     - data_fine deve essere strettamente maggiore di data_inizio
     - durata massima 4 ore (coerente con core/models.py)
     """
+    model_config = {"extra": "forbid"}
+
     data_inizio: datetime
     data_fine: datetime
     categoria: str
@@ -98,6 +100,8 @@ class EventUpdate(BaseModel):
     NON modificabili via update: categoria, id_cliente, id_contratto, trainer_id.
     Coerente con AgendaRepository.update_event() che aggiorna solo scheduling.
     """
+    model_config = {"extra": "forbid"}
+
     data_inizio: Optional[datetime] = None
     data_fine: Optional[datetime] = None
     titolo: Optional[str] = Field(None, min_length=1, max_length=200)

@@ -119,3 +119,56 @@ def test_pay_rate_deep_idor(client, auth_headers, sample_contract_with_plan):
         "metodo": "CONTANTI",
     }, headers=evil_headers)
     assert r.status_code == 404
+
+
+def test_overpayment_rejected(client, auth_headers, sample_contract_with_plan):
+    """Pagamento superiore al residuo della rata -> 422."""
+    rate = sample_contract_with_plan["rates"][0]
+
+    r = client.post(f"/api/rates/{rate['id']}/pay", json={
+        "importo": rate["importo_previsto"] + 100,
+        "metodo": "CONTANTI",
+        "data_pagamento": "2026-02-01",
+    }, headers=auth_headers)
+    assert r.status_code == 422
+
+
+def test_overpayment_after_partial_rejected(client, auth_headers, sample_contract_with_plan):
+    """Pagamento parziale + secondo che supera residuo -> 422."""
+    rate = sample_contract_with_plan["rates"][0]
+    previsto = rate["importo_previsto"]
+
+    r1 = client.post(f"/api/rates/{rate['id']}/pay", json={
+        "importo": previsto / 2,
+        "metodo": "CONTANTI",
+        "data_pagamento": "2026-02-01",
+    }, headers=auth_headers)
+    assert r1.status_code == 200
+    assert r1.json()["stato"] == "PARZIALE"
+
+    r2 = client.post(f"/api/rates/{rate['id']}/pay", json={
+        "importo": previsto,
+        "metodo": "CONTANTI",
+        "data_pagamento": "2026-02-02",
+    }, headers=auth_headers)
+    assert r2.status_code == 422
+
+
+def test_exact_residual_payment_accepted(client, auth_headers, sample_contract_with_plan):
+    """Pagamento esatto del residuo dopo parziale -> SALDATA."""
+    rate = sample_contract_with_plan["rates"][0]
+    previsto = rate["importo_previsto"]
+
+    client.post(f"/api/rates/{rate['id']}/pay", json={
+        "importo": previsto / 2,
+        "metodo": "CONTANTI",
+        "data_pagamento": "2026-02-01",
+    }, headers=auth_headers)
+
+    r = client.post(f"/api/rates/{rate['id']}/pay", json={
+        "importo": previsto / 2,
+        "metodo": "CONTANTI",
+        "data_pagamento": "2026-02-02",
+    }, headers=auth_headers)
+    assert r.status_code == 200
+    assert r.json()["stato"] == "SALDATA"

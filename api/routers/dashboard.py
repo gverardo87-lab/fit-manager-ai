@@ -86,6 +86,7 @@ def get_dashboard_summary(
             Rate.data_scadenza <= deadline,
             Rate.deleted_at == None,
             Contract.deleted_at == None,
+            Contract.chiuso == False,
         )
     ).one()
 

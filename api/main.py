@@ -15,8 +15,11 @@ Migrazioni schema gestite da Alembic: `alembic upgrade head`
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from sqlmodel import Session, text
+
+from api.database import get_session
 
 from api.config import API_PREFIX
 from api.database import create_db_and_tables
@@ -57,13 +60,19 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS: permetti al frontend React (porta 3000) di chiamare l'API (porta 8000)
+# CORS: origini da env (default: localhost per dev)
+import os as _os
+
+_cors_env = _os.getenv("CORS_ORIGINS", "")
+_cors_origins = (
+    [o.strip() for o in _cors_env.split(",") if o.strip()]
+    if _cors_env
+    else ["http://localhost:3000", "http://localhost:5173"]
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",    # Next.js dev server
-        "http://localhost:5173",    # Vite dev server (fallback)
-    ],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -82,6 +91,13 @@ app.include_router(backup_router, prefix=API_PREFIX)
 
 
 @app.get("/health")
-def health_check():
-    """Endpoint di salute — usato per monitoring e load balancer."""
-    return {"status": "ok", "version": "1.0.0"}
+def health_check(session: Session = Depends(get_session)):
+    """Endpoint di salute — verifica connettivita' DB."""
+    try:
+        session.exec(text("SELECT 1")).one()
+        return {"status": "ok", "version": "1.0.0", "db": "connected"}
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database non raggiungibile",
+        )

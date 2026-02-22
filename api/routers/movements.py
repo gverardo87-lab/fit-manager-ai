@@ -201,25 +201,19 @@ def list_movements(
 
     # Base query con Bouncer (escludi eliminati)
     query = select(CashMovement).where(CashMovement.trainer_id == trainer.id, CashMovement.deleted_at == None)
-    count_q = select(func.count(CashMovement.id)).where(CashMovement.trainer_id == trainer.id, CashMovement.deleted_at == None)
 
-    # Filtro anno
+    # Filtri
     if anno is not None:
         query = query.where(extract("year", CashMovement.data_effettiva) == anno)
-        count_q = count_q.where(extract("year", CashMovement.data_effettiva) == anno)
-
-    # Filtro mese
     if mese is not None:
         query = query.where(extract("month", CashMovement.data_effettiva) == mese)
-        count_q = count_q.where(extract("month", CashMovement.data_effettiva) == mese)
-
-    # Filtro tipo
     if tipo is not None:
         query = query.where(CashMovement.tipo == tipo)
-        count_q = count_q.where(CashMovement.tipo == tipo)
 
-    # Count totale
-    total = session.exec(count_q).one()
+    # Count dalla stessa query base (zero duplicazione filtri)
+    total = session.exec(
+        select(func.count()).select_from(query.subquery())
+    ).one()
 
     # Paginazione
     offset = (page - 1) * page_size

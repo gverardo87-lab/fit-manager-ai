@@ -41,6 +41,8 @@ class ClientCreate(BaseModel):
     usando il trainer autenticato dal JWT. Questo impedisce a un trainer
     di creare clienti nel namespace di un altro trainer.
     """
+    model_config = {"extra": "forbid"}
+
     nome: str = Field(min_length=1, max_length=100)
     cognome: str = Field(min_length=1, max_length=100)
     telefono: Optional[str] = None
@@ -83,6 +85,8 @@ class ClientUpdate(BaseModel):
     Tutti i campi sono opzionali: il frontend invia SOLO i campi da modificare.
     trainer_id e' ASSENTE: non si puo' "trasferire" un cliente via API.
     """
+    model_config = {"extra": "forbid"}
+
     nome: Optional[str] = Field(None, min_length=1, max_length=100)
     cognome: Optional[str] = Field(None, min_length=1, max_length=100)
     telefono: Optional[str] = None
@@ -382,6 +386,7 @@ def delete_client(
             Contract.id_cliente == client_id,
             Contract.trainer_id == trainer.id,
             Contract.deleted_at == None,
+            Contract.chiuso == False,
         )
     ).one()
     if active_contracts > 0:

@@ -27,7 +27,10 @@ def register(data: TrainerRegister, session: Session = Depends(get_session)):
     3. Salva nel DB
     4. Ritorna JWT token (il trainer e' gia' loggato)
     """
-    existing = session.exec(select(Trainer).where(Trainer.email == data.email)).first()
+    from sqlalchemy import func as sa_func
+    existing = session.exec(
+        select(Trainer).where(sa_func.lower(Trainer.email) == data.email)
+    ).first()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,

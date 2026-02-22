@@ -274,6 +274,14 @@ def pay_rate(
             detail="Rata gia' saldata",
         )
 
+    # B-bis) Validazione importo: non superare il residuo della rata
+    importo_residuo = round(rate.importo_previsto - rate.importo_saldato, 2)
+    if data.importo > importo_residuo + 0.01:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Importo ({data.importo:.2f}) supera il residuo della rata ({importo_residuo:.2f})",
+        )
+
     # C) Aggiorna rata (cattura old values per audit)
     old_importo_saldato = rate.importo_saldato
     old_stato = rate.stato
