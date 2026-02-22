@@ -459,11 +459,16 @@ def delete_contract(
     session: Session = Depends(get_session),
 ):
     """
-    Soft-delete contratto con guardie di integrità.
+    Soft-delete contratto — solo per errori di inserimento.
 
-    Bouncer: query singola contract.id + trainer_id + non eliminato.
-    RESTRICT: se il contratto ha rate PARZIALI o SALDATE -> 409 (storia finanziaria).
-    CASCADE: soft-delete rate PENDENTI + detach eventi collegati.
+    DELETE e' solo per contratti senza impronta operativa.
+    Per terminare un contratto attivo: PUT con chiuso=True.
+
+    Bouncer: contract.id + trainer_id + non eliminato.
+    RESTRICT (zero impronta):
+    - Zero rate (nessuna, neanche PENDENTE) -> 409
+    - Zero eventi collegati (nessuna seduta) -> 409
+    CASCADE: soft-delete acconto CashMovement se presente.
     """
     contract = session.exec(
         select(Contract).where(
@@ -474,38 +479,48 @@ def delete_contract(
     if not contract:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contratto non trovato")
 
-    # RESTRICT: rate con pagamenti registrati → blocco cancellazione
-    paid_rates = session.exec(
+    # RESTRICT 1: zero rate (qualsiasi stato)
+    rate_count = session.exec(
         select(func.count(Rate.id)).where(
             Rate.id_contratto == contract_id,
-            Rate.importo_saldato > 0,
             Rate.deleted_at == None,
         )
     ).one()
-    if paid_rates > 0:
+    if rate_count > 0:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Impossibile eliminare: il contratto ha {paid_rates} rate con pagamenti registrati",
+            detail=f"Impossibile eliminare: il contratto ha {rate_count} rate programmate. "
+                   f"Usa la chiusura (chiuso) per archiviarlo.",
+        )
+
+    # RESTRICT 2: zero eventi collegati
+    event_count = session.exec(
+        select(func.count(Event.id)).where(
+            Event.id_contratto == contract_id,
+            Event.deleted_at == None,
+        )
+    ).one()
+    if event_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Impossibile eliminare: il contratto ha {event_count} sedute registrate. "
+                   f"Usa la chiusura (chiuso) per archiviarlo.",
         )
 
     now = datetime.now(timezone.utc)
 
-    # CASCADE: soft-delete rate PENDENTI
-    rates = session.exec(
-        select(Rate).where(Rate.id_contratto == contract_id, Rate.deleted_at == None)
+    # CASCADE: soft-delete acconto CashMovement (pulizia ledger)
+    acconto_movements = session.exec(
+        select(CashMovement).where(
+            CashMovement.id_contratto == contract_id,
+            CashMovement.trainer_id == trainer.id,
+            CashMovement.deleted_at == None,
+        )
     ).all()
-    for rate in rates:
-        rate.deleted_at = now
-        session.add(rate)
-        log_audit(session, "rate", rate.id, "DELETE", trainer.id)
-
-    # DETACH: eventi collegati → nullifica id_contratto (non elimina l'evento)
-    events = session.exec(
-        select(Event).where(Event.id_contratto == contract_id, Event.deleted_at == None)
-    ).all()
-    for event in events:
-        event.id_contratto = None
-        session.add(event)
+    for mov in acconto_movements:
+        mov.deleted_at = now
+        session.add(mov)
+        log_audit(session, "movement", mov.id, "DELETE", trainer.id)
 
     contract.deleted_at = now
     session.add(contract)

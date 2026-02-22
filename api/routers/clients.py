@@ -155,7 +155,8 @@ def _calc_credits_batch(
 
     crediti_residui = crediti_acquistati - sedute_PT_usate
 
-    - crediti_acquistati: SUM(crediti_totali) da contratti attivi (chiuso=False)
+    - crediti_acquistati: SUM(crediti_totali) da TUTTI i contratti non eliminati
+      (chiuso NON filtrato — chiuso blocca nuove operazioni, non invalida crediti)
     - sedute_PT_usate: COUNT(eventi) con categoria='PT' e stato!='Cancellato'
     """
     if not client_ids:

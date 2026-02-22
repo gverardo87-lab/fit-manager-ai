@@ -48,18 +48,13 @@ def test_soft_deleted_movements_excluded_from_stats(client, auth_headers):
     assert sr2.json()["totale_uscite_variabili"] == baseline - 100.0
 
 
-def test_delete_contract_cascades_to_rates(client, auth_headers, sample_contract_with_plan):
-    """Delete contratto -> soft-delete rate associate."""
+def test_delete_contract_blocked_if_has_rates(client, auth_headers, sample_contract_with_plan):
+    """Delete contratto con rate (qualsiasi stato) → 409."""
     contract = sample_contract_with_plan["contract"]
-    rates = sample_contract_with_plan["rates"]
 
     dr = client.delete(f"/api/contracts/{contract['id']}", headers=auth_headers)
-    assert dr.status_code == 204
-
-    # Rate non accessibili
-    for rate in rates:
-        rr = client.get(f"/api/rates/{rate['id']}", headers=auth_headers)
-        assert rr.status_code == 404
+    assert dr.status_code == 409
+    assert "rate" in dr.json()["detail"].lower()
 
 
 def test_delete_client_blocked_if_active_contracts(client, auth_headers, sample_contract):
