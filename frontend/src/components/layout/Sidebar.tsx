@@ -18,6 +18,7 @@ import {
   Users,
   FileText,
   Wallet,
+  Settings,
   LogOut,
   Dumbbell,
 } from "lucide-react";
@@ -42,6 +43,7 @@ const NAV_ITEMS = [
   { href: "/clienti", label: "Clienti", icon: Users },
   { href: "/contratti", label: "Contratti", icon: FileText },
   { href: "/cassa", label: "Cassa", icon: Wallet },
+  { href: "/impostazioni", label: "Impostazioni", icon: Settings },
 ] as const;
 
 // ════════════════════════════════════════════════════════════

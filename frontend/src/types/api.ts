@@ -400,3 +400,27 @@ export interface ListResponse<T> {
   items: T[];
   total: number;
 }
+
+// ════════════════════════════════════════════════════════════
+// BACKUP (api/routers/backup.py)
+// ════════════════════════════════════════════════════════════
+
+/** GET /api/backup/list */
+export interface BackupInfo {
+  filename: string;
+  size_bytes: number;
+  created_at: string;
+}
+
+/** POST /api/backup/create */
+export interface BackupCreateResponse {
+  filename: string;
+  size_bytes: number;
+  message: string;
+}
+
+/** POST /api/backup/restore */
+export interface BackupRestoreResponse {
+  message: string;
+  safety_backup: string;
+}
