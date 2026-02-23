@@ -104,6 +104,38 @@ def test_update_saldata_increase_importo_becomes_parziale(client, auth_headers, 
     assert r.json()["importo_previsto"] == 200.0
 
 
+def test_update_date_syncs_movement(client, auth_headers, sample_contract):
+    """Modifica data_scadenza su rata pagata → aggiorna data_effettiva CashMovement."""
+    rr = client.post("/api/rates", json={
+        "id_contratto": sample_contract["id"],
+        "data_scadenza": "2026-01-15",
+        "importo_previsto": 100.0,
+    }, headers=auth_headers)
+    rate = rr.json()
+
+    # Paga con data = scadenza
+    client.post(f"/api/rates/{rate['id']}/pay", json={
+        "importo": 100.0,
+        "metodo": "POS",
+        "data_pagamento": "2026-01-15",
+    }, headers=auth_headers)
+
+    # Cambia data scadenza → 2026-01-20
+    r = client.put(f"/api/rates/{rate['id']}", json={
+        "data_scadenza": "2026-01-20",
+    }, headers=auth_headers)
+    assert r.status_code == 200
+
+    # Verifica che il CashMovement abbia data_effettiva = 2026-01-20
+    mv = client.get("/api/movements", params={
+        "anno": 2026, "mese": 1,
+    }, headers=auth_headers)
+    items = mv.json()["items"]
+    rate_movements = [m for m in items if m.get("id_rata") == rate["id"]]
+    assert len(rate_movements) == 1
+    assert rate_movements[0]["data_effettiva"] == "2026-01-20"
+
+
 # ── Guard: rate con pagamenti non eliminabili ──
 
 

@@ -399,6 +399,23 @@ def update_rate(
         if rate.stato != old_stato:
             changes["stato"] = {"old": old_stato, "new": rate.stato}
 
+    # Sync data_effettiva CashMovement quando data_scadenza cambia su rata pagata
+    if "data_scadenza" in changes and rate.importo_saldato > 0:
+        movements = session.exec(
+            select(CashMovement).where(
+                CashMovement.id_rata == rate.id,
+                CashMovement.tipo == "ENTRATA",
+                CashMovement.deleted_at == None,
+            )
+        ).all()
+        for mv in movements:
+            old_data = mv.data_effettiva
+            mv.data_effettiva = rate.data_scadenza
+            session.add(mv)
+            log_audit(session, "movement", mv.id, "UPDATE", trainer.id, {
+                "data_effettiva": {"old": str(old_data), "new": str(rate.data_scadenza)},
+            })
+
     log_audit(session, "rate", rate.id, "UPDATE", trainer.id, changes or None)
     session.add(rate)
     session.commit()
