@@ -144,6 +144,7 @@ Errori reali trovati e corretti. MAI ripeterli.
 | `Set<string>` con chiave non-univoca | `mese_anno_key` identica per piu' spese dello stesso mese | Chiave composta `${id}::${key}` |
 | Auto-close senza auto-reopen eventi | Contratto chiuso restava bloccato dopo delete/cancel eventi | `_sync_contract_chiuso()` simmetrico su create/delete/update |
 | Seed atomico crash a meta' | Transazione unica → rollback → DB vuoto → login impossibile | Validare i dati PRIMA del commit (es. date overflow) |
+| Invalidation asimmetrica pay/unpay | `usePayRate` mancava `["movements"]`, `["movement-stats"]` | Operazioni inverse DEVONO avere invalidazione identica |
 
 ---
 
@@ -226,8 +227,8 @@ ollama list
 
 ## Metriche Progetto
 
-- **api/**: ~4,900 LOC Python — 8 modelli ORM, 9 router, 1 schema module
-- **frontend/**: ~12,600 LOC TypeScript — 56 componenti, 8 hook modules, 7 pagine
+- **api/**: ~5,200 LOC Python — 8 modelli ORM, 9 router, 1 schema module
+- **frontend/**: ~13,700 LOC TypeScript — 59 componenti, 8 hook modules, 7 pagine
 - **core/**: ~11,100 LOC Python — moduli AI (workout, RAG, DNA) in attesa di API endpoints
 - **DB**: 9 tabelle SQLite, FK enforced, multi-tenant via trainer_id
 - **Test**: 60 pytest + 67 E2E

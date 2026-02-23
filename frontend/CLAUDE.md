@@ -24,6 +24,8 @@ frontend/src/
 │   ├── contracts/           Componenti dominio contratti (PaymentPlanTab con
 │   │                        RateCard, PayRateForm, PaymentHistory, AddRateForm)
 │   ├── agenda/              Componenti dominio agenda/calendario
+│   ├── dashboard/           Componenti dashboard (GhostEventsSheet, OverdueRatesSheet,
+│   │                        ExpiringContractsSheet, InactiveClientsSheet)
 │   ├── movements/           Componenti dominio cassa (MovementsTable, MovementSheet,
 │   │                        DeleteMovementDialog, RecurringExpensesTab (con EditDialog,
 │   │                        AddForm, ExpensesTable, AlertDialog delete confirm),
@@ -59,9 +61,21 @@ Ogni mutation: `invalidateQueries` sulle key correlate + `toast.success/error`.
 ["contracts", { page, idCliente }]  // lista filtrata
 ["contract", contractId]             // dettaglio con rate
 ["movements", { anno, mese }]       // lista mensile
+["movement-stats", anno, mese]      // KPI mensili (entrate, uscite, margine)
 ["aging-report"]                     // orizzonte finanziario (scadenze)
-["dashboard"]                        // KPI aggregati
+["dashboard", "summary"]             // KPI aggregati
+["dashboard", "alerts"]              // warning proattivi (4 categorie)
+["dashboard", "ghost-events"]        // eventi fantasma per risoluzione inline
+["dashboard", "overdue-rates"]       // rate scadute per pagamento inline
+["dashboard", "expiring-contracts"]  // contratti in scadenza con crediti
+["dashboard", "inactive-clients"]    // clienti inattivi con ultimo evento
+["events", { start, end }]          // eventi per range temporale
 ```
+
+### Invalidazione Simmetrica (Regola Ferrea)
+Operazioni inverse (pay/unpay, create/delete) DEVONO invalidare le stesse query.
+Se `useUnpayRate` invalida `["movements"]`, allora `usePayRate` DEVE fare lo stesso.
+Ogni mutation che crea/modifica CashMovement deve invalidare: `["movements"]`, `["movement-stats"]`, `["aging-report"]`.
 
 ### Type Synchronization
 `frontend/src/types/api.ts` e' il CONTRATTO tra frontend e backend.
@@ -176,6 +190,8 @@ Token in cookie `fitmanager_token` (8h expiry). Trainer data in `fitmanager_trai
 | `<label>` + Radix Checkbox | Browser propaga click al `<button>` interno → double-toggle | `<div onClick>` + `Checkbox onClick={stopPropagation}` |
 | `Set<string>` non-univoca | `mese_anno_key` uguale per N spese mensili stesso mese | Chiave composta `${id}::${key}` |
 | React `key={nonUniqueValue}` | Duplica render, stato condiviso tra componenti | Sempre key univoca per item |
+| Invalidation asimmetrica | `usePayRate` mancava movements/stats → KPI stale dopo pagamento | Operazioni inverse: stesse invalidazioni |
+| ScrollArea in flex senza `min-h-0` | Flex item non puo' ridursi sotto la dimensione del contenuto | `min-h-0 flex-1` su ScrollArea + `overflow-hidden` su container |
 
 ## Esperienza Utente — Principi Frontend
 
@@ -187,6 +203,24 @@ Pilastro di sviluppo (vedi root `CLAUDE.md`). Regole pratiche:
 - **Empty state celebrativi**: quando tutto e' ok, comunicarlo con positivita' (icona verde + messaggio incoraggiante)
 - **Feedback immediato**: toast su ogni azione, skeleton su ogni loading, error banner su ogni fallimento
 - **Hover & transition**: ogni elemento interattivo ha `transition-*` + hover state visibile
+
+## Dashboard Alert System (Inline Resolution)
+
+La Dashboard ha un Alert Panel con 4 categorie di warning proattivi.
+Ogni CTA apre uno Sheet inline — risoluzione senza navigazione.
+
+| Sheet | Hook | Azione inline | Mutation riusata |
+|-------|------|---------------|------------------|
+| GhostEventsSheet | `useGhostEvents` | Completata/Cancellata 1-click + bulk | `useUpdateEvent` |
+| OverdueRatesSheet | `useOverdueRates` | Pagamento con metodo selezionabile | `usePayRate` |
+| ExpiringContractsSheet | `useExpiringContracts` | Progress bar crediti + link contratto | — (solo info) |
+| InactiveClientsSheet | `useInactiveClients` | Contatti rapidi (tel/email) + link agenda | — (solo info) |
+
+Pattern architetturale:
+- **alertActions**: `Record<string, () => void>` passato ad AlertPanel — se la categoria ha un'azione, CTA apre Sheet; altrimenti naviga via Link
+- **Config-driven**: `ALERT_CATEGORY_CONFIG` con icona, colori, borderColor, cta per categoria
+- **Severity hierarchy**: critical (sfondo rosso, CTA filled), warning (sfondo neutro, CTA outline)
+- **ScrollArea flex**: `min-h-0 flex-1` su ScrollArea + `overflow-hidden` su SheetContent per scroll corretto
 
 ## Visual Design — Cassa Page (CRM-grade)
 

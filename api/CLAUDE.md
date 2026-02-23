@@ -30,7 +30,7 @@ api/
 │   ├── agenda.py        CRUD eventi + _sync_contract_chiuso (auto-close/reopen)
 │   ├── movements.py     Ledger + pending/confirm spese ricorrenti
 │   ├── recurring_expenses.py  CRUD spese fisse
-│   ├── dashboard.py     KPI aggregati (SQL func.count/func.sum)
+│   ├── dashboard.py     KPI + alerts + inline resolution endpoints (7 GET)
 │   └── backup.py        Backup/Restore/Export (5 endpoint)
 └── schemas/
     └── financial.py     Contract/Rate/Movement/Dashboard/PaymentReceipt DTOs
@@ -190,6 +190,26 @@ Tabella `audit_log` + helper `log_audit()` in `api/routers/_audit.py`.
 - Il campo `changes` contiene JSON diff campo-per-campo (solo UPDATE)
 - `log_audit()` NON fa commit — il chiamante committa atomicamente
 - `pay_rate` e `unpay_rate` generano 2 audit entries: rata + contratto
+
+## Dashboard Alert System
+
+7 endpoint in `dashboard.py`:
+
+| Endpoint | Scopo | Tipo query |
+|----------|-------|------------|
+| `GET /summary` | KPI aggregati (4 metriche) | `func.count/func.sum` |
+| `GET /reconciliation` | Audit contratti vs ledger | Raw SQL con GROUP BY |
+| `GET /alerts` | Warning proattivi (4 categorie) | 4 query aggregate |
+| `GET /ghost-events` | Eventi fantasma per risoluzione inline | ORM + batch fetch clienti |
+| `GET /overdue-rates` | Rate scadute per pagamento inline | ORM join 3 entita' |
+| `GET /expiring-contracts` | Contratti in scadenza con crediti | ORM + batch fetch crediti |
+| `GET /inactive-clients` | Clienti inattivi con ultimo evento | Raw SQL + batch fetch ultimo evento |
+
+Pattern condiviso per endpoint inline resolution:
+- **Anti-N+1**: batch fetch dati correlati dopo query principale
+- **Multi-entity select**: `session.exec(select(Rate, Contract, Client).join(...))` restituisce tuple
+- **Date parse**: SQLite restituisce date come stringhe — `date.fromisoformat()` per confronti
+- **Ordinamento urgenza**: record piu' vecchi/urgenti prima
 
 ## Test
 
