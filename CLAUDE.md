@@ -30,12 +30,12 @@ frontend/          Next.js 16 + React 19 + TypeScript
        | REST API (JSON over HTTP, JWT auth)
        v
 api/               FastAPI + SQLModel ORM
-  models/          7 modelli ORM (SQLAlchemy table=True)
-  routers/         8 router con Bouncer Pattern + Deep IDOR
+  models/          8 modelli ORM (SQLAlchemy table=True)
+  routers/         9 router con Bouncer Pattern + Deep IDOR
   schemas/         Pydantic v2 (input/output validation)
        |
        v
-SQLite             data/crm.db — 17 tabelle, FK enforced
+SQLite             data/crm.db — 9 tabelle, FK enforced
        |
 core/              Moduli AI (dormant, non esposti via API — prossima fase)
   exercise_archive, workout_generator, knowledge_chain, card_parser, ...
@@ -79,7 +79,7 @@ Se qualsiasi step fallisce → rollback automatico. Tutto o niente.
 
 ### 3b. Contract Integrity Engine (Backend)
 Il contratto e' l'entita' centrale: collega pagamenti, crediti, sessioni.
-- **Residual validation**: `create_rate` e `update_rate` verificano che `sum(rate) ≤ prezzo - totale_versato`
+- **Residual validation**: `create_rate` e `update_rate` verificano che `sum(rate attive) + nuova ≤ prezzo - totale_versato`
 - **Chiuso guard**: rate, piani, eventi bloccati su contratti chiusi
 - **Auto-close**: contratto diventa `chiuso=True` quando SALDATO + crediti esauriti
 - **Auto-reopen**: `unpay_rate` riapre automaticamente se non piu' SALDATO
@@ -174,6 +174,10 @@ python tools/admin_scripts/test_ledger_dashboard.py
 # POST /api/backup/create     (richiede JWT)
 # GET  /api/backup/export     (JSON dati trainer)
 
+# Reset & Seed (FERMA il server API prima!)
+python tools/admin_scripts/reset_and_seed.py
+# Credenziali: chiarabassani96@gmail.com / Fitness2026!
+
 # Database
 sqlite3 data/crm.db ".tables"
 
@@ -185,10 +189,10 @@ ollama list
 
 ## Metriche Progetto
 
-- **api/**: ~4,700 LOC Python — 8 modelli ORM, 9 router, 1 schema module
-- **frontend/**: ~11,700 LOC TypeScript — 55 componenti, 8 hook modules, 6 pagine
+- **api/**: ~4,900 LOC Python — 8 modelli ORM, 9 router, 1 schema module
+- **frontend/**: ~12,600 LOC TypeScript — 56 componenti, 8 hook modules, 7 pagine
 - **core/**: ~11,100 LOC Python — moduli AI (workout, RAG, DNA) in attesa di API endpoints
-- **DB**: 20 tabelle SQLite, FK enforced, multi-tenant via trainer_id
+- **DB**: 9 tabelle SQLite, FK enforced, multi-tenant via trainer_id
 - **Test**: 60 pytest + 67 E2E
 - **Sicurezza**: JWT auth, bcrypt, Deep Relational IDOR, 3-layer route protection
 - **Cloud**: 0 dipendenze, 0 dati verso terzi

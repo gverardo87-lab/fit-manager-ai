@@ -116,8 +116,10 @@ Paradigma esplicito: le spese ricorrenti non vengono create automaticamente.
 L'utente vede un banner con le spese in attesa e le conferma manualmente.
 
 Componente con 4 sotto-componenti inline:
-- **PendingExpensesBanner**: alert arancione con checkbox per spesa, "Seleziona tutte", "Conferma selezionate".
+- **PendingExpensesBanner**: banner gradient arancione con checkbox per spesa, "Seleziona tutte", "Conferma selezionate".
   Usa `usePendingExpenses(anno, mese)` + `useConfirmExpenses()`. Reset selezione su cambio mese.
+  **PendingItemRow**: usa `<div onClick={onToggle}>` + `Checkbox onClick={stopPropagation}`.
+  MAI `<label>` con Radix Checkbox (causa double-toggle: browser propaga click a form control interno).
 - **AddExpenseForm**: form creazione con Select categoria, frequenza (5 opzioni), DatePicker `data_inizio` ("Attiva dal")
 - **ExpenseEditDialog**: Dialog con useEffect state sync da props, 6 campi (+ data_inizio via DatePicker)
 - **ExpensesTable**: tabella con colonne Categoria, Frequenza, Giorno, Attiva dal, Stato + Edit/Toggle/Delete
@@ -163,6 +165,22 @@ Estrae `error.response.data.detail` dal backend FastAPI, mostra il messaggio rea
 3. **API interceptor** (`lib/api-client.ts`): JWT header + redirect su 401
 
 Token in cookie `fitmanager_token` (8h expiry). Trainer data in `fitmanager_trainer`.
+
+## Visual Design — Cassa Page (CRM-grade)
+
+La pagina Cassa ha un visual premium ispirato ai CRM leader (HubSpot, Salesforce):
+
+### Pattern consolidati
+- **Config-driven KPI**: array `CASSA_KPI` con `.map()` — zero copy-paste tra card
+- **Gradient cards**: `bg-gradient-to-br` + `border-l-4` tematico + `hover:shadow-md`
+- **Custom Recharts tooltip**: inline render function, non `ChartTooltipContent`
+- **Date grouping table**: `useMemo` → `Map<string, items[]>` → header `colSpan` con data formattata
+- **Alternating rows**: `idx % 2 !== 0 ? "bg-muted/20" : ""` per leggibilita'
+- **Sticky table header**: `sticky top-0 z-10 bg-white dark:bg-zinc-900`
+- **ScrollArea shadcn**: sostituisce `overflow-y-auto` per scrollbar stilizzata
+- **Separator shadcn**: divide sezioni all'interno di card complesse
+- **Empty state ricchi**: icona + titolo + sottotitolo contestuale
+- **Tab con icone**: `BookOpen`, `CalendarClock`, `ArrowLeftRight`, `Clock`
 
 ## Build
 
