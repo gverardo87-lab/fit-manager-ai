@@ -69,7 +69,7 @@ export default function AgendaPage() {
     [dateRange]
   );
 
-  const { data: eventsData, isLoading, isError, refetch } = useEvents(queryParams);
+  const { data: eventsData, isLoading, isError, isFetching, refetch } = useEvents(queryParams);
   const events = eventsData?.items ?? [];
 
   // ── Eventi filtrati per categoria ──
@@ -169,10 +169,16 @@ export default function AgendaPage() {
   };
 
   const handleRangeChange = useCallback((range: { start: Date; end: Date }) => {
-    // Buffer di 1 mese in entrambe le direzioni per navigazione fluida
-    setDateRange({
-      start: startOfMonth(subMonths(range.start, 1)),
-      end: endOfMonth(addMonths(range.end, 1)),
+    setDateRange((prev) => {
+      // Se il range visibile e' gia' dentro il buffer fetchato, nessun refetch
+      if (range.start >= prev.start && range.end <= prev.end) {
+        return prev; // stessa reference → zero state change
+      }
+      // Espandi: 1 mese di buffer in ogni direzione dal nuovo range visibile
+      return {
+        start: startOfMonth(subMonths(range.start, 1)),
+        end: endOfMonth(addMonths(range.end, 1)),
+      };
     });
   }, []);
 
@@ -260,15 +266,24 @@ export default function AgendaPage() {
       )}
 
       {!isLoading && !isError && (
-        <AgendaCalendar
-          events={filteredEvents}
-          onSelectSlot={handleSelectSlot}
-          onSelectEvent={handleSelectEvent}
-          onRangeChange={handleRangeChange}
-          onEventDrop={handleEventDrop}
-          onEventResize={handleEventResize}
-          onQuickAction={handleQuickAction}
-        />
+        <div className="relative">
+          {isFetching && (
+            <div className="absolute inset-x-0 top-0 z-10 flex justify-center">
+              <div className="rounded-b-lg bg-blue-50 px-3 py-1 shadow-sm dark:bg-blue-950/40">
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500" />
+              </div>
+            </div>
+          )}
+          <AgendaCalendar
+            events={filteredEvents}
+            onSelectSlot={handleSelectSlot}
+            onSelectEvent={handleSelectEvent}
+            onRangeChange={handleRangeChange}
+            onEventDrop={handleEventDrop}
+            onEventResize={handleEventResize}
+            onQuickAction={handleQuickAction}
+          />
+        </div>
       )}
 
       {/* ── Sheet crea/modifica ── */}

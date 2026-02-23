@@ -10,7 +10,7 @@
  * Ogni mutation invalida ["events"] + ["dashboard"] + ["clients"] (crediti).
  */
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { toast } from "sonner";
 import axios from "axios";
 import apiClient, { extractErrorMessage } from "@/lib/api-client";
@@ -60,6 +60,7 @@ export function useEvents(params: UseEventsParams = {}) {
       items: data.items.map(hydrateEvent),
     }),
     enabled: !!start && !!end,
+    placeholderData: keepPreviousData,
   });
 }
 
