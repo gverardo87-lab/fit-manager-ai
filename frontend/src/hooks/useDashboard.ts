@@ -11,7 +11,15 @@
 
 import { useQuery } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
-import type { DashboardSummary, DashboardAlerts, Event, ListResponse } from "@/types/api";
+import type {
+  DashboardSummary,
+  DashboardAlerts,
+  Event,
+  ListResponse,
+  OverdueRateItem,
+  ExpiringContractItem,
+  InactiveClientItem,
+} from "@/types/api";
 
 export function useDashboard() {
   return useQuery<DashboardSummary>({
@@ -45,6 +53,45 @@ export function useGhostEvents(enabled = true) {
     queryFn: async () => {
       const { data } = await apiClient.get<ListResponse<Event>>(
         "/dashboard/ghost-events"
+      );
+      return data;
+    },
+    enabled,
+  });
+}
+
+export function useOverdueRates(enabled = true) {
+  return useQuery<ListResponse<OverdueRateItem>>({
+    queryKey: ["dashboard", "overdue-rates"],
+    queryFn: async () => {
+      const { data } = await apiClient.get<ListResponse<OverdueRateItem>>(
+        "/dashboard/overdue-rates"
+      );
+      return data;
+    },
+    enabled,
+  });
+}
+
+export function useExpiringContracts(enabled = true) {
+  return useQuery<ListResponse<ExpiringContractItem>>({
+    queryKey: ["dashboard", "expiring-contracts"],
+    queryFn: async () => {
+      const { data } = await apiClient.get<ListResponse<ExpiringContractItem>>(
+        "/dashboard/expiring-contracts"
+      );
+      return data;
+    },
+    enabled,
+  });
+}
+
+export function useInactiveClients(enabled = true) {
+  return useQuery<ListResponse<InactiveClientItem>>({
+    queryKey: ["dashboard", "inactive-clients"],
+    queryFn: async () => {
+      const { data } = await apiClient.get<ListResponse<InactiveClientItem>>(
+        "/dashboard/inactive-clients"
       );
       return data;
     },

@@ -427,6 +427,49 @@ export interface DashboardSummary {
   todays_appointments: number;
 }
 
+/** Rate scaduta per risoluzione inline dalla Dashboard */
+export interface OverdueRateItem {
+  rate_id: number;
+  data_scadenza: string; // ISO date
+  importo_previsto: number;
+  importo_saldato: number;
+  importo_residuo: number;
+  giorni_ritardo: number;
+  stato: string;
+  contract_id: number;
+  tipo_pacchetto: string | null;
+  client_id: number;
+  client_nome: string;
+  client_cognome: string;
+}
+
+/** Contratto in scadenza con crediti inutilizzati per Dashboard Sheet */
+export interface ExpiringContractItem {
+  contract_id: number;
+  tipo_pacchetto: string | null;
+  data_scadenza: string; // ISO date
+  giorni_rimasti: number;
+  crediti_totali: number;
+  crediti_usati: number;
+  crediti_residui: number;
+  prezzo_totale: number | null;
+  client_id: number;
+  client_nome: string;
+  client_cognome: string;
+}
+
+/** Cliente inattivo per Dashboard Sheet */
+export interface InactiveClientItem {
+  client_id: number;
+  nome: string;
+  cognome: string;
+  telefono: string | null;
+  email: string | null;
+  giorni_inattivo: number;
+  ultimo_evento_data: string | null; // ISO date
+  ultimo_evento_categoria: string | null;
+}
+
 /** Singolo alert con severity, categoria e contesto navigabile */
 export interface AlertItem {
   severity: "critical" | "warning" | "info";

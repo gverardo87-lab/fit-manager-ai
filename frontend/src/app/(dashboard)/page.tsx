@@ -48,6 +48,9 @@ import { useAgingReport } from "@/hooks/useRates";
 import { useEvents, type EventHydrated } from "@/hooks/useAgenda";
 import { formatCurrency } from "@/lib/format";
 import { GhostEventsSheet } from "@/components/dashboard/GhostEventsSheet";
+import { OverdueRatesSheet } from "@/components/dashboard/OverdueRatesSheet";
+import { ExpiringContractsSheet } from "@/components/dashboard/ExpiringContractsSheet";
+import { InactiveClientsSheet } from "@/components/dashboard/InactiveClientsSheet";
 import type { DashboardSummary, MovementStats, AgingResponse, DashboardAlerts } from "@/types/api";
 
 // ── Date helpers ──
@@ -97,6 +100,9 @@ export default function DashboardPage() {
 
   // Sheet state per risoluzione inline alert
   const [ghostSheetOpen, setGhostSheetOpen] = useState(false);
+  const [overdueSheetOpen, setOverdueSheetOpen] = useState(false);
+  const [expiringSheetOpen, setExpiringSheetOpen] = useState(false);
+  const [inactiveSheetOpen, setInactiveSheetOpen] = useState(false);
 
   const todayEvents = useMemo(() => {
     if (!eventsData?.items) return [];
@@ -108,9 +114,12 @@ export default function DashboardPage() {
 
   const isLoading = summaryLoading || statsLoading;
 
-  // Handler CTA per categoria alert
+  // Handler CTA per categoria alert — apre Sheet inline
   const alertActions: Record<string, () => void> = {
     ghost_events: () => setGhostSheetOpen(true),
+    overdue_rates: () => setOverdueSheetOpen(true),
+    expiring_contracts: () => setExpiringSheetOpen(true),
+    inactive_clients: () => setInactiveSheetOpen(true),
   };
 
   return (
@@ -161,6 +170,9 @@ export default function DashboardPage() {
 
       {/* ── Sheet risoluzione inline ── */}
       <GhostEventsSheet open={ghostSheetOpen} onOpenChange={setGhostSheetOpen} />
+      <OverdueRatesSheet open={overdueSheetOpen} onOpenChange={setOverdueSheetOpen} />
+      <ExpiringContractsSheet open={expiringSheetOpen} onOpenChange={setExpiringSheetOpen} />
+      <InactiveClientsSheet open={inactiveSheetOpen} onOpenChange={setInactiveSheetOpen} />
     </div>
   );
 }

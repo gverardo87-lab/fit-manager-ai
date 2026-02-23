@@ -232,6 +232,241 @@ def get_ghost_events(
     return {"items": items, "total": len(items)}
 
 
+@router.get("/overdue-rates")
+def get_overdue_rates(
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """
+    Rate scadute: rate PENDENTI/PARZIALI con data_scadenza < oggi.
+
+    Restituisce dati completi per risoluzione inline dalla Dashboard
+    (Sheet con pagamento rapido). Include dati cliente e contratto.
+
+    Ordinamento: piu' vecchie prima (urgenza decrescente).
+    """
+    today = date.today()
+
+    stmt = (
+        select(Rate, Contract, Client)
+        .join(Contract, Rate.id_contratto == Contract.id)
+        .join(Client, Contract.id_cliente == Client.id)
+        .where(
+            Contract.trainer_id == trainer.id,
+            Rate.stato.in_(["PENDENTE", "PARZIALE"]),
+            Rate.data_scadenza < today,
+            Rate.deleted_at == None,
+            Contract.deleted_at == None,
+            Contract.chiuso == False,
+        )
+        .order_by(Rate.data_scadenza.asc())
+    )
+    rows = session.exec(stmt).all()
+
+    items = []
+    for rate, contract, client in rows:
+        residuo = round(rate.importo_previsto - rate.importo_saldato, 2)
+        giorni = (today - rate.data_scadenza).days if isinstance(rate.data_scadenza, date) else 0
+        items.append({
+            "rate_id": rate.id,
+            "data_scadenza": rate.data_scadenza.isoformat() if isinstance(rate.data_scadenza, date) else str(rate.data_scadenza),
+            "importo_previsto": rate.importo_previsto,
+            "importo_saldato": rate.importo_saldato,
+            "importo_residuo": residuo,
+            "giorni_ritardo": giorni,
+            "stato": rate.stato,
+            "contract_id": contract.id,
+            "tipo_pacchetto": contract.tipo_pacchetto,
+            "client_id": client.id,
+            "client_nome": client.nome,
+            "client_cognome": client.cognome,
+        })
+
+    return {"items": items, "total": len(items)}
+
+
+@router.get("/expiring-contracts")
+def get_expiring_contracts(
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """
+    Contratti in scadenza con crediti inutilizzati (30 giorni).
+
+    Restituisce dati completi per risoluzione inline dalla Dashboard
+    (Sheet con progress bar crediti e countdown). Include credit engine
+    computed-on-read: crediti_usati da COUNT eventi PT non cancellati.
+
+    Ordinamento: scadenza piu' vicina prima.
+    """
+    today = date.today()
+    deadline_30 = today + timedelta(days=30)
+
+    # Step 1: contratti in finestra scadenza con crediti
+    contracts = session.exec(
+        select(Contract, Client)
+        .join(Client, Contract.id_cliente == Client.id)
+        .where(
+            Contract.trainer_id == trainer.id,
+            Contract.deleted_at == None,
+            Contract.chiuso == False,
+            Contract.data_scadenza != None,
+            Contract.data_scadenza <= deadline_30,
+            Contract.data_scadenza >= today,
+            Contract.crediti_totali != None,
+        )
+        .order_by(Contract.data_scadenza.asc())
+    ).all()
+
+    if not contracts:
+        return {"items": [], "total": 0}
+
+    # Step 2: batch fetch crediti usati (anti-N+1)
+    contract_ids = [c.id for c, _ in contracts]
+    credit_rows = session.execute(text("""
+        SELECT e.id_contratto, COUNT(*) as usati
+        FROM agenda e
+        WHERE e.id_contratto IN ({})
+          AND e.categoria = 'PT'
+          AND e.stato != 'Cancellato'
+          AND e.deleted_at IS NULL
+        GROUP BY e.id_contratto
+    """.format(",".join(str(cid) for cid in contract_ids)))).fetchall()
+
+    credits_map = {row[0]: row[1] for row in credit_rows}
+
+    items = []
+    for contract, client in contracts:
+        usati = credits_map.get(contract.id, 0)
+        totali = contract.crediti_totali or 0
+        residui = max(totali - usati, 0)
+
+        # Solo contratti con crediti residui
+        if residui <= 0:
+            continue
+
+        scadenza = contract.data_scadenza
+        if isinstance(scadenza, str):
+            scadenza = date.fromisoformat(scadenza)
+        giorni_rimasti = (scadenza - today).days if isinstance(scadenza, date) else 0
+
+        items.append({
+            "contract_id": contract.id,
+            "tipo_pacchetto": contract.tipo_pacchetto,
+            "data_scadenza": scadenza.isoformat() if isinstance(scadenza, date) else str(scadenza),
+            "giorni_rimasti": giorni_rimasti,
+            "crediti_totali": totali,
+            "crediti_usati": usati,
+            "crediti_residui": residui,
+            "prezzo_totale": contract.prezzo_totale,
+            "client_id": client.id,
+            "client_nome": client.nome,
+            "client_cognome": client.cognome,
+        })
+
+    return {"items": items, "total": len(items)}
+
+
+@router.get("/inactive-clients")
+def get_inactive_clients(
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """
+    Clienti inattivi: attivi senza eventi negli ultimi 14 giorni.
+
+    Restituisce dati completi per risoluzione inline dalla Dashboard
+    (Sheet con info contatto e ultimo evento). Include telefono, email,
+    data/categoria ultimo evento.
+
+    Ordinamento: piu' a lungo inattivi prima.
+    """
+    today = date.today()
+    cutoff_14 = today - timedelta(days=14)
+    cutoff_start = datetime.combine(cutoff_14, datetime.min.time())
+
+    # Step 1: clienti attivi senza eventi recenti
+    inactive_clients = session.execute(text("""
+        SELECT cl.id, cl.nome, cl.cognome, cl.telefono, cl.email
+        FROM clienti cl
+        WHERE cl.trainer_id = :tid
+          AND cl.stato = 'Attivo'
+          AND cl.deleted_at IS NULL
+          AND NOT EXISTS (
+              SELECT 1 FROM agenda e
+              WHERE e.id_cliente = cl.id
+                AND e.data_inizio >= :cutoff
+                AND e.stato != 'Cancellato'
+                AND e.deleted_at IS NULL
+          )
+        ORDER BY cl.nome, cl.cognome
+    """), {"tid": trainer.id, "cutoff": cutoff_start.isoformat()}).fetchall()
+
+    if not inactive_clients:
+        return {"items": [], "total": 0}
+
+    # Step 2: batch fetch ultimo evento per ciascuno (anti-N+1)
+    client_ids = [row[0] for row in inactive_clients]
+    last_events = session.execute(text("""
+        SELECT e.id_cliente, e.data_inizio, e.categoria
+        FROM agenda e
+        INNER JOIN (
+            SELECT id_cliente, MAX(data_inizio) as max_data
+            FROM agenda
+            WHERE id_cliente IN ({})
+              AND stato != 'Cancellato'
+              AND deleted_at IS NULL
+            GROUP BY id_cliente
+        ) latest ON e.id_cliente = latest.id_cliente AND e.data_inizio = latest.max_data
+        WHERE e.deleted_at IS NULL AND e.stato != 'Cancellato'
+    """.format(",".join(str(cid) for cid in client_ids)))).fetchall()
+
+    last_event_map: dict[int, tuple] = {}
+    for row in last_events:
+        last_event_map[row[0]] = (row[1], row[2])
+
+    items = []
+    for cid, nome, cognome, telefono, email in inactive_clients:
+        last = last_event_map.get(cid)
+        last_data = None
+        last_cat = None
+        giorni_inattivo = 14  # minimo
+
+        if last:
+            last_data_raw = last[0]
+            last_cat = last[1]
+            # Parse datetime string
+            if isinstance(last_data_raw, str):
+                try:
+                    last_dt = datetime.fromisoformat(last_data_raw.replace(" ", "T"))
+                    last_data = last_dt.date().isoformat()
+                    giorni_inattivo = (today - last_dt.date()).days
+                except ValueError:
+                    last_data = last_data_raw
+            elif isinstance(last_data_raw, datetime):
+                last_data = last_data_raw.date().isoformat()
+                giorni_inattivo = (today - last_data_raw.date()).days
+            elif isinstance(last_data_raw, date):
+                last_data = last_data_raw.isoformat()
+                giorni_inattivo = (today - last_data_raw).days
+
+        items.append({
+            "client_id": cid,
+            "nome": nome,
+            "cognome": cognome,
+            "telefono": telefono,
+            "email": email,
+            "giorni_inattivo": giorni_inattivo,
+            "ultimo_evento_data": last_data,
+            "ultimo_evento_categoria": last_cat,
+        })
+
+    # Ordinamento: piu' inattivi prima
+    items.sort(key=lambda x: -x["giorni_inattivo"])
+
+    return {"items": items, "total": len(items)}
+
+
 @router.get("/alerts", response_model=DashboardAlerts)
 def get_dashboard_alerts(
     trainer: Trainer = Depends(get_current_trainer),
