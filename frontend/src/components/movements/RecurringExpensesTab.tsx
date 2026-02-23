@@ -300,10 +300,11 @@ function PendingItemRow({
     : "";
 
   return (
-    <label className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 hover:bg-amber-100/60 dark:hover:bg-amber-900/20">
+    <div className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 hover:bg-amber-100/60 dark:hover:bg-amber-900/20" onClick={onToggle}>
       <Checkbox
         checked={checked}
         onCheckedChange={onToggle}
+        onClick={(e) => e.stopPropagation()}
       />
       <span className="flex-1 text-sm font-medium">{item.nome}</span>
       {item.categoria && (
@@ -318,7 +319,7 @@ function PendingItemRow({
       <span className="w-24 text-right text-xs text-muted-foreground">
         {FREQUENZA_LABELS[item.frequenza] ?? item.frequenza}
       </span>
-    </label>
+    </div>
   );
 }
 

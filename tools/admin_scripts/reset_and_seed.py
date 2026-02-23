@@ -575,12 +575,22 @@ def seed_database(engine):
         # Creiamo sessioni PT per i contratti attivi e qualche evento generico.
         events_data = []
 
-        # Sessioni PT per Marco (contratto 1, chiuso — tutti Completati)
-        for i in range(5):
-            dt = datetime(2025, 10, 15 + i * 3, 9, 0, tzinfo=timezone.utc)
+        # Sessioni PT per Marco (contratto 1, chiuso — tutti Completati, 10/10 crediti)
+        for i in range(10):
+            dt = datetime(2025, 10, 7 + i * 7, 9, 0, tzinfo=timezone.utc)  # 1 a settimana
             events_data.append(Event(
                 trainer_id=tid, categoria="PT", titolo=f"PT Marco #{i+1}",
                 id_cliente=clients[0].id, id_contratto=c1.id,
+                data_inizio=dt, data_fine=dt + timedelta(hours=1),
+                stato="Completato",
+            ))
+
+        # Sessioni PT per Davide (contratto 7, chiuso — tutti Completati, 5/5 crediti)
+        for i in range(5):
+            dt = datetime(2025, 7, 1 + i * 14, 16, 0, tzinfo=timezone.utc)  # 1 ogni 2 sett.
+            events_data.append(Event(
+                trainer_id=tid, categoria="PT", titolo=f"PT Davide #{i+1}",
+                id_cliente=clients[6].id, id_contratto=c7.id,
                 data_inizio=dt, data_fine=dt + timedelta(hours=1),
                 stato="Completato",
             ))
