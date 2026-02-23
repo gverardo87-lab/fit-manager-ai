@@ -5,16 +5,20 @@
  * Hover card per eventi del calendario.
  *
  * Mostra info dettagliate + azioni rapide (Completa, Rinvia, Cancella)
- * senza aprire il Sheet completo. Usa Popover shadcn con hover trigger.
+ * senza aprire il Sheet completo.
+ *
+ * NOTA: usa createPortal per renderizzare il popup nel <body>.
+ * Motivo: react-big-calendar wrappa gli eventi in .rbc-event con
+ * overflow:hidden — un popup position:absolute verrebbe clippato.
  */
 
-import { useState, useRef, useCallback, type ReactNode } from "react";
+import { useState, useRef, useCallback, useEffect, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { CheckCircle2, RotateCcw, X, Clock, User } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { CATEGORY_LABELS } from "./calendar-setup";
 import type { CalendarEvent } from "./calendar-setup";
@@ -42,6 +46,9 @@ interface EventHoverCardProps {
 
 export function EventHoverCard({ event, onQuickAction, children }: EventHoverCardProps) {
   const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
   const enterTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const leaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -61,6 +68,21 @@ export function EventHoverCard({ event, onQuickAction, children }: EventHoverCar
     leaveTimeout.current = setTimeout(() => setOpen(false), 200);
   }, []);
 
+  // Calcola posizione del popup quando si apre
+  useEffect(() => {
+    if (!open || !triggerRef.current) {
+      setPosition(null);
+      return;
+    }
+    const rect = triggerRef.current.getBoundingClientRect();
+    const popupWidth = 260;
+    // Centra orizzontalmente rispetto al trigger, sotto di esso
+    let left = rect.left + rect.width / 2 - popupWidth / 2;
+    // Evita di uscire dal viewport a sinistra/destra
+    left = Math.max(8, Math.min(left, window.innerWidth - popupWidth - 8));
+    setPosition({ top: rect.bottom + 4, left });
+  }, [open]);
+
   const handleAction = useCallback(
     (stato: string) => {
       setOpen(false);
@@ -69,26 +91,38 @@ export function EventHoverCard({ event, onQuickAction, children }: EventHoverCar
     [event.id, onQuickAction]
   );
 
+  // Cleanup timeouts
+  useEffect(() => {
+    return () => {
+      if (enterTimeout.current) clearTimeout(enterTimeout.current);
+      if (leaveTimeout.current) clearTimeout(leaveTimeout.current);
+    };
+  }, []);
+
   const statusBadge = STATUS_BADGES[event.stato] ?? STATUS_BADGES.Programmato;
   const catDot = CATEGORY_DOT_COLORS[event.categoria] ?? "bg-zinc-400";
   const catLabel = CATEGORY_LABELS[event.categoria as EventCategory] ?? event.categoria;
   const canAct = event.stato === "Programmato" || event.stato === "Rinviato";
 
   return (
-    <div
-      className="relative"
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      {children}
+    <>
+      <div
+        ref={triggerRef}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
+        {children}
+      </div>
 
-      {open && (
+      {open && position && createPortal(
         <div
-          className="absolute left-1/2 top-full z-50 mt-1 -translate-x-1/2"
+          ref={popupRef}
+          className="fixed z-[9999]"
+          style={{ top: position.top, left: position.left }}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
         >
-          <div className="w-64 rounded-xl border bg-popover p-3.5 shadow-lg animate-in fade-in-0 zoom-in-95 duration-150">
+          <div className="w-[260px] rounded-xl border bg-popover p-3.5 shadow-lg animate-in fade-in-0 zoom-in-95 duration-150">
             {/* Header: categoria + stato */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -175,8 +209,9 @@ export function EventHoverCard({ event, onQuickAction, children }: EventHoverCar
               </>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 }
