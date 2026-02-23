@@ -15,6 +15,7 @@
 import { AlertTriangle, Clock, Users, TrendingUp } from "lucide-react";
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAgingReport } from "@/hooks/useRates";
 import { formatCurrency } from "@/lib/format";
 import type { AgingBucket, AgingItem } from "@/types/api";
@@ -73,10 +74,10 @@ export function AgingReport() {
 
   if (!hasOverdue && !hasUpcoming) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
-        <TrendingUp className="mb-3 h-8 w-8 text-emerald-500" />
-        <p className="font-medium">Nessuna rata in sospeso</p>
-        <p className="text-sm text-muted-foreground">
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-emerald-200 bg-emerald-50/30 py-16 dark:border-emerald-800 dark:bg-emerald-950/10">
+        <TrendingUp className="mb-3 h-10 w-10 text-emerald-500" />
+        <p className="font-semibold text-emerald-700 dark:text-emerald-400">Nessuna rata in sospeso</p>
+        <p className="mt-1 text-sm text-muted-foreground">
           Tutti i pagamenti sono in regola
         </p>
       </div>
@@ -94,6 +95,8 @@ export function AgingReport() {
           value={formatCurrency(data.totale_scaduto)}
           valueClass="text-red-700 dark:text-red-400"
           sub={`${data.rate_scadute} rat${data.rate_scadute === 1 ? "a" : "e"}`}
+          borderColor="border-l-red-500"
+          gradient="from-red-50/80 to-white dark:from-red-950/40 dark:to-zinc-900"
         />
         <KpiCard
           icon={<TrendingUp className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />}
@@ -102,6 +105,8 @@ export function AgingReport() {
           value={formatCurrency(data.totale_in_arrivo)}
           valueClass="text-emerald-700 dark:text-emerald-400"
           sub={`${data.rate_in_arrivo} rat${data.rate_in_arrivo === 1 ? "a" : "e"}`}
+          borderColor="border-l-emerald-500"
+          gradient="from-emerald-50/80 to-white dark:from-emerald-950/40 dark:to-zinc-900"
         />
         <KpiCard
           icon={<Users className="h-5 w-5 text-orange-600 dark:text-orange-400" />}
@@ -110,13 +115,15 @@ export function AgingReport() {
           value={String(data.clienti_con_scaduto)}
           valueClass="text-orange-700 dark:text-orange-400"
           sub="con rate scadute"
+          borderColor="border-l-orange-500"
+          gradient="from-orange-50/80 to-white dark:from-orange-950/40 dark:to-zinc-900"
         />
       </div>
 
       {/* ── Sezione Scadute ── */}
       {hasOverdue && (
         <div className="space-y-3">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 border-b pb-2">
             <Clock className="h-4 w-4 text-red-500" />
             <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Rate Scadute
@@ -139,7 +146,7 @@ export function AgingReport() {
       {/* ── Sezione In Arrivo ── */}
       {hasUpcoming && (
         <div className="space-y-3">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 border-b pb-2">
             <TrendingUp className="h-4 w-4 text-emerald-500" />
             <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Rate In Arrivo
@@ -173,6 +180,8 @@ function KpiCard({
   value,
   valueClass,
   sub,
+  borderColor,
+  gradient,
 }: {
   icon: React.ReactNode;
   iconBg: string;
@@ -180,9 +189,11 @@ function KpiCard({
   value: string;
   valueClass: string;
   sub: string;
+  borderColor: string;
+  gradient: string;
 }) {
   return (
-    <div className="flex items-start gap-3 rounded-xl border bg-white p-4 shadow-sm dark:bg-zinc-900">
+    <div className={`flex items-start gap-3 rounded-xl border border-l-4 ${borderColor} bg-gradient-to-br ${gradient} p-4 shadow-sm transition-shadow hover:shadow-md`}>
       <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${iconBg}`}>
         {icon}
       </div>
@@ -190,7 +201,7 @@ function KpiCard({
         <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
           {label}
         </p>
-        <p className={`text-xl font-bold tracking-tight ${valueClass}`}>
+        <p className={`text-2xl font-bold tracking-tight ${valueClass}`}>
           {value}
         </p>
         <p className="text-xs text-muted-foreground">{sub}</p>
@@ -225,7 +236,7 @@ function BucketCard({
   const isEmpty = bucket.count === 0;
 
   return (
-    <div className={`rounded-xl border ${colors.border} ${colors.bg} p-4 space-y-3`}>
+    <div className={`rounded-xl border ${colors.border} ${colors.bg} p-4 space-y-3 transition-shadow hover:shadow-md`}>
       {/* Header */}
       <div>
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -241,11 +252,20 @@ function BucketCard({
 
       {/* Lista rate */}
       {!isEmpty && (
-        <div className="max-h-[200px] space-y-1 overflow-y-auto">
-          {bucket.items.map((item) => (
-            <ItemRow key={item.rate_id} item={item} colors={colors} showDays={showDays} />
-          ))}
-        </div>
+        <ScrollArea className="h-[200px]">
+          <div className="space-y-1">
+            {bucket.items.map((item) => (
+              <ItemRow key={item.rate_id} item={item} colors={colors} showDays={showDays} />
+            ))}
+          </div>
+        </ScrollArea>
+      )}
+
+      {/* Empty bucket */}
+      {isEmpty && (
+        <p className="py-3 text-center text-xs text-muted-foreground">
+          Nessuna rata
+        </p>
       )}
     </div>
   );
@@ -267,8 +287,9 @@ function ItemRow({
     : `${Math.abs(item.giorni)}g`;
 
   return (
-    <div className="flex items-center justify-between rounded-md px-2 py-1 text-sm hover:bg-white/60 dark:hover:bg-white/5">
+    <div className="flex items-center justify-between rounded-md px-2 py-1 text-sm transition-colors hover:bg-white/60 dark:hover:bg-white/5">
       <div className="flex items-center gap-1.5 min-w-0">
+        <div className={`h-1.5 w-1.5 shrink-0 rounded-full ${colors.bar}`} />
         <span className="truncate font-medium">
           {item.client_cognome} {item.client_nome.charAt(0)}.
         </span>
@@ -286,11 +307,19 @@ function ItemRow({
 // ── Skeleton ──
 
 function AgingSkeleton() {
+  const kpiBorders = ["border-l-red-500", "border-l-emerald-500", "border-l-orange-500"];
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-20 w-full rounded-xl" />
+        {kpiBorders.map((border, i) => (
+          <div key={i} className={`flex items-start gap-3 rounded-xl border border-l-4 ${border} p-4`}>
+            <Skeleton className="h-10 w-10 shrink-0 rounded-lg" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-6 w-28" />
+              <Skeleton className="h-2 w-16" />
+            </div>
+          </div>
         ))}
       </div>
       <Skeleton className="h-4 w-32" />

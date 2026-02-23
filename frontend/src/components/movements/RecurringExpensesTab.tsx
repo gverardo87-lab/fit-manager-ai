@@ -25,6 +25,7 @@ import {
   Pencil,
   AlertTriangle,
   CheckCircle2,
+  Building2,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -152,10 +153,13 @@ export function RecurringExpensesTab({ anno, mese }: RecurringExpensesTabProps) 
       )}
 
       {!isLoading && expenses.length === 0 && (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-10">
-          <CalendarClock className="mb-2 h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-16">
+          <CalendarClock className="mb-3 h-10 w-10 text-muted-foreground/40" />
+          <p className="text-sm font-medium text-muted-foreground">
             Nessuna spesa ricorrente configurata
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground/70">
+            Aggiungi la prima spesa fissa con il form qui sopra
           </p>
         </div>
       )}
@@ -163,11 +167,16 @@ export function RecurringExpensesTab({ anno, mese }: RecurringExpensesTabProps) 
       {expenses.length > 0 && <ExpensesTable expenses={expenses} />}
 
       {expenses.length > 0 && (
-        <div className="flex items-center justify-between rounded-lg border bg-red-50/50 px-4 py-3 dark:bg-red-950/20">
-          <span className="text-sm font-medium text-muted-foreground">
-            Stima Mensile Spese Fisse
-          </span>
-          <span className="text-lg font-bold text-red-700 dark:text-red-400">
+        <div className="flex items-center justify-between rounded-xl border border-l-4 border-l-red-500 bg-gradient-to-r from-red-50/50 to-white px-5 py-4 dark:from-red-950/20 dark:to-zinc-900">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-100 dark:bg-red-900/30">
+              <Building2 className="h-4 w-4 text-red-600 dark:text-red-400" />
+            </div>
+            <span className="text-sm font-medium text-muted-foreground">
+              Stima Mensile Spese Fisse
+            </span>
+          </div>
+          <span className="text-xl font-bold text-red-700 dark:text-red-400">
             {formatCurrency(
               expenses.filter((e) => e.attiva).reduce((sum, e) => sum + estimateMonthly(e), 0)
             )}
@@ -231,7 +240,7 @@ function PendingExpensesBanner({ anno, mese }: { anno: number; mese: number }) {
   };
 
   return (
-    <div className="rounded-lg border border-amber-200 bg-amber-50/80 p-4 dark:border-amber-800/50 dark:bg-amber-950/20">
+    <div className="rounded-xl border border-l-4 border-amber-200 border-l-amber-500 bg-gradient-to-r from-amber-50/80 to-white p-4 dark:border-amber-800/50 dark:border-l-amber-500 dark:from-amber-950/20 dark:to-zinc-900">
       <div className="mb-3 flex items-center gap-2">
         <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
         <span className="text-sm font-semibold text-amber-800 dark:text-amber-300">
@@ -354,8 +363,11 @@ function AddExpenseForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-lg border bg-zinc-50/50 p-4 dark:bg-zinc-800/30">
-      <p className="mb-3 text-sm font-semibold">Aggiungi Spesa Fissa</p>
+    <form onSubmit={handleSubmit} className="rounded-xl border bg-gradient-to-r from-zinc-50/80 to-white p-4 shadow-sm dark:from-zinc-800/30 dark:to-zinc-900">
+      <div className="mb-3 flex items-center gap-2">
+        <Plus className="h-4 w-4 text-muted-foreground" />
+        <p className="text-sm font-semibold">Aggiungi Spesa Fissa</p>
+      </div>
       <div className="flex items-end gap-3 flex-wrap">
         <div className="flex-1 min-w-[150px] space-y-1.5">
           <Label className="text-xs">Nome</Label>
@@ -628,10 +640,10 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {expenses.map((expense) => (
+            {expenses.map((expense, idx) => (
               <TableRow
                 key={expense.id}
-                className={expense.attiva ? "" : "opacity-50"}
+                className={`transition-colors hover:bg-muted/50 ${!expense.attiva ? "opacity-50" : ""} ${idx % 2 !== 0 ? "bg-muted/20" : ""}`}
               >
                 <TableCell className="font-medium">{expense.nome}</TableCell>
                 <TableCell className="text-right font-bold tabular-nums text-red-600 dark:text-red-400">

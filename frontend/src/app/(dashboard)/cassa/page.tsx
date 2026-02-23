@@ -19,6 +19,10 @@ import {
   TrendingDown,
   Building2,
   Target,
+  BookOpen,
+  CalendarClock,
+  ArrowLeftRight,
+  Clock,
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
@@ -37,7 +41,6 @@ import {
   ChartConfig,
   ChartContainer,
   ChartTooltip,
-  ChartTooltipContent,
   ChartLegend,
   ChartLegendContent,
 } from "@/components/ui/chart";
@@ -116,7 +119,7 @@ export default function CassaPage() {
       {/* ── Header + Filtri ── */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-200 dark:from-emerald-900/40 dark:to-emerald-800/30">
             <Landmark className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
           </div>
           <div>
@@ -161,7 +164,7 @@ export default function CassaPage() {
             </SelectContent>
           </Select>
 
-          <Button onClick={() => setSheetOpen(true)}>
+          <Button onClick={() => setSheetOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white">
             <Plus className="mr-2 h-4 w-4" />
             Nuovo Movimento
           </Button>
@@ -179,11 +182,13 @@ export default function CassaPage() {
 
       {/* ── Tabs: Libro Mastro + Spese Fisse ── */}
       <Tabs defaultValue="ledger" className="w-full">
-        <TabsList>
-          <TabsTrigger value="ledger" className="flex-1">
+        <TabsList className="bg-muted/50 p-1">
+          <TabsTrigger value="ledger" className="flex-1 gap-1.5">
+            <BookOpen className="h-3.5 w-3.5" />
             Libro Mastro
           </TabsTrigger>
           <TabsTrigger value="recurring" className="flex-1 gap-1.5">
+            <CalendarClock className="h-3.5 w-3.5" />
             Spese Fisse
             {pendingCount > 0 && (
               <Badge variant="destructive" className="ml-1 h-5 min-w-5 px-1.5 text-[10px]">
@@ -191,10 +196,12 @@ export default function CassaPage() {
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="split" className="flex-1">
+          <TabsTrigger value="split" className="flex-1 gap-1.5">
+            <ArrowLeftRight className="h-3.5 w-3.5" />
             Entrate & Uscite
           </TabsTrigger>
-          <TabsTrigger value="aging" className="flex-1">
+          <TabsTrigger value="aging" className="flex-1 gap-1.5">
+            <Clock className="h-3.5 w-3.5" />
             Scadenze
           </TabsTrigger>
         </TabsList>
@@ -254,6 +261,64 @@ export default function CassaPage() {
 // KPI Cards
 // ════════════════════════════════════════════════════════════
 
+// ── KPI Config ──
+
+type KpiKey = "totale_entrate" | "totale_uscite_variabili" | "totale_uscite_fisse" | "margine_netto";
+
+interface KpiDef {
+  key: KpiKey;
+  label: string;
+  icon: typeof TrendingUp;
+  borderColor: string;
+  gradient: string;
+  iconBg: string;
+  iconColor: string;
+  valueColor: string;
+}
+
+const CASSA_KPI: KpiDef[] = [
+  {
+    key: "totale_entrate",
+    label: "Entrate",
+    icon: TrendingUp,
+    borderColor: "border-l-emerald-500",
+    gradient: "from-emerald-50/80 to-white dark:from-emerald-950/40 dark:to-zinc-900",
+    iconBg: "bg-emerald-100 dark:bg-emerald-900/30",
+    iconColor: "text-emerald-600 dark:text-emerald-400",
+    valueColor: "text-emerald-700 dark:text-emerald-400",
+  },
+  {
+    key: "totale_uscite_variabili",
+    label: "Uscite Variabili",
+    icon: TrendingDown,
+    borderColor: "border-l-red-500",
+    gradient: "from-red-50/80 to-white dark:from-red-950/40 dark:to-zinc-900",
+    iconBg: "bg-red-100 dark:bg-red-900/30",
+    iconColor: "text-red-600 dark:text-red-400",
+    valueColor: "text-red-700 dark:text-red-400",
+  },
+  {
+    key: "totale_uscite_fisse",
+    label: "Uscite Fisse",
+    icon: Building2,
+    borderColor: "border-l-orange-500",
+    gradient: "from-orange-50/80 to-white dark:from-orange-950/40 dark:to-zinc-900",
+    iconBg: "bg-orange-100 dark:bg-orange-900/30",
+    iconColor: "text-orange-600 dark:text-orange-400",
+    valueColor: "text-orange-700 dark:text-orange-400",
+  },
+  {
+    key: "margine_netto",
+    label: "Margine Netto",
+    icon: Target,
+    borderColor: "", // condizionale
+    gradient: "",    // condizionale
+    iconBg: "",      // condizionale
+    iconColor: "",   // condizionale
+    valueColor: "",  // condizionale
+  },
+];
+
 function KpiCards({
   stats,
 }: {
@@ -268,81 +333,48 @@ function KpiCards({
 
   return (
     <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-      {/* Entrate */}
-      <div className="flex items-start gap-3 rounded-xl border bg-white p-4 shadow-sm dark:bg-zinc-900">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
-          <TrendingUp className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-            Entrate
-          </p>
-          <p className="text-xl font-bold tracking-tight text-emerald-700 dark:text-emerald-400">
-            {formatCurrency(stats.totale_entrate)}
-          </p>
-        </div>
-      </div>
+      {CASSA_KPI.map((kpi) => {
+        const Icon = kpi.icon;
+        const isMargin = kpi.key === "margine_netto";
 
-      {/* Uscite Variabili */}
-      <div className="flex items-start gap-3 rounded-xl border bg-white p-4 shadow-sm dark:bg-zinc-900">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-100 dark:bg-red-900/30">
-          <TrendingDown className="h-5 w-5 text-red-600 dark:text-red-400" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-            Uscite Variabili
-          </p>
-          <p className="text-xl font-bold tracking-tight text-red-700 dark:text-red-400">
-            {formatCurrency(stats.totale_uscite_variabili)}
-          </p>
-        </div>
-      </div>
+        const borderColor = isMargin
+          ? (isPositive ? "border-l-blue-500" : "border-l-red-500")
+          : kpi.borderColor;
+        const gradient = isMargin
+          ? (isPositive
+              ? "from-blue-50/80 to-white dark:from-blue-950/40 dark:to-zinc-900"
+              : "from-red-50/80 to-white dark:from-red-950/40 dark:to-zinc-900")
+          : kpi.gradient;
+        const iconBg = isMargin
+          ? (isPositive ? "bg-blue-100 dark:bg-blue-900/30" : "bg-red-100 dark:bg-red-900/30")
+          : kpi.iconBg;
+        const iconColor = isMargin
+          ? (isPositive ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400")
+          : kpi.iconColor;
+        const valueColor = isMargin
+          ? (isPositive ? "text-blue-700 dark:text-blue-400" : "text-red-700 dark:text-red-400")
+          : kpi.valueColor;
 
-      {/* Uscite Fisse */}
-      <div className="flex items-start gap-3 rounded-xl border bg-white p-4 shadow-sm dark:bg-zinc-900">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-900/30">
-          <Building2 className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-            Uscite Fisse
-          </p>
-          <p className="text-xl font-bold tracking-tight text-orange-700 dark:text-orange-400">
-            {formatCurrency(stats.totale_uscite_fisse)}
-          </p>
-        </div>
-      </div>
-
-      {/* Margine Netto */}
-      <div className={`flex items-start gap-3 rounded-xl border p-4 shadow-sm ${
-        isPositive
-          ? "bg-white dark:bg-zinc-900"
-          : "border-red-200 bg-red-50/50 dark:border-red-900/50 dark:bg-red-950/20"
-      }`}>
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
-          isPositive
-            ? "bg-blue-100 dark:bg-blue-900/30"
-            : "bg-red-100 dark:bg-red-900/30"
-        }`}>
-          <Target className={`h-5 w-5 ${
-            isPositive
-              ? "text-blue-600 dark:text-blue-400"
-              : "text-red-600 dark:text-red-400"
-          }`} />
-        </div>
-        <div className="min-w-0">
-          <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-            Margine Netto
-          </p>
-          <p className={`text-xl font-bold tracking-tight ${
-            isPositive
-              ? "text-blue-700 dark:text-blue-400"
-              : "text-red-700 dark:text-red-400"
-          }`}>
-            {formatCurrency(stats.margine_netto)}
-          </p>
-        </div>
-      </div>
+        return (
+          <div
+            key={kpi.key}
+            className={`flex items-start gap-3 rounded-xl border border-l-4 ${borderColor} bg-gradient-to-br ${gradient} p-4 shadow-sm transition-shadow hover:shadow-md`}
+          >
+            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${iconBg}`}>
+              <Icon className={`h-5 w-5 ${iconColor}`} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+                {kpi.label}
+              </p>
+              <p className={`text-2xl font-bold tracking-tight ${valueColor}`}>
+                {formatCurrency(stats[kpi.key])}
+              </p>
+              <p className="text-[10px] text-muted-foreground/70">questo mese</p>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -358,22 +390,28 @@ function DailyChart({
   data: { giorno: number; entrate: number; uscite: number }[];
   meseLabel: string;
 }) {
-  // Filtra solo i giorni con dati per il grafico
   const hasData = data.some((d) => d.entrate > 0 || d.uscite > 0);
   if (!hasData) return null;
 
+  const giorniAttivi = data.filter((d) => d.entrate > 0 || d.uscite > 0).length;
+
   return (
-    <div className="rounded-xl border bg-white p-5 shadow-sm dark:bg-zinc-900">
-      <div className="mb-4">
-        <h3 className="text-sm font-semibold">
-          Andamento Giornaliero — {meseLabel}
-        </h3>
-        <p className="text-xs text-muted-foreground">
-          Entrate e uscite per giorno del mese
-        </p>
+    <div className="rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-5 shadow-sm dark:from-zinc-900 dark:to-zinc-800/50">
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold">
+            Andamento Giornaliero — {meseLabel}
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            Entrate e uscite per giorno del mese
+          </p>
+        </div>
+        <Badge variant="outline" className="text-[10px]">
+          {giorniAttivi} giorni attivi
+        </Badge>
       </div>
 
-      <ChartContainer config={chartConfig} className="h-[240px] w-full">
+      <ChartContainer config={chartConfig} className="h-[280px] w-full">
         <BarChart data={data} accessibilityLayer>
           <CartesianGrid vertical={false} strokeDasharray="3 3" />
           <XAxis
@@ -391,28 +429,48 @@ function DailyChart({
             tickFormatter={(v) => `€${v}`}
           />
           <ChartTooltip
-            content={
-              <ChartTooltipContent
-                formatter={(value, name) => (
-                  <span>
-                    {name === "entrate" ? "Entrate" : "Uscite"}: {formatCurrency(Number(value))}
-                  </span>
-                )}
-              />
-            }
+            cursor={{ fill: "var(--color-muted)", opacity: 0.3 }}
+            content={({ payload, label }) => {
+              if (!payload?.length) return null;
+              return (
+                <div className="rounded-lg border bg-white p-3 shadow-md dark:bg-zinc-900">
+                  <p className="mb-1.5 text-xs font-semibold text-muted-foreground">
+                    Giorno {label}
+                  </p>
+                  {payload.map((entry) => (
+                    <div key={entry.name} className="flex items-center gap-2 text-sm">
+                      <div
+                        className="h-2.5 w-2.5 rounded-full"
+                        style={{ backgroundColor: entry.color }}
+                      />
+                      <span className="text-muted-foreground">
+                        {entry.name === "entrate" ? "Entrate" : "Uscite"}
+                      </span>
+                      <span className="ml-auto font-bold tabular-nums">
+                        {formatCurrency(Number(entry.value))}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              );
+            }}
           />
           <ChartLegend content={<ChartLegendContent />} />
           <Bar
             dataKey="entrate"
             fill="var(--color-emerald-500)"
-            radius={[4, 4, 0, 0]}
+            radius={[4, 4, 2, 2]}
             maxBarSize={20}
+            animationBegin={0}
+            animationDuration={800}
           />
           <Bar
             dataKey="uscite"
             fill="var(--color-red-500)"
-            radius={[4, 4, 0, 0]}
+            radius={[4, 4, 2, 2]}
             maxBarSize={20}
+            animationBegin={100}
+            animationDuration={800}
           />
         </BarChart>
       </ChartContainer>
@@ -423,10 +481,18 @@ function DailyChart({
 // ── Skeletons ──
 
 function KpiSkeleton() {
+  const borders = ["border-l-emerald-500", "border-l-red-500", "border-l-orange-500", "border-l-blue-500"];
   return (
     <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <Skeleton key={i} className="h-20 w-full rounded-xl" />
+      {borders.map((border, i) => (
+        <div key={i} className={`flex items-start gap-3 rounded-xl border border-l-4 ${border} p-4`}>
+          <Skeleton className="h-10 w-10 shrink-0 rounded-lg" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-6 w-28" />
+            <Skeleton className="h-2 w-16" />
+          </div>
+        </div>
       ))}
     </div>
   );

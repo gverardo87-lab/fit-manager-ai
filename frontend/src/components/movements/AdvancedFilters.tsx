@@ -13,7 +13,7 @@
  * Props-driven: nessuno stato interno, il padre gestisce tutto.
  */
 
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, Filter } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -60,7 +60,14 @@ export function AdvancedFilters({
     });
 
   return (
+    <div className="rounded-xl border bg-muted/30 p-4">
     <div className="flex flex-wrap items-end gap-3">
+      {/* ── Label filtri ── */}
+      <div className="flex items-center gap-1.5 self-center pb-1 text-xs font-medium text-muted-foreground">
+        <Filter className="h-3.5 w-3.5" />
+        <span>Filtri</span>
+      </div>
+
       {/* ── Range date ── */}
       <div className="space-y-1">
         <label className="text-xs font-medium text-muted-foreground">Da</label>
@@ -141,6 +148,7 @@ export function AdvancedFilters({
           Reset
         </Button>
       )}
+    </div>
     </div>
   );
 }
