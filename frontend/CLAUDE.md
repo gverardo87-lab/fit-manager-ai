@@ -292,8 +292,19 @@ const QuickActionContext = createContext<QuickActionFn | undefined>(undefined);
 Navigazione fluida senza flash/reset. Due meccanismi:
 1. **`keepPreviousData`** in `useEvents` — quando la query key cambia (nuovo range), i vecchi dati restano come placeholder → `isLoading` resta `false` → il calendario non si smonta
 2. **Smart range check** in `handleRangeChange` — se il range visibile e' gia' dentro il buffer fetchato, ritorna `prev` (stessa reference → zero state change). Il buffer si espande solo quando la navigazione esce dai bordi.
+3. **`endOfDay` normalization** — react-big-calendar manda `end` come mezzanotte (00:00). Senza `endOfDay()`, gli eventi dell'ultimo giorno sarebbero esclusi. `handleRangeChange` normalizza `visibleRange.end` a `23:59:59.999`.
 
 Buffer iniziale: mese corrente ±1 mese. Espansione: +1 mese in ogni direzione dal nuovo range visibile.
+
+### Pattern: Filtering Pipeline a 3 livelli
+```
+events (buffer API ±1 mese)
+  ├── calendarEvents = filtro SOLO categoria → passa al calendario
+  └── visibleEvents  = filtro range + categoria → KPI + header count
+```
+Il calendario gestisce il range internamente — riceve TUTTI gli eventi (filtrati per categoria).
+I KPI e l'header usano `visibleEvents` che filtra per ENTRAMBI range e categoria.
+`rangeLabel` per vista mese usa il **midpoint** del range (il primo giorno della griglia puo' appartenere al mese precedente).
 
 ### Page features (page.tsx)
 - **FilterBar**: chip interattivi per categoria (`Set<string>` toggle on/off), Eye/EyeOff icon
