@@ -29,7 +29,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from api.config import DATA_DIR
+from api.config import DATA_DIR, DATABASE_URL
 from api.database import get_session
 from api.dependencies import get_current_trainer
 from api.models.client import Client
@@ -45,7 +45,10 @@ logger = logging.getLogger("fitmanager.backup")
 router = APIRouter(prefix="/backup", tags=["backup"])
 
 BACKUP_DIR = DATA_DIR / "backups"
-DB_PATH = DATA_DIR / "crm.db"
+
+# Estrai path DB da DATABASE_URL (sqlite:///data/crm.db → data/crm.db)
+_db_relative = DATABASE_URL.replace("sqlite:///", "")
+DB_PATH = Path(_db_relative) if Path(_db_relative).is_absolute() else DATA_DIR.parent / _db_relative
 
 
 # --- Response schemas ---

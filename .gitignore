@@ -119,6 +119,10 @@ dmypy.json
 # File della Knowledge Base (PDF, DOCX, etc.)
 knowledge_base/documents/*
 
+# Dev environment files
+.env.dev
+.env.local
+
 # --- NOSTRE REGOLE CUSTOM ---
 
 # Ignora i file di database SQLite nella cartella data

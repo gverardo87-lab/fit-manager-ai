@@ -141,7 +141,7 @@ export default function ImpostazioniPage() {
       {/* ── Sezione Backup ── */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
               <Database className="h-5 w-5 text-blue-600" />
               <div>
@@ -159,16 +159,18 @@ export default function ImpostazioniPage() {
                 onClick={handleRestoreFromFile}
                 disabled={restoreBackup.isPending}
               >
-                <Upload className="mr-2 h-4 w-4" />
-                Carica Backup
+                <Upload className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Carica Backup</span>
               </Button>
               <Button
                 size="sm"
                 onClick={() => createBackup.mutate()}
                 disabled={createBackup.isPending}
               >
-                <HardDrive className="mr-2 h-4 w-4" />
-                {createBackup.isPending ? "Creazione..." : "Crea Backup"}
+                <HardDrive className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">
+                  {createBackup.isPending ? "Creazione..." : "Crea Backup"}
+                </span>
               </Button>
             </div>
           </div>
@@ -225,19 +227,19 @@ export default function ImpostazioniPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>File</TableHead>
-                  <TableHead>Dimensione</TableHead>
-                  <TableHead>Data</TableHead>
+                  <TableHead className="hidden sm:table-cell">Dimensione</TableHead>
+                  <TableHead className="hidden sm:table-cell">Data</TableHead>
                   <TableHead className="text-right">Azioni</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {backups.map((backup) => (
                   <TableRow key={backup.filename}>
-                    <TableCell className="font-mono text-sm">
+                    <TableCell className="font-mono text-sm truncate max-w-[180px]">
                       {backup.filename}
                     </TableCell>
-                    <TableCell>{formatBytes(backup.size_bytes)}</TableCell>
-                    <TableCell>{formatDate(backup.created_at)}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{formatBytes(backup.size_bytes)}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{formatDate(backup.created_at)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button
@@ -245,8 +247,8 @@ export default function ImpostazioniPage() {
                           size="sm"
                           onClick={() => downloadBackup(backup.filename)}
                         >
-                          <Download className="mr-1 h-4 w-4" />
-                          Scarica
+                          <Download className="h-4 w-4 sm:mr-1" />
+                          <span className="hidden sm:inline">Scarica</span>
                         </Button>
                         <Button
                           variant="ghost"
@@ -256,8 +258,8 @@ export default function ImpostazioniPage() {
                           }
                           disabled={restoreBackup.isPending}
                         >
-                          <RefreshCw className="mr-1 h-4 w-4" />
-                          Ripristina
+                          <RefreshCw className="h-4 w-4 sm:mr-1" />
+                          <span className="hidden sm:inline">Ripristina</span>
                         </Button>
                       </div>
                     </TableCell>
@@ -272,7 +274,7 @@ export default function ImpostazioniPage() {
       {/* ── Sezione Export ── */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
               <FileJson className="h-5 w-5 text-green-600" />
               <div>
@@ -283,8 +285,8 @@ export default function ImpostazioniPage() {
               </div>
             </div>
             <Button variant="outline" size="sm" onClick={exportTrainerData}>
-              <Download className="mr-2 h-4 w-4" />
-              Esporta JSON
+              <Download className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Esporta JSON</span>
             </Button>
           </div>
         </CardHeader>
