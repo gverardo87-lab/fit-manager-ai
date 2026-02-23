@@ -24,8 +24,9 @@ frontend/src/
 │   │                        RateCard, PayRateForm, PaymentHistory, AddRateForm)
 │   ├── agenda/              Componenti dominio agenda/calendario
 │   ├── movements/           Componenti dominio cassa (MovementsTable, MovementSheet,
-│   │                        DeleteMovementDialog, RecurringExpensesTab, SplitLedgerView,
-│   │                        AdvancedFilters, LedgerColumn, AgingReport)
+│   │                        DeleteMovementDialog, RecurringExpensesTab (con EditDialog,
+│   │                        AddForm, ExpensesTable, AlertDialog delete confirm),
+│   │                        SplitLedgerView, AdvancedFilters, LedgerColumn, AgingReport)
 │   └── ui/                  shadcn/ui primitives
 ├── hooks/                   React Query hooks (1 per dominio)
 ├── lib/
@@ -109,6 +110,14 @@ Ogni rata con pagamenti mostra la lista cronologica completa:
 - Icone colorate: emerald (SALDATA), amber (PARZIALE)
 - Collapsible: mostra max 2, "Mostra altri N" se > 2
 - Summary: "Totale versato: €X / €Y" con multipli pagamenti
+
+### Spese Ricorrenti (RecurringExpensesTab)
+Componente completo con 3 sotto-componenti inline:
+- **AddExpenseForm**: form creazione con Select categoria (EXPENSE_CATEGORIES) e frequenza (EXPENSE_FREQUENCIES, 5 opzioni)
+- **ExpenseEditDialog**: Dialog con useEffect state sync da props (pattern RateEditDialog), 5 campi editabili
+- **ExpensesTable**: tabella con colonna Categoria, bottone Edit (Pencil), delete con AlertDialog confirm
+- **Costanti**: `EXPENSE_CATEGORIES` (10 predefinite) e `EXPENSE_FREQUENCIES` (5) esportate da `types/api.ts`
+- **FREQUENZA_LABELS**: mappa display label per 5 frequenze
 
 ### Azioni Distruttive — 2 livelli
 - **CRITICA** (delete contratto, revoca pagamento): AlertDialog + conferma testuale ("ANNULLA")

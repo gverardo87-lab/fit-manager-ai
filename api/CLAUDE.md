@@ -125,6 +125,12 @@ Il contratto e' il nodo centrale del sistema. 5 livelli di protezione:
 ### Idempotent Sync Engine
 `sync_recurring_expenses_for_month()`: genera CashMovement per spese ricorrenti.
 Check esistenza prima di creare. Sicuro rieseguire.
+5 frequenze supportate con logica di ancoraggio al mese di creazione:
+- **MENSILE**: ogni mese, key `"YYYY-MM"`
+- **SETTIMANALE**: ogni lunedi del mese, key `"YYYY-MM-DD"`
+- **TRIMESTRALE**: `(mese - creation_month) % 3 == 0`, key `"YYYY-MM"`
+- **SEMESTRALE**: `(mese - creation_month) % 6 == 0`, key `"YYYY-MM"`
+- **ANNUALE**: `mese == creation_month`, key `"YYYY"`
 
 ## Convenzioni
 
@@ -174,13 +180,13 @@ Tabella `audit_log` + helper `log_audit()` in `api/routers/_audit.py`.
 
 Due famiglie di test:
 
-**pytest** (`tests/` — 54 test):
+**pytest** (`tests/` — 56 test):
 - DB SQLite in-memory, isolamento totale (StaticPool)
 - `test_pay_rate.py` (12): pagamento atomico, overpayment, deep IDOR, storico pagamenti parziali
 - `test_unpay_rate.py` (4): revoca pagamento, decrements, soft delete movement
 - `test_rate_guards.py` (9): immutabilita' rate con pagamenti, residuo su update
 - `test_soft_delete_integrity.py` (5): delete blocked with rates, restrict, stats filtrate
-- `test_sync_recurring.py` (4): idempotenza, disabled, resync
+- `test_sync_recurring.py` (6): idempotenza, disabled, resync, semestrale, annuale
 - `test_contract_integrity.py` (16): residual, chiuso guard, auto-close, delete guards + cascade
 - `test_aging_report.py` (4): bucket assignment, exclude saldate/chiusi, empty zeroes
 - Run: `pytest tests/ -v`
