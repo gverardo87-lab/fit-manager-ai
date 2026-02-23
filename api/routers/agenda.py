@@ -293,6 +293,39 @@ def _auto_assign_contract(
     return None
 
 
+def _sync_contract_chiuso(session: Session, contract_id: int) -> None:
+    """
+    Ricalcola se il contratto deve essere chiuso o riaperto.
+
+    Condizione di chiusura: SALDATO + crediti esauriti.
+    Se i crediti non sono piu' esauriti (es. dopo delete/cancel evento),
+    il contratto viene riaperto.
+
+    Simmetrico con auto-close in create_event e pay_rate.
+    """
+    contract = session.get(Contract, contract_id)
+    if not contract or not contract.crediti_totali:
+        return
+
+    crediti_usati = session.exec(
+        select(func.count(Event.id)).where(
+            Event.id_contratto == contract.id,
+            Event.categoria == "PT",
+            Event.stato != "Cancellato",
+            Event.deleted_at == None,
+        )
+    ).one()
+
+    should_be_chiuso = (
+        crediti_usati >= contract.crediti_totali
+        and contract.stato_pagamento == "SALDATO"
+    )
+
+    if contract.chiuso != should_be_chiuso:
+        contract.chiuso = should_be_chiuso
+        session.add(contract)
+
+
 # --- Endpoints ---
 
 @router.get("", response_model=EventListResponse)
@@ -434,20 +467,7 @@ def create_event(
 
     # Auto-close: se evento PT con contratto, verifica crediti esauriti + saldato
     if event.categoria == "PT" and event.id_contratto:
-        ev_contract = session.get(Contract, event.id_contratto)
-        if ev_contract and not ev_contract.chiuso and ev_contract.crediti_totali:
-            crediti_usati = session.exec(
-                select(func.count(Event.id)).where(
-                    Event.id_contratto == ev_contract.id,
-                    Event.categoria == "PT",
-                    Event.stato != "Cancellato",
-                    Event.deleted_at == None,
-                )
-            ).one()
-            if (crediti_usati >= ev_contract.crediti_totali
-                    and ev_contract.stato_pagamento == "SALDATO"):
-                ev_contract.chiuso = True
-                session.add(ev_contract)
+        _sync_contract_chiuso(session, event.id_contratto)
 
     session.commit()
     session.refresh(event)
@@ -517,6 +537,11 @@ def update_event(
 
     log_audit(session, "event", event.id, "UPDATE", trainer.id, changes or None)
     session.add(event)
+
+    # Auto-close/reopen: se stato cambiato su evento PT con contratto, ricalcola chiuso
+    if "stato" in changes and event.categoria == "PT" and event.id_contratto:
+        _sync_contract_chiuso(session, event.id_contratto)
+
     session.commit()
     session.refresh(event)
 
@@ -549,4 +574,9 @@ def delete_event(
     event.deleted_at = datetime.now(timezone.utc)
     session.add(event)
     log_audit(session, "event", event.id, "DELETE", trainer.id)
+
+    # Auto-reopen: se era PT con contratto, i crediti usati calano → potrebbe riaprirsi
+    if event.categoria == "PT" and event.id_contratto:
+        _sync_contract_chiuso(session, event.id_contratto)
+
     session.commit()
