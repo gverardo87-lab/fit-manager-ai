@@ -576,8 +576,9 @@ def seed_database(engine):
         events_data = []
 
         # Sessioni PT per Marco (contratto 1, chiuso — tutti Completati, 10/10 crediti)
+        marco_base = datetime(2025, 10, 7, 9, 0, tzinfo=timezone.utc)
         for i in range(10):
-            dt = datetime(2025, 10, 7 + i * 7, 9, 0, tzinfo=timezone.utc)  # 1 a settimana
+            dt = marco_base + timedelta(weeks=i)  # 1 a settimana, gestisce cambio mese
             events_data.append(Event(
                 trainer_id=tid, categoria="PT", titolo=f"PT Marco #{i+1}",
                 id_cliente=clients[0].id, id_contratto=c1.id,
@@ -586,8 +587,9 @@ def seed_database(engine):
             ))
 
         # Sessioni PT per Davide (contratto 7, chiuso — tutti Completati, 5/5 crediti)
+        davide_base = datetime(2025, 7, 1, 16, 0, tzinfo=timezone.utc)
         for i in range(5):
-            dt = datetime(2025, 7, 1 + i * 14, 16, 0, tzinfo=timezone.utc)  # 1 ogni 2 sett.
+            dt = davide_base + timedelta(weeks=i * 2)  # 1 ogni 2 sett., gestisce cambio mese
             events_data.append(Event(
                 trainer_id=tid, categoria="PT", titolo=f"PT Davide #{i+1}",
                 id_cliente=clients[6].id, id_contratto=c7.id,
