@@ -145,6 +145,7 @@ export function useUnpayRate() {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["movements"] });
       queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["aging-report"] });
       toast.success("Pagamento revocato");
     },
     onError: (error) => {
@@ -173,6 +174,9 @@ export function usePayRate() {
       queryClient.invalidateQueries({ queryKey: ["contract"] });
       queryClient.invalidateQueries({ queryKey: ["contracts"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["movements"] });
+      queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["aging-report"] });
       toast.success("Pagamento registrato");
     },
     onError: (error) => {
