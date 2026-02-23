@@ -13,7 +13,7 @@
  */
 
 import { useState, useCallback, useMemo } from "react";
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, addMonths } from "date-fns";
+import { format, startOfWeek, endOfWeek, endOfDay, startOfMonth, endOfMonth, subMonths, addMonths } from "date-fns";
 import { it } from "date-fns/locale";
 import { Plus, CalendarDays, Eye, EyeOff, CheckCircle2, Clock, Target, AlertTriangle, Loader2 } from "lucide-react";
 import type { SlotInfo } from "react-big-calendar";
@@ -77,10 +77,22 @@ export default function AgendaPage() {
   const { data: eventsData, isLoading, isError, isFetching, refetch } = useEvents(queryParams);
   const events = eventsData?.items ?? [];
 
-  // ── Eventi filtrati per categoria ──
-  const filteredEvents = useMemo(
+  // ── Eventi filtrati per categoria (per il calendario — gestisce range internamente) ──
+  const calendarEvents = useMemo(
     () => events.filter((e) => activeCategories.has(e.categoria)),
     [events, activeCategories]
+  );
+
+  // ── Eventi nel range visibile + filtrati per categoria (per KPI + header) ──
+  const visibleEvents = useMemo(
+    () =>
+      events.filter(
+        (e) =>
+          e.data_inizio >= visibleRange.start &&
+          e.data_inizio <= visibleRange.end &&
+          activeCategories.has(e.categoria)
+      ),
+    [events, visibleRange, activeCategories]
   );
 
   const handleToggleCategory = useCallback((cat: string) => {
@@ -95,24 +107,22 @@ export default function AgendaPage() {
     });
   }, []);
 
-  // ── KPI contestuali al range visibile ──
+  // ── KPI contestuali al range visibile (rispettano filtro categoria) ──
   const rangeStats = useMemo(() => {
-    const inRange = events.filter(
-      (e) => e.data_inizio >= visibleRange.start && e.data_inizio <= visibleRange.end
-    );
-    const completed = inRange.filter((e) => e.stato === "Completato").length;
-    const scheduled = inRange.filter((e) => e.stato === "Programmato").length;
-    const cancelled = inRange.filter((e) => e.stato === "Cancellato").length;
+    const completed = visibleEvents.filter((e) => e.stato === "Completato").length;
+    const scheduled = visibleEvents.filter((e) => e.stato === "Programmato").length;
+    const cancelled = visibleEvents.filter((e) => e.stato === "Cancellato").length;
     const denominator = completed + cancelled + scheduled;
     const rate = denominator > 0 ? Math.round((completed / denominator) * 100) : 0;
-    return { total: inRange.length, completed, scheduled, rate };
-  }, [events, visibleRange]);
+    return { total: visibleEvents.length, completed, scheduled, rate };
+  }, [visibleEvents]);
 
-  /** Label dinamica per i KPI: si adatta alla vista (giorno/settimana/mese) */
+  /** Label dinamica per i KPI: si adatta alla vista (giorno/settimana/mese).
+   *  Per la vista mese usa il midpoint del range (il primo giorno della griglia
+   *  puo' appartenere al mese precedente — es. 23 feb per marzo 2026). */
   const rangeLabel = useMemo(() => {
-    const days = Math.round(
-      (visibleRange.end.getTime() - visibleRange.start.getTime()) / (1000 * 60 * 60 * 24)
-    );
+    const ms = visibleRange.end.getTime() - visibleRange.start.getTime();
+    const days = Math.round(ms / (1000 * 60 * 60 * 24));
     if (days <= 1) {
       return format(visibleRange.start, "EEEE d MMMM", { locale: it });
     }
@@ -122,7 +132,9 @@ export default function AgendaPage() {
         ? `${format(visibleRange.start, "d", { locale: it })}-${format(visibleRange.end, "d MMM", { locale: it })}`
         : `${format(visibleRange.start, "d MMM", { locale: it })} - ${format(visibleRange.end, "d MMM", { locale: it })}`;
     }
-    return format(visibleRange.start, "MMMM yyyy", { locale: it });
+    // Vista mese: midpoint per determinare il mese reale
+    const mid = new Date(visibleRange.start.getTime() + ms / 2);
+    return format(mid, "MMMM yyyy", { locale: it });
   }, [visibleRange]);
 
   // ── Mutation per Drag & Drop + Quick Actions ──
@@ -165,8 +177,10 @@ export default function AgendaPage() {
   };
 
   const handleRangeChange = useCallback((range: { start: Date; end: Date }) => {
-    // Traccia il range visibile per KPI contestuali
-    setVisibleRange(range);
+    // Normalizza end a fine giornata — react-big-calendar manda mezzanotte (00:00),
+    // senza endOfDay gli eventi dell'ultimo giorno sarebbero esclusi dai KPI
+    const adjustedEnd = endOfDay(range.end);
+    setVisibleRange({ start: range.start, end: adjustedEnd });
     // Espandi il buffer API solo se necessario
     setDateRange((prev) => {
       if (range.start >= prev.start && range.end <= prev.end) {
@@ -214,9 +228,9 @@ export default function AgendaPage() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Agenda</h1>
             <p className="text-sm text-muted-foreground">
-              {filteredEvents.length} event{filteredEvents.length !== 1 ? "i" : "o"} nel periodo
-              {filteredEvents.length !== events.length && (
-                <span className="text-muted-foreground/60"> (filtrati da {events.length})</span>
+              {visibleEvents.length} event{visibleEvents.length !== 1 ? "i" : "o"} · {rangeLabel}
+              {activeCategories.size < EVENT_CATEGORIES.length && (
+                <span className="text-muted-foreground/60"> (filtro attivo)</span>
               )}
             </p>
           </div>
@@ -263,7 +277,7 @@ export default function AgendaPage() {
             </div>
           )}
           <AgendaCalendar
-            events={filteredEvents}
+            events={calendarEvents}
             onSelectSlot={handleSelectSlot}
             onSelectEvent={handleSelectEvent}
             onRangeChange={handleRangeChange}
