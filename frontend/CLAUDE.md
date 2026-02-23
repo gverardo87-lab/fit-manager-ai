@@ -198,6 +198,7 @@ Token in cookie `fitmanager_token` (8h expiry). Trainer data in `fitmanager_trai
 | Invalidation asimmetrica | `usePayRate` mancava movements/stats → KPI stale dopo pagamento | Operazioni inverse: stesse invalidazioni |
 | ScrollArea in flex senza `min-h-0` | Flex item non puo' ridursi sotto la dimensione del contenuto | `min-h-0 flex-1` su ScrollArea + `overflow-hidden` su container |
 | Popup inside `.rbc-event` | `overflow:hidden` su `.rbc-event` clippava popup absolute-positioned | `createPortal(popup, document.body)` + `position:fixed` + `getBoundingClientRect()` |
+| Calendar unmount on navigate | `onRangeChange` → new query key → `isLoading=true` → calendar unmounts → state reset a oggi | `keepPreviousData` + smart range check (return `prev` se range dentro buffer) |
 
 ## Esperienza Utente — Principi Frontend
 
@@ -286,6 +287,13 @@ const QuickActionContext = createContext<QuickActionFn | undefined>(undefined);
 - `position: fixed` + `z-index: 9999`
 - Viewport bounds checking (8px margine da bordi)
 - Hover delay: 350ms enter, 200ms leave (con cleanup refs)
+
+### Pattern: Smart Range Buffering + keepPreviousData
+Navigazione fluida senza flash/reset. Due meccanismi:
+1. **`keepPreviousData`** in `useEvents` — quando la query key cambia (nuovo range), i vecchi dati restano come placeholder → `isLoading` resta `false` → il calendario non si smonta
+2. **Smart range check** in `handleRangeChange` — se il range visibile e' gia' dentro il buffer fetchato, ritorna `prev` (stessa reference → zero state change). Il buffer si espande solo quando la navigazione esce dai bordi.
+
+Buffer iniziale: mese corrente ±1 mese. Espansione: +1 mese in ogni direzione dal nuovo range visibile.
 
 ### Page features (page.tsx)
 - **FilterBar**: chip interattivi per categoria (`Set<string>` toggle on/off), Eye/EyeOff icon
