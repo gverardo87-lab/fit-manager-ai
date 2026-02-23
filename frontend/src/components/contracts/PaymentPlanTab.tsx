@@ -472,7 +472,11 @@ function RateCard({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              {isSaldata ? (
+              <DropdownMenuItem onClick={() => onEdit(rate)}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Modifica
+              </DropdownMenuItem>
+              {rate.importo_saldato > 0 ? (
                 <DropdownMenuItem
                   onClick={() => onUnpay(rate)}
                   className="text-destructive focus:text-destructive"
@@ -481,19 +485,13 @@ function RateCard({
                   Revoca Pagamento
                 </DropdownMenuItem>
               ) : (
-                <>
-                  <DropdownMenuItem onClick={() => onEdit(rate)}>
-                    <Pencil className="mr-2 h-4 w-4" />
-                    Modifica
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => onDelete(rate)}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Elimina
-                  </DropdownMenuItem>
-                </>
+                <DropdownMenuItem
+                  onClick={() => onDelete(rate)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Elimina
+                </DropdownMenuItem>
               )}
             </DropdownMenuContent>
           </DropdownMenu>

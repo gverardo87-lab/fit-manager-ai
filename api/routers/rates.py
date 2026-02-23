@@ -323,29 +323,32 @@ def update_rate(
     session: Session = Depends(get_session),
 ):
     """
-    Aggiorna una rata (partial update, solo rate PENDENTI senza pagamenti).
+    Aggiorna una rata (partial update, tutte le rate).
 
     Deep Relational IDOR + business rules:
-    - Rate con pagamenti (SALDATA o PARZIALE) sono immutabili
-    - Se importo_previsto cambia, re-validazione residuo contratto
+    - data_scadenza e descrizione: sempre modificabili (zero impatto finanziario)
+    - importo_previsto su rate con pagamenti: consentito se nuovo >= importo_saldato
+    - Se importo_previsto cambia, re-validazione residuo contratto + ricalcolo stato
     """
     rate = _bouncer_rate(session, rate_id, trainer.id)
 
-    # Business rule: rate con qualsiasi pagamento sono immutabili
-    if rate.importo_saldato > 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Impossibile modificare una rata con pagamenti. "
-                   "Revoca prima il pagamento.",
-        )
-
     update_data = data.model_dump(exclude_unset=True)
 
-    # Re-validazione residuo se importo_previsto cambia
+    # Validazione importo_previsto su rate con pagamenti
+    if "importo_previsto" in update_data and rate.importo_saldato > 0:
+        nuovo_importo = update_data["importo_previsto"]
+        if nuovo_importo < rate.importo_saldato - 0.01:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Importo ({nuovo_importo:.2f}) inferiore al gia' versato "
+                       f"({rate.importo_saldato:.2f}). "
+                       f"Per ridurre sotto il versato, revoca prima il pagamento.",
+            )
+
+    # Re-validazione residuo contratto se importo_previsto cambia
     if "importo_previsto" in update_data:
         contract = session.get(Contract, rate.id_contratto)
         if contract and contract.prezzo_totale:
-            # Somma rate attive ESCLUSA la corrente
             somma_altre = session.exec(
                 select(func.coalesce(func.sum(Rate.importo_previsto), 0)).where(
                     Rate.id_contratto == rate.id_contratto,
@@ -369,6 +372,16 @@ def update_rate(
         setattr(rate, field, value)
         if value != old_val:
             changes[field] = {"old": old_val, "new": value}
+
+    # Ricalcola stato se importo_previsto e' cambiato su rata con pagamenti
+    if "importo_previsto" in changes and rate.importo_saldato > 0:
+        old_stato = rate.stato
+        if rate.importo_saldato >= rate.importo_previsto - 0.01:
+            rate.stato = "SALDATA"
+        else:
+            rate.stato = "PARZIALE"
+        if rate.stato != old_stato:
+            changes["stato"] = {"old": old_stato, "new": rate.stato}
 
     log_audit(session, "rate", rate.id, "UPDATE", trainer.id, changes or None)
     session.add(rate)

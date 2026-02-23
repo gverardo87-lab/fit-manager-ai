@@ -127,11 +127,14 @@ class RateCreate(BaseModel):
 
 class RateUpdate(BaseModel):
     """
-    Schema per aggiornamento rata (partial update, solo rate PENDENTI).
+    Schema per aggiornamento rata (partial update, tutte le rate).
+
+    data_scadenza e descrizione: sempre modificabili.
+    importo_previsto su rate con pagamenti: consentito se >= importo_saldato.
 
     BLINDATO:
     - NO id_contratto (non trasferibile)
-    - NO stato (gestito solo via pagamento)
+    - NO stato (ricalcolato automaticamente se importo_previsto cambia)
     - NO importo_saldato (gestito solo via pagamento)
     """
     model_config = {"extra": "forbid"}
