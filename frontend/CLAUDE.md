@@ -14,6 +14,7 @@ frontend/src/
 │   │   ├── contratti/       Pagina contratti
 │   │   ├── agenda/          Pagina agenda/calendario
 │   │   ├── cassa/           Pagina Cassa (4 tab: Libro Mastro, Spese Fisse, Entrate & Uscite, Scadenze)
+│   │   └── impostazioni/   Pagina impostazioni
 │   ├── login/page.tsx       Login pubblico
 │   └── layout.tsx           Root layout (Providers, fonts)
 ├── components/
@@ -118,6 +119,8 @@ L'utente vede un banner con le spese in attesa e le conferma manualmente.
 Componente con 4 sotto-componenti inline:
 - **PendingExpensesBanner**: banner gradient arancione con checkbox per spesa, "Seleziona tutte", "Conferma selezionate".
   Usa `usePendingExpenses(anno, mese)` + `useConfirmExpenses()`. Reset selezione su cambio mese.
+  **Selezione**: `Set<string>` con chiave composta `${id_spesa}::${mese_anno_key}` (MAI solo `mese_anno_key` —
+  spese diverse dello stesso mese condividono la stessa key, il Set le collassa).
   **PendingItemRow**: usa `<div onClick={onToggle}>` + `Checkbox onClick={stopPropagation}`.
   MAI `<label>` con Radix Checkbox (causa double-toggle: browser propaga click a form control interno).
 - **AddExpenseForm**: form creazione con Select categoria, frequenza (5 opzioni), DatePicker `data_inizio` ("Attiva dal")
@@ -165,6 +168,14 @@ Estrae `error.response.data.detail` dal backend FastAPI, mostra il messaggio rea
 3. **API interceptor** (`lib/api-client.ts`): JWT header + redirect su 401
 
 Token in cookie `fitmanager_token` (8h expiry). Trainer data in `fitmanager_trainer`.
+
+## Pitfalls — Errori Reali, Mai Ripeterli
+
+| Pitfall | Causa | Fix |
+|---------|-------|-----|
+| `<label>` + Radix Checkbox | Browser propaga click al `<button>` interno → double-toggle | `<div onClick>` + `Checkbox onClick={stopPropagation}` |
+| `Set<string>` non-univoca | `mese_anno_key` uguale per N spese mensili stesso mese | Chiave composta `${id}::${key}` |
+| React `key={nonUniqueValue}` | Duplica render, stato condiviso tra componenti | Sempre key univoca per item |
 
 ## Visual Design — Cassa Page (CRM-grade)
 

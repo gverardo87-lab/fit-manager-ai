@@ -81,8 +81,11 @@ Se qualsiasi step fallisce → rollback automatico. Tutto o niente.
 Il contratto e' l'entita' centrale: collega pagamenti, crediti, sessioni.
 - **Residual validation**: `create_rate` e `update_rate` verificano che `sum(rate attive) + nuova ≤ prezzo - totale_versato`
 - **Chiuso guard**: rate, piani, eventi bloccati su contratti chiusi
-- **Auto-close**: contratto diventa `chiuso=True` quando SALDATO + crediti esauriti
-- **Auto-reopen**: `unpay_rate` riapre automaticamente se non piu' SALDATO
+- **Auto-close/reopen** (SIMMETRICO):
+  - Condizione chiusura: `stato_pagamento == "SALDATO"` AND `crediti_usati >= crediti_totali`
+  - **Lato rate**: `pay_rate` chiude, `unpay_rate` riapre (via stato_pagamento)
+  - **Lato eventi**: `create_event`, `delete_event`, `update_event(stato)` — tutti usano `_sync_contract_chiuso()`
+  - INVARIANTE: ogni operazione che modifica `crediti_usati` o `stato_pagamento` DEVE ricalcolare `chiuso`
 - **Overpayment check**: `pay_rate` verifica sia rata-level che contract-level
 - **Delete guard**: contratto eliminabile solo se zero rate non-saldate + zero crediti residui
 - **Payment history**: `receipt_map` come `dict[int, list[CashMovement]]` — storico completo per rata
@@ -107,6 +110,25 @@ Se cambi uno, DEVI aggiornare l'altro. File: `api/schemas/` ↔ `frontend/src/ty
 6. **any** — TypeScript: mai `any`. Definire interfacce in `types/api.ts`.
 7. **N+1 queries** — Batch fetch con `IN (...)` o `selectinload`. Mai loop di query.
 8. **Mass Assignment** — Input schema SENZA campi protetti (trainer_id, id dal JWT).
+
+### 6. Chiavi Univoche per Selezione UI (Frontend)
+Quando un `Set<string>` gestisce selezione multipla, la chiave DEVE essere univoca per item.
+Se piu' record condividono la stessa chiave (es. `mese_anno_key = "2026-02"` per 3 spese mensili),
+il Set li collassa → selezione "tutto o niente". Usare chiavi composte: `${id}::${key}`.
+
+---
+
+## Pitfalls Documentati
+
+Errori reali trovati e corretti. MAI ripeterli.
+
+| Pitfall | Causa | Fix |
+|---------|-------|-----|
+| `<label>` + Radix Checkbox | Browser propaga click al form control interno → double-toggle | Usare `<div onClick>` + `Checkbox onClick={stopPropagation}` |
+| `datetime(y, m, day+N)` con N grande | `day=35` → `ValueError` (mese ha max 31 giorni) | Usare `base_date + timedelta(weeks=N)` |
+| `Set<string>` con chiave non-univoca | `mese_anno_key` identica per piu' spese dello stesso mese | Chiave composta `${id}::${key}` |
+| Auto-close senza auto-reopen eventi | Contratto chiuso restava bloccato dopo delete/cancel eventi | `_sync_contract_chiuso()` simmetrico su create/delete/update |
+| Seed atomico crash a meta' | Transazione unica → rollback → DB vuoto → login impossibile | Validare i dati PRIMA del commit (es. date overflow) |
 
 ---
 

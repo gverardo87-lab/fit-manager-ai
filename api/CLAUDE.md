@@ -27,7 +27,7 @@ api/
 │   ├── clients.py       CRUD clienti
 │   ├── contracts.py     CRUD contratti + batch fetch enriched
 │   ├── rates.py         CRUD rate + pay/unpay atomic
-│   ├── agenda.py        CRUD eventi + credit sync
+│   ├── agenda.py        CRUD eventi + _sync_contract_chiuso (auto-close/reopen)
 │   ├── movements.py     Ledger + pending/confirm spese ricorrenti
 │   ├── recurring_expenses.py  CRUD spese fisse
 │   ├── dashboard.py     KPI aggregati (SQL func.count/func.sum)
@@ -108,7 +108,7 @@ movements = session.exec(
 ```
 
 ### Contract Integrity Engine
-Il contratto e' il nodo centrale del sistema. 5 livelli di protezione:
+Il contratto e' il nodo centrale del sistema. 6 livelli di protezione:
 
 1. **Residual validation** (`create_rate`, `update_rate`): `sum(rate attive) + nuova ≤ prezzo - totale_versato`
 2. **Chiuso guard**: `create_rate`, `generate_payment_plan`, `create_event(id_contratto)`
@@ -116,10 +116,15 @@ Il contratto e' il nodo centrale del sistema. 5 livelli di protezione:
 3. **Overpayment check** (`pay_rate`):
    - B-bis: importo ≤ residuo rata
    - B-ter: importo ≤ residuo contratto (prezzo - totale_versato)
-4. **Auto-close**: se `stato_pagamento == SALDATO` + `crediti_usati >= crediti_totali`
-   → `chiuso = True` (trigger in `pay_rate` e `create_event`)
-5. **Auto-reopen**: `unpay_rate` riapre se non piu' SALDATO (`chiuso = False`)
-6. **Delete guard**: contratto eliminabile solo se zero rate non-saldate + zero crediti residui.
+4. **Auto-close/reopen — SIMMETRICO** (INVARIANTE critico):
+   - Condizione: `chiuso = (stato_pagamento == "SALDATO") AND (crediti_usati >= crediti_totali)`
+   - **Lato rate** (`rates.py`): `pay_rate` → auto-close | `unpay_rate` → auto-reopen (via stato_pagamento)
+   - **Lato eventi** (`agenda.py`): `_sync_contract_chiuso()` — helper condiviso chiamato da:
+     - `create_event` (crediti_usati sale)
+     - `delete_event` (crediti_usati scende)
+     - `update_event` quando `stato` cambia (es. Completato ↔ Cancellato)
+   - **MAI** aggiungere operazioni che modificano `crediti_usati` senza chiamare `_sync_contract_chiuso()`
+5. **Delete guard**: contratto eliminabile solo se zero rate non-saldate + zero crediti residui.
    CASCADE: soft-delete rate SALDATE + tutti CashMovement + detach eventi
 
 ### Conferma & Registra (Spese Ricorrenti)
