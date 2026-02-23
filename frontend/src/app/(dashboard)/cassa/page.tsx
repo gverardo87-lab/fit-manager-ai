@@ -44,6 +44,7 @@ import { MovementsTable } from "@/components/movements/MovementsTable";
 import { MovementSheet } from "@/components/movements/MovementSheet";
 import { DeleteMovementDialog } from "@/components/movements/DeleteMovementDialog";
 import { RecurringExpensesTab } from "@/components/movements/RecurringExpensesTab";
+import { SplitLedgerView } from "@/components/movements/SplitLedgerView";
 import { useMovements, useMovementStats } from "@/hooks/useMovements";
 import type { CashMovement } from "@/types/api";
 import { formatCurrency } from "@/lib/format";
@@ -181,6 +182,9 @@ export default function CassaPage() {
           <TabsTrigger value="recurring" className="flex-1">
             Spese Fisse
           </TabsTrigger>
+          <TabsTrigger value="split" className="flex-1">
+            Entrate & Uscite
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="ledger" className="mt-4">
@@ -212,6 +216,10 @@ export default function CassaPage() {
 
         <TabsContent value="recurring" className="mt-4">
           <RecurringExpensesTab />
+        </TabsContent>
+
+        <TabsContent value="split" className="mt-4">
+          <SplitLedgerView />
         </TabsContent>
       </Tabs>
 

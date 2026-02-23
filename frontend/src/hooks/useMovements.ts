@@ -25,6 +25,9 @@ interface UseMovementsParams {
   anno?: number;
   mese?: number;
   tipo?: string;
+  data_da?: string;
+  data_a?: string;
+  id_cliente?: number;
   page?: number;
   pageSize?: number;
 }
@@ -33,18 +36,26 @@ export function useMovements({
   anno,
   mese,
   tipo,
+  data_da,
+  data_a,
+  id_cliente,
   page = 1,
   pageSize = 100,
 }: UseMovementsParams = {}) {
   return useQuery<PaginatedResponse<CashMovement>>({
-    queryKey: ["movements", { anno, mese, tipo, page, pageSize }],
+    queryKey: ["movements", { anno, mese, tipo, data_da, data_a, id_cliente, page, pageSize }],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.set("page", String(page));
       params.set("page_size", String(pageSize));
-      if (anno) params.set("anno", String(anno));
-      if (mese) params.set("mese", String(mese));
+      if (data_da) params.set("data_da", data_da);
+      if (data_a) params.set("data_a", data_a);
+      if (!data_da && !data_a) {
+        if (anno) params.set("anno", String(anno));
+        if (mese) params.set("mese", String(mese));
+      }
       if (tipo) params.set("tipo", tipo);
+      if (id_cliente) params.set("id_cliente", String(id_cliente));
 
       const { data } = await apiClient.get<PaginatedResponse<CashMovement>>(
         `/movements?${params.toString()}`

@@ -190,9 +190,15 @@ def list_movements(
     anno: Optional[int] = Query(default=None, ge=2000, le=2100, description="Filtra per anno"),
     mese: Optional[int] = Query(default=None, ge=1, le=12, description="Filtra per mese (1-12)"),
     tipo: Optional[str] = Query(default=None, description="Filtra per tipo (ENTRATA/USCITA)"),
+    data_da: Optional[date] = Query(default=None, description="Range date: da (override anno/mese)"),
+    data_a: Optional[date] = Query(default=None, description="Range date: a (override anno/mese)"),
+    id_cliente: Optional[int] = Query(default=None, description="Filtra per cliente"),
 ):
     """
     Lista movimenti del trainer autenticato con paginazione e filtri.
+
+    Filtri date: data_da/data_a hanno priorita' su anno/mese.
+    Se data_da/data_a sono forniti, anno e mese vengono ignorati.
 
     Il sync delle spese ricorrenti avviene in GET /stats (che il frontend
     chiama sempre insieme a questo endpoint). Nessun sync qui — evita
@@ -202,13 +208,21 @@ def list_movements(
     # Base query con Bouncer (escludi eliminati)
     query = select(CashMovement).where(CashMovement.trainer_id == trainer.id, CashMovement.deleted_at == None)
 
-    # Filtri
-    if anno is not None:
-        query = query.where(extract("year", CashMovement.data_effettiva) == anno)
-    if mese is not None:
-        query = query.where(extract("month", CashMovement.data_effettiva) == mese)
+    # Filtri date: range ha priorita' su anno/mese
+    if data_da is not None or data_a is not None:
+        if data_da is not None:
+            query = query.where(CashMovement.data_effettiva >= data_da)
+        if data_a is not None:
+            query = query.where(CashMovement.data_effettiva <= data_a)
+    else:
+        if anno is not None:
+            query = query.where(extract("year", CashMovement.data_effettiva) == anno)
+        if mese is not None:
+            query = query.where(extract("month", CashMovement.data_effettiva) == mese)
     if tipo is not None:
         query = query.where(CashMovement.tipo == tipo)
+    if id_cliente is not None:
+        query = query.where(CashMovement.id_cliente == id_cliente)
 
     # Count dalla stessa query base (zero duplicazione filtri)
     total = session.exec(
