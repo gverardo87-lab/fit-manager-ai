@@ -402,6 +402,46 @@ export interface ListResponse<T> {
 }
 
 // ════════════════════════════════════════════════════════════
+// AGING REPORT (api/routers/rates.py — GET /rates/aging)
+// ════════════════════════════════════════════════════════════
+
+/** Singola rata nell'aging report */
+export interface AgingItem {
+  rate_id: number;
+  contract_id: number;
+  client_id: number;
+  client_nome: string;
+  client_cognome: string;
+  data_scadenza: string; // ISO date
+  giorni: number;        // positivo = scaduta, negativo = futura
+  importo_previsto: number;
+  importo_saldato: number;
+  importo_residuo: number;
+  stato: string;
+}
+
+/** Fascia temporale con rate raggruppate */
+export interface AgingBucket {
+  label: string;
+  min_days: number;
+  max_days: number;
+  totale: number;
+  count: number;
+  items: AgingItem[];
+}
+
+/** GET /api/rates/aging — Orizzonte finanziario completo */
+export interface AgingResponse {
+  totale_scaduto: number;
+  totale_in_arrivo: number;
+  rate_scadute: number;
+  rate_in_arrivo: number;
+  clienti_con_scaduto: number;
+  overdue_buckets: AgingBucket[];
+  upcoming_buckets: AgingBucket[];
+}
+
+// ════════════════════════════════════════════════════════════
 // BACKUP (api/routers/backup.py)
 // ════════════════════════════════════════════════════════════
 

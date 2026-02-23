@@ -45,6 +45,7 @@ import { MovementSheet } from "@/components/movements/MovementSheet";
 import { DeleteMovementDialog } from "@/components/movements/DeleteMovementDialog";
 import { RecurringExpensesTab } from "@/components/movements/RecurringExpensesTab";
 import { SplitLedgerView } from "@/components/movements/SplitLedgerView";
+import { AgingReport } from "@/components/movements/AgingReport";
 import { useMovements, useMovementStats } from "@/hooks/useMovements";
 import type { CashMovement } from "@/types/api";
 import { formatCurrency } from "@/lib/format";
@@ -185,6 +186,9 @@ export default function CassaPage() {
           <TabsTrigger value="split" className="flex-1">
             Entrate & Uscite
           </TabsTrigger>
+          <TabsTrigger value="aging" className="flex-1">
+            Scadenze
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="ledger" className="mt-4">
@@ -220,6 +224,10 @@ export default function CassaPage() {
 
         <TabsContent value="split" className="mt-4">
           <SplitLedgerView />
+        </TabsContent>
+
+        <TabsContent value="aging" className="mt-4">
+          <AgingReport />
         </TabsContent>
       </Tabs>
 

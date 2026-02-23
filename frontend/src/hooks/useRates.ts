@@ -8,7 +8,7 @@
  * - ["dashboard"] → le rate pendenti e revenue cambiano
  */
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import apiClient, { extractErrorMessage } from "@/lib/api-client";
 import type {
@@ -18,7 +18,20 @@ import type {
   PaymentPlanCreate,
   RatePayment,
   ListResponse,
+  AgingResponse,
 } from "@/types/api";
+
+// ── Query: aging report (orizzonte finanziario) ──
+
+export function useAgingReport() {
+  return useQuery<AgingResponse>({
+    queryKey: ["aging-report"],
+    queryFn: async () => {
+      const { data } = await apiClient.get<AgingResponse>("/rates/aging");
+      return data;
+    },
+  });
+}
 
 // ── Mutation: genera piano rate automatico ──
 
