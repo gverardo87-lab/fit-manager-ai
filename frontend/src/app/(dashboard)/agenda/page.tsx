@@ -18,7 +18,6 @@ import { it } from "date-fns/locale";
 import { Plus, CalendarDays, Eye, EyeOff, CheckCircle2, Clock, Target, AlertTriangle, Loader2 } from "lucide-react";
 import type { SlotInfo } from "react-big-calendar";
 
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -60,6 +59,12 @@ export default function AgendaPage() {
     () => new Set(EVENT_CATEGORIES)
   );
 
+  // ── State: range visibile dal calendario (per KPI contestuali) ──
+  const [visibleRange, setVisibleRange] = useState<{ start: Date; end: Date }>(() => {
+    const now = new Date();
+    return { start: startOfWeek(now, { locale: it }), end: endOfWeek(now, { locale: it }) };
+  });
+
   // ── Query: eventi nel range ──
   const queryParams = useMemo(
     () => ({
@@ -90,32 +95,38 @@ export default function AgendaPage() {
     });
   }, []);
 
-  // ── KPI settimanali (calcolati da eventi gia' fetchati) ──
-  const weekStats = useMemo(() => {
-    const now = new Date();
-    const weekStart = startOfWeek(now, { locale: it });
-    const weekEnd = endOfWeek(now, { locale: it });
-    const thisWeek = events.filter(
-      (e) => e.data_inizio >= weekStart && e.data_inizio <= weekEnd
+  // ── KPI contestuali al range visibile ──
+  const rangeStats = useMemo(() => {
+    const inRange = events.filter(
+      (e) => e.data_inizio >= visibleRange.start && e.data_inizio <= visibleRange.end
     );
-    const completed = thisWeek.filter((e) => e.stato === "Completato").length;
-    const scheduled = thisWeek.filter((e) => e.stato === "Programmato").length;
-    const cancelled = thisWeek.filter((e) => e.stato === "Cancellato").length;
+    const completed = inRange.filter((e) => e.stato === "Completato").length;
+    const scheduled = inRange.filter((e) => e.stato === "Programmato").length;
+    const cancelled = inRange.filter((e) => e.stato === "Cancellato").length;
     const denominator = completed + cancelled + scheduled;
     const rate = denominator > 0 ? Math.round((completed / denominator) * 100) : 0;
-    return { total: thisWeek.length, completed, scheduled, rate };
-  }, [events]);
+    return { total: inRange.length, completed, scheduled, rate };
+  }, [events, visibleRange]);
 
-  // ── Eventi passati ancora "Programmato" (per bulk complete) ──
-  const pastProgrammed = useMemo(() => {
-    const now = new Date();
-    return events.filter((e) => e.data_fine < now && e.stato === "Programmato");
-  }, [events]);
+  /** Label dinamica per i KPI: si adatta alla vista (giorno/settimana/mese) */
+  const rangeLabel = useMemo(() => {
+    const days = Math.round(
+      (visibleRange.end.getTime() - visibleRange.start.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    if (days <= 1) {
+      return format(visibleRange.start, "EEEE d MMMM", { locale: it });
+    }
+    if (days <= 7) {
+      const sameMonth = visibleRange.start.getMonth() === visibleRange.end.getMonth();
+      return sameMonth
+        ? `${format(visibleRange.start, "d", { locale: it })}-${format(visibleRange.end, "d MMM", { locale: it })}`
+        : `${format(visibleRange.start, "d MMM", { locale: it })} - ${format(visibleRange.end, "d MMM", { locale: it })}`;
+    }
+    return format(visibleRange.start, "MMMM yyyy", { locale: it });
+  }, [visibleRange]);
 
   // ── Mutation per Drag & Drop + Quick Actions ──
   const updateEvent = useUpdateEvent();
-
-  const [bulkCompleting, setBulkCompleting] = useState(false);
 
   /** Quick action dall'hover card: aggiorna stato evento */
   const handleQuickAction = useCallback(
@@ -124,21 +135,6 @@ export default function AgendaPage() {
     },
     [updateEvent]
   );
-
-  /** Bulk complete: completa tutti gli eventi passati ancora Programmato */
-  const handleBulkComplete = useCallback(async () => {
-    if (pastProgrammed.length === 0) return;
-    setBulkCompleting(true);
-    const promises = pastProgrammed.map((e) =>
-      updateEvent.mutateAsync({ id: e.id, stato: "Completato" }).catch(() => null)
-    );
-    const results = await Promise.allSettled(promises);
-    const succeeded = results.filter((r) => r.status === "fulfilled" && r.value !== null).length;
-    setBulkCompleting(false);
-    toast.success(
-      `${succeeded} ${succeeded === 1 ? "sessione completata" : "sessioni completate"}`
-    );
-  }, [pastProgrammed, updateEvent]);
 
   // ── Handlers ──
 
@@ -169,12 +165,13 @@ export default function AgendaPage() {
   };
 
   const handleRangeChange = useCallback((range: { start: Date; end: Date }) => {
+    // Traccia il range visibile per KPI contestuali
+    setVisibleRange(range);
+    // Espandi il buffer API solo se necessario
     setDateRange((prev) => {
-      // Se il range visibile e' gia' dentro il buffer fetchato, nessun refetch
       if (range.start >= prev.start && range.end <= prev.end) {
         return prev; // stessa reference → zero state change
       }
-      // Espandi: 1 mese di buffer in ogni direzione dal nuovo range visibile
       return {
         start: startOfMonth(subMonths(range.start, 1)),
         end: endOfMonth(addMonths(range.end, 1)),
@@ -236,17 +233,8 @@ export default function AgendaPage() {
       {/* ── Filtri + Legenda ── */}
       <FilterBar activeCategories={activeCategories} onToggle={handleToggleCategory} />
 
-      {/* ── Bulk Complete Banner ── */}
-      {!isLoading && pastProgrammed.length > 0 && (
-        <BulkCompleteBanner
-          count={pastProgrammed.length}
-          onComplete={handleBulkComplete}
-          isPending={bulkCompleting}
-        />
-      )}
-
-      {/* ── KPI settimanali ── */}
-      {!isLoading && <WeeklyStatsBar stats={weekStats} />}
+      {/* ── KPI contestuali al range visibile ── */}
+      {!isLoading && <RangeStatsBar stats={rangeStats} label={rangeLabel} />}
 
       {/* ── Contenuto: 3-state rendering ── */}
       {isLoading && <CalendarSkeleton />}
@@ -306,16 +294,16 @@ export default function AgendaPage() {
   );
 }
 
-// ── Weekly Stats Bar ──
+// ── Range Stats Bar (KPI contestuali al range visibile) ──
 
-interface WeekStatsData {
+interface RangeStatsData {
   total: number;
   completed: number;
   scheduled: number;
   rate: number;
 }
 
-const WEEK_KPI = [
+const RANGE_KPI = [
   {
     key: "total" as const,
     label: "Sessioni",
@@ -355,10 +343,10 @@ const WEEK_KPI = [
   },
 ];
 
-function WeeklyStatsBar({ stats }: { stats: WeekStatsData }) {
+function RangeStatsBar({ stats, label }: { stats: RangeStatsData; label: string }) {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      {WEEK_KPI.map((kpi) => {
+      {RANGE_KPI.map((kpi) => {
         const Icon = kpi.icon;
         const value = stats[kpi.key];
         return (
@@ -373,55 +361,13 @@ function WeeklyStatsBar({ stats }: { stats: WeekStatsData }) {
               <p className={`text-xl font-bold tabular-nums ${kpi.valueColor}`}>
                 {value}{"suffix" in kpi ? kpi.suffix : ""}
               </p>
-              <p className="text-[10px] font-medium text-muted-foreground">
-                {kpi.label} · questa settimana
+              <p className="text-[10px] font-medium capitalize text-muted-foreground">
+                {kpi.label} · {label}
               </p>
             </div>
           </div>
         );
       })}
-    </div>
-  );
-}
-
-// ── Bulk Complete Banner ──
-
-function BulkCompleteBanner({
-  count,
-  onComplete,
-  isPending,
-}: {
-  count: number;
-  onComplete: () => void;
-  isPending: boolean;
-}) {
-  return (
-    <div className="flex items-center gap-3 rounded-xl border border-l-4 border-l-amber-500 bg-gradient-to-r from-amber-50/80 to-white p-4 shadow-sm dark:from-amber-950/30 dark:to-zinc-900">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30">
-        <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium">
-          {count} {count === 1 ? "sessione passata" : "sessioni passate"} ancora in stato <span className="font-semibold text-amber-600 dark:text-amber-400">Programmato</span>
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Aggiorna lo stato per mantenere le statistiche accurate
-        </p>
-      </div>
-      <Button
-        variant="outline"
-        size="sm"
-        className="shrink-0 gap-1.5 text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
-        onClick={onComplete}
-        disabled={isPending}
-      >
-        {isPending ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        ) : (
-          <CheckCircle2 className="h-3.5 w-3.5" />
-        )}
-        Completa tutte
-      </Button>
     </div>
   );
 }
