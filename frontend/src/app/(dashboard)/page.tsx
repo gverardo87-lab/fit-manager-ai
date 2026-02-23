@@ -47,7 +47,7 @@ import { useMovementStats } from "@/hooks/useMovements";
 import { useAgingReport } from "@/hooks/useRates";
 import { useEvents, type EventHydrated } from "@/hooks/useAgenda";
 import { formatCurrency } from "@/lib/format";
-import type { DashboardSummary, MovementStats, AgingResponse, DashboardAlerts, AlertItem } from "@/types/api";
+import type { DashboardSummary, MovementStats, AgingResponse, DashboardAlerts } from "@/types/api";
 
 // ── Date helpers ──
 
@@ -295,37 +295,42 @@ function KpiCards({ summary, stats }: { summary: DashboardSummary; stats: Moveme
 // Alert Panel — Warning proattivi
 // ════════════════════════════════════════════════════════════
 
-const ALERT_CATEGORY_CONFIG: Record<string, { icon: typeof Ghost; color: string; bgColor: string; borderColor: string }> = {
+// Config-driven: ogni categoria ha icona, colori, e CTA contestuale
+const ALERT_CATEGORY_CONFIG: Record<string, {
+  icon: typeof Ghost;
+  color: string;
+  bgColor: string;
+  borderColor: string;
+  cta: string;
+}> = {
   ghost_events: {
     icon: Ghost,
     color: "text-red-600 dark:text-red-400",
     bgColor: "bg-red-100 dark:bg-red-900/30",
     borderColor: "border-l-red-500",
+    cta: "Aggiorna stato",
   },
   expiring_contracts: {
     icon: CreditCard,
     color: "text-amber-600 dark:text-amber-400",
     bgColor: "bg-amber-100 dark:bg-amber-900/30",
     borderColor: "border-l-amber-500",
+    cta: "Vedi contratto",
   },
   overdue_rates: {
     icon: ShieldAlert,
     color: "text-red-600 dark:text-red-400",
     bgColor: "bg-red-100 dark:bg-red-900/30",
     borderColor: "border-l-red-500",
+    cta: "Riscuoti",
   },
   inactive_clients: {
     icon: UserX,
     color: "text-orange-600 dark:text-orange-400",
     bgColor: "bg-orange-100 dark:bg-orange-900/30",
     borderColor: "border-l-orange-500",
+    cta: "Contatta",
   },
-};
-
-const SEVERITY_STYLES: Record<string, { badge: string; ring: string }> = {
-  critical: { badge: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400", ring: "ring-red-200 dark:ring-red-800/40" },
-  warning: { badge: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400", ring: "ring-amber-200 dark:ring-amber-800/40" },
-  info: { badge: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400", ring: "ring-blue-200 dark:ring-blue-800/40" },
 };
 
 function AlertPanel({ alerts, isLoading }: { alerts: DashboardAlerts | undefined; isLoading: boolean }) {
@@ -345,12 +350,12 @@ function AlertPanel({ alerts, isLoading }: { alerts: DashboardAlerts | undefined
 
   if (!alerts || alerts.total_alerts === 0) {
     return (
-      <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50/80 to-white p-4 shadow-sm dark:border-emerald-800/50 dark:from-emerald-950/30 dark:to-zinc-900">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
-          <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+      <div className="flex items-center gap-4 rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50/80 to-white p-5 shadow-sm dark:border-emerald-800/50 dark:from-emerald-950/30 dark:to-zinc-900">
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-900/30">
+          <CheckCircle2 className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
         </div>
         <div>
-          <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+          <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
             Tutto sotto controllo
           </p>
           <p className="text-xs text-muted-foreground">
@@ -363,49 +368,81 @@ function AlertPanel({ alerts, isLoading }: { alerts: DashboardAlerts | undefined
 
   return (
     <div className="rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-5 shadow-sm dark:from-zinc-900 dark:to-zinc-800/50">
-      {/* Header */}
+      {/* Header con badge notifica */}
       <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Bell className="h-4 w-4 text-amber-500" />
-          <h3 className="text-sm font-semibold">Attenzione Richiesta</h3>
+        <div className="flex items-center gap-2.5">
+          <div className="relative">
+            <Bell className="h-5 w-5 text-amber-500" />
+            <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white shadow-sm">
+              {alerts.total_alerts}
+            </span>
+          </div>
+          <h3 className="font-semibold">Attenzione Richiesta</h3>
         </div>
         <div className="flex items-center gap-1.5">
           {alerts.critical_count > 0 && (
-            <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-900/40 dark:text-red-400">
-              {alerts.critical_count} critici
+            <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-900/40 dark:text-red-400">
+              {alerts.critical_count} {alerts.critical_count === 1 ? "critico" : "critici"}
             </span>
           )}
           {alerts.warning_count > 0 && (
-            <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">
-              {alerts.warning_count} avvisi
+            <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">
+              {alerts.warning_count} {alerts.warning_count === 1 ? "avviso" : "avvisi"}
             </span>
           )}
         </div>
       </div>
 
-      {/* Alert items */}
-      <div className="space-y-2">
+      {/* Alert items — gerarchia visiva per severity */}
+      <div className="space-y-2.5">
         {alerts.items.map((item, idx) => {
           const catCfg = ALERT_CATEGORY_CONFIG[item.category] ?? ALERT_CATEGORY_CONFIG.ghost_events;
-          const sevStyle = SEVERITY_STYLES[item.severity] ?? SEVERITY_STYLES.warning;
           const CatIcon = catCfg.icon;
+          const isCritical = item.severity === "critical";
 
           return (
             <div
               key={`${item.category}-${idx}`}
-              className={`flex items-center gap-3 rounded-lg border border-l-4 ${catCfg.borderColor} bg-white p-3 ring-1 ${sevStyle.ring} transition-shadow hover:shadow-sm dark:bg-zinc-900`}
+              className={`flex items-center gap-3 rounded-lg border border-l-4 ${catCfg.borderColor} p-3.5 transition-all hover:shadow-md hover:-translate-y-0.5 ${
+                isCritical
+                  ? "bg-red-50/60 dark:bg-red-950/20"
+                  : "bg-white dark:bg-zinc-900"
+              }`}
             >
-              <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${catCfg.bgColor}`}>
-                <CatIcon className={`h-4 w-4 ${catCfg.color}`} />
+              {/* Icona — piu' grande per critical */}
+              <div className={`flex ${isCritical ? "h-10 w-10" : "h-9 w-9"} shrink-0 items-center justify-center rounded-lg ${catCfg.bgColor}`}>
+                <CatIcon className={`${isCritical ? "h-5 w-5" : "h-4 w-4"} ${catCfg.color}`} />
               </div>
+
+              {/* Contenuto */}
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium leading-tight">{item.title}</p>
-                <p className="text-[11px] text-muted-foreground">{item.detail}</p>
+                <div className="flex items-center gap-2">
+                  <p className={`${isCritical ? "text-sm" : "text-[13px]"} font-semibold leading-tight`}>
+                    {item.title}
+                  </p>
+                  {item.count > 1 && (
+                    <Badge variant="secondary" className="h-4 px-1.5 py-0 text-[9px]">
+                      {item.count}
+                    </Badge>
+                  )}
+                </div>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">{item.detail}</p>
               </div>
+
+              {/* CTA contestuale — filled per critical, outline per warning */}
               {item.link && (
                 <Link href={item.link}>
-                  <Button variant="ghost" size="sm" className="h-7 shrink-0 gap-1 text-xs">
-                    Vai <ArrowRight className="h-3 w-3" />
+                  <Button
+                    variant={isCritical ? "default" : "outline"}
+                    size="sm"
+                    className={`h-8 shrink-0 gap-1.5 text-xs font-medium ${
+                      isCritical
+                        ? "bg-red-600 text-white shadow-sm hover:bg-red-700"
+                        : ""
+                    }`}
+                  >
+                    {catCfg.cta}
+                    <ArrowRight className="h-3 w-3" />
                   </Button>
                 </Link>
               )}

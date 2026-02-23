@@ -209,7 +209,7 @@ def get_dashboard_alerts(
             severity="critical",
             category="ghost_events",
             title=f"{ghost_count} {'evento' if ghost_count == 1 else 'eventi'} senza esito",
-            detail="Sessioni passate ancora in stato 'Programmato' — completate o cancellate?",
+            detail="Aggiorna lo stato: completate o cancellate?",
             count=ghost_count,
             link="/agenda",
         ))
@@ -250,11 +250,19 @@ def get_dashboard_alerts(
             # Raw SQL restituisce date come stringa ISO — parse esplicito
             scadenza = date.fromisoformat(scadenza_raw) if isinstance(scadenza_raw, str) else scadenza_raw
             days_left = (scadenza - today).days if isinstance(scadenza, date) else 0
+            # Grammatica condizionale: singolare/plurale
+            crediti_label = "credito inutilizzato" if residui == 1 else "crediti inutilizzati"
+            if days_left == 0:
+                scadenza_label = f"{pacchetto or 'Contratto'} scade oggi"
+            elif days_left == 1:
+                scadenza_label = f"{pacchetto or 'Contratto'} scade domani"
+            else:
+                scadenza_label = f"{pacchetto or 'Contratto'} scade tra {days_left} giorni"
             items.append(AlertItem(
                 severity="warning" if days_left > 7 else "critical",
                 category="expiring_contracts",
-                title=f"{nome} {cognome} — {residui} crediti inutilizzati",
-                detail=f"{pacchetto or 'Contratto'} scade tra {days_left} giorni",
+                title=f"{nome} {cognome} — {residui} {crediti_label}",
+                detail=scadenza_label,
                 count=1,
                 link="/contratti",
             ))
@@ -281,7 +289,7 @@ def get_dashboard_alerts(
             severity="critical",
             category="overdue_rates",
             title=f"{overdue_count} {'rata scaduta' if overdue_count == 1 else 'rate scadute'}",
-            detail=f"Importo totale da incassare: €{overdue_amount:,.2f}".replace(",", "."),
+            detail=f"€{overdue_amount:,.2f} da riscuotere — registra i pagamenti".replace(",", "."),
             count=overdue_count,
             link="/cassa",
         ))
@@ -309,7 +317,7 @@ def get_dashboard_alerts(
             severity="warning" if inactive_count <= 2 else "critical",
             category="inactive_clients",
             title=f"{inactive_count} {'cliente inattivo' if inactive_count == 1 else 'clienti inattivi'}",
-            detail="Nessuna sessione negli ultimi 14 giorni — rischio abbandono",
+            detail="Nessuna sessione da 14+ giorni — pianifica un contatto",
             count=inactive_count,
             link="/clienti",
         ))

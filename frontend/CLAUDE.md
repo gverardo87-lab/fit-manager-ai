@@ -177,6 +177,17 @@ Token in cookie `fitmanager_token` (8h expiry). Trainer data in `fitmanager_trai
 | `Set<string>` non-univoca | `mese_anno_key` uguale per N spese mensili stesso mese | Chiave composta `${id}::${key}` |
 | React `key={nonUniqueValue}` | Duplica render, stato condiviso tra componenti | Sempre key univoca per item |
 
+## Esperienza Utente — Principi Frontend
+
+Pilastro di sviluppo (vedi root `CLAUDE.md`). Regole pratiche:
+
+- **CTA contestuali**: ogni azione ha un verbo specifico ("Riscuoti", "Aggiorna stato", "Contatta"), mai generico "Vai" o "Apri"
+- **Gerarchia severity**: critical (rosso, bordo forte, badge contatore), warning (ambra), info (blu chiaro)
+- **Grammatica condizionale**: singolare/plurale dinamico in ogni testo (`1 rata scaduta` / `3 rate scadute`)
+- **Empty state celebrativi**: quando tutto e' ok, comunicarlo con positivita' (icona verde + messaggio incoraggiante)
+- **Feedback immediato**: toast su ogni azione, skeleton su ogni loading, error banner su ogni fallimento
+- **Hover & transition**: ogni elemento interattivo ha `transition-*` + hover state visibile
+
 ## Visual Design — Cassa Page (CRM-grade)
 
 La pagina Cassa ha un visual premium ispirato ai CRM leader (HubSpot, Salesforce):

@@ -19,6 +19,21 @@ Gestisce salute fisica e contabilita' di persone reali. Zero approssimazione.
 
 ---
 
+## Esperienza Utente — Pilastro
+
+> *"Il cliente deve aver piacere nell'usare il programma.
+> Un'app che migliora la qualita' del lavoro migliora la qualita' della vita."*
+
+L'UX non e' una feature: e' il motivo per cui il cliente sceglie noi.
+
+1. **Actionable, non informativo** — Ogni schermata guida verso l'azione giusta. Alert con CTA contestuali ("Riscuoti", "Aggiorna stato"), mai "Vai" generico.
+2. **Gerarchia visiva** — L'occhio arriva prima dove serve. Critico > Avviso > Informativo. Colori, icone e animazioni comunicano urgenza.
+3. **Micro-interazioni** — Hover, transizioni, feedback visivo. L'app deve sentirsi *viva* e reattiva.
+4. **Zero frustrazione** — Empty state descrittivi, error message utili, loading state chiari. Mai lasciare l'utente senza contesto.
+5. **Italiano impeccabile** — Singolare/plurale, accenti, punteggiatura. L'UI e' la voce del prodotto.
+
+---
+
 ## Architettura
 
 ```
