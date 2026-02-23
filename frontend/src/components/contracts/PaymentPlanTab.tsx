@@ -615,6 +615,12 @@ function PayRateForm({
   const [importo, setImporto] = useState(residuo);
   const [metodo, setMetodo] = useState("CONTANTI");
 
+  // Smart default: scadenza passata → usa data_scadenza, futura → oggi
+  const scadenza = parseISO(rate.data_scadenza);
+  const oggi = new Date();
+  const smartDefault = scadenza <= oggi ? scadenza : oggi;
+  const [dataPagamento, setDataPagamento] = useState<Date>(smartDefault);
+
   const isPartial = importo > 0 && importo < residuo - 0.01;
   const exceedsResiduo = importo > residuo + 0.01;
   const canPay = !payMutation.isPending && importo > 0 && !exceedsResiduo;
@@ -625,7 +631,7 @@ function PayRateForm({
         rateId: rate.id,
         importo,
         metodo,
-        data_pagamento: format(new Date(), "yyyy-MM-dd"),
+        data_pagamento: format(dataPagamento, "yyyy-MM-dd"),
       },
       { onSuccess: onCancel }
     );
@@ -656,7 +662,7 @@ function PayRateForm({
         </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="space-y-1.5">
           <Label className="text-xs font-medium">Importo</Label>
           <Input
@@ -687,6 +693,13 @@ function PayRateForm({
               ))}
             </SelectContent>
           </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium">Data Pagamento</Label>
+          <DatePicker
+            value={dataPagamento}
+            onChange={(d) => { if (d) setDataPagamento(d); }}
+          />
         </div>
       </div>
       <div className="flex gap-2">
