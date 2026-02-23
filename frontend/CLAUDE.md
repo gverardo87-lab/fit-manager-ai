@@ -20,7 +20,8 @@ frontend/src/
 │   ├── auth/AuthGuard.tsx   Client-side route protection
 │   ├── layout/Sidebar.tsx   Navigazione + trainer info
 │   ├── clients/             Componenti dominio clienti
-│   ├── contracts/           Componenti dominio contratti
+│   ├── contracts/           Componenti dominio contratti (PaymentPlanTab con
+│   │                        RateCard, PayRateForm, PaymentHistory, AddRateForm)
 │   ├── agenda/              Componenti dominio agenda/calendario
 │   ├── movements/           Componenti dominio cassa (MovementsTable, MovementSheet,
 │   │                        DeleteMovementDialog, RecurringExpensesTab, SplitLedgerView,
@@ -95,6 +96,19 @@ export default function PageName() {
   );
 }
 ```
+
+### Pagamento Guidato (PayRateForm)
+Il form pagamento rata guida l'utente verso pagamenti parziali:
+- **Quick buttons**: "Tutto (€X)" e "50%" per compilare l'importo velocemente
+- **Helper text**: mostra il residuo e spiega che il parziale e' possibile
+- **Validazione max**: importo > residuo → errore rosso + bottone disabilitato
+- **Label dinamica**: "Paga €X (parziale)" vs "Paga €X (saldo)"
+
+### Storico Pagamenti (PaymentHistory)
+Ogni rata con pagamenti mostra la lista cronologica completa:
+- Icone colorate: emerald (SALDATA), amber (PARZIALE)
+- Collapsible: mostra max 2, "Mostra altri N" se > 2
+- Summary: "Totale versato: €X / €Y" con multipli pagamenti
 
 ### Azioni Distruttive — 2 livelli
 - **CRITICA** (delete contratto, revoca pagamento): AlertDialog + conferma testuale ("ANNULLA")

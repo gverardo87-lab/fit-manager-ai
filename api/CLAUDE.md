@@ -33,7 +33,7 @@ api/
 │   ├── dashboard.py     KPI aggregati (SQL func.count/func.sum)
 │   └── backup.py        Backup/Restore/Export (5 endpoint)
 └── schemas/
-    └── financial.py     Contract/Rate/Movement/Dashboard DTOs
+    └── financial.py     Contract/Rate/Movement/Dashboard/PaymentReceipt DTOs
 ```
 
 ## Pattern Obbligatori
@@ -90,6 +90,21 @@ contracts = session.exec(query).all()  # 1. contratti
 all_rates = session.exec(select(Rate).where(Rate.id_contratto.in_(ids))).all()  # 2. rate
 clients = session.exec(select(Client).where(Client.id.in_(client_ids))).all()  # 3. clienti
 event_counts = session.exec(select(Event.id_contratto, func.count(...)).group_by(...))  # 4. crediti usati
+```
+
+### Payment History Enrichment
+Il dettaglio contratto (`get_contract`) carica lo storico pagamenti per ogni rata:
+```python
+# receipt_map: dict[int, list[CashMovement]] — tutte le rate (non solo SALDATE)
+movements = session.exec(
+    select(CashMovement).where(
+        CashMovement.id_rata.in_(rate_ids),
+        CashMovement.tipo == "ENTRATA",
+        CashMovement.deleted_at == None,
+    ).order_by(CashMovement.data_effettiva.asc())
+).all()
+# Ogni rata riceve campo `pagamenti: list[RatePaymentReceipt]` (cronologico)
+# Backward-compat: `data_pagamento` e `metodo_pagamento` = ultimo pagamento
 ```
 
 ### Contract Integrity Engine
@@ -159,9 +174,9 @@ Tabella `audit_log` + helper `log_audit()` in `api/routers/_audit.py`.
 
 Due famiglie di test:
 
-**pytest** (`tests/` — 52 test):
+**pytest** (`tests/` — 54 test):
 - DB SQLite in-memory, isolamento totale (StaticPool)
-- `test_pay_rate.py` (10): pagamento atomico, overpayment, deep IDOR
+- `test_pay_rate.py` (12): pagamento atomico, overpayment, deep IDOR, storico pagamenti parziali
 - `test_unpay_rate.py` (4): revoca pagamento, decrements, soft delete movement
 - `test_rate_guards.py` (9): immutabilita' rate con pagamenti, residuo su update
 - `test_soft_delete_integrity.py` (5): delete blocked with rates, restrict, stats filtrate

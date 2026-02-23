@@ -85,6 +85,7 @@ Il contratto e' l'entita' centrale: collega pagamenti, crediti, sessioni.
 - **Auto-reopen**: `unpay_rate` riapre automaticamente se non piu' SALDATO
 - **Overpayment check**: `pay_rate` verifica sia rata-level che contract-level
 - **Delete guard**: contratto eliminabile solo se zero rate non-saldate + zero crediti residui
+- **Payment history**: `receipt_map` come `dict[int, list[CashMovement]]` — storico completo per rata
 
 ### 4. React Query + Toast (Frontend)
 Ogni hook: `useQuery` per lettura, `useMutation` per scrittura.
@@ -160,7 +161,7 @@ alembic upgrade head          # applica migrazioni pendenti
 alembic revision -m "desc"    # crea nuova migrazione
 alembic current               # mostra versione corrente
 
-# Test (pytest — 52 test, tutti i domini)
+# Test (pytest — 54 test, tutti i domini)
 pytest tests/ -v
 
 # Test (E2E — richiede server avviato)
@@ -188,7 +189,7 @@ ollama list
 - **frontend/**: ~11,700 LOC TypeScript — 55 componenti, 8 hook modules, 6 pagine
 - **core/**: ~11,100 LOC Python — moduli AI (workout, RAG, DNA) in attesa di API endpoints
 - **DB**: 20 tabelle SQLite, FK enforced, multi-tenant via trainer_id
-- **Test**: 52 pytest + 67 E2E
+- **Test**: 54 pytest + 67 E2E
 - **Sicurezza**: JWT auth, bcrypt, Deep Relational IDOR, 3-layer route protection
 - **Cloud**: 0 dipendenze, 0 dati verso terzi
 
