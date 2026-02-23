@@ -1,16 +1,16 @@
 // src/hooks/useDashboard.ts
 /**
- * Custom hook per i KPI della dashboard.
+ * Custom hooks per la dashboard.
  *
- * Usa useQuery di React Query per chiamare GET /api/dashboard/summary.
- * Il componente non deve MAI usare useEffect per le chiamate API.
+ * - useDashboard(): KPI aggregati (GET /api/dashboard/summary)
+ * - useDashboardAlerts(): warning proattivi (GET /api/dashboard/alerts)
  *
- * Re-fetch automatico ogni 60 secondi (i KPI cambiano lentamente).
+ * Re-fetch automatico ogni 60 secondi.
  */
 
 import { useQuery } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
-import type { DashboardSummary } from "@/types/api";
+import type { DashboardSummary, DashboardAlerts } from "@/types/api";
 
 export function useDashboard() {
   return useQuery<DashboardSummary>({
@@ -21,7 +21,19 @@ export function useDashboard() {
       );
       return data;
     },
-    // I KPI cambiano lentamente — refetch ogni 60 secondi
+    refetchInterval: 60_000,
+  });
+}
+
+export function useDashboardAlerts() {
+  return useQuery<DashboardAlerts>({
+    queryKey: ["dashboard", "alerts"],
+    queryFn: async () => {
+      const { data } = await apiClient.get<DashboardAlerts>(
+        "/dashboard/alerts"
+      );
+      return data;
+    },
     refetchInterval: 60_000,
   });
 }

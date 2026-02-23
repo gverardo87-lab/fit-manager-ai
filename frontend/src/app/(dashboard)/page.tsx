@@ -5,11 +5,11 @@
  * Dashboard — CRM-grade overview con 4 sezioni:
  *
  * 1. Hero KPI: 6 card gradient (clienti, entrate, uscite, margine, rate, appuntamenti)
- * 2. Grafico giornaliero entrate vs uscite (Recharts BarChart)
+ * 2. Alert Panel: warning proattivi a 3 livelli di severita'
  * 3. Due colonne: Orizzonte Finanziario (mini aging) + Agenda Oggi
  * 4. Azioni rapide: link a creazione cliente, contratto, movimento
  *
- * Dati da 4 hook esistenti — zero nuovi endpoint.
+ * Dati da 5 hook — incluso nuovo /dashboard/alerts.
  */
 
 import { useMemo } from "react";
@@ -30,27 +30,24 @@ import {
   ArrowRight,
   AlertCircle,
   CheckCircle2,
+  ShieldAlert,
+  Ghost,
+  UserX,
+  CreditCard,
+  Bell,
 } from "lucide-react";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  ChartConfig,
-  ChartContainer,
-  ChartTooltip,
-  ChartLegend,
-  ChartLegendContent,
-} from "@/components/ui/chart";
-import { useDashboard } from "@/hooks/useDashboard";
+import { useDashboard, useDashboardAlerts } from "@/hooks/useDashboard";
 import { useMovementStats } from "@/hooks/useMovements";
 import { useAgingReport } from "@/hooks/useRates";
 import { useEvents, type EventHydrated } from "@/hooks/useAgenda";
 import { formatCurrency } from "@/lib/format";
-import type { DashboardSummary, MovementStats, AgingResponse } from "@/types/api";
+import type { DashboardSummary, MovementStats, AgingResponse, DashboardAlerts, AlertItem } from "@/types/api";
 
 // ── Date helpers ──
 
@@ -69,13 +66,6 @@ function tomorrowISO(): string {
 }
 
 const MESE_LABEL = now.toLocaleDateString("it-IT", { month: "long" });
-
-// ── Chart config ──
-
-const chartConfig: ChartConfig = {
-  entrate: { label: "Entrate", color: "var(--color-emerald-500)" },
-  uscite: { label: "Uscite", color: "var(--color-red-500)" },
-};
 
 // ── Category colors (mirror agenda) ──
 
@@ -100,6 +90,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default function DashboardPage() {
   const { data: summary, isLoading: summaryLoading, isError, refetch } = useDashboard();
   const { data: stats, isLoading: statsLoading } = useMovementStats(ANNO, MESE);
+  const { data: alerts } = useDashboardAlerts();
   const { data: aging } = useAgingReport();
   const { data: eventsData } = useEvents({ start: todayISO(), end: tomorrowISO() });
 
@@ -147,8 +138,8 @@ export default function DashboardPage() {
       {isLoading && <KpiSkeleton />}
       {summary && stats && <KpiCards summary={summary} stats={stats} />}
 
-      {/* ── Grafico giornaliero ── */}
-      {stats && stats.chart_data.length > 0 && <DailyChart data={stats.chart_data} />}
+      {/* ── Alert Panel ── */}
+      <AlertPanel alerts={alerts} isLoading={!alerts} />
 
       {/* ── Due colonne: Aging + Agenda Oggi ── */}
       <div className="grid gap-6 lg:grid-cols-2">
@@ -301,92 +292,127 @@ function KpiCards({ summary, stats }: { summary: DashboardSummary; stats: Moveme
 }
 
 // ════════════════════════════════════════════════════════════
-// Grafico giornaliero
+// Alert Panel — Warning proattivi
 // ════════════════════════════════════════════════════════════
 
-function DailyChart({ data }: { data: { giorno: number; entrate: number; uscite: number }[] }) {
-  const hasData = data.some((d) => d.entrate > 0 || d.uscite > 0);
-  if (!hasData) return null;
+const ALERT_CATEGORY_CONFIG: Record<string, { icon: typeof Ghost; color: string; bgColor: string; borderColor: string }> = {
+  ghost_events: {
+    icon: Ghost,
+    color: "text-red-600 dark:text-red-400",
+    bgColor: "bg-red-100 dark:bg-red-900/30",
+    borderColor: "border-l-red-500",
+  },
+  expiring_contracts: {
+    icon: CreditCard,
+    color: "text-amber-600 dark:text-amber-400",
+    bgColor: "bg-amber-100 dark:bg-amber-900/30",
+    borderColor: "border-l-amber-500",
+  },
+  overdue_rates: {
+    icon: ShieldAlert,
+    color: "text-red-600 dark:text-red-400",
+    bgColor: "bg-red-100 dark:bg-red-900/30",
+    borderColor: "border-l-red-500",
+  },
+  inactive_clients: {
+    icon: UserX,
+    color: "text-orange-600 dark:text-orange-400",
+    bgColor: "bg-orange-100 dark:bg-orange-900/30",
+    borderColor: "border-l-orange-500",
+  },
+};
 
-  const giorniAttivi = data.filter((d) => d.entrate > 0 || d.uscite > 0).length;
+const SEVERITY_STYLES: Record<string, { badge: string; ring: string }> = {
+  critical: { badge: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400", ring: "ring-red-200 dark:ring-red-800/40" },
+  warning: { badge: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400", ring: "ring-amber-200 dark:ring-amber-800/40" },
+  info: { badge: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400", ring: "ring-blue-200 dark:ring-blue-800/40" },
+};
+
+function AlertPanel({ alerts, isLoading }: { alerts: DashboardAlerts | undefined; isLoading: boolean }) {
+  if (isLoading) {
+    return (
+      <div className="rounded-xl border p-5 space-y-3">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-5 w-5 rounded" />
+          <Skeleton className="h-5 w-40" />
+        </div>
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-16 w-full rounded-lg" />
+        ))}
+      </div>
+    );
+  }
+
+  if (!alerts || alerts.total_alerts === 0) {
+    return (
+      <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50/80 to-white p-4 shadow-sm dark:border-emerald-800/50 dark:from-emerald-950/30 dark:to-zinc-900">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+          <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+            Tutto sotto controllo
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Nessun alert attivo — ottimo lavoro!
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-5 shadow-sm dark:from-zinc-900 dark:to-zinc-800/50">
+      {/* Header */}
       <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-semibold">Andamento Mensile</h3>
-          <p className="text-xs text-muted-foreground">
-            Entrate e uscite giornaliere — {MESE_LABEL}
-          </p>
+        <div className="flex items-center gap-2">
+          <Bell className="h-4 w-4 text-amber-500" />
+          <h3 className="text-sm font-semibold">Attenzione Richiesta</h3>
         </div>
-        <Badge variant="outline" className="text-[10px]">
-          {giorniAttivi} giorni attivi
-        </Badge>
+        <div className="flex items-center gap-1.5">
+          {alerts.critical_count > 0 && (
+            <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-900/40 dark:text-red-400">
+              {alerts.critical_count} critici
+            </span>
+          )}
+          {alerts.warning_count > 0 && (
+            <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">
+              {alerts.warning_count} avvisi
+            </span>
+          )}
+        </div>
       </div>
 
-      <ChartContainer config={chartConfig} className="h-[260px] w-full">
-        <BarChart data={data} accessibilityLayer>
-          <CartesianGrid vertical={false} strokeDasharray="3 3" />
-          <XAxis
-            dataKey="giorno"
-            tickLine={false}
-            axisLine={false}
-            tickMargin={8}
-            fontSize={11}
-          />
-          <YAxis
-            tickLine={false}
-            axisLine={false}
-            tickMargin={8}
-            fontSize={11}
-            tickFormatter={(v) => `€${v}`}
-          />
-          <ChartTooltip
-            cursor={{ fill: "var(--color-muted)", opacity: 0.3 }}
-            content={({ payload, label }) => {
-              if (!payload?.length) return null;
-              return (
-                <div className="rounded-lg border bg-white p-3 shadow-md dark:bg-zinc-900">
-                  <p className="mb-1.5 text-xs font-semibold text-muted-foreground">
-                    Giorno {label}
-                  </p>
-                  {payload.map((entry) => (
-                    <div key={entry.name} className="flex items-center gap-2 text-sm">
-                      <div
-                        className="h-2.5 w-2.5 rounded-full"
-                        style={{ backgroundColor: entry.color }}
-                      />
-                      <span className="text-muted-foreground">
-                        {entry.name === "entrate" ? "Entrate" : "Uscite"}
-                      </span>
-                      <span className="ml-auto font-bold tabular-nums">
-                        {formatCurrency(Number(entry.value))}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              );
-            }}
-          />
-          <ChartLegend content={<ChartLegendContent />} />
-          <Bar
-            dataKey="entrate"
-            fill="var(--color-emerald-500)"
-            radius={[4, 4, 2, 2]}
-            maxBarSize={18}
-            animationBegin={0}
-            animationDuration={800}
-          />
-          <Bar
-            dataKey="uscite"
-            fill="var(--color-red-500)"
-            radius={[4, 4, 2, 2]}
-            maxBarSize={18}
-            animationBegin={100}
-            animationDuration={800}
-          />
-        </BarChart>
-      </ChartContainer>
+      {/* Alert items */}
+      <div className="space-y-2">
+        {alerts.items.map((item, idx) => {
+          const catCfg = ALERT_CATEGORY_CONFIG[item.category] ?? ALERT_CATEGORY_CONFIG.ghost_events;
+          const sevStyle = SEVERITY_STYLES[item.severity] ?? SEVERITY_STYLES.warning;
+          const CatIcon = catCfg.icon;
+
+          return (
+            <div
+              key={`${item.category}-${idx}`}
+              className={`flex items-center gap-3 rounded-lg border border-l-4 ${catCfg.borderColor} bg-white p-3 ring-1 ${sevStyle.ring} transition-shadow hover:shadow-sm dark:bg-zinc-900`}
+            >
+              <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${catCfg.bgColor}`}>
+                <CatIcon className={`h-4 w-4 ${catCfg.color}`} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium leading-tight">{item.title}</p>
+                <p className="text-[11px] text-muted-foreground">{item.detail}</p>
+              </div>
+              {item.link && (
+                <Link href={item.link}>
+                  <Button variant="ghost" size="sm" className="h-7 shrink-0 gap-1 text-xs">
+                    Vai <ArrowRight className="h-3 w-3" />
+                  </Button>
+                </Link>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

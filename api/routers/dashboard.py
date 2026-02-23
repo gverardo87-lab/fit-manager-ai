@@ -20,8 +20,10 @@ from api.models.client import Client
 from api.models.movement import CashMovement
 from api.models.rate import Rate
 from api.models.event import Event
+from api.models.contract import Contract
 from api.schemas.financial import (
     DashboardSummary, ReconciliationItem, ReconciliationResponse,
+    AlertItem, DashboardAlerts,
 )
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
@@ -74,7 +76,6 @@ def get_dashboard_summary(
 
     # 3. Rate pendenti: scadute (data_scadenza < oggi) + in scadenza (prossimi 7 giorni)
     #    Deep filter: solo rate di contratti del trainer
-    from api.models.contract import Contract
 
     deadline = today + timedelta(days=7)
     pending_rates = session.exec(
@@ -90,7 +91,7 @@ def get_dashboard_summary(
         )
     ).one()
 
-    # 4. Appuntamenti di oggi
+    # 4. Appuntamenti di oggi (solo attivi — escludi Cancellato)
     today_start = datetime.combine(today, datetime.min.time())
     today_end = datetime.combine(today, datetime.max.time())
     todays_appointments = session.exec(
@@ -98,6 +99,7 @@ def get_dashboard_summary(
             Event.trainer_id == trainer.id,
             Event.data_inizio >= today_start,
             Event.data_inizio <= today_end,
+            Event.stato != "Cancellato",
             Event.deleted_at == None,
         )
     ).one()
@@ -170,5 +172,166 @@ def get_reconciliation(
         total_contracts=len(rows),
         aligned=aligned,
         divergent=len(items),
+        items=items,
+    )
+
+
+@router.get("/alerts", response_model=DashboardAlerts)
+def get_dashboard_alerts(
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """
+    Warning proattivi — "Cosa richiede la mia attenzione ORA?"
+
+    4 categorie di alert (query SQL aggregate, zero N+1):
+    1. ghost_events: eventi passati ancora 'Programmato'
+    2. expiring_contracts: contratti in scadenza (30gg) con crediti residui
+    3. overdue_rates: rate scadute (data_scadenza < oggi)
+    4. inactive_clients: clienti attivi senza eventi da >14 giorni
+    """
+    today = date.today()
+    items: list[AlertItem] = []
+
+    # ── 1. Eventi fantasma: ieri o prima, ancora "Programmato" ──
+    yesterday_end = datetime.combine(today, datetime.min.time())
+    ghost_count = session.exec(
+        select(func.count(Event.id)).where(
+            Event.trainer_id == trainer.id,
+            Event.data_fine < yesterday_end,
+            Event.stato == "Programmato",
+            Event.deleted_at == None,
+        )
+    ).one()
+
+    if ghost_count > 0:
+        items.append(AlertItem(
+            severity="critical",
+            category="ghost_events",
+            title=f"{ghost_count} {'evento' if ghost_count == 1 else 'eventi'} senza esito",
+            detail="Sessioni passate ancora in stato 'Programmato' — completate o cancellate?",
+            count=ghost_count,
+            link="/agenda",
+        ))
+
+    # ── 2. Contratti in scadenza con crediti inutilizzati ──
+    deadline_30 = today + timedelta(days=30)
+
+    # Crediti usati reali (computed on read da eventi PT attivi)
+    credit_subq = (
+        select(
+            Event.id_contratto,
+            func.count(Event.id).label("used"),
+        )
+        .where(
+            Event.categoria == "PT",
+            Event.stato != "Cancellato",
+            Event.deleted_at == None,
+        )
+        .group_by(Event.id_contratto)
+        .subquery()
+    )
+
+    expiring_rows = session.execute(text("""
+        SELECT c.id, cl.nome, cl.cognome, c.tipo_pacchetto,
+               c.data_scadenza, c.crediti_totali,
+               COALESCE(
+                   (SELECT COUNT(*) FROM agenda e
+                    WHERE e.id_contratto = c.id
+                      AND e.categoria = 'PT'
+                      AND e.stato != 'Cancellato'
+                      AND e.deleted_at IS NULL), 0
+               ) as crediti_usati
+        FROM contratti c
+        JOIN clienti cl ON cl.id = c.id_cliente
+        WHERE c.trainer_id = :tid
+          AND c.deleted_at IS NULL
+          AND c.chiuso = 0
+          AND c.data_scadenza IS NOT NULL
+          AND c.data_scadenza <= :deadline
+          AND c.data_scadenza >= :today
+          AND c.crediti_totali IS NOT NULL
+        HAVING crediti_usati < c.crediti_totali
+    """), {"tid": trainer.id, "deadline": deadline_30.isoformat(), "today": today.isoformat()}).fetchall()
+
+    if expiring_rows:
+        for row in expiring_rows:
+            cid, nome, cognome, pacchetto, scadenza, totali, usati = row
+            residui = totali - usati
+            days_left = (scadenza - today).days if isinstance(scadenza, date) else 0
+            items.append(AlertItem(
+                severity="warning" if days_left > 7 else "critical",
+                category="expiring_contracts",
+                title=f"{nome} {cognome} — {residui} crediti inutilizzati",
+                detail=f"{pacchetto or 'Contratto'} scade tra {days_left} giorni",
+                count=1,
+                link="/contratti",
+            ))
+
+    # ── 3. Rate scadute (non solo "in scadenza", ma GIA' scadute) ──
+    overdue_data = session.execute(text("""
+        SELECT COUNT(*) as cnt,
+               COALESCE(SUM(r.importo_previsto - r.importo_saldato), 0) as tot
+        FROM rate_programmate r
+        JOIN contratti c ON r.id_contratto = c.id
+        WHERE c.trainer_id = :tid
+          AND r.stato IN ('PENDENTE', 'PARZIALE')
+          AND r.data_scadenza < :today
+          AND r.deleted_at IS NULL
+          AND c.deleted_at IS NULL
+          AND c.chiuso = 0
+    """), {"tid": trainer.id, "today": today.isoformat()}).fetchone()
+
+    overdue_count = overdue_data[0] if overdue_data else 0
+    overdue_amount = overdue_data[1] if overdue_data else 0
+
+    if overdue_count > 0:
+        items.append(AlertItem(
+            severity="critical",
+            category="overdue_rates",
+            title=f"{overdue_count} {'rata scaduta' if overdue_count == 1 else 'rate scadute'}",
+            detail=f"Importo totale da incassare: €{overdue_amount:,.2f}".replace(",", "."),
+            count=overdue_count,
+            link="/cassa",
+        ))
+
+    # ── 4. Clienti inattivi: attivi senza eventi negli ultimi 14 giorni ──
+    cutoff_14 = today - timedelta(days=14)
+    cutoff_start = datetime.combine(cutoff_14, datetime.min.time())
+
+    inactive_count = session.execute(text("""
+        SELECT COUNT(*) FROM clienti cl
+        WHERE cl.trainer_id = :tid
+          AND cl.stato = 'Attivo'
+          AND cl.deleted_at IS NULL
+          AND NOT EXISTS (
+              SELECT 1 FROM agenda e
+              WHERE e.id_cliente = cl.id
+                AND e.data_inizio >= :cutoff
+                AND e.stato != 'Cancellato'
+                AND e.deleted_at IS NULL
+          )
+    """), {"tid": trainer.id, "cutoff": cutoff_start.isoformat()}).scalar() or 0
+
+    if inactive_count > 0:
+        items.append(AlertItem(
+            severity="warning" if inactive_count <= 2 else "critical",
+            category="inactive_clients",
+            title=f"{inactive_count} {'cliente inattivo' if inactive_count == 1 else 'clienti inattivi'}",
+            detail="Nessuna sessione negli ultimi 14 giorni — rischio abbandono",
+            count=inactive_count,
+            link="/clienti",
+        ))
+
+    # ── Conteggi severity ──
+    critical = sum(1 for i in items if i.severity == "critical")
+    warning = sum(1 for i in items if i.severity == "warning")
+    info = sum(1 for i in items if i.severity == "info")
+
+    return DashboardAlerts(
+        total_alerts=len(items),
+        critical_count=critical,
+        warning_count=warning,
+        info_count=info,
         items=items,
     )

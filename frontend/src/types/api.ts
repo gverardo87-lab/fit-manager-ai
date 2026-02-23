@@ -427,6 +427,25 @@ export interface DashboardSummary {
   todays_appointments: number;
 }
 
+/** Singolo alert con severity, categoria e contesto navigabile */
+export interface AlertItem {
+  severity: "critical" | "warning" | "info";
+  category: "ghost_events" | "expiring_contracts" | "overdue_rates" | "inactive_clients";
+  title: string;
+  detail: string;
+  count: number;
+  link: string | null;
+}
+
+/** GET /api/dashboard/alerts */
+export interface DashboardAlerts {
+  total_alerts: number;
+  critical_count: number;
+  warning_count: number;
+  info_count: number;
+  items: AlertItem[];
+}
+
 // ════════════════════════════════════════════════════════════
 // GENERIC PAGINATED RESPONSE
 // ════════════════════════════════════════════════════════════

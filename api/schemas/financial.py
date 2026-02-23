@@ -378,6 +378,38 @@ class DashboardSummary(BaseModel):
 
 
 # ════════════════════════════════════════════════════════════
+# DASHBOARD ALERTS (Warning proattivi)
+# ════════════════════════════════════════════════════════════
+
+class AlertItem(BaseModel):
+    """Singolo warning con severity, messaggio e contesto navigabile."""
+    severity: str           # "critical" | "warning" | "info"
+    category: str           # "ghost_events" | "expiring_contracts" | "overdue_rates" | "inactive_clients"
+    title: str
+    detail: str
+    count: int = 1
+    link: Optional[str] = None   # path frontend per navigazione diretta
+
+
+class DashboardAlerts(BaseModel):
+    """
+    Warning proattivi per la dashboard — rispondono a:
+    "Cosa richiede la mia attenzione ORA?"
+
+    4 categorie di alert:
+    1. ghost_events: eventi passati ancora 'Programmato' (no-show candidates)
+    2. expiring_contracts: contratti in scadenza con crediti inutilizzati
+    3. overdue_rates: rate scadute non saldate
+    4. inactive_clients: clienti attivi senza eventi da >14 giorni
+    """
+    total_alerts: int = 0
+    critical_count: int = 0
+    warning_count: int = 0
+    info_count: int = 0
+    items: List[AlertItem] = []
+
+
+# ════════════════════════════════════════════════════════════
 # RICONCILIAZIONE CONTRATTI vs LEDGER
 # ════════════════════════════════════════════════════════════
 
