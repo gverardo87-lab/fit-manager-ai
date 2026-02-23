@@ -12,7 +12,7 @@
  * Dati da 5 hook — incluso nuovo /dashboard/alerts.
  */
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Users,
@@ -47,6 +47,7 @@ import { useMovementStats } from "@/hooks/useMovements";
 import { useAgingReport } from "@/hooks/useRates";
 import { useEvents, type EventHydrated } from "@/hooks/useAgenda";
 import { formatCurrency } from "@/lib/format";
+import { GhostEventsSheet } from "@/components/dashboard/GhostEventsSheet";
 import type { DashboardSummary, MovementStats, AgingResponse, DashboardAlerts } from "@/types/api";
 
 // ── Date helpers ──
@@ -94,6 +95,9 @@ export default function DashboardPage() {
   const { data: aging } = useAgingReport();
   const { data: eventsData } = useEvents({ start: todayISO(), end: tomorrowISO() });
 
+  // Sheet state per risoluzione inline alert
+  const [ghostSheetOpen, setGhostSheetOpen] = useState(false);
+
   const todayEvents = useMemo(() => {
     if (!eventsData?.items) return [];
     const today = todayISO();
@@ -103,6 +107,11 @@ export default function DashboardPage() {
   }, [eventsData]);
 
   const isLoading = summaryLoading || statsLoading;
+
+  // Handler CTA per categoria alert
+  const alertActions: Record<string, () => void> = {
+    ghost_events: () => setGhostSheetOpen(true),
+  };
 
   return (
     <div className="space-y-6">
@@ -139,7 +148,7 @@ export default function DashboardPage() {
       {summary && stats && <KpiCards summary={summary} stats={stats} />}
 
       {/* ── Alert Panel ── */}
-      <AlertPanel alerts={alerts} isLoading={!alerts} />
+      <AlertPanel alerts={alerts} isLoading={!alerts} alertActions={alertActions} />
 
       {/* ── Due colonne: Aging + Agenda Oggi ── */}
       <div className="grid gap-6 lg:grid-cols-2">
@@ -149,6 +158,9 @@ export default function DashboardPage() {
 
       {/* ── Azioni Rapide ── */}
       <QuickActions />
+
+      {/* ── Sheet risoluzione inline ── */}
+      <GhostEventsSheet open={ghostSheetOpen} onOpenChange={setGhostSheetOpen} />
     </div>
   );
 }
@@ -333,7 +345,11 @@ const ALERT_CATEGORY_CONFIG: Record<string, {
   },
 };
 
-function AlertPanel({ alerts, isLoading }: { alerts: DashboardAlerts | undefined; isLoading: boolean }) {
+function AlertPanel({ alerts, isLoading, alertActions = {} }: {
+  alerts: DashboardAlerts | undefined;
+  isLoading: boolean;
+  alertActions?: Record<string, () => void>;
+}) {
   if (isLoading) {
     return (
       <div className="rounded-xl border p-5 space-y-3">
@@ -429,8 +445,22 @@ function AlertPanel({ alerts, isLoading }: { alerts: DashboardAlerts | undefined
                 <p className="mt-0.5 text-[11px] text-muted-foreground">{item.detail}</p>
               </div>
 
-              {/* CTA contestuale — filled per critical, outline per warning */}
-              {item.link && (
+              {/* CTA contestuale — Sheet inline o navigazione */}
+              {alertActions[item.category] ? (
+                <Button
+                  variant={isCritical ? "default" : "outline"}
+                  size="sm"
+                  className={`h-8 shrink-0 gap-1.5 text-xs font-medium ${
+                    isCritical
+                      ? "bg-red-600 text-white shadow-sm hover:bg-red-700"
+                      : ""
+                  }`}
+                  onClick={alertActions[item.category]}
+                >
+                  {catCfg.cta}
+                  <ArrowRight className="h-3 w-3" />
+                </Button>
+              ) : item.link ? (
                 <Link href={item.link}>
                   <Button
                     variant={isCritical ? "default" : "outline"}
@@ -445,7 +475,7 @@ function AlertPanel({ alerts, isLoading }: { alerts: DashboardAlerts | undefined
                     <ArrowRight className="h-3 w-3" />
                   </Button>
                 </Link>
-              )}
+              ) : null}
             </div>
           );
         })}

@@ -176,6 +176,62 @@ def get_reconciliation(
     )
 
 
+@router.get("/ghost-events")
+def get_ghost_events(
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """
+    Eventi fantasma: sessioni passate ancora in stato 'Programmato'.
+
+    Restituisce la lista completa con dati cliente per risoluzione inline
+    dalla Dashboard (Sheet con azioni 'Completata'/'Cancellata').
+
+    Ordinamento: piu' vecchi prima (urgenza decrescente).
+    """
+    today_start = datetime.combine(date.today(), datetime.min.time())
+
+    stmt = (
+        select(Event)
+        .where(
+            Event.trainer_id == trainer.id,
+            Event.data_fine < today_start,
+            Event.stato == "Programmato",
+            Event.deleted_at == None,
+        )
+        .order_by(Event.data_inizio.asc())
+    )
+    events = session.exec(stmt).all()
+
+    # Batch fetch nomi clienti (anti-N+1)
+    client_ids = {e.id_cliente for e in events if e.id_cliente}
+    clients_map: dict[int, Client] = {}
+    if client_ids:
+        clients = session.exec(
+            select(Client).where(Client.id.in_(client_ids))
+        ).all()
+        clients_map = {c.id: c for c in clients}
+
+    items = []
+    for e in events:
+        cl = clients_map.get(e.id_cliente) if e.id_cliente else None
+        items.append({
+            "id": e.id,
+            "data_inizio": e.data_inizio.isoformat() if isinstance(e.data_inizio, datetime) else str(e.data_inizio),
+            "data_fine": e.data_fine.isoformat() if isinstance(e.data_fine, datetime) else str(e.data_fine),
+            "categoria": e.categoria,
+            "titolo": e.titolo,
+            "id_cliente": e.id_cliente,
+            "id_contratto": e.id_contratto,
+            "stato": e.stato,
+            "note": e.note,
+            "cliente_nome": cl.nome if cl else None,
+            "cliente_cognome": cl.cognome if cl else None,
+        })
+
+    return {"items": items, "total": len(items)}
+
+
 @router.get("/alerts", response_model=DashboardAlerts)
 def get_dashboard_alerts(
     trainer: Trainer = Depends(get_current_trainer),
