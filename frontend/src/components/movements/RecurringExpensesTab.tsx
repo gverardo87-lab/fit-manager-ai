@@ -198,10 +198,15 @@ function PendingExpensesBanner({ anno, mese }: { anno: number; mese: number }) {
 
   const items = data?.items ?? [];
 
+  // Chiave univoca per la selezione UI: id_spesa + mese_anno_key
+  // mese_anno_key da solo non basta — piu' spese MENSILI nello stesso mese
+  // hanno la stessa key "2026-02", il Set le collasserebbe in un unico elemento.
+  const selKey = (i: PendingExpenseItem) => `${i.id_spesa}::${i.mese_anno_key}`;
+
   // Reset selezione quando cambia mese o dati
   useEffect(() => {
     if (items.length > 0) {
-      setSelected(new Set(items.map((i) => i.mese_anno_key)));
+      setSelected(new Set(items.map(selKey)));
     } else {
       setSelected(new Set());
     }
@@ -212,7 +217,7 @@ function PendingExpensesBanner({ anno, mese }: { anno: number; mese: number }) {
   const allSelected = selected.size === items.length;
   const noneSelected = selected.size === 0;
   const totaleSelezionato = items
-    .filter((i) => selected.has(i.mese_anno_key))
+    .filter((i) => selected.has(selKey(i)))
     .reduce((sum, i) => sum + i.importo, 0);
 
   const toggleItem = (key: string) => {
@@ -227,13 +232,13 @@ function PendingExpensesBanner({ anno, mese }: { anno: number; mese: number }) {
     if (allSelected) {
       setSelected(new Set());
     } else {
-      setSelected(new Set(items.map((i) => i.mese_anno_key)));
+      setSelected(new Set(items.map(selKey)));
     }
   };
 
   const handleConfirm = () => {
     const toConfirm = items
-      .filter((i) => selected.has(i.mese_anno_key))
+      .filter((i) => selected.has(selKey(i)))
       .map((i) => ({ id_spesa: i.id_spesa, mese_anno_key: i.mese_anno_key }));
     if (toConfirm.length === 0) return;
     confirmMutation.mutate(toConfirm);
@@ -251,10 +256,10 @@ function PendingExpensesBanner({ anno, mese }: { anno: number; mese: number }) {
       <div className="space-y-2">
         {items.map((item) => (
           <PendingItemRow
-            key={item.mese_anno_key}
+            key={selKey(item)}
             item={item}
-            checked={selected.has(item.mese_anno_key)}
-            onToggle={() => toggleItem(item.mese_anno_key)}
+            checked={selected.has(selKey(item))}
+            onToggle={() => toggleItem(selKey(item))}
           />
         ))}
       </div>
