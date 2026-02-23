@@ -128,7 +128,7 @@ export function GhostEventsSheet({ open, onOpenChange }: GhostEventsSheetProps) 
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="flex w-full flex-col sm:max-w-lg">
+      <SheetContent className="w-full overflow-hidden sm:max-w-lg">
         <SheetHeader>
           <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-100 dark:bg-red-900/30">
@@ -172,7 +172,7 @@ export function GhostEventsSheet({ open, onOpenChange }: GhostEventsSheetProps) 
         {/* Lista eventi */}
         {!isLoading && events.length > 0 && (
           <>
-            <ScrollArea className="flex-1 -mx-1 px-1">
+            <ScrollArea className="min-h-0 flex-1 -mx-1 px-1">
               <div className="space-y-3 pb-4">
                 {events.map((event) => {
                   const isResolving = resolving.has(event.id);
