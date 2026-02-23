@@ -500,15 +500,9 @@ function RateCard({
         </div>
       </div>
 
-      {/* ── Ricevuta pagamento (solo rate SALDATE) ── */}
-      {isSaldata && rate.data_pagamento && (
-        <div className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-          <span>
-            Pagata il {format(parseISO(rate.data_pagamento), "dd MMM yyyy", { locale: it })}
-            {rate.metodo_pagamento && ` — ${rate.metodo_pagamento}`}
-          </span>
-        </div>
+      {/* ── Storico pagamenti (PARZIALE e SALDATA) ── */}
+      {rate.pagamenti.length > 0 && (
+        <PaymentHistory rate={rate} />
       )}
 
       {/* ── Azione pagamento ── */}
@@ -617,8 +611,13 @@ function PayRateForm({
   payMutation: ReturnType<typeof usePayRate>;
   onCancel: () => void;
 }) {
-  const [importo, setImporto] = useState(rate.importo_residuo);
+  const residuo = rate.importo_residuo;
+  const [importo, setImporto] = useState(residuo);
   const [metodo, setMetodo] = useState("CONTANTI");
+
+  const isPartial = importo > 0 && importo < residuo - 0.01;
+  const exceedsResiduo = importo > residuo + 0.01;
+  const canPay = !payMutation.isPending && importo > 0 && !exceedsResiduo;
 
   const handlePay = () => {
     payMutation.mutate(
@@ -634,15 +633,45 @@ function PayRateForm({
 
   return (
     <div className="mt-3 space-y-3 rounded-lg border bg-zinc-50/80 p-4 dark:bg-zinc-800/50">
+      {/* Quick buttons */}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          className="rounded-full border px-3 py-1 text-xs font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+          onClick={() => setImporto(residuo)}
+        >
+          Tutto ({formatCurrency(residuo)})
+        </button>
+        {residuo >= 2 && (
+          <button
+            type="button"
+            className="rounded-full border px-3 py-1 text-xs font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            onClick={() => setImporto(Math.round(residuo / 2 * 100) / 100)}
+          >
+            50%
+          </button>
+        )}
+        <span className="ml-auto text-[11px] text-muted-foreground">
+          Residuo: {formatCurrency(residuo)}
+        </span>
+      </div>
+
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label className="text-xs font-medium">Importo</Label>
           <Input
             type="number"
             step="0.01"
+            min="0.01"
+            max={residuo}
             value={importo}
             onChange={(e) => setImporto(parseFloat(e.target.value) || 0)}
           />
+          {exceedsResiduo && (
+            <p className="text-[11px] text-destructive">
+              Supera il residuo di {formatCurrency(residuo)}
+            </p>
+          )}
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs font-medium">Metodo</Label>
@@ -664,13 +693,13 @@ function PayRateForm({
         <Button
           size="sm"
           onClick={handlePay}
-          disabled={payMutation.isPending || importo <= 0}
+          disabled={!canPay}
           className="flex-1"
         >
           {payMutation.isPending && (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           )}
-          Conferma Pagamento
+          {isPartial ? `Paga ${formatCurrency(importo)} (parziale)` : `Paga ${formatCurrency(importo)}`}
         </Button>
         <Button
           variant="outline"
@@ -768,6 +797,67 @@ function AddRateForm({
           Annulla
         </Button>
       </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// Storico Pagamenti — timeline cronologica per rata
+// ════════════════════════════════════════════════════════════
+
+function PaymentHistory({ rate }: { rate: Rate }) {
+  const [expanded, setExpanded] = useState(false);
+  const payments = rate.pagamenti;
+  const isSaldata = rate.stato === "SALDATA";
+
+  // Mostra max 2 pagamenti, espandibile
+  const visible = expanded ? payments : payments.slice(0, 2);
+  const hiddenCount = payments.length - 2;
+
+  return (
+    <div className="mt-2 space-y-1">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        {payments.length === 1 ? "Pagamento" : `${payments.length} Pagamenti`}
+      </p>
+      <div className="space-y-0.5">
+        {visible.map((p) => (
+          <div
+            key={p.id}
+            className="flex items-center gap-1.5 text-[11px] text-muted-foreground"
+          >
+            <CheckCircle2 className={`h-3 w-3 shrink-0 ${
+              isSaldata ? "text-emerald-500" : "text-amber-500"
+            }`} />
+            <span className="tabular-nums font-semibold">
+              {formatCurrency(p.importo)}
+            </span>
+            {p.metodo && (
+              <span className="text-muted-foreground/70">{p.metodo}</span>
+            )}
+            <span className="ml-auto shrink-0">
+              {format(parseISO(p.data_pagamento), "dd MMM yyyy", { locale: it })}
+            </span>
+          </div>
+        ))}
+      </div>
+      {hiddenCount > 0 && !expanded && (
+        <button
+          type="button"
+          className="text-[11px] text-primary hover:underline"
+          onClick={() => setExpanded(true)}
+        >
+          Mostra altr{hiddenCount === 1 ? "o" : "i"} {hiddenCount}
+        </button>
+      )}
+      {/* Totale versato / previsto */}
+      {payments.length > 1 && (
+        <div className="flex items-center gap-1 border-t pt-1 text-[11px] text-muted-foreground">
+          <span>Totale versato:</span>
+          <span className="tabular-nums font-semibold">
+            {formatCurrency(rate.importo_saldato)} / {formatCurrency(rate.importo_previsto)}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

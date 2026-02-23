@@ -170,13 +170,25 @@ class RatePayment(BaseModel):
         return v
 
 
+class RatePaymentReceipt(BaseModel):
+    """Singolo pagamento registrato per una rata (da CashMovement)."""
+    id: int
+    importo: float
+    metodo: Optional[str] = None
+    data_pagamento: date
+    note: Optional[str] = None
+
+
 class RateResponse(BaseModel):
     """
     Response model per singola rata.
 
-    Campi ricevuta (opzionali, popolati solo per rate SALDATE):
-    - data_pagamento: data effettiva del pagamento (da CashMovement)
-    - metodo_pagamento: metodo usato (CONTANTI, POS, etc.)
+    Campi ricevuta (opzionali, ultimo pagamento — backward-compat):
+    - data_pagamento: data effettiva dell'ultimo pagamento
+    - metodo_pagamento: metodo usato nell'ultimo pagamento
+
+    Storico completo:
+    - pagamenti: lista cronologica di tutti i pagamenti sulla rata
 
     Campi computati (calcolati nel router, mai dal frontend):
     - importo_residuo: quanto manca per saldare questa rata
@@ -192,6 +204,7 @@ class RateResponse(BaseModel):
     importo_saldato: float = 0
     data_pagamento: Optional[date] = None
     metodo_pagamento: Optional[str] = None
+    pagamenti: List[RatePaymentReceipt] = []
 
     # ── Computed (calcolati nel router) ──
     importo_residuo: float = 0

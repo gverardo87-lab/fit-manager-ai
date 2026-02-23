@@ -26,7 +26,8 @@ from api.models.movement import CashMovement
 from api.models.event import Event
 from api.schemas.financial import (
     ContractCreate, ContractUpdate,
-    ContractResponse, ContractListResponse, ContractWithRatesResponse, RateResponse,
+    ContractResponse, ContractListResponse, ContractWithRatesResponse,
+    RateResponse, RatePaymentReceipt,
 )
 from api.routers._audit import log_audit
 
@@ -48,7 +49,7 @@ def _to_response(contract: Contract) -> ContractResponse:
 def _to_response_with_rates(
     contract: Contract,
     rates: list[Rate],
-    receipt_map: dict[int, CashMovement] | None = None,
+    receipt_map: dict[int, list[CashMovement]] | None = None,
     credit_breakdown: dict[str, int] | None = None,
 ) -> ContractWithRatesResponse:
     """
@@ -57,8 +58,8 @@ def _to_response_with_rates(
     Unica fonte di verita' per tutti i valori finanziari.
     Il frontend legge i campi, non calcola nulla.
 
-    receipt_map: {rate_id: ultimo CashMovement PAGAMENTO_RATA} per arricchire
-    le rate SALDATE con data_pagamento e metodo_pagamento.
+    receipt_map: {rate_id: [CashMovement, ...]} — storico pagamenti per ogni rata,
+    ordinato cronologicamente (piu' vecchio prima).
     """
     today = date.today()
 
@@ -73,11 +74,24 @@ def _to_response_with_rates(
     for r in rates:
         rate_data = RateResponse.model_validate(r).model_dump()
 
-        # Ricevuta pagamento
-        if receipt_map and r.id in receipt_map:
-            mov = receipt_map[r.id]
-            rate_data["data_pagamento"] = mov.data_effettiva
-            rate_data["metodo_pagamento"] = mov.metodo
+        # Storico pagamenti (tutti i CashMovement di questa rata)
+        movements = receipt_map.get(r.id, []) if receipt_map else []
+        if movements:
+            # Ultimo pagamento per backward-compat
+            last = movements[-1]
+            rate_data["data_pagamento"] = last.data_effettiva
+            rate_data["metodo_pagamento"] = last.metodo
+            # Lista completa cronologica
+            rate_data["pagamenti"] = [
+                RatePaymentReceipt(
+                    id=m.id,
+                    importo=m.importo,
+                    metodo=m.metodo,
+                    data_pagamento=m.data_effettiva,
+                    note=m.note,
+                ).model_dump()
+                for m in movements
+            ]
 
         # Campi computati per singola rata
         rate_data["importo_residuo"] = round(r.importo_previsto - r.importo_saldato, 2)
@@ -296,22 +310,21 @@ def get_contract(
         ).order_by(Rate.data_scadenza)
     ).all())
 
-    # Batch fetch ricevute pagamento per rate SALDATE (1 query, zero N+1)
-    saldata_ids = [r.id for r in rates if r.stato == "SALDATA"]
-    receipt_map: dict[int, CashMovement] = {}
-    if saldata_ids:
+    # Batch fetch storico pagamenti per TUTTE le rate con id_rata (1 query, zero N+1)
+    rate_ids = [r.id for r in rates]
+    receipt_map: dict[int, list[CashMovement]] = {}
+    if rate_ids:
         movements = session.exec(
             select(CashMovement).where(
-                CashMovement.id_rata.in_(saldata_ids),
+                CashMovement.id_rata.in_(rate_ids),
                 CashMovement.tipo == "ENTRATA",
                 CashMovement.trainer_id == trainer.id,
                 CashMovement.deleted_at == None,
-            ).order_by(CashMovement.data_effettiva.desc())
+            ).order_by(CashMovement.data_effettiva.asc())
         ).all()
-        # Per ogni rata, prendi il pagamento piu' recente
         for mov in movements:
-            if mov.id_rata and mov.id_rata not in receipt_map:
-                receipt_map[mov.id_rata] = mov
+            if mov.id_rata:
+                receipt_map.setdefault(mov.id_rata, []).append(mov)
 
     # Credit breakdown: PT events GROUP BY stato (1 query)
     credit_breakdown: dict[str, int] = {}

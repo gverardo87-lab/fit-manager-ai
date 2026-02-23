@@ -259,6 +259,15 @@ export interface RatePayment {
   note?: string | null;
 }
 
+/** Singolo pagamento registrato su una rata (da CashMovement) */
+export interface RatePaymentReceipt {
+  id: number;
+  importo: number;
+  metodo: string | null;
+  data_pagamento: string; // ISO date
+  note: string | null;
+}
+
 /** RateResponse — restituito da GET/POST/PUT/PAY */
 export interface Rate {
   id: number;
@@ -268,8 +277,9 @@ export interface Rate {
   descrizione: string | null;
   stato: string;
   importo_saldato: number;
-  data_pagamento: string | null;   // Ricevuta: data effettiva pagamento
-  metodo_pagamento: string | null; // Ricevuta: metodo usato (CONTANTI, POS, etc.)
+  data_pagamento: string | null;   // Ultimo pagamento (backward-compat)
+  metodo_pagamento: string | null; // Ultimo pagamento (backward-compat)
+  pagamenti: RatePaymentReceipt[]; // Storico completo cronologico
   // Computed dal backend
   importo_residuo: number;
   is_scaduta: boolean;

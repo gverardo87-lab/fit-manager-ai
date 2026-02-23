@@ -172,3 +172,91 @@ def test_exact_residual_payment_accepted(client, auth_headers, sample_contract_w
     }, headers=auth_headers)
     assert r.status_code == 200
     assert r.json()["stato"] == "SALDATA"
+
+
+# ════════════════════════════════════════════════════════════
+# STORICO PAGAMENTI (G2 — enrichment via GET contract detail)
+# ════════════════════════════════════════════════════════════
+
+
+def test_partial_payment_history(client, auth_headers, sample_contract_with_plan):
+    """Due pagamenti parziali su una rata -> storico con 2 voci cronologiche."""
+    contract = sample_contract_with_plan["contract"]
+    rate = sample_contract_with_plan["rates"][0]
+
+    # Primo pagamento parziale: €50 CONTANTI
+    r1 = client.post(f"/api/rates/{rate['id']}/pay", json={
+        "importo": 50.0,
+        "metodo": "CONTANTI",
+        "data_pagamento": "2026-02-10",
+    }, headers=auth_headers)
+    assert r1.status_code == 200
+    assert r1.json()["stato"] == "PARZIALE"
+
+    # Secondo pagamento parziale: €100 POS
+    r2 = client.post(f"/api/rates/{rate['id']}/pay", json={
+        "importo": 100.0,
+        "metodo": "POS",
+        "data_pagamento": "2026-02-15",
+    }, headers=auth_headers)
+    assert r2.status_code == 200
+    assert r2.json()["stato"] == "PARZIALE"
+
+    # GET contract detail (enrichment con receipt_map → pagamenti)
+    cr = client.get(f"/api/contracts/{contract['id']}", headers=auth_headers)
+    assert cr.status_code == 200
+
+    # Trova la rata pagata
+    target = next(r for r in cr.json()["rate"] if r["id"] == rate["id"])
+
+    # Storico: 2 pagamenti con importi e metodi corretti
+    assert len(target["pagamenti"]) == 2
+    assert target["pagamenti"][0]["importo"] == 50.0
+    assert target["pagamenti"][0]["metodo"] == "CONTANTI"
+    assert target["pagamenti"][1]["importo"] == 100.0
+    assert target["pagamenti"][1]["metodo"] == "POS"
+
+    # Ordine cronologico (data_pagamento ASC)
+    assert target["pagamenti"][0]["data_pagamento"] <= target["pagamenti"][1]["data_pagamento"]
+
+    # Backward-compat: data_pagamento e metodo_pagamento = ultimo pagamento
+    assert target["data_pagamento"] == "2026-02-15"
+    assert target["metodo_pagamento"] == "POS"
+
+
+def test_full_payment_history_three_installments(client, auth_headers, sample_contract_with_plan):
+    """Tre pagamenti parziali fino a SALDATA -> storico completo con 3 voci."""
+    contract = sample_contract_with_plan["contract"]
+    rate = sample_contract_with_plan["rates"][0]
+    previsto = rate["importo_previsto"]  # 200.0
+
+    # Pagamento 1: €80
+    client.post(f"/api/rates/{rate['id']}/pay", json={
+        "importo": 80.0, "metodo": "CONTANTI", "data_pagamento": "2026-03-01",
+    }, headers=auth_headers)
+
+    # Pagamento 2: €70
+    client.post(f"/api/rates/{rate['id']}/pay", json={
+        "importo": 70.0, "metodo": "POS", "data_pagamento": "2026-03-10",
+    }, headers=auth_headers)
+
+    # Pagamento 3: €50 (residuo esatto)
+    r3 = client.post(f"/api/rates/{rate['id']}/pay", json={
+        "importo": 50.0, "metodo": "BONIFICO", "data_pagamento": "2026-03-20",
+    }, headers=auth_headers)
+    assert r3.status_code == 200
+    assert r3.json()["stato"] == "SALDATA"
+
+    # GET contract detail
+    cr = client.get(f"/api/contracts/{contract['id']}", headers=auth_headers)
+    target = next(r for r in cr.json()["rate"] if r["id"] == rate["id"])
+
+    # 3 pagamenti, somma = importo_previsto
+    assert len(target["pagamenti"]) == 3
+    total = sum(p["importo"] for p in target["pagamenti"])
+    assert total == previsto
+
+    # Ogni pagamento ha un id valido (CashMovement.id)
+    for p in target["pagamenti"]:
+        assert p["id"] > 0
+        assert p["data_pagamento"] is not None
