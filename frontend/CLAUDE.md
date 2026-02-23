@@ -24,6 +24,9 @@ frontend/src/
 │   ├── contracts/           Componenti dominio contratti (PaymentPlanTab con
 │   │                        RateCard, PayRateForm, PaymentHistory, AddRateForm)
 │   ├── agenda/              Componenti dominio agenda/calendario
+│   │                        (AgendaCalendar, CustomToolbar, CustomEvent,
+│   │                         EventHoverCard, EventSheet, EventForm,
+│   │                         DeleteEventDialog, calendar-setup.ts)
 │   ├── dashboard/           Componenti dashboard (GhostEventsSheet, OverdueRatesSheet,
 │   │                        ExpiringContractsSheet, InactiveClientsSheet)
 │   ├── movements/           Componenti dominio cassa (MovementsTable, MovementSheet,
@@ -194,6 +197,7 @@ Token in cookie `fitmanager_token` (8h expiry). Trainer data in `fitmanager_trai
 | React `key={nonUniqueValue}` | Duplica render, stato condiviso tra componenti | Sempre key univoca per item |
 | Invalidation asimmetrica | `usePayRate` mancava movements/stats → KPI stale dopo pagamento | Operazioni inverse: stesse invalidazioni |
 | ScrollArea in flex senza `min-h-0` | Flex item non puo' ridursi sotto la dimensione del contenuto | `min-h-0 flex-1` su ScrollArea + `overflow-hidden` su container |
+| Popup inside `.rbc-event` | `overflow:hidden` su `.rbc-event` clippava popup absolute-positioned | `createPortal(popup, document.body)` + `position:fixed` + `getBoundingClientRect()` |
 
 ## Esperienza Utente — Principi Frontend
 
@@ -253,6 +257,48 @@ La pagina Cassa ha un visual premium ispirato ai CRM leader (HubSpot, Salesforce
 **Hook**: `useForecast(mesi)` in `useMovements.ts` — query key `["forecast", { mesi }]`
 **Types**: `ForecastResponse`, `ForecastMonthData`, `ForecastTimelineItem`, `ForecastKpi`
 **Pattern**: stessi gradient card e tooltip custom del resto della pagina Cassa
+
+## Agenda Page (Calendario Interattivo)
+
+react-big-calendar v1.19.4 con drag & drop, resize, colori categoria×stato, credit guard.
+
+### Architettura componenti
+- **AgendaCalendar**: wrapper `withDragAndDrop(Calendar)` con controlled state (date + view)
+- **CustomToolbar**: toolbar shadcn/ui con icone vista, "Oggi" con dot indicator, navigazione
+- **CustomEvent**: renderizza label evento (nome cliente per PT, titolo per altri), wrappa in `EventHoverCard`
+- **EventHoverCard**: popup su hover via `createPortal` → `document.body` (escape `overflow:hidden` di `.rbc-event`)
+- **EventSheet**: sheet CRUD completo (EventForm + DeleteEventDialog)
+- **calendar-setup.ts**: localizer, messaggi italiani, stili colore categoria×stato, mapping `EventHydrated → CalendarEvent`
+
+### Pattern: QuickActionProvider (React Context)
+react-big-calendar non supporta custom props sui componenti evento.
+Soluzione: `QuickActionContext` iniettato da `AgendaCalendar` → consumato da `CustomEvent` → passato a `EventHoverCard`.
+```typescript
+const QuickActionContext = createContext<QuickActionFn | undefined>(undefined);
+// AgendaCalendar wrappa in <QuickActionProvider onQuickAction={...}>
+// CustomEvent consuma con useContext(QuickActionContext)
+```
+
+### Pattern: createPortal per popup in react-big-calendar
+`.rbc-event` ha `overflow: hidden`. Qualsiasi popup positioned inside viene clippato.
+`EventHoverCard` usa `createPortal(popup, document.body)` con:
+- `getBoundingClientRect()` per posizione relativa al trigger
+- `position: fixed` + `z-index: 9999`
+- Viewport bounds checking (8px margine da bordi)
+- Hover delay: 350ms enter, 200ms leave (con cleanup refs)
+
+### Page features (page.tsx)
+- **FilterBar**: chip interattivi per categoria (`Set<string>` toggle on/off), Eye/EyeOff icon
+- **WeeklyStatsBar**: 4 KPI config-driven (Sessioni, Completate, Programmate, Tasso %)
+- **BulkCompleteBanner**: banner ambra per eventi passati ancora "Programmato" + "Completa tutte" con `Promise.allSettled`
+- **Quick Actions**: hover card con Completa/Rinvia/Cancella 1-click (no sheet)
+
+### CSS Overrides (globals.css)
+```css
+.rbc-current-time-indicator { background-color: #ef4444; height: 2px; }
+.rbc-event:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.15); transform: translateY(-1px); }
+.rbc-today { background-color: oklch(0.97 0.01 250) !important; }
+```
 
 ## Build
 

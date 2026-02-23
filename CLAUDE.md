@@ -146,6 +146,7 @@ Errori reali trovati e corretti. MAI ripeterli.
 | Auto-close senza auto-reopen eventi | Contratto chiuso restava bloccato dopo delete/cancel eventi | `_sync_contract_chiuso()` simmetrico su create/delete/update |
 | Seed atomico crash a meta' | Transazione unica → rollback → DB vuoto → login impossibile | Validare i dati PRIMA del commit (es. date overflow) |
 | Invalidation asimmetrica pay/unpay | `usePayRate` mancava `["movements"]`, `["movement-stats"]` | Operazioni inverse DEVONO avere invalidazione identica |
+| Popup inside `.rbc-event` | `overflow:hidden` clippava popup absolute-positioned | `createPortal(popup, document.body)` + `position:fixed` |
 
 ---
 
@@ -229,7 +230,7 @@ ollama list
 ## Metriche Progetto
 
 - **api/**: ~5,500 LOC Python — 8 modelli ORM, 9 router, 1 schema module
-- **frontend/**: ~14,600 LOC TypeScript — 60 componenti, 8 hook modules, 7 pagine
+- **frontend/**: ~15,500 LOC TypeScript — 62 componenti, 8 hook modules, 6 pagine
 - **core/**: ~11,100 LOC Python — moduli AI (workout, RAG, DNA) in attesa di API endpoints
 - **DB**: 19 tabelle SQLite, FK enforced, multi-tenant via trainer_id
 - **Test**: 60 pytest + 67 E2E
