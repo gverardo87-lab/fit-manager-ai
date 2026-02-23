@@ -95,7 +95,7 @@ event_counts = session.exec(select(Event.id_contratto, func.count(...)).group_by
 ### Contract Integrity Engine
 Il contratto e' il nodo centrale del sistema. 5 livelli di protezione:
 
-1. **Residual validation** (`create_rate`): `sum(rate attive) + nuova ≤ prezzo - acconto`
+1. **Residual validation** (`create_rate`, `update_rate`): `sum(rate attive) + nuova ≤ prezzo - totale_versato`
 2. **Chiuso guard**: `create_rate`, `generate_payment_plan`, `create_event(id_contratto)`
    rifiutano operazioni su contratti chiusi (400)
 3. **Overpayment check** (`pay_rate`):
@@ -104,6 +104,8 @@ Il contratto e' il nodo centrale del sistema. 5 livelli di protezione:
 4. **Auto-close**: se `stato_pagamento == SALDATO` + `crediti_usati >= crediti_totali`
    → `chiuso = True` (trigger in `pay_rate` e `create_event`)
 5. **Auto-reopen**: `unpay_rate` riapre se non piu' SALDATO (`chiuso = False`)
+6. **Delete guard**: contratto eliminabile solo se zero rate non-saldate + zero crediti residui.
+   CASCADE: soft-delete rate SALDATE + tutti CashMovement + detach eventi
 
 ### Idempotent Sync Engine
 `sync_recurring_expenses_for_month()`: genera CashMovement per spese ricorrenti.
@@ -139,9 +141,9 @@ Il libro mastro (`movimenti_cassa`) e' sacro:
 Tutte le tabelle business hanno `deleted_at: Optional[datetime]`.
 - SELECT: filtrano sempre `deleted_at == None`
 - DELETE: impostano `deleted_at = datetime.now(timezone.utc)`
-- Delete contratto: RESTRICT se rate non-saldate o crediti residui (409)
+- Delete contratto: RESTRICT se rate non-saldate o crediti residui (409).
   CASCADE: soft-delete rate SALDATE + tutti CashMovement + detach eventi
-- Restrict: delete cliente bloccato se ha contratti attivi (chiuso=False, non eliminati)
+- Delete cliente: RESTRICT se ha contratti attivi (chiuso=False, non eliminati)
 - Sync engine: il NOT EXISTS filtra `AND deleted_at IS NULL`
 - UNIQUE index: `uq_recurring_per_month` esclude record con `deleted_at IS NOT NULL`
 
@@ -157,7 +159,7 @@ Tabella `audit_log` + helper `log_audit()` in `api/routers/_audit.py`.
 
 Due famiglie di test:
 
-**pytest** (`tests/` — 48 test):
+**pytest** (`tests/` — 52 test):
 - DB SQLite in-memory, isolamento totale (StaticPool)
 - `test_pay_rate.py` (10): pagamento atomico, overpayment, deep IDOR
 - `test_unpay_rate.py` (4): revoca pagamento, decrements, soft delete movement
@@ -165,6 +167,7 @@ Due famiglie di test:
 - `test_soft_delete_integrity.py` (5): delete blocked with rates, restrict, stats filtrate
 - `test_sync_recurring.py` (4): idempotenza, disabled, resync
 - `test_contract_integrity.py` (16): residual, chiuso guard, auto-close, delete guards + cascade
+- `test_aging_report.py` (4): bucket assignment, exclude saldate/chiusi, empty zeroes
 - Run: `pytest tests/ -v`
 
 **E2E** (`tools/admin_scripts/test_*.py`):

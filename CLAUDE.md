@@ -79,11 +79,12 @@ Se qualsiasi step fallisce → rollback automatico. Tutto o niente.
 
 ### 3b. Contract Integrity Engine (Backend)
 Il contratto e' l'entita' centrale: collega pagamenti, crediti, sessioni.
-- **Residual validation**: `create_rate` verifica che `sum(rate) ≤ prezzo - acconto`
+- **Residual validation**: `create_rate` e `update_rate` verificano che `sum(rate) ≤ prezzo - totale_versato`
 - **Chiuso guard**: rate, piani, eventi bloccati su contratti chiusi
 - **Auto-close**: contratto diventa `chiuso=True` quando SALDATO + crediti esauriti
 - **Auto-reopen**: `unpay_rate` riapre automaticamente se non piu' SALDATO
 - **Overpayment check**: `pay_rate` verifica sia rata-level che contract-level
+- **Delete guard**: contratto eliminabile solo se zero rate non-saldate + zero crediti residui
 
 ### 4. React Query + Toast (Frontend)
 Ogni hook: `useQuery` per lettura, `useMutation` per scrittura.
@@ -159,7 +160,7 @@ alembic upgrade head          # applica migrazioni pendenti
 alembic revision -m "desc"    # crea nuova migrazione
 alembic current               # mostra versione corrente
 
-# Test (pytest — 48 test, tutti i domini)
+# Test (pytest — 52 test, tutti i domini)
 pytest tests/ -v
 
 # Test (E2E — richiede server avviato)
@@ -183,11 +184,11 @@ ollama list
 
 ## Metriche Progetto
 
-- **api/**: ~3,700 LOC Python — 8 modelli ORM, 9 router, 1 schema module
-- **frontend/**: ~10,400 LOC TypeScript — 51 componenti, 7 hook modules, 6 pagine
+- **api/**: ~4,700 LOC Python — 8 modelli ORM, 9 router, 1 schema module
+- **frontend/**: ~11,700 LOC TypeScript — 55 componenti, 8 hook modules, 6 pagine
 - **core/**: ~11,100 LOC Python — moduli AI (workout, RAG, DNA) in attesa di API endpoints
-- **DB**: 19 tabelle SQLite, FK enforced, multi-tenant via trainer_id
-- **Test**: 48 pytest + 67 E2E
+- **DB**: 20 tabelle SQLite, FK enforced, multi-tenant via trainer_id
+- **Test**: 52 pytest + 67 E2E
 - **Sicurezza**: JWT auth, bcrypt, Deep Relational IDOR, 3-layer route protection
 - **Cloud**: 0 dipendenze, 0 dati verso terzi
 

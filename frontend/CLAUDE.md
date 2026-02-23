@@ -13,7 +13,7 @@ frontend/src/
 │   │   ├── clienti/         Pagina clienti
 │   │   ├── contratti/       Pagina contratti
 │   │   ├── agenda/          Pagina agenda/calendario
-│   │   └── cassa/           Pagina libro mastro
+│   │   ├── cassa/           Pagina Cassa (4 tab: Libro Mastro, Spese Fisse, Entrate & Uscite, Scadenze)
 │   ├── login/page.tsx       Login pubblico
 │   └── layout.tsx           Root layout (Providers, fonts)
 ├── components/
@@ -22,7 +22,9 @@ frontend/src/
 │   ├── clients/             Componenti dominio clienti
 │   ├── contracts/           Componenti dominio contratti
 │   ├── agenda/              Componenti dominio agenda/calendario
-│   ├── movements/           Componenti dominio cassa
+│   ├── movements/           Componenti dominio cassa (MovementsTable, MovementSheet,
+│   │                        DeleteMovementDialog, RecurringExpensesTab, SplitLedgerView,
+│   │                        AdvancedFilters, LedgerColumn, AgingReport)
 │   └── ui/                  shadcn/ui primitives
 ├── hooks/                   React Query hooks (1 per dominio)
 ├── lib/
@@ -54,6 +56,7 @@ Ogni mutation: `invalidateQueries` sulle key correlate + `toast.success/error`.
 ["contracts", { page, idCliente }]  // lista filtrata
 ["contract", contractId]             // dettaglio con rate
 ["movements", { anno, mese }]       // lista mensile
+["aging-report"]                     // orizzonte finanziario (scadenze)
 ["dashboard"]                        // KPI aggregati
 ```
 
@@ -143,7 +146,7 @@ npm run dev       # Dev server con hot reload
 ```
 next 16.1, react 19.2, typescript 5
 @tanstack/react-query 5 (server state)
-react-hook-form 7 + zod 4 (form validation)
+react-hook-form 7 + zod 3 (form validation — NON zod/v4)
 axios 1.13 (HTTP client)
 date-fns 4 (date formatting)
 recharts 2 (charts)
