@@ -6,8 +6,8 @@ FastAPI + SQLModel + SQLite (PostgreSQL-ready). Multi-tenant via JWT.
 
 ```
 api/
-├── main.py              App factory, CORS, migrations, router registration
-├── config.py            DATABASE_URL, JWT_SECRET, API_PREFIX
+├── main.py              App factory, CORS (multi-origin), migrations, router registration
+├── config.py            DATABASE_URL (env-driven), JWT_SECRET, API_PREFIX
 ├── database.py          SQLModel engine + session factory
 ├── dependencies.py      get_current_trainer() → JWT validation
 ├── auth/
@@ -31,7 +31,7 @@ api/
 │   ├── movements.py     Ledger + pending/confirm + forecast proiezione
 │   ├── recurring_expenses.py  CRUD spese fisse
 │   ├── dashboard.py     KPI + alerts + inline resolution endpoints (7 GET)
-│   └── backup.py        Backup/Restore/Export (5 endpoint)
+│   └── backup.py        Backup/Restore/Export (5 endpoint, DB_PATH da DATABASE_URL)
 └── schemas/
     └── financial.py     Contract/Rate/Movement/Dashboard/PaymentReceipt DTOs
 ```

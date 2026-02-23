@@ -193,6 +193,7 @@ Approccio mobile-first con breakpoints Tailwind (`sm:`, `md:`, `lg:`). Zero libr
 | Calendar viewport | `minHeight: "calc(100vh - 280px)"` | AgendaCalendar |
 | Toolbar flex-wrap | `flex-wrap` + `order-` per riordino mobile | CustomToolbar |
 | Login card | `max-w-sm sm:max-w-md` | login/page.tsx |
+| Backup table compact | `hidden sm:table-cell` su Dimensione/Data + azioni icon-only | impostazioni/page.tsx |
 
 ### CSS mobile overrides (globals.css)
 ```css
@@ -370,6 +371,18 @@ I KPI e l'header usano `visibleEvents` che filtra per range + categoria + stato.
 npx next build   # OBBLIGATORIO prima di ogni commit — zero errori TS
 npm run dev       # Dev server con hot reload
 ```
+
+### Dual Instance (sviluppo parallelo a produzione)
+
+`next.config.ts` supporta `NEXT_DIST_DIR` per separare la cache:
+```bash
+# Produzione (Chiara):  .next (default)
+npm run dev -- -H 0.0.0.0 -p 3000
+
+# Sviluppo (gvera):     .next-dev (cache separata)
+$env:NEXT_DIST_DIR=".next-dev"; $env:NEXT_PUBLIC_API_URL="http://localhost:8001"; npm run dev -- -p 3001
+```
+`.next-dev/` e' in `.gitignore`. Vedi root `CLAUDE.md` per architettura dual DB completa.
 
 ## Dipendenze chiave
 

@@ -122,6 +122,7 @@ knowledge_base/documents/*
 # Dev environment files
 .env.dev
 .env.local
+frontend/.next-dev/
 
 # --- NOSTRE REGOLE CUSTOM ---
 

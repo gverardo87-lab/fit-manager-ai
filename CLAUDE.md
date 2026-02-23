@@ -190,14 +190,43 @@ Ogni feature segue 4 step in ordine. Il codice non passa al successivo finche' i
 
 ---
 
+## Architettura Dual DB (Produzione + Sviluppo)
+
+Due istanze completamente isolate: DB diversi, porte diverse, dati diversi.
+Le modifiche al codice con `--reload` si propagano a entrambe.
+
+```
+PRODUZIONE (Chiara — sempre acceso):
+  uvicorn api.main:app --host 0.0.0.0 --port 8000       → data/crm.db
+  cd frontend && npm run dev -- -H 0.0.0.0 -p 3000      → .env.local punta a :8000
+  Chiara accede da: http://192.168.1.23:3000
+
+SVILUPPO (gvera — accende quando serve):
+  $env:DATABASE_URL="sqlite:///data/crm_dev.db"; uvicorn api.main:app --reload --port 8001
+  $env:NEXT_DIST_DIR=".next-dev"; $env:NEXT_PUBLIC_API_URL="http://localhost:8001"; npm run dev -- -p 3001
+  gvera accede da: http://localhost:3001
+```
+
+**Regole**:
+- `crm.db` = dati reali di Chiara. MAI toccare con seed/reset.
+- `crm_dev.db` = dati di test (50 clienti). Libero per esperimenti.
+- `seed_dev.py` forza `DATABASE_URL` PRIMA degli import → sicuro.
+- `backup.py` usa `DATABASE_URL` dinamico → opera sempre sul DB attivo.
+- `next.config.ts` supporta `NEXT_DIST_DIR` per cache separata (`.next` vs `.next-dev`).
+- CORS in `api/main.py` include `:3000`, `:3001`, `:5173`, `192.168.1.23:3000`.
+
+---
+
 ## Comandi
 
 ```bash
-# Backend API
-uvicorn api.main:app --reload --port 8000
+# ── Produzione (Chiara) ──
+uvicorn api.main:app --host 0.0.0.0 --port 8000
+cd frontend && npm run dev -- -H 0.0.0.0 -p 3000
 
-# Frontend React
-cd frontend && npm run dev
+# ── Sviluppo (gvera, PowerShell) ──
+$env:DATABASE_URL="sqlite:///data/crm_dev.db"; uvicorn api.main:app --reload --port 8001
+$env:NEXT_DIST_DIR=".next-dev"; $env:NEXT_PUBLIC_API_URL="http://localhost:8001"; npm run dev -- -p 3001
 
 # Build check (OBBLIGATORIO prima di ogni commit)
 cd frontend && npx next build
@@ -221,9 +250,11 @@ python tools/admin_scripts/test_ledger_dashboard.py
 # GET  /api/backup/export     (JSON dati trainer)
 
 # Reset & Seed (FERMA il server API prima!)
-python tools/admin_scripts/reset_and_seed.py       # 10 clienti, dati base
-python -m tools.admin_scripts.seed_realistic        # 50 clienti, 1 anno realistico
-# Credenziali: chiarabassani96@gmail.com / Fitness2026!
+python tools/admin_scripts/reset_production.py      # DB pulito con solo Chiara (produzione)
+python -m tools.admin_scripts.seed_dev              # 50 clienti su crm_dev.db (sviluppo)
+python -m tools.admin_scripts.seed_realistic        # 50 clienti su DB attivo (attenzione!)
+# Credenziali prod: chiarabassani96@gmail.com / chiarabassani
+# Credenziali dev:  chiarabassani96@gmail.com / Fitness2026!
 
 # Database
 sqlite3 data/crm.db ".tables"
