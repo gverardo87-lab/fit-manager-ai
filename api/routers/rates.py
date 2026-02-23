@@ -69,6 +69,37 @@ def _bouncer_rate(session: Session, rate_id: int, trainer_id: int) -> Rate:
     return rate
 
 
+def _cap_rateizzabile(session: Session, contract: Contract, exclude_rate_id: int | None = None) -> float:
+    """
+    Calcola lo spazio disponibile per rate su un contratto.
+
+    Formula: cap = prezzo_totale - acconto_effettivo
+    Dove: acconto_effettivo = totale_versato - sum(importo_saldato di tutte le rate)
+
+    Questo esclude i pagamenti rate dal calcolo del cap, evitando il
+    double-counting quando rate pagate hanno importo_previsto > 0.
+    """
+    # Somma importo_previsto delle rate attive (esclusa eventuale rate corrente)
+    previsto_query = select(func.coalesce(func.sum(Rate.importo_previsto), 0)).where(
+        Rate.id_contratto == contract.id, Rate.deleted_at == None,
+    )
+    if exclude_rate_id:
+        previsto_query = previsto_query.where(Rate.id != exclude_rate_id)
+    somma_previsto = float(session.exec(previsto_query).one())
+
+    # Acconto effettivo = totale_versato - pagamenti rate (evita double-counting)
+    somma_saldato = float(session.exec(
+        select(func.coalesce(func.sum(Rate.importo_saldato), 0)).where(
+            Rate.id_contratto == contract.id, Rate.deleted_at == None,
+        )
+    ).one())
+    acconto = max(0, round((contract.totale_versato or 0) - somma_saldato, 2))
+    cap = round((contract.prezzo_totale or 0) - acconto, 2)
+    spazio = round(cap - somma_previsto, 2)
+
+    return spazio
+
+
 def _bouncer_contract(session: Session, contract_id: int, trainer_id: int) -> Contract:
     """
     Bouncer diretto su Contract: verifica trainer_id.
@@ -280,17 +311,10 @@ def create_rate(
             detail="Impossibile aggiungere rate a un contratto chiuso",
         )
 
-    # Validazione residuo: somma rate attive + nuova <= prezzo - totale_versato
+    # Validazione residuo: importo non supera lo spazio disponibile
     if contract.prezzo_totale:
-        somma_rate_attive = session.exec(
-            select(func.coalesce(func.sum(Rate.importo_previsto), 0)).where(
-                Rate.id_contratto == data.id_contratto,
-                Rate.deleted_at == None,
-            )
-        ).one()
-        cap = round((contract.prezzo_totale or 0) - (contract.totale_versato or 0), 2)
-        spazio = round(cap - float(somma_rate_attive), 2)
-        if round(float(somma_rate_attive) + data.importo_previsto, 2) > cap + 0.01:
+        spazio = _cap_rateizzabile(session, contract)
+        if data.importo_previsto > spazio + 0.01:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"Importo ({data.importo_previsto:.2f}) eccede il residuo rateizzabile ({max(0, spazio):.2f})",
@@ -312,7 +336,7 @@ def create_rate(
 
 
 # ════════════════════════════════════════════════════════════
-# PUT: Aggiorna rata (solo PENDENTI)
+# PUT: Aggiorna rata (tutte le rate)
 # ════════════════════════════════════════════════════════════
 
 @router.put("/{rate_id}", response_model=RateResponse)
@@ -349,17 +373,9 @@ def update_rate(
     if "importo_previsto" in update_data:
         contract = session.get(Contract, rate.id_contratto)
         if contract and contract.prezzo_totale:
-            somma_altre = session.exec(
-                select(func.coalesce(func.sum(Rate.importo_previsto), 0)).where(
-                    Rate.id_contratto == rate.id_contratto,
-                    Rate.id != rate.id,
-                    Rate.deleted_at == None,
-                )
-            ).one()
-            cap = round((contract.prezzo_totale or 0) - (contract.totale_versato or 0), 2)
-            nuovo_totale = round(float(somma_altre) + update_data["importo_previsto"], 2)
-            if nuovo_totale > cap + 0.01:
-                spazio = round(cap - float(somma_altre), 2)
+            # Spazio disponibile escludendo questa rata
+            spazio = _cap_rateizzabile(session, contract, exclude_rate_id=rate.id)
+            if update_data["importo_previsto"] > spazio + 0.01:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail=f"Importo ({update_data['importo_previsto']:.2f}) eccede il "

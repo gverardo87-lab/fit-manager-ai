@@ -1,12 +1,11 @@
-"""Test rate guards — immutabilita' rate con pagamenti + validazione residuo."""
+"""Test rate guards — modifica flessibile rate pagate + validazione residuo."""
 
 
-# ── Guard: rate con pagamenti non modificabili ──
+# ── Guard: rate pagate — modifica consentita con vincoli ──
 
 
-def test_update_parziale_rate_blocked(client, auth_headers, sample_contract):
-    """Modifica rata PARZIALE (ha pagamenti) → 400."""
-    # Crea rata
+def test_update_parziale_rate_safe_fields_ok(client, auth_headers, sample_contract):
+    """Modifica data_scadenza e descrizione su rata PARZIALE → 200."""
     rr = client.post("/api/rates", json={
         "id_contratto": sample_contract["id"],
         "data_scadenza": "2026-03-01",
@@ -22,22 +21,47 @@ def test_update_parziale_rate_blocked(client, auth_headers, sample_contract):
         "data_pagamento": "2026-02-01",
     }, headers=auth_headers)
 
-    # Tentativo modifica → bloccato
+    # Modifica data e descrizione → OK
     r = client.put(f"/api/rates/{rate['id']}", json={
-        "importo_previsto": 100.0,
+        "data_scadenza": "2026-06-01",
+        "descrizione": "Rata corretta",
     }, headers=auth_headers)
-    assert r.status_code == 400
-    assert "pagamenti" in r.json()["detail"].lower()
+    assert r.status_code == 200
+    assert r.json()["data_scadenza"] == "2026-06-01"
+    assert r.json()["descrizione"] == "Rata corretta"
 
 
-def test_update_saldata_rate_blocked(client, auth_headers, sample_contract):
-    """Modifica rata SALDATA → 400."""
+def test_update_parziale_importo_below_saldato_blocked(client, auth_headers, sample_contract):
+    """Ridurre importo sotto il versato → 422."""
+    rr = client.post("/api/rates", json={
+        "id_contratto": sample_contract["id"],
+        "data_scadenza": "2026-03-01",
+        "importo_previsto": 200.0,
+    }, headers=auth_headers)
+    rate = rr.json()
+
+    # Paga 50
+    client.post(f"/api/rates/{rate['id']}/pay", json={
+        "importo": 50.0,
+        "metodo": "CONTANTI",
+        "data_pagamento": "2026-02-01",
+    }, headers=auth_headers)
+
+    # Ridurre a 30 (< 50 versato) → bloccato
+    r = client.put(f"/api/rates/{rate['id']}", json={
+        "importo_previsto": 30.0,
+    }, headers=auth_headers)
+    assert r.status_code == 422
+    assert "versato" in r.json()["detail"].lower()
+
+
+def test_update_saldata_rate_date_ok(client, auth_headers, sample_contract):
+    """Modifica data_scadenza su rata SALDATA → 200."""
     rr = client.post("/api/rates", json={
         "id_contratto": sample_contract["id"],
         "data_scadenza": "2026-03-01",
         "importo_previsto": 100.0,
     }, headers=auth_headers)
-    assert rr.status_code == 201
     rate = rr.json()
 
     # Paga completamente
@@ -47,12 +71,37 @@ def test_update_saldata_rate_blocked(client, auth_headers, sample_contract):
         "data_pagamento": "2026-02-01",
     }, headers=auth_headers)
 
-    # Tentativo modifica → bloccato
+    # Modifica data → OK
     r = client.put(f"/api/rates/{rate['id']}", json={
         "data_scadenza": "2026-06-01",
     }, headers=auth_headers)
-    assert r.status_code == 400
-    assert "pagamenti" in r.json()["detail"].lower()
+    assert r.status_code == 200
+    assert r.json()["data_scadenza"] == "2026-06-01"
+
+
+def test_update_saldata_increase_importo_becomes_parziale(client, auth_headers, sample_contract):
+    """Aumentare importo su rata SALDATA → diventa PARZIALE."""
+    rr = client.post("/api/rates", json={
+        "id_contratto": sample_contract["id"],
+        "data_scadenza": "2026-03-01",
+        "importo_previsto": 100.0,
+    }, headers=auth_headers)
+    rate = rr.json()
+
+    # Paga completamente (100)
+    client.post(f"/api/rates/{rate['id']}/pay", json={
+        "importo": 100.0,
+        "metodo": "POS",
+        "data_pagamento": "2026-02-01",
+    }, headers=auth_headers)
+
+    # Aumenta previsto a 200 → stato diventa PARZIALE
+    r = client.put(f"/api/rates/{rate['id']}", json={
+        "importo_previsto": 200.0,
+    }, headers=auth_headers)
+    assert r.status_code == 200
+    assert r.json()["stato"] == "PARZIALE"
+    assert r.json()["importo_previsto"] == 200.0
 
 
 # ── Guard: rate con pagamenti non eliminabili ──
