@@ -1,206 +1,183 @@
-# 🏋️ FitManager AI Studio
+# FitManager AI Studio
 
-**AI-powered fitness management platform for personal trainers**
+**CRM professionale per personal trainer e professionisti fitness a P.IVA.**
 
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![Streamlit](https://img.shields.io/badge/streamlit-1.36.0-red.svg)](https://streamlit.io)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+Gestione clienti, contratti, agenda, contabilita' e (prossimamente) programmazione allenamenti con AI locale.
 
 ---
 
-## 🎯 What is FitManager AI?
+## Stack
 
-A **privacy-first** fitness studio management platform that combines:
-- **CRM**: Client management, measurements, anamnesis
-- **AI Workout Programming**: RAG-based workout generation (local LLM via Ollama)
-- **Financial Intelligence**: MRR tracking, margin analysis, cash flow
-- **Scheduling**: Calendar integration for appointments
-- **Document Explorer**: Upload PDFs (training manuals, research) for AI-powered Q&A
+| Layer | Tecnologia |
+|-------|-----------|
+| **Frontend** | Next.js 16, React 19, TypeScript 5, shadcn/ui, Tailwind CSS 4, Recharts |
+| **Backend** | FastAPI, SQLModel (SQLAlchemy), Pydantic v2 |
+| **Database** | SQLite (PostgreSQL-ready), Alembic migrations |
+| **Auth** | JWT (bcrypt), 3-layer: Edge Middleware + AuthGuard + API validation |
+| **AI** (dormiente) | Ollama + LangChain + ChromaDB — moduli in `core/`, non ancora esposti via API |
 
-**Competitive Advantage**: Unlike cloud-based SaaS (Trainerize, TrueCoach), FitManager runs **AI models locally** (Ollama). Client health data **never leaves your infrastructure**.
+**Privacy-first**: tutto gira in locale, zero cloud, zero dati verso terzi.
 
 ---
 
-## ⚡ Quick Start
+## Quick Start
 
-### Prerequisites
-- **Python 3.9+**
-- **Ollama** (for local LLM): [Download here](https://ollama.ai/download)
+### Prerequisiti
 
-### Installation
+- Python 3.9+
+- Node.js 18+
+- (Opzionale) Ollama per moduli AI futuri
 
-```powershell
-# 1. Clone repository
+### Installazione
+
+```bash
+# 1. Clone
 git clone <repo-url>
 cd FitManager_AI_Studio
 
-# 2. Create virtual environment
+# 2. Backend
 python -m venv venv
-.\venv\Scripts\Activate.ps1
-
-# 3. Install dependencies
+.\venv\Scripts\Activate.ps1          # Windows
 pip install -e .
 
-# 4. Install Ollama models
-ollama pull llama3.2
-ollama pull mistral
+# 3. Frontend
+cd frontend
+npm install
+cd ..
 
-# 5. Run application
-streamlit run server/app.py
+# 4. Database (prima volta)
+alembic upgrade head
+
+# 5. Seed dati demo (opzionale)
+python tools/admin_scripts/reset_and_seed.py
+# Credenziali demo: chiarabassani96@gmail.com / Fitness2024!
 ```
 
-Open browser at `http://localhost:8501`
+### Avvio
 
----
+```bash
+# Terminal 1 — Backend
+uvicorn api.main:app --reload --port 8000
 
-## 📁 Project Structure
-
-```
-FitManager_AI_Studio/
-├── core/                   # Business logic (CRM, workouts, financial analytics)
-├── server/                 # Streamlit UI (multi-page web app)
-│   ├── app.py             # Main dashboard
-│   └── pages/             # Feature pages (Clients, Workouts, Finance, etc.)
-├── knowledge_base/         # RAG system (PDF ingestion, ChromaDB)
-├── data/                   # SQLite databases (crm.db, schedule.db)
-├── .copilot-instructions.md  # AI assistant rules (read this!)
-└── ROADMAP.md             # Feature roadmap
+# Terminal 2 — Frontend
+cd frontend && npm run dev
 ```
 
----
-
-## 🚀 Key Features
-
-### ✅ Current Features
-
-- **Client Management**
-  - Add/edit clients with full profiles
-  - Track body measurements over time
-  - Store medical history (anamnesi)
-  - Client status tracking (Active/Inactive/Lead)
-
-- **AI Workout Programming**
-  - Generate personalized workout plans (RAG-based)
-  - 72 exercises database with movement patterns
-  - Periodization (strength/hypertrophy/endurance)
-  - Intra-week variation (Day 1 ≠ Day 3, Day 2 ≠ Day 4)
-
-- **Financial Intelligence**
-  - Monthly Recurring Revenue (MRR) tracking
-  - Hourly margin analysis
-  - Cash flow visualization (Plotly charts)
-  - Expense tracking (fixed/variable)
-
-- **Scheduling & Agenda**
-  - Calendar view for appointments
-  - Shift management (1-on-1, group classes, online)
-  - Client appointment history
-
-- **Document Explorer**
-  - Upload PDFs (training manuals, research papers)
-  - AI-powered Q&A with semantic search
-  - Citations to source documents
-
-### 🚧 In Development (see [ROADMAP.md](ROADMAP.md))
-
-- Heavy vs Volume days (intensity variation)
-- Smart accessory selection
-- Exercise database refactoring (JSON-based, scalable to 1000+)
+Apri `http://localhost:3000`
 
 ---
 
-## 🛠️ Tech Stack
+## Architettura
 
-| Component | Technology |
-|-----------|-----------|
-| **Frontend** | Streamlit 1.36.0 (Python web framework) |
-| **Backend** | Python 3.9+, SQLite |
-| **AI/LLM** | Ollama (llama3.2, mistral, qwen2.5) - Local models |
-| **RAG** | LangChain + ChromaDB + sentence-transformers |
-| **Validation** | Pydantic v2 |
-| **Charts** | Plotly, Streamlit native charts |
+```
+frontend/               Next.js 16 + React 19 + TypeScript
+  src/app/              App Router (6 pagine + login)
+  src/components/       56 componenti (shadcn/ui + dominio)
+  src/hooks/            7 hook modules (React Query)
+  src/types/api.ts      Interfacce TypeScript (mirror Pydantic)
+       |
+       | REST API (JSON, JWT auth)
+       v
+api/                    FastAPI + SQLModel ORM
+  models/               7 modelli ORM
+  routers/              9 router (Bouncer Pattern + Deep IDOR)
+  schemas/              Pydantic v2 DTOs
+       |
+       v
+SQLite                  data/crm.db — 19 tabelle, FK enforced
+       |
+core/                   Moduli AI (dormant — prossima fase)
+  workout_generator     Generazione programmi allenamento (RAG)
+  exercise_archive      Archivio 72 esercizi
+  knowledge_chain       Q&A su documenti PDF
+```
 
-**Why Local LLM?** Privacy compliance (GDPR). Client health data stays on your server, never sent to cloud APIs.
+### Separazione dei layer
 
----
-
-## 📖 Documentation
-
-- **[.copilot-instructions.md](.copilot-instructions.md)**: Coding standards, architecture rules (required reading for AI assistants)
-- **[ROADMAP.md](ROADMAP.md)**: Planned features
-- **[knowledge_base/README.md](knowledge_base/README.md)**: RAG system documentation
-
----
-
-## 🧪 Usage Examples
-
-### Create a Client
-1. Navigate to **03_Clienti** page
-2. Fill form: Name, Surname, Email, Phone
-3. Click **Aggiungi Cliente**
-4. Track measurements over time (weight, body fat %, circumferences)
-
-### Generate Workout Plan
-1. Navigate to **07_Programma Allenamento** page
-2. Select client, training level, goal (strength/hypertrophy/endurance)
-3. Choose split (Upper/Lower, Full Body, Push/Pull/Legs)
-4. Click **Genera Programma**
-5. AI generates 8-week periodized plan (JSON output)
-
-### Upload Training Manual
-1. Navigate to **08_Document Explorer** page
-2. Upload PDF (e.g., NSCA training manual)
-3. Ask questions: "What's the optimal rep range for hypertrophy?"
-4. RAG system retrieves relevant sections + generates answer
+| Layer | Importa | Non importa mai |
+|-------|---------|-----------------|
+| `api/` | fastapi, sqlmodel, pydantic | `core/`, `frontend/` |
+| `frontend/` | react, next, @tanstack/react-query | `api/`, `core/` (solo REST) |
+| `core/` | stdlib, langchain, ollama | `api/`, `frontend/` |
 
 ---
 
-## 🔐 Security & Privacy
+## Funzionalita'
 
-- **Local AI**: All LLM inference runs on Ollama (local server)
-- **Local Storage**: SQLite databases stored locally (no cloud sync)
-- **Parameterized Queries**: All SQL queries use parameters (anti SQL-injection)
-- **No Telemetry**: No analytics tracking (privacy-first)
-- **GDPR Ready**: Export/delete client data functionality
+### Attive
 
----
+- **Dashboard** — KPI in tempo reale (clienti attivi, entrate mensili, rate in scadenza)
+- **Clienti** — CRUD completo, ricerca, anagrafica
+- **Contratti** — Gestione contratti con piano pagamenti, pagamenti parziali, storico, auto-close/reopen
+- **Agenda** — Calendario interattivo (react-big-calendar), drag & drop, colori per categoria e stato, credit engine
+- **Cassa** — Libro mastro, spese ricorrenti (conferma manuale), split entrate/uscite, aging report scadenze
+- **Impostazioni** — Configurazione profilo trainer
 
-## 🤝 Contributing
+### Sicurezza
 
-**For AI Assistants** (GitHub Copilot, Cursor, etc.):  
-Read [.copilot-instructions.md](.copilot-instructions.md) first. It contains:
-- Mandatory design patterns
-- Anti-patterns to avoid
-- Code style conventions
-- Security rules
+- **Multi-tenancy**: `trainer_id` da JWT, iniettato server-side, mai dal client
+- **Deep Relational IDOR**: ownership verificata attraverso catena FK
+- **Bouncer Pattern**: ogni endpoint valida precondizioni con early return
+- **Atomic Transactions**: operazioni multi-tabella con singolo commit
+- **Soft Delete**: `deleted_at` su tutte le tabelle business
+- **Audit Trail**: ogni CREATE/UPDATE/DELETE loggato con diff JSON
 
-**For Human Contributors**:  
-1. Fork repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Follow coding standards in `.copilot-instructions.md`
-4. Commit changes (`git commit -m 'Add amazing feature'`)
-5. Push to branch (`git push origin feature/amazing-feature`)
-6. Open Pull Request
+### Prossima fase (AI locale)
 
----
-
-## 📝 License
-
-MIT License - see [LICENSE](LICENSE) file for details
+- Generazione programmi allenamento personalizzati via RAG + Ollama
+- Q&A su documenti PDF (manuali, ricerche scientifiche)
+- Archivio esercizi con pattern di movimento
 
 ---
 
-## 🙏 Acknowledgments
+## Comandi
 
-- **Ollama Team**: Local LLM infrastructure
-- **LangChain**: RAG framework
-- **Streamlit**: Rapid web app development
-- **Fitness Community**: Feedback and feature requests
+```bash
+# Backend
+uvicorn api.main:app --reload --port 8000
+
+# Frontend
+cd frontend && npm run dev
+
+# Build check (obbligatorio prima di ogni commit)
+cd frontend && npx next build
+
+# Test (pytest — 60 test)
+pytest tests/ -v
+
+# Migrazioni
+alembic upgrade head
+alembic revision -m "descrizione"
+
+# Seed dati demo
+python tools/admin_scripts/reset_and_seed.py
+
+# Database
+sqlite3 data/crm.db ".tables"
+```
 
 ---
 
-**Version**: 3.0.0  
-**Last Updated**: February 17, 2026  
+## Documentazione tecnica
+
+Le regole architetturali e i design pattern sono documentati nei file CLAUDE.md:
+
+- [CLAUDE.md](CLAUDE.md) — Manifesto architetturale (root)
+- [api/CLAUDE.md](api/CLAUDE.md) — Backend rules (pattern, sicurezza, test)
+- [frontend/CLAUDE.md](frontend/CLAUDE.md) — Frontend rules (componenti, hook, visual design)
+- [core/CLAUDE.md](core/CLAUDE.md) — AI modules (dormant)
+
+---
+
+## Metriche
+
+| Layer | LOC | Componenti |
+|-------|-----|-----------|
+| `api/` | ~4,900 | 7 modelli, 9 router, 60 test |
+| `frontend/` | ~12,600 | 56 componenti, 7 hook, 7 pagine |
+| `core/` | ~11,100 | Moduli AI (dormant) |
+| **DB** | — | 19 tabelle, FK enforced |
+
+---
+
 **Maintained by**: G. Verardo
-
-*For detailed technical documentation, see [.copilot-instructions.md](.copilot-instructions.md)*

@@ -1,10 +1,13 @@
-# 📚 KNOWLEDGE BASE - GUIDA SETUP
+# Knowledge Base — Guida Setup
 
-**File di configurazione per ingestione documenti PDF e generazione AI programmi allenamento**
+**Ingestione documenti PDF e generazione AI programmi allenamento via RAG locale.**
+
+> **Stato**: moduli AI in `core/` funzionanti standalone, non ancora esposti via API.
+> Verranno integrati nel backend FastAPI nella prossima fase di sviluppo.
 
 ---
 
-## 🎯 COSA VA IN QUESTA CARTELLA
+## Cosa va in questa cartella
 
 Inserisci qui tutti i PDF con metodologie di allenamento, anatomia e biomeccanica:
 
@@ -37,7 +40,7 @@ knowledge_base/
 
 ---
 
-## 🚀 SETUP INIZIALE
+## Setup iniziale
 
 ### Passo 1: Raccogli i PDF
 Ottieni o crea documenti PDF su:
@@ -100,7 +103,7 @@ La programmazione per l'ipertrofia prevede... [risposta basata su PDF]
 
 ---
 
-## 📚 RECOMMENDED DOCUMENTS
+## Documenti consigliati
 
 ### 1. **Periodization Models**
 - Lyle McDonald - "The Periodized Diet"
@@ -124,7 +127,7 @@ La programmazione per l'ipertrofia prevede... [risposta basata su PDF]
 
 ---
 
-## 🔄 WORKFLOW DI GENERAZIONE
+## Workflow di generazione
 
 ```
 User Input (Goal, Level, Disponibilità)
@@ -151,7 +154,7 @@ Save in DB + Display
 
 ---
 
-## 🛠️ TROUBLESHOOTING
+## Troubleshooting
 
 ### Problema: "Database della conoscenza non trovato"
 **Soluzione:**
@@ -181,7 +184,7 @@ ollama pull llama3:8b-instruct-q4_K_M
 
 ---
 
-## 📊 METRICS
+## Metriche
 
 Traccia le performance della tua knowledge base:
 
@@ -196,36 +199,29 @@ Traccia le performance della tua knowledge base:
 
 ---
 
-## 🔐 PRIVACY & SECURITY
+## Privacy & Security
 
-✅ **FitManager AI è Privacy-First:**
-- ✅ LLM locale (Ollama) - niente cloud
-- ✅ Dati rimangono sul server
-- ✅ Nessun tracking esterno
-- ✅ GDPR compliant per design
-
-**Implicazioni:**
-- Tutte le query rimangono locali
-- Puoi condividere PDF sensibili senza rischi
+FitManager AI e' privacy-first:
+- LLM locale (Ollama) — niente cloud
+- Dati rimangono sul server
+- Nessun tracking esterno
+- GDPR compliant by design
 - Nessun vendor lock-in
 
 ---
 
-## 🎓 COME USARE CON I CLIENTI
+## Come usare con i clienti
 
-1. **Generazione Programma**: Client profilo → RAG retrieval → LLM generation → Programma personalizzato
-2. **Spiegazione Esercizi**: Cliente chiede "come fare uno squat?" → Chat RAG tira da KB
-3. **Coaching Support**: Trainer ha reference veloce su anatomia, metodologia, nutrizione
-
----
-
-## 📝 NOTES
-
-- Il knowledge base viene caricato una sola volta all'avvio (@st.cache_resource)
-- Cross-encoder è ottimizzato per query tecnico/scientifico
-- Temperature del LLM: 0.2 (preferisce precisione vs creatività)
-- K retrieval: 10 documenti (poi re-ranked a 4)
+1. **Generazione Programma**: profilo cliente → RAG retrieval → LLM generation → programma personalizzato
+2. **Spiegazione Esercizi**: "come fare uno squat?" → RAG cerca nella knowledge base
+3. **Coaching Support**: reference veloce su anatomia, metodologia, nutrizione
 
 ---
 
-*Setup completato: 17 Gennaio 2026*
+## Note tecniche
+
+- Cross-encoder ottimizzato per query tecnico/scientifiche
+- Temperature LLM: 0.2 (precisione > creativita')
+- K retrieval: 10 documenti, re-ranked a 4 tramite cross-encoder
+- I moduli RAG risiedono in `core/knowledge_chain/` e `core/workout_generator/`
+- Verranno esposti come endpoint API nella prossima fase
