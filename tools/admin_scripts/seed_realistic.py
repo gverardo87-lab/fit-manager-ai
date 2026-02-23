@@ -8,17 +8,23 @@ contabilita' unica con spese business e personali.
 
 COSA CREA:
 - 1 Trainer (Chiara Bassani)
-- 50 Clienti (35 attivi, 10 inattivi, 5 nuovi)
+- 50 Clienti (distribuzione realistica attivi/inattivi/prospect)
 - 15 Spese ricorrenti (affitto, utenze, INPS, commercialista, ...)
-- ~45 Contratti con rate e pagamenti (7 scenari diversi)
-- ~1000 Eventi day-by-day senza sovrapposizioni
-- ~670 CashMovement (entrate rate + uscite fisse/variabili/personali)
+- ~60 Contratti con rate e pagamenti (nuovi + rinnovi)
+- ~900 Eventi con crediti distribuiti realisticamente
+- ~700 CashMovement (entrate rate + uscite fisse/variabili/personali)
+
+STRATEGIA EVENTI: Per-contract paced scheduling.
+Ogni contratto PT genera le sue sessioni a ritmo realistico (1-2/settimana)
+invece di consumare tutti i crediti il prima possibile. I contratti recenti
+hanno crediti residui. Le prossime 4 settimane hanno sessioni Programmato.
 
 INVARIANTI GARANTITI:
 - Ogni rata SALDATA ha CashMovement ENTRATA corrispondente
 - contract.totale_versato = acconto + sum(rate.importo_saldato)
 - Zero eventi sovrapposti (SlotGrid engine)
 - mese_anno UNIQUE per spese ricorrenti confermate
+- Client.stato sincronizzato con stato reale contratti
 
 ESEGUI dalla root del progetto (ferma il server API prima!):
     python -m tools.admin_scripts.seed_realistic
@@ -36,7 +42,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from sqlmodel import Session, create_engine
+from sqlmodel import SQLModel, Session, create_engine, text
 from api.config import DATABASE_URL
 from api.models.trainer import Trainer
 from api.models.client import Client
@@ -48,7 +54,7 @@ from api.models.recurring_expense import RecurringExpense
 from api.auth.service import hash_password
 
 # Riusa reset_database() dallo script originale
-from tools.admin_scripts.reset_and_seed import reset_database
+# reset_database_safe() definita in fondo al file (DROP+CREATE, senza os.remove)
 
 # Determinismo: stesso DB ad ogni esecuzione
 random.seed(42)
@@ -100,10 +106,10 @@ PACKAGES = [
 ]
 PKG_WEIGHTS = [35, 30, 15, 10, 10]  # PT dominante
 
-# Quanti contratti creare per mese (indice = mese 1-12)
-CONTRACTS_PER_MONTH = {
-    3: 4, 4: 4, 5: 3, 6: 2, 7: 2, 8: 1,
-    9: 5, 10: 4, 11: 3, 12: 2, 1: 6, 2: 4,
+# Quanti contratti NUOVI per mese (esclusi rinnovi)
+NEW_CONTRACTS_PER_MONTH = {
+    3: 5, 4: 4, 5: 3, 6: 2, 7: 2, 8: 1,
+    9: 4, 10: 3, 11: 2, 12: 2, 1: 5, 2: 3,
 }
 
 PAYMENT_METHODS = ["CONTANTI", "POS", "BONIFICO"]
@@ -114,13 +120,15 @@ CORSO_TITLES = [
     "Circuit Training", "Ginnastica Dolce", "Core Stability",
 ]
 
+RENEWAL_PROBABILITY = 0.65  # 65% rinnovo dopo contratto scaduto
+
 
 # ═══════════════════════════════════════════════════════════════
 # SECTION 3: Tabelle dati statici
 # ═══════════════════════════════════════════════════════════════
 
 CLIENTS_DATA = [
-    # ── 35 Attivi ──
+    # ── 35 Attivi (stato iniziale, verra' sincronizzato a fine seed) ──
     {"nome": "Alessia",    "cognome": "Marchetti",  "tel": "333-1001001", "email": "alessia.marchetti@gmail.com",    "nascita": date(1991, 4, 12),  "sesso": "Donna"},
     {"nome": "Francesco",  "cognome": "Russo",      "tel": "339-2002002", "email": "f.russo@hotmail.it",            "nascita": date(1988, 9, 5),   "sesso": "Uomo"},
     {"nome": "Giulia",     "cognome": "Ferrari",    "tel": "347-3003003", "email": "giulia.ferrari@gmail.com",      "nascita": date(1995, 1, 22),  "sesso": "Donna"},
@@ -156,18 +164,18 @@ CLIENTS_DATA = [
     {"nome": "Francesca",  "cognome": "Fabbri",     "tel": "340-3310033", "email": "francesca.fabbri@gmail.com",    "nascita": date(1997, 9, 20),  "sesso": "Donna"},
     {"nome": "Nicola",     "cognome": "Marchese",   "tel": "349-3410034", "email": "nicola.marchese@hotmail.it",    "nascita": date(1980, 2, 8),   "sesso": "Uomo"},
     {"nome": "Sofia",      "cognome": "Gatti",      "tel": "328-3510035", "email": "sofia.gatti@gmail.com",         "nascita": date(1998, 6, 17),  "sesso": "Donna"},
-    # ── 10 Inattivi (hanno smesso durante l'anno) ──
-    {"nome": "Roberto",    "cognome": "Palumbo",    "tel": "335-3610036", "email": "roberto.palumbo@libero.it",     "nascita": date(1979, 11, 22), "sesso": "Uomo",  "stato": "Inattivo"},
-    {"nome": "Patrizia",   "cognome": "Parisi",     "tel": "331-3710037", "email": "patrizia.parisi@gmail.com",     "nascita": date(1975, 4, 3),   "sesso": "Donna", "stato": "Inattivo"},
-    {"nome": "Massimo",    "cognome": "Lombardi",   "tel": "342-3810038", "email": "massimo.lombardi@yahoo.it",     "nascita": date(1978, 8, 14),  "sesso": "Uomo",  "stato": "Inattivo"},
-    {"nome": "Paola",      "cognome": "Sorrentino", "tel": "345-3910039", "email": "paola.sorrentino@gmail.com",    "nascita": date(1982, 1, 29),  "sesso": "Donna", "stato": "Inattivo"},
-    {"nome": "Giuseppe",   "cognome": "Gentile",    "tel": "327-4010040", "email": None,                            "nascita": date(1976, 6, 10),  "sesso": "Uomo",  "stato": "Inattivo"},
-    {"nome": "Antonella",  "cognome": "Valentini",  "tel": "334-4110041", "email": "antonella.v@hotmail.it",        "nascita": date(1983, 9, 25),  "sesso": "Donna", "stato": "Inattivo"},
-    {"nome": "Giovanni",   "cognome": "Ferri",      "tel": "348-4210042", "email": "giovanni.ferri@gmail.com",      "nascita": date(1977, 12, 7),  "sesso": "Uomo",  "stato": "Inattivo"},
-    {"nome": "Teresa",     "cognome": "Vitali",     "tel": None,          "email": "teresa.vitali@libero.it",       "nascita": date(1980, 3, 18),  "sesso": "Donna", "stato": "Inattivo"},
-    {"nome": "Vincenzo",   "cognome": "Amato",      "tel": "329-4410044", "email": "vincenzo.amato@gmail.com",      "nascita": date(1974, 7, 31),  "sesso": "Uomo",  "stato": "Inattivo"},
-    {"nome": "Grazia",     "cognome": "Lombardo",   "tel": "336-4510045", "email": "grazia.lombardo@yahoo.it",      "nascita": date(1981, 5, 13),  "sesso": "Donna", "stato": "Inattivo"},
-    # ── 5 Nuovi (registrati da poco, senza contratto) ──
+    # ── 10 Inattivi (hanno smesso durante l'anno — stato confermato a fine seed) ──
+    {"nome": "Roberto",    "cognome": "Palumbo",    "tel": "335-3610036", "email": "roberto.palumbo@libero.it",     "nascita": date(1979, 11, 22), "sesso": "Uomo"},
+    {"nome": "Patrizia",   "cognome": "Parisi",     "tel": "331-3710037", "email": "patrizia.parisi@gmail.com",     "nascita": date(1975, 4, 3),   "sesso": "Donna"},
+    {"nome": "Massimo",    "cognome": "Lombardi",   "tel": "342-3810038", "email": "massimo.lombardi@yahoo.it",     "nascita": date(1978, 8, 14),  "sesso": "Uomo"},
+    {"nome": "Paola",      "cognome": "Sorrentino", "tel": "345-3910039", "email": "paola.sorrentino@gmail.com",    "nascita": date(1982, 1, 29),  "sesso": "Donna"},
+    {"nome": "Giuseppe",   "cognome": "Gentile",    "tel": "327-4010040", "email": None,                            "nascita": date(1976, 6, 10),  "sesso": "Uomo"},
+    {"nome": "Antonella",  "cognome": "Valentini",  "tel": "334-4110041", "email": "antonella.v@hotmail.it",        "nascita": date(1983, 9, 25),  "sesso": "Donna"},
+    {"nome": "Giovanni",   "cognome": "Ferri",      "tel": "348-4210042", "email": "giovanni.ferri@gmail.com",      "nascita": date(1977, 12, 7),  "sesso": "Uomo"},
+    {"nome": "Teresa",     "cognome": "Vitali",     "tel": None,          "email": "teresa.vitali@libero.it",       "nascita": date(1980, 3, 18),  "sesso": "Donna"},
+    {"nome": "Vincenzo",   "cognome": "Amato",      "tel": "329-4410044", "email": "vincenzo.amato@gmail.com",      "nascita": date(1974, 7, 31),  "sesso": "Uomo"},
+    {"nome": "Grazia",     "cognome": "Lombardo",   "tel": "336-4510045", "email": "grazia.lombardo@yahoo.it",      "nascita": date(1981, 5, 13),  "sesso": "Donna"},
+    # ── 5 Prospect (registrati da poco, senza contratto) ──
     {"nome": "Beatrice",   "cognome": "Testa",      "tel": "341-4610046", "email": "beatrice.testa@gmail.com",      "nascita": date(2000, 2, 14),  "sesso": "Donna"},
     {"nome": "Edoardo",    "cognome": "Neri",       "tel": "330-4710047", "email": "edoardo.neri@outlook.it",       "nascita": date(1999, 8, 6),   "sesso": "Uomo"},
     {"nome": "Giorgia",    "cognome": "Pellegrino", "tel": "337-4810048", "email": "giorgia.pellegrino@gmail.com",  "nascita": date(2001, 11, 23), "sesso": "Donna"},
@@ -296,7 +304,7 @@ def _safe_date(y: int, m: int, d: int) -> date:
 
 
 def _make_dt(d: date, hour: int = 0) -> datetime:
-    """date + hour → datetime UTC."""
+    """date + hour -> datetime UTC."""
     return datetime(d.year, d.month, d.day, hour, 0, tzinfo=timezone.utc)
 
 
@@ -337,10 +345,7 @@ def _months_range(start: date, end: date):
 
 
 def _get_occurrences(freq: str, giorno: int, data_inizio: date, anno: int, mese: int):
-    """
-    Replica la logica dell'API per calcolare le occorrenze di una spesa
-    ricorrente in un dato mese. Returns: list[(date, mese_anno_key)].
-    """
+    """Replica la logica dell'API per le occorrenze spese ricorrenti."""
     days_in = calendar.monthrange(anno, mese)[1]
     last_day = date(anno, mese, days_in)
 
@@ -396,9 +401,10 @@ def seed_realistic(engine):
     all_events: list[Event] = []
     all_rates: list[Rate] = []
     all_contracts: list[Contract] = []
-    credit_pool: dict[int, int] = {}     # contract_id → crediti rimanenti
-    credits_used: dict[int, int] = defaultdict(int)  # contract_id → crediti usati
+    credit_pool: dict[int, int] = {}     # contract_id -> crediti rimanenti
+    credits_used: dict[int, int] = defaultdict(int)  # contract_id -> crediti usati
     client_contracts: dict[int, list[Contract]] = defaultdict(list)
+    grid = SlotGrid()
 
     with Session(engine) as session:
 
@@ -415,7 +421,7 @@ def seed_realistic(engine):
         tid = trainer.id
         print(f"   Trainer: {trainer.nome} {trainer.cognome} (id={tid})")
 
-        # ── Step B: 50 Clienti ──
+        # ── Step B: 50 Clienti (tutti Attivo inizialmente, sync a fine seed) ──
         clients: list[Client] = []
         for i, cd in enumerate(CLIENTS_DATA):
             c = Client(
@@ -426,20 +432,18 @@ def seed_realistic(engine):
                 email=cd.get("email"),
                 data_nascita=cd.get("nascita"),
                 sesso=cd.get("sesso"),
-                stato=cd.get("stato", "Attivo"),
+                stato="Attivo",  # Sync a Step I
                 anamnesi_json=ANAMNESI.get(i),
             )
             session.add(c)
             clients.append(c)
         session.flush()
+        print(f"   Clienti: {len(clients)} creati (tutti Attivo, sync a fine)")
 
-        active_clients = [c for c in clients if c.stato == "Attivo"]
-        n_active = len([c for c in clients if c.stato == "Attivo"])
-        n_inactive = len([c for c in clients if c.stato == "Inattivo"])
-        print(f"   Clienti: {len(clients)} creati ({n_active} attivi, {n_inactive} inattivi, {len(clients) - n_active - n_inactive} nuovi)")
-
-        # Clienti che possono avere contratti (attivi + inattivi, escludi ultimi 5 = nuovi)
-        contractable = clients[:45]
+        # Primi 35 = potenziali clienti attivi
+        # 35-44 = abbandoneranno (diventeranno Inattivo)
+        # 45-49 = prospect (resteranno Attivo senza contratti)
+        contractable = clients[:45]  # primi 45 possono avere contratti
 
         # ── Step C: Spese Ricorrenti ──
         rec_expenses: list[RecurringExpense] = []
@@ -459,40 +463,99 @@ def seed_realistic(engine):
         session.flush()
         print(f"   Spese ricorrenti: {len(rec_expenses)} create")
 
-        # ── Step D: Contratti + Rate + Pagamenti ──
-        # Iteriamo mese per mese da marzo 2025 a febbraio 2026
-        available_clients = list(contractable)
-        random.shuffle(available_clients)
-        client_idx = 0
+        # ══════════════════════════════════════════════════════════
+        # Step D: Contratti con rinnovi + Rate + Pagamenti
+        #
+        # LOGICA: mese per mese, generiamo:
+        #   1. Rinnovi — clienti il cui contratto e' scaduto (65% prob)
+        #   2. Nuovi — clienti senza contratto attivo
+        #
+        # Ogni contratto ha rate e pagamenti basati sullo scenario temporale.
+        # ══════════════════════════════════════════════════════════
+
+        random.shuffle(contractable)
+        new_client_idx = 0  # Indice circolare per i nuovi contratti
 
         for y, m in _months_range(YEAR_START, YEAR_END):
-            n_contracts = CONTRACTS_PER_MONTH.get(m, 3)
+            month_start = _safe_date(y, m, 1)
+            month_end = _safe_date(y, m, calendar.monthrange(y, m)[1])
 
-            for _ in range(n_contracts):
-                # Scegli cliente: preferisci chi non ha contratti attivi
-                client = None
-                for _ in range(len(contractable)):
-                    candidate = contractable[client_idx % len(contractable)]
-                    client_idx += 1
-                    # OK se non ha contratti o se il suo ultimo e' chiuso/scaduto
-                    existing = client_contracts.get(candidate.id, [])
-                    if not existing or existing[-1].chiuso or (
-                        existing[-1].data_scadenza and existing[-1].data_scadenza < _safe_date(y, m, 1)
-                    ):
-                        client = candidate
-                        break
-                if not client:
-                    client = random.choice(contractable)
+            # --- 1. Rinnovi ---
+            renewals: list[Client] = []
+            for cid, clist in client_contracts.items():
+                if not clist:
+                    continue
+                last_c = clist[-1]
+                # Contratto scaduto nel mese precedente o questo mese?
+                if not last_c.data_scadenza:
+                    continue
+                expired_window_start = month_start - timedelta(days=45)
+                expired_window_end = month_start + timedelta(days=15)
+                if not (expired_window_start <= last_c.data_scadenza <= expired_window_end):
+                    continue
+                # Gia' rinnovato?
+                if len(clist) >= 2 and clist[-1].data_vendita >= month_start - timedelta(days=30):
+                    continue
+                # Crediti esauriti o contratto scaduto?
+                pool_left = credit_pool.get(last_c.id, 0)
+                is_done = (last_c.chiuso or pool_left <= 0 or last_c.data_scadenza < month_start)
+                if not is_done:
+                    continue
+                # Rinnovo con probabilita'
+                if random.random() < RENEWAL_PROBABILITY:
+                    cl = next(c for c in clients if c.id == cid)
+                    renewals.append(cl)
 
-                # Pacchetto
-                pkg = random.choices(PACKAGES, PKG_WEIGHTS)[0]
+            # --- 2. Nuovi contratti ---
+            n_new = NEW_CONTRACTS_PER_MONTH.get(m, 2)
+            new_clients_this_month: list[Client] = []
+            attempts = 0
+            while len(new_clients_this_month) < n_new and attempts < len(contractable) * 2:
+                candidate = contractable[new_client_idx % len(contractable)]
+                new_client_idx += 1
+                attempts += 1
+                # Saltiamo chi ha gia' un contratto attivo o e' in lista rinnovi
+                existing = client_contracts.get(candidate.id, [])
+                if existing:
+                    last = existing[-1]
+                    still_active = (
+                        not last.chiuso
+                        and credit_pool.get(last.id, 0) > 0
+                        and last.data_scadenza
+                        and last.data_scadenza >= month_start
+                    )
+                    if still_active:
+                        continue
+                if candidate in renewals:
+                    continue
+                new_clients_this_month.append(candidate)
+
+            # --- 3. Crea contratti per rinnovi + nuovi ---
+            for client in renewals + new_clients_this_month:
+                is_renewal = client in renewals
+
+                # Scelta pacchetto: rinnovi tendono a ripetere o upgradare
+                if is_renewal:
+                    prev = client_contracts[client.id][-1]
+                    prev_cred = prev.crediti_totali or 0
+                    if prev_cred <= 10:
+                        pkg = random.choices(PACKAGES[:3], [40, 45, 15])[0]
+                    elif prev_cred <= 20:
+                        pkg = random.choices(PACKAGES[:3], [15, 50, 35])[0]
+                    else:
+                        pkg = random.choices(PACKAGES[:3], [10, 30, 60])[0]
+                else:
+                    pkg = random.choices(PACKAGES, PKG_WEIGHTS)[0]
+
                 prezzo = _rand_price(pkg)
                 sale_date = _rand_date_in_month(y, m)
                 start_date = sale_date + timedelta(days=random.randint(0, 5))
                 end_date = start_date + timedelta(days=pkg["mesi"] * 30)
 
-                # Acconto: 0% (20%), 10-30% (60%), 100% (20%)
-                acconto_choice = random.choices(["zero", "partial", "full"], [20, 60, 20])[0]
+                # Acconto: 0% (15%), 10-30% (50%), 100% (35%)
+                acconto_choice = random.choices(
+                    ["zero", "partial", "full"], [15, 50, 35]
+                )[0]
                 if acconto_choice == "zero":
                     acconto = 0.0
                 elif acconto_choice == "full":
@@ -500,11 +563,13 @@ def seed_realistic(engine):
                 else:
                     acconto = round(prezzo * random.uniform(0.1, 0.3) / 10) * 10
 
-                # Scenario basato sulla timeline
+                # Scenario basato sulla timeline relativa a TODAY
                 if end_date < TODAY - timedelta(days=30):
-                    scenario = random.choices(["completed", "expired"], [80, 20])[0]
-                elif start_date > TODAY - timedelta(days=14):
-                    scenario = random.choices(["new", "acconto_only"], [70, 30])[0]
+                    scenario = random.choices(
+                        ["completed", "expired"], [80, 20]
+                    )[0]
+                elif start_date > TODAY - timedelta(days=7):
+                    scenario = "new"
                 else:
                     scenario = "active"
 
@@ -530,7 +595,7 @@ def seed_realistic(engine):
                 if pkg["crediti"] > 0:
                     credit_pool[contract.id] = pkg["crediti"]
 
-                # Acconto → CashMovement
+                # Acconto -> CashMovement
                 if acconto > 0:
                     movements.append(_make_movement(
                         tid, "ENTRATA", acconto, "ACCONTO_CONTRATTO", sale_date,
@@ -540,12 +605,11 @@ def seed_realistic(engine):
                     if acconto >= prezzo - 0.01:
                         contract.stato_pagamento = "SALDATO"
                     else:
-                        contract.stato_pagamento = "PARZIALE" if acconto > 0 else "PENDENTE"
+                        contract.stato_pagamento = "PARZIALE"
 
-                # Rate (skip se acconto_only o pagato interamente)
-                if scenario == "acconto_only" or acconto >= prezzo - 0.01:
-                    # Se saldato completamente e crediti 0, chiudi
-                    if acconto >= prezzo - 0.01 and not pkg["crediti"]:
+                # Rate (skip se pagato interamente)
+                if acconto >= prezzo - 0.01:
+                    if not pkg["crediti"]:
                         contract.chiuso = True
                     continue
 
@@ -562,14 +626,12 @@ def seed_realistic(engine):
                     if scenario == "completed":
                         stato_rata, saldato = "SALDATA", amt
                     elif scenario == "expired":
-                        # Prime meta' saldate, resto pendente (arretrato)
                         if i < n_rate // 2:
                             stato_rata, saldato = "SALDATA", amt
                         else:
                             stato_rata, saldato = "PENDENTE", 0.0
                     elif scenario == "active":
                         if rata_date < TODAY - timedelta(days=15):
-                            # Passata: 75% saldata, 15% parziale, 10% arretrata
                             roll = random.random()
                             if roll < 0.75:
                                 stato_rata, saldato = "SALDATA", amt
@@ -618,92 +680,123 @@ def seed_realistic(engine):
         n_saldate = sum(1 for r in all_rates if r.stato == "SALDATA")
         n_parziali = sum(1 for r in all_rates if r.stato == "PARZIALE")
         n_pendenti = sum(1 for r in all_rates if r.stato == "PENDENTE")
-        print(f"   Contratti: {len(all_contracts)} creati")
+        n_renewals = sum(
+            1 for c in all_contracts
+            if len(client_contracts[c.id_cliente]) > 1
+            and c != client_contracts[c.id_cliente][0]
+        )
+        print(f"   Contratti: {len(all_contracts)} creati ({n_renewals} rinnovi)")
         print(f"   Rate: {len(all_rates)} create ({n_saldate} SALDATE, {n_parziali} PARZIALI, {n_pendenti} PENDENTI)")
 
-        # ── Step E: Eventi (day-by-day) ──
-        grid = SlotGrid()
-        # Build lookup: contract → client
-        contract_client = {c.id: c.id_cliente for c in all_contracts}
+        # ══════════════════════════════════════════════════════════
+        # Step E: PT Events — Per-contract paced scheduling
+        #
+        # LOGICA: per ogni contratto PT, calcoliamo un intervallo tra sessioni
+        # basato su crediti/durata. Poi generiamo sessioni a quel ritmo.
+        # Contratti recenti avranno naturalmente crediti residui.
+        # Le prossime 4 settimane avranno eventi Programmato.
+        # ══════════════════════════════════════════════════════════
 
-        # Contratti PT attivi con crediti
-        def _eligible_contracts(event_date: date) -> list[Contract]:
-            return [
-                c for c in all_contracts
-                if c.crediti_totali and c.crediti_totali > 0
-                and credit_pool.get(c.id, 0) > 0
-                and not c.chiuso
-                and c.data_inizio and c.data_inizio <= event_date
-                and c.data_scadenza and event_date <= c.data_scadenza
-            ]
+        ghost_count = 0
+        event_end_horizon = TODAY + timedelta(days=28)  # Programma fino a 4 settimane avanti
 
-        ghost_count = 0  # Alcuni eventi passati restano "Programmato" (ghost)
+        # Ordina per data_inizio — i contratti piu' vecchi prenotano prima
+        pt_contracts = sorted(
+            [c for c in all_contracts if c.crediti_totali and c.crediti_totali > 0],
+            key=lambda c: c.data_inizio,
+        )
+
+        for contract in pt_contracts:
+            cl_id = contract.id_cliente
+            cl = next(c for c in clients if c.id == cl_id)
+            crediti = contract.crediti_totali
+            duration = (contract.data_scadenza - contract.data_inizio).days
+
+            # Intervallo base tra sessioni (in giorni)
+            session_interval = max(3, duration // crediti)
+
+            # Giorni preferiti: 2 giorni/settimana per PT 10, 3 per PT 20/30
+            all_weekdays = [0, 1, 2, 3, 4]  # Lun-Ven
+            n_pref_days = 2 if crediti <= 10 else 3
+            preferred_days = sorted(random.sample(all_weekdays, n_pref_days))
+
+            # Ore preferite: scegliamo un blocco (mattina o pomeriggio)
+            if random.random() < 0.45:
+                pref_hours = random.sample(MORNING, min(3, len(MORNING)))
+            else:
+                pref_hours = random.sample(AFTERNOON, min(3, len(AFTERNOON)))
+
+            # Genera sessioni
+            consumed = 0
+            last_session = contract.data_inizio - timedelta(days=session_interval)
+            current = contract.data_inizio
+            schedule_end = min(contract.data_scadenza, event_end_horizon)
+
+            while consumed < crediti and current <= schedule_end:
+                days_since_last = (current - last_session).days
+
+                # Sessione solo nei giorni preferiti e con intervallo rispettato
+                is_preferred = current.weekday() in preferred_days
+                interval_ok = days_since_last >= session_interval - 1
+
+                if _is_open(current) and is_preferred and interval_ok:
+                    hours = SATURDAY[:] if current.weekday() == 5 else pref_hours
+                    hour = grid.find_free(current, hours)
+                    if not hour:
+                        hour = grid.find_free(current, _slots_for(current))
+
+                    if hour:
+                        grid.book(current, hour)
+
+                        # Stato basato sulla data
+                        if current < TODAY - timedelta(days=3):
+                            r = random.random()
+                            if ghost_count < 12 and r < 0.012:
+                                stato = "Programmato"
+                                ghost_count += 1
+                            elif r < 0.85:
+                                stato = "Completato"
+                            elif r < 0.95:
+                                stato = "Cancellato"
+                            else:
+                                stato = "Rinviato"
+                        elif current <= TODAY:
+                            stato = random.choices(
+                                ["Completato", "Programmato"], [70, 30]
+                            )[0]
+                        else:
+                            stato = "Programmato"
+
+                        all_events.append(Event(
+                            trainer_id=tid,
+                            categoria="PT",
+                            titolo=f"PT {cl.nome} {cl.cognome}",
+                            id_cliente=cl_id,
+                            id_contratto=contract.id,
+                            data_inizio=_make_dt(current, hour),
+                            data_fine=_make_dt(current, hour + 1),
+                            stato=stato,
+                        ))
+
+                        if stato != "Cancellato":
+                            consumed += 1
+                            credits_used[contract.id] = consumed
+                            credit_pool[contract.id] = crediti - consumed
+
+                        last_session = current
+
+                current += timedelta(days=1)
+
+        # ── Step E2: CORSO + COLLOQUIO (day-by-day, dopo PT) ──
         current = YEAR_START
-
         while current <= YEAR_END:
             if not _is_open(current):
                 current += timedelta(days=1)
                 continue
 
-            slots = _slots_for(current)
-            weight = SEASONAL.get(current.month, 1.0)
-            base_n = 7 if current.weekday() < 5 else 4
-            target = max(2, int(base_n * weight))
-
-            shuffled = slots[:]
-            random.shuffle(shuffled)
-
-            # PT events
-            pt_target = int(target * 0.7)
-            for _ in range(pt_target):
-                eligible = _eligible_contracts(current)
-                if not eligible:
-                    break
-                # Preferisci contratti con piu' crediti residui
-                weights = [credit_pool[c.id] for c in eligible]
-                contract = random.choices(eligible, weights)[0]
-                hour = grid.find_free(current, shuffled)
-                if hour is None:
-                    break
-                grid.book(current, hour)
-
-                # Stato
-                if current < TODAY - timedelta(days=3):
-                    if ghost_count < 12 and random.random() < 0.015:
-                        stato = "Programmato"
-                        ghost_count += 1
-                    else:
-                        stato = random.choices(
-                            ["Completato", "Cancellato", "Rinviato"],
-                            [85, 10, 5],
-                        )[0]
-                elif current <= TODAY:
-                    stato = random.choices(["Completato", "Programmato"], [60, 40])[0]
-                else:
-                    stato = "Programmato"
-
-                # Crediti
-                if stato != "Cancellato":
-                    credits_used[contract.id] += 1
-                    credit_pool[contract.id] -= 1
-
-                cid = contract_client[contract.id]
-                cl = next(c for c in clients if c.id == cid)
-
-                all_events.append(Event(
-                    trainer_id=tid,
-                    categoria="PT",
-                    titolo=f"PT {cl.nome} {cl.cognome}",
-                    id_cliente=cid,
-                    id_contratto=contract.id,
-                    data_inizio=_make_dt(current, hour),
-                    data_fine=_make_dt(current, hour + 1),
-                    stato=stato,
-                ))
-
             # CORSO (lun/mer/ven pomeriggio)
             if current.weekday() in (0, 2, 4):
-                for corso_h in [17, 18]:
+                for corso_h in [17, 18, 19]:
                     if grid.is_free(current, corso_h):
                         grid.book(current, corso_h)
                         all_events.append(Event(
@@ -716,12 +809,12 @@ def seed_realistic(engine):
                         ))
                         break
 
-            # COLLOQUIO (probabilita' ~30% al giorno)
-            if random.random() < 0.3:
+            # COLLOQUIO (~25% al giorno)
+            if random.random() < 0.25:
                 h = grid.find_free(current, [9, 10, 15, 16])
                 if h:
                     grid.book(current, h)
-                    cl = random.choice(active_clients)
+                    cl = random.choice(clients[:35])
                     all_events.append(Event(
                         trainer_id=tid,
                         categoria="COLLOQUIO",
@@ -745,6 +838,12 @@ def seed_realistic(engine):
         st_prog = sum(1 for e in all_events if e.stato == "Programmato")
         print(f"   Agenda: {len(all_events)} eventi ({st_comp} Completato, {st_canc} Cancellato, {st_rinv} Rinviato, {st_prog} Programmato)")
         print(f"   Ghost events (passati Programmato): {ghost_count}")
+
+        # Crediti residui snapshot
+        active_with_credits = sum(
+            1 for cid, pool in credit_pool.items() if pool > 0
+        )
+        print(f"   Contratti con crediti residui: {active_with_credits}")
 
         # ── Step F: Conferme spese ricorrenti ──
         n_rec_mov = 0
@@ -801,9 +900,11 @@ def seed_realistic(engine):
                     ))
                     n_pers_mov += 1
 
-        # ── Step I: Integrita' + Commit ──
+        # ══════════════════════════════════════════════════════════
+        # Step I: Integrita' + Stato Clienti + Commit
+        # ══════════════════════════════════════════════════════════
 
-        # 1. Aggiorna chiuso flag
+        # 1. Aggiorna chiuso flag (credit engine)
         for contract in all_contracts:
             if contract.crediti_totali and contract.crediti_totali > 0:
                 used = credits_used.get(contract.id, 0)
@@ -814,7 +915,50 @@ def seed_realistic(engine):
             elif contract.stato_pagamento == "SALDATO":
                 contract.chiuso = True
 
-        # 2. Validazione integrita' finanziaria
+        # 2. Sincronizza Client.stato basandosi sui contratti REALI
+        #    - Ha contratto aperto con crediti residui? -> Attivo
+        #    - Tutti i contratti chiusi, ultimo scaduto > 60gg? -> Inattivo
+        #    - Prospect (nessun contratto)? -> Attivo (restano nel CRM)
+        n_synced_inactive = 0
+        for client in clients:
+            clist = client_contracts.get(client.id, [])
+
+            if not clist:
+                # Prospect: nessun contratto -> Attivo
+                client.stato = "Attivo"
+                continue
+
+            # Ha almeno un contratto aperto con crediti o non scaduto?
+            has_active = False
+            for c in clist:
+                if c.chiuso:
+                    continue
+                # Contratto con crediti residui?
+                if c.crediti_totali and credit_pool.get(c.id, 0) > 0:
+                    has_active = True
+                    break
+                # Contratto Sala non scaduto?
+                if not c.crediti_totali and c.data_scadenza and c.data_scadenza >= TODAY:
+                    has_active = True
+                    break
+
+            if has_active:
+                client.stato = "Attivo"
+            else:
+                # Tutti i contratti finiti. Quanto tempo fa e' scaduto l'ultimo?
+                last = max(clist, key=lambda c: c.data_scadenza or date.min)
+                if last.data_scadenza and last.data_scadenza < TODAY - timedelta(days=60):
+                    client.stato = "Inattivo"
+                    n_synced_inactive += 1
+                else:
+                    # Finito di recente — ancora Attivo (potrebbe rinnovare)
+                    client.stato = "Attivo"
+
+        n_active = sum(1 for c in clients if c.stato == "Attivo")
+        n_inactive = sum(1 for c in clients if c.stato == "Inattivo")
+        print(f"   Stato clienti sync: {n_active} Attivo, {n_inactive} Inattivo ({n_synced_inactive} cambiati)")
+
+        # 3. Validazione integrita' finanziaria
         for contract in all_contracts:
             rate_sum = sum(
                 r.importo_saldato for r in all_rates
@@ -822,15 +966,15 @@ def seed_realistic(engine):
             )
             expected = round(contract.acconto + rate_sum, 2)
             if abs(contract.totale_versato - expected) > 0.02:
-                print(f"   ⚠ Contract {contract.id}: totale_versato={contract.totale_versato}, expected={expected}")
+                print(f"   ! Contract {contract.id}: versato={contract.totale_versato}, expected={expected}")
                 contract.totale_versato = expected
 
-        # 3. Insert all movements
+        # 4. Insert all movements
         for m in movements:
             session.add(m)
         session.flush()
 
-        # 4. COMMIT atomico
+        # 5. COMMIT atomico
         session.commit()
 
         # ── Summary ──
@@ -855,29 +999,91 @@ def seed_realistic(engine):
         print(f"     Margine netto:      {margine:>10,.2f} EUR")
 
         n_chiusi = sum(1 for c in all_contracts if c.chiuso)
-        print(f"\n   Contratti chiusi: {n_chiusi}/{len(all_contracts)}")
+        n_open = len(all_contracts) - n_chiusi
+        n_pendenti_c = sum(1 for c in all_contracts if c.stato_pagamento == "PENDENTE")
+        print(f"\n   Contratti: {n_chiusi} chiusi, {n_open} aperti ({n_pendenti_c} PENDENTE)")
 
-    print("\n   COMMIT OK — database realistico pronto!")
+    print("\n   COMMIT OK -- database realistico pronto!")
 
 
 # ═══════════════════════════════════════════════════════════════
 # MAIN
 # ═══════════════════════════════════════════════════════════════
 
+
+def reset_database_safe():
+    """
+    Reset DB senza eliminare il file — compatibile Windows.
+
+    Su Windows, VS Code o estensioni (SQLite viewer, git) possono tenere
+    un handle aperto sul file .db, impedendo os.remove().
+    Questa funzione fa DROP di tutte le tabelle e le ricrea,
+    evitando il problema del file lock.
+    """
+    from api.config import DATABASE_URL, DATA_DIR
+
+    db_path = DATA_DIR / "crm.db"
+
+    # Backup automatico
+    if db_path.exists():
+        backup_name = f"crm_pre_seed_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
+        backup_path = DATA_DIR / backup_name
+        import shutil
+        shutil.copy2(db_path, backup_path)
+        print(f"   Backup salvato: {backup_name}")
+
+    # Crea engine
+    engine = create_engine(
+        DATABASE_URL,
+        echo=False,
+        connect_args={"check_same_thread": False},
+    )
+
+    # DROP tutte le tabelle esistenti (ordine inverso per FK)
+    SQLModel.metadata.drop_all(engine)
+    print("   Tabelle eliminate")
+
+    # Ricrea tutte le tabelle
+    SQLModel.metadata.create_all(engine)
+    print(f"   Schema creato: {len(SQLModel.metadata.tables)} tabelle")
+
+    # Alembic version stamp
+    LATEST_ALEMBIC_VERSION = "be919715d0b5"
+    with Session(engine) as session:
+        session.exec(text(
+            "CREATE TABLE IF NOT EXISTS alembic_version "
+            "(version_num VARCHAR(32) NOT NULL, "
+            "CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num))"
+        ))
+        session.exec(text("DELETE FROM alembic_version"))
+        session.exec(text(
+            f"INSERT INTO alembic_version (version_num) "
+            f"VALUES ('{LATEST_ALEMBIC_VERSION}')"
+        ))
+        session.commit()
+    print(f"   Alembic version: {LATEST_ALEMBIC_VERSION}")
+
+    # Indice UNIQUE spese ricorrenti
+    with Session(engine) as session:
+        session.exec(text("""
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_recurring_per_month
+            ON movimenti_cassa (trainer_id, id_spesa_ricorrente, mese_anno)
+            WHERE id_spesa_ricorrente IS NOT NULL AND deleted_at IS NULL
+        """))
+        session.commit()
+    print("   Indice UNIQUE spese ricorrenti creato")
+
+    return engine
+
+
 if __name__ == "__main__":
     print("=" * 60)
-    print("FitManager — Seed Realistico (1 Anno, 50 Clienti)")
+    print("FitManager -- Seed Realistico (1 Anno, 50 Clienti)")
     print("=" * 60)
     print()
 
-    # Chiudi l'engine globale di api.database PRIMA di eliminare il file DB.
-    # L'import dei modelli api/models/* importa transitivamente api/database.py
-    # che crea un engine module-level → connessione aperta → file locked su Windows.
-    from api.database import engine as api_engine
-    api_engine.dispose()
-
     print("[1/2] Reset database...")
-    engine = reset_database()
+    engine = reset_database_safe()
     print()
 
     print("[2/2] Seed dati realistici...")
