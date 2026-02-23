@@ -23,6 +23,7 @@ import {
   CalendarClock,
   ArrowLeftRight,
   Clock,
+  LineChart,
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
@@ -50,6 +51,7 @@ import { DeleteMovementDialog } from "@/components/movements/DeleteMovementDialo
 import { RecurringExpensesTab } from "@/components/movements/RecurringExpensesTab";
 import { SplitLedgerView } from "@/components/movements/SplitLedgerView";
 import { AgingReport } from "@/components/movements/AgingReport";
+import { ForecastTab } from "@/components/movements/ForecastTab";
 import { useMovements, useMovementStats, usePendingExpenses } from "@/hooks/useMovements";
 import type { CashMovement } from "@/types/api";
 import { formatCurrency } from "@/lib/format";
@@ -204,6 +206,10 @@ export default function CassaPage() {
             <Clock className="h-3.5 w-3.5" />
             Scadenze
           </TabsTrigger>
+          <TabsTrigger value="forecast" className="flex-1 gap-1.5">
+            <LineChart className="h-3.5 w-3.5" />
+            Previsioni
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="ledger" className="mt-4">
@@ -243,6 +249,10 @@ export default function CassaPage() {
 
         <TabsContent value="aging" className="mt-4">
           <AgingReport />
+        </TabsContent>
+
+        <TabsContent value="forecast" className="mt-4">
+          <ForecastTab />
         </TabsContent>
       </Tabs>
 

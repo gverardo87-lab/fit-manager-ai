@@ -548,6 +548,42 @@ export interface AgingResponse {
 }
 
 // ════════════════════════════════════════════════════════════
+// FORECAST (api/routers/movements.py — GET /forecast)
+// ════════════════════════════════════════════════════════════
+
+export interface ForecastMonthData {
+  mese: number;
+  anno: number;
+  label: string;
+  entrate_certe: number;
+  uscite_fisse: number;
+  uscite_variabili_stimate: number;
+  margine_proiettato: number;
+}
+
+export interface ForecastTimelineItem {
+  data: string;
+  descrizione: string;
+  tipo: "ENTRATA" | "USCITA";
+  importo: number;
+  saldo_cumulativo: number;
+}
+
+export interface ForecastKpi {
+  entrate_attese_90gg: number;
+  uscite_previste_90gg: number;
+  burn_rate_mensile: number;
+  margine_proiettato_90gg: number;
+}
+
+export interface ForecastResponse {
+  kpi: ForecastKpi;
+  monthly_projection: ForecastMonthData[];
+  timeline: ForecastTimelineItem[];
+  saldo_iniziale: number;
+}
+
+// ════════════════════════════════════════════════════════════
 // BACKUP (api/routers/backup.py)
 // ════════════════════════════════════════════════════════════
 

@@ -18,6 +18,7 @@ import type {
   MovementStats,
   PaginatedResponse,
   PendingExpensesResponse,
+  ForecastResponse,
 } from "@/types/api";
 
 // ── Query: lista movimenti filtrata ──
@@ -159,6 +160,20 @@ export function useConfirmExpenses() {
     },
     onError: (error) => {
       toast.error(extractErrorMessage(error, "Errore nella conferma delle spese"));
+    },
+  });
+}
+
+// ── Query: forecast proiezione finanziaria ──
+
+export function useForecast(mesi: number = 3) {
+  return useQuery<ForecastResponse>({
+    queryKey: ["forecast", { mesi }],
+    queryFn: async () => {
+      const { data } = await apiClient.get<ForecastResponse>(
+        `/movements/forecast?mesi=${mesi}`
+      );
+      return data;
     },
   });
 }

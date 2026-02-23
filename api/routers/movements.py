@@ -36,6 +36,8 @@ from api.database import get_session
 from api.dependencies import get_current_trainer
 from api.models.trainer import Trainer
 from api.models.movement import CashMovement
+from api.models.rate import Rate
+from api.models.contract import Contract
 from api.models.recurring_expense import RecurringExpense
 from api.schemas.financial import (
     MovementManualCreate, MovementResponse,
@@ -575,3 +577,255 @@ def delete_movement(
     session.add(movement)
     log_audit(session, "movement", movement.id, "DELETE", trainer.id)
     session.commit()
+
+
+# ════════════════════════════════════════════════════════════
+# GET: Forecast — Proiezione finanziaria prossimi N mesi
+# ════════════════════════════════════════════════════════════
+
+MONTH_LABELS = [
+    "", "Gen", "Feb", "Mar", "Apr", "Mag", "Giu",
+    "Lug", "Ago", "Set", "Ott", "Nov", "Dic",
+]
+
+
+class ForecastMonthData(BaseModel):
+    """Proiezione per un singolo mese futuro."""
+    mese: int
+    anno: int
+    label: str                         # "Mar 2026"
+    entrate_certe: float               # rate pendenti/parziali
+    uscite_fisse: float                # spese ricorrenti
+    uscite_variabili_stimate: float    # media storica
+    margine_proiettato: float          # entrate - uscite
+
+
+class ForecastTimelineItem(BaseModel):
+    """Singolo evento finanziario futuro nella timeline."""
+    data: date
+    descrizione: str
+    tipo: str                          # "ENTRATA" | "USCITA"
+    importo: float
+    saldo_cumulativo: float
+
+
+class ForecastKpi(BaseModel):
+    """KPI predittivi di alto livello."""
+    entrate_attese_90gg: float
+    uscite_previste_90gg: float
+    burn_rate_mensile: float           # media uscite ultimi 3 mesi
+    margine_proiettato_90gg: float
+
+
+class ForecastResponse(BaseModel):
+    """Proiezione finanziaria completa."""
+    kpi: ForecastKpi
+    monthly_projection: list[ForecastMonthData]
+    timeline: list[ForecastTimelineItem]
+    saldo_iniziale: float              # margine del mese corrente
+
+
+def _next_months(anno: int, mese: int, count: int) -> list[tuple[int, int]]:
+    """Restituisce i prossimi N mesi come lista (anno, mese)."""
+    result = []
+    for _ in range(count):
+        mese += 1
+        if mese > 12:
+            mese = 1
+            anno += 1
+        result.append((anno, mese))
+    return result
+
+
+def _prev_months(anno: int, mese: int, count: int) -> list[tuple[int, int]]:
+    """Restituisce i precedenti N mesi come lista (anno, mese)."""
+    result = []
+    for _ in range(count):
+        mese -= 1
+        if mese < 1:
+            mese = 12
+            anno -= 1
+        result.append((anno, mese))
+    return result
+
+
+@router.get("/forecast", response_model=ForecastResponse)
+def get_forecast(
+    mesi: int = Query(default=3, ge=1, le=6),
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """
+    Proiezione finanziaria per i prossimi N mesi.
+
+    Pure read-only, zero side effects. Aggrega 3 fonti:
+    1. Rate PENDENTE/PARZIALE — entrate certe, raggruppate per mese scadenza
+    2. Spese ricorrenti attive — uscite fisse calcolate con occurrence engine
+    3. Storico movimenti ultimi 3 mesi — media uscite variabili
+
+    Produce:
+    - KPI predittivi (90gg)
+    - Proiezione mensile (entrate vs uscite per mese)
+    - Timeline cronologica con saldo cumulativo
+    """
+    today = date.today()
+    current_anno, current_mese = today.year, today.month
+    future_months = _next_months(current_anno, current_mese, mesi)
+
+    # ── 1. Saldo iniziale: margine mese corrente ──
+    current_movements = session.exec(
+        select(CashMovement).where(
+            CashMovement.trainer_id == trainer.id,
+            extract("year", CashMovement.data_effettiva) == current_anno,
+            extract("month", CashMovement.data_effettiva) == current_mese,
+            CashMovement.deleted_at == None,
+        )
+    ).all()
+
+    saldo_entrate = sum(m.importo for m in current_movements if m.tipo == "ENTRATA")
+    saldo_uscite = sum(m.importo for m in current_movements if m.tipo == "USCITA")
+    saldo_iniziale = round(saldo_entrate - saldo_uscite, 2)
+
+    # ── 2. Entrate certe: rate PENDENTE/PARZIALE nei mesi futuri ──
+    rates = session.exec(
+        select(Rate).join(Contract, Rate.id_contratto == Contract.id).where(
+            Contract.trainer_id == trainer.id,
+            Rate.stato.in_(["PENDENTE", "PARZIALE"]),
+            Rate.data_scadenza > today,
+            Rate.deleted_at == None,
+            Contract.deleted_at == None,
+        )
+    ).all()
+
+    entrate_per_mese: dict[tuple[int, int], float] = defaultdict(float)
+    timeline_items: list[dict] = []
+
+    for rate in rates:
+        key = (rate.data_scadenza.year, rate.data_scadenza.month)
+        residuo = round(rate.importo_previsto - rate.importo_saldato, 2)
+        entrate_per_mese[key] += residuo
+        timeline_items.append({
+            "data": rate.data_scadenza,
+            "descrizione": f"Rata #{rate.id} — €{residuo:.0f}",
+            "tipo": "ENTRATA",
+            "importo": residuo,
+        })
+
+    # ── 3. Uscite fisse: spese ricorrenti per ogni mese futuro ──
+    recurring = session.exec(
+        select(RecurringExpense).where(
+            RecurringExpense.trainer_id == trainer.id,
+            RecurringExpense.attiva == True,
+            RecurringExpense.deleted_at == None,
+        )
+    ).all()
+
+    uscite_fisse_per_mese: dict[tuple[int, int], float] = defaultdict(float)
+
+    for a, m in future_months:
+        for expense in recurring:
+            occurrences = _get_occurrences_in_month(expense, a, m)
+            for data_prevista, _key in occurrences:
+                importo = expense.importo
+                uscite_fisse_per_mese[(a, m)] += importo
+                timeline_items.append({
+                    "data": data_prevista,
+                    "descrizione": expense.nome,
+                    "tipo": "USCITA",
+                    "importo": importo,
+                })
+
+    # ── 4. Uscite variabili stimate: media ultimi 3 mesi ──
+    past_months = _prev_months(current_anno, current_mese, 3)
+    past_var_totals: list[float] = []
+
+    for pa, pm in past_months:
+        month_var = session.exec(
+            select(func.coalesce(func.sum(CashMovement.importo), 0)).where(
+                CashMovement.trainer_id == trainer.id,
+                CashMovement.tipo == "USCITA",
+                CashMovement.id_spesa_ricorrente == None,
+                extract("year", CashMovement.data_effettiva) == pa,
+                extract("month", CashMovement.data_effettiva) == pm,
+                CashMovement.deleted_at == None,
+            )
+        ).one()
+        past_var_totals.append(float(month_var))
+
+    avg_variabili = round(sum(past_var_totals) / len(past_var_totals), 2) if past_var_totals else 0
+
+    # ── 5. Assembla proiezione mensile ──
+    monthly_projection: list[ForecastMonthData] = []
+
+    for a, m in future_months:
+        entrate = round(entrate_per_mese.get((a, m), 0), 2)
+        fisse = round(uscite_fisse_per_mese.get((a, m), 0), 2)
+        variabili = avg_variabili
+        margine = round(entrate - fisse - variabili, 2)
+
+        monthly_projection.append(ForecastMonthData(
+            mese=m,
+            anno=a,
+            label=f"{MONTH_LABELS[m]} {a}",
+            entrate_certe=entrate,
+            uscite_fisse=fisse,
+            uscite_variabili_stimate=variabili,
+            margine_proiettato=margine,
+        ))
+
+    # ── 6. KPI predittivi ──
+    entrate_90 = sum(mp.entrate_certe for mp in monthly_projection)
+    uscite_90 = sum(mp.uscite_fisse + mp.uscite_variabili_stimate for mp in monthly_projection)
+    past_total_uscite = []
+    for pa, pm in past_months:
+        month_tot = session.exec(
+            select(func.coalesce(func.sum(CashMovement.importo), 0)).where(
+                CashMovement.trainer_id == trainer.id,
+                CashMovement.tipo == "USCITA",
+                extract("year", CashMovement.data_effettiva) == pa,
+                extract("month", CashMovement.data_effettiva) == pm,
+                CashMovement.deleted_at == None,
+            )
+        ).one()
+        past_total_uscite.append(float(month_tot))
+
+    burn_rate = round(sum(past_total_uscite) / len(past_total_uscite), 2) if past_total_uscite else 0
+
+    kpi = ForecastKpi(
+        entrate_attese_90gg=round(entrate_90, 2),
+        uscite_previste_90gg=round(uscite_90, 2),
+        burn_rate_mensile=burn_rate,
+        margine_proiettato_90gg=round(entrate_90 - uscite_90, 2),
+    )
+
+    # ── 7. Timeline cronologica con saldo cumulativo ──
+    # Filtra solo eventi nei mesi futuri selezionati
+    future_month_set = set(future_months)
+    filtered_timeline = [
+        t for t in timeline_items
+        if (t["data"].year, t["data"].month) in future_month_set
+    ]
+    filtered_timeline.sort(key=lambda t: t["data"])
+
+    running_balance = saldo_iniziale
+    timeline: list[ForecastTimelineItem] = []
+    for t in filtered_timeline:
+        if t["tipo"] == "ENTRATA":
+            running_balance += t["importo"]
+        else:
+            running_balance -= t["importo"]
+
+        timeline.append(ForecastTimelineItem(
+            data=t["data"],
+            descrizione=t["descrizione"],
+            tipo=t["tipo"],
+            importo=round(t["importo"], 2),
+            saldo_cumulativo=round(running_balance, 2),
+        ))
+
+    return ForecastResponse(
+        kpi=kpi,
+        monthly_projection=monthly_projection,
+        timeline=timeline,
+        saldo_iniziale=saldo_iniziale,
+    )
