@@ -71,7 +71,9 @@ class SessionCategory(str, Enum):
 # ════════════════════════════════════════════════════════════
 
 class ExpenseFrequency(str, Enum):
-    """Frequenze per spese ricorrenti — allineate a frontend PLAN_FREQUENCIES."""
+    """Frequenze per spese ricorrenti — allineate a frontend EXPENSE_FREQUENCIES."""
     MENSILE = "MENSILE"
     SETTIMANALE = "SETTIMANALE"
     TRIMESTRALE = "TRIMESTRALE"
+    SEMESTRALE = "SEMESTRALE"
+    ANNUALE = "ANNUALE"

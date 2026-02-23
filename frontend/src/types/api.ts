@@ -39,6 +39,16 @@ export type EventStatus = (typeof EVENT_STATUSES)[number];
 export const PLAN_FREQUENCIES = ["MENSILE", "SETTIMANALE", "TRIMESTRALE"] as const;
 export type PlanFrequency = (typeof PLAN_FREQUENCIES)[number];
 
+export const EXPENSE_FREQUENCIES = ["MENSILE", "SETTIMANALE", "TRIMESTRALE", "SEMESTRALE", "ANNUALE"] as const;
+export type ExpenseFrequency = (typeof EXPENSE_FREQUENCIES)[number];
+
+export const EXPENSE_CATEGORIES = [
+  "Affitto", "Assicurazione", "Utenze", "Attrezzatura",
+  "Software", "Formazione", "Commercialista", "Trasporto",
+  "Marketing", "Altro",
+] as const;
+export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
+
 // ════════════════════════════════════════════════════════════
 // AUTH (api/auth/schemas.py)
 // ════════════════════════════════════════════════════════════
@@ -355,7 +365,7 @@ export interface RecurringExpenseCreate {
   categoria?: string | null;
   importo: number;
   giorno_scadenza?: number;
-  frequenza?: "MENSILE" | "SETTIMANALE" | "TRIMESTRALE";
+  frequenza?: ExpenseFrequency;
 }
 
 /** PUT /api/recurring-expenses/{id} */
@@ -364,7 +374,7 @@ export interface RecurringExpenseUpdate {
   categoria?: string | null;
   importo?: number;
   giorno_scadenza?: number;
-  frequenza?: "MENSILE" | "SETTIMANALE" | "TRIMESTRALE";
+  frequenza?: ExpenseFrequency;
   attiva?: boolean;
 }
 
@@ -374,7 +384,7 @@ export interface RecurringExpense {
   nome: string;
   categoria: string | null;
   importo: number;
-  frequenza: "MENSILE" | "SETTIMANALE" | "TRIMESTRALE";
+  frequenza: ExpenseFrequency;
   giorno_scadenza: number;
   attiva: boolean;
   data_creazione: string | null;

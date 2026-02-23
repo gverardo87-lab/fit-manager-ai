@@ -24,7 +24,7 @@ from api.routers._audit import log_audit
 
 router = APIRouter(prefix="/recurring-expenses", tags=["recurring-expenses"])
 
-VALID_FREQUENCIES = {"MENSILE", "SETTIMANALE", "TRIMESTRALE"}
+VALID_FREQUENCIES = {"MENSILE", "SETTIMANALE", "TRIMESTRALE", "SEMESTRALE", "ANNUALE"}
 
 
 # ── Schemas ──

@@ -103,3 +103,64 @@ def test_soft_deleted_movement_triggers_resync(client, auth_headers):
     # Stats deve riflettere il movimento
     sr = client.get("/api/movements/stats?anno=2026&mese=6", headers=auth_headers)
     assert sr.json()["totale_uscite_fisse"] == 50.0
+
+
+# ════════════════════════════════════════════════════════════
+# FREQUENZE ESTESE (S4 — SEMESTRALE + ANNUALE)
+# ════════════════════════════════════════════════════════════
+
+
+def test_semestrale_only_every_6_months(client, auth_headers):
+    """Spesa SEMESTRALE: genera movimento solo ogni 6 mesi dal mese di creazione."""
+    # Crea spesa SEMESTRALE (creata a febbraio 2026)
+    client.post("/api/recurring-expenses", json={
+        "nome": "Assicurazione Semestrale",
+        "importo": 600.0,
+        "giorno_scadenza": 10,
+        "frequenza": "SEMESTRALE",
+    }, headers=auth_headers)
+
+    # Febbraio (mese creazione) → deve generare
+    sr_feb = client.get("/api/movements/stats?anno=2026&mese=2", headers=auth_headers)
+    assert sr_feb.json()["totale_uscite_fisse"] == 600.0
+
+    # Marzo → non deve generare (non multiplo di 6 da febbraio)
+    sr_mar = client.get("/api/movements/stats?anno=2026&mese=3", headers=auth_headers)
+    assert sr_mar.json()["totale_uscite_fisse"] == 0
+
+    # Agosto (6 mesi dopo febbraio) → deve generare
+    sr_ago = client.get("/api/movements/stats?anno=2026&mese=8", headers=auth_headers)
+    assert sr_ago.json()["totale_uscite_fisse"] == 600.0
+
+
+def test_annuale_only_anniversary_month(client, auth_headers):
+    """Spesa ANNUALE: genera movimento solo nel mese anniversario."""
+    # Crea spesa ANNUALE (creata a marzo 2026)
+    # Per forzare il mese di creazione a marzo, creiamo la spesa
+    # e il sync engine usa data_creazione.month per l'ancoraggio
+    client.post("/api/recurring-expenses", json={
+        "nome": "Commercialista Annuale",
+        "importo": 1200.0,
+        "giorno_scadenza": 15,
+        "frequenza": "ANNUALE",
+    }, headers=auth_headers)
+
+    # Il mese di creazione dipende da quando viene eseguito il test.
+    # La spesa viene creata con data_creazione = now(), quindi il mese
+    # di creazione e' il mese corrente. Verifichiamo:
+    # - GET stats per mesi diversi dal mese di creazione → 0
+    # - GET stats per il mese di creazione → 1200
+
+    # Recupera la spesa per sapere il mese di creazione
+    lr = client.get("/api/recurring-expenses", headers=auth_headers)
+    expense = next(e for e in lr.json()["items"] if e["nome"] == "Commercialista Annuale")
+    creation_month = int(expense["data_creazione"][:7].split("-")[1])
+
+    # Mese anniversario → deve generare
+    sr_hit = client.get(f"/api/movements/stats?anno=2026&mese={creation_month}", headers=auth_headers)
+    assert sr_hit.json()["totale_uscite_fisse"] == 1200.0
+
+    # Mese diverso → non deve generare
+    other_month = (creation_month % 12) + 1  # mese successivo
+    sr_miss = client.get(f"/api/movements/stats?anno=2026&mese={other_month}", headers=auth_headers)
+    assert sr_miss.json()["totale_uscite_fisse"] == 0

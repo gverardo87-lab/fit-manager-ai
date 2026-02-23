@@ -48,7 +48,7 @@ router = APIRouter(prefix="/movements", tags=["movements"])
 # SYNC ENGINE: Spese Ricorrenti → CashMovement (idempotente)
 # ════════════════════════════════════════════════════════════
 
-VALID_FREQUENCIES = {"MENSILE", "SETTIMANALE", "TRIMESTRALE"}
+VALID_FREQUENCIES = {"MENSILE", "SETTIMANALE", "TRIMESTRALE", "SEMESTRALE", "ANNUALE"}
 
 
 def _get_occurrences_in_month(
@@ -64,6 +64,8 @@ def _get_occurrences_in_month(
     - MENSILE: 1 occorrenza per mese, key = "2026-02"
     - SETTIMANALE: ~4 per mese (ogni 7 giorni), key = "2026-02-W1", "2026-02-W2"...
     - TRIMESTRALE: 1 ogni 3 mesi (ancorata al mese di creazione), key = "2026-02"
+    - SEMESTRALE: 1 ogni 6 mesi (ancorata al mese di creazione), key = "2026-02"
+    - ANNUALE: 1 per anno (solo nel mese anniversario), key = "2026"
     """
     days_in_month = calendar.monthrange(anno, mese)[1]
     freq = expense.frequenza or "MENSILE"
@@ -90,6 +92,20 @@ def _get_occurrences_in_month(
             return []
         giorno = min(expense.giorno_scadenza, days_in_month)
         return [(date(anno, mese, giorno), f"{anno:04d}-{mese:02d}")]
+
+    if freq == "SEMESTRALE":
+        creation_month = expense.data_creazione.month if expense.data_creazione else 1
+        if (mese - creation_month) % 6 != 0:
+            return []
+        giorno = min(expense.giorno_scadenza, days_in_month)
+        return [(date(anno, mese, giorno), f"{anno:04d}-{mese:02d}")]
+
+    if freq == "ANNUALE":
+        creation_month = expense.data_creazione.month if expense.data_creazione else 1
+        if mese != creation_month:
+            return []
+        giorno = min(expense.giorno_scadenza, days_in_month)
+        return [(date(anno, mese, giorno), f"{anno:04d}")]
 
     # Frequenza sconosciuta: fallback a MENSILE
     giorno = min(expense.giorno_scadenza, days_in_month)
