@@ -6,12 +6,11 @@
  * - Drag & Drop (withDragAndDrop HOC)
  * - Controlled state (date + view)
  * - Custom Toolbar (shadcn/ui)
- * - Custom Event (nome cliente per PT)
+ * - Custom Event (nome cliente per PT + hover card)
  * - Vista settimanale default, slot 30 min, 06:00-22:00
  */
 
 import { useState, useCallback, useMemo } from "react";
-import { format } from "date-fns";
 import { Calendar, Views, type View, type SlotInfo } from "react-big-calendar";
 import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop";
 
@@ -23,7 +22,7 @@ import {
   type CalendarEvent,
 } from "./calendar-setup";
 import { CustomToolbar } from "./CustomToolbar";
-import { CustomEvent } from "./CustomEvent";
+import { CustomEvent, QuickActionProvider } from "./CustomEvent";
 import type { EventHydrated } from "@/hooks/useAgenda";
 
 // HOC: abilita drag & drop + resize sugli eventi
@@ -36,6 +35,7 @@ interface AgendaCalendarProps {
   onRangeChange: (range: { start: Date; end: Date }) => void;
   onEventDrop: (args: { event: CalendarEvent; start: Date; end: Date }) => void;
   onEventResize: (args: { event: CalendarEvent; start: Date; end: Date }) => void;
+  onQuickAction?: (eventId: number, stato: string) => void;
 }
 
 export function AgendaCalendar({
@@ -45,6 +45,7 @@ export function AgendaCalendar({
   onRangeChange,
   onEventDrop,
   onEventResize,
+  onQuickAction,
 }: AgendaCalendarProps) {
   // ── Controlled state: data corrente + vista attiva ──
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -59,20 +60,6 @@ export function AgendaCalendar({
     (event: CalendarEvent) => ({ style: getEventStyle(event) }),
     []
   );
-
-  /** Tooltip nativo HTML: dettagli completi su hover */
-  const tooltipAccessor = useCallback((event: CalendarEvent) => {
-    const parts: string[] = [];
-    if (event.cliente_nome) {
-      parts.push(`Cliente: ${event.cliente_nome} ${event.cliente_cognome ?? ""}`);
-    }
-    parts.push(`Titolo: ${event.title}`);
-    parts.push(`Orario: ${format(event.start, "HH:mm")} - ${format(event.end, "HH:mm")}`);
-    parts.push(`Categoria: ${event.categoria}`);
-    parts.push(`Stato: ${event.stato}`);
-    if (event.note) parts.push(`Note: ${event.note}`);
-    return parts.join("\n");
-  }, []);
 
   /**
    * onRangeChange riceve formati diversi a seconda della vista:
@@ -116,34 +103,37 @@ export function AgendaCalendar({
   );
 
   return (
-    <DnDCalendar
-      localizer={localizer}
-      events={calendarEvents}
-      date={currentDate}
-      view={currentView}
-      onNavigate={setCurrentDate}
-      onView={setCurrentView}
-      views={[Views.MONTH, Views.WEEK, Views.DAY]}
-      selectable
-      resizable
-      onSelectSlot={onSelectSlot}
-      onSelectEvent={onSelectEvent}
-      onRangeChange={handleRangeChange}
-      onEventDrop={handleEventDrop}
-      onEventResize={handleEventResize}
-      eventPropGetter={eventPropGetter}
-      tooltipAccessor={tooltipAccessor}
-      messages={italianMessages}
-      components={{
-        toolbar: CustomToolbar,
-        event: CustomEvent,
-      }}
-      step={30}
-      timeslots={2}
-      min={new Date(0, 0, 0, 6, 0)}
-      max={new Date(0, 0, 0, 22, 0)}
-      popup
-      style={{ minHeight: 700 }}
-    />
+    <QuickActionProvider onQuickAction={onQuickAction}>
+      <DnDCalendar
+        localizer={localizer}
+        events={calendarEvents}
+        date={currentDate}
+        view={currentView}
+        onNavigate={setCurrentDate}
+        onView={setCurrentView}
+        views={[Views.MONTH, Views.WEEK, Views.DAY]}
+        selectable
+        resizable
+        onSelectSlot={onSelectSlot}
+        onSelectEvent={onSelectEvent}
+        onRangeChange={handleRangeChange}
+        onEventDrop={handleEventDrop}
+        onEventResize={handleEventResize}
+        eventPropGetter={eventPropGetter}
+        tooltipAccessor={() => ""}
+        messages={italianMessages}
+        components={{
+          toolbar: CustomToolbar,
+          event: CustomEvent,
+        }}
+        step={30}
+        timeslots={2}
+        min={new Date(0, 0, 0, 6, 0)}
+        max={new Date(0, 0, 0, 22, 0)}
+        scrollToTime={new Date(0, 0, 0, 7, 0)}
+        popup
+        style={{ minHeight: 700 }}
+      />
+    </QuickActionProvider>
   );
 }
