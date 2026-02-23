@@ -217,47 +217,38 @@ def get_dashboard_alerts(
     # ── 2. Contratti in scadenza con crediti inutilizzati ──
     deadline_30 = today + timedelta(days=30)
 
-    # Crediti usati reali (computed on read da eventi PT attivi)
-    credit_subq = (
-        select(
-            Event.id_contratto,
-            func.count(Event.id).label("used"),
-        )
-        .where(
-            Event.categoria == "PT",
-            Event.stato != "Cancellato",
-            Event.deleted_at == None,
-        )
-        .group_by(Event.id_contratto)
-        .subquery()
-    )
-
+    # Wrapped subquery: SQLite non accetta HAVING senza GROUP BY.
+    # Calcoliamo crediti_usati come subquery scalare, poi filtriamo nel WHERE esterno.
     expiring_rows = session.execute(text("""
-        SELECT c.id, cl.nome, cl.cognome, c.tipo_pacchetto,
-               c.data_scadenza, c.crediti_totali,
-               COALESCE(
-                   (SELECT COUNT(*) FROM agenda e
-                    WHERE e.id_contratto = c.id
-                      AND e.categoria = 'PT'
-                      AND e.stato != 'Cancellato'
-                      AND e.deleted_at IS NULL), 0
-               ) as crediti_usati
-        FROM contratti c
-        JOIN clienti cl ON cl.id = c.id_cliente
-        WHERE c.trainer_id = :tid
-          AND c.deleted_at IS NULL
-          AND c.chiuso = 0
-          AND c.data_scadenza IS NOT NULL
-          AND c.data_scadenza <= :deadline
-          AND c.data_scadenza >= :today
-          AND c.crediti_totali IS NOT NULL
-        HAVING crediti_usati < c.crediti_totali
+        SELECT * FROM (
+            SELECT c.id, cl.nome, cl.cognome, c.tipo_pacchetto,
+                   c.data_scadenza, c.crediti_totali,
+                   COALESCE(
+                       (SELECT COUNT(*) FROM agenda e
+                        WHERE e.id_contratto = c.id
+                          AND e.categoria = 'PT'
+                          AND e.stato != 'Cancellato'
+                          AND e.deleted_at IS NULL), 0
+                   ) as crediti_usati
+            FROM contratti c
+            JOIN clienti cl ON cl.id = c.id_cliente
+            WHERE c.trainer_id = :tid
+              AND c.deleted_at IS NULL
+              AND c.chiuso = 0
+              AND c.data_scadenza IS NOT NULL
+              AND c.data_scadenza <= :deadline
+              AND c.data_scadenza >= :today
+              AND c.crediti_totali IS NOT NULL
+        ) sub
+        WHERE sub.crediti_usati < sub.crediti_totali
     """), {"tid": trainer.id, "deadline": deadline_30.isoformat(), "today": today.isoformat()}).fetchall()
 
     if expiring_rows:
         for row in expiring_rows:
-            cid, nome, cognome, pacchetto, scadenza, totali, usati = row
+            cid, nome, cognome, pacchetto, scadenza_raw, totali, usati = row
             residui = totali - usati
+            # Raw SQL restituisce date come stringa ISO — parse esplicito
+            scadenza = date.fromisoformat(scadenza_raw) if isinstance(scadenza_raw, str) else scadenza_raw
             days_left = (scadenza - today).days if isinstance(scadenza, date) else 0
             items.append(AlertItem(
                 severity="warning" if days_left > 7 else "critical",
