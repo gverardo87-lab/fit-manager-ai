@@ -297,9 +297,9 @@ Buffer iniziale: mese corrente ±1 mese. Espansione: +1 mese in ogni direzione d
 
 ### Page features (page.tsx)
 - **FilterBar**: chip interattivi per categoria (`Set<string>` toggle on/off), Eye/EyeOff icon
-- **WeeklyStatsBar**: 4 KPI config-driven (Sessioni, Completate, Programmate, Tasso %)
-- **BulkCompleteBanner**: banner ambra per eventi passati ancora "Programmato" + "Completa tutte" con `Promise.allSettled`
+- **RangeStatsBar**: 4 KPI config-driven contestuali al range visibile (Sessioni, Completate, Programmate, Tasso %). Label dinamica: giorno ("lunedi' 24 febbraio"), settimana ("17-23 feb"), mese ("febbraio 2026"). Calcolo da `visibleRange` state, zero query aggiuntive.
 - **Quick Actions**: hover card con Completa/Rinvia/Cancella 1-click (no sheet)
+- **Dashboard = control center**: eventi fantasma gestiti SOLO da Dashboard (GhostEventsSheet con bulk + single resolve). Zero duplicazione in Agenda.
 
 ### CSS Overrides (globals.css)
 ```css
