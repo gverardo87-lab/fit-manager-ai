@@ -10,7 +10,7 @@ nell'endpoint /movements/stats.
 """
 
 from typing import Optional
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field, field_validator
@@ -38,6 +38,7 @@ class RecurringExpenseCreate(BaseModel):
     importo: float = Field(gt=0, le=100_000)
     giorno_scadenza: int = Field(default=1, ge=1, le=31)
     frequenza: str = Field(default="MENSILE")
+    data_inizio: Optional[date] = None
 
     @field_validator("categoria", mode="before")
     @classmethod
@@ -64,6 +65,7 @@ class RecurringExpenseUpdate(BaseModel):
     importo: Optional[float] = Field(default=None, gt=0, le=100_000)
     giorno_scadenza: Optional[int] = Field(default=None, ge=1, le=31)
     frequenza: Optional[str] = None
+    data_inizio: Optional[date] = None
     attiva: Optional[bool] = None
 
     @field_validator("categoria", mode="before")
@@ -92,6 +94,7 @@ class RecurringExpenseResponse(BaseModel):
     importo: float
     frequenza: str = "MENSILE"
     giorno_scadenza: int
+    data_inizio: Optional[date] = None
     attiva: bool
     data_creazione: Optional[datetime] = None
     data_disattivazione: Optional[datetime] = None
@@ -145,6 +148,7 @@ def create_recurring_expense(
         importo=data.importo,
         giorno_scadenza=data.giorno_scadenza,
         frequenza=data.frequenza,
+        data_inizio=data.data_inizio or date.today(),
     )
     session.add(expense)
     session.flush()

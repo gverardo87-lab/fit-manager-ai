@@ -17,6 +17,7 @@ import type {
   MovementManualCreate,
   MovementStats,
   PaginatedResponse,
+  PendingExpensesResponse,
 } from "@/types/api";
 
 // ── Query: lista movimenti filtrata ──
@@ -121,6 +122,43 @@ export function useDeleteMovement() {
     },
     onError: (error) => {
       toast.error(extractErrorMessage(error, "Errore nell'eliminazione del movimento"));
+    },
+  });
+}
+
+// ── Query: spese ricorrenti in attesa di conferma ──
+
+export function usePendingExpenses(anno: number, mese: number) {
+  return useQuery<PendingExpensesResponse>({
+    queryKey: ["pending-expenses", { anno, mese }],
+    queryFn: async () => {
+      const { data } = await apiClient.get<PendingExpensesResponse>(
+        `/movements/pending-expenses?anno=${anno}&mese=${mese}`
+      );
+      return data;
+    },
+  });
+}
+
+// ── Mutation: conferma spese ricorrenti selezionate ──
+
+export function useConfirmExpenses() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (items: { id_spesa: number; mese_anno_key: string }[]) => {
+      const { data } = await apiClient.post("/movements/confirm-expenses", { items });
+      return data as { created: number; totale: number };
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["pending-expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["movements"] });
+      queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success(`${result.created} ${result.created === 1 ? "spesa registrata" : "spese registrate"}`);
+    },
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Errore nella conferma delle spese"));
     },
   });
 }

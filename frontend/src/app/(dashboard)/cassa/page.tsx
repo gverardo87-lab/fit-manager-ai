@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -46,7 +47,7 @@ import { DeleteMovementDialog } from "@/components/movements/DeleteMovementDialo
 import { RecurringExpensesTab } from "@/components/movements/RecurringExpensesTab";
 import { SplitLedgerView } from "@/components/movements/SplitLedgerView";
 import { AgingReport } from "@/components/movements/AgingReport";
-import { useMovements, useMovementStats } from "@/hooks/useMovements";
+import { useMovements, useMovementStats, usePendingExpenses } from "@/hooks/useMovements";
 import type { CashMovement } from "@/types/api";
 import { formatCurrency } from "@/lib/format";
 
@@ -100,6 +101,8 @@ export default function CassaPage() {
     useMovements({ anno, mese });
   const { data: stats, isLoading: statsLoading } =
     useMovementStats(anno, mese);
+  const { data: pendingData } = usePendingExpenses(anno, mese);
+  const pendingCount = pendingData?.items.length ?? 0;
 
   const handleDelete = (movement: CashMovement) => {
     setSelectedMovement(movement);
@@ -180,8 +183,13 @@ export default function CassaPage() {
           <TabsTrigger value="ledger" className="flex-1">
             Libro Mastro
           </TabsTrigger>
-          <TabsTrigger value="recurring" className="flex-1">
+          <TabsTrigger value="recurring" className="flex-1 gap-1.5">
             Spese Fisse
+            {pendingCount > 0 && (
+              <Badge variant="destructive" className="ml-1 h-5 min-w-5 px-1.5 text-[10px]">
+                {pendingCount}
+              </Badge>
+            )}
           </TabsTrigger>
           <TabsTrigger value="split" className="flex-1">
             Entrate & Uscite
@@ -219,7 +227,7 @@ export default function CassaPage() {
         </TabsContent>
 
         <TabsContent value="recurring" className="mt-4">
-          <RecurringExpensesTab />
+          <RecurringExpensesTab anno={anno} mese={mese} />
         </TabsContent>
 
         <TabsContent value="split" className="mt-4">

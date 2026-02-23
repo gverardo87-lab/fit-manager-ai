@@ -1,12 +1,14 @@
 # api/models/recurring_expense.py
 """
-Modello RecurringExpense — mappa la tabella 'spese_ricorrenti' esistente.
+Modello RecurringExpense — mappa la tabella 'spese_ricorrenti'.
 
-Rappresenta le spese fisse mensili (affitto, assicurazione, utenze, ecc.)
-che contribuiscono al calcolo del Margine Netto Mensile.
+Rappresenta le spese fisse (affitto, assicurazione, utenze, ecc.)
+che generano promemoria periodici. L'utente conferma esplicitamente
+ogni occorrenza per creare il CashMovement nel ledger.
 
-La tabella esiste gia' nel DB legacy (creata da Streamlit).
-La colonna trainer_id viene aggiunta dalla migrazione in api/main.py.
+Campi chiave:
+- data_inizio: data scelta dall'utente per l'inizio del ciclo (ancoraggio frequenze)
+- data_creazione: timestamp di creazione del record (audit trail, non usato per ancoraggio)
 """
 
 from datetime import date, datetime, timezone
@@ -18,8 +20,9 @@ class RecurringExpense(SQLModel, table=True):
     """
     ORM model per la tabella 'spese_ricorrenti'.
 
-    Ogni record e' una spesa fissa mensile con un giorno di scadenza.
+    Ogni record definisce una spesa ricorrente con frequenza e giorno di scadenza.
     Il campo 'attiva' permette di disabilitare senza eliminare.
+    Il campo 'data_inizio' ancora le frequenze non-mensili (TRIM/SEM/ANN).
     """
     __tablename__ = "spese_ricorrenti"
 
@@ -29,9 +32,8 @@ class RecurringExpense(SQLModel, table=True):
     categoria: Optional[str] = None
     importo: float
     frequenza: Optional[str] = Field(default="MENSILE")
-    giorno_inizio: int = Field(default=1)
     giorno_scadenza: int = Field(default=1)
-    data_prossima_scadenza: Optional[date] = None
+    data_inizio: Optional[date] = Field(default_factory=date.today)
     attiva: bool = Field(default=True)
     data_creazione: Optional[datetime] = Field(default_factory=lambda: datetime.now(timezone.utc))
     data_disattivazione: Optional[datetime] = Field(default=None)

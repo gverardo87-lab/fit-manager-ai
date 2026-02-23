@@ -366,6 +366,7 @@ export interface RecurringExpenseCreate {
   importo: number;
   giorno_scadenza?: number;
   frequenza?: ExpenseFrequency;
+  data_inizio?: string | null; // ISO date "YYYY-MM-DD"
 }
 
 /** PUT /api/recurring-expenses/{id} */
@@ -376,6 +377,7 @@ export interface RecurringExpenseUpdate {
   giorno_scadenza?: number;
   frequenza?: ExpenseFrequency;
   attiva?: boolean;
+  data_inizio?: string | null;
 }
 
 /** Risposta da GET/POST/PUT */
@@ -386,9 +388,31 @@ export interface RecurringExpense {
   importo: number;
   frequenza: ExpenseFrequency;
   giorno_scadenza: number;
+  data_inizio: string | null; // ISO date — ancoraggio frequenze
   attiva: boolean;
   data_creazione: string | null;
   data_disattivazione: string | null;
+}
+
+// ════════════════════════════════════════════════════════════
+// PENDING EXPENSES (api/routers/movements.py — Conferma & Registra)
+// ════════════════════════════════════════════════════════════
+
+/** Singola spesa in attesa di conferma per un mese */
+export interface PendingExpenseItem {
+  id_spesa: number;
+  nome: string;
+  categoria: string | null;
+  importo: number;
+  frequenza: string;
+  data_prevista: string;     // ISO date
+  mese_anno_key: string;     // chiave di deduplicazione
+}
+
+/** GET /api/movements/pending-expenses?anno=X&mese=Y */
+export interface PendingExpensesResponse {
+  items: PendingExpenseItem[];
+  totale_pending: number;
 }
 
 // ════════════════════════════════════════════════════════════

@@ -111,13 +111,20 @@ Ogni rata con pagamenti mostra la lista cronologica completa:
 - Collapsible: mostra max 2, "Mostra altri N" se > 2
 - Summary: "Totale versato: €X / €Y" con multipli pagamenti
 
-### Spese Ricorrenti (RecurringExpensesTab)
-Componente completo con 3 sotto-componenti inline:
-- **AddExpenseForm**: form creazione con Select categoria (EXPENSE_CATEGORIES) e frequenza (EXPENSE_FREQUENCIES, 5 opzioni)
-- **ExpenseEditDialog**: Dialog con useEffect state sync da props (pattern RateEditDialog), 5 campi editabili
-- **ExpensesTable**: tabella con colonna Categoria, bottone Edit (Pencil), delete con AlertDialog confirm
-- **Costanti**: `EXPENSE_CATEGORIES` (10 predefinite) e `EXPENSE_FREQUENCIES` (5) esportate da `types/api.ts`
-- **FREQUENZA_LABELS**: mappa display label per 5 frequenze
+### Spese Ricorrenti — Conferma & Registra (RecurringExpensesTab)
+Paradigma esplicito: le spese ricorrenti non vengono create automaticamente.
+L'utente vede un banner con le spese in attesa e le conferma manualmente.
+
+Componente con 4 sotto-componenti inline:
+- **PendingExpensesBanner**: alert arancione con checkbox per spesa, "Seleziona tutte", "Conferma selezionate".
+  Usa `usePendingExpenses(anno, mese)` + `useConfirmExpenses()`. Reset selezione su cambio mese.
+- **AddExpenseForm**: form creazione con Select categoria, frequenza (5 opzioni), DatePicker `data_inizio` ("Attiva dal")
+- **ExpenseEditDialog**: Dialog con useEffect state sync da props, 6 campi (+ data_inizio via DatePicker)
+- **ExpensesTable**: tabella con colonne Categoria, Frequenza, Giorno, Attiva dal, Stato + Edit/Toggle/Delete
+- **KPI pesato**: "Stima Mensile Spese Fisse" con `estimateMonthly()` che pesa per frequenza
+  (SETTIMANALE ×4.33, TRIMESTRALE /3, SEMESTRALE /6, ANNUALE /12)
+- Props: riceve `anno` e `mese` da `cassa/page.tsx`
+- Badge tab: `cassa/page.tsx` mostra badge numerico pending sul tab "Spese Fisse"
 
 ### Azioni Distruttive — 2 livelli
 - **CRITICA** (delete contratto, revoca pagamento): AlertDialog + conferma testuale ("ANNULLA")
