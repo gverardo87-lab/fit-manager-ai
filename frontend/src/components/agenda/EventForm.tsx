@@ -266,12 +266,13 @@ export function EventForm({
             </p>
           )}
 
-          {/* Safety Rail: warning crediti esauriti */}
+          {/* Hard block: crediti esauriti — submit disabilitato */}
           {showCreditWarning && (
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>
-                Attenzione: Il cliente ha esaurito i crediti o non ha pacchetti attivi.
+                Crediti esauriti. Per programmare una sessione PT, il cliente deve
+                avere un contratto attivo con crediti disponibili.
               </AlertDescription>
             </Alert>
           )}
@@ -369,7 +370,7 @@ export function EventForm({
             Elimina
           </Button>
         )}
-        <Button type="submit" className="flex-1" disabled={isPending}>
+        <Button type="submit" className="flex-1" disabled={isPending || showCreditWarning}>
           {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {isEdit ? "Salva Modifiche" : "Crea Evento"}
         </Button>

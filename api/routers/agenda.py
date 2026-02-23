@@ -439,6 +439,22 @@ def create_event(
                 detail="Impossibile assegnare eventi a un contratto chiuso",
             )
 
+        # Bouncer 2b: Credit guard — crediti esauriti?
+        if contract.crediti_totali and contract.crediti_totali > 0:
+            crediti_usati = session.exec(
+                select(func.count(Event.id)).where(
+                    Event.id_contratto == contract.id,
+                    Event.categoria == "PT",
+                    Event.stato != "Cancellato",
+                    Event.deleted_at == None,
+                )
+            ).one()
+            if crediti_usati >= contract.crediti_totali:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Crediti esauriti per questo contratto",
+                )
+
     # Bouncer 3: Anti-Overlapping — ho gia' un evento in questo slot?
     _check_overlap(session, trainer.id, data.data_inizio, data.data_fine)
 
