@@ -280,7 +280,7 @@ def create_rate(
             detail="Impossibile aggiungere rate a un contratto chiuso",
         )
 
-    # Validazione residuo: somma rate attive + nuova <= prezzo - acconto
+    # Validazione residuo: somma rate attive + nuova <= prezzo - totale_versato
     if contract.prezzo_totale:
         somma_rate_attive = session.exec(
             select(func.coalesce(func.sum(Rate.importo_previsto), 0)).where(
@@ -288,7 +288,7 @@ def create_rate(
                 Rate.deleted_at == None,
             )
         ).one()
-        cap = round((contract.prezzo_totale or 0) - (contract.acconto or 0), 2)
+        cap = round((contract.prezzo_totale or 0) - (contract.totale_versato or 0), 2)
         spazio = round(cap - float(somma_rate_attive), 2)
         if round(float(somma_rate_attive) + data.importo_previsto, 2) > cap + 0.01:
             raise HTTPException(
@@ -353,7 +353,7 @@ def update_rate(
                     Rate.deleted_at == None,
                 )
             ).one()
-            cap = round((contract.prezzo_totale or 0) - (contract.acconto or 0), 2)
+            cap = round((contract.prezzo_totale or 0) - (contract.totale_versato or 0), 2)
             nuovo_totale = round(float(somma_altre) + update_data["importo_previsto"], 2)
             if nuovo_totale > cap + 0.01:
                 spazio = round(cap - float(somma_altre), 2)
