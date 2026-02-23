@@ -176,7 +176,7 @@ export function EventForm({
       </div>
 
       {/* ── Categoria + Stato ── */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Categoria *</Label>
           <Controller
@@ -278,7 +278,7 @@ export function EventForm({
       )}
 
       {/* ── Data Inizio + Ora Inizio ── */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Data Inizio *</Label>
           <Controller
@@ -310,7 +310,7 @@ export function EventForm({
       </div>
 
       {/* ── Data Fine + Ora Fine ── */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Data Fine *</Label>
           <Controller

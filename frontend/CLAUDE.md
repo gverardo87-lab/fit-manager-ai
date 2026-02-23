@@ -174,12 +174,48 @@ onError: (error) => {
 ```
 Estrae `error.response.data.detail` dal backend FastAPI, mostra il messaggio reale all'utente.
 
+## Responsive Design (Mobile-first)
+
+L'app e' ottimizzata per 3 viewport: mobile (375px+), tablet (768px+), desktop (1024px+).
+Approccio mobile-first con breakpoints Tailwind (`sm:`, `md:`, `lg:`). Zero librerie extra.
+
+### Pattern consolidati
+
+| Pattern | Classi Tailwind | Dove usato |
+|---------|----------------|------------|
+| Form grid stacking | `grid grid-cols-1 sm:grid-cols-2` | ClientForm, ContractForm, EventForm, ExpenseEditDialog |
+| Hide colonne tabella | `hidden sm:table-cell`, `hidden md:table-cell`, `hidden lg:table-cell` | Tutte le tabelle (Clienti, Contratti, Movimenti, Spese) |
+| Header page stacking | `flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between` | clienti, contratti, cassa |
+| Icon-only button mobile | `<span className="hidden sm:inline">Label</span>` | Tutti i bottoni "Nuovo X" + tab Cassa |
+| Tabs scrollabili | `w-full overflow-x-auto` su TabsList | Cassa (5 tab) |
+| Chart ridotto | `h-[200px] sm:h-[280px]` | Cassa chart |
+| KPI compatti | `text-lg sm:text-2xl` + `h-8 w-8 sm:h-10 sm:w-10` | Dashboard, Cassa |
+| Calendar viewport | `minHeight: "calc(100vh - 280px)"` | AgendaCalendar |
+| Toolbar flex-wrap | `flex-wrap` + `order-` per riordino mobile | CustomToolbar |
+| Login card | `max-w-sm sm:max-w-md` | login/page.tsx |
+
+### CSS mobile overrides (globals.css)
+```css
+@media (max-width: 640px) {
+  .rbc-header { font-size: 0.7rem; }
+  .rbc-event { font-size: 0.7rem; }
+  .rbc-time-content { font-size: 0.75rem; }
+  .rbc-label { font-size: 0.7rem; }
+}
+```
+
+### Regole
+- **Mai width fissi** su mobile — usare `w-full`, `min-w-0`, classi responsive
+- **colSpan={99}** per row separatrici (copre qualsiasi numero di colonne visibili)
+- **Tabelle**: su mobile mostrare solo 3-4 colonne essenziali, le altre `hidden md:table-cell`
+- **Layout sidebar**: gia' responsive (hamburger su mobile, sidebar full su desktop) — NON toccare
+
 ## Convenzioni
 
 - Lingua UI: **italiano** (labels, toast, placeholder)
 - Lingua codice: **inglese** (nomi variabili, funzioni, commenti)
 - Nomi dominio: **italiano** nei tipi API (`id_cliente`, `data_scadenza`)
-- CSS: Tailwind utilities, ZERO CSS custom (tranne globals.css per theme)
+- CSS: Tailwind utilities, ZERO CSS custom (tranne globals.css per theme + mobile overrides)
 - Icone: lucide-react (consistente con shadcn/ui)
 - Toast: sonner (`toast.success`, `toast.error`)
 - Date: date-fns con locale `it` per display, `toISOLocal()` per payload API (MAI `toISOString()`)
@@ -324,6 +360,8 @@ I KPI e l'header usano `visibleEvents` che filtra per range + categoria + stato.
 .rbc-current-time-indicator { background-color: #ef4444; height: 2px; }
 .rbc-event:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.15); transform: translateY(-1px); }
 .rbc-today { background-color: oklch(0.97 0.01 250) !important; }
+/* Mobile: font ridotti per react-big-calendar (vedi sezione Responsive Design) */
+@media (max-width: 640px) { .rbc-header, .rbc-event, .rbc-label { font-size: 0.7rem; } }
 ```
 
 ## Build

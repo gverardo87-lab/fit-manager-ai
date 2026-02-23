@@ -60,7 +60,7 @@ export default function ContrattiPage() {
   return (
     <div className="space-y-6">
       {/* ── Header ── */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-900/30">
             <FileText className="h-5 w-5 text-violet-600 dark:text-violet-400" />
@@ -76,8 +76,8 @@ export default function ContrattiPage() {
           </div>
         </div>
         <Button onClick={handleNewContract}>
-          <Plus className="mr-2 h-4 w-4" />
-          Nuovo Contratto
+          <Plus className="h-4 w-4 sm:mr-2" />
+          <span className="hidden sm:inline">Nuovo Contratto</span>
         </Button>
       </div>
 

@@ -173,7 +173,7 @@ export function ContractForm({
       </div>
 
       {/* ── Tipo Pacchetto / Crediti ── */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="tipo_pacchetto">Tipo Pacchetto *</Label>
           <Input id="tipo_pacchetto" {...register("tipo_pacchetto")} />
@@ -215,7 +215,7 @@ export function ContractForm({
       </div>
 
       {/* ── Date ── */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Data Inizio *</Label>
           <Controller
@@ -259,7 +259,7 @@ export function ContractForm({
       {/* ── Acconto (solo in creazione) ── */}
       {!isEdit && (
         <>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="acconto">Acconto (EUR)</Label>
               <Input

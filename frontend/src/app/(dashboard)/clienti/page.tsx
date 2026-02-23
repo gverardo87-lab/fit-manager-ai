@@ -50,7 +50,7 @@ export default function ClientiPage() {
   return (
     <div className="space-y-6">
       {/* ── Header ── */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/30">
             <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -65,8 +65,8 @@ export default function ClientiPage() {
           </div>
         </div>
         <Button onClick={handleNewClient}>
-          <Plus className="mr-2 h-4 w-4" />
-          Nuovo Cliente
+          <Plus className="h-4 w-4 sm:mr-2" />
+          <span className="hidden sm:inline">Nuovo Cliente</span>
         </Button>
       </div>
 

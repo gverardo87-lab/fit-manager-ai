@@ -147,10 +147,10 @@ export function ContractsTable({
             <TableHeader>
               <TableRow>
                 <TableHead>Cliente</TableHead>
-                <TableHead>Pacchetto</TableHead>
+                <TableHead className="hidden md:table-cell">Pacchetto</TableHead>
                 <TableHead className="text-right">Importo</TableHead>
-                <TableHead className="text-center">Crediti</TableHead>
-                <TableHead>Scadenza</TableHead>
+                <TableHead className="hidden lg:table-cell text-center">Crediti</TableHead>
+                <TableHead className="hidden md:table-cell">Scadenza</TableHead>
                 <TableHead>Rate</TableHead>
                 <TableHead className="w-[80px]">Azioni</TableHead>
               </TableRow>
@@ -163,8 +163,8 @@ export function ContractsTable({
                     {contract.client_cognome} {contract.client_nome}
                   </TableCell>
 
-                  {/* ── Pacchetto ── */}
-                  <TableCell>{contract.tipo_pacchetto ?? "—"}</TableCell>
+                  {/* ── Pacchetto (hidden mobile) ── */}
+                  <TableCell className="hidden md:table-cell">{contract.tipo_pacchetto ?? "—"}</TableCell>
 
                   {/* ── Importo (versato / totale) ── */}
                   <TableCell className="text-right">
@@ -179,15 +179,15 @@ export function ContractsTable({
                     </div>
                   </TableCell>
 
-                  {/* ── Crediti (usati / totali) ── */}
-                  <TableCell className="text-center">
+                  {/* ── Crediti (hidden mobile/tablet) ── */}
+                  <TableCell className="hidden lg:table-cell text-center">
                     <span className="font-mono text-sm">
                       {contract.crediti_usati}/{contract.crediti_totali ?? 0}
                     </span>
                   </TableCell>
 
-                  {/* ── Scadenza ── */}
-                  <TableCell>
+                  {/* ── Scadenza (hidden mobile) ── */}
+                  <TableCell className="hidden md:table-cell">
                     {contract.data_scadenza
                       ? format(parseISO(contract.data_scadenza), "dd MMM yyyy", { locale: it })
                       : "—"}

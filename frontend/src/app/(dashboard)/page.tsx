@@ -294,16 +294,16 @@ function KpiCards({ summary, stats }: { summary: DashboardSummary; stats: Moveme
         return (
           <div
             key={kpi.key}
-            className={`flex items-start gap-3 rounded-xl border border-l-4 ${kpi.borderColor} bg-gradient-to-br ${kpi.gradient} p-4 shadow-sm transition-shadow hover:shadow-md`}
+            className={`flex items-start gap-2 rounded-xl border border-l-4 ${kpi.borderColor} bg-gradient-to-br ${kpi.gradient} p-3 shadow-sm transition-shadow hover:shadow-md sm:gap-3 sm:p-4`}
           >
-            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${kpi.iconBg}`}>
-              <Icon className={`h-5 w-5 ${kpi.iconColor}`} />
+            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg sm:h-10 sm:w-10 ${kpi.iconBg}`}>
+              <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${kpi.iconColor}`} />
             </div>
             <div className="min-w-0">
-              <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+              <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase sm:text-[11px]">
                 {kpi.label}
               </p>
-              <p className={`text-2xl font-bold tracking-tight ${kpi.valueColor}`}>
+              <p className={`text-lg font-bold tracking-tight sm:text-2xl ${kpi.valueColor}`}>
                 {kpi.format === "currency" ? formatCurrency(kpi.value) : kpi.value}
               </p>
               <p className="text-[10px] text-muted-foreground/70">{kpi.subtitle}</p>

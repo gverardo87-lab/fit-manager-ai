@@ -29,6 +29,15 @@
 .rbc-event:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.15); transform: translateY(-1px); }
 .rbc-today { background-color: oklch(0.97 0.01 250) !important; }
 .dark .rbc-today { background-color: oklch(0.22 0.01 250) !important; }
+
+/* ── Agenda: Mobile optimizations ── */
+@media (max-width: 640px) {
+  .rbc-header { font-size: 0.7rem; padding: 4px 2px; }
+  .rbc-time-slot { min-height: 20px; }
+  .rbc-event { font-size: 0.7rem; padding: 1px 3px; }
+  .rbc-time-content { font-size: 0.75rem; }
+  .rbc-label { font-size: 0.7rem; padding: 0 2px; }
+}
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 

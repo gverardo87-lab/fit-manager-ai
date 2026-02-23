@@ -311,17 +311,17 @@ function PendingItemRow({
         onCheckedChange={onToggle}
         onClick={(e) => e.stopPropagation()}
       />
-      <span className="flex-1 text-sm font-medium">{item.nome}</span>
+      <span className="min-w-0 flex-1 truncate text-sm font-medium">{item.nome}</span>
       {item.categoria && (
-        <span className="text-xs text-muted-foreground">{item.categoria}</span>
+        <span className="hidden sm:inline text-xs text-muted-foreground">{item.categoria}</span>
       )}
-      <span className="w-24 text-right text-sm font-bold tabular-nums text-red-600 dark:text-red-400">
+      <span className="shrink-0 text-right text-sm font-bold tabular-nums text-red-600 dark:text-red-400">
         {formatCurrency(item.importo)}
       </span>
-      <span className="w-16 text-right text-xs text-muted-foreground">
+      <span className="hidden sm:inline w-16 text-right text-xs text-muted-foreground">
         {dataLabel}
       </span>
-      <span className="w-24 text-right text-xs text-muted-foreground">
+      <span className="hidden md:inline w-24 text-right text-xs text-muted-foreground">
         {FREQUENZA_LABELS[item.frequenza] ?? item.frequenza}
       </span>
     </div>
@@ -374,8 +374,8 @@ function AddExpenseForm() {
         <Plus className="h-4 w-4 text-muted-foreground" />
         <p className="text-sm font-semibold">Aggiungi Spesa Fissa</p>
       </div>
-      <div className="flex items-end gap-3 flex-wrap">
-        <div className="flex-1 min-w-[150px] space-y-1.5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 items-end">
+        <div className="col-span-2 sm:col-span-1 space-y-1.5">
           <Label className="text-xs">Nome</Label>
           <Input
             placeholder="es. Affitto Sala"
@@ -383,7 +383,7 @@ function AddExpenseForm() {
             onChange={(e) => setNome(e.target.value)}
           />
         </div>
-        <div className="w-28 space-y-1.5">
+        <div className="space-y-1.5">
           <Label className="text-xs">Importo</Label>
           <Input
             type="number"
@@ -394,7 +394,7 @@ function AddExpenseForm() {
             onChange={(e) => setImporto(e.target.value)}
           />
         </div>
-        <div className="w-36 space-y-1.5">
+        <div className="space-y-1.5">
           <Label className="text-xs">Categoria</Label>
           <Select value={categoria} onValueChange={setCategoria}>
             <SelectTrigger className="h-9">
@@ -407,7 +407,7 @@ function AddExpenseForm() {
             </SelectContent>
           </Select>
         </div>
-        <div className="w-20 space-y-1.5">
+        <div className="space-y-1.5">
           <Label className="text-xs">Giorno</Label>
           <Input
             type="number"
@@ -417,7 +417,7 @@ function AddExpenseForm() {
             onChange={(e) => setGiorno(e.target.value)}
           />
         </div>
-        <div className="w-36 space-y-1.5">
+        <div className="space-y-1.5">
           <Label className="text-xs">Frequenza</Label>
           <Select value={frequenza} onValueChange={(v) => setFrequenza(v as ExpenseFrequency)}>
             <SelectTrigger className="h-9">
@@ -432,7 +432,7 @@ function AddExpenseForm() {
             </SelectContent>
           </Select>
         </div>
-        <div className="w-44 space-y-1.5">
+        <div className="space-y-1.5">
           <Label className="text-xs">Attiva dal</Label>
           <DatePicker
             value={dataInizio}
@@ -443,6 +443,7 @@ function AddExpenseForm() {
         <Button
           type="submit"
           size="sm"
+          className="w-full sm:w-auto"
           disabled={createMutation.isPending || !nome.trim() || !importo}
         >
           {createMutation.isPending ? (
@@ -520,7 +521,7 @@ function ExpenseEditDialog({
             <Input value={nome} onChange={(e) => setNome(e.target.value)} />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>Importo</Label>
               <Input
@@ -637,10 +638,10 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
             <TableRow>
               <TableHead>Nome</TableHead>
               <TableHead className="text-right">Importo</TableHead>
-              <TableHead className="text-center">Categoria</TableHead>
-              <TableHead className="text-center">Frequenza</TableHead>
-              <TableHead className="text-center">Giorno</TableHead>
-              <TableHead className="text-center">Attiva dal</TableHead>
+              <TableHead className="hidden md:table-cell text-center">Categoria</TableHead>
+              <TableHead className="hidden sm:table-cell text-center">Frequenza</TableHead>
+              <TableHead className="hidden md:table-cell text-center">Giorno</TableHead>
+              <TableHead className="hidden lg:table-cell text-center">Attiva dal</TableHead>
               <TableHead className="text-center">Stato</TableHead>
               <TableHead className="w-[130px]">Azioni</TableHead>
             </TableRow>
@@ -655,16 +656,16 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
                 <TableCell className="text-right font-bold tabular-nums text-red-600 dark:text-red-400">
                   {formatCurrency(expense.importo)}
                 </TableCell>
-                <TableCell className="text-center text-xs text-muted-foreground">
+                <TableCell className="hidden md:table-cell text-center text-xs text-muted-foreground">
                   {expense.categoria || "—"}
                 </TableCell>
-                <TableCell className="text-center text-xs text-muted-foreground">
+                <TableCell className="hidden sm:table-cell text-center text-xs text-muted-foreground">
                   {FREQUENZA_LABELS[expense.frequenza] ?? expense.frequenza}
                 </TableCell>
-                <TableCell className="text-center text-sm text-muted-foreground">
+                <TableCell className="hidden md:table-cell text-center text-sm text-muted-foreground">
                   {expense.giorno_scadenza}°
                 </TableCell>
-                <TableCell className="text-center text-xs text-muted-foreground">
+                <TableCell className="hidden lg:table-cell text-center text-xs text-muted-foreground">
                   {formatDate(expense.data_inizio)}
                 </TableCell>
                 <TableCell className="text-center">

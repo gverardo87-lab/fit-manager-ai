@@ -132,7 +132,7 @@ export function AgendaCalendar({
         max={new Date(0, 0, 0, 22, 0)}
         scrollToTime={new Date(0, 0, 0, 7, 0)}
         popup
-        style={{ minHeight: 700 }}
+        style={{ minHeight: "calc(100vh - 280px)" }}
       />
     </QuickActionProvider>
   );

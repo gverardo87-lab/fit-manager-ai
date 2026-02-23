@@ -96,7 +96,7 @@ export function ClientForm({ client, onSubmit, isPending }: ClientFormProps) {
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-5">
       {/* ── Nome / Cognome ── */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="nome">Nome *</Label>
           <Input id="nome" {...register("nome")} />
@@ -116,7 +116,7 @@ export function ClientForm({ client, onSubmit, isPending }: ClientFormProps) {
       </div>
 
       {/* ── Email / Telefono ── */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <Input id="email" type="email" {...register("email")} />
@@ -136,7 +136,7 @@ export function ClientForm({ client, onSubmit, isPending }: ClientFormProps) {
       </div>
 
       {/* ── Data Nascita / Sesso ── */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="data_nascita">Data di Nascita</Label>
           <Input id="data_nascita" type="date" {...register("data_nascita")} />

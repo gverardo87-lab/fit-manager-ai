@@ -86,7 +86,7 @@ export function ClientsTable({ clients, onEdit, onDelete }: ClientsTableProps) {
             <TableHeader>
               <TableRow>
                 <TableHead>Nome</TableHead>
-                <TableHead>Contatti</TableHead>
+                <TableHead className="hidden sm:table-cell">Contatti</TableHead>
                 <TableHead>Stato</TableHead>
                 <TableHead className="w-[80px]">Azioni</TableHead>
               </TableRow>
@@ -99,8 +99,8 @@ export function ClientsTable({ clients, onEdit, onDelete }: ClientsTableProps) {
                     {client.cognome} {client.nome}
                   </TableCell>
 
-                  {/* ── Contatti ── */}
-                  <TableCell>
+                  {/* ── Contatti (hidden su mobile) ── */}
+                  <TableCell className="hidden sm:table-cell">
                     <div className="flex flex-col gap-1 text-sm text-muted-foreground">
                       {client.email && (
                         <span className="flex items-center gap-1.5">

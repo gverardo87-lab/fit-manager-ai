@@ -127,9 +127,9 @@ export function MovementsTable({
               <TableRow>
                 <TableHead>Data</TableHead>
                 <TableHead>Descrizione</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Categoria</TableHead>
-                <TableHead>Metodo</TableHead>
+                <TableHead className="hidden sm:table-cell">Tipo</TableHead>
+                <TableHead className="hidden md:table-cell">Categoria</TableHead>
+                <TableHead className="hidden md:table-cell">Metodo</TableHead>
                 <TableHead className="text-right">Importo</TableHead>
                 <TableHead className="w-[80px]">Azioni</TableHead>
               </TableRow>
@@ -160,7 +160,7 @@ function DateGroup({
   return (
     <>
       <TableRow className="bg-muted/30 hover:bg-muted/30">
-        <TableCell colSpan={7} className="py-2">
+        <TableCell colSpan={99} className="py-2">
           <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             {format(parseISO(dateKey), "EEEE d MMMM", { locale: it })}
           </span>
@@ -212,8 +212,8 @@ function MovementRow({
         </div>
       </TableCell>
 
-      {/* ── Tipo ── */}
-      <TableCell>
+      {/* ── Tipo (hidden mobile) ── */}
+      <TableCell className="hidden sm:table-cell">
         <div className="flex items-center gap-1.5">
           {isEntrata ? (
             <ArrowUpCircle className="h-4 w-4 text-emerald-500" />
@@ -228,13 +228,13 @@ function MovementRow({
         </div>
       </TableCell>
 
-      {/* ── Categoria ── */}
-      <TableCell className="text-sm text-muted-foreground">
+      {/* ── Categoria (hidden mobile) ── */}
+      <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
         {movement.categoria ?? "—"}
       </TableCell>
 
-      {/* ── Metodo ── */}
-      <TableCell className="text-sm text-muted-foreground">
+      {/* ── Metodo (hidden mobile) ── */}
+      <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
         {movement.metodo ?? "—"}
       </TableCell>
 
