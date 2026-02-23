@@ -27,8 +27,8 @@ api/
 │   ├── clients.py       CRUD clienti
 │   ├── contracts.py     CRUD contratti + batch fetch enriched
 │   ├── rates.py         CRUD rate + pay/unpay atomic
-│   ├── agenda.py        CRUD eventi + _sync_contract_chiuso (auto-close/reopen)
-│   ├── movements.py     Ledger + pending/confirm spese ricorrenti
+│   ├── agenda.py        CRUD eventi + credit guard + _sync_contract_chiuso
+│   ├── movements.py     Ledger + pending/confirm + forecast proiezione
 │   ├── recurring_expenses.py  CRUD spese fisse
 │   ├── dashboard.py     KPI + alerts + inline resolution endpoints (7 GET)
 │   └── backup.py        Backup/Restore/Export (5 endpoint)
@@ -108,7 +108,7 @@ movements = session.exec(
 ```
 
 ### Contract Integrity Engine
-Il contratto e' il nodo centrale del sistema. 6 livelli di protezione:
+Il contratto e' il nodo centrale del sistema. 7 livelli di protezione:
 
 1. **Residual validation** (`create_rate`, `update_rate`): `sum(rate attive) + nuova ≤ prezzo - totale_versato`
 2. **Chiuso guard**: `create_rate`, `generate_payment_plan`, `create_event(id_contratto)`
@@ -126,6 +126,8 @@ Il contratto e' il nodo centrale del sistema. 6 livelli di protezione:
    - **MAI** aggiungere operazioni che modificano `crediti_usati` senza chiamare `_sync_contract_chiuso()`
 5. **Delete guard**: contratto eliminabile solo se zero rate non-saldate + zero crediti residui.
    CASCADE: soft-delete rate SALDATE + tutti CashMovement + detach eventi
+6. **Credit guard** (`create_event`): se `id_contratto` esplicito e `crediti_usati >= crediti_totali`
+   → 400 "Crediti esauriti". Escape hatch: evento PT senza contratto (campo vuoto).
 
 ### Conferma & Registra (Spese Ricorrenti)
 Paradigma esplicito: l'utente vede le spese in attesa e le conferma manualmente.
@@ -146,6 +148,17 @@ Cross-year safe con mese assoluto: `abs_target = anno * 12 + mese`.
 - **ANNUALE**: `mese == start.month`, key `"YYYY"`
 
 Idempotenza: `INSERT WHERE NOT EXISTS` con dedup key `(trainer_id, id_spesa_ricorrente, mese_anno)`.
+
+### Financial Forecast (Proiezione)
+`GET /movements/forecast?mesi=3` — pure read-only, zero side effects.
+
+Aggrega 3 fonti per produrre una proiezione finanziaria:
+1. **Rate PENDENTE/PARZIALE** — `importo_residuo` raggruppato per mese scadenza (entrate certe)
+2. **Spese ricorrenti attive** — occurrence engine per ogni mese futuro (uscite fisse)
+3. **Storico ultimi 3 mesi** — media uscite variabili (`tipo=USCITA AND id_spesa_ricorrente IS NULL`)
+
+Produce: 4 KPI predittivi + proiezione mensile + timeline cronologica con saldo cumulativo.
+Riusa `_get_occurrences_in_month()` per le spese ricorrenti (stessa logica del pending engine).
 
 ## Convenzioni
 

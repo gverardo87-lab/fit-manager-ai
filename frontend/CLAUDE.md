@@ -13,7 +13,7 @@ frontend/src/
 │   │   ├── clienti/         Pagina clienti
 │   │   ├── contratti/       Pagina contratti
 │   │   ├── agenda/          Pagina agenda/calendario
-│   │   ├── cassa/           Pagina Cassa (4 tab: Libro Mastro, Spese Fisse, Entrate & Uscite, Scadenze)
+│   │   ├── cassa/           Pagina Cassa (5 tab: Libro Mastro, Spese Fisse, Entrate & Uscite, Scadenze, Previsioni)
 │   │   └── impostazioni/   Pagina impostazioni
 │   ├── login/page.tsx       Login pubblico
 │   └── layout.tsx           Root layout (Providers, fonts)
@@ -29,7 +29,8 @@ frontend/src/
 │   ├── movements/           Componenti dominio cassa (MovementsTable, MovementSheet,
 │   │                        DeleteMovementDialog, RecurringExpensesTab (con EditDialog,
 │   │                        AddForm, ExpensesTable, AlertDialog delete confirm),
-│   │                        SplitLedgerView, AdvancedFilters, LedgerColumn, AgingReport)
+│   │                        SplitLedgerView, AdvancedFilters, LedgerColumn, AgingReport,
+│   │                        ForecastTab (KPI + AreaChart + Runway + Timeline))
 │   └── ui/                  shadcn/ui primitives
 ├── hooks/                   React Query hooks (1 per dominio)
 ├── lib/
@@ -70,6 +71,7 @@ Ogni mutation: `invalidateQueries` sulle key correlate + `toast.success/error`.
 ["dashboard", "expiring-contracts"]  // contratti in scadenza con crediti
 ["dashboard", "inactive-clients"]    // clienti inattivi con ultimo evento
 ["events", { start, end }]          // eventi per range temporale
+["forecast", { mesi }]              // proiezione finanziaria N mesi
 ```
 
 ### Invalidazione Simmetrica (Regola Ferrea)
@@ -236,7 +238,21 @@ La pagina Cassa ha un visual premium ispirato ai CRM leader (HubSpot, Salesforce
 - **ScrollArea shadcn**: sostituisce `overflow-y-auto` per scrollbar stilizzata
 - **Separator shadcn**: divide sezioni all'interno di card complesse
 - **Empty state ricchi**: icona + titolo + sottotitolo contestuale
-- **Tab con icone**: `BookOpen`, `CalendarClock`, `ArrowLeftRight`, `Clock`
+- **Tab con icone**: `BookOpen`, `CalendarClock`, `ArrowLeftRight`, `Clock`, `LineChart`
+
+## Forecast Tab (Previsioni di Bilancio)
+
+5a tab della pagina Cassa. Proiezione finanziaria a 3 mesi.
+
+**Componente**: `ForecastTab.tsx` con 4 sezioni:
+1. **KPI card gradient** (4): Entrate Attese, Uscite Previste, Burn Rate, Margine Proiettato (90gg)
+2. **AreaChart gradient** (proiezione): 3 curve con gradient fill (entrate emerald, uscite fisse red, variabili stimate orange tratteggiato)
+3. **AreaChart Runway** (saldo cumulativo): curva singola con dot, linea zero rossa tratteggiata (`ReferenceLine`), badge "Stabile"/"Rischio"
+4. **Cash Flow Timeline**: lista cronologica con pallini colorati, importi +/- e running balance
+
+**Hook**: `useForecast(mesi)` in `useMovements.ts` — query key `["forecast", { mesi }]`
+**Types**: `ForecastResponse`, `ForecastMonthData`, `ForecastTimelineItem`, `ForecastKpi`
+**Pattern**: stessi gradient card e tooltip custom del resto della pagina Cassa
 
 ## Build
 

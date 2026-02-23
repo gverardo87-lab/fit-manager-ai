@@ -50,7 +50,7 @@ api/               FastAPI + SQLModel ORM
   schemas/         Pydantic v2 (input/output validation)
        |
        v
-SQLite             data/crm.db — 9 tabelle, FK enforced
+SQLite             data/crm.db — 19 tabelle, FK enforced
        |
 core/              Moduli AI (dormant, non esposti via API — prossima fase)
   exercise_archive, workout_generator, knowledge_chain, card_parser, ...
@@ -96,6 +96,7 @@ Se qualsiasi step fallisce → rollback automatico. Tutto o niente.
 Il contratto e' l'entita' centrale: collega pagamenti, crediti, sessioni.
 - **Residual validation**: `create_rate` e `update_rate` verificano che `sum(rate attive) + nuova ≤ prezzo - totale_versato`
 - **Chiuso guard**: rate, piani, eventi bloccati su contratti chiusi
+- **Credit guard**: `create_event` rifiuta assegnazione a contratti con crediti esauriti (400)
 - **Auto-close/reopen** (SIMMETRICO):
   - Condizione chiusura: `stato_pagamento == "SALDATO"` AND `crediti_usati >= crediti_totali`
   - **Lato rate**: `pay_rate` chiude, `unpay_rate` riapre (via stato_pagamento)
@@ -227,10 +228,10 @@ ollama list
 
 ## Metriche Progetto
 
-- **api/**: ~5,200 LOC Python — 8 modelli ORM, 9 router, 1 schema module
-- **frontend/**: ~13,700 LOC TypeScript — 59 componenti, 8 hook modules, 7 pagine
+- **api/**: ~5,500 LOC Python — 8 modelli ORM, 9 router, 1 schema module
+- **frontend/**: ~14,600 LOC TypeScript — 60 componenti, 8 hook modules, 7 pagine
 - **core/**: ~11,100 LOC Python — moduli AI (workout, RAG, DNA) in attesa di API endpoints
-- **DB**: 9 tabelle SQLite, FK enforced, multi-tenant via trainer_id
+- **DB**: 19 tabelle SQLite, FK enforced, multi-tenant via trainer_id
 - **Test**: 60 pytest + 67 E2E
 - **Sicurezza**: JWT auth, bcrypt, Deep Relational IDOR, 3-layer route protection
 - **Cloud**: 0 dipendenze, 0 dati verso terzi
