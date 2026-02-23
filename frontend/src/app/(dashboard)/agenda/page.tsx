@@ -19,7 +19,6 @@ import { Plus, CalendarDays, Eye, EyeOff, CheckCircle2, Clock, Target, AlertTria
 import type { SlotInfo } from "react-big-calendar";
 
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AgendaCalendar } from "@/components/agenda/AgendaCalendar";
 import { EventSheet } from "@/components/agenda/EventSheet";
@@ -30,7 +29,8 @@ import {
   CATEGORY_LEGEND,
   type CalendarEvent,
 } from "@/components/agenda/calendar-setup";
-import { EVENT_CATEGORIES } from "@/types/api";
+import { EVENT_CATEGORIES, EVENT_STATUSES } from "@/types/api";
+import { toISOLocal } from "@/lib/format";
 
 /** Range iniziale: mese corrente +/- 1 mese di buffer. */
 function getInitialRange() {
@@ -54,9 +54,12 @@ export default function AgendaPage() {
   // ── State: Dialog elimina ──
   const [deleteOpen, setDeleteOpen] = useState(false);
 
-  // ── State: filtri categoria ──
+  // ── State: filtri categoria + stato ──
   const [activeCategories, setActiveCategories] = useState<Set<string>>(
     () => new Set(EVENT_CATEGORIES)
+  );
+  const [activeStatuses, setActiveStatuses] = useState<Set<string>>(
+    () => new Set(EVENT_STATUSES)
   );
 
   // ── State: range visibile dal calendario (per KPI contestuali) ──
@@ -77,22 +80,23 @@ export default function AgendaPage() {
   const { data: eventsData, isLoading, isError, isFetching, refetch } = useEvents(queryParams);
   const events = eventsData?.items ?? [];
 
-  // ── Eventi filtrati per categoria (per il calendario — gestisce range internamente) ──
+  // ── Eventi filtrati per categoria + stato (per il calendario) ──
   const calendarEvents = useMemo(
-    () => events.filter((e) => activeCategories.has(e.categoria)),
-    [events, activeCategories]
+    () => events.filter((e) => activeCategories.has(e.categoria) && activeStatuses.has(e.stato)),
+    [events, activeCategories, activeStatuses]
   );
 
-  // ── Eventi nel range visibile + filtrati per categoria (per KPI + header) ──
+  // ── Eventi nel range visibile + filtrati per categoria + stato (per KPI + header) ──
   const visibleEvents = useMemo(
     () =>
       events.filter(
         (e) =>
           e.data_inizio >= visibleRange.start &&
           e.data_inizio <= visibleRange.end &&
-          activeCategories.has(e.categoria)
+          activeCategories.has(e.categoria) &&
+          activeStatuses.has(e.stato)
       ),
-    [events, visibleRange, activeCategories]
+    [events, visibleRange, activeCategories, activeStatuses]
   );
 
   const handleToggleCategory = useCallback((cat: string) => {
@@ -102,6 +106,18 @@ export default function AgendaPage() {
         next.delete(cat);
       } else {
         next.add(cat);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleToggleStatus = useCallback((stato: string) => {
+    setActiveStatuses((prev) => {
+      const next = new Set(prev);
+      if (next.has(stato)) {
+        next.delete(stato);
+      } else {
+        next.add(stato);
       }
       return next;
     });
@@ -198,8 +214,8 @@ export default function AgendaPage() {
     ({ event, start, end }: { event: CalendarEvent; start: Date; end: Date }) => {
       updateEvent.mutate({
         id: event.id,
-        data_inizio: start.toISOString(),
-        data_fine: end.toISOString(),
+        data_inizio: toISOLocal(start),
+        data_fine: toISOLocal(end),
       });
     },
     [updateEvent]
@@ -210,8 +226,8 @@ export default function AgendaPage() {
     ({ event, start, end }: { event: CalendarEvent; start: Date; end: Date }) => {
       updateEvent.mutate({
         id: event.id,
-        data_inizio: start.toISOString(),
-        data_fine: end.toISOString(),
+        data_inizio: toISOLocal(start),
+        data_fine: toISOLocal(end),
       });
     },
     [updateEvent]
@@ -229,7 +245,7 @@ export default function AgendaPage() {
             <h1 className="text-2xl font-bold tracking-tight">Agenda</h1>
             <p className="text-sm text-muted-foreground">
               {visibleEvents.length} event{visibleEvents.length !== 1 ? "i" : "o"} · {rangeLabel}
-              {activeCategories.size < EVENT_CATEGORIES.length && (
+              {(activeCategories.size < EVENT_CATEGORIES.length || activeStatuses.size < EVENT_STATUSES.length) && (
                 <span className="text-muted-foreground/60"> (filtro attivo)</span>
               )}
             </p>
@@ -245,7 +261,12 @@ export default function AgendaPage() {
       </div>
 
       {/* ── Filtri + Legenda ── */}
-      <FilterBar activeCategories={activeCategories} onToggle={handleToggleCategory} />
+      <FilterBar
+        activeCategories={activeCategories}
+        onToggleCategory={handleToggleCategory}
+        activeStatuses={activeStatuses}
+        onToggleStatus={handleToggleStatus}
+      />
 
       {/* ── KPI contestuali al range visibile ── */}
       {!isLoading && <RangeStatsBar stats={rangeStats} label={rangeLabel} />}
@@ -386,67 +407,86 @@ function RangeStatsBar({ stats, label }: { stats: RangeStatsData; label: string 
   );
 }
 
-// ── Filter Bar (categoria interattiva + stato statico) ──
+// ── Filter Bar (due righe: categoria + stato) ──
 
 function FilterBar({
   activeCategories,
-  onToggle,
+  onToggleCategory,
+  activeStatuses,
+  onToggleStatus,
 }: {
   activeCategories: Set<string>;
-  onToggle: (cat: string) => void;
+  onToggleCategory: (cat: string) => void;
+  activeStatuses: Set<string>;
+  onToggleStatus: (stato: string) => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-4 rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 px-4 py-2.5 shadow-sm dark:from-zinc-900 dark:to-zinc-800/50">
-      {/* Filtri categoria (cliccabili) */}
-      <span className="text-xs font-medium text-muted-foreground">Filtra:</span>
-      {CATEGORY_LEGEND.map((cat) => {
-        const active = activeCategories.has(cat.categoria);
-        const Icon = active ? Eye : EyeOff;
-        return (
-          <button
-            key={cat.categoria}
-            type="button"
-            onClick={() => onToggle(cat.categoria)}
-            className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all duration-200 ${
-              active
-                ? "border-transparent shadow-sm"
-                : "border-dashed border-muted-foreground/30 opacity-40"
-            }`}
-            style={
-              active
-                ? { backgroundColor: cat.borderColor + "20", color: cat.borderColor }
-                : undefined
-            }
-          >
-            <div
-              className="h-2.5 w-2.5 rounded-full transition-opacity"
-              style={{ backgroundColor: cat.borderColor, opacity: active ? 1 : 0.3 }}
-            />
-            {cat.label}
-            <Icon className="h-3 w-3" />
-          </button>
-        );
-      })}
+    <div className="flex flex-col gap-2 rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 px-4 py-2.5 shadow-sm dark:from-zinc-900 dark:to-zinc-800/50">
+      {/* Riga 1: filtri categoria */}
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="w-16 text-xs font-medium text-muted-foreground">Categoria:</span>
+        {CATEGORY_LEGEND.map((cat) => {
+          const active = activeCategories.has(cat.categoria);
+          const Icon = active ? Eye : EyeOff;
+          return (
+            <button
+              key={cat.categoria}
+              type="button"
+              onClick={() => onToggleCategory(cat.categoria)}
+              className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all duration-200 ${
+                active
+                  ? "border-transparent shadow-sm"
+                  : "border-dashed border-muted-foreground/30 opacity-40"
+              }`}
+              style={
+                active
+                  ? { backgroundColor: cat.borderColor + "20", color: cat.borderColor }
+                  : undefined
+              }
+            >
+              <div
+                className="h-2.5 w-2.5 rounded-full transition-opacity"
+                style={{ backgroundColor: cat.borderColor, opacity: active ? 1 : 0.3 }}
+              />
+              {cat.label}
+              <Icon className="h-3 w-3" />
+            </button>
+          );
+        })}
+      </div>
 
-      {/* Separatore */}
-      <div className="h-5 w-px bg-border" />
-
-      {/* Indicatori stato (statici) */}
-      <span className="text-xs font-medium text-muted-foreground">Stato:</span>
-      {STATUS_LEGEND.map((s) => (
-        <Badge
-          key={s.stato}
-          variant="outline"
-          className="text-[10px] px-2 py-0"
-          style={{
-            backgroundColor: s.backgroundColor,
-            color: s.color,
-            borderColor: "transparent",
-          }}
-        >
-          {s.label}
-        </Badge>
-      ))}
+      {/* Riga 2: filtri stato */}
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="w-16 text-xs font-medium text-muted-foreground">Stato:</span>
+        {STATUS_LEGEND.map((s) => {
+          const active = activeStatuses.has(s.stato);
+          const Icon = active ? Eye : EyeOff;
+          return (
+            <button
+              key={s.stato}
+              type="button"
+              onClick={() => onToggleStatus(s.stato)}
+              className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all duration-200 ${
+                active
+                  ? "border-transparent shadow-sm"
+                  : "border-dashed border-muted-foreground/30 opacity-40"
+              }`}
+              style={
+                active
+                  ? { backgroundColor: s.backgroundColor, color: s.color }
+                  : undefined
+              }
+            >
+              <div
+                className="h-2.5 w-2.5 rounded-full transition-opacity"
+                style={{ backgroundColor: s.color, opacity: active ? 1 : 0.3 }}
+              />
+              {s.label}
+              <Icon className="h-3 w-3" />
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -39,7 +39,7 @@ frontend/src/
 ├── lib/
 │   ├── api-client.ts        Axios + JWT interceptor + extractErrorMessage
 │   ├── auth.ts              Login/logout/cookie management
-│   ├── format.ts            formatCurrency centralizzato
+│   ├── format.ts            formatCurrency + toISOLocal centralizzati
 │   └── providers.tsx        QueryClientProvider
 └── types/
     └── api.ts               TypeScript interfaces (mirror Pydantic)
@@ -154,11 +154,15 @@ Componente con 4 sotto-componenti inline:
 - **CRITICA** (delete contratto, revoca pagamento): AlertDialog + conferma testuale ("ANNULLA")
 - **MEDIA** (delete rata, delete movimento): AlertDialog standard con 2 bottoni
 
-### Formattazione Valuta
+### Utility centralizzate (`lib/format.ts`)
 ```typescript
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, toISOLocal } from "@/lib/format";
 ```
-Funzione centralizzata in `lib/format.ts`. Importata in tutti i componenti.
+- `formatCurrency(amount)` — formatta EUR italiana ("€ 1.200,00")
+- `toISOLocal(date)` — ISO string in ora locale SENZA suffisso "Z".
+  Critico per D&D e form: `toISOString()` converte in UTC perdendo l'offset
+  fuso orario (es. 12:00 CET → 11:00Z). Il backend salva datetime naive,
+  quindi DEVE ricevere l'ora locale. MAI usare `toISOString()` per payload API.
 
 ### Error Handling
 ```typescript
@@ -178,13 +182,13 @@ Estrae `error.response.data.detail` dal backend FastAPI, mostra il messaggio rea
 - CSS: Tailwind utilities, ZERO CSS custom (tranne globals.css per theme)
 - Icone: lucide-react (consistente con shadcn/ui)
 - Toast: sonner (`toast.success`, `toast.error`)
-- Date: date-fns con locale `it` per display, ISO strings per API
+- Date: date-fns con locale `it` per display, `toISOLocal()` per payload API (MAI `toISOString()`)
 
 ## Auth (3 layer)
 
 1. **Edge Middleware** (`middleware.ts`): intercetta route prima del render
 2. **AuthGuard** (`components/auth/AuthGuard.tsx`): check cookie client-side
-3. **API interceptor** (`lib/api-client.ts`): JWT header + redirect su 401
+3. **API interceptor** (`lib/api-client.ts`): JWT header + redirect su 401 (skip se gia' su `/login`)
 
 Token in cookie `fitmanager_token` (8h expiry). Trainer data in `fitmanager_trainer`.
 
@@ -199,6 +203,8 @@ Token in cookie `fitmanager_token` (8h expiry). Trainer data in `fitmanager_trai
 | ScrollArea in flex senza `min-h-0` | Flex item non puo' ridursi sotto la dimensione del contenuto | `min-h-0 flex-1` su ScrollArea + `overflow-hidden` su container |
 | Popup inside `.rbc-event` | `overflow:hidden` su `.rbc-event` clippava popup absolute-positioned | `createPortal(popup, document.body)` + `position:fixed` + `getBoundingClientRect()` |
 | Calendar unmount on navigate | `onRangeChange` → new query key → `isLoading=true` → calendar unmounts → state reset a oggi | `keepPreviousData` + smart range check (return `prev` se range dentro buffer) |
+| D&D sposta evento -1h | `toISOString()` converte ora locale in UTC → offset perso | `toISOLocal()` da `lib/format.ts` — formatta locale senza `Z` |
+| 401 interceptor loop login | Interceptor cattura 401 credenziali errate → redirect a /login → loop | Skip redirect se `pathname.startsWith("/login")` |
 
 ## Esperienza Utente — Principi Frontend
 
@@ -296,18 +302,19 @@ Navigazione fluida senza flash/reset. Due meccanismi:
 
 Buffer iniziale: mese corrente ±1 mese. Espansione: +1 mese in ogni direzione dal nuovo range visibile.
 
-### Pattern: Filtering Pipeline a 3 livelli
+### Pattern: Filtering Pipeline a 3 livelli (2 assi)
 ```
 events (buffer API ±1 mese)
-  ├── calendarEvents = filtro SOLO categoria → passa al calendario
-  └── visibleEvents  = filtro range + categoria → KPI + header count
+  ├── calendarEvents = filtro categoria + stato → passa al calendario
+  └── visibleEvents  = filtro range + categoria + stato → KPI + header count
 ```
-Il calendario gestisce il range internamente — riceve TUTTI gli eventi (filtrati per categoria).
-I KPI e l'header usano `visibleEvents` che filtra per ENTRAMBI range e categoria.
+Due assi di filtraggio indipendenti: **categoria** (PT, SALA, CORSO, COLLOQUIO) e **stato** (Programmato, Completato, Cancellato, Rinviato). Entrambi gestiti da `Set<string>` con toggle on/off.
+Il calendario gestisce il range internamente — riceve eventi filtrati per categoria + stato.
+I KPI e l'header usano `visibleEvents` che filtra per range + categoria + stato.
 `rangeLabel` per vista mese usa il **midpoint** del range (il primo giorno della griglia puo' appartenere al mese precedente).
 
 ### Page features (page.tsx)
-- **FilterBar**: chip interattivi per categoria (`Set<string>` toggle on/off), Eye/EyeOff icon
+- **FilterBar**: due righe — riga 1 filtri categoria, riga 2 filtri stato. Entrambi chip interattivi (`Set<string>` toggle on/off, Eye/EyeOff icon). Label a larghezza fissa (`w-16`) per allineamento verticale.
 - **RangeStatsBar**: 4 KPI config-driven contestuali al range visibile (Sessioni, Completate, Programmate, Tasso %). Label dinamica: giorno ("lunedi' 24 febbraio"), settimana ("17-23 feb"), mese ("febbraio 2026"). Calcolo da `visibleRange` state, zero query aggiuntive.
 - **Quick Actions**: hover card con Completa/Rinvia/Cancella 1-click (no sheet)
 - **Dashboard = control center**: eventi fantasma gestiti SOLO da Dashboard (GhostEventsSheet con bulk + single resolve). Zero duplicazione in Agenda.

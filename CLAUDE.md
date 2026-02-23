@@ -150,6 +150,8 @@ Errori reali trovati e corretti. MAI ripeterli.
 | Calendar unmount su navigazione | `onRangeChange` → new query key → `isLoading=true` → unmount → reset | `keepPreviousData` + smart range buffering |
 | KPI mese sfasato | react-big-calendar grid start in mese precedente (es. 23 feb per marzo) | `rangeLabel` usa midpoint del range per vista mese |
 | KPI esclude ultimo giorno | `visibleRange.end` = mezzanotte 00:00 → eventi quel giorno esclusi | `endOfDay()` su `visibleRange.end` in `handleRangeChange` |
+| D&D sposta evento -1h | `toISOString()` converte Date locale in UTC → perde offset fuso orario | `toISOLocal()` centralizzata in `lib/format.ts` — formatta in ora locale senza `Z` |
+| 401 interceptor loop su login | Interceptor cattura 401 del login (credenziali errate) → redirect silenzioso → perde errore | Skip redirect se `pathname.startsWith("/login")` |
 
 ---
 
@@ -218,7 +220,8 @@ python tools/admin_scripts/test_ledger_dashboard.py
 # GET  /api/backup/export     (JSON dati trainer)
 
 # Reset & Seed (FERMA il server API prima!)
-python tools/admin_scripts/reset_and_seed.py
+python tools/admin_scripts/reset_and_seed.py       # 10 clienti, dati base
+python -m tools.admin_scripts.seed_realistic        # 50 clienti, 1 anno realistico
 # Credenziali: chiarabassani96@gmail.com / Fitness2026!
 
 # Database

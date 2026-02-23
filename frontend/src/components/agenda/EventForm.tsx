@@ -16,6 +16,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
 import { AlertTriangle, Loader2, Trash2 } from "lucide-react";
+import { toISOLocal } from "@/lib/format";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -72,10 +73,7 @@ function combineDateAndTime(date: Date, time: string): Date {
   return result;
 }
 
-/** Converte Date in stringa ISO senza timezone per il backend. */
-function toISOLocal(date: Date): string {
-  return format(date, "yyyy-MM-dd'T'HH:mm:ss");
-}
+// toISOLocal() importata da @/lib/format (centralizzata)
 
 // ── Valori di submit finali (per il backend) ──
 
