@@ -53,11 +53,17 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Token scaduto o invalido — rimuovi e redirect al login
+      // Token scaduto o invalido — rimuovi cookie
       Cookies.remove(TOKEN_COOKIE);
 
-      // Solo lato client (non durante SSR)
-      if (typeof window !== "undefined") {
+      // Redirect al login, MA solo se non siamo gia' sulla pagina login.
+      // Senza questo check, un 401 dal login endpoint (credenziali errate)
+      // causerebbe un reload silenzioso della pagina, perdendo il messaggio
+      // di errore che il componente vuole mostrare.
+      if (
+        typeof window !== "undefined" &&
+        !window.location.pathname.startsWith("/login")
+      ) {
         window.location.href = "/login";
       }
     }
