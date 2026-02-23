@@ -36,6 +36,7 @@ from api.models.event import Event
 from api.schemas.financial import (
     RateCreate, RateUpdate, RatePayment,
     RateResponse, PaymentPlanCreate,
+    AgingItem, AgingBucket, AgingResponse,
 )
 from api.routers._audit import log_audit
 
@@ -116,6 +117,122 @@ def list_rates(
         "items": [RateResponse.model_validate(r) for r in rates],
         "total": len(rates),
     }
+
+
+# ════════════════════════════════════════════════════════════
+# GET: Aging Report — Orizzonte Finanziario bidirezionale
+# ════════════════════════════════════════════════════════════
+
+# Bucket definitions: (label, min_days_inclusive, max_days_exclusive)
+OVERDUE_BUCKETS = [("0-30", 0, 31), ("31-60", 31, 61), ("61-90", 61, 91), ("90+", 91, 999_999)]
+UPCOMING_BUCKETS = [("0-7", 0, 8), ("8-30", 8, 31), ("31-60", 31, 61), ("61-90", 61, 91)]
+
+
+@router.get("/aging", response_model=AgingResponse)
+def get_aging_report(
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """
+    Orizzonte finanziario: rate scadute (passato) + in arrivo (futuro).
+
+    Una sola query con 2 JOIN (Rate → Contract → Client).
+    Bucket scaduti: 0-30, 31-60, 61-90, 90+ giorni.
+    Bucket in arrivo: 0-7, 8-30, 31-60, 61-90 giorni.
+    Confini: min_days incluso, max_days escluso.
+    """
+    today = date.today()
+
+    # Query unica: tutte le rate non saldate di contratti attivi
+    results = session.exec(
+        select(Rate, Contract, Client)
+        .join(Contract, Rate.id_contratto == Contract.id)
+        .join(Client, Contract.id_cliente == Client.id)
+        .where(
+            Contract.trainer_id == trainer.id,
+            Rate.stato.in_(["PENDENTE", "PARZIALE"]),
+            Rate.deleted_at == None,
+            Contract.deleted_at == None,
+            Contract.chiuso == False,
+        )
+        .order_by(Rate.data_scadenza)
+    ).all()
+
+    # Classifica ogni rata in overdue o upcoming
+    overdue_items: list[list[AgingItem]] = [[] for _ in OVERDUE_BUCKETS]
+    upcoming_items: list[list[AgingItem]] = [[] for _ in UPCOMING_BUCKETS]
+    clienti_scaduto: set[int] = set()
+
+    for rate, contract, client in results:
+        giorni = (today - rate.data_scadenza).days
+        residuo = round(rate.importo_previsto - rate.importo_saldato, 2)
+
+        item = AgingItem(
+            rate_id=rate.id,
+            contract_id=contract.id,
+            client_id=client.id,
+            client_nome=client.nome,
+            client_cognome=client.cognome,
+            data_scadenza=rate.data_scadenza,
+            giorni=giorni,
+            importo_previsto=rate.importo_previsto,
+            importo_saldato=rate.importo_saldato,
+            importo_residuo=residuo,
+            stato=rate.stato,
+        )
+
+        if giorni > 0:
+            # Scaduta — assegna al bucket corretto
+            clienti_scaduto.add(client.id)
+            for i, (_, min_d, max_d) in enumerate(OVERDUE_BUCKETS):
+                if min_d <= giorni < max_d:
+                    overdue_items[i].append(item)
+                    break
+        else:
+            # Futura — giorni_mancanti = abs(giorni)
+            giorni_mancanti = abs(giorni)
+            for i, (_, min_d, max_d) in enumerate(UPCOMING_BUCKETS):
+                if min_d <= giorni_mancanti < max_d:
+                    upcoming_items[i].append(item)
+                    break
+
+    # Costruisci bucket response
+    overdue_buckets = []
+    for i, (label, min_d, max_d) in enumerate(OVERDUE_BUCKETS):
+        items = overdue_items[i]
+        overdue_buckets.append(AgingBucket(
+            label=label,
+            min_days=min_d,
+            max_days=max_d,
+            totale=round(sum(it.importo_residuo for it in items), 2),
+            count=len(items),
+            items=items,
+        ))
+
+    upcoming_buckets = []
+    for i, (label, min_d, max_d) in enumerate(UPCOMING_BUCKETS):
+        items = upcoming_items[i]
+        upcoming_buckets.append(AgingBucket(
+            label=label,
+            min_days=min_d,
+            max_days=max_d,
+            totale=round(sum(it.importo_residuo for it in items), 2),
+            count=len(items),
+            items=items,
+        ))
+
+    totale_scaduto = round(sum(b.totale for b in overdue_buckets), 2)
+    totale_in_arrivo = round(sum(b.totale for b in upcoming_buckets), 2)
+
+    return AgingResponse(
+        totale_scaduto=totale_scaduto,
+        totale_in_arrivo=totale_in_arrivo,
+        rate_scadute=sum(b.count for b in overdue_buckets),
+        rate_in_arrivo=sum(b.count for b in upcoming_buckets),
+        clienti_con_scaduto=len(clienti_scaduto),
+        overdue_buckets=overdue_buckets,
+        upcoming_buckets=upcoming_buckets,
+    )
 
 
 # ════════════════════════════════════════════════════════════

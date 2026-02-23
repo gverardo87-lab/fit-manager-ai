@@ -383,3 +383,43 @@ class ReconciliationResponse(BaseModel):
     aligned: int
     divergent: int
     items: List[ReconciliationItem] = []
+
+
+# ════════════════════════════════════════════════════════════
+# AGING REPORT (Orizzonte Finanziario)
+# ════════════════════════════════════════════════════════════
+
+class AgingItem(BaseModel):
+    """Singola rata nell'aging report."""
+    rate_id: int
+    contract_id: int
+    client_id: int
+    client_nome: str
+    client_cognome: str
+    data_scadenza: date
+    giorni: int               # positivo = scaduta da N gg, negativo = manca tra N gg
+    importo_previsto: float
+    importo_saldato: float
+    importo_residuo: float
+    stato: str                # PENDENTE | PARZIALE
+
+
+class AgingBucket(BaseModel):
+    """Fascia temporale con rate raggruppate."""
+    label: str                # "0-30", "31-60", "61-90", "90+"
+    min_days: int
+    max_days: int             # 999 per "90+"
+    totale: float             # somma importo_residuo nel bucket
+    count: int                # numero rate
+    items: List[AgingItem]
+
+
+class AgingResponse(BaseModel):
+    """Orizzonte finanziario completo: scaduto + in arrivo."""
+    totale_scaduto: float
+    totale_in_arrivo: float
+    rate_scadute: int
+    rate_in_arrivo: int
+    clienti_con_scaduto: int
+    overdue_buckets: List[AgingBucket]    # 4 bucket: 0-30, 31-60, 61-90, 90+
+    upcoming_buckets: List[AgingBucket]   # 4 bucket: 0-7, 8-30, 31-60, 61-90
