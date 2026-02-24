@@ -71,6 +71,7 @@ const CATEGORY_BORDERS: Record<string, string> = {
   SALA:      "#a1a1aa",  // grigio
   CORSO:     "#10b981",  // verde
   COLLOQUIO: "#f59e0b",  // ambra
+  PERSONALE: "#ec4899",  // rosa
 };
 
 const DEFAULT_BORDER = "#94a3b8";
@@ -87,6 +88,7 @@ const PROGRAMMATO_STYLES: Record<string, StatusStyle> = {
   SALA:      { backgroundColor: "#f4f4f5", color: "#3f3f46" },
   CORSO:     { backgroundColor: "#d1fae5", color: "#064e3b" },
   COLLOQUIO: { backgroundColor: "#fef3c7", color: "#78350f" },
+  PERSONALE: { backgroundColor: "#fce7f3", color: "#831843" },
 };
 
 const DEFAULT_PROGRAMMATO: StatusStyle = {
@@ -148,6 +150,7 @@ export const CATEGORY_LEGEND: CategoryLegendItem[] = [
   { categoria: "SALA",      label: "Sala",              borderColor: "#a1a1aa" },
   { categoria: "CORSO",     label: "Corso",             borderColor: "#10b981" },
   { categoria: "COLLOQUIO", label: "Colloquio",         borderColor: "#f59e0b" },
+  { categoria: "PERSONALE", label: "Personale",         borderColor: "#ec4899" },
 ];
 
 // ── Messaggi italiani per react-big-calendar ──
@@ -175,4 +178,5 @@ export const CATEGORY_LABELS: Record<EventCategory, string> = {
   SALA: "Sala",
   CORSO: "Corso",
   COLLOQUIO: "Colloquio",
+  PERSONALE: "Personale",
 };

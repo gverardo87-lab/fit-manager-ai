@@ -32,6 +32,7 @@ from api.routers.movements import router as movements_router
 from api.routers.recurring_expenses import router as recurring_expenses_router
 from api.routers.dashboard import router as dashboard_router
 from api.routers.backup import router as backup_router
+from api.routers.todos import router as todos_router
 
 logger = logging.getLogger("fitmanager.api")
 
@@ -88,6 +89,7 @@ app.include_router(movements_router, prefix=API_PREFIX)
 app.include_router(recurring_expenses_router, prefix=API_PREFIX)
 app.include_router(dashboard_router, prefix=API_PREFIX)
 app.include_router(backup_router, prefix=API_PREFIX)
+app.include_router(todos_router, prefix=API_PREFIX)
 
 
 @app.get("/health")

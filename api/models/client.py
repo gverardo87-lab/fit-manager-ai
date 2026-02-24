@@ -31,5 +31,6 @@ class Client(SQLModel, table=True):
     sesso: Optional[str] = None
     anamnesi_json: Optional[str] = None
     stato: str = Field(default="Attivo")
+    note_interne: Optional[str] = None
     data_creazione: Optional[datetime] = Field(default_factory=lambda: datetime.now(timezone.utc))
     deleted_at: Optional[datetime] = None

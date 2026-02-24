@@ -110,7 +110,7 @@ movements = session.exec(
 ### Contract Integrity Engine
 Il contratto e' il nodo centrale del sistema. 7 livelli di protezione:
 
-1. **Residual validation** (`create_rate`, `update_rate`): `sum(rate attive) + nuova ≤ prezzo - totale_versato`
+1. **Residual validation** (`create_rate`, `update_rate`): via `_cap_rateizzabile()` — `acconto = totale_versato - sum(saldato)`, `cap = prezzo - acconto`, `spazio = cap - sum(previsto)`. `update_rate` usa `exclude_rate_id` per escludere la rata in modifica dal calcolo
 2. **Chiuso guard**: `create_rate`, `generate_payment_plan`, `create_event(id_contratto)`
    rifiutano operazioni su contratti chiusi (400)
 3. **Overpayment check** (`pay_rate`):
@@ -124,9 +124,15 @@ Il contratto e' il nodo centrale del sistema. 7 livelli di protezione:
      - `delete_event` (crediti_usati scende)
      - `update_event` quando `stato` cambia (es. Completato ↔ Cancellato)
    - **MAI** aggiungere operazioni che modificano `crediti_usati` senza chiamare `_sync_contract_chiuso()`
-5. **Delete guard**: contratto eliminabile solo se zero rate non-saldate + zero crediti residui.
+5. **Flexible rate editing** (`update_rate`): rate pagate (SALDATA/PARZIALE) modificabili con vincoli:
+   - `data_scadenza`, `descrizione`: sempre modificabili
+   - `importo_previsto`: modificabile se >= importo_saldato (422 altrimenti)
+   - Stato auto-ricalcolato: se `saldato >= previsto` → SALDATA, altrimenti → PARZIALE
+   - Residual check via `_cap_rateizzabile(exclude_rate_id=rate.id)`
+6. **CashMovement date sync**: modifica `data_scadenza` su rata pagata → aggiorna atomicamente `data_effettiva` di tutti i CashMovement collegati (ENTRATA, non soft-deleted) + audit trail
+7. **Delete guard**: contratto eliminabile solo se zero rate non-saldate + zero crediti residui.
    CASCADE: soft-delete rate SALDATE + tutti CashMovement + detach eventi
-6. **Credit guard** (`create_event`): se `id_contratto` esplicito e `crediti_usati >= crediti_totali`
+8. **Credit guard** (`create_event`): se `id_contratto` esplicito e `crediti_usati >= crediti_totali`
    → 400 "Crediti esauriti". Escape hatch: evento PT senza contratto (campo vuoto).
 
 ### Conferma & Registra (Spese Ricorrenti)
@@ -228,11 +234,11 @@ Pattern condiviso per endpoint inline resolution:
 
 Due famiglie di test:
 
-**pytest** (`tests/` — 60 test):
+**pytest** (`tests/` — 63 test):
 - DB SQLite in-memory, isolamento totale (StaticPool)
 - `test_pay_rate.py` (12): pagamento atomico, overpayment, deep IDOR, storico pagamenti parziali
 - `test_unpay_rate.py` (4): revoca pagamento, decrements, soft delete movement
-- `test_rate_guards.py` (9): immutabilita' rate con pagamenti, residuo su update
+- `test_rate_guards.py` (12): editing flessibile rate pagate, importo >= saldato, residuo su update, CashMovement date sync
 - `test_soft_delete_integrity.py` (5): delete blocked with rates, restrict, stats filtrate
 - `test_sync_recurring.py` (10): pending/confirm, idempotenza, data_inizio, trimestrale, semestrale cross-year, soft delete resync, stats read-only
 - `test_contract_integrity.py` (16): residual, chiuso guard, auto-close, delete guards + cascade

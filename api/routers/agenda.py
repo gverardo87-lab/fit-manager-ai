@@ -34,7 +34,7 @@ from api.routers._audit import log_audit
 router = APIRouter(prefix="/events", tags=["events"])
 
 # Categorie valide (mirror di core/constants.py SessionCategory)
-VALID_CATEGORIES = {"PT", "SALA", "CORSO", "COLLOQUIO"}
+VALID_CATEGORIES = {"PT", "SALA", "CORSO", "COLLOQUIO", "PERSONALE"}
 
 # Stati validi (mirror di core/constants.py EventStatus)
 VALID_STATUSES = {"Programmato", "Completato", "Cancellato", "Rinviato"}

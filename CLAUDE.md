@@ -78,8 +78,9 @@ Ogni funzione valida le precondizioni e esce subito. Max 2 livelli di nesting.
 # Backend
 def update_rate(rate_id, data, trainer, session):
     rate = _bouncer_rate(session, rate_id, trainer.id)  # 404 se non suo
-    if rate.stato == "SALDATA":
-        raise HTTPException(400, "Rata gia' saldata")   # business rule
+    contract = session.get(Contract, rate.id_contratto)
+    if contract.chiuso:
+        raise HTTPException(400, "Contratto chiuso")     # business rule
     # flusso principale — piatto
 ```
 
@@ -95,7 +96,7 @@ Se qualsiasi step fallisce → rollback automatico. Tutto o niente.
 
 ### 3b. Contract Integrity Engine (Backend)
 Il contratto e' l'entita' centrale: collega pagamenti, crediti, sessioni.
-- **Residual validation**: `create_rate` e `update_rate` verificano che `sum(rate attive) + nuova ≤ prezzo - totale_versato`
+- **Residual validation**: `_cap_rateizzabile()` centralizzato — calcola `acconto = totale_versato - sum(saldato)`, `cap = prezzo - acconto`, `spazio = cap - sum(previsto)`. Usato da `create_rate` e `update_rate` (con `exclude_rate_id` per escludere la rata in modifica)
 - **Chiuso guard**: rate, piani, eventi bloccati su contratti chiusi
 - **Credit guard**: `create_event` rifiuta assegnazione a contratti con crediti esauriti (400)
 - **Auto-close/reopen** (SIMMETRICO):
@@ -104,6 +105,8 @@ Il contratto e' l'entita' centrale: collega pagamenti, crediti, sessioni.
   - **Lato eventi**: `create_event`, `delete_event`, `update_event(stato)` — tutti usano `_sync_contract_chiuso()`
   - INVARIANTE: ogni operazione che modifica `crediti_usati` o `stato_pagamento` DEVE ricalcolare `chiuso`
 - **Overpayment check**: `pay_rate` verifica sia rata-level che contract-level
+- **Flexible rate editing**: rate pagate (SALDATA/PARZIALE) modificabili — `data_scadenza` e `descrizione` sempre, `importo_previsto` se >= saldato. Stato auto-ricalcolato (SALDATA↔PARZIALE)
+- **CashMovement date sync**: modifica `data_scadenza` su rata pagata → aggiorna `data_effettiva` di tutti i CashMovement collegati (atomico)
 - **Delete guard**: contratto eliminabile solo se zero rate non-saldate + zero crediti residui
 - **Payment history**: `receipt_map` come `dict[int, list[CashMovement]]` — storico completo per rata
 
@@ -153,6 +156,7 @@ Errori reali trovati e corretti. MAI ripeterli.
 | KPI esclude ultimo giorno | `visibleRange.end` = mezzanotte 00:00 → eventi quel giorno esclusi | `endOfDay()` su `visibleRange.end` in `handleRangeChange` |
 | D&D sposta evento -1h | `toISOString()` converte Date locale in UTC → perde offset fuso orario | `toISOLocal()` centralizzata in `lib/format.ts` — formatta in ora locale senza `Z` |
 | 401 interceptor loop su login | Interceptor cattura 401 del login (credenziali errate) → redirect silenzioso → perde errore | Skip redirect se `pathname.startsWith("/login")` |
+| Cap residuo double-counting | `cap = prezzo - totale_versato` conta saldato 2x (in totale_versato E sum rate) → edit rate pagata blocca | `_cap_rateizzabile()`: `acconto = totale_versato - sum(saldato)`, `cap = prezzo - acconto` |
 
 ---
 
@@ -236,7 +240,7 @@ alembic upgrade head          # applica migrazioni pendenti
 alembic revision -m "desc"    # crea nuova migrazione
 alembic current               # mostra versione corrente
 
-# Test (pytest — 60 test, tutti i domini)
+# Test (pytest — 63 test, tutti i domini)
 pytest tests/ -v
 
 # Test (E2E — richiede server avviato)
@@ -271,7 +275,7 @@ ollama list
 - **frontend/**: ~15,500 LOC TypeScript — 62 componenti, 8 hook modules, 6 pagine
 - **core/**: ~11,100 LOC Python — moduli AI (workout, RAG, DNA) in attesa di API endpoints
 - **DB**: 19 tabelle SQLite, FK enforced, multi-tenant via trainer_id
-- **Test**: 60 pytest + 67 E2E
+- **Test**: 63 pytest + 67 E2E
 - **Sicurezza**: JWT auth, bcrypt, Deep Relational IDOR, 3-layer route protection
 - **Cloud**: 0 dipendenze, 0 dati verso terzi
 

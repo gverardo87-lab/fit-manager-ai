@@ -51,6 +51,7 @@ import { GhostEventsSheet } from "@/components/dashboard/GhostEventsSheet";
 import { OverdueRatesSheet } from "@/components/dashboard/OverdueRatesSheet";
 import { ExpiringContractsSheet } from "@/components/dashboard/ExpiringContractsSheet";
 import { InactiveClientsSheet } from "@/components/dashboard/InactiveClientsSheet";
+import { TodoCard } from "@/components/dashboard/TodoCard";
 import type { DashboardSummary, MovementStats, AgingResponse, DashboardAlerts } from "@/types/api";
 
 // ── Date helpers ──
@@ -78,6 +79,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   SALA: "bg-emerald-500",
   CORSO: "bg-violet-500",
   COLLOQUIO: "bg-amber-500",
+  PERSONALE: "bg-pink-500",
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -159,10 +161,11 @@ export default function DashboardPage() {
       {/* ── Alert Panel ── */}
       <AlertPanel alerts={alerts} isLoading={!alerts} alertActions={alertActions} />
 
-      {/* ── Due colonne: Aging + Agenda Oggi ── */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      {/* ── Tre colonne: Aging + Agenda + Todo ── */}
+      <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
         <FinancialHealth aging={aging} isLoading={!aging} />
         <TodayAgenda events={todayEvents} isLoading={!eventsData} />
+        <TodoCard />
       </div>
 
       {/* ── Azioni Rapide ── */}

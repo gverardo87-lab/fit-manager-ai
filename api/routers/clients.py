@@ -51,6 +51,7 @@ class ClientCreate(BaseModel):
     sesso: Optional[str] = Field(None, pattern=r"^(Uomo|Donna|Altro)$")
     anamnesi: Optional[dict] = Field(default_factory=dict)
     stato: str = Field(default="Attivo", pattern=r"^(Attivo|Inattivo)$")
+    note_interne: Optional[str] = None
 
     @field_validator("telefono")
     @classmethod
@@ -95,6 +96,7 @@ class ClientUpdate(BaseModel):
     sesso: Optional[str] = Field(None, pattern=r"^(Uomo|Donna|Altro)$")
     anamnesi: Optional[dict] = None
     stato: Optional[str] = Field(None, pattern=r"^(Attivo|Inattivo)$")
+    note_interne: Optional[str] = None
 
     @field_validator("telefono")
     @classmethod
@@ -134,6 +136,7 @@ class ClientResponse(BaseModel):
     data_nascita: Optional[str] = None
     sesso: Optional[str] = None
     stato: str
+    note_interne: Optional[str] = None
     crediti_residui: int = 0
 
 
@@ -295,6 +298,7 @@ def create_client(
         sesso=data.sesso,
         anamnesi_json=json.dumps(data.anamnesi) if data.anamnesi else None,
         stato=data.stato,
+        note_interne=data.note_interne,
     )
     session.add(client)
     session.flush()
@@ -415,5 +419,6 @@ def _to_response(client: Client, crediti_residui: int = 0) -> ClientResponse:
         data_nascita=str(client.data_nascita) if client.data_nascita else None,
         sesso=client.sesso,
         stato=client.stato,
+        note_interne=client.note_interne,
         crediti_residui=crediti_residui,
     )

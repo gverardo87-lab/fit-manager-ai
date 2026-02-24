@@ -18,6 +18,7 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -49,6 +50,7 @@ const clientSchema = z.object({
   data_nascita: z.string().optional(),
   sesso: z.enum(["Uomo", "Donna", "Altro"]).optional(),
   stato: z.enum(["Attivo", "Inattivo"]),
+  note_interne: z.string().optional(),
 });
 
 export type ClientFormValues = z.infer<typeof clientSchema>;
@@ -78,6 +80,7 @@ export function ClientForm({ client, onSubmit, isPending }: ClientFormProps) {
       data_nascita: client?.data_nascita ?? "",
       sesso: (client?.sesso as ClientFormValues["sesso"]) ?? undefined,
       stato: (client?.stato as "Attivo" | "Inattivo") ?? "Attivo",
+      note_interne: client?.note_interne ?? "",
     },
   });
 
@@ -89,6 +92,7 @@ export function ClientForm({ client, onSubmit, isPending }: ClientFormProps) {
       email: values.email || undefined,
       data_nascita: values.data_nascita || undefined,
       sesso: values.sesso || undefined,
+      note_interne: values.note_interne || undefined,
     };
     onSubmit(cleaned);
   };
@@ -182,6 +186,20 @@ export function ClientForm({ client, onSubmit, isPending }: ClientFormProps) {
             <SelectItem value="Inattivo">Inattivo</SelectItem>
           </SelectContent>
         </Select>
+      </div>
+
+      {/* ── Note Interne ── */}
+      <div className="space-y-2">
+        <Label htmlFor="note_interne">Note Interne</Label>
+        <Textarea
+          id="note_interne"
+          {...register("note_interne")}
+          placeholder="Accordi economici, organizzativi, appunti..."
+          rows={3}
+        />
+        <p className="text-[11px] text-muted-foreground">
+          Visibili solo a te. Per appunti su accordi e organizzazione.
+        </p>
       </div>
 
       {/* ── Submit ── */}

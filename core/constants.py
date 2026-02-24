@@ -64,6 +64,7 @@ class SessionCategory(str, Enum):
     SALA = "SALA"
     CORSO = "CORSO"
     COLLOQUIO = "COLLOQUIO"
+    PERSONALE = "PERSONALE"
 
 
 # ════════════════════════════════════════════════════════════

@@ -6,6 +6,7 @@ from .event import Event
 from .movement import CashMovement
 from .recurring_expense import RecurringExpense
 from .audit_log import AuditLog
+from .todo import Todo
 
 __all__ = [
     "Trainer",
@@ -16,4 +17,5 @@ __all__ = [
     "CashMovement",
     "RecurringExpense",
     "AuditLog",
+    "Todo",
 ]

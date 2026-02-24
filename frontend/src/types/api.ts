@@ -30,7 +30,7 @@ export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 export const MOVEMENT_TYPES = ["ENTRATA", "USCITA"] as const;
 export type MovementType = (typeof MOVEMENT_TYPES)[number];
 
-export const EVENT_CATEGORIES = ["PT", "SALA", "CORSO", "COLLOQUIO"] as const;
+export const EVENT_CATEGORIES = ["PT", "SALA", "CORSO", "COLLOQUIO", "PERSONALE"] as const;
 export type EventCategory = (typeof EVENT_CATEGORIES)[number];
 
 export const EVENT_STATUSES = ["Programmato", "Completato", "Cancellato", "Rinviato"] as const;
@@ -99,6 +99,7 @@ export interface ClientCreate {
   sesso?: "Uomo" | "Donna" | "Altro" | null;
   anamnesi?: Record<string, unknown>;
   stato?: "Attivo" | "Inattivo";
+  note_interne?: string | null;
 }
 
 /** PUT /api/clients/{id} (partial update) */
@@ -111,6 +112,7 @@ export interface ClientUpdate {
   sesso?: "Uomo" | "Donna" | "Altro" | null;
   anamnesi?: Record<string, unknown> | null;
   stato?: "Attivo" | "Inattivo" | null;
+  note_interne?: string | null;
 }
 
 /** ClientResponse — restituito da GET/POST/PUT */
@@ -123,6 +125,7 @@ export interface Client {
   data_nascita: string | null; // Backend restituisce come string
   sesso: string | null;
   stato: string;
+  note_interne: string | null;
   crediti_residui: number;
 }
 
@@ -487,6 +490,35 @@ export interface DashboardAlerts {
   warning_count: number;
   info_count: number;
   items: AlertItem[];
+}
+
+// ════════════════════════════════════════════════════════════
+// TODO (api/routers/todos.py — inline schemas)
+// ════════════════════════════════════════════════════════════
+
+/** POST /api/todos */
+export interface TodoCreate {
+  titolo: string;
+  descrizione?: string | null;
+  data_scadenza?: string | null; // ISO date "YYYY-MM-DD"
+}
+
+/** PUT /api/todos/{id} */
+export interface TodoUpdate {
+  titolo?: string | null;
+  descrizione?: string | null;
+  data_scadenza?: string | null;
+}
+
+/** TodoResponse — restituito da GET/POST/PUT/PATCH */
+export interface Todo {
+  id: number;
+  titolo: string;
+  descrizione: string | null;
+  data_scadenza: string | null; // ISO date
+  completato: boolean;
+  completed_at: string | null;
+  created_at: string;
 }
 
 // ════════════════════════════════════════════════════════════
