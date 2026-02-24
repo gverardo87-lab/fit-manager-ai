@@ -1,0 +1,3572 @@
+[
+  {
+    "nome": "Squat Bilanciere",
+    "nome_en": "Back Squat",
+    "categoria": "compound",
+    "pattern_movimento": "squat",
+    "muscoli_primari": [
+      "quadriceps",
+      "glutes"
+    ],
+    "muscoli_secondari": [
+      "hamstrings",
+      "core"
+    ],
+    "attrezzatura": "barbell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "3-6",
+    "rep_range_ipertrofia": "6-12",
+    "rep_range_resistenza": "15-20",
+    "ore_recupero": 48,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Squat Anteriore",
+    "nome_en": "Front Squat",
+    "categoria": "compound",
+    "pattern_movimento": "squat",
+    "muscoli_primari": [
+      "quadriceps",
+      "glutes"
+    ],
+    "muscoli_secondari": [
+      "core"
+    ],
+    "attrezzatura": "barbell",
+    "difficolta": "advanced",
+    "rep_range_forza": "3-6",
+    "rep_range_ipertrofia": "6-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 48,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Squat Goblet",
+    "nome_en": "Goblet Squat",
+    "categoria": "compound",
+    "pattern_movimento": "squat",
+    "muscoli_primari": [
+      "quadriceps",
+      "glutes"
+    ],
+    "muscoli_secondari": [
+      "core"
+    ],
+    "attrezzatura": "dumbbell",
+    "difficolta": "beginner",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "15-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Pressa Gambe",
+    "nome_en": "Leg Press",
+    "categoria": "compound",
+    "pattern_movimento": "squat",
+    "muscoli_primari": [
+      "quadriceps",
+      "glutes"
+    ],
+    "muscoli_secondari": [
+      "hamstrings"
+    ],
+    "attrezzatura": "machine",
+    "difficolta": "beginner",
+    "rep_range_forza": "6-10",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "15-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Squat a Corpo Libero",
+    "nome_en": "Bodyweight Squat",
+    "categoria": "bodyweight",
+    "pattern_movimento": "squat",
+    "muscoli_primari": [
+      "quadriceps",
+      "glutes"
+    ],
+    "muscoli_secondari": [
+      "hamstrings",
+      "core"
+    ],
+    "attrezzatura": "bodyweight",
+    "difficolta": "beginner",
+    "rep_range_forza": "15-20",
+    "rep_range_ipertrofia": "15-20",
+    "rep_range_resistenza": "20-30",
+    "ore_recupero": 12,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Squat Bulgaro",
+    "nome_en": "Bulgarian Split Squat",
+    "categoria": "compound",
+    "pattern_movimento": "squat",
+    "muscoli_primari": [
+      "quadriceps",
+      "glutes"
+    ],
+    "muscoli_secondari": [
+      "hamstrings",
+      "core"
+    ],
+    "attrezzatura": "dumbbell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "6-10",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Hack Squat Machine",
+    "nome_en": "Hack Squat",
+    "categoria": "compound",
+    "pattern_movimento": "squat",
+    "muscoli_primari": [
+      "quadriceps"
+    ],
+    "muscoli_secondari": [
+      "glutes"
+    ],
+    "attrezzatura": "machine",
+    "difficolta": "beginner",
+    "rep_range_forza": "6-10",
+    "rep_range_ipertrofia": "8-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Affondi Camminati",
+    "nome_en": "Walking Lunges",
+    "categoria": "compound",
+    "pattern_movimento": "squat",
+    "muscoli_primari": [
+      "quadriceps",
+      "glutes"
+    ],
+    "muscoli_secondari": [
+      "hamstrings",
+      "core"
+    ],
+    "attrezzatura": "dumbbell",
+    "difficolta": "beginner",
+    "rep_range_forza": "10-15",
+    "rep_range_ipertrofia": "12-20",
+    "rep_range_resistenza": "15-25",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Step Up",
+    "nome_en": "Step Up",
+    "categoria": "compound",
+    "pattern_movimento": "squat",
+    "muscoli_primari": [
+      "quadriceps",
+      "glutes"
+    ],
+    "muscoli_secondari": [
+      "hamstrings",
+      "core"
+    ],
+    "attrezzatura": "dumbbell",
+    "difficolta": "beginner",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Sissy Squat",
+    "nome_en": "Sissy Squat",
+    "categoria": "bodyweight",
+    "pattern_movimento": "squat",
+    "muscoli_primari": [
+      "quadriceps"
+    ],
+    "muscoli_secondari": [
+      "core"
+    ],
+    "attrezzatura": "bodyweight",
+    "difficolta": "advanced",
+    "rep_range_forza": "6-10",
+    "rep_range_ipertrofia": "8-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": [
+      "ginocchio"
+    ]
+  },
+  {
+    "nome": "Squat Pistola",
+    "nome_en": "Pistol Squat",
+    "categoria": "bodyweight",
+    "pattern_movimento": "squat",
+    "muscoli_primari": [
+      "quadriceps",
+      "glutes"
+    ],
+    "muscoli_secondari": [
+      "hamstrings",
+      "core"
+    ],
+    "attrezzatura": "bodyweight",
+    "difficolta": "advanced",
+    "rep_range_forza": "3-6",
+    "rep_range_ipertrofia": "5-10",
+    "rep_range_resistenza": "8-15",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Squat al Multipower",
+    "nome_en": "Smith Machine Squat",
+    "categoria": "compound",
+    "pattern_movimento": "squat",
+    "muscoli_primari": [
+      "quadriceps",
+      "glutes"
+    ],
+    "muscoli_secondari": [
+      "hamstrings"
+    ],
+    "attrezzatura": "machine",
+    "difficolta": "beginner",
+    "rep_range_forza": "6-10",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Estensione Gambe",
+    "nome_en": "Leg Extension",
+    "categoria": "isolation",
+    "pattern_movimento": "squat",
+    "muscoli_primari": [
+      "quadriceps"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "machine",
+    "difficolta": "beginner",
+    "rep_range_forza": "10-15",
+    "rep_range_ipertrofia": "12-15",
+    "rep_range_resistenza": "15-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Affondo Inverso",
+    "nome_en": "Reverse Lunge",
+    "categoria": "compound",
+    "pattern_movimento": "squat",
+    "muscoli_primari": [
+      "quadriceps",
+      "glutes"
+    ],
+    "muscoli_secondari": [
+      "hamstrings",
+      "core"
+    ],
+    "attrezzatura": "dumbbell",
+    "difficolta": "beginner",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Affondo Laterale",
+    "nome_en": "Lateral Lunge",
+    "categoria": "compound",
+    "pattern_movimento": "squat",
+    "muscoli_primari": [
+      "quadriceps",
+      "glutes"
+    ],
+    "muscoli_secondari": [
+      "adductors"
+    ],
+    "attrezzatura": "dumbbell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Belt Squat",
+    "nome_en": "Belt Squat",
+    "categoria": "compound",
+    "pattern_movimento": "squat",
+    "muscoli_primari": [
+      "quadriceps",
+      "glutes"
+    ],
+    "muscoli_secondari": [
+      "hamstrings"
+    ],
+    "attrezzatura": "machine",
+    "difficolta": "intermediate",
+    "rep_range_forza": "6-10",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Zercher Squat",
+    "nome_en": "Zercher Squat",
+    "categoria": "compound",
+    "pattern_movimento": "squat",
+    "muscoli_primari": [
+      "quadriceps",
+      "glutes"
+    ],
+    "muscoli_secondari": [
+      "core",
+      "biceps"
+    ],
+    "attrezzatura": "barbell",
+    "difficolta": "advanced",
+    "rep_range_forza": "3-6",
+    "rep_range_ipertrofia": "6-10",
+    "rep_range_resistenza": "10-12",
+    "ore_recupero": 48,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Stacco da Terra Classico",
+    "nome_en": "Conventional Deadlift",
+    "categoria": "compound",
+    "pattern_movimento": "hinge",
+    "muscoli_primari": [
+      "hamstrings",
+      "glutes",
+      "back"
+    ],
+    "muscoli_secondari": [
+      "quadriceps",
+      "core"
+    ],
+    "attrezzatura": "barbell",
+    "difficolta": "advanced",
+    "rep_range_forza": "1-6",
+    "rep_range_ipertrofia": "6-10",
+    "rep_range_resistenza": "10-15",
+    "ore_recupero": 48,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Stacco Sumo",
+    "nome_en": "Sumo Deadlift",
+    "categoria": "compound",
+    "pattern_movimento": "hinge",
+    "muscoli_primari": [
+      "glutes",
+      "back"
+    ],
+    "muscoli_secondari": [
+      "quadriceps",
+      "core"
+    ],
+    "attrezzatura": "barbell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "3-6",
+    "rep_range_ipertrofia": "6-10",
+    "rep_range_resistenza": "10-15",
+    "ore_recupero": 48,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Stacco Rumeno",
+    "nome_en": "Romanian Deadlift",
+    "categoria": "compound",
+    "pattern_movimento": "hinge",
+    "muscoli_primari": [
+      "hamstrings",
+      "glutes"
+    ],
+    "muscoli_secondari": [
+      "back"
+    ],
+    "attrezzatura": "barbell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "6-8",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Hip Thrust",
+    "nome_en": "Hip Thrust",
+    "categoria": "compound",
+    "pattern_movimento": "hinge",
+    "muscoli_primari": [
+      "glutes"
+    ],
+    "muscoli_secondari": [
+      "hamstrings",
+      "core"
+    ],
+    "attrezzatura": "barbell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "5-8",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Ponte Glutei",
+    "nome_en": "Glute Bridge",
+    "categoria": "bodyweight",
+    "pattern_movimento": "hinge",
+    "muscoli_primari": [
+      "glutes"
+    ],
+    "muscoli_secondari": [
+      "hamstrings",
+      "core"
+    ],
+    "attrezzatura": "bodyweight",
+    "difficolta": "beginner",
+    "rep_range_forza": "10-15",
+    "rep_range_ipertrofia": "12-20",
+    "rep_range_resistenza": "15-25",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Good Morning",
+    "nome_en": "Good Morning",
+    "categoria": "compound",
+    "pattern_movimento": "hinge",
+    "muscoli_primari": [
+      "hamstrings",
+      "glutes"
+    ],
+    "muscoli_secondari": [
+      "back",
+      "core"
+    ],
+    "attrezzatura": "barbell",
+    "difficolta": "advanced",
+    "rep_range_forza": "5-8",
+    "rep_range_ipertrofia": "6-10",
+    "rep_range_resistenza": "8-12",
+    "ore_recupero": 48,
+    "istruzioni": null,
+    "controindicazioni": [
+      "schiena"
+    ]
+  },
+  {
+    "nome": "Nordic Curl",
+    "nome_en": "Nordic Hamstring Curl",
+    "categoria": "bodyweight",
+    "pattern_movimento": "hinge",
+    "muscoli_primari": [
+      "hamstrings"
+    ],
+    "muscoli_secondari": [
+      "glutes",
+      "core"
+    ],
+    "attrezzatura": "bodyweight",
+    "difficolta": "advanced",
+    "rep_range_forza": "3-6",
+    "rep_range_ipertrofia": "5-8",
+    "rep_range_resistenza": "8-12",
+    "ore_recupero": 48,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Stacco Rumeno Unilaterale",
+    "nome_en": "Single Leg RDL",
+    "categoria": "compound",
+    "pattern_movimento": "hinge",
+    "muscoli_primari": [
+      "hamstrings",
+      "glutes"
+    ],
+    "muscoli_secondari": [
+      "core"
+    ],
+    "attrezzatura": "dumbbell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "6-10",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Cable Pull Through",
+    "nome_en": "Cable Pull Through",
+    "categoria": "compound",
+    "pattern_movimento": "hinge",
+    "muscoli_primari": [
+      "glutes",
+      "hamstrings"
+    ],
+    "muscoli_secondari": [
+      "core"
+    ],
+    "attrezzatura": "cable",
+    "difficolta": "beginner",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Curl Gambe",
+    "nome_en": "Leg Curl",
+    "categoria": "isolation",
+    "pattern_movimento": "hinge",
+    "muscoli_primari": [
+      "hamstrings"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "machine",
+    "difficolta": "beginner",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "12-15",
+    "rep_range_resistenza": "15-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Leg Curl Seduto",
+    "nome_en": "Seated Leg Curl",
+    "categoria": "isolation",
+    "pattern_movimento": "hinge",
+    "muscoli_primari": [
+      "hamstrings"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "machine",
+    "difficolta": "beginner",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Stacco Rumeno Manubri",
+    "nome_en": "Dumbbell RDL",
+    "categoria": "compound",
+    "pattern_movimento": "hinge",
+    "muscoli_primari": [
+      "hamstrings",
+      "glutes"
+    ],
+    "muscoli_secondari": [
+      "back"
+    ],
+    "attrezzatura": "dumbbell",
+    "difficolta": "beginner",
+    "rep_range_forza": "6-10",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Stacco Trap Bar",
+    "nome_en": "Trap Bar Deadlift",
+    "categoria": "compound",
+    "pattern_movimento": "hinge",
+    "muscoli_primari": [
+      "quadriceps",
+      "glutes",
+      "hamstrings"
+    ],
+    "muscoli_secondari": [
+      "back",
+      "core"
+    ],
+    "attrezzatura": "barbell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "3-6",
+    "rep_range_ipertrofia": "6-10",
+    "rep_range_resistenza": "10-15",
+    "ore_recupero": 48,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Swing Kettlebell",
+    "nome_en": "Kettlebell Swing",
+    "categoria": "compound",
+    "pattern_movimento": "hinge",
+    "muscoli_primari": [
+      "glutes",
+      "hamstrings"
+    ],
+    "muscoli_secondari": [
+      "core",
+      "shoulders"
+    ],
+    "attrezzatura": "kettlebell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "10-15",
+    "rep_range_ipertrofia": "15-20",
+    "rep_range_resistenza": "20-30",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Hip Thrust Bilanciere",
+    "nome_en": "Barbell Hip Thrust",
+    "categoria": "compound",
+    "pattern_movimento": "hinge",
+    "muscoli_primari": [
+      "glutes"
+    ],
+    "muscoli_secondari": [
+      "hamstrings",
+      "core"
+    ],
+    "attrezzatura": "barbell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "5-8",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Hip Thrust Unilaterale",
+    "nome_en": "Single Leg Hip Thrust",
+    "categoria": "compound",
+    "pattern_movimento": "hinge",
+    "muscoli_primari": [
+      "glutes"
+    ],
+    "muscoli_secondari": [
+      "hamstrings",
+      "core"
+    ],
+    "attrezzatura": "bodyweight",
+    "difficolta": "intermediate",
+    "rep_range_forza": "6-10",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Rialzi Sulle Punte",
+    "nome_en": "Standing Calf Raises",
+    "categoria": "isolation",
+    "pattern_movimento": "hinge",
+    "muscoli_primari": [
+      "calves"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "machine",
+    "difficolta": "beginner",
+    "rep_range_forza": "10-15",
+    "rep_range_ipertrofia": "15-20",
+    "rep_range_resistenza": "20-30",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Calf Raise Seduto",
+    "nome_en": "Seated Calf Raises",
+    "categoria": "isolation",
+    "pattern_movimento": "hinge",
+    "muscoli_primari": [
+      "calves"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "machine",
+    "difficolta": "beginner",
+    "rep_range_forza": "10-15",
+    "rep_range_ipertrofia": "15-20",
+    "rep_range_resistenza": "20-30",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Iperestensioni 45°",
+    "nome_en": "45 Degree Back Extension",
+    "categoria": "compound",
+    "pattern_movimento": "hinge",
+    "muscoli_primari": [
+      "back",
+      "glutes"
+    ],
+    "muscoli_secondari": [
+      "hamstrings"
+    ],
+    "attrezzatura": "bodyweight",
+    "difficolta": "beginner",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "12-15",
+    "rep_range_resistenza": "15-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Stacco in Deficit",
+    "nome_en": "Deficit Deadlift",
+    "categoria": "compound",
+    "pattern_movimento": "hinge",
+    "muscoli_primari": [
+      "hamstrings",
+      "glutes",
+      "back"
+    ],
+    "muscoli_secondari": [
+      "quadriceps",
+      "core"
+    ],
+    "attrezzatura": "barbell",
+    "difficolta": "advanced",
+    "rep_range_forza": "1-5",
+    "rep_range_ipertrofia": "5-8",
+    "rep_range_resistenza": "8-10",
+    "ore_recupero": 48,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Panca Piana Bilanciere",
+    "nome_en": "Barbell Bench Press",
+    "categoria": "compound",
+    "pattern_movimento": "push_h",
+    "muscoli_primari": [
+      "chest"
+    ],
+    "muscoli_secondari": [
+      "triceps",
+      "shoulders"
+    ],
+    "attrezzatura": "barbell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "3-6",
+    "rep_range_ipertrofia": "6-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 48,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Panca Manubri",
+    "nome_en": "Dumbbell Bench Press",
+    "categoria": "compound",
+    "pattern_movimento": "push_h",
+    "muscoli_primari": [
+      "chest"
+    ],
+    "muscoli_secondari": [
+      "triceps",
+      "shoulders"
+    ],
+    "attrezzatura": "dumbbell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "5-8",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 48,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Panca Inclinata",
+    "nome_en": "Incline Bench Press",
+    "categoria": "compound",
+    "pattern_movimento": "push_h",
+    "muscoli_primari": [
+      "chest"
+    ],
+    "muscoli_secondari": [
+      "shoulders",
+      "triceps"
+    ],
+    "attrezzatura": "barbell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "4-6",
+    "rep_range_ipertrofia": "6-10",
+    "rep_range_resistenza": "10-15",
+    "ore_recupero": 48,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Panca Inclinata Manubri",
+    "nome_en": "Incline Dumbbell Press",
+    "categoria": "compound",
+    "pattern_movimento": "push_h",
+    "muscoli_primari": [
+      "chest"
+    ],
+    "muscoli_secondari": [
+      "shoulders",
+      "triceps"
+    ],
+    "attrezzatura": "dumbbell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "6-8",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 48,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Panca Declinata",
+    "nome_en": "Decline Bench Press",
+    "categoria": "compound",
+    "pattern_movimento": "push_h",
+    "muscoli_primari": [
+      "chest"
+    ],
+    "muscoli_secondari": [
+      "triceps"
+    ],
+    "attrezzatura": "barbell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "4-6",
+    "rep_range_ipertrofia": "6-10",
+    "rep_range_resistenza": "10-12",
+    "ore_recupero": 48,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Flessioni",
+    "nome_en": "Push-ups",
+    "categoria": "bodyweight",
+    "pattern_movimento": "push_h",
+    "muscoli_primari": [
+      "chest"
+    ],
+    "muscoli_secondari": [
+      "triceps",
+      "shoulders",
+      "core"
+    ],
+    "attrezzatura": "bodyweight",
+    "difficolta": "beginner",
+    "rep_range_forza": "8-15",
+    "rep_range_ipertrofia": "10-20",
+    "rep_range_resistenza": "15-30",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Croci ai Cavi",
+    "nome_en": "Cable Crossover",
+    "categoria": "isolation",
+    "pattern_movimento": "push_h",
+    "muscoli_primari": [
+      "chest"
+    ],
+    "muscoli_secondari": [
+      "shoulders"
+    ],
+    "attrezzatura": "cable",
+    "difficolta": "beginner",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Pectoral Machine",
+    "nome_en": "Pec Deck Machine",
+    "categoria": "isolation",
+    "pattern_movimento": "push_h",
+    "muscoli_primari": [
+      "chest"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "machine",
+    "difficolta": "beginner",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "15-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Landmine Press",
+    "nome_en": "Landmine Press",
+    "categoria": "compound",
+    "pattern_movimento": "push_h",
+    "muscoli_primari": [
+      "chest",
+      "shoulders"
+    ],
+    "muscoli_secondari": [
+      "core"
+    ],
+    "attrezzatura": "barbell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "6-8",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Panca Presa Stretta",
+    "nome_en": "Close Grip Bench Press",
+    "categoria": "compound",
+    "pattern_movimento": "push_h",
+    "muscoli_primari": [
+      "triceps"
+    ],
+    "muscoli_secondari": [
+      "chest",
+      "shoulders"
+    ],
+    "attrezzatura": "barbell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "4-6",
+    "rep_range_ipertrofia": "6-10",
+    "rep_range_resistenza": "10-12",
+    "ore_recupero": 48,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Croci Manubri",
+    "nome_en": "Dumbbell Fly",
+    "categoria": "isolation",
+    "pattern_movimento": "push_h",
+    "muscoli_primari": [
+      "chest"
+    ],
+    "muscoli_secondari": [
+      "shoulders"
+    ],
+    "attrezzatura": "dumbbell",
+    "difficolta": "beginner",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Croci Inclinato Manubri",
+    "nome_en": "Incline Dumbbell Fly",
+    "categoria": "isolation",
+    "pattern_movimento": "push_h",
+    "muscoli_primari": [
+      "chest"
+    ],
+    "muscoli_secondari": [
+      "shoulders"
+    ],
+    "attrezzatura": "dumbbell",
+    "difficolta": "beginner",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Chest Press Machine",
+    "nome_en": "Machine Chest Press",
+    "categoria": "compound",
+    "pattern_movimento": "push_h",
+    "muscoli_primari": [
+      "chest"
+    ],
+    "muscoli_secondari": [
+      "triceps",
+      "shoulders"
+    ],
+    "attrezzatura": "machine",
+    "difficolta": "beginner",
+    "rep_range_forza": "6-10",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Floor Press",
+    "nome_en": "Floor Press",
+    "categoria": "compound",
+    "pattern_movimento": "push_h",
+    "muscoli_primari": [
+      "chest",
+      "triceps"
+    ],
+    "muscoli_secondari": [
+      "shoulders"
+    ],
+    "attrezzatura": "barbell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "3-6",
+    "rep_range_ipertrofia": "6-10",
+    "rep_range_resistenza": "10-12",
+    "ore_recupero": 48,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Flessioni Diamante",
+    "nome_en": "Diamond Push-ups",
+    "categoria": "bodyweight",
+    "pattern_movimento": "push_h",
+    "muscoli_primari": [
+      "triceps"
+    ],
+    "muscoli_secondari": [
+      "chest",
+      "core"
+    ],
+    "attrezzatura": "bodyweight",
+    "difficolta": "intermediate",
+    "rep_range_forza": "6-12",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "15-25",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Svend Press",
+    "nome_en": "Svend Press",
+    "categoria": "isolation",
+    "pattern_movimento": "push_h",
+    "muscoli_primari": [
+      "chest"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "dumbbell",
+    "difficolta": "beginner",
+    "rep_range_forza": "10-15",
+    "rep_range_ipertrofia": "12-20",
+    "rep_range_resistenza": "15-25",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Spinta in Alto",
+    "nome_en": "Overhead Press",
+    "categoria": "compound",
+    "pattern_movimento": "push_v",
+    "muscoli_primari": [
+      "shoulders"
+    ],
+    "muscoli_secondari": [
+      "triceps",
+      "core"
+    ],
+    "attrezzatura": "barbell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "3-6",
+    "rep_range_ipertrofia": "6-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 48,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Spinta Manubri in Alto",
+    "nome_en": "Dumbbell Shoulder Press",
+    "categoria": "compound",
+    "pattern_movimento": "push_v",
+    "muscoli_primari": [
+      "shoulders"
+    ],
+    "muscoli_secondari": [
+      "triceps"
+    ],
+    "attrezzatura": "dumbbell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "6-8",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Arnold Press",
+    "nome_en": "Arnold Press",
+    "categoria": "compound",
+    "pattern_movimento": "push_v",
+    "muscoli_primari": [
+      "shoulders"
+    ],
+    "muscoli_secondari": [
+      "triceps"
+    ],
+    "attrezzatura": "dumbbell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "6-8",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Press Manubri Seduto",
+    "nome_en": "Seated Dumbbell Press",
+    "categoria": "compound",
+    "pattern_movimento": "push_v",
+    "muscoli_primari": [
+      "shoulders"
+    ],
+    "muscoli_secondari": [
+      "triceps"
+    ],
+    "attrezzatura": "dumbbell",
+    "difficolta": "beginner",
+    "rep_range_forza": "5-8",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Alzate Laterali",
+    "nome_en": "Lateral Raises",
+    "categoria": "isolation",
+    "pattern_movimento": "push_v",
+    "muscoli_primari": [
+      "shoulders"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "dumbbell",
+    "difficolta": "beginner",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "12-15",
+    "rep_range_resistenza": "15-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Alzate Laterali Cavi",
+    "nome_en": "Cable Lateral Raise",
+    "categoria": "isolation",
+    "pattern_movimento": "push_v",
+    "muscoli_primari": [
+      "shoulders"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "cable",
+    "difficolta": "beginner",
+    "rep_range_forza": "10-15",
+    "rep_range_ipertrofia": "12-20",
+    "rep_range_resistenza": "15-25",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Alzate Posteriori",
+    "nome_en": "Rear Delt Fly",
+    "categoria": "isolation",
+    "pattern_movimento": "push_v",
+    "muscoli_primari": [
+      "shoulders"
+    ],
+    "muscoli_secondari": [
+      "traps"
+    ],
+    "attrezzatura": "dumbbell",
+    "difficolta": "beginner",
+    "rep_range_forza": "10-15",
+    "rep_range_ipertrofia": "12-20",
+    "rep_range_resistenza": "15-25",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Pectoral Machine Inversa",
+    "nome_en": "Reverse Pec Deck",
+    "categoria": "isolation",
+    "pattern_movimento": "push_v",
+    "muscoli_primari": [
+      "shoulders"
+    ],
+    "muscoli_secondari": [
+      "traps"
+    ],
+    "attrezzatura": "machine",
+    "difficolta": "beginner",
+    "rep_range_forza": "10-15",
+    "rep_range_ipertrofia": "12-20",
+    "rep_range_resistenza": "15-25",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Shoulder Press Machine",
+    "nome_en": "Machine Shoulder Press",
+    "categoria": "compound",
+    "pattern_movimento": "push_v",
+    "muscoli_primari": [
+      "shoulders"
+    ],
+    "muscoli_secondari": [
+      "triceps"
+    ],
+    "attrezzatura": "machine",
+    "difficolta": "beginner",
+    "rep_range_forza": "6-10",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Flessioni Pike",
+    "nome_en": "Pike Push-ups",
+    "categoria": "bodyweight",
+    "pattern_movimento": "push_v",
+    "muscoli_primari": [
+      "shoulders"
+    ],
+    "muscoli_secondari": [
+      "triceps",
+      "core"
+    ],
+    "attrezzatura": "bodyweight",
+    "difficolta": "intermediate",
+    "rep_range_forza": "5-10",
+    "rep_range_ipertrofia": "8-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Flessioni in Verticale",
+    "nome_en": "Handstand Push-ups",
+    "categoria": "bodyweight",
+    "pattern_movimento": "push_v",
+    "muscoli_primari": [
+      "shoulders"
+    ],
+    "muscoli_secondari": [
+      "triceps",
+      "core"
+    ],
+    "attrezzatura": "bodyweight",
+    "difficolta": "advanced",
+    "rep_range_forza": "3-6",
+    "rep_range_ipertrofia": "5-10",
+    "rep_range_resistenza": "8-15",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Dip Parallele",
+    "nome_en": "Tricep Dips",
+    "categoria": "compound",
+    "pattern_movimento": "push_v",
+    "muscoli_primari": [
+      "triceps"
+    ],
+    "muscoli_secondari": [
+      "chest",
+      "shoulders"
+    ],
+    "attrezzatura": "bodyweight",
+    "difficolta": "intermediate",
+    "rep_range_forza": "5-10",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "10-15",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Push Press",
+    "nome_en": "Push Press",
+    "categoria": "compound",
+    "pattern_movimento": "push_v",
+    "muscoli_primari": [
+      "shoulders"
+    ],
+    "muscoli_secondari": [
+      "triceps",
+      "core",
+      "quadriceps"
+    ],
+    "attrezzatura": "barbell",
+    "difficolta": "advanced",
+    "rep_range_forza": "3-5",
+    "rep_range_ipertrofia": "5-8",
+    "rep_range_resistenza": "8-10",
+    "ore_recupero": 48,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Z Press",
+    "nome_en": "Z Press",
+    "categoria": "compound",
+    "pattern_movimento": "push_v",
+    "muscoli_primari": [
+      "shoulders"
+    ],
+    "muscoli_secondari": [
+      "triceps",
+      "core"
+    ],
+    "attrezzatura": "barbell",
+    "difficolta": "advanced",
+    "rep_range_forza": "5-8",
+    "rep_range_ipertrofia": "6-10",
+    "rep_range_resistenza": "10-12",
+    "ore_recupero": 48,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Rematore Alto",
+    "nome_en": "Upright Row",
+    "categoria": "compound",
+    "pattern_movimento": "push_v",
+    "muscoli_primari": [
+      "shoulders",
+      "traps"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "barbell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "6-10",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": [
+      "spalla",
+      "impingement"
+    ]
+  },
+  {
+    "nome": "Alzate Frontali",
+    "nome_en": "Front Raise",
+    "categoria": "isolation",
+    "pattern_movimento": "push_v",
+    "muscoli_primari": [
+      "shoulders"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "dumbbell",
+    "difficolta": "beginner",
+    "rep_range_forza": "10-15",
+    "rep_range_ipertrofia": "12-20",
+    "rep_range_resistenza": "15-25",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Alzate Laterali Landmine",
+    "nome_en": "Landmine Lateral Raise",
+    "categoria": "isolation",
+    "pattern_movimento": "push_v",
+    "muscoli_primari": [
+      "shoulders"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "barbell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Remata Bilanciere",
+    "nome_en": "Barbell Bent Over Row",
+    "categoria": "compound",
+    "pattern_movimento": "pull_h",
+    "muscoli_primari": [
+      "back",
+      "lats"
+    ],
+    "muscoli_secondari": [
+      "biceps"
+    ],
+    "attrezzatura": "barbell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "3-6",
+    "rep_range_ipertrofia": "6-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 48,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Remata Manubrio",
+    "nome_en": "Dumbbell Single Arm Row",
+    "categoria": "compound",
+    "pattern_movimento": "pull_h",
+    "muscoli_primari": [
+      "back",
+      "lats"
+    ],
+    "muscoli_secondari": [
+      "biceps",
+      "core"
+    ],
+    "attrezzatura": "dumbbell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "6-8",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Rematore T-Bar",
+    "nome_en": "T-Bar Row",
+    "categoria": "compound",
+    "pattern_movimento": "pull_h",
+    "muscoli_primari": [
+      "back",
+      "lats"
+    ],
+    "muscoli_secondari": [
+      "biceps"
+    ],
+    "attrezzatura": "barbell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "5-8",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 48,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Rematore Petto Appoggiato",
+    "nome_en": "Chest Supported Row",
+    "categoria": "compound",
+    "pattern_movimento": "pull_h",
+    "muscoli_primari": [
+      "back"
+    ],
+    "muscoli_secondari": [
+      "biceps",
+      "traps"
+    ],
+    "attrezzatura": "dumbbell",
+    "difficolta": "beginner",
+    "rep_range_forza": "6-10",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Rematore Pendlay",
+    "nome_en": "Pendlay Row",
+    "categoria": "compound",
+    "pattern_movimento": "pull_h",
+    "muscoli_primari": [
+      "back"
+    ],
+    "muscoli_secondari": [
+      "biceps",
+      "traps"
+    ],
+    "attrezzatura": "barbell",
+    "difficolta": "advanced",
+    "rep_range_forza": "3-6",
+    "rep_range_ipertrofia": "5-8",
+    "rep_range_resistenza": "8-10",
+    "ore_recupero": 48,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Rematore Cavi Presa Larga",
+    "nome_en": "Cable Row Wide Grip",
+    "categoria": "compound",
+    "pattern_movimento": "pull_h",
+    "muscoli_primari": [
+      "lats",
+      "back"
+    ],
+    "muscoli_secondari": [
+      "biceps"
+    ],
+    "attrezzatura": "cable",
+    "difficolta": "beginner",
+    "rep_range_forza": "8-10",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Rematore Inverso",
+    "nome_en": "Inverted Row",
+    "categoria": "bodyweight",
+    "pattern_movimento": "pull_h",
+    "muscoli_primari": [
+      "back"
+    ],
+    "muscoli_secondari": [
+      "biceps",
+      "core"
+    ],
+    "attrezzatura": "bodyweight",
+    "difficolta": "beginner",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "15-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Rematore Cavi Seduto",
+    "nome_en": "Seated Cable Row",
+    "categoria": "compound",
+    "pattern_movimento": "pull_h",
+    "muscoli_primari": [
+      "back",
+      "lats"
+    ],
+    "muscoli_secondari": [
+      "biceps"
+    ],
+    "attrezzatura": "cable",
+    "difficolta": "beginner",
+    "rep_range_forza": "6-10",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Row Machine",
+    "nome_en": "Machine Row",
+    "categoria": "compound",
+    "pattern_movimento": "pull_h",
+    "muscoli_primari": [
+      "back"
+    ],
+    "muscoli_secondari": [
+      "biceps"
+    ],
+    "attrezzatura": "machine",
+    "difficolta": "beginner",
+    "rep_range_forza": "6-10",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Meadows Row",
+    "nome_en": "Meadows Row",
+    "categoria": "compound",
+    "pattern_movimento": "pull_h",
+    "muscoli_primari": [
+      "lats"
+    ],
+    "muscoli_secondari": [
+      "biceps",
+      "core"
+    ],
+    "attrezzatura": "barbell",
+    "difficolta": "advanced",
+    "rep_range_forza": "6-8",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Seal Row",
+    "nome_en": "Seal Row",
+    "categoria": "compound",
+    "pattern_movimento": "pull_h",
+    "muscoli_primari": [
+      "back",
+      "lats"
+    ],
+    "muscoli_secondari": [
+      "biceps"
+    ],
+    "attrezzatura": "dumbbell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "6-10",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Kroc Row",
+    "nome_en": "Kroc Row",
+    "categoria": "compound",
+    "pattern_movimento": "pull_h",
+    "muscoli_primari": [
+      "back",
+      "lats"
+    ],
+    "muscoli_secondari": [
+      "biceps",
+      "core"
+    ],
+    "attrezzatura": "dumbbell",
+    "difficolta": "advanced",
+    "rep_range_forza": "6-8",
+    "rep_range_ipertrofia": "8-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Trazioni",
+    "nome_en": "Pull-ups",
+    "categoria": "bodyweight",
+    "pattern_movimento": "pull_v",
+    "muscoli_primari": [
+      "back",
+      "lats"
+    ],
+    "muscoli_secondari": [
+      "biceps"
+    ],
+    "attrezzatura": "bodyweight",
+    "difficolta": "advanced",
+    "rep_range_forza": "3-6",
+    "rep_range_ipertrofia": "6-12",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Trazioni Supine",
+    "nome_en": "Chin-ups",
+    "categoria": "bodyweight",
+    "pattern_movimento": "pull_v",
+    "muscoli_primari": [
+      "back",
+      "lats",
+      "biceps"
+    ],
+    "muscoli_secondari": [
+      "core"
+    ],
+    "attrezzatura": "bodyweight",
+    "difficolta": "intermediate",
+    "rep_range_forza": "3-8",
+    "rep_range_ipertrofia": "6-12",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Lat Machine",
+    "nome_en": "Lat Pulldown",
+    "categoria": "compound",
+    "pattern_movimento": "pull_v",
+    "muscoli_primari": [
+      "back",
+      "lats"
+    ],
+    "muscoli_secondari": [
+      "biceps"
+    ],
+    "attrezzatura": "machine",
+    "difficolta": "beginner",
+    "rep_range_forza": "6-10",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "15-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Lat Machine Presa Larga",
+    "nome_en": "Wide Grip Lat Pulldown",
+    "categoria": "compound",
+    "pattern_movimento": "pull_v",
+    "muscoli_primari": [
+      "lats"
+    ],
+    "muscoli_secondari": [
+      "biceps",
+      "back"
+    ],
+    "attrezzatura": "machine",
+    "difficolta": "beginner",
+    "rep_range_forza": "6-10",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Lat Machine Presa Stretta",
+    "nome_en": "Close Grip Lat Pulldown",
+    "categoria": "compound",
+    "pattern_movimento": "pull_v",
+    "muscoli_primari": [
+      "back",
+      "lats"
+    ],
+    "muscoli_secondari": [
+      "biceps"
+    ],
+    "attrezzatura": "machine",
+    "difficolta": "beginner",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Trazioni Presa Neutra",
+    "nome_en": "Neutral Grip Pull-ups",
+    "categoria": "bodyweight",
+    "pattern_movimento": "pull_v",
+    "muscoli_primari": [
+      "back",
+      "lats"
+    ],
+    "muscoli_secondari": [
+      "biceps"
+    ],
+    "attrezzatura": "bodyweight",
+    "difficolta": "intermediate",
+    "rep_range_forza": "3-8",
+    "rep_range_ipertrofia": "6-12",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Face Pull Cavi",
+    "nome_en": "Face Pull",
+    "categoria": "isolation",
+    "pattern_movimento": "pull_v",
+    "muscoli_primari": [
+      "shoulders",
+      "traps"
+    ],
+    "muscoli_secondari": [
+      "back"
+    ],
+    "attrezzatura": "cable",
+    "difficolta": "beginner",
+    "rep_range_forza": "10-15",
+    "rep_range_ipertrofia": "12-20",
+    "rep_range_resistenza": "15-25",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Pulldown Braccia Tese",
+    "nome_en": "Straight Arm Pulldown",
+    "categoria": "isolation",
+    "pattern_movimento": "pull_v",
+    "muscoli_primari": [
+      "lats"
+    ],
+    "muscoli_secondari": [
+      "core"
+    ],
+    "attrezzatura": "cable",
+    "difficolta": "beginner",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Pullover ai Cavi",
+    "nome_en": "Cable Pullover",
+    "categoria": "isolation",
+    "pattern_movimento": "pull_v",
+    "muscoli_primari": [
+      "lats",
+      "chest"
+    ],
+    "muscoli_secondari": [
+      "core"
+    ],
+    "attrezzatura": "cable",
+    "difficolta": "beginner",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Trazioni Assistite",
+    "nome_en": "Assisted Pull-ups",
+    "categoria": "compound",
+    "pattern_movimento": "pull_v",
+    "muscoli_primari": [
+      "back",
+      "lats"
+    ],
+    "muscoli_secondari": [
+      "biceps"
+    ],
+    "attrezzatura": "machine",
+    "difficolta": "beginner",
+    "rep_range_forza": "5-8",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Trazioni Zavorrate",
+    "nome_en": "Weighted Pull-ups",
+    "categoria": "compound",
+    "pattern_movimento": "pull_v",
+    "muscoli_primari": [
+      "back",
+      "lats"
+    ],
+    "muscoli_secondari": [
+      "biceps"
+    ],
+    "attrezzatura": "bodyweight",
+    "difficolta": "advanced",
+    "rep_range_forza": "3-5",
+    "rep_range_ipertrofia": "5-8",
+    "rep_range_resistenza": "8-12",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Lat Machine Unilaterale",
+    "nome_en": "Single Arm Lat Pulldown",
+    "categoria": "compound",
+    "pattern_movimento": "pull_v",
+    "muscoli_primari": [
+      "lats"
+    ],
+    "muscoli_secondari": [
+      "biceps"
+    ],
+    "attrezzatura": "cable",
+    "difficolta": "intermediate",
+    "rep_range_forza": "6-10",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Curl Bilanciere",
+    "nome_en": "Barbell Curl",
+    "categoria": "isolation",
+    "pattern_movimento": "pull_h",
+    "muscoli_primari": [
+      "biceps"
+    ],
+    "muscoli_secondari": [
+      "forearms"
+    ],
+    "attrezzatura": "barbell",
+    "difficolta": "beginner",
+    "rep_range_forza": "6-8",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Curl Manubri",
+    "nome_en": "Dumbbell Curl",
+    "categoria": "isolation",
+    "pattern_movimento": "pull_h",
+    "muscoli_primari": [
+      "biceps"
+    ],
+    "muscoli_secondari": [
+      "forearms"
+    ],
+    "attrezzatura": "dumbbell",
+    "difficolta": "beginner",
+    "rep_range_forza": "6-10",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Curl Martello",
+    "nome_en": "Hammer Curl",
+    "categoria": "isolation",
+    "pattern_movimento": "pull_h",
+    "muscoli_primari": [
+      "biceps"
+    ],
+    "muscoli_secondari": [
+      "forearms"
+    ],
+    "attrezzatura": "dumbbell",
+    "difficolta": "beginner",
+    "rep_range_forza": "6-10",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Curl Panca Scott",
+    "nome_en": "Preacher Curl",
+    "categoria": "isolation",
+    "pattern_movimento": "pull_h",
+    "muscoli_primari": [
+      "biceps"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "barbell",
+    "difficolta": "beginner",
+    "rep_range_forza": "6-10",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Curl Cavi",
+    "nome_en": "Cable Curl",
+    "categoria": "isolation",
+    "pattern_movimento": "pull_h",
+    "muscoli_primari": [
+      "biceps"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "cable",
+    "difficolta": "beginner",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Curl Manubri Panca Inclinata",
+    "nome_en": "Incline Dumbbell Curl",
+    "categoria": "isolation",
+    "pattern_movimento": "pull_h",
+    "muscoli_primari": [
+      "biceps"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "dumbbell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "6-10",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Curl Concentrato",
+    "nome_en": "Concentration Curl",
+    "categoria": "isolation",
+    "pattern_movimento": "pull_h",
+    "muscoli_primari": [
+      "biceps"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "dumbbell",
+    "difficolta": "beginner",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Curl Barra EZ",
+    "nome_en": "EZ Bar Curl",
+    "categoria": "isolation",
+    "pattern_movimento": "pull_h",
+    "muscoli_primari": [
+      "biceps"
+    ],
+    "muscoli_secondari": [
+      "forearms"
+    ],
+    "attrezzatura": "barbell",
+    "difficolta": "beginner",
+    "rep_range_forza": "6-10",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Spider Curl",
+    "nome_en": "Spider Curl",
+    "categoria": "isolation",
+    "pattern_movimento": "pull_h",
+    "muscoli_primari": [
+      "biceps"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "dumbbell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Bayesian Curl",
+    "nome_en": "Bayesian Curl",
+    "categoria": "isolation",
+    "pattern_movimento": "pull_h",
+    "muscoli_primari": [
+      "biceps"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "cable",
+    "difficolta": "intermediate",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "French Press",
+    "nome_en": "Skull Crusher",
+    "categoria": "isolation",
+    "pattern_movimento": "push_h",
+    "muscoli_primari": [
+      "triceps"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "barbell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "6-10",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": [
+      "gomito"
+    ]
+  },
+  {
+    "nome": "Estensione Tricipiti Sopra Testa",
+    "nome_en": "Overhead Tricep Extension",
+    "categoria": "isolation",
+    "pattern_movimento": "push_v",
+    "muscoli_primari": [
+      "triceps"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "dumbbell",
+    "difficolta": "beginner",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Spinta Tricipiti Corda",
+    "nome_en": "Rope Tricep Pushdown",
+    "categoria": "isolation",
+    "pattern_movimento": "push_v",
+    "muscoli_primari": [
+      "triceps"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "cable",
+    "difficolta": "beginner",
+    "rep_range_forza": "10-12",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "15-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Pushdown Cavi",
+    "nome_en": "Cable Pushdown",
+    "categoria": "isolation",
+    "pattern_movimento": "push_v",
+    "muscoli_primari": [
+      "triceps"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "cable",
+    "difficolta": "beginner",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Tricep Kickback",
+    "nome_en": "Tricep Kickback",
+    "categoria": "isolation",
+    "pattern_movimento": "push_h",
+    "muscoli_primari": [
+      "triceps"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "dumbbell",
+    "difficolta": "beginner",
+    "rep_range_forza": "10-12",
+    "rep_range_ipertrofia": "12-15",
+    "rep_range_resistenza": "15-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "French Press Manubri",
+    "nome_en": "Dumbbell Skull Crusher",
+    "categoria": "isolation",
+    "pattern_movimento": "push_h",
+    "muscoli_primari": [
+      "triceps"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "dumbbell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "6-10",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Estensione Overhead Cavi",
+    "nome_en": "Cable Overhead Extension",
+    "categoria": "isolation",
+    "pattern_movimento": "push_v",
+    "muscoli_primari": [
+      "triceps"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "cable",
+    "difficolta": "beginner",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "JM Press",
+    "nome_en": "JM Press",
+    "categoria": "compound",
+    "pattern_movimento": "push_h",
+    "muscoli_primari": [
+      "triceps"
+    ],
+    "muscoli_secondari": [
+      "chest"
+    ],
+    "attrezzatura": "barbell",
+    "difficolta": "advanced",
+    "rep_range_forza": "4-6",
+    "rep_range_ipertrofia": "6-10",
+    "rep_range_resistenza": "10-12",
+    "ore_recupero": 48,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Dip su Panca",
+    "nome_en": "Bench Dips",
+    "categoria": "bodyweight",
+    "pattern_movimento": "push_v",
+    "muscoli_primari": [
+      "triceps"
+    ],
+    "muscoli_secondari": [
+      "shoulders"
+    ],
+    "attrezzatura": "bodyweight",
+    "difficolta": "beginner",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "15-25",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Curl Polso",
+    "nome_en": "Wrist Curl",
+    "categoria": "isolation",
+    "pattern_movimento": "pull_h",
+    "muscoli_primari": [
+      "forearms"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "barbell",
+    "difficolta": "beginner",
+    "rep_range_forza": "10-15",
+    "rep_range_ipertrofia": "15-20",
+    "rep_range_resistenza": "20-30",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Curl Polso Inverso",
+    "nome_en": "Reverse Wrist Curl",
+    "categoria": "isolation",
+    "pattern_movimento": "pull_h",
+    "muscoli_primari": [
+      "forearms"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "barbell",
+    "difficolta": "beginner",
+    "rep_range_forza": "10-15",
+    "rep_range_ipertrofia": "15-20",
+    "rep_range_resistenza": "20-30",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Farmer Walk",
+    "nome_en": "Farmer Walk",
+    "categoria": "compound",
+    "pattern_movimento": "carry",
+    "muscoli_primari": [
+      "forearms",
+      "traps"
+    ],
+    "muscoli_secondari": [
+      "core"
+    ],
+    "attrezzatura": "dumbbell",
+    "difficolta": "beginner",
+    "rep_range_forza": "30-45s",
+    "rep_range_ipertrofia": "45-60s",
+    "rep_range_resistenza": "60-90s",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Plancia",
+    "nome_en": "Plank",
+    "categoria": "bodyweight",
+    "pattern_movimento": "core",
+    "muscoli_primari": [
+      "core"
+    ],
+    "muscoli_secondari": [
+      "shoulders",
+      "back"
+    ],
+    "attrezzatura": "bodyweight",
+    "difficolta": "beginner",
+    "rep_range_forza": "30-60s",
+    "rep_range_ipertrofia": "45-90s",
+    "rep_range_resistenza": "60-120s",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Dead Bug",
+    "nome_en": "Dead Bugs",
+    "categoria": "bodyweight",
+    "pattern_movimento": "core",
+    "muscoli_primari": [
+      "core"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "bodyweight",
+    "difficolta": "beginner",
+    "rep_range_forza": "10-15",
+    "rep_range_ipertrofia": "15-20",
+    "rep_range_resistenza": "20-30",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Ruota Addominale",
+    "nome_en": "Ab Wheel Rollout",
+    "categoria": "bodyweight",
+    "pattern_movimento": "core",
+    "muscoli_primari": [
+      "core"
+    ],
+    "muscoli_secondari": [
+      "shoulders"
+    ],
+    "attrezzatura": "bodyweight",
+    "difficolta": "advanced",
+    "rep_range_forza": "5-10",
+    "rep_range_ipertrofia": "8-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Crunch Cavi",
+    "nome_en": "Cable Crunch",
+    "categoria": "isolation",
+    "pattern_movimento": "core",
+    "muscoli_primari": [
+      "core"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "cable",
+    "difficolta": "beginner",
+    "rep_range_forza": "10-15",
+    "rep_range_ipertrofia": "12-20",
+    "rep_range_resistenza": "15-25",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Sollevamento Gambe Appeso",
+    "nome_en": "Hanging Leg Raise",
+    "categoria": "bodyweight",
+    "pattern_movimento": "core",
+    "muscoli_primari": [
+      "core"
+    ],
+    "muscoli_secondari": [
+      "back"
+    ],
+    "attrezzatura": "bodyweight",
+    "difficolta": "advanced",
+    "rep_range_forza": "5-10",
+    "rep_range_ipertrofia": "8-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Pallof Press",
+    "nome_en": "Pallof Press",
+    "categoria": "isolation",
+    "pattern_movimento": "core",
+    "muscoli_primari": [
+      "core"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "cable",
+    "difficolta": "intermediate",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Russian Twist",
+    "nome_en": "Russian Twist",
+    "categoria": "bodyweight",
+    "pattern_movimento": "rotation",
+    "muscoli_primari": [
+      "core"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "bodyweight",
+    "difficolta": "beginner",
+    "rep_range_forza": "15-25",
+    "rep_range_ipertrofia": "20-30",
+    "rep_range_resistenza": "25-40",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Plank Laterale",
+    "nome_en": "Side Plank",
+    "categoria": "bodyweight",
+    "pattern_movimento": "core",
+    "muscoli_primari": [
+      "core"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "bodyweight",
+    "difficolta": "beginner",
+    "rep_range_forza": "20-30s",
+    "rep_range_ipertrofia": "30-45s",
+    "rep_range_resistenza": "45-60s",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Mountain Climbers",
+    "nome_en": "Mountain Climbers",
+    "categoria": "bodyweight",
+    "pattern_movimento": "core",
+    "muscoli_primari": [
+      "core"
+    ],
+    "muscoli_secondari": [
+      "shoulders",
+      "quadriceps"
+    ],
+    "attrezzatura": "bodyweight",
+    "difficolta": "beginner",
+    "rep_range_forza": "20-30",
+    "rep_range_ipertrofia": "30-45",
+    "rep_range_resistenza": "45-60",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "V-ups",
+    "nome_en": "V-ups",
+    "categoria": "bodyweight",
+    "pattern_movimento": "core",
+    "muscoli_primari": [
+      "core"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "bodyweight",
+    "difficolta": "intermediate",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "12-20",
+    "rep_range_resistenza": "15-25",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "L-sit",
+    "nome_en": "L-sit",
+    "categoria": "bodyweight",
+    "pattern_movimento": "core",
+    "muscoli_primari": [
+      "core"
+    ],
+    "muscoli_secondari": [
+      "shoulders"
+    ],
+    "attrezzatura": "bodyweight",
+    "difficolta": "advanced",
+    "rep_range_forza": "10-20s",
+    "rep_range_ipertrofia": "15-30s",
+    "rep_range_resistenza": "20-45s",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Dragon Flag",
+    "nome_en": "Dragon Flag",
+    "categoria": "bodyweight",
+    "pattern_movimento": "core",
+    "muscoli_primari": [
+      "core"
+    ],
+    "muscoli_secondari": [
+      "back"
+    ],
+    "attrezzatura": "bodyweight",
+    "difficolta": "advanced",
+    "rep_range_forza": "3-6",
+    "rep_range_ipertrofia": "5-10",
+    "rep_range_resistenza": "8-15",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Crunch Bicicletta",
+    "nome_en": "Bicycle Crunch",
+    "categoria": "bodyweight",
+    "pattern_movimento": "rotation",
+    "muscoli_primari": [
+      "core"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "bodyweight",
+    "difficolta": "beginner",
+    "rep_range_forza": "15-20",
+    "rep_range_ipertrofia": "20-30",
+    "rep_range_resistenza": "30-40",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Bird Dog",
+    "nome_en": "Bird Dog",
+    "categoria": "bodyweight",
+    "pattern_movimento": "core",
+    "muscoli_primari": [
+      "core"
+    ],
+    "muscoli_secondari": [
+      "glutes",
+      "back"
+    ],
+    "attrezzatura": "bodyweight",
+    "difficolta": "beginner",
+    "rep_range_forza": "10-15",
+    "rep_range_ipertrofia": "12-20",
+    "rep_range_resistenza": "15-25",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Hollow Body",
+    "nome_en": "Hollow Body Hold",
+    "categoria": "bodyweight",
+    "pattern_movimento": "core",
+    "muscoli_primari": [
+      "core"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "bodyweight",
+    "difficolta": "intermediate",
+    "rep_range_forza": "15-30s",
+    "rep_range_ipertrofia": "20-45s",
+    "rep_range_resistenza": "30-60s",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Woodchop ai Cavi",
+    "nome_en": "Cable Woodchop",
+    "categoria": "compound",
+    "pattern_movimento": "rotation",
+    "muscoli_primari": [
+      "core"
+    ],
+    "muscoli_secondari": [
+      "shoulders"
+    ],
+    "attrezzatura": "cable",
+    "difficolta": "intermediate",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Rotazione Landmine",
+    "nome_en": "Landmine Rotation",
+    "categoria": "compound",
+    "pattern_movimento": "rotation",
+    "muscoli_primari": [
+      "core"
+    ],
+    "muscoli_secondari": [
+      "shoulders"
+    ],
+    "attrezzatura": "barbell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Med Ball Slam",
+    "nome_en": "Med Ball Slam",
+    "categoria": "compound",
+    "pattern_movimento": "rotation",
+    "muscoli_primari": [
+      "core"
+    ],
+    "muscoli_secondari": [
+      "shoulders",
+      "lats"
+    ],
+    "attrezzatura": "bodyweight",
+    "difficolta": "beginner",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "12-20",
+    "rep_range_resistenza": "15-25",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Turkish Get-Up",
+    "nome_en": "Turkish Get-Up",
+    "categoria": "compound",
+    "pattern_movimento": "rotation",
+    "muscoli_primari": [
+      "core",
+      "shoulders"
+    ],
+    "muscoli_secondari": [
+      "glutes",
+      "quadriceps"
+    ],
+    "attrezzatura": "kettlebell",
+    "difficolta": "advanced",
+    "rep_range_forza": "3-5",
+    "rep_range_ipertrofia": "5-8",
+    "rep_range_resistenza": "8-10",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Farmer Carry",
+    "nome_en": "Farmer Carry",
+    "categoria": "compound",
+    "pattern_movimento": "carry",
+    "muscoli_primari": [
+      "forearms",
+      "traps",
+      "core"
+    ],
+    "muscoli_secondari": [
+      "shoulders"
+    ],
+    "attrezzatura": "dumbbell",
+    "difficolta": "beginner",
+    "rep_range_forza": "30-45s",
+    "rep_range_ipertrofia": "45-60s",
+    "rep_range_resistenza": "60-90s",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Suitcase Carry",
+    "nome_en": "Suitcase Carry",
+    "categoria": "compound",
+    "pattern_movimento": "carry",
+    "muscoli_primari": [
+      "core",
+      "forearms"
+    ],
+    "muscoli_secondari": [
+      "traps",
+      "shoulders"
+    ],
+    "attrezzatura": "dumbbell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "30-45s",
+    "rep_range_ipertrofia": "45-60s",
+    "rep_range_resistenza": "60-90s",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Overhead Carry",
+    "nome_en": "Overhead Carry",
+    "categoria": "compound",
+    "pattern_movimento": "carry",
+    "muscoli_primari": [
+      "shoulders",
+      "core"
+    ],
+    "muscoli_secondari": [
+      "traps"
+    ],
+    "attrezzatura": "dumbbell",
+    "difficolta": "advanced",
+    "rep_range_forza": "20-30s",
+    "rep_range_ipertrofia": "30-45s",
+    "rep_range_resistenza": "45-60s",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Waiter Walk",
+    "nome_en": "Waiter Walk",
+    "categoria": "compound",
+    "pattern_movimento": "carry",
+    "muscoli_primari": [
+      "shoulders",
+      "core"
+    ],
+    "muscoli_secondari": [
+      "traps"
+    ],
+    "attrezzatura": "kettlebell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "20-30s",
+    "rep_range_ipertrofia": "30-45s",
+    "rep_range_resistenza": "45-60s",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Rack Carry",
+    "nome_en": "Rack Carry",
+    "categoria": "compound",
+    "pattern_movimento": "carry",
+    "muscoli_primari": [
+      "core",
+      "biceps"
+    ],
+    "muscoli_secondari": [
+      "shoulders",
+      "traps"
+    ],
+    "attrezzatura": "kettlebell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "30-45s",
+    "rep_range_ipertrofia": "45-60s",
+    "rep_range_resistenza": "60-90s",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Goblet Squat Kettlebell",
+    "nome_en": "Kettlebell Goblet Squat",
+    "categoria": "compound",
+    "pattern_movimento": "squat",
+    "muscoli_primari": [
+      "quadriceps",
+      "glutes"
+    ],
+    "muscoli_secondari": [
+      "core"
+    ],
+    "attrezzatura": "kettlebell",
+    "difficolta": "beginner",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "15-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Clean Kettlebell",
+    "nome_en": "Kettlebell Clean",
+    "categoria": "compound",
+    "pattern_movimento": "hinge",
+    "muscoli_primari": [
+      "glutes",
+      "hamstrings"
+    ],
+    "muscoli_secondari": [
+      "core",
+      "shoulders"
+    ],
+    "attrezzatura": "kettlebell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "5-8",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Snatch Kettlebell",
+    "nome_en": "Kettlebell Snatch",
+    "categoria": "compound",
+    "pattern_movimento": "hinge",
+    "muscoli_primari": [
+      "glutes",
+      "hamstrings",
+      "shoulders"
+    ],
+    "muscoli_secondari": [
+      "core"
+    ],
+    "attrezzatura": "kettlebell",
+    "difficolta": "advanced",
+    "rep_range_forza": "5-8",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Clean & Press Kettlebell",
+    "nome_en": "Kettlebell Clean and Press",
+    "categoria": "compound",
+    "pattern_movimento": "push_v",
+    "muscoli_primari": [
+      "shoulders",
+      "glutes"
+    ],
+    "muscoli_secondari": [
+      "core",
+      "triceps"
+    ],
+    "attrezzatura": "kettlebell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "5-8",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Windmill Kettlebell",
+    "nome_en": "Kettlebell Windmill",
+    "categoria": "compound",
+    "pattern_movimento": "rotation",
+    "muscoli_primari": [
+      "core",
+      "shoulders"
+    ],
+    "muscoli_secondari": [
+      "hamstrings"
+    ],
+    "attrezzatura": "kettlebell",
+    "difficolta": "advanced",
+    "rep_range_forza": "5-8",
+    "rep_range_ipertrofia": "8-10",
+    "rep_range_resistenza": "10-12",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Remata Kettlebell",
+    "nome_en": "Kettlebell Row",
+    "categoria": "compound",
+    "pattern_movimento": "pull_h",
+    "muscoli_primari": [
+      "back",
+      "lats"
+    ],
+    "muscoli_secondari": [
+      "biceps",
+      "core"
+    ],
+    "attrezzatura": "kettlebell",
+    "difficolta": "beginner",
+    "rep_range_forza": "6-10",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Thruster Kettlebell",
+    "nome_en": "Kettlebell Thruster",
+    "categoria": "compound",
+    "pattern_movimento": "push_v",
+    "muscoli_primari": [
+      "quadriceps",
+      "shoulders"
+    ],
+    "muscoli_secondari": [
+      "glutes",
+      "triceps",
+      "core"
+    ],
+    "attrezzatura": "kettlebell",
+    "difficolta": "intermediate",
+    "rep_range_forza": "5-8",
+    "rep_range_ipertrofia": "8-12",
+    "rep_range_resistenza": "12-15",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Remata TRX",
+    "nome_en": "TRX Row",
+    "categoria": "bodyweight",
+    "pattern_movimento": "pull_h",
+    "muscoli_primari": [
+      "back"
+    ],
+    "muscoli_secondari": [
+      "biceps",
+      "core"
+    ],
+    "attrezzatura": "trx",
+    "difficolta": "beginner",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "15-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Flessioni TRX",
+    "nome_en": "TRX Push-up",
+    "categoria": "bodyweight",
+    "pattern_movimento": "push_h",
+    "muscoli_primari": [
+      "chest"
+    ],
+    "muscoli_secondari": [
+      "triceps",
+      "core"
+    ],
+    "attrezzatura": "trx",
+    "difficolta": "intermediate",
+    "rep_range_forza": "6-12",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "15-25",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Squat TRX",
+    "nome_en": "TRX Squat",
+    "categoria": "bodyweight",
+    "pattern_movimento": "squat",
+    "muscoli_primari": [
+      "quadriceps",
+      "glutes"
+    ],
+    "muscoli_secondari": [
+      "core"
+    ],
+    "attrezzatura": "trx",
+    "difficolta": "beginner",
+    "rep_range_forza": "10-15",
+    "rep_range_ipertrofia": "12-20",
+    "rep_range_resistenza": "15-25",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Pike TRX",
+    "nome_en": "TRX Pike",
+    "categoria": "bodyweight",
+    "pattern_movimento": "core",
+    "muscoli_primari": [
+      "core"
+    ],
+    "muscoli_secondari": [
+      "shoulders"
+    ],
+    "attrezzatura": "trx",
+    "difficolta": "intermediate",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "12-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Aperture Elastico",
+    "nome_en": "Band Pull Apart",
+    "categoria": "isolation",
+    "pattern_movimento": "pull_h",
+    "muscoli_primari": [
+      "shoulders",
+      "back"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "band",
+    "difficolta": "beginner",
+    "rep_range_forza": "12-20",
+    "rep_range_ipertrofia": "15-25",
+    "rep_range_resistenza": "20-30",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Face Pull Elastico",
+    "nome_en": "Band Face Pull",
+    "categoria": "isolation",
+    "pattern_movimento": "pull_v",
+    "muscoli_primari": [
+      "shoulders",
+      "traps"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "band",
+    "difficolta": "beginner",
+    "rep_range_forza": "12-20",
+    "rep_range_ipertrofia": "15-25",
+    "rep_range_resistenza": "20-30",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Squat con Elastico",
+    "nome_en": "Band Squat",
+    "categoria": "compound",
+    "pattern_movimento": "squat",
+    "muscoli_primari": [
+      "quadriceps",
+      "glutes"
+    ],
+    "muscoli_secondari": [
+      "hamstrings"
+    ],
+    "attrezzatura": "band",
+    "difficolta": "beginner",
+    "rep_range_forza": "10-15",
+    "rep_range_ipertrofia": "12-20",
+    "rep_range_resistenza": "15-25",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Remata Elastico",
+    "nome_en": "Band Row",
+    "categoria": "compound",
+    "pattern_movimento": "pull_h",
+    "muscoli_primari": [
+      "back"
+    ],
+    "muscoli_secondari": [
+      "biceps"
+    ],
+    "attrezzatura": "band",
+    "difficolta": "beginner",
+    "rep_range_forza": "10-15",
+    "rep_range_ipertrofia": "12-20",
+    "rep_range_resistenza": "15-25",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Press Overhead Elastico",
+    "nome_en": "Band Overhead Press",
+    "categoria": "compound",
+    "pattern_movimento": "push_v",
+    "muscoli_primari": [
+      "shoulders"
+    ],
+    "muscoli_secondari": [
+      "triceps"
+    ],
+    "attrezzatura": "band",
+    "difficolta": "beginner",
+    "rep_range_forza": "10-15",
+    "rep_range_ipertrofia": "12-20",
+    "rep_range_resistenza": "15-25",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Scrollate Bilanciere",
+    "nome_en": "Barbell Shrugs",
+    "categoria": "isolation",
+    "pattern_movimento": "pull_v",
+    "muscoli_primari": [
+      "traps"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "barbell",
+    "difficolta": "beginner",
+    "rep_range_forza": "6-10",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "15-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Scrollate Manubri",
+    "nome_en": "Dumbbell Shrugs",
+    "categoria": "isolation",
+    "pattern_movimento": "pull_v",
+    "muscoli_primari": [
+      "traps"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "dumbbell",
+    "difficolta": "beginner",
+    "rep_range_forza": "8-12",
+    "rep_range_ipertrofia": "12-15",
+    "rep_range_resistenza": "15-25",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Corsa",
+    "nome_en": "Running",
+    "categoria": "cardio",
+    "pattern_movimento": "squat",
+    "muscoli_primari": [
+      "quadriceps",
+      "hamstrings",
+      "glutes"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "bodyweight",
+    "difficolta": "beginner",
+    "rep_range_forza": "20-30min",
+    "rep_range_ipertrofia": "20-45min",
+    "rep_range_resistenza": "30-60min",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": [
+      "ginocchio"
+    ]
+  },
+  {
+    "nome": "Ciclismo",
+    "nome_en": "Cycling",
+    "categoria": "cardio",
+    "pattern_movimento": "squat",
+    "muscoli_primari": [
+      "quadriceps",
+      "hamstrings",
+      "glutes"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "machine",
+    "difficolta": "beginner",
+    "rep_range_forza": "30-45min",
+    "rep_range_ipertrofia": "30-60min",
+    "rep_range_resistenza": "45-120min",
+    "ore_recupero": 12,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Vogatore",
+    "nome_en": "Rowing Machine",
+    "categoria": "cardio",
+    "pattern_movimento": "pull_h",
+    "muscoli_primari": [
+      "back",
+      "quadriceps",
+      "hamstrings"
+    ],
+    "muscoli_secondari": [
+      "core",
+      "biceps"
+    ],
+    "attrezzatura": "machine",
+    "difficolta": "intermediate",
+    "rep_range_forza": "15-25min",
+    "rep_range_ipertrofia": "20-40min",
+    "rep_range_resistenza": "30-60min",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Salto con la Corda",
+    "nome_en": "Jump Rope",
+    "categoria": "cardio",
+    "pattern_movimento": "squat",
+    "muscoli_primari": [
+      "calves",
+      "quadriceps"
+    ],
+    "muscoli_secondari": [
+      "core",
+      "shoulders"
+    ],
+    "attrezzatura": "bodyweight",
+    "difficolta": "beginner",
+    "rep_range_forza": "5-10min",
+    "rep_range_ipertrofia": "10-20min",
+    "rep_range_resistenza": "15-30min",
+    "ore_recupero": 12,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Funi Battaglie",
+    "nome_en": "Battle Ropes",
+    "categoria": "cardio",
+    "pattern_movimento": "push_v",
+    "muscoli_primari": [
+      "shoulders",
+      "core"
+    ],
+    "muscoli_secondari": [
+      "back"
+    ],
+    "attrezzatura": "bodyweight",
+    "difficolta": "intermediate",
+    "rep_range_forza": "20-30s",
+    "rep_range_ipertrofia": "30-45s",
+    "rep_range_resistenza": "45-60s",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Salti su Box",
+    "nome_en": "Box Jumps",
+    "categoria": "compound",
+    "pattern_movimento": "squat",
+    "muscoli_primari": [
+      "quadriceps",
+      "glutes"
+    ],
+    "muscoli_secondari": [
+      "calves",
+      "core"
+    ],
+    "attrezzatura": "bodyweight",
+    "difficolta": "intermediate",
+    "rep_range_forza": "3-6",
+    "rep_range_ipertrofia": "6-10",
+    "rep_range_resistenza": "10-15",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Burpees",
+    "nome_en": "Burpees",
+    "categoria": "bodyweight",
+    "pattern_movimento": "squat",
+    "muscoli_primari": [
+      "quadriceps",
+      "chest",
+      "core"
+    ],
+    "muscoli_secondari": [
+      "shoulders",
+      "triceps"
+    ],
+    "attrezzatura": "bodyweight",
+    "difficolta": "intermediate",
+    "rep_range_forza": "5-10",
+    "rep_range_ipertrofia": "10-15",
+    "rep_range_resistenza": "15-20",
+    "ore_recupero": 24,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Spinta Slitta",
+    "nome_en": "Sled Push",
+    "categoria": "compound",
+    "pattern_movimento": "squat",
+    "muscoli_primari": [
+      "quadriceps",
+      "glutes"
+    ],
+    "muscoli_secondari": [
+      "core",
+      "shoulders"
+    ],
+    "attrezzatura": "machine",
+    "difficolta": "intermediate",
+    "rep_range_forza": "20-30s",
+    "rep_range_ipertrofia": "30-45s",
+    "rep_range_resistenza": "45-60s",
+    "ore_recupero": 36,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Assault Bike",
+    "nome_en": "Assault Bike",
+    "categoria": "cardio",
+    "pattern_movimento": "squat",
+    "muscoli_primari": [
+      "quadriceps",
+      "hamstrings"
+    ],
+    "muscoli_secondari": [
+      "shoulders",
+      "core"
+    ],
+    "attrezzatura": "machine",
+    "difficolta": "beginner",
+    "rep_range_forza": "20-30s",
+    "rep_range_ipertrofia": "30-60s",
+    "rep_range_resistenza": "60-120s",
+    "ore_recupero": 12,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Scalatore",
+    "nome_en": "Stair Climber",
+    "categoria": "cardio",
+    "pattern_movimento": "squat",
+    "muscoli_primari": [
+      "quadriceps",
+      "glutes"
+    ],
+    "muscoli_secondari": [
+      "calves"
+    ],
+    "attrezzatura": "machine",
+    "difficolta": "beginner",
+    "rep_range_forza": "10-15min",
+    "rep_range_ipertrofia": "15-25min",
+    "rep_range_resistenza": "20-40min",
+    "ore_recupero": 12,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Ellittica",
+    "nome_en": "Elliptical",
+    "categoria": "cardio",
+    "pattern_movimento": "squat",
+    "muscoli_primari": [
+      "quadriceps",
+      "hamstrings",
+      "glutes"
+    ],
+    "muscoli_secondari": [],
+    "attrezzatura": "machine",
+    "difficolta": "beginner",
+    "rep_range_forza": "15-25min",
+    "rep_range_ipertrofia": "20-40min",
+    "rep_range_resistenza": "30-60min",
+    "ore_recupero": 12,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Nuoto",
+    "nome_en": "Swimming",
+    "categoria": "cardio",
+    "pattern_movimento": "pull_h",
+    "muscoli_primari": [
+      "back",
+      "shoulders"
+    ],
+    "muscoli_secondari": [
+      "core",
+      "chest"
+    ],
+    "attrezzatura": "bodyweight",
+    "difficolta": "intermediate",
+    "rep_range_forza": "15-25min",
+    "rep_range_ipertrofia": "20-40min",
+    "rep_range_resistenza": "30-60min",
+    "ore_recupero": 12,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Girata al Petto",
+    "nome_en": "Power Clean",
+    "categoria": "compound",
+    "pattern_movimento": "hinge",
+    "muscoli_primari": [
+      "glutes",
+      "hamstrings",
+      "back"
+    ],
+    "muscoli_secondari": [
+      "quadriceps",
+      "shoulders",
+      "traps"
+    ],
+    "attrezzatura": "barbell",
+    "difficolta": "advanced",
+    "rep_range_forza": "1-5",
+    "rep_range_ipertrofia": "3-6",
+    "rep_range_resistenza": "6-8",
+    "ore_recupero": 48,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Clean dalla Posizione",
+    "nome_en": "Hang Clean",
+    "categoria": "compound",
+    "pattern_movimento": "hinge",
+    "muscoli_primari": [
+      "glutes",
+      "hamstrings"
+    ],
+    "muscoli_secondari": [
+      "quadriceps",
+      "traps",
+      "shoulders"
+    ],
+    "attrezzatura": "barbell",
+    "difficolta": "advanced",
+    "rep_range_forza": "1-5",
+    "rep_range_ipertrofia": "3-6",
+    "rep_range_resistenza": "6-8",
+    "ore_recupero": 48,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Slancio",
+    "nome_en": "Clean and Jerk",
+    "categoria": "compound",
+    "pattern_movimento": "hinge",
+    "muscoli_primari": [
+      "glutes",
+      "hamstrings",
+      "shoulders"
+    ],
+    "muscoli_secondari": [
+      "quadriceps",
+      "core",
+      "triceps"
+    ],
+    "attrezzatura": "barbell",
+    "difficolta": "advanced",
+    "rep_range_forza": "1-3",
+    "rep_range_ipertrofia": "3-5",
+    "rep_range_resistenza": "5-8",
+    "ore_recupero": 48,
+    "istruzioni": null,
+    "controindicazioni": []
+  },
+  {
+    "nome": "Strappo",
+    "nome_en": "Snatch",
+    "categoria": "compound",
+    "pattern_movimento": "hinge",
+    "muscoli_primari": [
+      "glutes",
+      "hamstrings",
+      "shoulders"
+    ],
+    "muscoli_secondari": [
+      "quadriceps",
+      "core",
+      "back"
+    ],
+    "attrezzatura": "barbell",
+    "difficolta": "advanced",
+    "rep_range_forza": "1-3",
+    "rep_range_ipertrofia": "3-5",
+    "rep_range_resistenza": "5-8",
+    "ore_recupero": 48,
+    "istruzioni": null,
+    "controindicazioni": []
+  }
+]

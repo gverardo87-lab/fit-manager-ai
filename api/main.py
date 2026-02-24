@@ -22,7 +22,8 @@ from sqlmodel import Session, text
 from api.database import get_session
 
 from api.config import API_PREFIX
-from api.database import create_db_and_tables
+from api.database import create_db_and_tables, engine
+from api.seed_exercises import seed_builtin_exercises
 from api.auth.router import router as auth_router
 from api.routers.clients import router as clients_router
 from api.routers.agenda import router as agenda_router
@@ -33,6 +34,7 @@ from api.routers.recurring_expenses import router as recurring_expenses_router
 from api.routers.dashboard import router as dashboard_router
 from api.routers.backup import router as backup_router
 from api.routers.todos import router as todos_router
+from api.routers.exercises import router as exercises_router
 
 logger = logging.getLogger("fitmanager.api")
 
@@ -47,6 +49,12 @@ async def lifespan(app: FastAPI):
     """
     logger.info("API startup: inizializzazione database...")
     create_db_and_tables()
+
+    # Seed esercizi builtin (idempotente)
+    from sqlmodel import Session as SyncSession
+    with SyncSession(engine) as session:
+        seed_builtin_exercises(session)
+
     logger.info("API pronta")
     yield
     logger.info("API shutdown")
@@ -82,6 +90,7 @@ app.include_router(recurring_expenses_router, prefix=API_PREFIX)
 app.include_router(dashboard_router, prefix=API_PREFIX)
 app.include_router(backup_router, prefix=API_PREFIX)
 app.include_router(todos_router, prefix=API_PREFIX)
+app.include_router(exercises_router, prefix=API_PREFIX)
 
 
 @app.get("/health")

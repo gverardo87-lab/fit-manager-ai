@@ -247,6 +247,9 @@ export interface ContractListItem extends Contract {
 /** ContractWithRatesResponse — GET /api/contracts/{id} */
 export interface ContractWithRates extends Contract {
   rate: Rate[];
+  // Client info (per la pagina dettaglio)
+  client_nome: string;
+  client_cognome: string;
   // KPI computati dal backend (unica fonte di verita')
   residuo: number;
   percentuale_versata: number;
@@ -667,4 +670,73 @@ export interface BackupCreateResponse {
 export interface BackupRestoreResponse {
   message: string;
   safety_backup: string;
+}
+
+// ════════════════════════════════════════════════════════════
+// EXERCISE (api/routers/exercises.py + api/schemas/exercise.py)
+// ════════════════════════════════════════════════════════════
+
+/** ExerciseResponse — restituito da GET/POST/PUT */
+export interface Exercise {
+  id: number;
+  nome: string;
+  nome_en: string | null;
+  categoria: string;
+  pattern_movimento: string;
+  muscoli_primari: string[];
+  muscoli_secondari: string[];
+  attrezzatura: string;
+  difficolta: string;
+  rep_range_forza: string | null;
+  rep_range_ipertrofia: string | null;
+  rep_range_resistenza: string | null;
+  ore_recupero: number;
+  istruzioni: { setup?: string; esecuzione?: string; errori_comuni?: string } | null;
+  controindicazioni: string[];
+  is_builtin: boolean;
+  created_at: string | null;
+}
+
+/** POST /api/exercises */
+export interface ExerciseCreate {
+  nome: string;
+  nome_en?: string | null;
+  categoria: string;
+  pattern_movimento: string;
+  muscoli_primari: string[];
+  muscoli_secondari?: string[] | null;
+  attrezzatura: string;
+  difficolta: string;
+  rep_range_forza?: string | null;
+  rep_range_ipertrofia?: string | null;
+  rep_range_resistenza?: string | null;
+  ore_recupero?: number;
+  istruzioni?: { setup?: string; esecuzione?: string; errori_comuni?: string } | null;
+  controindicazioni?: string[] | null;
+}
+
+/** PUT /api/exercises/{id} (partial update) */
+export interface ExerciseUpdate {
+  nome?: string | null;
+  nome_en?: string | null;
+  categoria?: string | null;
+  pattern_movimento?: string | null;
+  muscoli_primari?: string[] | null;
+  muscoli_secondari?: string[] | null;
+  attrezzatura?: string | null;
+  difficolta?: string | null;
+  rep_range_forza?: string | null;
+  rep_range_ipertrofia?: string | null;
+  rep_range_resistenza?: string | null;
+  ore_recupero?: number | null;
+  istruzioni?: { setup?: string; esecuzione?: string; errori_comuni?: string } | null;
+  controindicazioni?: string[] | null;
+}
+
+/** GET /api/exercises — lista paginata */
+export interface ExerciseListResponse {
+  items: Exercise[];
+  total: number;
+  page: number;
+  page_size: number;
 }
