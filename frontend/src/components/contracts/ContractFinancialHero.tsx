@@ -1,14 +1,15 @@
-// src/components/contracts/ContractDetailSheet.tsx
+// src/components/contracts/ContractFinancialHero.tsx
 "use client";
 
 /**
- * Sheet Master-Detail per gestione contratto.
+ * Hero Section finanziaria per contratto — 6-10 KPI cards.
  *
- * Layout:
- * 1. Hero Section persistente — 4 KPI finanziari a colpo d'occhio
- * 2. Tabs — Piano Pagamenti (default) + Dettagli contratto
+ * Layout 3 righe:
+ * 1. Valore Contratto | Acconto | Da Rateizzare
+ * 2. Versato (con progress) | Rate Pagate | Residuo
+ * 3. Crediti Sedute (4 card, solo se crediti_totali > 0)
  *
- * Usa useContract(id) per caricare contratto + rate in una sola chiamata.
+ * Estratto da ContractDetailSheet per riuso nella pagina /contratti/[id].
  */
 
 import {
@@ -25,111 +26,15 @@ import {
   CalendarCheck,
 } from "lucide-react";
 
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
-import { ContractForm, type ContractSubmitPayload } from "./ContractForm";
-import { PaymentPlanTab } from "./PaymentPlanTab";
-import { useContract, useUpdateContract } from "@/hooks/useContracts";
+import { formatCurrency } from "@/lib/format";
 import type { ContractWithRates } from "@/types/api";
 
-import { formatCurrency } from "@/lib/format";
-
 // ════════════════════════════════════════════════════════════
-// Props & Component
+// Main Component
 // ════════════════════════════════════════════════════════════
 
-interface ContractDetailSheetProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  contractId: number | null;
-  clientName?: string;
-}
-
-export function ContractDetailSheet({
-  open,
-  onOpenChange,
-  contractId,
-  clientName,
-}: ContractDetailSheetProps) {
-  const { data: contract, isLoading } = useContract(open ? contractId : null);
-  const updateMutation = useUpdateContract();
-
-  const handleUpdateSubmit = (values: ContractSubmitPayload) => {
-    if (!contractId) return;
-    const { id_cliente, acconto, metodo_acconto, ...updatePayload } = values;
-    updateMutation.mutate(
-      { id: contractId, ...updatePayload },
-      { onSuccess: () => onOpenChange(false) }
-    );
-  };
-
-  return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="overflow-y-auto sm:max-w-2xl">
-        <SheetHeader>
-          <SheetTitle>
-            Gestione Contratto
-            {clientName && (
-              <span className="ml-2 text-base font-normal text-muted-foreground">
-                — {clientName}
-              </span>
-            )}
-          </SheetTitle>
-        </SheetHeader>
-
-        <div className="mt-6 space-y-6">
-          {isLoading && <DetailSkeleton />}
-
-          {contract && (
-            <>
-              {/* ── Hero Section: KPI finanziari ── */}
-              <FinancialHero contract={contract} />
-
-              {/* ── Tabs ── */}
-              <Tabs defaultValue="payments" className="w-full">
-                <TabsList className="w-full">
-                  <TabsTrigger value="payments" className="flex-1">
-                    Piano Pagamenti
-                  </TabsTrigger>
-                  <TabsTrigger value="details" className="flex-1">
-                    Dettagli
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="payments" className="mt-4">
-                  <PaymentPlanTab contract={contract} />
-                </TabsContent>
-
-                <TabsContent value="details" className="mt-4">
-                  <ContractForm
-                    key={contract.id}
-                    contract={contract}
-                    onSubmit={handleUpdateSubmit}
-                    isPending={updateMutation.isPending}
-                  />
-                </TabsContent>
-              </Tabs>
-            </>
-          )}
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
-}
-
-// ════════════════════════════════════════════════════════════
-// Hero Section — 6 KPI cards (2 righe x 3)
-// ════════════════════════════════════════════════════════════
-
-function FinancialHero({ contract }: { contract: ContractWithRates }) {
-  // Tutti i valori dal backend — zero calcoli frontend
+export function ContractFinancialHero({ contract }: { contract: ContractWithRates }) {
   const totale = contract.prezzo_totale ?? 0;
   const acconto = contract.acconto;
   const versato = contract.totale_versato;
@@ -181,7 +86,7 @@ function FinancialHero({ contract }: { contract: ContractWithRates }) {
           />
         </div>
 
-        {/* ── Riga 2: Versato (con progress) | Rate Pagate | Rate Scadute ── */}
+        {/* ── Riga 2: Versato (con progress) | Rate Pagate | Residuo ── */}
         <div className="grid grid-cols-3 gap-3">
           {/* Versato — card piu' alta con progress bar */}
           <div className="flex flex-col gap-2 rounded-lg border bg-white p-3 shadow-sm dark:bg-zinc-900">
@@ -290,7 +195,9 @@ function FinancialHero({ contract }: { contract: ContractWithRates }) {
   );
 }
 
-// ── KPI Card compatta riusabile ──
+// ════════════════════════════════════════════════════════════
+// KPI Card compatta riusabile
+// ════════════════════════════════════════════════════════════
 
 function KpiCard({
   icon,
@@ -327,20 +234,6 @@ function KpiCard({
           </p>
         )}
       </div>
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════
-// Skeleton
-// ════════════════════════════════════════════════════════════
-
-function DetailSkeleton() {
-  return (
-    <div className="space-y-4">
-      <Skeleton className="h-40 w-full rounded-xl" />
-      <Skeleton className="h-10 w-full" />
-      <Skeleton className="h-48 w-full" />
     </div>
   );
 }

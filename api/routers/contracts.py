@@ -343,6 +343,9 @@ def get_contract(
     if not contract:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contratto non trovato")
 
+    # Fetch cliente per nome (header pagina dettaglio)
+    client = session.get(Client, contract.id_cliente)
+
     # Fetch rate associate (non eliminate)
     rates = list(session.exec(
         select(Rate).where(
@@ -381,7 +384,11 @@ def get_contract(
     for row in credit_rows:
         credit_breakdown[row[0]] = int(row[1])
 
-    return _to_response_with_rates(contract, rates, receipt_map, credit_breakdown)
+    resp = _to_response_with_rates(contract, rates, receipt_map, credit_breakdown)
+    if client:
+        resp.client_nome = client.nome
+        resp.client_cognome = client.cognome
+    return resp
 
 
 # ════════════════════════════════════════════════════════════

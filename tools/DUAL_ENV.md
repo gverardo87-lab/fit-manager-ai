@@ -56,8 +56,27 @@ Perche':
 # SBAGLIATO — ascolta solo su localhost:
 uvicorn api.main:app --reload --port 8000
 
-# CORRETTO — ascolta su tutte le interfacce (localhost + LAN):
+# CORRETTO — ascolta su tutte le interfacce (localhost + LAN + Tailscale):
 uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+> **2b. Frontend PROD SEMPRE con `-H 0.0.0.0`. Mai senza.**
+
+Stessa identica trappola del backend:
+- Senza `-H 0.0.0.0`, `next start` ascolta SOLO su `127.0.0.1` (localhost)
+- iPad/Tailscale (`100.x.x.x`) riceve "Application error: a client-side exception has occurred"
+- Da locale (`localhost:3000`) sembra funzionare perfettamente → la trappola e' invisibile
+- Il flag e' gia' nello script `npm run prod` (`next start -p 3000 -H 0.0.0.0`)
+
+```powershell
+# SBAGLIATO — ascolta solo su localhost:
+next start -p 3000
+
+# CORRETTO — ascolta su tutte le interfacce:
+next start -p 3000 -H 0.0.0.0
+
+# Oppure semplicemente:
+npm run prod    # include gia' -H 0.0.0.0
 ```
 
 > **3. MAI chiudere backend con Ctrl+C o chiusura terminale. Usare SEMPRE la procedura kill.**
@@ -130,7 +149,8 @@ cd C:\Users\gvera\Projects\FitManager_AI_Studio\frontend
 npm run build
 npm run prod
 ```
-> `npm run prod` = `next start -p 3000`. Richiede build preventivo.
+> `npm run prod` = `next start -p 3000 -H 0.0.0.0`. Richiede build preventivo.
+> Il flag `-H 0.0.0.0` e' CRITICO: senza, iPad/Tailscale non funzionano.
 
 ### Terminale 4: Frontend DEV
 ```powershell
@@ -382,12 +402,12 @@ netstat -ano | Select-String ":8000.*LISTEN"
 
 ### Problema: Tutte le pagine danno errore da remoto, ma da locale funziona
 
-**Causa**: Backend avviato senza `--host 0.0.0.0`.
+**Causa 1 — Backend**: avviato senza `--host 0.0.0.0`.
 Senza questo flag, uvicorn ascolta SOLO su `127.0.0.1` (localhost).
 Il frontend PROD chiama `http://192.168.1.23:8000` (IP LAN) → connessione rifiutata.
 
 ```powershell
-# Verifica:
+# Verifica backend:
 curl.exe http://localhost:8000/health          # OK (localhost)
 curl.exe http://192.168.1.23:8000/health       # FAIL (LAN) ← problema qui
 
@@ -397,8 +417,24 @@ taskkill /T /F /PID <numero>
 uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
+**Causa 2 — Frontend**: avviato senza `-H 0.0.0.0`.
+Stessa identica trappola: `next start` ascolta solo su localhost.
+iPad/Tailscale riceve "Application error: a client-side exception has occurred".
+
+```powershell
+# Verifica frontend (da browser):
+# http://localhost:3000       → OK (funziona)
+# http://100.127.28.16:3000   → FAIL ("Application error") ← problema qui
+
+# Soluzione: kill + restart con -H 0.0.0.0
+netstat -ano | Select-String ":3000.*LISTEN"
+taskkill /T /F /PID <numero>
+cd C:\Users\gvera\Projects\FitManager_AI_Studio\frontend
+npm run prod    # include gia' -H 0.0.0.0
+```
+
 **Trappola**: Questo errore e' invisibile da locale. Tutto sembra funzionare
-su `localhost:3000`, ma Chiara da `192.168.1.23:3000` vede solo errori.
+su `localhost`, ma Chiara da LAN/Tailscale vede solo errori. Colpisce sia backend che frontend.
 
 ### Problema: KPI mostrano NaN
 
@@ -516,9 +552,9 @@ Prima di chiudere la sessione di sviluppo:
 [ ] Backend PROD (8000) attivo CON --host 0.0.0.0
 [ ] curl.exe http://192.168.1.23:8000/health → OK (check LAN)
 [ ] curl.exe http://100.127.28.16:8000/health → OK (check Tailscale)
-[ ] Frontend PROD (3000) attivo con build aggiornato (next start, NON next dev!)
-[ ] http://192.168.1.23:3000 → login (check LAN)
-[ ] http://100.127.28.16:3000 → login (check Tailscale)
+[ ] Frontend PROD (3000) attivo CON -H 0.0.0.0 (npm run prod, NON next dev!)
+[ ] http://192.168.1.23:3000 → login (check LAN — se fallisce: manca -H 0.0.0.0)
+[ ] http://100.127.28.16:3000 → login (check Tailscale — se fallisce: manca -H 0.0.0.0)
 [ ] Verifica: numero clienti corretto (~13, non ~50)
 [ ] Tailscale attivo sul PC (icona tray connessa)
 ```
@@ -546,10 +582,12 @@ Chiara apre: http://100.127.28.16:3000
 - Tailscale installato e connesso sul PC (icona tray verde)
 - Tailscale installato e connesso sull'iPad (stesso account)
 - Backend avviato con `--host 0.0.0.0` (ascolta su tutte le interfacce)
+- Frontend avviato con `-H 0.0.0.0` (`npm run prod` lo include gia')
 
 **Troubleshooting**:
 - Chiara non vede la pagina → verificare che Tailscale sia attivo su ENTRAMBI i dispositivi
 - "Connessione non riuscita" → l'iPad non ha Tailscale connesso, oppure il backend non ha `--host 0.0.0.0`
+- "Application error: client-side exception" → frontend avviato senza `-H 0.0.0.0` (usare `npm run prod`)
 - Pagina si vede ma dati non caricano → CORS non accetta l'IP Tailscale (verificare regex in `api/main.py`)
 
 ---
@@ -581,7 +619,7 @@ Logica in `frontend/src/lib/api-client.ts` → `getApiBaseUrl()`:
 | `api/main.py` | CORS regex (localhost + LAN + Tailscale) | Solo se nuova rete |
 | `frontend/.env.local` | Fallback SSR PROD | Non piu' critico (URL dinamico) |
 | `frontend/.env.development.local` | Fallback SSR DEV | Non piu' critico (URL dinamico) |
-| `frontend/package.json` | Script: `dev`→3001, `prod`→3000 | MAI (gia' corretto) |
+| `frontend/package.json` | Script: `dev`→3001, `prod`→3000 `-H 0.0.0.0` | MAI (gia' corretto) |
 | `api/config.py` | `DATABASE_URL` default = crm.db | MAI (override via env var) |
 | `tools/scripts/kill-port.sh` | Kill tree (usato da Claude Code bash) | Solo se bug Windows |
 | `tools/scripts/restart-backend.sh` | Kill + restart (usato da Claude Code bash) | Solo se bug |

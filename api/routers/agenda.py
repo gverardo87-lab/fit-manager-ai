@@ -337,11 +337,12 @@ def list_events(
     categoria: Optional[str] = Query(None, description="Filtra per categoria (PT, SALA, ...)"),
     stato: Optional[str] = Query(None, description="Filtra per stato (Programmato, Completato, ...)"),
     id_cliente: Optional[int] = Query(None, description="Filtra per cliente"),
+    id_contratto: Optional[int] = Query(None, description="Filtra per contratto"),
 ):
     """
     Lista eventi del trainer autenticato.
 
-    Supporta filtri per range temporale, categoria, stato, cliente.
+    Supporta filtri per range temporale, categoria, stato, cliente, contratto.
     Nessuna paginazione: il calendario ha bisogno di tutti gli eventi nel range.
     """
     query = select(Event).where(Event.trainer_id == trainer.id, Event.deleted_at == None)
@@ -357,6 +358,8 @@ def list_events(
     if id_cliente:
         _check_client_ownership(session, id_cliente, trainer.id)
         query = query.where(Event.id_cliente == id_cliente)
+    if id_contratto:
+        query = query.where(Event.id_contratto == id_contratto)
 
     query = query.order_by(Event.data_inizio)
     events = session.exec(query).all()

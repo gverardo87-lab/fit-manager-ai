@@ -83,6 +83,25 @@ export function useClientEvents(idCliente: number | null) {
   });
 }
 
+// ── Query: eventi di un singolo contratto (scheda contratto) ──
+
+export function useContractEvents(idContratto: number | null) {
+  return useQuery({
+    queryKey: ["events", { idContratto }],
+    queryFn: async () => {
+      const { data } = await apiClient.get<ListResponse<Event>>("/events", {
+        params: { id_contratto: idContratto },
+      });
+      return data;
+    },
+    select: (data): ListResponse<EventHydrated> => ({
+      ...data,
+      items: data.items.map(hydrateEvent),
+    }),
+    enabled: idContratto !== null,
+  });
+}
+
 // ── Mutation: crea evento ──
 
 export function useCreateEvent() {

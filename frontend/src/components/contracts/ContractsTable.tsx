@@ -21,6 +21,7 @@
  */
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import { format, parseISO, differenceInDays, startOfToday } from "date-fns";
 import { it } from "date-fns/locale";
 import {
@@ -28,7 +29,6 @@ import {
   Pencil,
   Trash2,
   Search,
-  Settings2,
   FileText,
   Plus,
 } from "lucide-react";
@@ -55,7 +55,6 @@ import { formatCurrency } from "@/lib/format";
 
 interface ContractsTableProps {
   contracts: ContractListItem[];
-  onManage: (contract: ContractListItem) => void;
   onEdit: (contract: ContractListItem) => void;
   onDelete: (contract: ContractListItem) => void;
   onNewContract?: () => void;
@@ -144,7 +143,6 @@ function getScadenzaStyle(contract: ContractListItem): string {
 
 export function ContractsTable({
   contracts,
-  onManage,
   onEdit,
   onDelete,
   onNewContract,
@@ -212,9 +210,11 @@ export function ContractsTable({
             <TableBody>
               {filtered.map((contract) => (
                 <TableRow key={contract.id}>
-                  {/* ── Cliente ── */}
+                  {/* ── Cliente (link a scheda contratto) ── */}
                   <TableCell className="font-medium">
-                    {contract.client_cognome} {contract.client_nome}
+                    <Link href={`/contratti/${contract.id}`} className="hover:underline">
+                      {contract.client_cognome} {contract.client_nome}
+                    </Link>
                   </TableCell>
 
                   {/* ── Pacchetto (hidden mobile) ── */}
@@ -276,9 +276,11 @@ export function ContractsTable({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onManage(contract)}>
-                          <Settings2 className="mr-2 h-4 w-4" />
-                          Gestisci
+                        <DropdownMenuItem asChild>
+                          <Link href={`/contratti/${contract.id}`}>
+                            <FileText className="mr-2 h-4 w-4" />
+                            Dettagli
+                          </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onEdit(contract)}>
                           <Pencil className="mr-2 h-4 w-4" />

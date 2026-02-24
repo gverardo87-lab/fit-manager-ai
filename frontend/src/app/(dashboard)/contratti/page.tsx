@@ -31,7 +31,6 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ContractsTable } from "@/components/contracts/ContractsTable";
 import { ContractSheet } from "@/components/contracts/ContractSheet";
-import { ContractDetailSheet } from "@/components/contracts/ContractDetailSheet";
 import { DeleteContractDialog } from "@/components/contracts/DeleteContractDialog";
 import { useContracts } from "@/hooks/useContracts";
 import { formatCurrency } from "@/lib/format";
@@ -152,7 +151,6 @@ function matchesSituazione(c: ContractListItem, key: string): boolean {
 
 export default function ContrattiPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [detailOpen, setDetailOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [selectedContract, setSelectedContract] = useState<ContractListItem | null>(null);
 
@@ -223,11 +221,6 @@ export default function ContrattiPage() {
   const handleNewContract = () => {
     setSelectedContract(null);
     setSheetOpen(true);
-  };
-
-  const handleManage = (contract: ContractListItem) => {
-    setSelectedContract(contract);
-    setDetailOpen(true);
   };
 
   const handleEdit = (contract: ContractListItem) => {
@@ -355,7 +348,6 @@ export default function ContrattiPage() {
       {contractsData && (
         <ContractsTable
           contracts={filteredContracts}
-          onManage={handleManage}
           onEdit={handleEdit}
           onDelete={handleDelete}
           onNewContract={handleNewContract}
@@ -367,14 +359,6 @@ export default function ContrattiPage() {
         open={sheetOpen}
         onOpenChange={setSheetOpen}
         contract={selectedContract}
-      />
-
-      {/* ── Sheet master-detail (pagamenti + dettagli) ── */}
-      <ContractDetailSheet
-        open={detailOpen}
-        onOpenChange={setDetailOpen}
-        contractId={selectedContract?.id ?? null}
-        clientName={clientName}
       />
 
       {/* ── Dialog elimina ── */}

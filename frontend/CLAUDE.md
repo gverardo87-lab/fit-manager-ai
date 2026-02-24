@@ -10,8 +10,8 @@ frontend/src/
 │   ├── (dashboard)/         Route group (non appare in URL)
 │   │   ├── layout.tsx       Sidebar + AuthGuard wrapper
 │   │   ├── page.tsx         Dashboard KPI
-│   │   ├── clienti/         Pagina clienti
-│   │   ├── contratti/       Pagina contratti
+│   │   ├── clienti/         Pagina clienti + [id]/ scheda cliente
+│   │   ├── contratti/       Pagina contratti + [id]/ scheda contratto
 │   │   ├── agenda/          Pagina agenda/calendario
 │   │   ├── cassa/           Pagina Cassa (5 tab: Libro Mastro, Spese Fisse, Entrate & Uscite, Scadenze, Previsioni)
 │   │   └── impostazioni/   Pagina impostazioni
@@ -74,6 +74,8 @@ Ogni mutation: `invalidateQueries` sulle key correlate + `toast.success/error`.
 ["dashboard", "expiring-contracts"]  // contratti in scadenza con crediti
 ["dashboard", "inactive-clients"]    // clienti inattivi con ultimo evento
 ["events", { start, end }]          // eventi per range temporale
+["events", { idCliente }]           // eventi per cliente (profilo)
+["events", { idContratto }]         // eventi per contratto (scheda)
 ["forecast", { mesi }]              // proiezione finanziaria N mesi
 ["todos", { completato }]           // lista todo (filtro opzionale)
 ```

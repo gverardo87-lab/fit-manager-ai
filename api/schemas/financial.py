@@ -243,6 +243,10 @@ class ContractWithRatesResponse(ContractResponse):
     """
     rate: List[RateResponse] = []
 
+    # ── Client info (per la pagina dettaglio) ──
+    client_nome: str = ""
+    client_cognome: str = ""
+
     # ── KPI Computed (calcolati nel router) ──
     residuo: float = 0                  # prezzo_totale - totale_versato
     percentuale_versata: int = 0        # round((totale_versato / prezzo_totale) * 100)
