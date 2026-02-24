@@ -29,6 +29,7 @@ interface DatePickerProps {
   onChange: (date: Date | undefined) => void;
   placeholder?: string;
   disabled?: boolean;
+  maxDate?: Date;
 }
 
 export function DatePicker({
@@ -36,6 +37,7 @@ export function DatePicker({
   onChange,
   placeholder = "Seleziona data...",
   disabled = false,
+  maxDate,
 }: DatePickerProps) {
   return (
     <Popover>
@@ -59,6 +61,7 @@ export function DatePicker({
           onSelect={onChange}
           locale={it}
           initialFocus
+          toDate={maxDate}
         />
       </PopoverContent>
     </Popover>

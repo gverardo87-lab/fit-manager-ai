@@ -155,6 +155,7 @@ function GeneratePlanForm({ contract }: { contract: ContractWithRates }) {
             value={dataPrimaRata}
             onChange={setDataPrimaRata}
             placeholder="Seleziona data..."
+            maxDate={contract.data_scadenza ? parseISO(contract.data_scadenza) : undefined}
           />
         </div>
         <div className="space-y-2">
@@ -306,6 +307,7 @@ function RatesList({
       {showAddForm ? (
         <AddRateForm
           contractId={contract.id}
+          contractScadenza={contract.data_scadenza ?? undefined}
           onClose={() => setShowAddForm(false)}
         />
       ) : (
@@ -325,6 +327,7 @@ function RatesList({
         rate={editRate}
         open={editRate !== null}
         onOpenChange={(open) => { if (!open) setEditRate(null); }}
+        contractScadenza={contract.data_scadenza ?? undefined}
       />
 
       {/* ── Unpay Dialog (conferma con "ANNULLA") ── */}
@@ -731,9 +734,11 @@ function PayRateForm({
 
 function AddRateForm({
   contractId,
+  contractScadenza,
   onClose,
 }: {
   contractId: number;
+  contractScadenza?: string;
   onClose: () => void;
 }) {
   const createMutation = useCreateRate();
@@ -776,6 +781,7 @@ function AddRateForm({
             value={dataScadenza}
             onChange={setDataScadenza}
             placeholder="Seleziona..."
+            maxDate={contractScadenza ? parseISO(contractScadenza) : undefined}
           />
         </div>
         <div className="space-y-1.5">

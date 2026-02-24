@@ -486,6 +486,24 @@ def update_contract(
             detail="data_scadenza deve essere dopo data_inizio",
         )
 
+    # Rate boundary: nuova scadenza non puo' lasciare rate orfane
+    if "data_scadenza" in update_data:
+        conflicting = session.exec(
+            select(func.count(Rate.id)).where(
+                Rate.id_contratto == contract_id,
+                Rate.deleted_at == None,
+                Rate.data_scadenza > update_data["data_scadenza"],
+            )
+        ).one() or 0
+        if conflicting > 0:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Impossibile anticipare la scadenza: {conflicting} "
+                       f"{'rata ha' if conflicting == 1 else 'rate hanno'} "
+                       f"data oltre il {update_data['data_scadenza']}. "
+                       f"Modifica prima le rate.",
+            )
+
     changes = {}
     for field, value in update_data.items():
         old_val = getattr(contract, field)

@@ -32,12 +32,14 @@ interface RateEditDialogProps {
   rate: Rate | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  contractScadenza?: string;
 }
 
 export function RateEditDialog({
   rate,
   open,
   onOpenChange,
+  contractScadenza,
 }: RateEditDialogProps) {
   const updateMutation = useUpdateRate();
 
@@ -119,6 +121,7 @@ export function RateEditDialog({
               value={dataScadenza}
               onChange={setDataScadenza}
               placeholder="Seleziona data..."
+              maxDate={contractScadenza ? parseISO(contractScadenza) : undefined}
             />
           </div>
 
