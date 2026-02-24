@@ -311,8 +311,8 @@ sqlite3 data/crm_dev.db ".tables"
 
 ## Metriche Progetto
 
-- **api/**: ~5,700 LOC Python — 8 modelli ORM, 10 router, 1 schema module
-- **frontend/**: ~15,800 LOC TypeScript — 63 componenti, 9 hook modules, 6 pagine
+- **api/**: ~5,800 LOC Python — 8 modelli ORM, 10 router, 1 schema module
+- **frontend/**: ~16,300 LOC TypeScript — 65 componenti, 9 hook modules, 7 pagine
 - **core/**: ~11,100 LOC Python — moduli AI (workout, RAG, DNA) in attesa di API endpoints
 - **DB**: 20 tabelle SQLite, FK enforced, multi-tenant via trainer_id
 - **Test**: 63 pytest + 67 E2E
