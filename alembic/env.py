@@ -2,9 +2,17 @@
 Alembic env.py — configurazione migrazioni database.
 
 Importa tutti i modelli SQLModel per il supporto autogenerate.
-Il database URL viene da alembic.ini (override possibile via api/config.py).
+
+DATABASE_URL priority:
+  1. Variabile d'ambiente DATABASE_URL (per dual-DB dev/prod)
+  2. alembic.ini sqlalchemy.url (default: crm.db)
+
+Uso:
+  alembic upgrade head                                    → crm.db (default)
+  DATABASE_URL=sqlite:///data/crm_dev.db alembic upgrade head  → crm_dev.db
 """
 
+import os
 import sys
 from logging.config import fileConfig
 from pathlib import Path
@@ -20,6 +28,11 @@ from sqlmodel import SQLModel
 
 # Alembic Config object
 config = context.config
+
+# Override sqlalchemy.url da env se presente
+database_url = os.getenv("DATABASE_URL")
+if database_url:
+    config.set_main_option("sqlalchemy.url", database_url)
 
 # Logging
 if config.config_file_name is not None:

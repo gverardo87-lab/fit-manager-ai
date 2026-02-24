@@ -27,8 +27,8 @@ frontend/src/
 │   │                        (AgendaCalendar, CustomToolbar, CustomEvent,
 │   │                         EventHoverCard, EventSheet, EventForm,
 │   │                         DeleteEventDialog, calendar-setup.ts)
-│   ├── dashboard/           Componenti dashboard (GhostEventsSheet, OverdueRatesSheet,
-│   │                        ExpiringContractsSheet, InactiveClientsSheet)
+│   ├── dashboard/           Componenti dashboard (TodoCard, GhostEventsSheet,
+│   │                        OverdueRatesSheet, ExpiringContractsSheet, InactiveClientsSheet)
 │   ├── movements/           Componenti dominio cassa (MovementsTable, MovementSheet,
 │   │                        DeleteMovementDialog, RecurringExpensesTab (con EditDialog,
 │   │                        AddForm, ExpensesTable, AlertDialog delete confirm),
@@ -75,6 +75,7 @@ Ogni mutation: `invalidateQueries` sulle key correlate + `toast.success/error`.
 ["dashboard", "inactive-clients"]    // clienti inattivi con ultimo evento
 ["events", { start, end }]          // eventi per range temporale
 ["forecast", { mesi }]              // proiezione finanziaria N mesi
+["todos", { completato }]           // lista todo (filtro opzionale)
 ```
 
 ### Invalidazione Simmetrica (Regola Ferrea)

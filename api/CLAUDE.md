@@ -21,7 +21,8 @@ api/
 │   ├── rate.py          rate_programmate
 │   ├── event.py         agenda
 │   ├── movement.py      movimenti_cassa (ledger)
-│   └── recurring_expense.py  spese_ricorrenti
+│   ├── recurring_expense.py  spese_ricorrenti
+│   └── todo.py          todos (trainer-owned)
 ├── routers/             REST endpoints con Bouncer Pattern
 │   ├── _audit.py        log_audit() helper condiviso
 │   ├── clients.py       CRUD clienti
@@ -31,7 +32,8 @@ api/
 │   ├── movements.py     Ledger + pending/confirm + forecast proiezione
 │   ├── recurring_expenses.py  CRUD spese fisse
 │   ├── dashboard.py     KPI + alerts + inline resolution endpoints (7 GET)
-│   └── backup.py        Backup/Restore/Export (5 endpoint, DB_PATH da DATABASE_URL)
+│   ├── backup.py        Backup/Restore/Export (5 endpoint, DB_PATH da DATABASE_URL)
+│   └── todos.py         CRUD todos + toggle completato (inline schemas)
 └── schemas/
     └── financial.py     Contract/Rate/Movement/Dashboard/PaymentReceipt DTOs
 ```
@@ -172,7 +174,7 @@ Riusa `_get_occurrences_in_month()` per le spese ricorrenti (stessa logica del p
 - Response: sempre Pydantic `model_validate(orm_object)` con `from_attributes=True`
 - Error response: `HTTPException` con status code + detail string
 - Logging: `import logging; logger = logging.getLogger(__name__)`
-- Migrations: Alembic (`alembic/versions/`). Nuova migrazione: `alembic revision -m "desc"` → edit → `alembic upgrade head`
+- Migrations: Alembic (`alembic/versions/`). `env.py` legge `DATABASE_URL` da environment (fallback: `alembic.ini`). Ogni migrazione va applicata a ENTRAMBI i DB (prod + dev)
 
 ## Dipendenze
 

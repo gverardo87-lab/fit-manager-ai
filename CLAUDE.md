@@ -47,11 +47,11 @@ frontend/          Next.js 16 + React 19 + TypeScript
        v
 api/               FastAPI + SQLModel ORM
   models/          8 modelli ORM (SQLAlchemy table=True)
-  routers/         9 router con Bouncer Pattern + Deep IDOR
+  routers/         10 router con Bouncer Pattern + Deep IDOR
   schemas/         Pydantic v2 (input/output validation)
        |
        v
-SQLite             data/crm.db — 19 tabelle, FK enforced
+SQLite             data/crm.db — 20 tabelle, FK enforced
        |
 core/              Moduli AI (dormant, non esposti via API — prossima fase)
   exercise_archive, workout_generator, knowledge_chain, card_parser, ...
@@ -235,10 +235,12 @@ $env:NEXT_DIST_DIR=".next-dev"; $env:NEXT_PUBLIC_API_URL="http://localhost:8001"
 # Build check (OBBLIGATORIO prima di ogni commit)
 cd frontend && npx next build
 
-# Migrazioni (Alembic)
-alembic upgrade head          # applica migrazioni pendenti
+# Migrazioni (Alembic — env.py legge DATABASE_URL da environment)
+alembic upgrade head                                              # crm.db (default)
+DATABASE_URL=sqlite:///data/crm_dev.db alembic upgrade head       # crm_dev.db (dev)
 alembic revision -m "desc"    # crea nuova migrazione
 alembic current               # mostra versione corrente
+# REGOLA: ogni migrazione va applicata a ENTRAMBI i DB (prod + dev)
 
 # Test (pytest — 63 test, tutti i domini)
 pytest tests/ -v
@@ -271,10 +273,10 @@ ollama list
 
 ## Metriche Progetto
 
-- **api/**: ~5,500 LOC Python — 8 modelli ORM, 9 router, 1 schema module
-- **frontend/**: ~15,500 LOC TypeScript — 62 componenti, 8 hook modules, 6 pagine
+- **api/**: ~5,700 LOC Python — 8 modelli ORM, 10 router, 1 schema module
+- **frontend/**: ~15,800 LOC TypeScript — 63 componenti, 9 hook modules, 6 pagine
 - **core/**: ~11,100 LOC Python — moduli AI (workout, RAG, DNA) in attesa di API endpoints
-- **DB**: 19 tabelle SQLite, FK enforced, multi-tenant via trainer_id
+- **DB**: 20 tabelle SQLite, FK enforced, multi-tenant via trainer_id
 - **Test**: 63 pytest + 67 E2E
 - **Sicurezza**: JWT auth, bcrypt, Deep Relational IDOR, 3-layer route protection
 - **Cloud**: 0 dipendenze, 0 dati verso terzi
