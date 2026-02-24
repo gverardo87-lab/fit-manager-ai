@@ -27,7 +27,7 @@
 
 ---
 
-## Regola #0 — I Due Principi Fondamentali
+## Regola #0 — Le Tre Regole d'Oro
 
 > **1. PROD usa `next start`. DEV usa `next dev`. Mai il contrario.**
 
@@ -36,21 +36,42 @@ Perche':
 - `next start` ignora `.env.development.local` → usa `.env.local` → punta a 8000
 - Se usi `next dev` su porta 3000, Chiara vedra' i dati di crm_dev.db
 
-> **2. MAI chiudere backend con Ctrl+C o chiusura terminale. Usare SEMPRE `kill-port.sh`.**
+> **2. Backend SEMPRE con `--host 0.0.0.0`. Mai senza.**
+
+Perche':
+- Senza `--host 0.0.0.0`, uvicorn ascolta SOLO su `127.0.0.1` (localhost)
+- Il frontend di Chiara chiama `http://192.168.1.23:8000` (IP LAN)
+- Se il backend non ascolta su LAN → **tutte le pagine danno errore da remoto**
+- Da locale (`localhost:3000`) sembra funzionare, ma da remoto no → trappola insidiosa
+
+```bash
+# SBAGLIATO — ascolta solo su localhost:
+uvicorn api.main:app --reload --port 8000
+
+# CORRETTO — ascolta su tutte le interfacce (localhost + LAN):
+uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+> **3. MAI chiudere backend con Ctrl+C o chiusura terminale. Usare SEMPRE `kill-port.sh`.**
 
 Perche':
 - Su Windows, chiudere il terminale uccide solo il master uvicorn
 - I worker figli (multiprocessing.spawn) restano vivi sulla porta
 - Servono **codice vecchio** → il frontend mostra dati corrotti (NaN, campi mancanti)
 - `kill-port.sh` usa `taskkill /T /F` che uccide l'intero albero di processi
+- `netstat` mostra il PID del padre (morto), ma il figlio zombie ha un PID diverso
+- `taskkill /F /PID <padre>` dice "non trovato" → devi cercare i figli orfani
 
 **Sequenza corretta per spegnere/riavviare backend:**
 ```bash
-# Da Claude Code (bash):
-bash tools/scripts/kill-port.sh 8000       # kill completo
-# Da PowerShell:
+# Da Claude Code (bash) — metodo consigliato:
+bash tools/scripts/kill-port.sh 8000       # kill completo (tree-kill)
+
+# Da PowerShell — metodo manuale:
 netstat -ano | Select-String ":8000.*LISTEN"
-taskkill /T /F /PID <numero>               # kill manuale
+taskkill /T /F /PID <numero>               # /T = tree kill (padre + figli)
+# ATTENZIONE: se il PID "non trovato", cercare figli orfani:
+# Get-CimInstance Win32_Process | Where-Object { $_.ParentProcessId -eq <PID> }
 ```
 
 ---
@@ -87,10 +108,12 @@ npm run dev
 ```
 > `npm run dev` = `next dev -p 3001`. Hot reload automatico.
 
-### Verifica (dopo avvio)
+### Verifica (dopo avvio) — TUTTI i check devono passare
 ```bash
-# Backend PROD
+# Backend PROD (localhost)
 curl http://localhost:8000/health
+# Backend PROD (LAN — CRITICO! Se fallisce, Chiara non funziona)
+curl http://192.168.1.23:8000/health
 # Backend DEV
 curl http://localhost:8001/health
 # Frontend PROD (da browser)
@@ -98,6 +121,7 @@ curl http://localhost:8001/health
 # Frontend DEV (da browser)
 # → http://localhost:3001
 ```
+> Se il check LAN fallisce ma localhost funziona → hai dimenticato `--host 0.0.0.0`
 
 ---
 
@@ -248,6 +272,40 @@ netstat -ano | grep ":8000.*LISTEN"
 # Se output vuoto → porta libera → avvia
 ```
 
+### Problema: Tutte le pagine danno errore da remoto, ma da locale funziona
+
+**Causa**: Backend avviato senza `--host 0.0.0.0`.
+Senza questo flag, uvicorn ascolta SOLO su `127.0.0.1` (localhost).
+Il frontend PROD chiama `http://192.168.1.23:8000` (IP LAN) → connessione rifiutata.
+
+```bash
+# Verifica:
+curl http://localhost:8000/health          # OK (localhost)
+curl http://192.168.1.23:8000/health       # FAIL (LAN) ← problema qui
+
+# Soluzione: kill + restart con --host 0.0.0.0
+bash tools/scripts/kill-port.sh 8000
+uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**Trappola**: Questo errore e' invisibile da locale. Tutto sembra funzionare
+su `localhost:3000`, ma Chiara da `192.168.1.23:3000` vede solo errori.
+
+### Problema: KPI mostrano NaN
+
+**Causa**: Worker zombie uvicorn che serve codice vecchio (senza campi KPI).
+Il frontend riceve una risposta senza `kpi_attivi`, `kpi_fatturato`, ecc.
+`formatCurrency(undefined)` → NaN.
+
+```bash
+# Soluzione: kill zombie + restart con codice aggiornato
+bash tools/scripts/kill-port.sh 8000
+uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**Nota**: Il codice ha ora il guard `?? 0` su tutti i KPI, ma il vero fix
+e' sempre eliminare lo zombie e riavviare con codice aggiornato.
+
 ### Problema: `alembic upgrade head` applicato a un solo DB
 
 **Causa**: Hai usato `alembic upgrade head` senza script (applica solo al DB di default).
@@ -297,9 +355,10 @@ Prima di chiudere la sessione di sviluppo:
 ```
 [ ] Commit + push effettuato
 [ ] Migrazioni applicate a entrambi i DB
-[ ] Backend PROD (8000) attivo con codice aggiornato
+[ ] Backend PROD (8000) attivo CON --host 0.0.0.0
+[ ] curl http://192.168.1.23:8000/health → OK (check LAN, non solo localhost!)
 [ ] Frontend PROD (3000) attivo con build aggiornato (next start, NON next dev!)
-[ ] Chiara puo' accedere a http://192.168.1.23:3000 e lavorare
+[ ] http://192.168.1.23:3000 → login + verifica pagina (check da remoto)
 [ ] Verifica: numero clienti corretto (~13, non ~50)
 ```
 
