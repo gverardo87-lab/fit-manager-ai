@@ -3,7 +3,10 @@
  * Client API centralizzato — istanza Axios configurata.
  *
  * Architettura:
- * - Base URL da variabile d'ambiente NEXT_PUBLIC_API_URL
+ * - Base URL DINAMICO: derivato da window.location (hostname + porta)
+ *   → Funziona automaticamente da qualsiasi rete (LAN, Tailscale, localhost)
+ *   → Regola: porta frontend 3000 → backend 8000, porta 3001 → backend 8001
+ *   → Fallback SSR: env var NEXT_PUBLIC_API_URL
  * - Request interceptor: allega JWT token da cookie ad ogni richiesta
  * - Response interceptor: redirect a /login su 401 Unauthorized
  * - Timeout: 15 secondi (ragionevole per API locale)
@@ -21,9 +24,32 @@ import Cookies from "js-cookie";
 // Nome del cookie dove salviamo il JWT
 export const TOKEN_COOKIE = "fitmanager_token";
 
+// ════════════════════════════════════════════════════════════
+// DYNAMIC API URL — dedotto dal browser, zero config
+// ════════════════════════════════════════════════════════════
+
+/**
+ * Deriva l'URL del backend dall'hostname e porta del frontend.
+ *
+ * Mapping:
+ *   http://192.168.1.23:3000  → http://192.168.1.23:8000/api   (LAN casa)
+ *   http://100.64.0.1:3000    → http://100.64.0.1:8000/api     (Tailscale)
+ *   http://localhost:3001     → http://localhost:8001/api       (dev)
+ *
+ * Fallback SSR: NEXT_PUBLIC_API_URL (per eventuale server-side rendering).
+ */
+function getApiBaseUrl(): string {
+  if (typeof window !== "undefined") {
+    const { hostname, port } = window.location;
+    const apiPort = port === "3001" ? "8001" : "8000";
+    return `http://${hostname}:${apiPort}/api`;
+  }
+  return `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api`;
+}
+
 // Istanza Axios configurata
 const apiClient = axios.create({
-  baseURL: `${process.env.NEXT_PUBLIC_API_URL}/api`,
+  baseURL: getApiBaseUrl(),
   timeout: 15_000,
   headers: {
     "Content-Type": "application/json",

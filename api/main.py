@@ -61,19 +61,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS: origini da env (default: localhost per dev)
-import os as _os
-
-_cors_env = _os.getenv("CORS_ORIGINS", "")
-_cors_origins = (
-    [o.strip() for o in _cors_env.split(",") if o.strip()]
-    if _cors_env
-    else ["http://localhost:3000", "http://localhost:3001", "http://localhost:5173", "http://192.168.1.23:3000"]
-)
-
+# CORS: regex per accettare localhost, LAN (192.168.x.x), Tailscale (100.x.x.x)
+# Nessun IP hardcodato — funziona da qualsiasi rete automaticamente.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_cors_origins,
+    allow_origin_regex=r"^http://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|100\.\d+\.\d+\.\d+)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
