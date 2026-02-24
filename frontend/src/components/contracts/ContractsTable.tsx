@@ -7,11 +7,13 @@
  * Il nome cliente arriva direttamente dal backend (ContractListResponse)
  * grazie al batch fetch. Niente piu' clientMap lato frontend.
  *
- * Colonna Rate: badge con stato pagamento derivato dalle rate:
+ * Colonna Rate: badge con stato pagamento derivato dalle rate (6 livelli):
+ * - scaduto + rate non pagate → rosso intenso "Insolvente"
  * - ha_rate_scadute → rosso "Rate in Ritardo"
  * - data_scadenza < oggi → amber "Scaduto" (contratto oltre termine)
  * - totale_versato >= prezzo_totale → verde "Saldato"
- * - altrimenti → blu "In corso (X/Y)"
+ * - rate_totali > 0 → blu "In corso (X/Y)"
+ * - default → grigio "Nessuna rata"
  */
 
 import { useState, useMemo } from "react";
@@ -67,7 +69,18 @@ function getPaymentBadge(contract: ContractListItem) {
     return <Badge variant="secondary">Chiuso</Badge>;
   }
 
-  // Priorita' 2: rate scadute non pagate (il contratto e' attivo, sono le rate in ritardo)
+  // Priorita' 2: scaduto + rate non pagate — caso peggiore (insolvente)
+  const isExpired = contract.data_scadenza &&
+    differenceInDays(parseISO(contract.data_scadenza), startOfToday()) < 0;
+  if (contract.ha_rate_scadute && isExpired) {
+    return (
+      <Badge className="bg-red-600 text-white hover:bg-red-600 dark:bg-red-700 dark:text-red-100">
+        Insolvente
+      </Badge>
+    );
+  }
+
+  // Priorita' 3: rate scadute, ma contratto ancora in corso
   if (contract.ha_rate_scadute) {
     return (
       <Badge className="bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400">
@@ -76,8 +89,8 @@ function getPaymentBadge(contract: ContractListItem) {
     );
   }
 
-  // Priorita' 3: contratto oltre data_scadenza (termine scaduto, non ancora chiuso)
-  if (contract.data_scadenza && parseISO(contract.data_scadenza) < startOfToday()) {
+  // Priorita' 4: contratto oltre data_scadenza (termine scaduto, rate ok)
+  if (isExpired) {
     return (
       <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400">
         Scaduto
@@ -85,7 +98,7 @@ function getPaymentBadge(contract: ContractListItem) {
     );
   }
 
-  // Priorita' 4: tutto pagato
+  // Priorita' 5: tutto pagato
   if (
     contract.prezzo_totale &&
     contract.totale_versato >= contract.prezzo_totale - 0.01
@@ -97,7 +110,7 @@ function getPaymentBadge(contract: ContractListItem) {
     );
   }
 
-  // Priorita' 5: in corso con progress rate
+  // Priorita' 6: in corso con progress rate
   if (contract.rate_totali > 0) {
     return (
       <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400">

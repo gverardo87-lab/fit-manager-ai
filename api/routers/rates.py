@@ -311,6 +311,14 @@ def create_rate(
             detail="Impossibile aggiungere rate a un contratto chiuso",
         )
 
+    # Data rata entro scadenza contratto (prevenzione Salesforce-style)
+    if contract.data_scadenza and data.data_scadenza > contract.data_scadenza:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Data scadenza rata ({data.data_scadenza}) oltre la scadenza "
+                   f"del contratto ({contract.data_scadenza})",
+        )
+
     # Validazione residuo: importo non supera lo spazio disponibile
     if contract.prezzo_totale:
         spazio = _cap_rateizzabile(session, contract)
@@ -357,6 +365,16 @@ def update_rate(
     rate = _bouncer_rate(session, rate_id, trainer.id)
 
     update_data = data.model_dump(exclude_unset=True)
+
+    # Data rata entro scadenza contratto
+    if "data_scadenza" in update_data:
+        contract = session.get(Contract, rate.id_contratto)
+        if contract and contract.data_scadenza and update_data["data_scadenza"] > contract.data_scadenza:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Data scadenza rata ({update_data['data_scadenza']}) oltre la scadenza "
+                       f"del contratto ({contract.data_scadenza})",
+            )
 
     # Validazione importo_previsto su rate con pagamenti
     if "importo_previsto" in update_data and rate.importo_saldato > 0:
@@ -749,6 +767,10 @@ def generate_payment_plan(
             due_date = data.data_prima_rata + relativedelta(months=i * 3)
         else:
             due_date = data.data_prima_rata + relativedelta(months=i)
+
+        # Auto-cap: rata non puo' superare scadenza contratto (Chargebee-style)
+        if contract.data_scadenza and due_date > contract.data_scadenza:
+            due_date = contract.data_scadenza
 
         # Il resto va sulla prima rata
         amount = base_amount + remainder if i == 0 else base_amount

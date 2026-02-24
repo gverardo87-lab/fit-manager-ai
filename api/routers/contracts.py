@@ -14,7 +14,7 @@ Mai 403, mai rivelare l'esistenza di dati altrui.
 from typing import List, Optional
 from datetime import date, datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlmodel import Session, select, func
+from sqlmodel import Session, or_, select, func
 
 from api.database import get_session
 from api.dependencies import get_current_trainer
@@ -226,17 +226,19 @@ def list_contracts(
     kpi_fatturato = round(sum(c.prezzo_totale or 0 for c in all_contracts if not c.chiuso), 2)
     kpi_incassato = round(sum(c.totale_versato for c in all_contracts if not c.chiuso), 2)
 
-    # Rate scadute: conta le singole rate scadute non saldate (contratti attivi)
+    # Rate scadute: rata individualmente scaduta O su contratto scaduto (modello Stripe)
+    # Se il contratto e' scaduto, OGNI rata non pagata e' in ritardo.
     active_ids = [c.id for c in all_contracts if not c.chiuso]
     kpi_rate_scadute = 0
     if active_ids:
         overdue_rate_count = session.exec(
             select(func.count(Rate.id))
+            .join(Contract, Rate.id_contratto == Contract.id)
             .where(
                 Rate.id_contratto.in_(active_ids),
                 Rate.deleted_at == None,
                 Rate.stato != "SALDATA",
-                Rate.data_scadenza < today,
+                or_(Rate.data_scadenza < today, Contract.data_scadenza < today),
             )
         ).one()
         kpi_rate_scadute = overdue_rate_count or 0
@@ -293,6 +295,9 @@ def list_contracts(
         contract_data = ContractResponse.model_validate(contract).model_dump()
         contract_data["crediti_usati"] = credits_used_map.get(contract.id, 0)
 
+        # Contratto scaduto? Se si', ogni rata non pagata e' in ritardo
+        contract_expired = contract.data_scadenza and contract.data_scadenza < today
+
         results.append(ContractListResponse(
             **contract_data,
             client_nome=client.nome if client else "",
@@ -300,7 +305,7 @@ def list_contracts(
             rate_totali=len(rates),
             rate_pagate=sum(1 for r in rates if r.stato == "SALDATA"),
             ha_rate_scadute=any(
-                r.data_scadenza < today and r.stato != "SALDATA"
+                (r.data_scadenza < today or contract_expired) and r.stato != "SALDATA"
                 for r in rates
             ),
         ))
