@@ -8,13 +8,14 @@
  * grazie al batch fetch. Niente piu' clientMap lato frontend.
  *
  * Colonna Rate: badge con stato pagamento derivato dalle rate:
- * - ha_rate_scadute → rosso "Scaduto"
+ * - ha_rate_scadute → rosso "Rate in Ritardo"
+ * - data_scadenza < oggi → amber "Scaduto" (contratto oltre termine)
  * - totale_versato >= prezzo_totale → verde "Saldato"
  * - altrimenti → blu "In corso (X/Y)"
  */
 
 import { useState, useMemo } from "react";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, differenceInDays, startOfToday } from "date-fns";
 import { it } from "date-fns/locale";
 import {
   MoreHorizontal,
@@ -66,16 +67,25 @@ function getPaymentBadge(contract: ContractListItem) {
     return <Badge variant="secondary">Chiuso</Badge>;
   }
 
-  // Priorita' 2: rate scadute non pagate
+  // Priorita' 2: rate scadute non pagate (il contratto e' attivo, sono le rate in ritardo)
   if (contract.ha_rate_scadute) {
     return (
       <Badge className="bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400">
+        Rate in Ritardo
+      </Badge>
+    );
+  }
+
+  // Priorita' 3: contratto oltre data_scadenza (termine scaduto, non ancora chiuso)
+  if (contract.data_scadenza && parseISO(contract.data_scadenza) < startOfToday()) {
+    return (
+      <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400">
         Scaduto
       </Badge>
     );
   }
 
-  // Priorita' 3: tutto pagato
+  // Priorita' 4: tutto pagato
   if (
     contract.prezzo_totale &&
     contract.totale_versato >= contract.prezzo_totale - 0.01
@@ -87,7 +97,7 @@ function getPaymentBadge(contract: ContractListItem) {
     );
   }
 
-  // Priorita' 4: in corso con progress rate
+  // Priorita' 5: in corso con progress rate
   if (contract.rate_totali > 0) {
     return (
       <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400">
@@ -102,6 +112,16 @@ function getPaymentBadge(contract: ContractListItem) {
       Nessuna rata
     </Badge>
   );
+}
+
+/** Classe CSS per urgenza colonna scadenza. */
+function getScadenzaStyle(contract: ContractListItem): string {
+  if (!contract.data_scadenza || contract.chiuso) return "";
+  const days = differenceInDays(parseISO(contract.data_scadenza), startOfToday());
+  if (days < 0) return "text-red-600 font-medium";
+  if (days <= 7) return "text-amber-600 font-medium";
+  if (days <= 30) return "text-amber-500";
+  return "";
 }
 
 export function ContractsTable({
@@ -202,8 +222,8 @@ export function ContractsTable({
                     </span>
                   </TableCell>
 
-                  {/* ── Scadenza (hidden mobile) ── */}
-                  <TableCell className="hidden md:table-cell">
+                  {/* ── Scadenza (hidden mobile) — color-coded per urgenza ── */}
+                  <TableCell className={`hidden md:table-cell ${getScadenzaStyle(contract)}`}>
                     {contract.data_scadenza
                       ? format(parseISO(contract.data_scadenza), "dd MMM yyyy", { locale: it })
                       : "—"}

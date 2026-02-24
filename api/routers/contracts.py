@@ -226,12 +226,12 @@ def list_contracts(
     kpi_fatturato = round(sum(c.prezzo_totale or 0 for c in all_contracts if not c.chiuso), 2)
     kpi_incassato = round(sum(c.totale_versato for c in all_contracts if not c.chiuso), 2)
 
-    # Rate scadute: contratti attivi con almeno 1 rata scaduta non saldata
+    # Rate scadute: conta le singole rate scadute non saldate (contratti attivi)
     active_ids = [c.id for c in all_contracts if not c.chiuso]
     kpi_rate_scadute = 0
     if active_ids:
-        overdue_contracts = session.exec(
-            select(func.count(func.distinct(Rate.id_contratto)))
+        overdue_rate_count = session.exec(
+            select(func.count(Rate.id))
             .where(
                 Rate.id_contratto.in_(active_ids),
                 Rate.deleted_at == None,
@@ -239,7 +239,7 @@ def list_contracts(
                 Rate.data_scadenza < today,
             )
         ).one()
-        kpi_rate_scadute = overdue_contracts or 0
+        kpi_rate_scadute = overdue_rate_count or 0
 
     kpi_data = {
         "kpi_attivi": kpi_attivi,
