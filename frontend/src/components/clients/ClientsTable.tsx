@@ -17,6 +17,7 @@
  */
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import {
   MoreHorizontal,
   Pencil,
@@ -155,7 +156,9 @@ export function ClientsTable({ clients, onEdit, onDelete, onNewClient }: Clients
                     {/* ── Nome + nota + dot rate scadute ── */}
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-1.5">
-                        <span>{client.cognome} {client.nome}</span>
+                        <Link href={`/clienti/${client.id}`} className="hover:underline">
+                          {client.cognome} {client.nome}
+                        </Link>
                         {client.ha_rate_scadute && (
                           <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" title="Rate scadute" />
                         )}

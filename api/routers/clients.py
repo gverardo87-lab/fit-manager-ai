@@ -391,13 +391,18 @@ def list_clients(
     )
 
 
-@router.get("/{client_id}", response_model=ClientResponse)
+@router.get("/{client_id}", response_model=ClientEnrichedResponse)
 def get_client(
     client_id: int,
     trainer: Trainer = Depends(get_current_trainer),
     session: Session = Depends(get_session),
 ):
-    """Dettaglio singolo cliente con crediti. Bouncer: query filtra per trainer_id."""
+    """
+    Dettaglio singolo cliente enriched.
+
+    Bouncer: query filtra per trainer_id.
+    Enrichment: stesse 5 query di list_clients, semplificate per 1 client.
+    """
     client = session.exec(
         select(Client).where(
             Client.id == client_id, Client.trainer_id == trainer.id, Client.deleted_at == None
@@ -407,9 +412,70 @@ def get_client(
     if not client:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cliente non trovato")
 
+    # ── Enrichment (5 query, pattern identico a list_clients) ──
+
+    # Q1-Q2: crediti residui
     credits = _calc_credits_batch(session, [client.id], trainer.id)
 
-    return _to_response(client, credits.get(client.id, 0))
+    # Q3: contratti attivi aggregate
+    contract_row = session.exec(
+        select(
+            func.count(Contract.id),
+            func.coalesce(func.sum(Contract.totale_versato), 0),
+            func.coalesce(func.sum(Contract.prezzo_totale), 0),
+        )
+        .where(
+            Contract.id_cliente == client.id,
+            Contract.trainer_id == trainer.id,
+            Contract.deleted_at == None,
+            Contract.chiuso == False,
+        )
+    ).one()
+
+    # Q4: ha_rate_scadute
+    today = date.today()
+    overdue_count = session.exec(
+        select(func.count(Rate.id))
+        .join(Contract, Rate.id_contratto == Contract.id)
+        .where(
+            Contract.id_cliente == client.id,
+            Contract.trainer_id == trainer.id,
+            Contract.deleted_at == None,
+            Contract.chiuso == False,
+            Rate.deleted_at == None,
+            Rate.stato != "SALDATA",
+            or_(Rate.data_scadenza < today, Contract.data_scadenza < today),
+        )
+    ).one()
+
+    # Q5: ultimo evento (non cancellato)
+    last_event_row = session.exec(
+        select(func.max(Event.data_inizio))
+        .where(
+            Event.id_cliente == client.id,
+            Event.trainer_id == trainer.id,
+            Event.deleted_at == None,
+            Event.stato != "Cancellato",
+        )
+    ).one()
+
+    return ClientEnrichedResponse(
+        id=client.id,
+        nome=client.nome,
+        cognome=client.cognome,
+        telefono=client.telefono,
+        email=client.email,
+        data_nascita=str(client.data_nascita) if client.data_nascita else None,
+        sesso=client.sesso,
+        stato=client.stato,
+        note_interne=client.note_interne,
+        crediti_residui=credits.get(client.id, 0),
+        contratti_attivi=int(contract_row[0]),
+        totale_versato=float(contract_row[1]),
+        prezzo_totale_attivo=float(contract_row[2]),
+        ha_rate_scadute=overdue_count > 0,
+        ultimo_evento_data=str(last_event_row)[:10] if last_event_row else None,
+    )
 
 
 # --- POST: Crea cliente ---

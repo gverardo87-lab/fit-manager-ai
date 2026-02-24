@@ -78,7 +78,9 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       {/* ── Navigation Links ── */}
       <nav className="flex-1 space-y-1 px-3 py-4">
         {NAV_ITEMS.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive = item.href === "/"
+            ? pathname === "/"
+            : pathname.startsWith(item.href);
           return (
             <Tooltip key={item.href}>
               <TooltipTrigger asChild>

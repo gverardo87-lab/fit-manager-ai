@@ -16,6 +16,7 @@ import type {
   Client,
   ClientCreate,
   ClientUpdate,
+  ClientEnriched,
   ClientEnrichedListResponse,
 } from "@/types/api";
 
@@ -31,6 +32,19 @@ export function useClients() {
       );
       return data;
     },
+  });
+}
+
+// ── Query: singolo cliente enriched (profilo) ──
+
+export function useClient(id: number | null) {
+  return useQuery<ClientEnriched>({
+    queryKey: ["client", id],
+    queryFn: async () => {
+      const { data } = await apiClient.get<ClientEnriched>(`/clients/${id}`);
+      return data;
+    },
+    enabled: id !== null,
   });
 }
 

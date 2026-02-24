@@ -64,6 +64,25 @@ export function useEvents(params: UseEventsParams = {}) {
   });
 }
 
+// ── Query: eventi di un singolo cliente (profilo) ──
+
+export function useClientEvents(idCliente: number | null) {
+  return useQuery({
+    queryKey: ["events", { idCliente }],
+    queryFn: async () => {
+      const { data } = await apiClient.get<ListResponse<Event>>("/events", {
+        params: { id_cliente: idCliente },
+      });
+      return data;
+    },
+    select: (data): ListResponse<EventHydrated> => ({
+      ...data,
+      items: data.items.map(hydrateEvent),
+    }),
+    enabled: idCliente !== null,
+  });
+}
+
 // ── Mutation: crea evento ──
 
 export function useCreateEvent() {

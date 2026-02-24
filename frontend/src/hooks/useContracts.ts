@@ -48,6 +48,22 @@ export function useContract(id: number | null) {
   });
 }
 
+// ── Query: contratti di un singolo cliente (profilo) ──
+
+export function useClientContracts(idCliente: number | null) {
+  return useQuery<ContractListResponse>({
+    queryKey: ["contracts", { idCliente }],
+    queryFn: async () => {
+      const { data } = await apiClient.get<ContractListResponse>(
+        "/contracts",
+        { params: { page: 1, page_size: 100, id_cliente: idCliente } }
+      );
+      return data;
+    },
+    enabled: idCliente !== null,
+  });
+}
+
 // ── Mutation: crea contratto ──
 
 export function useCreateContract() {
