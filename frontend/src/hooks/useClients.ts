@@ -19,31 +19,15 @@ import type {
   ClientEnrichedListResponse,
 } from "@/types/api";
 
-// ── Query: lista clienti enriched (paginata, filtrabile, con KPI) ──
+// ── Query: lista clienti enriched (tutti, filtraggio client-side) ──
 
-interface UseClientsParams {
-  page?: number;
-  pageSize?: number;
-  stato?: string;
-  search?: string;
-}
-
-export function useClients(params: UseClientsParams = {}) {
-  const { page = 1, pageSize = 50, stato, search } = params;
-
+export function useClients() {
   return useQuery<ClientEnrichedListResponse>({
-    queryKey: ["clients", { page, pageSize, stato, search }],
+    queryKey: ["clients"],
     queryFn: async () => {
       const { data } = await apiClient.get<ClientEnrichedListResponse>(
         "/clients",
-        {
-          params: {
-            page,
-            page_size: pageSize,
-            stato: stato || undefined,
-            search: search || undefined,
-          },
-        }
+        { params: { page: 1, page_size: 200 } }
       );
       return data;
     },

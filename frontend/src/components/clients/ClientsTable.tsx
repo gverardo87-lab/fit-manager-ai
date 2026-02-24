@@ -7,8 +7,8 @@
  * Colonne:
  * - Nome (sempre) — cognome nome + icona nota interna
  * - Contatti (hidden sm) — email + telefono con icone
- * - Crediti (hidden md) — badge emerald/zinc
- * - Contratti (hidden lg) — count + dot rosso se rate scadute
+ * - Finanze (hidden md) — progress bar versato/totale
+ * - Crediti (hidden lg) — badge emerald/zinc
  * - Ultimo Evento (hidden lg) — data formattata o "Mai"
  * - Stato (sempre) — badge Attivo/Inattivo
  * - Azioni (sempre) — dropdown Modifica/Elimina
@@ -52,6 +52,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { formatCurrency } from "@/lib/format";
 import type { ClientEnriched } from "@/types/api";
 
 // ── Helpers ──
@@ -59,6 +60,13 @@ import type { ClientEnriched } from "@/types/api";
 function formatShortDate(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");
   return d.toLocaleDateString("it-IT", { day: "numeric", month: "short", year: "numeric" });
+}
+
+/** Classe colore per progress bar finanze. */
+function getFinanceBarColor(ratio: number): string {
+  if (ratio >= 0.8) return "bg-emerald-500";
+  if (ratio >= 0.4) return "bg-amber-500";
+  return "bg-red-500";
 }
 
 // ── Component ──
@@ -128,131 +136,155 @@ export function ClientsTable({ clients, onEdit, onDelete, onNewClient }: Clients
               <TableRow>
                 <TableHead>Nome</TableHead>
                 <TableHead className="hidden sm:table-cell">Contatti</TableHead>
-                <TableHead className="hidden md:table-cell">Crediti</TableHead>
-                <TableHead className="hidden lg:table-cell">Contratti</TableHead>
+                <TableHead className="hidden md:table-cell">Finanze</TableHead>
+                <TableHead className="hidden lg:table-cell text-center">Crediti</TableHead>
                 <TableHead className="hidden lg:table-cell">Ultimo Evento</TableHead>
                 <TableHead>Stato</TableHead>
                 <TableHead className="w-[80px]">Azioni</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((client) => (
-                <TableRow key={client.id}>
-                  {/* ── Nome + nota ── */}
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-1.5">
-                      <span>{client.cognome} {client.nome}</span>
-                      {client.note_interne && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <StickyNote className="h-3.5 w-3.5 shrink-0 text-amber-500/70" />
-                            </TooltipTrigger>
-                            <TooltipContent side="right" className="max-w-[250px]">
-                              <p className="whitespace-pre-line text-xs line-clamp-4">
-                                {client.note_interne}
-                              </p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
+              {filtered.map((client) => {
+                const hasContracts = client.contratti_attivi > 0;
+                const prezzo = client.prezzo_totale_attivo;
+                const versato = client.totale_versato;
+                const ratio = prezzo > 0 ? versato / prezzo : 0;
+
+                return (
+                  <TableRow key={client.id}>
+                    {/* ── Nome + nota + dot rate scadute ── */}
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-1.5">
+                        <span>{client.cognome} {client.nome}</span>
+                        {client.ha_rate_scadute && (
+                          <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" title="Rate scadute" />
+                        )}
+                        {client.note_interne && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <StickyNote className="h-3.5 w-3.5 shrink-0 text-amber-500/70" />
+                              </TooltipTrigger>
+                              <TooltipContent side="right" className="max-w-[250px]">
+                                <p className="whitespace-pre-line text-xs line-clamp-4">
+                                  {client.note_interne}
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                      </div>
+                    </TableCell>
+
+                    {/* ── Contatti (hidden su mobile) ── */}
+                    <TableCell className="hidden sm:table-cell">
+                      <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                        {client.email && (
+                          <span className="flex items-center gap-1.5">
+                            <Mail className="h-3.5 w-3.5" />
+                            {client.email}
+                          </span>
+                        )}
+                        {client.telefono && (
+                          <span className="flex items-center gap-1.5">
+                            <Phone className="h-3.5 w-3.5" />
+                            {client.telefono}
+                          </span>
+                        )}
+                        {!client.email && !client.telefono && (
+                          <span className="italic">—</span>
+                        )}
+                      </div>
+                    </TableCell>
+
+                    {/* ── Finanze (hidden md) — progress bar ── */}
+                    <TableCell className="hidden md:table-cell">
+                      {hasContracts ? (
+                        <div className="w-28 space-y-1">
+                          <div className="flex items-baseline justify-between text-[11px]">
+                            <span className="font-semibold tabular-nums">
+                              {formatCurrency(versato)}
+                            </span>
+                            <span className="text-muted-foreground">
+                              / {formatCurrency(prezzo)}
+                            </span>
+                          </div>
+                          <div className="h-1.5 w-full rounded-full bg-zinc-100 dark:bg-zinc-800">
+                            <div
+                              className={`h-1.5 rounded-full transition-all ${getFinanceBarColor(ratio)}`}
+                              style={{ width: `${Math.min(ratio * 100, 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-sm italic text-muted-foreground">—</span>
                       )}
-                    </div>
-                  </TableCell>
+                    </TableCell>
 
-                  {/* ── Contatti (hidden su mobile) ── */}
-                  <TableCell className="hidden sm:table-cell">
-                    <div className="flex flex-col gap-1 text-sm text-muted-foreground">
-                      {client.email && (
-                        <span className="flex items-center gap-1.5">
-                          <Mail className="h-3.5 w-3.5" />
-                          {client.email}
-                        </span>
+                    {/* ── Crediti (hidden lg) ── */}
+                    <TableCell className="hidden lg:table-cell text-center">
+                      <Badge
+                        variant="secondary"
+                        className={
+                          client.crediti_residui > 0
+                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                            : ""
+                        }
+                      >
+                        {client.crediti_residui}
+                      </Badge>
+                    </TableCell>
+
+                    {/* ── Ultimo Evento (hidden lg) ── */}
+                    <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
+                      {client.ultimo_evento_data ? (
+                        formatShortDate(client.ultimo_evento_data)
+                      ) : (
+                        <span className="italic">Mai</span>
                       )}
-                      {client.telefono && (
-                        <span className="flex items-center gap-1.5">
-                          <Phone className="h-3.5 w-3.5" />
-                          {client.telefono}
-                        </span>
-                      )}
-                      {!client.email && !client.telefono && (
-                        <span className="italic">—</span>
-                      )}
-                    </div>
-                  </TableCell>
+                    </TableCell>
 
-                  {/* ── Crediti (hidden md) ── */}
-                  <TableCell className="hidden md:table-cell">
-                    <Badge
-                      variant="secondary"
-                      className={
-                        client.crediti_residui > 0
-                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                          : ""
-                      }
-                    >
-                      {client.crediti_residui}
-                    </Badge>
-                  </TableCell>
+                    {/* ── Stato ── */}
+                    <TableCell>
+                      <Badge
+                        variant={client.stato === "Attivo" ? "default" : "secondary"}
+                        className={
+                          client.stato === "Attivo"
+                            ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400"
+                            : ""
+                        }
+                      >
+                        {client.stato}
+                      </Badge>
+                    </TableCell>
 
-                  {/* ── Contratti + dot rate scadute (hidden lg) ── */}
-                  <TableCell className="hidden lg:table-cell">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm">{client.contratti_attivi}</span>
-                      {client.ha_rate_scadute && (
-                        <span className="h-2 w-2 rounded-full bg-red-500" title="Rate scadute" />
-                      )}
-                    </div>
-                  </TableCell>
-
-                  {/* ── Ultimo Evento (hidden lg) ── */}
-                  <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
-                    {client.ultimo_evento_data ? (
-                      formatShortDate(client.ultimo_evento_data)
-                    ) : (
-                      <span className="italic">Mai</span>
-                    )}
-                  </TableCell>
-
-                  {/* ── Stato ── */}
-                  <TableCell>
-                    <Badge
-                      variant={client.stato === "Attivo" ? "default" : "secondary"}
-                      className={
-                        client.stato === "Attivo"
-                          ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400"
-                          : ""
-                      }
-                    >
-                      {client.stato}
-                    </Badge>
-                  </TableCell>
-
-                  {/* ── Azioni ── */}
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Azioni</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onEdit(client)}>
-                          <Pencil className="mr-2 h-4 w-4" />
-                          Modifica
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => onDelete(client)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Elimina
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
+                    {/* ── Azioni ── */}
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Azioni</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => onEdit(client)}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Modifica
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => onDelete(client)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Elimina
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>

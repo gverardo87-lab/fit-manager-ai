@@ -71,7 +71,7 @@ export function SplitLedgerView() {
   } = useMovements({ ...sharedParams, tipo: "USCITA" });
 
   // Clienti per il dropdown filtro
-  const { data: clientiData } = useClients({ pageSize: 200 });
+  const { data: clientiData } = useClients();
   const clienti = useMemo(
     () =>
       (clientiData?.items ?? []).map((c) => ({

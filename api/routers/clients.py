@@ -16,7 +16,7 @@ import re
 from datetime import date, datetime, timezone
 from typing import Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlmodel import Session, select, func
+from sqlmodel import Session, or_, select, func
 from pydantic import BaseModel, Field, field_validator
 
 from api.database import get_session
@@ -145,6 +145,7 @@ class ClientEnrichedResponse(ClientResponse):
     """Client con dati aggregati da contratti + eventi (batch-computed)."""
     contratti_attivi: int = 0
     totale_versato: float = 0.0
+    prezzo_totale_attivo: float = 0.0
     ha_rate_scadute: bool = False
     ultimo_evento_data: Optional[str] = None
 
@@ -261,7 +262,7 @@ def list_clients(
     # Q1-Q2: crediti residui (gia' esistente)
     credits = _calc_credits_batch(session, client_ids, trainer.id)
 
-    # Q3: contratti attivi + totale versato per cliente
+    # Q3: contratti attivi + totale versato + prezzo totale per cliente
     contract_map: Dict[int, Dict] = {}
     if client_ids:
         contract_rows = session.exec(
@@ -269,6 +270,7 @@ def list_clients(
                 Contract.id_cliente,
                 func.count(Contract.id),
                 func.coalesce(func.sum(Contract.totale_versato), 0),
+                func.coalesce(func.sum(Contract.prezzo_totale), 0),
             )
             .where(
                 Contract.id_cliente.in_(client_ids),
@@ -279,11 +281,12 @@ def list_clients(
             .group_by(Contract.id_cliente)
         ).all()
         contract_map = {
-            row[0]: {"count": int(row[1]), "versato": float(row[2])}
+            row[0]: {"count": int(row[1]), "versato": float(row[2]), "prezzo": float(row[3])}
             for row in contract_rows
         }
 
-    # Q4: clienti con rate scadute (non saldate, data < oggi)
+    # Q4: clienti con rate scadute (non saldate, data < oggi O contratto scaduto)
+    today = date.today()
     overdue_set: set = set()
     if client_ids:
         overdue_rows = session.exec(
@@ -293,9 +296,10 @@ def list_clients(
                 Contract.id_cliente.in_(client_ids),
                 Contract.trainer_id == trainer.id,
                 Contract.deleted_at == None,
+                Contract.chiuso == False,
                 Rate.deleted_at == None,
                 Rate.stato != "SALDATA",
-                Rate.data_scadenza < date.today(),
+                or_(Rate.data_scadenza < today, Contract.data_scadenza < today),
             )
             .group_by(Contract.id_cliente)
         ).all()
@@ -329,7 +333,7 @@ def list_clients(
     all_ids = [c.id for c in all_clients]
     all_credits = _calc_credits_batch(session, all_ids, trainer.id) if all_ids else {}
 
-    # Rate scadute per tutti i clienti (non solo la pagina corrente)
+    # Clienti con rate scadute — tutti (non solo la pagina corrente)
     all_overdue_set: set = set()
     if all_ids:
         all_overdue_rows = session.exec(
@@ -339,9 +343,10 @@ def list_clients(
                 Contract.id_cliente.in_(all_ids),
                 Contract.trainer_id == trainer.id,
                 Contract.deleted_at == None,
+                Contract.chiuso == False,
                 Rate.deleted_at == None,
                 Rate.stato != "SALDATA",
-                Rate.data_scadenza < date.today(),
+                or_(Rate.data_scadenza < today, Contract.data_scadenza < today),
             )
             .group_by(Contract.id_cliente)
         ).all()
@@ -355,7 +360,7 @@ def list_clients(
     # ── Build enriched response ──
     items = []
     for c in clients:
-        cdata = contract_map.get(c.id, {"count": 0, "versato": 0.0})
+        cdata = contract_map.get(c.id, {"count": 0, "versato": 0.0, "prezzo": 0.0})
         items.append(ClientEnrichedResponse(
             id=c.id,
             nome=c.nome,
@@ -369,6 +374,7 @@ def list_clients(
             crediti_residui=credits.get(c.id, 0),
             contratti_attivi=cdata["count"],
             totale_versato=cdata["versato"],
+            prezzo_totale_attivo=cdata["prezzo"],
             ha_rate_scadute=c.id in overdue_set,
             ultimo_evento_data=last_event_map.get(c.id),
         ))

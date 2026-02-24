@@ -133,6 +133,7 @@ export interface Client {
 export interface ClientEnriched extends Client {
   contratti_attivi: number;
   totale_versato: number;
+  prezzo_totale_attivo: number;
   ha_rate_scadute: boolean;
   ultimo_evento_data: string | null;
 }

@@ -2,42 +2,38 @@
 "use client";
 
 /**
- * Pagina Clienti — CRM-grade con KPI, tabella enriched, filtri.
+ * Pagina Clienti — CRM-grade con KPI, FilterBar chip, tabella enriched.
  *
  * Architettura:
- * - useClients() carica clienti enriched + KPI aggregati (React Query)
+ * - useClients() carica tutti i clienti enriched + KPI aggregati (React Query)
  * - KPI cards config-driven (pattern identico a CASSA_KPI)
- * - Filtro stato via Select (backend-driven) + ricerca testo (client-side)
+ * - FilterBar chip interattivi (pattern Agenda): stato + situazione finanziaria
+ * - Ricerca testo client-side nella tabella
  * - ClientSheet per il form a comparsa (crea/modifica)
  * - DeleteClientDialog per conferma eliminazione
  */
 
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
   Plus,
   Users,
   UserX,
   CreditCard,
   AlertTriangle,
+  Eye,
+  EyeOff,
   type LucideIcon,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { ClientsTable } from "@/components/clients/ClientsTable";
 import { ClientSheet } from "@/components/clients/ClientSheet";
 import { DeleteClientDialog } from "@/components/clients/DeleteClientDialog";
 import { useClients } from "@/hooks/useClients";
 import type { ClientEnriched } from "@/types/api";
 
-// ── KPI Config (pattern CASSA_KPI) ──
+// ── KPI Config ──
 
 interface ClientiKpiDef {
   key: string;
@@ -83,7 +79,7 @@ const CLIENTI_KPI: ClientiKpiDef[] = [
   },
   {
     key: "rate_scadute",
-    label: "Rate Scadute",
+    label: "Con Rate Scadute",
     icon: AlertTriangle,
     // Colori condizionali — impostati a runtime
     borderColor: "",
@@ -104,17 +100,93 @@ function getKpiValue(key: string, kpi: { kpi_attivi: number; kpi_inattivi: numbe
   }
 }
 
+// ── Filter chip definitions ──
+
+interface FilterChipDef {
+  key: string;
+  label: string;
+  color: string;
+  icon: LucideIcon;
+}
+
+const STATO_CHIPS: FilterChipDef[] = [
+  { key: "Attivo", label: "Attivi", color: "#10b981", icon: Users },
+  { key: "Inattivo", label: "Inattivi", color: "#a1a1aa", icon: UserX },
+];
+
+const SITUAZIONE_CHIPS: FilterChipDef[] = [
+  { key: "rate_scadute", label: "Con Rate Scadute", color: "#ef4444", icon: AlertTriangle },
+  { key: "con_crediti", label: "Con Crediti", color: "#3b82f6", icon: CreditCard },
+];
+
 // ── Page Component ──
 
 export default function ClientiPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<ClientEnriched | null>(null);
-  const [statoFilter, setStatoFilter] = useState("all");
 
-  const { data, isLoading, isError, refetch } = useClients({
-    stato: statoFilter === "all" ? undefined : statoFilter,
-  });
+  // Filter state: Set<string> per ogni asse (pattern Agenda)
+  const [activeStati, setActiveStati] = useState<Set<string>>(
+    () => new Set(STATO_CHIPS.map((c) => c.key))
+  );
+  const [activeSituazioni, setActiveSituazioni] = useState<Set<string>>(
+    () => new Set(SITUAZIONE_CHIPS.map((c) => c.key))
+  );
+
+  const { data, isLoading, isError, refetch } = useClients();
+
+  // ── Filter handlers (immutable Set toggle, pattern Agenda) ──
+
+  const handleToggleStato = useCallback((key: string) => {
+    setActiveStati((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleToggleSituazione = useCallback((key: string) => {
+    setActiveSituazioni((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }, []);
+
+  // ── Client-side filtering ──
+
+  const filteredClients = useMemo(() => {
+    if (!data) return [];
+
+    return data.items.filter((c) => {
+      // Asse 1: stato
+      if (!activeStati.has(c.stato)) return false;
+
+      // Asse 2: situazione (OR logic — passa se almeno un chip attivo matcha)
+      const hasSituazioneFilters = activeSituazioni.size < SITUAZIONE_CHIPS.length;
+      if (hasSituazioneFilters) {
+        const matchesRateScadute = activeSituazioni.has("rate_scadute") && c.ha_rate_scadute;
+        const matchesConCrediti = activeSituazioni.has("con_crediti") && c.crediti_residui > 0;
+        // Se entrambi i chip sono disattivati, non mostrare nessuno
+        if (activeSituazioni.size === 0) return false;
+        // Se un chip e' attivo ma il cliente non matcha, filtra
+        if (!matchesRateScadute && !matchesConCrediti) return false;
+      }
+
+      return true;
+    });
+  }, [data, activeStati, activeSituazioni]);
+
+  const isFiltered = activeStati.size < STATO_CHIPS.length || activeSituazioni.size < SITUAZIONE_CHIPS.length;
 
   // ── Handlers ──
 
@@ -142,7 +214,12 @@ export default function ClientiPage() {
             <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Clienti</h1>
+            <h1 className="text-2xl font-bold tracking-tight">
+              Clienti
+              {isFiltered && (
+                <span className="text-muted-foreground/60 text-base font-normal"> (filtro attivo)</span>
+              )}
+            </h1>
             {data && (
               <p className="text-sm text-muted-foreground">
                 {data.total} client{data.total !== 1 ? "i" : "e"} nel tuo portafoglio
@@ -206,20 +283,14 @@ export default function ClientiPage() {
         </div>
       )}
 
-      {/* ── Filtro stato ── */}
+      {/* ── FilterBar chip (pattern Agenda) ── */}
       {data && (
-        <div className="flex items-center gap-3">
-          <Select value={statoFilter} onValueChange={setStatoFilter}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Tutti gli stati" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tutti</SelectItem>
-              <SelectItem value="Attivo">Attivi</SelectItem>
-              <SelectItem value="Inattivo">Inattivi</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <FilterBar
+          activeStati={activeStati}
+          onToggleStato={handleToggleStato}
+          activeSituazioni={activeSituazioni}
+          onToggleSituazione={handleToggleSituazione}
+        />
       )}
 
       {/* ── Contenuto ── */}
@@ -243,7 +314,7 @@ export default function ClientiPage() {
 
       {data && (
         <ClientsTable
-          clients={data.items}
+          clients={filteredClients}
           onEdit={handleEdit}
           onDelete={handleDelete}
           onNewClient={handleNewClient}
@@ -263,6 +334,100 @@ export default function ClientiPage() {
         onOpenChange={setDeleteOpen}
         client={selectedClient}
       />
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// FilterBar — chip interattivi (pattern Agenda)
+// ════════════════════════════════════════════════════════════
+
+function FilterBar({
+  activeStati,
+  onToggleStato,
+  activeSituazioni,
+  onToggleSituazione,
+}: {
+  activeStati: Set<string>;
+  onToggleStato: (key: string) => void;
+  activeSituazioni: Set<string>;
+  onToggleSituazione: (key: string) => void;
+}) {
+  return (
+    <div className="rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-3 shadow-sm dark:from-zinc-900 dark:to-zinc-800/50">
+      <div className="flex flex-col gap-2">
+        {/* Riga 1: Stato */}
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          <span className="w-14 shrink-0 text-[11px] font-medium uppercase tracking-wide text-muted-foreground sm:w-16">
+            Stato:
+          </span>
+          {STATO_CHIPS.map((chip) => {
+            const active = activeStati.has(chip.key);
+            const Icon = active ? Eye : EyeOff;
+            const ChipIcon = chip.icon;
+            return (
+              <button
+                key={chip.key}
+                type="button"
+                onClick={() => onToggleStato(chip.key)}
+                className={`flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium transition-all duration-200 sm:gap-1.5 sm:px-3 sm:text-xs ${
+                  active
+                    ? "border-transparent shadow-sm"
+                    : "border-dashed border-muted-foreground/30 opacity-40"
+                }`}
+                style={
+                  active
+                    ? { backgroundColor: chip.color + "20", color: chip.color }
+                    : undefined
+                }
+              >
+                <div
+                  className="h-2.5 w-2.5 rounded-full transition-opacity"
+                  style={{ backgroundColor: chip.color, opacity: active ? 1 : 0.3 }}
+                />
+                {chip.label}
+                <Icon className="h-3 w-3" />
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Riga 2: Situazione */}
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          <span className="w-14 shrink-0 text-[11px] font-medium uppercase tracking-wide text-muted-foreground sm:w-16">
+            Filtro:
+          </span>
+          {SITUAZIONE_CHIPS.map((chip) => {
+            const active = activeSituazioni.has(chip.key);
+            const Icon = active ? Eye : EyeOff;
+            const ChipIcon = chip.icon;
+            return (
+              <button
+                key={chip.key}
+                type="button"
+                onClick={() => onToggleSituazione(chip.key)}
+                className={`flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium transition-all duration-200 sm:gap-1.5 sm:px-3 sm:text-xs ${
+                  active
+                    ? "border-transparent shadow-sm"
+                    : "border-dashed border-muted-foreground/30 opacity-40"
+                }`}
+                style={
+                  active
+                    ? { backgroundColor: chip.color + "20", color: chip.color }
+                    : undefined
+                }
+              >
+                <div
+                  className="h-2.5 w-2.5 rounded-full transition-opacity"
+                  style={{ backgroundColor: chip.color, opacity: active ? 1 : 0.3 }}
+                />
+                {chip.label}
+                <Icon className="h-3 w-3" />
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

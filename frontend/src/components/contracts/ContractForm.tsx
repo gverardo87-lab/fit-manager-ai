@@ -92,7 +92,7 @@ export function ContractForm({
   isPending,
 }: ContractFormProps) {
   const isEdit = !!contract;
-  const { data: clientsData } = useClients({ pageSize: 200 });
+  const { data: clientsData } = useClients();
 
   const {
     register,

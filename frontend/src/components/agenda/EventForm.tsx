@@ -105,7 +105,7 @@ export function EventForm({
   isPending,
 }: EventFormProps) {
   const isEdit = !!event;
-  const { data: clientsData } = useClients({ pageSize: 200 });
+  const { data: clientsData } = useClients();
 
   const {
     register,
