@@ -176,7 +176,8 @@ export default function AgendaPage() {
   const handleSelectSlot = useCallback((slotInfo: SlotInfo) => {
     setSelectedEvent(null);
     setSlotStart(slotInfo.start);
-    setSlotEnd(slotInfo.end);
+    // Default 1 ora (lezioni standard), la griglia resta a 30 min per precisione
+    setSlotEnd(new Date(slotInfo.start.getTime() + 60 * 60 * 1000));
     setSheetOpen(true);
   }, []);
 

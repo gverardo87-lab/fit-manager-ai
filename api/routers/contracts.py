@@ -214,8 +214,43 @@ def list_contracts(
     query = query.order_by(Contract.data_vendita.desc()).offset(offset).limit(page_size)
     contracts = session.exec(query).all()
 
+    # ── KPI aggregati (calcolati sull'intero set del trainer, pre-filtro) ──
+    today = date.today()
+    all_contracts_q = select(Contract).where(
+        Contract.trainer_id == trainer.id, Contract.deleted_at == None
+    )
+    all_contracts = session.exec(all_contracts_q).all()
+
+    kpi_attivi = sum(1 for c in all_contracts if not c.chiuso)
+    kpi_chiusi = sum(1 for c in all_contracts if c.chiuso)
+    kpi_fatturato = round(sum(c.prezzo_totale or 0 for c in all_contracts if not c.chiuso), 2)
+    kpi_incassato = round(sum(c.totale_versato for c in all_contracts if not c.chiuso), 2)
+
+    # Rate scadute: contratti attivi con almeno 1 rata scaduta non saldata
+    active_ids = [c.id for c in all_contracts if not c.chiuso]
+    kpi_rate_scadute = 0
+    if active_ids:
+        overdue_contracts = session.exec(
+            select(func.count(func.distinct(Rate.id_contratto)))
+            .where(
+                Rate.id_contratto.in_(active_ids),
+                Rate.deleted_at == None,
+                Rate.stato != "SALDATA",
+                Rate.data_scadenza < today,
+            )
+        ).one()
+        kpi_rate_scadute = overdue_contracts or 0
+
+    kpi_data = {
+        "kpi_attivi": kpi_attivi,
+        "kpi_chiusi": kpi_chiusi,
+        "kpi_fatturato": kpi_fatturato,
+        "kpi_incassato": kpi_incassato,
+        "kpi_rate_scadute": kpi_rate_scadute,
+    }
+
     if not contracts:
-        return {"items": [], "total": total, "page": page, "page_size": page_size}
+        return {"items": [], "total": total, "page": page, "page_size": page_size, **kpi_data}
 
     # ── Batch fetch: rate per tutti i contratti (1 query) ──
     contract_ids = [c.id for c in contracts]
@@ -248,7 +283,6 @@ def list_contracts(
     credits_used_map: dict[int, int] = {row[0]: int(row[1]) for row in credit_rows}
 
     # ── Build enriched responses ──
-    today = date.today()
     results = []
 
     for contract in contracts:
@@ -276,6 +310,7 @@ def list_contracts(
         "total": total,
         "page": page,
         "page_size": page_size,
+        **kpi_data,
     }
 
 

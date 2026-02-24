@@ -545,12 +545,21 @@ export interface Todo {
 // GENERIC PAGINATED RESPONSE
 // ════════════════════════════════════════════════════════════
 
-/** Wrapper paginato generico — usato da GET /clients, /contracts, /movements */
+/** Wrapper paginato generico — usato da GET /clients, /movements */
 export interface PaginatedResponse<T> {
   items: T[];
   total: number;
   page: number;
   page_size: number;
+}
+
+/** Response paginata contratti con KPI aggregati — GET /api/contracts */
+export interface ContractListResponse extends PaginatedResponse<ContractListItem> {
+  kpi_attivi: number;
+  kpi_chiusi: number;
+  kpi_fatturato: number;
+  kpi_incassato: number;
+  kpi_rate_scadute: number;
 }
 
 /** Wrapper lista semplice — usato da GET /rates, /rates/generate-plan */

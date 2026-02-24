@@ -15,7 +15,7 @@ import type {
   ContractCreate,
   ContractUpdate,
   ContractWithRates,
-  PaginatedResponse,
+  ContractListResponse,
 } from "@/types/api";
 
 // ── Query: lista contratti (paginata, filtrabile) ──
@@ -30,10 +30,10 @@ interface UseContractsParams {
 export function useContracts(params: UseContractsParams = {}) {
   const { page = 1, pageSize = 50, idCliente, chiuso } = params;
 
-  return useQuery<PaginatedResponse<ContractListItem>>({
+  return useQuery<ContractListResponse>({
     queryKey: ["contracts", { page, pageSize, idCliente, chiuso }],
     queryFn: async () => {
-      const { data } = await apiClient.get<PaginatedResponse<ContractListItem>>(
+      const { data } = await apiClient.get<ContractListResponse>(
         "/contracts",
         {
           params: {

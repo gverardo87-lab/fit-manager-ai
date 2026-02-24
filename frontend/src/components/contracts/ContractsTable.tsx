@@ -23,6 +23,8 @@ import {
   Search,
   CreditCard,
   Settings2,
+  FileText,
+  Plus,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +52,7 @@ interface ContractsTableProps {
   onManage: (contract: ContractListItem) => void;
   onEdit: (contract: ContractListItem) => void;
   onDelete: (contract: ContractListItem) => void;
+  onNewContract?: () => void;
 }
 
 function formatCurrencyNullable(amount: number | null): string {
@@ -106,6 +109,7 @@ export function ContractsTable({
   onManage,
   onEdit,
   onDelete,
+  onNewContract,
 }: ContractsTableProps) {
   const [search, setSearch] = useState("");
 
@@ -136,10 +140,22 @@ export function ContractsTable({
       </div>
 
       {filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
-          <p className="text-muted-foreground">
-            {search ? "Nessun risultato per la ricerca" : "Nessun contratto trovato"}
+        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed p-12">
+          <FileText className="h-12 w-12 text-muted-foreground/30" />
+          <p className="text-lg font-medium">
+            {search ? "Nessun risultato" : "Nessun contratto"}
           </p>
+          <p className="text-sm text-muted-foreground">
+            {search
+              ? "Prova a cercare con un termine diverso"
+              : "Inizia aggiungendo il primo contratto per un cliente"}
+          </p>
+          {!search && onNewContract && (
+            <Button size="sm" onClick={onNewContract} className="mt-1">
+              <Plus className="mr-2 h-4 w-4" />
+              Nuovo Contratto
+            </Button>
+          )}
         </div>
       ) : (
         <div className="rounded-lg border bg-white dark:bg-zinc-900">
