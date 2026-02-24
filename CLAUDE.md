@@ -194,79 +194,97 @@ Ogni feature segue 4 step in ordine. Il codice non passa al successivo finche' i
 
 ---
 
-## Architettura Dual DB (Produzione + Sviluppo)
+## Architettura Dual Environment (Produzione + Sviluppo)
 
-Due istanze completamente isolate: DB diversi, porte diverse, dati diversi.
-Le modifiche al codice con `--reload` si propagano a entrambe.
+Due ambienti completamente isolati. Stessa codebase, DB e porte diversi.
 
 ```
-PRODUZIONE (Chiara — sempre acceso):
-  uvicorn api.main:app --host 0.0.0.0 --port 8000       → data/crm.db
-  cd frontend && npm run dev -- -H 0.0.0.0 -p 3000      → .env.local punta a :8000
+PRODUZIONE (Chiara — sempre acceso, dati reali):
+  Backend:  porta 8000  →  data/crm.db
+  Frontend: porta 3000  →  .env.local (http://192.168.1.23:8000)
   Chiara accede da: http://192.168.1.23:3000
 
-SVILUPPO (gvera — accende quando serve):
-  $env:DATABASE_URL="sqlite:///data/crm_dev.db"; uvicorn api.main:app --reload --port 8001
-  $env:NEXT_DIST_DIR=".next-dev"; $env:NEXT_PUBLIC_API_URL="http://localhost:8001"; npm run dev -- -p 3001
+SVILUPPO (gvera — dati di test, libero per esperimenti):
+  Backend:  porta 8001  →  data/crm_dev.db
+  Frontend: porta 3001  →  .env.development.local (http://localhost:8001)
   gvera accede da: http://localhost:3001
 ```
 
-**Regole**:
-- `crm.db` = dati reali di Chiara. MAI toccare con seed/reset.
-- `crm_dev.db` = dati di test (50 clienti). Libero per esperimenti.
-- `seed_dev.py` forza `DATABASE_URL` PRIMA degli import → sicuro.
-- `backup.py` usa `DATABASE_URL` dinamico → opera sempre sul DB attivo.
-- `next.config.ts` supporta `NEXT_DIST_DIR` per cache separata (`.next` vs `.next-dev`).
-- CORS in `api/main.py` include `:3000`, `:3001`, `:5173`, `192.168.1.23:3000`.
+### Separazione frontend automatica (Next.js env priority)
+- `.env.local` → `NEXT_PUBLIC_API_URL=http://192.168.1.23:8000` (prod)
+- `.env.development.local` → `NEXT_PUBLIC_API_URL=http://localhost:8001` (dev)
+- `next dev` carica `.env.development.local` con priorita' SUPERIORE a `.env.local`
+- `next start` (prod build) ignora `.env.development.local`, usa `.env.local`
+
+### Script di gestione (`tools/scripts/`)
+```bash
+bash tools/scripts/migrate-all.sh        # Alembic su ENTRAMBI i DB
+bash tools/scripts/kill-port.sh 8000     # Kill pulito (tree-kill, no zombie)
+bash tools/scripts/restart-backend.sh dev   # Kill + restart porta 8001
+bash tools/scripts/restart-backend.sh prod  # Kill + restart porta 8000
+```
+
+### Regole blindate
+1. **Migrazioni**: `bash tools/scripts/migrate-all.sh` — MAI `alembic upgrade head` da solo
+2. **Kill backend**: `bash tools/scripts/kill-port.sh <porta>` — MAI `Ctrl+C` senza verificare
+3. **crm.db sacro**: dati reali di Chiara. MAI toccare con seed/reset
+4. **crm_dev.db libero**: dati di test (50 clienti). Seed/reset quando vuoi
+5. **Frontend dev**: `npm run dev` → porta 3001 automatica, API a 8001 automatica
+6. **Frontend prod**: `npm run build && npm run prod` → porta 3000, API a 8000
+
+### Pitfall Windows: zombie uvicorn worker
+Su Windows, `Ctrl+C` uccide il master uvicorn ma i worker figli (multiprocessing.spawn)
+restano vivi con il socket aperto → servono codice vecchio. Soluzione: `kill-port.sh`
+usa `taskkill /T /F` per uccidere l'intero albero di processi.
 
 ---
 
 ## Comandi
 
 ```bash
-# ── Produzione (Chiara) ──
-uvicorn api.main:app --host 0.0.0.0 --port 8000
-cd frontend && npm run dev -- -H 0.0.0.0 -p 3000
+# ── Avvio rapido (copia-incolla) ──
+# Dev:
+DATABASE_URL=sqlite:///data/crm_dev.db uvicorn api.main:app --reload --host 0.0.0.0 --port 8001
+cd frontend && npm run dev                                # porta 3001, API → localhost:8001
 
-# ── Sviluppo (gvera, PowerShell) ──
-$env:DATABASE_URL="sqlite:///data/crm_dev.db"; uvicorn api.main:app --reload --port 8001
-$env:NEXT_DIST_DIR=".next-dev"; $env:NEXT_PUBLIC_API_URL="http://localhost:8001"; npm run dev -- -p 3001
+# Prod:
+uvicorn api.main:app --host 0.0.0.0 --port 8000          # crm.db (default)
+cd frontend && npm run build && npm run prod              # porta 3000, API → 192.168.1.23:8000
 
-# Build check (OBBLIGATORIO prima di ogni commit)
-cd frontend && npx next build
+# ── Script di gestione ──
+bash tools/scripts/migrate-all.sh                         # Alembic su entrambi i DB
+bash tools/scripts/kill-port.sh 8000                      # Kill pulito (tree-kill)
+bash tools/scripts/restart-backend.sh dev                 # Kill + restart 8001
+bash tools/scripts/restart-backend.sh prod                # Kill + restart 8000
 
-# Migrazioni (Alembic — env.py legge DATABASE_URL da environment)
-alembic upgrade head                                              # crm.db (default)
-DATABASE_URL=sqlite:///data/crm_dev.db alembic upgrade head       # crm_dev.db (dev)
-alembic revision -m "desc"    # crea nuova migrazione
-alembic current               # mostra versione corrente
-# REGOLA: ogni migrazione va applicata a ENTRAMBI i DB (prod + dev)
+# ── Build + Test ──
+cd frontend && npx next build                             # OBBLIGATORIO prima di ogni commit
+pytest tests/ -v                                          # 63 test
 
-# Test (pytest — 63 test, tutti i domini)
-pytest tests/ -v
-
-# Test (E2E — richiede server avviato)
+# Test E2E (richiede server avviato)
 python tools/admin_scripts/test_crud_idor.py
 python tools/admin_scripts/test_financial_idor.py
 python tools/admin_scripts/test_agenda_idor.py
 python tools/admin_scripts/test_ledger_dashboard.py
 
-# Backup API
+# ── Migrazioni ──
+alembic revision -m "desc"                                # crea nuova migrazione
+bash tools/scripts/migrate-all.sh                         # applica a ENTRAMBI i DB
+# MAI usare `alembic upgrade head` da solo!
+
+# ── Backup ──
 # POST /api/backup/create     (richiede JWT)
 # GET  /api/backup/export     (JSON dati trainer)
 
-# Reset & Seed (FERMA il server API prima!)
-python tools/admin_scripts/reset_production.py      # DB pulito con solo Chiara (produzione)
-python -m tools.admin_scripts.seed_dev              # 50 clienti su crm_dev.db (sviluppo)
-python -m tools.admin_scripts.seed_realistic        # 50 clienti su DB attivo (attenzione!)
+# ── Reset & Seed (FERMA il server API prima!) ──
+python tools/admin_scripts/reset_production.py            # DB pulito con solo Chiara
+python -m tools.admin_scripts.seed_dev                    # 50 clienti su crm_dev.db
 # Credenziali prod: chiarabassani96@gmail.com / chiarabassani
 # Credenziali dev:  chiarabassani96@gmail.com / Fitness2026!
 
-# Database
+# ── Database ──
 sqlite3 data/crm.db ".tables"
-
-# AI (quando integrato)
-ollama list
+sqlite3 data/crm_dev.db ".tables"
 ```
 
 ---
