@@ -2,6 +2,7 @@
 
 > Procedura blindata per gestire PROD (Chiara) e DEV (sviluppo) in parallelo.
 > Questo documento e' la legge operativa. Seguilo alla lettera.
+> **Tutti i comandi sono PowerShell** — copia-incollabili nel terminale VS Code.
 
 ---
 
@@ -44,7 +45,7 @@ Perche':
 - Se il backend non ascolta su LAN → **tutte le pagine danno errore da remoto**
 - Da locale (`localhost:3000`) sembra funzionare, ma da remoto no → trappola insidiosa
 
-```bash
+```powershell
 # SBAGLIATO — ascolta solo su localhost:
 uvicorn api.main:app --reload --port 8000
 
@@ -52,72 +53,99 @@ uvicorn api.main:app --reload --port 8000
 uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-> **3. MAI chiudere backend con Ctrl+C o chiusura terminale. Usare SEMPRE `kill-port.sh`.**
+> **3. MAI chiudere backend con Ctrl+C o chiusura terminale. Usare SEMPRE la procedura kill.**
 
 Perche':
 - Su Windows, chiudere il terminale uccide solo il master uvicorn
 - I worker figli (multiprocessing.spawn) restano vivi sulla porta
 - Servono **codice vecchio** → il frontend mostra dati corrotti (NaN, campi mancanti)
-- `kill-port.sh` usa `taskkill /T /F` che uccide l'intero albero di processi
 - `netstat` mostra il PID del padre (morto), ma il figlio zombie ha un PID diverso
 - `taskkill /F /PID <padre>` dice "non trovato" → devi cercare i figli orfani
 
-**Sequenza corretta per spegnere/riavviare backend:**
-```bash
-# Da Claude Code (bash) — metodo consigliato:
-bash tools/scripts/kill-port.sh 8000       # kill completo (tree-kill)
+**Procedura kill completa (PowerShell):**
+```powershell
+# ──────────────────────────────────────────────
+# KILL COMPLETO SU UNA PORTA (es. 8000)
+# ──────────────────────────────────────────────
 
-# Da PowerShell — metodo manuale:
+# 1. Trova PID sulla porta
 netstat -ano | Select-String ":8000.*LISTEN"
-taskkill /T /F /PID <numero>               # /T = tree kill (padre + figli)
-# ATTENZIONE: se il PID "non trovato", cercare figli orfani:
-# Get-CimInstance Win32_Process | Where-Object { $_.ParentProcessId -eq <PID> }
+
+# 2. Killa con tree-kill (padre + figli)
+taskkill /T /F /PID <numero>
+
+# 3. Se dice "non trovato" → il padre e' morto, ma i figli zombie sono vivi.
+#    Cerca i figli orfani del PID morto:
+Get-CimInstance Win32_Process | Where-Object { $_.ParentProcessId -eq <numero> }
+
+# 4. Se trova processi (tipicamente python3.12.exe con multiprocessing.spawn),
+#    killa ogni figlio:
+Stop-Process -Id <pid_figlio> -Force
+
+# 5. Verifica che la porta sia libera:
+netstat -ano | Select-String ":8000.*LISTEN"
+# Se output vuoto → porta libera → puoi avviare
+```
+
+**Shortcut nucleare** — se non sai il PID e vuoi killare tutto:
+```powershell
+# Killa TUTTI i processi Python (ATTENZIONE: killa anche Jupyter, script, ecc.)
+Get-Process python* | Stop-Process -Force
+
+# Killa TUTTI i processi Node (ATTENZIONE: killa anche VS Code extensions)
+Get-Process node* | Stop-Process -Force
 ```
 
 ---
 
 ## Procedura 1 — Avvio Completo da Zero
 
-Esegui in 4 terminali separati (ordine: backend prima, frontend dopo).
+Esegui in 4 terminali PowerShell separati (ordine: backend prima, frontend dopo).
 
 ### Terminale 1: Backend PROD
-```bash
-cd /c/Users/gvera/Projects/FitManager_AI_Studio
+```powershell
+cd C:\Users\gvera\Projects\FitManager_AI_Studio
 uvicorn api.main:app --host 0.0.0.0 --port 8000
 ```
 > Usa crm.db (default da config.py). NO `--reload` in prod (opzionale).
 
 ### Terminale 2: Backend DEV
-```bash
-cd /c/Users/gvera/Projects/FitManager_AI_Studio
-DATABASE_URL=sqlite:///data/crm_dev.db uvicorn api.main:app --reload --host 0.0.0.0 --port 8001
+```powershell
+cd C:\Users\gvera\Projects\FitManager_AI_Studio
+$env:DATABASE_URL = "sqlite:///data/crm_dev.db"
+uvicorn api.main:app --reload --host 0.0.0.0 --port 8001
 ```
-> `--reload` per hot reload codice. `DATABASE_URL` override per crm_dev.db.
+> `--reload` per hot reload codice. `$env:DATABASE_URL` override per crm_dev.db.
 
 ### Terminale 3: Frontend PROD
-```bash
-cd /c/Users/gvera/Projects/FitManager_AI_Studio/frontend
-npm run build && npm run prod
+```powershell
+cd C:\Users\gvera\Projects\FitManager_AI_Studio\frontend
+npm run build
+npm run prod
 ```
 > `npm run prod` = `next start -p 3000`. Richiede build preventivo.
 
 ### Terminale 4: Frontend DEV
-```bash
-cd /c/Users/gvera/Projects/FitManager_AI_Studio/frontend
+```powershell
+cd C:\Users\gvera\Projects\FitManager_AI_Studio\frontend
 npm run dev
 ```
 > `npm run dev` = `next dev -p 3001`. Hot reload automatico.
 
 ### Verifica (dopo avvio) — TUTTI i check devono passare
-```bash
+```powershell
 # Backend PROD (localhost)
-curl http://localhost:8000/health
+curl.exe http://localhost:8000/health
+
 # Backend PROD (LAN — CRITICO! Se fallisce, Chiara non funziona)
-curl http://192.168.1.23:8000/health
+curl.exe http://192.168.1.23:8000/health
+
 # Backend DEV
-curl http://localhost:8001/health
+curl.exe http://localhost:8001/health
+
 # Frontend PROD (da browser)
 # → http://192.168.1.23:3000 (Chiara) o http://localhost:3000 (locale)
+
 # Frontend DEV (da browser)
 # → http://localhost:3001
 ```
@@ -133,10 +161,30 @@ curl http://localhost:8001/health
 1. Backend DEV (porta 8001): --reload attivo → ricarica automatico ✓
 2. Backend PROD (porta 8000):
    - Se ha --reload → ricarica automatico ✓
-   - Se NO --reload → restart manuale:
-     bash tools/scripts/restart-backend.sh prod
+   - Se NO --reload → restart manuale (vedi sotto)
 3. Testa su http://localhost:3001 (DEV)
 4. Se OK, verifica anche http://localhost:3000 (PROD)
+```
+
+**Restart manuale backend PROD:**
+```powershell
+# Kill vecchio processo sulla 8000
+netstat -ano | Select-String ":8000.*LISTEN"
+taskkill /T /F /PID <numero>
+
+# Riavvia
+uvicorn api.main:app --host 0.0.0.0 --port 8000
+```
+
+**Restart manuale backend DEV:**
+```powershell
+# Kill vecchio processo sulla 8001
+netstat -ano | Select-String ":8001.*LISTEN"
+taskkill /T /F /PID <numero>
+
+# Riavvia con DB dev
+$env:DATABASE_URL = "sqlite:///data/crm_dev.db"
+uvicorn api.main:app --reload --host 0.0.0.0 --port 8001
 ```
 
 ### Scenario: ho modificato codice frontend (React/TypeScript)
@@ -144,37 +192,49 @@ curl http://localhost:8001/health
 ```
 1. Frontend DEV (porta 3001): next dev → hot reload automatico ✓
 2. Frontend PROD (porta 3000): next start → serve build pre-compilato
-   → Le modifiche NON appaiono finche' non fai:
-     cd frontend && npm run build
-   → Poi restart frontend prod:
-   
-     # Trova N° processo porta 3000
-     netstat -ano | Select-String ":3000.*LISTEN"
-
-     # Kill il processo su porta 3000
-     taskkill /T /F /PID <numero>
-
-     # Avvia next start
-     cd frontend && npm run prod
+   → Le modifiche NON appaiono finche' non fai rebuild (vedi sotto)
 3. Testa su http://localhost:3001 (DEV) — immediato
 4. Dopo build, verifica http://localhost:3000 (PROD)
 ```
 
+**Rebuild + restart frontend PROD:**
+```powershell
+# 1. Build nuova versione
+cd C:\Users\gvera\Projects\FitManager_AI_Studio\frontend
+npm run build
+
+# 2. Trova e killa il processo sulla porta 3000
+netstat -ano | Select-String ":3000.*LISTEN"
+taskkill /T /F /PID <numero>
+
+# 3. Riavvia frontend PROD
+npm run prod
+```
+
 ### Scenario: ho creato una migrazione Alembic (schema DB)
 
+```powershell
+cd C:\Users\gvera\Projects\FitManager_AI_Studio
+
+# 1. Crea la migrazione
+alembic revision -m "descrizione_migrazione"
+
+# 2. Applica a PROD (crm.db)
+$env:DATABASE_URL = "sqlite:///data/crm.db"
+alembic upgrade head
+
+# 3. Applica a DEV (crm_dev.db)
+$env:DATABASE_URL = "sqlite:///data/crm_dev.db"
+alembic upgrade head
+
+# 4. Verifica allineamento
+$env:DATABASE_URL = "sqlite:///data/crm.db"; alembic current
+$env:DATABASE_URL = "sqlite:///data/crm_dev.db"; alembic current
+# Le versioni devono essere identiche!
+
+# 5. Restart entrambi i backend (se necessario — se hanno --reload, basta)
 ```
-1. Crea la migrazione:
-   alembic revision -m "descrizione_migrazione"
-
-2. Applica a ENTRAMBI i DB:
-   bash tools/scripts/migrate-all.sh
-
-3. MAI fare `alembic upgrade head` da solo — applica solo a un DB!
-
-4. Restart entrambi i backend:
-   bash tools/scripts/restart-backend.sh dev
-   bash tools/scripts/restart-backend.sh prod
-```
+> MAI fare `alembic upgrade head` da solo senza specificare il DB — applica solo al default!
 
 ### Scenario: ho modificato tipi TypeScript + schema Pydantic
 
@@ -183,10 +243,16 @@ curl http://localhost:8001/health
 2. Aggiorna frontend/src/types/api.ts (TypeScript) — frontend
 3. Backend DEV ricarica da solo (--reload)
 4. Frontend DEV ricarica da solo (next dev)
-5. Per PROD: build + restart frontend
-   cd frontend && npm run build
-   bash tools/scripts/kill-port.sh 3000
-   cd frontend && npm run prod
+5. Per PROD: rebuild + restart frontend (vedi sotto)
+```
+
+**Rebuild frontend PROD:**
+```powershell
+cd C:\Users\gvera\Projects\FitManager_AI_Studio\frontend
+npm run build
+netstat -ano | Select-String ":3000.*LISTEN"
+taskkill /T /F /PID <numero>
+npm run prod
 ```
 
 ---
@@ -195,21 +261,29 @@ curl http://localhost:8001/health
 
 Dopo una sessione di sviluppo, per allineare PROD:
 
-```bash
+```powershell
+cd C:\Users\gvera\Projects\FitManager_AI_Studio
+
 # 1. Migrazioni DB (se ce ne sono)
-bash tools/scripts/migrate-all.sh
+$env:DATABASE_URL = "sqlite:///data/crm.db"; alembic upgrade head
+$env:DATABASE_URL = "sqlite:///data/crm_dev.db"; alembic upgrade head
 
 # 2. Restart backend PROD (se hai modificato Python)
-bash tools/scripts/restart-backend.sh prod
+netstat -ano | Select-String ":8000.*LISTEN"
+taskkill /T /F /PID <numero>
+uvicorn api.main:app --host 0.0.0.0 --port 8000
 
 # 3. Rebuild + restart frontend PROD (se hai modificato React)
-cd frontend && npm run build
-bash tools/scripts/kill-port.sh 3000
-cd frontend && npm run prod
+cd C:\Users\gvera\Projects\FitManager_AI_Studio\frontend
+npm run build
+netstat -ano | Select-String ":3000.*LISTEN"
+taskkill /T /F /PID <numero>
+npm run prod
 
 # 4. Verifica
-curl http://localhost:8000/health              # backend risponde
-curl http://localhost:3000                      # frontend risponde
+curl.exe http://localhost:8000/health              # backend risponde
+curl.exe http://192.168.1.23:8000/health           # backend risponde da LAN
+curl.exe http://localhost:3000                      # frontend risponde
 # Browser: http://192.168.1.23:3000 → login → verifica pagina modificata
 ```
 
@@ -222,26 +296,44 @@ curl http://localhost:3000                      # frontend risponde
 **Causa**: Zombie uvicorn worker (solo Windows).
 `Ctrl+C` uccide il master ma i worker figli restano vivi con il socket aperto.
 
-```bash
-# Soluzione: kill pulito + restart
-bash tools/scripts/kill-port.sh 8000   # o 8001
-bash tools/scripts/restart-backend.sh prod  # o dev
+```powershell
+# 1. Trova il PID sulla porta
+netstat -ano | Select-String ":8000.*LISTEN"
+
+# 2. Killa con tree-kill
+taskkill /T /F /PID <numero>
+
+# 3. Se "non trovato", cerca figli orfani
+Get-CimInstance Win32_Process | Where-Object { $_.ParentProcessId -eq <numero> }
+
+# 4. Killa ogni figlio trovato
+Stop-Process -Id <pid_figlio> -Force
+
+# 5. Riavvia backend
+uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 **Verifica**: il health check deve restituire `{"status":"ok"}`:
-```bash
-curl http://localhost:8000/health
+```powershell
+curl.exe http://localhost:8000/health
 ```
 
 ### Problema: Frontend PROD non mostra le modifiche
 
 **Causa**: `next start` serve la build pre-compilata. Non fa hot reload.
 
-```bash
-# Soluzione: rebuild
-cd frontend && npm run build
-bash tools/scripts/kill-port.sh 3000
-cd frontend && npm run prod
+```powershell
+cd C:\Users\gvera\Projects\FitManager_AI_Studio\frontend
+
+# Rebuild
+npm run build
+
+# Kill vecchio frontend
+netstat -ano | Select-String ":3000.*LISTEN"
+taskkill /T /F /PID <numero>
+
+# Riavvia
+npm run prod
 ```
 
 ### Problema: Chiara vede dati sbagliati (crm_dev.db invece di crm.db)
@@ -249,10 +341,15 @@ cd frontend && npm run prod
 **Causa**: Frontend PROD avviato con `next dev` invece di `next start`.
 `next dev` carica `.env.development.local` → punta a porta 8001 → crm_dev.db.
 
-```bash
-# Soluzione: kill e riavvia con next start
-bash tools/scripts/kill-port.sh 3000
-cd frontend && npm run build && npm run prod
+```powershell
+# Kill frontend errato
+netstat -ano | Select-String ":3000.*LISTEN"
+taskkill /T /F /PID <numero>
+
+# Riavvia correttamente con next start
+cd C:\Users\gvera\Projects\FitManager_AI_Studio\frontend
+npm run build
+npm run prod
 ```
 
 **Verifica**: controlla quanti clienti vede Chiara.
@@ -264,12 +361,16 @@ cd frontend && npm run build && npm run prod
 **Causa**: Avviato un nuovo processo senza killare il vecchio.
 `localhost:PORTA` puo' colpire un processo, `192.168.1.23:PORTA` l'altro.
 
-```bash
-# Soluzione: kill totale + restart pulito
-bash tools/scripts/kill-port.sh 8000
-# Verifica che la porta sia libera:
-netstat -ano | grep ":8000.*LISTEN"
-# Se output vuoto → porta libera → avvia
+```powershell
+# Trova TUTTI i processi sulla porta
+netstat -ano | Select-String ":8000.*LISTEN"
+
+# Killa ognuno (possono essere piu' PID)
+taskkill /T /F /PID <pid1>
+taskkill /T /F /PID <pid2>
+
+# Verifica che la porta sia libera (nessun output = OK):
+netstat -ano | Select-String ":8000.*LISTEN"
 ```
 
 ### Problema: Tutte le pagine danno errore da remoto, ma da locale funziona
@@ -278,13 +379,14 @@ netstat -ano | grep ":8000.*LISTEN"
 Senza questo flag, uvicorn ascolta SOLO su `127.0.0.1` (localhost).
 Il frontend PROD chiama `http://192.168.1.23:8000` (IP LAN) → connessione rifiutata.
 
-```bash
+```powershell
 # Verifica:
-curl http://localhost:8000/health          # OK (localhost)
-curl http://192.168.1.23:8000/health       # FAIL (LAN) ← problema qui
+curl.exe http://localhost:8000/health          # OK (localhost)
+curl.exe http://192.168.1.23:8000/health       # FAIL (LAN) ← problema qui
 
 # Soluzione: kill + restart con --host 0.0.0.0
-bash tools/scripts/kill-port.sh 8000
+netstat -ano | Select-String ":8000.*LISTEN"
+taskkill /T /F /PID <numero>
 uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -297,9 +399,16 @@ su `localhost:3000`, ma Chiara da `192.168.1.23:3000` vede solo errori.
 Il frontend riceve una risposta senza `kpi_attivi`, `kpi_fatturato`, ecc.
 `formatCurrency(undefined)` → NaN.
 
-```bash
-# Soluzione: kill zombie + restart con codice aggiornato
-bash tools/scripts/kill-port.sh 8000
+```powershell
+# Kill zombie + restart con codice aggiornato
+netstat -ano | Select-String ":8000.*LISTEN"
+taskkill /T /F /PID <numero>
+
+# Se "non trovato":
+Get-CimInstance Win32_Process | Where-Object { $_.ParentProcessId -eq <numero> }
+Stop-Process -Id <pid_figlio> -Force
+
+# Riavvia
 uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -308,27 +417,69 @@ e' sempre eliminare lo zombie e riavviare con codice aggiornato.
 
 ### Problema: `alembic upgrade head` applicato a un solo DB
 
-**Causa**: Hai usato `alembic upgrade head` senza script (applica solo al DB di default).
+**Causa**: Hai usato `alembic upgrade head` senza specificare il DB (applica solo al default).
 
-```bash
+```powershell
+cd C:\Users\gvera\Projects\FitManager_AI_Studio
+
 # Verifica disallineamento:
-DATABASE_URL=sqlite:///data/crm.db alembic current
-DATABASE_URL=sqlite:///data/crm_dev.db alembic current
+$env:DATABASE_URL = "sqlite:///data/crm.db"; alembic current
+$env:DATABASE_URL = "sqlite:///data/crm_dev.db"; alembic current
+
 # Se versioni diverse → riallinea:
-bash tools/scripts/migrate-all.sh
+$env:DATABASE_URL = "sqlite:///data/crm.db"; alembic upgrade head
+$env:DATABASE_URL = "sqlite:///data/crm_dev.db"; alembic upgrade head
 ```
 
 ### Problema: Build frontend fallisce (errori TypeScript)
 
 **Causa**: Tipo TypeScript non allineato con schema Pydantic.
 
-```bash
+```powershell
+cd C:\Users\gvera\Projects\FitManager_AI_Studio\frontend
+
 # 1. Identifica l'errore
-cd frontend && npx next build 2>&1 | head -50
+npx next build
 
 # 2. Fix: allinea types/api.ts con api/schemas/
 # 3. Rebuild
-cd frontend && npm run build
+npm run build
+```
+
+---
+
+## Ricetta Rapida — Kill Zombie (copia-incolla)
+
+Questa e' la sequenza completa per quando un processo non muore:
+
+```powershell
+# ═══════════════════════════════════════════════════
+# RICETTA: KILL ZOMBIE UVICORN (porta 8000 o 8001)
+# ═══════════════════════════════════════════════════
+
+# Sostituisci 8000 con la porta desiderata
+$porta = 8000
+
+# Step 1: Trova PID
+netstat -ano | Select-String ":${porta}.*LISTEN"
+
+# Step 2: Prova tree-kill (copia il numero dal risultato sopra)
+# taskkill /T /F /PID <numero>
+
+# Step 3: Se "non trovato", cerca orfani
+# Get-CimInstance Win32_Process | Where-Object { $_.ParentProcessId -eq <numero> }
+
+# Step 4: Killa i figli trovati
+# Stop-Process -Id <pid_figlio> -Force
+
+# Step 5: Verifica porta libera
+netstat -ano | Select-String ":${porta}.*LISTEN"
+
+# ═══════════════════════════════════════════════════
+# OPZIONE NUCLEARE: se niente funziona
+# ═══════════════════════════════════════════════════
+# Killa TUTTI i Python sulla macchina:
+# Get-Process python* | Stop-Process -Force
 ```
 
 ---
@@ -339,9 +490,9 @@ Prima di ogni commit, verifica:
 
 ```
 [ ] npx next build — zero errori TypeScript
-[ ] Backend DEV risponde: curl http://localhost:8001/health
+[ ] Backend DEV risponde: curl.exe http://localhost:8001/health
 [ ] Frontend DEV funziona: http://localhost:3001 (login + pagina modificata)
-[ ] Se migrazione: bash tools/scripts/migrate-all.sh eseguito
+[ ] Se migrazione: alembic upgrade head su ENTRAMBI i DB
 [ ] Se modifica backend: PROD testato su http://localhost:8000/health
 [ ] Se modifica frontend: PROD rebuild + test su http://localhost:3000
 ```
@@ -356,9 +507,9 @@ Prima di chiudere la sessione di sviluppo:
 [ ] Commit + push effettuato
 [ ] Migrazioni applicate a entrambi i DB
 [ ] Backend PROD (8000) attivo CON --host 0.0.0.0
-[ ] curl http://192.168.1.23:8000/health → OK (check LAN, non solo localhost!)
+[ ] curl.exe http://192.168.1.23:8000/health → OK (check LAN, non solo localhost!)
 [ ] Frontend PROD (3000) attivo con build aggiornato (next start, NON next dev!)
-[ ] http://192.168.1.23:3000 → login + verifica pagina (check da remoto)
+[ ] http://192.168.1.23:3000 → login → verifica pagina (check da remoto)
 [ ] Verifica: numero clienti corretto (~13, non ~50)
 ```
 
@@ -373,9 +524,13 @@ Prima di chiudere la sessione di sviluppo:
 | `frontend/package.json` | Script: `dev`→3001, `prod`→3000 | MAI (gia' corretto) |
 | `frontend/next.config.ts` | `distDir` configurabile via env | Solo se serve cache separata |
 | `api/config.py` | `DATABASE_URL` default = crm.db | MAI (override via env var) |
-| `tools/scripts/kill-port.sh` | Kill tree di processi su porta | Solo se bug Windows |
-| `tools/scripts/restart-backend.sh` | Kill + restart backend | Solo se bug |
-| `tools/scripts/migrate-all.sh` | Alembic su entrambi i DB | Solo se bug |
+| `tools/scripts/kill-port.sh` | Kill tree (usato da Claude Code bash) | Solo se bug Windows |
+| `tools/scripts/restart-backend.sh` | Kill + restart (usato da Claude Code bash) | Solo se bug |
+| `tools/scripts/migrate-all.sh` | Alembic su entrambi i DB (usato da Claude Code bash) | Solo se bug |
+
+> **Nota**: Gli script `.sh` nella cartella `tools/scripts/` sono usati da Claude Code
+> (che ha una shell bash interna). Per operazioni manuali dal terminale VS Code,
+> usa i comandi PowerShell documentati sopra.
 
 ---
 
