@@ -299,7 +299,7 @@ def list_clients(
             )
             .group_by(Contract.id_cliente)
         ).all()
-        overdue_set = {row[0] for row in overdue_rows}
+        overdue_set = set(overdue_rows)
 
     # Q5: ultimo evento per cliente (non cancellato)
     last_event_map: Dict[int, str] = {}
@@ -345,7 +345,7 @@ def list_clients(
             )
             .group_by(Contract.id_cliente)
         ).all()
-        all_overdue_set = {row[0] for row in all_overdue_rows}
+        all_overdue_set = set(all_overdue_rows)
 
     kpi_attivi = sum(1 for c in all_clients if c.stato == "Attivo")
     kpi_inattivi = sum(1 for c in all_clients if c.stato == "Inattivo")
