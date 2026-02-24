@@ -102,10 +102,10 @@ const CONTRATTI_KPI: ContrattiKpiDef[] = [
 
 function getKpiValue(key: string, data: ContractListResponse): number {
   switch (key) {
-    case "attivi": return data.kpi_attivi;
-    case "fatturato": return data.kpi_fatturato;
-    case "incassato": return data.kpi_incassato;
-    case "rate_scadute": return data.kpi_rate_scadute;
+    case "attivi": return data.kpi_attivi ?? 0;
+    case "fatturato": return data.kpi_fatturato ?? 0;
+    case "incassato": return data.kpi_incassato ?? 0;
+    case "rate_scadute": return data.kpi_rate_scadute ?? 0;
     default: return 0;
   }
 }

@@ -96,10 +96,10 @@ const CLIENTI_KPI: ClientiKpiDef[] = [
 
 function getKpiValue(key: string, kpi: { kpi_attivi: number; kpi_inattivi: number; kpi_con_crediti: number; kpi_rate_scadute: number }): number {
   switch (key) {
-    case "attivi": return kpi.kpi_attivi;
-    case "inattivi": return kpi.kpi_inattivi;
-    case "con_crediti": return kpi.kpi_con_crediti;
-    case "rate_scadute": return kpi.kpi_rate_scadute;
+    case "attivi": return kpi.kpi_attivi ?? 0;
+    case "inattivi": return kpi.kpi_inattivi ?? 0;
+    case "con_crediti": return kpi.kpi_con_crediti ?? 0;
+    case "rate_scadute": return kpi.kpi_rate_scadute ?? 0;
     default: return 0;
   }
 }

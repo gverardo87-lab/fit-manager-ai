@@ -27,14 +27,31 @@
 
 ---
 
-## Regola #0 — Il Principio Fondamentale
+## Regola #0 — I Due Principi Fondamentali
 
-> **PROD usa `next start`. DEV usa `next dev`. Mai il contrario.**
+> **1. PROD usa `next start`. DEV usa `next dev`. Mai il contrario.**
 
 Perche':
 - `next dev` carica `.env.development.local` (priorita' > `.env.local`) → punta a 8001
 - `next start` ignora `.env.development.local` → usa `.env.local` → punta a 8000
 - Se usi `next dev` su porta 3000, Chiara vedra' i dati di crm_dev.db
+
+> **2. MAI chiudere backend con Ctrl+C o chiusura terminale. Usare SEMPRE `kill-port.sh`.**
+
+Perche':
+- Su Windows, chiudere il terminale uccide solo il master uvicorn
+- I worker figli (multiprocessing.spawn) restano vivi sulla porta
+- Servono **codice vecchio** → il frontend mostra dati corrotti (NaN, campi mancanti)
+- `kill-port.sh` usa `taskkill /T /F` che uccide l'intero albero di processi
+
+**Sequenza corretta per spegnere/riavviare backend:**
+```bash
+# Da Claude Code (bash):
+bash tools/scripts/kill-port.sh 8000       # kill completo
+# Da PowerShell:
+netstat -ano | Select-String ":8000.*LISTEN"
+taskkill /T /F /PID <numero>               # kill manuale
+```
 
 ---
 
@@ -106,8 +123,13 @@ curl http://localhost:8001/health
    → Le modifiche NON appaiono finche' non fai:
      cd frontend && npm run build
    → Poi restart frontend prod:
+   
+     # Trova N° processo porta 3000
+     netstat -ano | Select-String ":3000.*LISTEN"
+
      # Kill il processo su porta 3000
-     bash tools/scripts/kill-port.sh 3000
+     taskkill /T /F /PID <numero>
+
      # Avvia next start
      cd frontend && npm run prod
 3. Testa su http://localhost:3001 (DEV) — immediato
