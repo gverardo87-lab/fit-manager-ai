@@ -13,7 +13,8 @@
  */
 
 import { useState, useRef, type KeyboardEvent } from "react";
-import { Plus, Trash2, ListTodo, Check } from "lucide-react";
+import { Plus, Trash2, ListTodo, Check, CalendarDays } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,13 +59,17 @@ export function TodoCard() {
   const deleteTodo = useDeleteTodo();
 
   const [newTitle, setNewTitle] = useState("");
+  const [newDate, setNewDate] = useState("");
+  const [showDateInput, setShowDateInput] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleCreate = () => {
     const titolo = newTitle.trim();
     if (!titolo) return;
-    createTodo.mutate({ titolo });
+    createTodo.mutate({ titolo, data_scadenza: newDate || undefined });
     setNewTitle("");
+    setNewDate("");
+    setShowDateInput(false);
     inputRef.current?.focus();
   };
 
@@ -102,25 +107,47 @@ export function TodoCard() {
       </div>
 
       {/* Inline create */}
-      <div className="mb-3 flex gap-2">
-        <Input
-          ref={inputRef}
-          value={newTitle}
-          onChange={(e) => setNewTitle(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Nuovo promemoria..."
-          className="h-8 text-sm"
-          maxLength={200}
-        />
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-8 w-8 shrink-0"
-          onClick={handleCreate}
-          disabled={!newTitle.trim() || createTodo.isPending}
-        >
-          <Plus className="h-4 w-4" />
-        </Button>
+      <div className="mb-3 space-y-2">
+        <div className="flex gap-2">
+          <Input
+            ref={inputRef}
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Nuovo promemoria..."
+            className="h-8 text-sm"
+            maxLength={200}
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              "h-8 w-8 shrink-0",
+              showDateInput && "text-pink-500"
+            )}
+            onClick={() => setShowDateInput((prev) => !prev)}
+            title="Aggiungi scadenza"
+          >
+            <CalendarDays className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8 shrink-0"
+            onClick={handleCreate}
+            disabled={!newTitle.trim() || createTodo.isPending}
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+        {showDateInput && (
+          <Input
+            type="date"
+            value={newDate}
+            onChange={(e) => setNewDate(e.target.value)}
+            className="h-8 text-sm"
+          />
+        )}
       </div>
 
       {/* Todo list */}
@@ -164,13 +191,22 @@ function TodoItem({
   const urgencyClass = getUrgencyClass(todo);
   const dateBadgeClass = getDateBadgeClass(todo);
 
+  const isOverdue = !todo.completato && !!todo.data_scadenza &&
+    todo.data_scadenza < new Date().toISOString().slice(0, 10);
+  const isToday = !todo.completato && !!todo.data_scadenza &&
+    todo.data_scadenza === new Date().toISOString().slice(0, 10);
+
+  const containerClass = todo.completato
+    ? "bg-muted/30 opacity-60 border"
+    : isOverdue
+      ? "border border-l-4 border-l-red-500 bg-red-50/60 dark:bg-red-950/20"
+      : isToday
+        ? "border border-l-4 border-l-amber-500 bg-amber-50/60 dark:bg-amber-950/20"
+        : "border bg-white dark:bg-zinc-900";
+
   return (
     <div
-      className={`group flex items-center gap-2 rounded-lg border px-3 py-2 transition-all hover:shadow-sm ${
-        todo.completato
-          ? "bg-muted/30 opacity-60"
-          : "bg-white dark:bg-zinc-900"
-      }`}
+      className={`group flex items-center gap-2 rounded-lg px-3 py-2 transition-all hover:shadow-sm ${containerClass}`}
     >
       {/* Checkbox toggle */}
       <button

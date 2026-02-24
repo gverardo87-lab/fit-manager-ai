@@ -16,10 +16,10 @@ import type {
   Client,
   ClientCreate,
   ClientUpdate,
-  PaginatedResponse,
+  ClientEnrichedListResponse,
 } from "@/types/api";
 
-// ── Query: lista clienti (paginata, filtrabile) ──
+// ── Query: lista clienti enriched (paginata, filtrabile, con KPI) ──
 
 interface UseClientsParams {
   page?: number;
@@ -31,10 +31,10 @@ interface UseClientsParams {
 export function useClients(params: UseClientsParams = {}) {
   const { page = 1, pageSize = 50, stato, search } = params;
 
-  return useQuery<PaginatedResponse<Client>>({
+  return useQuery<ClientEnrichedListResponse>({
     queryKey: ["clients", { page, pageSize, stato, search }],
     queryFn: async () => {
-      const { data } = await apiClient.get<PaginatedResponse<Client>>(
+      const { data } = await apiClient.get<ClientEnrichedListResponse>(
         "/clients",
         {
           params: {

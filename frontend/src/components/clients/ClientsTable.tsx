@@ -2,12 +2,18 @@
 "use client";
 
 /**
- * Tabella clienti — colonne: Nome, Contatti, Stato, Azioni.
+ * Tabella clienti enriched — 7 colonne responsive con dati da batch queries.
  *
- * Include filtro client-side istantaneo: con <100 clienti per pagina,
- * il filtraggio locale e' piu' reattivo di una chiamata API.
+ * Colonne:
+ * - Nome (sempre) — cognome nome + icona nota interna
+ * - Contatti (hidden sm) — email + telefono con icone
+ * - Crediti (hidden md) — badge emerald/zinc
+ * - Contratti (hidden lg) — count + dot rosso se rate scadute
+ * - Ultimo Evento (hidden lg) — data formattata o "Mai"
+ * - Stato (sempre) — badge Attivo/Inattivo
+ * - Azioni (sempre) — dropdown Modifica/Elimina
  *
- * Il DropdownMenu nelle azioni offre "Modifica" e "Elimina".
+ * Filtro client-side istantaneo su nome/email.
  */
 
 import { useState, useMemo } from "react";
@@ -18,11 +24,20 @@ import {
   Mail,
   Phone,
   Search,
+  StickyNote,
+  Users,
+  Plus,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,15 +52,25 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { Client } from "@/types/api";
+import type { ClientEnriched } from "@/types/api";
 
-interface ClientsTableProps {
-  clients: Client[];
-  onEdit: (client: Client) => void;
-  onDelete: (client: Client) => void;
+// ── Helpers ──
+
+function formatShortDate(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("it-IT", { day: "numeric", month: "short", year: "numeric" });
 }
 
-export function ClientsTable({ clients, onEdit, onDelete }: ClientsTableProps) {
+// ── Component ──
+
+interface ClientsTableProps {
+  clients: ClientEnriched[];
+  onEdit: (client: ClientEnriched) => void;
+  onDelete: (client: ClientEnriched) => void;
+  onNewClient?: () => void;
+}
+
+export function ClientsTable({ clients, onEdit, onDelete, onNewClient }: ClientsTableProps) {
   const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {
@@ -75,10 +100,26 @@ export function ClientsTable({ clients, onEdit, onDelete }: ClientsTableProps) {
 
       {/* ── Tabella o empty state ── */}
       {filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
-          <p className="text-muted-foreground">
-            {search ? "Nessun risultato per la ricerca" : "Nessun cliente trovato"}
-          </p>
+        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-12">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+            <Users className="h-6 w-6 text-muted-foreground/50" />
+          </div>
+          <div className="text-center">
+            <p className="font-medium text-muted-foreground">
+              {search ? "Nessun risultato per la ricerca" : "Nessun cliente nel portafoglio"}
+            </p>
+            {!search && (
+              <p className="mt-1 text-sm text-muted-foreground/70">
+                Aggiungi il primo cliente per iniziare
+              </p>
+            )}
+          </div>
+          {!search && onNewClient && (
+            <Button variant="outline" size="sm" onClick={onNewClient} className="mt-1">
+              <Plus className="mr-2 h-4 w-4" />
+              Nuovo Cliente
+            </Button>
+          )}
         </div>
       ) : (
         <div className="rounded-lg border bg-white dark:bg-zinc-900">
@@ -87,6 +128,9 @@ export function ClientsTable({ clients, onEdit, onDelete }: ClientsTableProps) {
               <TableRow>
                 <TableHead>Nome</TableHead>
                 <TableHead className="hidden sm:table-cell">Contatti</TableHead>
+                <TableHead className="hidden md:table-cell">Crediti</TableHead>
+                <TableHead className="hidden lg:table-cell">Contratti</TableHead>
+                <TableHead className="hidden lg:table-cell">Ultimo Evento</TableHead>
                 <TableHead>Stato</TableHead>
                 <TableHead className="w-[80px]">Azioni</TableHead>
               </TableRow>
@@ -94,9 +138,25 @@ export function ClientsTable({ clients, onEdit, onDelete }: ClientsTableProps) {
             <TableBody>
               {filtered.map((client) => (
                 <TableRow key={client.id}>
-                  {/* ── Nome ── */}
+                  {/* ── Nome + nota ── */}
                   <TableCell className="font-medium">
-                    {client.cognome} {client.nome}
+                    <div className="flex items-center gap-1.5">
+                      <span>{client.cognome} {client.nome}</span>
+                      {client.note_interne && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <StickyNote className="h-3.5 w-3.5 shrink-0 text-amber-500/70" />
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-[250px]">
+                              <p className="whitespace-pre-line text-xs line-clamp-4">
+                                {client.note_interne}
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </div>
                   </TableCell>
 
                   {/* ── Contatti (hidden su mobile) ── */}
@@ -115,9 +175,42 @@ export function ClientsTable({ clients, onEdit, onDelete }: ClientsTableProps) {
                         </span>
                       )}
                       {!client.email && !client.telefono && (
-                        <span className="italic">Nessun contatto</span>
+                        <span className="italic">—</span>
                       )}
                     </div>
+                  </TableCell>
+
+                  {/* ── Crediti (hidden md) ── */}
+                  <TableCell className="hidden md:table-cell">
+                    <Badge
+                      variant="secondary"
+                      className={
+                        client.crediti_residui > 0
+                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                          : ""
+                      }
+                    >
+                      {client.crediti_residui}
+                    </Badge>
+                  </TableCell>
+
+                  {/* ── Contratti + dot rate scadute (hidden lg) ── */}
+                  <TableCell className="hidden lg:table-cell">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm">{client.contratti_attivi}</span>
+                      {client.ha_rate_scadute && (
+                        <span className="h-2 w-2 rounded-full bg-red-500" title="Rate scadute" />
+                      )}
+                    </div>
+                  </TableCell>
+
+                  {/* ── Ultimo Evento (hidden lg) ── */}
+                  <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
+                    {client.ultimo_evento_data ? (
+                      formatShortDate(client.ultimo_evento_data)
+                    ) : (
+                      <span className="italic">Mai</span>
+                    )}
                   </TableCell>
 
                   {/* ── Stato ── */}

@@ -25,6 +25,7 @@ from api.models.trainer import Trainer
 from api.models.client import Client
 from api.models.contract import Contract
 from api.models.event import Event
+from api.models.rate import Rate
 from api.routers._audit import log_audit
 
 router = APIRouter(prefix="/clients", tags=["clients"])
@@ -140,12 +141,25 @@ class ClientResponse(BaseModel):
     crediti_residui: int = 0
 
 
+class ClientEnrichedResponse(ClientResponse):
+    """Client con dati aggregati da contratti + eventi (batch-computed)."""
+    contratti_attivi: int = 0
+    totale_versato: float = 0.0
+    ha_rate_scadute: bool = False
+    ultimo_evento_data: Optional[str] = None
+
+
 class ClientListResponse(BaseModel):
-    """Risposta paginata per lista clienti."""
-    items: List[ClientResponse]
+    """Risposta paginata enriched per lista clienti + KPI aggregati."""
+    items: List[ClientEnrichedResponse]
     total: int
     page: int
     page_size: int
+    # KPI aggregati (calcolati pre-filtro: quadro generale)
+    kpi_attivi: int = 0
+    kpi_inattivi: int = 0
+    kpi_con_crediti: int = 0
+    kpi_rate_scadute: int = 0
 
 
 # --- Credit Engine helpers ---
@@ -240,16 +254,134 @@ def list_clients(
     query = query.order_by(Client.cognome, Client.nome).offset(offset).limit(page_size)
 
     clients = session.exec(query).all()
-
-    # Batch credit calculation (2 query per tutti i clienti)
     client_ids = [c.id for c in clients]
+
+    # ── Batch enrichment (5 query totali, zero N+1) ──
+
+    # Q1-Q2: crediti residui (gia' esistente)
     credits = _calc_credits_batch(session, client_ids, trainer.id)
 
+    # Q3: contratti attivi + totale versato per cliente
+    contract_map: Dict[int, Dict] = {}
+    if client_ids:
+        contract_rows = session.exec(
+            select(
+                Contract.id_cliente,
+                func.count(Contract.id),
+                func.coalesce(func.sum(Contract.totale_versato), 0),
+            )
+            .where(
+                Contract.id_cliente.in_(client_ids),
+                Contract.trainer_id == trainer.id,
+                Contract.deleted_at == None,
+                Contract.chiuso == False,
+            )
+            .group_by(Contract.id_cliente)
+        ).all()
+        contract_map = {
+            row[0]: {"count": int(row[1]), "versato": float(row[2])}
+            for row in contract_rows
+        }
+
+    # Q4: clienti con rate scadute (non saldate, data < oggi)
+    overdue_set: set = set()
+    if client_ids:
+        overdue_rows = session.exec(
+            select(Contract.id_cliente)
+            .join(Rate, Rate.id_contratto == Contract.id)
+            .where(
+                Contract.id_cliente.in_(client_ids),
+                Contract.trainer_id == trainer.id,
+                Contract.deleted_at == None,
+                Rate.deleted_at == None,
+                Rate.stato != "SALDATA",
+                Rate.data_scadenza < date.today(),
+            )
+            .group_by(Contract.id_cliente)
+        ).all()
+        overdue_set = {row[0] for row in overdue_rows}
+
+    # Q5: ultimo evento per cliente (non cancellato)
+    last_event_map: Dict[int, str] = {}
+    if client_ids:
+        last_event_rows = session.exec(
+            select(
+                Event.id_cliente,
+                func.max(Event.data_inizio),
+            )
+            .where(
+                Event.id_cliente.in_(client_ids),
+                Event.trainer_id == trainer.id,
+                Event.deleted_at == None,
+                Event.stato != "Cancellato",
+            )
+            .group_by(Event.id_cliente)
+        ).all()
+        last_event_map = {
+            row[0]: str(row[1])[:10] for row in last_event_rows if row[1]
+        }
+
+    # ── KPI aggregati (pre-filtro: intero dataset del trainer) ──
+    all_query = select(Client).where(
+        Client.trainer_id == trainer.id, Client.deleted_at == None
+    )
+    all_clients = session.exec(all_query).all()
+    all_ids = [c.id for c in all_clients]
+    all_credits = _calc_credits_batch(session, all_ids, trainer.id) if all_ids else {}
+
+    # Rate scadute per tutti i clienti (non solo la pagina corrente)
+    all_overdue_set: set = set()
+    if all_ids:
+        all_overdue_rows = session.exec(
+            select(Contract.id_cliente)
+            .join(Rate, Rate.id_contratto == Contract.id)
+            .where(
+                Contract.id_cliente.in_(all_ids),
+                Contract.trainer_id == trainer.id,
+                Contract.deleted_at == None,
+                Rate.deleted_at == None,
+                Rate.stato != "SALDATA",
+                Rate.data_scadenza < date.today(),
+            )
+            .group_by(Contract.id_cliente)
+        ).all()
+        all_overdue_set = {row[0] for row in all_overdue_rows}
+
+    kpi_attivi = sum(1 for c in all_clients if c.stato == "Attivo")
+    kpi_inattivi = sum(1 for c in all_clients if c.stato == "Inattivo")
+    kpi_con_crediti = sum(1 for cid in all_ids if all_credits.get(cid, 0) > 0)
+    kpi_rate_scadute = len(all_overdue_set)
+
+    # ── Build enriched response ──
+    items = []
+    for c in clients:
+        cdata = contract_map.get(c.id, {"count": 0, "versato": 0.0})
+        items.append(ClientEnrichedResponse(
+            id=c.id,
+            nome=c.nome,
+            cognome=c.cognome,
+            telefono=c.telefono,
+            email=c.email,
+            data_nascita=str(c.data_nascita) if c.data_nascita else None,
+            sesso=c.sesso,
+            stato=c.stato,
+            note_interne=c.note_interne,
+            crediti_residui=credits.get(c.id, 0),
+            contratti_attivi=cdata["count"],
+            totale_versato=cdata["versato"],
+            ha_rate_scadute=c.id in overdue_set,
+            ultimo_evento_data=last_event_map.get(c.id),
+        ))
+
     return ClientListResponse(
-        items=[_to_response(c, credits.get(c.id, 0)) for c in clients],
+        items=items,
         total=total,
         page=page,
         page_size=page_size,
+        kpi_attivi=kpi_attivi,
+        kpi_inattivi=kpi_inattivi,
+        kpi_con_crediti=kpi_con_crediti,
+        kpi_rate_scadute=kpi_rate_scadute,
     )
 
 

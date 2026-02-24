@@ -129,6 +129,26 @@ export interface Client {
   crediti_residui: number;
 }
 
+/** ClientEnrichedResponse — restituito da GET /api/clients (lista enriched) */
+export interface ClientEnriched extends Client {
+  contratti_attivi: number;
+  totale_versato: number;
+  ha_rate_scadute: boolean;
+  ultimo_evento_data: string | null;
+}
+
+/** Risposta paginata enriched per lista clienti + KPI aggregati */
+export interface ClientEnrichedListResponse {
+  items: ClientEnriched[];
+  total: number;
+  page: number;
+  page_size: number;
+  kpi_attivi: number;
+  kpi_inattivi: number;
+  kpi_con_crediti: number;
+  kpi_rate_scadute: number;
+}
+
 // ════════════════════════════════════════════════════════════
 // EVENT (api/routers/agenda.py — inline schemas)
 // ════════════════════════════════════════════════════════════
