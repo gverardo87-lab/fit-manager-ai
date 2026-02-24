@@ -51,7 +51,7 @@ frontend/src/
 Un file hook per ogni dominio. Struttura:
 ```typescript
 // useClients.ts
-export function useClients(params) { return useQuery({...}) }      // READ
+export function useClients() { return useQuery({...}) }            // READ (tutti, filtro client-side)
 export function useCreateClient() { return useMutation({...}) }    // CREATE
 export function useUpdateClient() { return useMutation({...}) }    // UPDATE
 export function useDeleteClient() { return useMutation({...}) }    // DELETE
@@ -60,7 +60,7 @@ Ogni mutation: `invalidateQueries` sulle key correlate + `toast.success/error`.
 
 ### Query Key Convention
 ```typescript
-["clients", { page, search }]       // lista con filtri
+["clients"]                          // lista tutti (filtro client-side)
 ["client", clientId]                 // dettaglio singolo
 ["contracts", { page, idCliente }]  // lista filtrata
 ["contract", contractId]             // dettaglio con rate
@@ -161,6 +161,32 @@ Componente con 4 sotto-componenti inline:
 - Props: riceve `anno` e `mese` da `cassa/page.tsx`
 - Badge tab: `cassa/page.tsx` mostra badge numerico pending sul tab "Spese Fisse"
 
+### Badge Contratti (7 livelli priorita')
+`getPaymentBadge()` in `ContractsTable.tsx` — scala priorita' fissa:
+1. **Chiuso** (zinc secondary) — contratto chiuso
+2. **Insolvente** (red-600 solid white) — `ha_rate_scadute && isExpired` — caso peggiore
+3. **Rate in Ritardo** (red-100) — `ha_rate_scadute` senza contratto scaduto
+4. **Scaduto** (amber-100) — `data_scadenza < oggi` senza rate scadute
+5. **Saldato** (emerald-100) — `totale_versato >= prezzo_totale`
+6. **In corso (X/Y)** (blue-100) — rate in progress
+7. **Nessuna rata** (zinc-100) — default
+
+Colonna Scadenza: color-coded con `getScadenzaStyle()` (red < 0gg, amber < 7gg, amber-light < 30gg).
+
+### FilterBar Clienti (pattern Agenda)
+Stessa architettura `Set<string>` + chip toggle dell'Agenda, applicata a Clienti:
+- **Riga 1 (Stato)**: Attivi (emerald) · Inattivi (zinc) — filtro `client.stato`
+- **Riga 2 (Filtro)**: Con Rate Scadute (red) · Con Crediti (blue) — filtro enriched fields
+- Filtraggio interamente client-side — `useClients()` carica tutti (page_size=200)
+- Colonna **Finanze**: progress bar compatta `versato / prezzo_totale_attivo` (emerald >= 80%, amber >= 40%, red < 40%)
+
+### DatePicker maxDate (Boundary Protection)
+`DatePicker` accetta `maxDate?: Date` → passa come `toDate` al Calendar (react-day-picker).
+Blocca navigazione e selezione oltre la data. Applicato a:
+- `RateEditDialog` (via `contractScadenza` prop)
+- `GeneratePlanForm` (data prima rata)
+- `AddRateForm` (data scadenza rata manuale)
+
 ### Azioni Distruttive — 2 livelli
 - **CRITICA** (delete contratto, revoca pagamento): AlertDialog + conferma testuale ("ANNULLA")
 - **MEDIA** (delete rata, delete movimento): AlertDialog standard con 2 bottoni
@@ -253,6 +279,8 @@ Token in cookie `fitmanager_token` (8h expiry). Trainer data in `fitmanager_trai
 | Calendar unmount on navigate | `onRangeChange` → new query key → `isLoading=true` → calendar unmounts → state reset a oggi | `keepPreviousData` + smart range check (return `prev` se range dentro buffer) |
 | D&D sposta evento -1h | `toISOString()` converte ora locale in UTC → offset perso | `toISOLocal()` da `lib/format.ts` — formatta locale senza `Z` |
 | 401 interceptor loop login | Interceptor cattura 401 credenziali errate → redirect a /login → loop | Skip redirect se `pathname.startsWith("/login")` |
+| Badge "Scaduto" per rate in ritardo | Confondeva contratto scaduto con rate scadute — significato diverso | 7 livelli badge: Insolvente (red solid), Rate in Ritardo (red light), Scaduto (amber) |
+| KPI "Rate Scadute" contava contratti | `func.count(distinct(id_contratto))` → numeri bassi e fuorvianti | `func.count(Rate.id)` per contratti, label "Con Rate Scadute" per clienti |
 
 ## Esperienza Utente — Principi Frontend
 

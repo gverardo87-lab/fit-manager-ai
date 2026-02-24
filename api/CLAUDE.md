@@ -136,6 +136,13 @@ Il contratto e' il nodo centrale del sistema. 7 livelli di protezione:
    CASCADE: soft-delete rate SALDATE + tutti CashMovement + detach eventi
 8. **Credit guard** (`create_event`): se `id_contratto` esplicito e `crediti_usati >= crediti_totali`
    → 400 "Crediti esauriti". Escape hatch: evento PT senza contratto (campo vuoto).
+9. **Rate date boundary** (`create_rate`, `update_rate`): `data_scadenza` rata non puo' superare
+   `contract.data_scadenza` (422). `generate_payment_plan`: auto-cap Chargebee-style
+   (`if due_date > contract.data_scadenza: due_date = contract.data_scadenza`).
+10. **Contract shortening guard** (`update_contract`): nuova `data_scadenza` rifiutata se esistono
+    rate con date oltre il nuovo termine (422 con conteggio rate e messaggio chiaro).
+11. **Expired contract detection** (lista contratti + lista clienti): `ha_rate_scadute` considera
+    tutte le rate non saldate su contratti scaduti: `or_(Rate.data_scadenza < today, Contract.data_scadenza < today)`.
 
 ### Conferma & Registra (Spese Ricorrenti)
 Paradigma esplicito: l'utente vede le spese in attesa e le conferma manualmente.

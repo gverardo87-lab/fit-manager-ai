@@ -107,6 +107,9 @@ Il contratto e' l'entita' centrale: collega pagamenti, crediti, sessioni.
 - **Overpayment check**: `pay_rate` verifica sia rata-level che contract-level
 - **Flexible rate editing**: rate pagate (SALDATA/PARZIALE) modificabili — `data_scadenza` e `descrizione` sempre, `importo_previsto` se >= saldato. Stato auto-ricalcolato (SALDATA↔PARZIALE)
 - **CashMovement date sync**: modifica `data_scadenza` su rata pagata → aggiorna `data_effettiva` di tutti i CashMovement collegati (atomico)
+- **Rate date boundary**: `create_rate` e `update_rate` rifiutano `data_scadenza` oltre `contract.data_scadenza` (422). `generate_payment_plan` auto-cap: se `due_date > contract.data_scadenza` → `due_date = contract.data_scadenza`
+- **Contract shortening guard**: `update_contract` rifiuta nuova `data_scadenza` se rate esistono oltre la nuova data (422, messaggio con conteggio rate)
+- **Expired contract detection**: `ha_rate_scadute` include rate non saldate su contratti scaduti (`or_(rate.data_scadenza < today, contract.data_scadenza < today)`) — sia su contratti che su clienti
 - **Delete guard**: contratto eliminabile solo se zero rate non-saldate + zero crediti residui
 - **Payment history**: `receipt_map` come `dict[int, list[CashMovement]]` — storico completo per rata
 
@@ -160,6 +163,9 @@ Errori reali trovati e corretti. MAI ripeterli.
 | uvicorn senza `--host 0.0.0.0` | Backend ascolta solo `127.0.0.1` → LAN (`192.168.1.23`) rifiutata → Chiara vede errore su tutte le pagine ma localhost funziona | SEMPRE `--host 0.0.0.0` su entrambi i backend |
 | Zombie uvicorn: PID morto nel netstat | `netstat` mostra PID padre (morto), `taskkill` dice "non trovato", figlio zombie ha PID diverso | `kill-port.sh` (tree-kill) oppure cercare figli: `Get-CimInstance Win32_Process \| Where ParentProcessId -eq <PID>` |
 | KPI NaN da worker zombie | Worker zombie serve codice vecchio (senza campi KPI) → `data.kpi_X` = undefined → `formatCurrency(undefined)` = NaN | `?? 0` guard su ogni `getKpiValue` + kill zombie e riavviare |
+| Rate oltre scadenza contratto | Nessuna validazione date rate vs contratto → rate orfane dopo scadenza | Boundary check bidirezionale: create/update rate (422) + update contract (422) + DatePicker maxDate |
+| `ha_rate_scadute` ignora contratti scaduti | Solo `rate.data_scadenza < today`, non considera contratto expired con rate future non saldate | `or_(Rate.data_scadenza < today, Contract.data_scadenza < today)` in contracts.py e clients.py |
+| KPI "Rate Scadute" conta contratti | `func.count(func.distinct(Rate.id_contratto))` conta contratti, non rate reali | `func.count(Rate.id)` per conteggio rate effettive (contracts), label corretta per clienti |
 
 ---
 
