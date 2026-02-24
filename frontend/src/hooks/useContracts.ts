@@ -18,31 +18,15 @@ import type {
   ContractListResponse,
 } from "@/types/api";
 
-// ── Query: lista contratti (paginata, filtrabile) ──
+// ── Query: lista contratti (tutti, filtraggio client-side) ──
 
-interface UseContractsParams {
-  page?: number;
-  pageSize?: number;
-  idCliente?: number;
-  chiuso?: boolean;
-}
-
-export function useContracts(params: UseContractsParams = {}) {
-  const { page = 1, pageSize = 50, idCliente, chiuso } = params;
-
+export function useContracts() {
   return useQuery<ContractListResponse>({
-    queryKey: ["contracts", { page, pageSize, idCliente, chiuso }],
+    queryKey: ["contracts"],
     queryFn: async () => {
       const { data } = await apiClient.get<ContractListResponse>(
         "/contracts",
-        {
-          params: {
-            page,
-            page_size: pageSize,
-            id_cliente: idCliente ?? undefined,
-            chiuso: chiuso ?? undefined,
-          },
-        }
+        { params: { page: 1, page_size: 200 } }
       );
       return data;
     },

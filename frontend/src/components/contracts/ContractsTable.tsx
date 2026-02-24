@@ -2,12 +2,16 @@
 "use client";
 
 /**
- * Tabella contratti enriched — colonne: Cliente, Pacchetto, Importo, Crediti, Scadenza, Rate, Azioni.
+ * Tabella contratti enriched — colonne: Cliente, Pacchetto, Finanze, Crediti, Scadenza, Rate, Azioni.
  *
  * Il nome cliente arriva direttamente dal backend (ContractListResponse)
  * grazie al batch fetch. Niente piu' clientMap lato frontend.
  *
- * Colonna Rate: badge con stato pagamento derivato dalle rate (6 livelli):
+ * Colonna Finanze: progress bar versato/totale con 3 livelli colore
+ *   (emerald >=80%, amber >=40%, red <40%) — pattern identico a ClientsTable.
+ *
+ * Colonna Rate: badge con stato pagamento derivato dalle rate (7 livelli):
+ * - chiuso → grigio "Chiuso"
  * - scaduto + rate non pagate → rosso intenso "Insolvente"
  * - ha_rate_scadute → rosso "Rate in Ritardo"
  * - data_scadenza < oggi → amber "Scaduto" (contratto oltre termine)
@@ -24,7 +28,6 @@ import {
   Pencil,
   Trash2,
   Search,
-  CreditCard,
   Settings2,
   FileText,
   Plus,
@@ -58,9 +61,11 @@ interface ContractsTableProps {
   onNewContract?: () => void;
 }
 
-function formatCurrencyNullable(amount: number | null): string {
-  if (amount == null) return "—";
-  return formatCurrency(amount);
+/** Colore progress bar finanze (pattern identico a ClientsTable). */
+function getFinanceBarColor(ratio: number): string {
+  if (ratio >= 0.8) return "bg-emerald-500";
+  if (ratio >= 0.4) return "bg-amber-500";
+  return "bg-red-500";
 }
 
 function getPaymentBadge(contract: ContractListItem) {
@@ -197,7 +202,7 @@ export function ContractsTable({
               <TableRow>
                 <TableHead>Cliente</TableHead>
                 <TableHead className="hidden md:table-cell">Pacchetto</TableHead>
-                <TableHead className="text-right">Importo</TableHead>
+                <TableHead className="hidden sm:table-cell">Finanze</TableHead>
                 <TableHead className="hidden lg:table-cell text-center">Crediti</TableHead>
                 <TableHead className="hidden md:table-cell">Scadenza</TableHead>
                 <TableHead>Rate</TableHead>
@@ -215,17 +220,33 @@ export function ContractsTable({
                   {/* ── Pacchetto (hidden mobile) ── */}
                   <TableCell className="hidden md:table-cell">{contract.tipo_pacchetto ?? "—"}</TableCell>
 
-                  {/* ── Importo (versato / totale) ── */}
-                  <TableCell className="text-right">
-                    <div className="flex flex-col items-end">
-                      <span className="font-medium">
-                        {formatCurrencyNullable(contract.prezzo_totale)}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        <CreditCard className="mr-1 inline h-3 w-3" />
-                        {formatCurrency(contract.totale_versato)} versati
-                      </span>
-                    </div>
+                  {/* ── Finanze (hidden mobile) — progress bar ── */}
+                  <TableCell className="hidden sm:table-cell">
+                    {contract.prezzo_totale ? (() => {
+                      const prezzo = contract.prezzo_totale!;
+                      const versato = contract.totale_versato;
+                      const ratio = prezzo > 0 ? versato / prezzo : 0;
+                      return (
+                        <div className="w-28 space-y-1">
+                          <div className="flex items-baseline justify-between text-[11px]">
+                            <span className="font-semibold tabular-nums">
+                              {formatCurrency(versato)}
+                            </span>
+                            <span className="text-muted-foreground">
+                              / {formatCurrency(prezzo)}
+                            </span>
+                          </div>
+                          <div className="h-1.5 w-full rounded-full bg-zinc-100 dark:bg-zinc-800">
+                            <div
+                              className={`h-1.5 rounded-full transition-all ${getFinanceBarColor(ratio)}`}
+                              style={{ width: `${Math.min(ratio * 100, 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })() : (
+                      <span className="text-sm italic text-muted-foreground">—</span>
+                    )}
                   </TableCell>
 
                   {/* ── Crediti (hidden mobile/tablet) ── */}

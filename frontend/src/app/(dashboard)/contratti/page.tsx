@@ -2,34 +2,33 @@
 "use client";
 
 /**
- * Pagina Contratti — CRM-grade con KPI, tabella enriched, filtri.
+ * Pagina Contratti — CRM-grade con KPI, FilterBar chip, tabella enriched.
  *
  * Architettura:
- * - useContracts() carica contratti enriched + KPI aggregati (React Query)
+ * - useContracts() carica tutti i contratti enriched + KPI aggregati (React Query)
  * - KPI cards config-driven (pattern identico a CLIENTI_KPI / CASSA_KPI)
- * - Filtro stato via Select (backend-driven) + ricerca testo (client-side in tabella)
+ * - FilterBar chip interattivi (pattern Agenda/Clienti): stato + situazione finanziaria
+ * - Ricerca testo client-side nella tabella
  * - ContractSheet per crea/modifica, ContractDetailSheet per master-detail
  */
 
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
+import { differenceInDays, parseISO, startOfToday } from "date-fns";
 import {
   Plus,
   FileText,
   Wallet,
   Receipt,
   AlertTriangle,
+  Eye,
+  EyeOff,
+  CheckCircle2,
+  ShieldAlert,
   type LucideIcon,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { ContractsTable } from "@/components/contracts/ContractsTable";
 import { ContractSheet } from "@/components/contracts/ContractSheet";
 import { ContractDetailSheet } from "@/components/contracts/ContractDetailSheet";
@@ -110,6 +109,45 @@ function getKpiValue(key: string, data: ContractListResponse): number {
   }
 }
 
+// ── Filter chip definitions (pattern Clienti/Agenda) ──
+
+interface FilterChipDef {
+  key: string;
+  label: string;
+  color: string;
+  icon: LucideIcon;
+}
+
+const STATO_CHIPS: FilterChipDef[] = [
+  { key: "attivi", label: "Attivi", color: "#8b5cf6", icon: FileText },
+  { key: "chiusi", label: "Chiusi", color: "#a1a1aa", icon: FileText },
+];
+
+const SITUAZIONE_CHIPS: FilterChipDef[] = [
+  { key: "insolventi", label: "Insolventi", color: "#dc2626", icon: ShieldAlert },
+  { key: "rate_scadute", label: "Con Rate Scadute", color: "#ef4444", icon: AlertTriangle },
+  { key: "saldati", label: "Saldati", color: "#10b981", icon: CheckCircle2 },
+];
+
+/** Classifica un contratto nella situazione finanziaria. */
+function matchesSituazione(c: ContractListItem, key: string): boolean {
+  const today = startOfToday();
+  const isExpired = c.data_scadenza && differenceInDays(parseISO(c.data_scadenza), today) < 0;
+  const isSaldato = c.prezzo_totale != null && c.totale_versato >= c.prezzo_totale - 0.01;
+
+  switch (key) {
+    case "insolventi":
+      return c.ha_rate_scadute && !!isExpired && !c.chiuso;
+    case "rate_scadute":
+      // Rate in ritardo ma NON insolvente (contratto non ancora scaduto)
+      return c.ha_rate_scadute && !isExpired && !c.chiuso;
+    case "saldati":
+      return isSaldato;
+    default:
+      return false;
+  }
+}
+
 // ── Page Component ──
 
 export default function ContrattiPage() {
@@ -117,15 +155,68 @@ export default function ContrattiPage() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [selectedContract, setSelectedContract] = useState<ContractListItem | null>(null);
-  const [statoFilter, setStatoFilter] = useState("all");
 
-  const chiusoParam = statoFilter === "all"
-    ? undefined
-    : statoFilter === "chiusi";
+  // Filter state: Set<string> per ogni asse (pattern Clienti/Agenda)
+  const [activeStati, setActiveStati] = useState<Set<string>>(
+    () => new Set(STATO_CHIPS.map((c) => c.key))
+  );
+  const [activeSituazioni, setActiveSituazioni] = useState<Set<string>>(
+    () => new Set(SITUAZIONE_CHIPS.map((c) => c.key))
+  );
 
-  const { data: contractsData, isLoading, isError, refetch } = useContracts({
-    chiuso: chiusoParam,
-  });
+  const { data: contractsData, isLoading, isError, refetch } = useContracts();
+
+  // ── Filter handlers (immutable Set toggle, pattern Clienti/Agenda) ──
+
+  const handleToggleStato = useCallback((key: string) => {
+    setActiveStati((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleToggleSituazione = useCallback((key: string) => {
+    setActiveSituazioni((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }, []);
+
+  // ── Client-side filtering ──
+
+  const filteredContracts = useMemo(() => {
+    if (!contractsData) return [];
+
+    return contractsData.items.filter((c) => {
+      // Asse 1: stato (attivi = !chiuso, chiusi = chiuso)
+      const statoKey = c.chiuso ? "chiusi" : "attivi";
+      if (!activeStati.has(statoKey)) return false;
+
+      // Asse 2: situazione (OR logic — passa se almeno un chip attivo matcha)
+      const hasSituazioneFilters = activeSituazioni.size < SITUAZIONE_CHIPS.length;
+      if (hasSituazioneFilters) {
+        if (activeSituazioni.size === 0) return false;
+        const matchesAny = SITUAZIONE_CHIPS.some(
+          (chip) => activeSituazioni.has(chip.key) && matchesSituazione(c, chip.key)
+        );
+        if (!matchesAny) return false;
+      }
+
+      return true;
+    });
+  }, [contractsData, activeStati, activeSituazioni]);
+
+  const isFiltered = activeStati.size < STATO_CHIPS.length || activeSituazioni.size < SITUAZIONE_CHIPS.length;
 
   // ── Handlers ──
 
@@ -163,7 +254,12 @@ export default function ContrattiPage() {
             <FileText className="h-5 w-5 text-violet-600 dark:text-violet-400" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Contratti</h1>
+            <h1 className="text-2xl font-bold tracking-tight">
+              Contratti
+              {isFiltered && (
+                <span className="text-muted-foreground/60 text-base font-normal"> (filtro attivo)</span>
+              )}
+            </h1>
             {contractsData && (
               <p className="text-sm text-muted-foreground">
                 {contractsData.total} contratt{contractsData.total !== 1 ? "i" : "o"} nel portafoglio
@@ -227,20 +323,14 @@ export default function ContrattiPage() {
         </div>
       )}
 
-      {/* ── Filtro stato ── */}
+      {/* ── FilterBar chip (pattern Clienti/Agenda) ── */}
       {contractsData && (
-        <div className="flex items-center gap-3">
-          <Select value={statoFilter} onValueChange={setStatoFilter}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Tutti gli stati" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tutti</SelectItem>
-              <SelectItem value="attivi">Attivi</SelectItem>
-              <SelectItem value="chiusi">Chiusi</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <FilterBar
+          activeStati={activeStati}
+          onToggleStato={handleToggleStato}
+          activeSituazioni={activeSituazioni}
+          onToggleSituazione={handleToggleSituazione}
+        />
       )}
 
       {/* ── Contenuto ── */}
@@ -264,7 +354,7 @@ export default function ContrattiPage() {
 
       {contractsData && (
         <ContractsTable
-          contracts={contractsData.items}
+          contracts={filteredContracts}
           onManage={handleManage}
           onEdit={handleEdit}
           onDelete={handleDelete}
@@ -294,6 +384,98 @@ export default function ContrattiPage() {
         contract={selectedContract}
         clientName={clientName}
       />
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// FilterBar — chip interattivi (pattern Clienti/Agenda)
+// ════════════════════════════════════════════════════════════
+
+function FilterBar({
+  activeStati,
+  onToggleStato,
+  activeSituazioni,
+  onToggleSituazione,
+}: {
+  activeStati: Set<string>;
+  onToggleStato: (key: string) => void;
+  activeSituazioni: Set<string>;
+  onToggleSituazione: (key: string) => void;
+}) {
+  return (
+    <div className="rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-3 shadow-sm dark:from-zinc-900 dark:to-zinc-800/50">
+      <div className="flex flex-col gap-2">
+        {/* Riga 1: Stato */}
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          <span className="w-14 shrink-0 text-[11px] font-medium uppercase tracking-wide text-muted-foreground sm:w-16">
+            Stato:
+          </span>
+          {STATO_CHIPS.map((chip) => {
+            const active = activeStati.has(chip.key);
+            const Icon = active ? Eye : EyeOff;
+            return (
+              <button
+                key={chip.key}
+                type="button"
+                onClick={() => onToggleStato(chip.key)}
+                className={`flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium transition-all duration-200 sm:gap-1.5 sm:px-3 sm:text-xs ${
+                  active
+                    ? "border-transparent shadow-sm"
+                    : "border-dashed border-muted-foreground/30 opacity-40"
+                }`}
+                style={
+                  active
+                    ? { backgroundColor: chip.color + "20", color: chip.color }
+                    : undefined
+                }
+              >
+                <div
+                  className="h-2.5 w-2.5 rounded-full transition-opacity"
+                  style={{ backgroundColor: chip.color, opacity: active ? 1 : 0.3 }}
+                />
+                {chip.label}
+                <Icon className="h-3 w-3" />
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Riga 2: Situazione */}
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          <span className="w-14 shrink-0 text-[11px] font-medium uppercase tracking-wide text-muted-foreground sm:w-16">
+            Filtro:
+          </span>
+          {SITUAZIONE_CHIPS.map((chip) => {
+            const active = activeSituazioni.has(chip.key);
+            const Icon = active ? Eye : EyeOff;
+            return (
+              <button
+                key={chip.key}
+                type="button"
+                onClick={() => onToggleSituazione(chip.key)}
+                className={`flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium transition-all duration-200 sm:gap-1.5 sm:px-3 sm:text-xs ${
+                  active
+                    ? "border-transparent shadow-sm"
+                    : "border-dashed border-muted-foreground/30 opacity-40"
+                }`}
+                style={
+                  active
+                    ? { backgroundColor: chip.color + "20", color: chip.color }
+                    : undefined
+                }
+              >
+                <div
+                  className="h-2.5 w-2.5 rounded-full transition-opacity"
+                  style={{ backgroundColor: chip.color, opacity: active ? 1 : 0.3 }}
+                />
+                {chip.label}
+                <Icon className="h-3 w-3" />
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
