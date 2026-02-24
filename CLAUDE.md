@@ -196,6 +196,8 @@ Ogni feature segue 4 step in ordine. Il codice non passa al successivo finche' i
 
 ## Architettura Dual Environment (Produzione + Sviluppo)
 
+> **Runbook operativo completo**: `tools/DUAL_ENV.md` — procedure, troubleshooting, checklist.
+
 Due ambienti completamente isolati. Stessa codebase, DB e porte diversi.
 
 ```
