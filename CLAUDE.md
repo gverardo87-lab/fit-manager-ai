@@ -206,20 +206,29 @@ Due ambienti completamente isolati. Stessa codebase, DB e porte diversi.
 ```
 PRODUZIONE (Chiara — sempre acceso, dati reali):
   Backend:  porta 8000  →  data/crm.db
-  Frontend: porta 3000  →  .env.local (http://192.168.1.23:8000)
-  Chiara accede da: http://192.168.1.23:3000
+  Frontend: porta 3000  →  next start (production mode)
+  Accesso LAN:       http://192.168.1.23:3000
+  Accesso Tailscale: http://100.127.28.16:3000  (da qualsiasi rete)
 
 SVILUPPO (gvera — dati di test, libero per esperimenti):
   Backend:  porta 8001  →  data/crm_dev.db
-  Frontend: porta 3001  →  .env.development.local (http://localhost:8001)
-  gvera accede da: http://localhost:3001
+  Frontend: porta 3001  →  next dev (hot reload)
+  Accesso: http://localhost:3001
 ```
 
-### Separazione frontend automatica (Next.js env priority)
-- `.env.local` → `NEXT_PUBLIC_API_URL=http://192.168.1.23:8000` (prod)
-- `.env.development.local` → `NEXT_PUBLIC_API_URL=http://localhost:8001` (dev)
-- `next dev` carica `.env.development.local` con priorita' SUPERIORE a `.env.local`
-- `next start` (prod build) ignora `.env.development.local`, usa `.env.local`
+### API URL Dinamico (zero IP hardcodati nel build)
+Il frontend deduce l'API URL da `window.location` a runtime:
+- `hostname:3000` → `hostname:8000/api` (prod)
+- `hostname:3001` → `hostname:8001/api` (dev)
+- Funziona automaticamente da LAN, Tailscale, localhost — zero `.env` da aggiornare
+- Logica: `frontend/src/lib/api-client.ts` → `getApiBaseUrl()`
+- CORS: regex in `api/main.py` accetta localhost, LAN (192.168.x.x), Tailscale (100.x.x.x)
+
+### Accesso remoto — Tailscale VPN
+Chiara accede da **qualsiasi rete** (lavoro, 4G) tramite Tailscale (WireGuard P2P).
+- PC gvera: `100.127.28.16` — Tailscale sempre attivo
+- iPad Chiara: stesso account Tailscale
+- Privacy: dati P2P crittografati, zero transito su server terzi
 
 ### Script di gestione (`tools/scripts/`)
 ```bash

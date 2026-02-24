@@ -11,19 +11,26 @@
 ```
 ╔══════════════════════════════════════════════════════════════════╗
 ║                         PRODUZIONE                              ║
-║  Utente:    Chiara (http://192.168.1.23:3000)                   ║
+║  Utente:    Chiara                                              ║
 ║  Backend:   porta 8000  →  data/crm.db (dati REALI)            ║
 ║  Frontend:  porta 3000  →  next start (production mode)         ║
-║  Env:       .env.local  →  API_URL = http://192.168.1.23:8000   ║
+║  Accesso:   LAN  → http://192.168.1.23:3000 (casa, stesso WiFi)║
+║             VPN  → http://100.127.28.16:3000 (Tailscale, ovunque)
+║  API URL:   DINAMICO — dedotto da window.location (zero .env)   ║
 ║  DB:        13 clienti reali — MAI toccare con seed/reset       ║
 ╠══════════════════════════════════════════════════════════════════╣
 ║                          SVILUPPO                               ║
 ║  Utente:    gvera (http://localhost:3001)                       ║
 ║  Backend:   porta 8001  →  data/crm_dev.db (dati test)         ║
 ║  Frontend:  porta 3001  →  next dev (hot reload)                ║
-║  Env:       .env.development.local → API_URL = localhost:8001   ║
+║  API URL:   DINAMICO — localhost:3001 → localhost:8001          ║
 ║  DB:        ~50 clienti test — libero per seed/reset/esperimenti║
 ╚══════════════════════════════════════════════════════════════════╝
+
+Rete Tailscale (VPN P2P — WireGuard):
+  PC gvera:     100.127.28.16
+  iPad Chiara:  connessa allo stesso account Tailscale
+  Chiara accede da QUALSIASI rete (lavoro, 4G, ecc.)
 ```
 
 ---
@@ -507,11 +514,62 @@ Prima di chiudere la sessione di sviluppo:
 [ ] Commit + push effettuato
 [ ] Migrazioni applicate a entrambi i DB
 [ ] Backend PROD (8000) attivo CON --host 0.0.0.0
-[ ] curl.exe http://192.168.1.23:8000/health → OK (check LAN, non solo localhost!)
+[ ] curl.exe http://192.168.1.23:8000/health → OK (check LAN)
+[ ] curl.exe http://100.127.28.16:8000/health → OK (check Tailscale)
 [ ] Frontend PROD (3000) attivo con build aggiornato (next start, NON next dev!)
-[ ] http://192.168.1.23:3000 → login → verifica pagina (check da remoto)
+[ ] http://192.168.1.23:3000 → login (check LAN)
+[ ] http://100.127.28.16:3000 → login (check Tailscale)
 [ ] Verifica: numero clienti corretto (~13, non ~50)
+[ ] Tailscale attivo sul PC (icona tray connessa)
 ```
+
+---
+
+## Accesso Remoto — Tailscale
+
+Chiara accede all'app da **qualsiasi rete** (lavoro, 4G, casa) tramite Tailscale VPN.
+
+```
+PC gvera (server):    100.127.28.16     — Tailscale sempre attivo
+iPad Chiara (client): stesso account Tailscale
+
+Chiara apre: http://100.127.28.16:3000
+```
+
+**Come funziona**:
+- Tailscale crea una rete P2P crittografata (WireGuard) tra PC e iPad
+- I dati NON passano per server terzi — solo coordinamento iniziale
+- L'app e' accessibile come se fossero sulla stessa LAN
+- Il frontend deduce l'API URL dinamicamente (`100.127.28.16:3000 → 100.127.28.16:8000`)
+
+**Prerequisiti**:
+- Tailscale installato e connesso sul PC (icona tray verde)
+- Tailscale installato e connesso sull'iPad (stesso account)
+- Backend avviato con `--host 0.0.0.0` (ascolta su tutte le interfacce)
+
+**Troubleshooting**:
+- Chiara non vede la pagina → verificare che Tailscale sia attivo su ENTRAMBI i dispositivi
+- "Connessione non riuscita" → l'iPad non ha Tailscale connesso, oppure il backend non ha `--host 0.0.0.0`
+- Pagina si vede ma dati non caricano → CORS non accetta l'IP Tailscale (verificare regex in `api/main.py`)
+
+---
+
+## API URL Dinamico
+
+Il frontend **NON** ha piu' un API URL hardcodato. Lo deduce dal browser:
+
+```
+Browser apre                    →  API chiama
+http://192.168.1.23:3000       →  http://192.168.1.23:8000/api   (LAN)
+http://100.127.28.16:3000      →  http://100.127.28.16:8000/api  (Tailscale)
+http://localhost:3001           →  http://localhost:8001/api       (dev)
+```
+
+Logica in `frontend/src/lib/api-client.ts` → `getApiBaseUrl()`:
+- Porta 3001 → backend 8001 (dev)
+- Qualsiasi altra porta → backend 8000 (prod)
+
+**I file `.env.local` e `.env.development.local` restano come fallback SSR ma non sono piu' critici.**
 
 ---
 
@@ -519,10 +577,11 @@ Prima di chiudere la sessione di sviluppo:
 
 | File | Scopo | Toccare? |
 |------|-------|----------|
-| `frontend/.env.local` | API URL per PROD (`192.168.1.23:8000`) | MAI (gia' corretto) |
-| `frontend/.env.development.local` | API URL per DEV (`localhost:8001`) | MAI (gia' corretto) |
+| `frontend/src/lib/api-client.ts` | API URL dinamico (`getApiBaseUrl()`) | Solo se cambia mapping porte |
+| `api/main.py` | CORS regex (localhost + LAN + Tailscale) | Solo se nuova rete |
+| `frontend/.env.local` | Fallback SSR PROD | Non piu' critico (URL dinamico) |
+| `frontend/.env.development.local` | Fallback SSR DEV | Non piu' critico (URL dinamico) |
 | `frontend/package.json` | Script: `dev`→3001, `prod`→3000 | MAI (gia' corretto) |
-| `frontend/next.config.ts` | `distDir` configurabile via env | Solo se serve cache separata |
 | `api/config.py` | `DATABASE_URL` default = crm.db | MAI (override via env var) |
 | `tools/scripts/kill-port.sh` | Kill tree (usato da Claude Code bash) | Solo se bug Windows |
 | `tools/scripts/restart-backend.sh` | Kill + restart (usato da Claude Code bash) | Solo se bug |
