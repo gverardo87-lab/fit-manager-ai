@@ -7,6 +7,7 @@
  */
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import { Search, MoreHorizontal, Pencil, Trash2, Dumbbell, Lock } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -117,7 +118,12 @@ export function ExercisesTable({
                   {/* Nome */}
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <span className="font-medium">{exercise.nome}</span>
+                      <Link
+                        href={`/esercizi/${exercise.id}`}
+                        className="font-medium text-primary hover:underline"
+                      >
+                        {exercise.nome}
+                      </Link>
                       {exercise.is_builtin && (
                         <Tooltip>
                           <TooltipTrigger>

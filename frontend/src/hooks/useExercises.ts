@@ -2,10 +2,10 @@
 /**
  * Custom hooks per il modulo Esercizi.
  *
- * Pattern: una funzione per operazione, ognuna con la propria queryKey.
- * Le mutations invalidano ["exercises"] su successo.
+ * v2: hooks per media upload/delete e relazioni progressione/regressione.
  *
- * Ogni mutation mostra un toast (sonner) di successo o errore.
+ * Pattern: una funzione per operazione, ognuna con la propria queryKey.
+ * Le mutations invalidano ["exercises"] / ["exercise", id] su successo.
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -16,6 +16,9 @@ import type {
   ExerciseCreate,
   ExerciseUpdate,
   ExerciseListResponse,
+  ExerciseMedia,
+  ExerciseRelation,
+  ExerciseRelationCreate,
 } from "@/types/api";
 
 // ════════════════════════════════════════════════════════════
@@ -53,7 +56,7 @@ export function useExercises(filters?: ExerciseFilters) {
 }
 
 // ════════════════════════════════════════════════════════════
-// QUERY: Singolo esercizio
+// QUERY: Singolo esercizio (enriched: media + relazioni)
 // ════════════════════════════════════════════════════════════
 
 export function useExercise(id: number | null) {
@@ -126,6 +129,99 @@ export function useDeleteExercise() {
     },
     onError: (error) => {
       toast.error(extractErrorMessage(error, "Errore nell'eliminazione dell'esercizio"));
+    },
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+// MUTATION: Upload media
+// ════════════════════════════════════════════════════════════
+
+export function useUploadMedia() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ exerciseId, file }: { exerciseId: number; file: File }) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      const { data } = await apiClient.post<ExerciseMedia>(
+        `/exercises/${exerciseId}/media`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } },
+      );
+      return data;
+    },
+    onSuccess: (_media, { exerciseId }) => {
+      queryClient.invalidateQueries({ queryKey: ["exercise", exerciseId] });
+      toast.success("Media caricato");
+    },
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Errore nel caricamento del media"));
+    },
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+// MUTATION: Elimina media
+// ════════════════════════════════════════════════════════════
+
+export function useDeleteMedia() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ exerciseId, mediaId }: { exerciseId: number; mediaId: number }) => {
+      await apiClient.delete(`/exercises/${exerciseId}/media/${mediaId}`);
+      return { exerciseId };
+    },
+    onSuccess: ({ exerciseId }) => {
+      queryClient.invalidateQueries({ queryKey: ["exercise", exerciseId] });
+      toast.success("Media eliminato");
+    },
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Errore nell'eliminazione del media"));
+    },
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+// MUTATION: Crea relazione
+// ════════════════════════════════════════════════════════════
+
+export function useCreateRelation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ exerciseId, ...payload }: ExerciseRelationCreate & { exerciseId: number }) => {
+      const { data } = await apiClient.post<ExerciseRelation>(
+        `/exercises/${exerciseId}/relations`,
+        payload,
+      );
+      return { ...data, exerciseId };
+    },
+    onSuccess: ({ exerciseId }) => {
+      queryClient.invalidateQueries({ queryKey: ["exercise", exerciseId] });
+      toast.success("Relazione creata");
+    },
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Errore nella creazione della relazione"));
+    },
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+// MUTATION: Elimina relazione
+// ════════════════════════════════════════════════════════════
+
+export function useDeleteRelation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ exerciseId, relationId }: { exerciseId: number; relationId: number }) => {
+      await apiClient.delete(`/exercises/${exerciseId}/relations/${relationId}`);
+      return { exerciseId };
+    },
+    onSuccess: ({ exerciseId }) => {
+      queryClient.invalidateQueries({ queryKey: ["exercise", exerciseId] });
+      toast.success("Relazione eliminata");
+    },
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Errore nell'eliminazione della relazione"));
     },
   });
 }

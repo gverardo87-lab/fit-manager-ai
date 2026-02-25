@@ -8,6 +8,8 @@ from .recurring_expense import RecurringExpense
 from .audit_log import AuditLog
 from .todo import Todo
 from .exercise import Exercise
+from .exercise_media import ExerciseMedia
+from .exercise_relation import ExerciseRelation
 
 __all__ = [
     "Trainer",
@@ -20,4 +22,6 @@ __all__ = [
     "AuditLog",
     "Todo",
     "Exercise",
+    "ExerciseMedia",
+    "ExerciseRelation",
 ]

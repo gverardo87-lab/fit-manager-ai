@@ -13,7 +13,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { useCreateExercise, useUpdateExercise } from "@/hooks/useExercises";
-import { ExerciseForm, type ExerciseFormValues } from "./ExerciseForm";
+import { ExerciseForm } from "./ExerciseForm";
 import type { Exercise, ExerciseCreate, ExerciseUpdate } from "@/types/api";
 
 interface ExerciseSheetProps {
@@ -28,14 +28,14 @@ export function ExerciseSheet({ open, onOpenChange, exercise }: ExerciseSheetPro
   const updateMutation = useUpdateExercise();
   const isPending = createMutation.isPending || updateMutation.isPending;
 
-  const handleSubmit = (values: ExerciseFormValues) => {
+  const handleSubmit = (values: Record<string, unknown>) => {
     if (isEdit) {
       updateMutation.mutate(
-        { id: exercise.id, ...values } as ExerciseUpdate & { id: number },
+        { id: exercise.id, ...values } as unknown as ExerciseUpdate & { id: number },
         { onSuccess: () => onOpenChange(false) }
       );
     } else {
-      createMutation.mutate(values as ExerciseCreate, {
+      createMutation.mutate(values as unknown as ExerciseCreate, {
         onSuccess: () => onOpenChange(false),
       });
     }

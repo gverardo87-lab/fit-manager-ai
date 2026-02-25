@@ -77,6 +77,34 @@ export const MUSCLE_OPTIONS = Object.entries(MUSCLE_LABELS).map(
   ([value, label]) => ({ value, label })
 );
 
+// ── Classificazione biomeccanica (v2) ──
+
+export const FORCE_TYPE_LABELS: Record<string, string> = {
+  push: "Spinta",
+  pull: "Trazione",
+  static: "Statico",
+};
+
+export const FORCE_TYPE_OPTIONS = Object.entries(FORCE_TYPE_LABELS).map(
+  ([value, label]) => ({ value, label })
+);
+
+export const LATERAL_PATTERN_LABELS: Record<string, string> = {
+  bilateral: "Bilaterale",
+  unilateral: "Unilaterale",
+  alternating: "Alternato",
+};
+
+export const LATERAL_PATTERN_OPTIONS = Object.entries(LATERAL_PATTERN_LABELS).map(
+  ([value, label]) => ({ value, label })
+);
+
+export const RELATION_TYPE_LABELS: Record<string, string> = {
+  progression: "Progressione",
+  regression: "Regressione",
+  variation: "Variante",
+};
+
 // ── Colori badge ──
 
 export const CATEGORY_COLORS: Record<string, string> = {
@@ -90,4 +118,16 @@ export const DIFFICULTY_COLORS: Record<string, string> = {
   beginner: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
   intermediate: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
   advanced: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+};
+
+export const FORCE_TYPE_COLORS: Record<string, string> = {
+  push: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400",
+  pull: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
+  static: "bg-zinc-100 text-zinc-700 dark:bg-zinc-900/30 dark:text-zinc-400",
+};
+
+export const LATERAL_PATTERN_COLORS: Record<string, string> = {
+  bilateral: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400",
+  unilateral: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
+  alternating: "bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-400",
 };

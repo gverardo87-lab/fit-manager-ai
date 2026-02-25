@@ -676,6 +676,29 @@ export interface BackupRestoreResponse {
 // EXERCISE (api/routers/exercises.py + api/schemas/exercise.py)
 // ════════════════════════════════════════════════════════════
 
+/** Sub-entity: media galleria esercizio */
+export interface ExerciseMedia {
+  id: number;
+  tipo: string;
+  url: string;
+  ordine: number;
+  descrizione: string | null;
+}
+
+/** Sub-entity: relazione tra esercizi */
+export interface ExerciseRelation {
+  id: number;
+  related_exercise_id: number;
+  related_exercise_nome: string;
+  tipo_relazione: string;
+}
+
+/** Errore comune con correzione */
+export interface ExerciseError {
+  errore: string;
+  correzione: string;
+}
+
 /** ExerciseResponse — restituito da GET/POST/PUT */
 export interface Exercise {
   id: number;
@@ -683,6 +706,8 @@ export interface Exercise {
   nome_en: string | null;
   categoria: string;
   pattern_movimento: string;
+  force_type: string | null;
+  lateral_pattern: string | null;
   muscoli_primari: string[];
   muscoli_secondari: string[];
   attrezzatura: string;
@@ -691,10 +716,23 @@ export interface Exercise {
   rep_range_ipertrofia: string | null;
   rep_range_resistenza: string | null;
   ore_recupero: number;
+  descrizione_anatomica: string | null;
+  descrizione_biomeccanica: string | null;
+  setup: string | null;
+  esecuzione: string | null;
+  respirazione: string | null;
+  tempo_consigliato: string | null;
+  coaching_cues: string[];
+  errori_comuni: ExerciseError[];
+  note_sicurezza: string | null;
   istruzioni: { setup?: string; esecuzione?: string; errori_comuni?: string } | null;
   controindicazioni: string[];
+  image_url: string | null;
+  video_url: string | null;
   is_builtin: boolean;
   created_at: string | null;
+  media: ExerciseMedia[];
+  relazioni: ExerciseRelation[];
 }
 
 /** POST /api/exercises */
@@ -703,6 +741,8 @@ export interface ExerciseCreate {
   nome_en?: string | null;
   categoria: string;
   pattern_movimento: string;
+  force_type?: string | null;
+  lateral_pattern?: string | null;
   muscoli_primari: string[];
   muscoli_secondari?: string[] | null;
   attrezzatura: string;
@@ -711,7 +751,15 @@ export interface ExerciseCreate {
   rep_range_ipertrofia?: string | null;
   rep_range_resistenza?: string | null;
   ore_recupero?: number;
-  istruzioni?: { setup?: string; esecuzione?: string; errori_comuni?: string } | null;
+  descrizione_anatomica?: string | null;
+  descrizione_biomeccanica?: string | null;
+  setup?: string | null;
+  esecuzione?: string | null;
+  respirazione?: string | null;
+  tempo_consigliato?: string | null;
+  coaching_cues?: string[] | null;
+  errori_comuni?: ExerciseError[] | null;
+  note_sicurezza?: string | null;
   controindicazioni?: string[] | null;
 }
 
@@ -721,6 +769,8 @@ export interface ExerciseUpdate {
   nome_en?: string | null;
   categoria?: string | null;
   pattern_movimento?: string | null;
+  force_type?: string | null;
+  lateral_pattern?: string | null;
   muscoli_primari?: string[] | null;
   muscoli_secondari?: string[] | null;
   attrezzatura?: string | null;
@@ -729,8 +779,22 @@ export interface ExerciseUpdate {
   rep_range_ipertrofia?: string | null;
   rep_range_resistenza?: string | null;
   ore_recupero?: number | null;
-  istruzioni?: { setup?: string; esecuzione?: string; errori_comuni?: string } | null;
+  descrizione_anatomica?: string | null;
+  descrizione_biomeccanica?: string | null;
+  setup?: string | null;
+  esecuzione?: string | null;
+  respirazione?: string | null;
+  tempo_consigliato?: string | null;
+  coaching_cues?: string[] | null;
+  errori_comuni?: ExerciseError[] | null;
+  note_sicurezza?: string | null;
   controindicazioni?: string[] | null;
+}
+
+/** POST /api/exercises/{id}/relations */
+export interface ExerciseRelationCreate {
+  related_exercise_id: number;
+  tipo_relazione: string;
 }
 
 /** GET /api/exercises — lista paginata */

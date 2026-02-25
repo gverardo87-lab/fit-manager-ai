@@ -13,10 +13,13 @@ Migrazioni schema gestite da Alembic: `alembic upgrade head`
 """
 
 import logging
+import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.staticfiles import StaticFiles
 from sqlmodel import Session, text
 
 from api.database import get_session
@@ -78,6 +81,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Static files: serve media (immagini/video esercizi)
+_media_dir = Path(os.path.dirname(__file__)).parent / "data" / "media"
+_media_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/media", StaticFiles(directory=str(_media_dir)), name="media")
 
 # Registra router
 app.include_router(auth_router, prefix=API_PREFIX)
