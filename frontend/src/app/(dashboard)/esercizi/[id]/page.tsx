@@ -2,13 +2,12 @@
 "use client";
 
 /**
- * Scheda Esercizio — pagina dettaglio con 5 tab.
+ * Scheda Esercizio — pagina dettaglio con hero muscolare + 5 tab.
  *
  * Pattern identico a /contratti/[id] e /clienti/[id]:
  * - use(params) per unwrap Promise (React 19)
  * - useExercise(id) per fetch enriched (media + relazioni)
- * - Header con back + nome + badge + azioni
- * - 5 tab: Panoramica, Esecuzione, Errori, Media, Varianti
+ * - Header persistente + Hero section + 5 tab
  */
 
 import { use, useState } from "react";
@@ -22,7 +21,6 @@ import {
   GitBranch,
   Activity,
   Shield,
-  Loader2,
   Lock,
   Wind,
   Timer,
@@ -41,6 +39,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 import { useExercise } from "@/hooks/useExercises";
 import { getMediaUrl } from "@/lib/media";
+import { MuscleMap } from "@/components/exercises/MuscleMap";
+import { ExerciseSheet } from "@/components/exercises/ExerciseSheet";
+import { DeleteExerciseDialog } from "@/components/exercises/DeleteExerciseDialog";
 import {
   CATEGORY_LABELS,
   CATEGORY_COLORS,
@@ -50,9 +51,7 @@ import {
   PATTERN_LABELS,
   MUSCLE_LABELS,
   FORCE_TYPE_LABELS,
-  FORCE_TYPE_COLORS,
   LATERAL_PATTERN_LABELS,
-  LATERAL_PATTERN_COLORS,
   RELATION_TYPE_LABELS,
 } from "@/components/exercises/exercise-constants";
 import type { Exercise } from "@/types/api";
@@ -93,8 +92,119 @@ function ContentCard({ title, icon: Icon, children }: { title: string; icon: Rea
   );
 }
 
+function ClassificationRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-2">
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className="text-sm font-medium text-right">{value}</span>
+    </div>
+  );
+}
+
 // ════════════════════════════════════════════════════════════
-// TAB: PANORAMICA
+// HERO: MAPPA MUSCOLARE + CLASSIFICAZIONE
+// ════════════════════════════════════════════════════════════
+
+function ExerciseHero({ exercise }: { exercise: Exercise }) {
+  return (
+    <div className="rounded-xl border bg-gradient-to-br from-zinc-50 to-zinc-100/50 p-5 dark:from-zinc-900 dark:to-zinc-800/50">
+      <div className="grid gap-6 md:grid-cols-[auto_1fr]">
+        {/* Sinistra: Mappa muscolare */}
+        <div className="flex justify-center">
+          <MuscleMap
+            muscoliPrimari={exercise.muscoli_primari}
+            muscoliSecondari={exercise.muscoli_secondari}
+          />
+        </div>
+
+        {/* Destra: Muscoli + Classificazione */}
+        <div className="space-y-4">
+          {/* Muscoli Primari */}
+          <div>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Muscoli Primari
+            </h3>
+            <div className="flex flex-wrap gap-1.5">
+              {exercise.muscoli_primari.map((m) => (
+                <span
+                  key={m}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-blue-300 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 dark:border-blue-700 dark:bg-blue-900/20 dark:text-blue-400"
+                >
+                  <span className="h-2 w-2 rounded-full bg-blue-600 dark:bg-blue-400" />
+                  {MUSCLE_LABELS[m] || m}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Muscoli Secondari */}
+          {exercise.muscoli_secondari.length > 0 && (
+            <div>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Muscoli Secondari
+              </h3>
+              <div className="flex flex-wrap gap-1.5">
+                {exercise.muscoli_secondari.map((m) => (
+                  <span
+                    key={m}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50/50 px-2.5 py-1 text-xs font-medium text-blue-500 dark:border-blue-800 dark:bg-blue-900/10 dark:text-blue-400/70"
+                  >
+                    <span className="h-2 w-2 rounded-full bg-blue-300 dark:bg-blue-500/50" />
+                    {MUSCLE_LABELS[m] || m}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Classificazione */}
+          <div className="border-t pt-4">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Classificazione
+            </h3>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+              <ClassificationRow
+                label="Categoria"
+                value={CATEGORY_LABELS[exercise.categoria] || exercise.categoria}
+              />
+              <ClassificationRow
+                label="Pattern"
+                value={PATTERN_LABELS[exercise.pattern_movimento] || exercise.pattern_movimento}
+              />
+              {exercise.force_type && (
+                <ClassificationRow
+                  label="Forza"
+                  value={FORCE_TYPE_LABELS[exercise.force_type] || exercise.force_type}
+                />
+              )}
+              {exercise.lateral_pattern && (
+                <ClassificationRow
+                  label="Lateralita&apos;"
+                  value={LATERAL_PATTERN_LABELS[exercise.lateral_pattern] || exercise.lateral_pattern}
+                />
+              )}
+              <ClassificationRow
+                label="Attrezzatura"
+                value={EQUIPMENT_LABELS[exercise.attrezzatura] || exercise.attrezzatura}
+              />
+              <ClassificationRow
+                label="Difficolta&apos;"
+                value={DIFFICULTY_LABELS[exercise.difficolta] || exercise.difficolta}
+              />
+              <ClassificationRow
+                label="Recupero"
+                value={`${exercise.ore_recupero}h`}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// TAB: PANORAMICA (snellito — muscoli/classificazione nell'hero)
 // ════════════════════════════════════════════════════════════
 
 function PanoramicaTab({ exercise }: { exercise: Exercise }) {
@@ -103,19 +213,6 @@ function PanoramicaTab({ exercise }: { exercise: Exercise }) {
 
   return (
     <div className="space-y-6">
-      {/* Classificazione */}
-      <div className="flex flex-wrap gap-2">
-        <Badge label={CATEGORY_LABELS[exercise.categoria] || exercise.categoria} colorClass={CATEGORY_COLORS[exercise.categoria]} />
-        <Badge label={PATTERN_LABELS[exercise.pattern_movimento] || exercise.pattern_movimento} />
-        <Badge label={DIFFICULTY_LABELS[exercise.difficolta] || exercise.difficolta} colorClass={DIFFICULTY_COLORS[exercise.difficolta]} />
-        {exercise.force_type && (
-          <Badge label={FORCE_TYPE_LABELS[exercise.force_type] || exercise.force_type} colorClass={FORCE_TYPE_COLORS[exercise.force_type]} />
-        )}
-        {exercise.lateral_pattern && (
-          <Badge label={LATERAL_PATTERN_LABELS[exercise.lateral_pattern] || exercise.lateral_pattern} colorClass={LATERAL_PATTERN_COLORS[exercise.lateral_pattern]} />
-        )}
-      </div>
-
       {/* Descrizioni */}
       <div className="grid gap-4 md:grid-cols-2">
         <ContentCard title="Anatomia" icon={Activity}>
@@ -133,31 +230,6 @@ function PanoramicaTab({ exercise }: { exercise: Exercise }) {
             <EmptySection title="Descrizione biomeccanica" description="Contenuto in arrivo" />
           )}
         </ContentCard>
-      </div>
-
-      {/* Muscoli */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <ContentCard title="Muscoli Primari" icon={Activity}>
-          <div className="flex flex-wrap gap-2">
-            {exercise.muscoli_primari.map((m) => (
-              <span key={m} className="rounded-full border border-primary bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-                {MUSCLE_LABELS[m] || m}
-              </span>
-            ))}
-          </div>
-        </ContentCard>
-
-        {exercise.muscoli_secondari.length > 0 && (
-          <ContentCard title="Muscoli Secondari" icon={Activity}>
-            <div className="flex flex-wrap gap-2">
-              {exercise.muscoli_secondari.map((m) => (
-                <span key={m} className="rounded-full border border-violet-400 bg-violet-50 px-3 py-1 text-xs font-medium text-violet-600 dark:bg-violet-900/20 dark:text-violet-400">
-                  {MUSCLE_LABELS[m] || m}
-                </span>
-              ))}
-            </div>
-          </ContentCard>
-        )}
       </div>
 
       {/* Parametri */}
@@ -312,7 +384,6 @@ function MediaTab({ exercise }: { exercise: Exercise }) {
 
   return (
     <div className="space-y-4">
-      {/* Immagine principale */}
       {mainImage && (
         <div className="overflow-hidden rounded-lg border">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -320,7 +391,6 @@ function MediaTab({ exercise }: { exercise: Exercise }) {
         </div>
       )}
 
-      {/* Video principale */}
       {mainVideo && (
         <div className="overflow-hidden rounded-lg border">
           <video controls className="h-auto w-full max-h-96" preload="metadata">
@@ -329,7 +399,6 @@ function MediaTab({ exercise }: { exercise: Exercise }) {
         </div>
       )}
 
-      {/* Galleria */}
       {exercise.media.length > 0 && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
           {exercise.media.map((m) => {
@@ -437,12 +506,23 @@ export default function ExerciseDetailPage({ params }: { params: Promise<{ id: s
   const exerciseId = parseInt(id, 10);
   const { data: exercise, isLoading, isError, refetch } = useExercise(exerciseId);
 
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
   // Loading
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <Skeleton className="h-10 w-1/3" />
-        <Skeleton className="h-64 w-full" />
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-9 w-9 rounded-lg" />
+          <div className="space-y-2">
+            <Skeleton className="h-7 w-52" />
+            <Skeleton className="h-4 w-36" />
+          </div>
+        </div>
+        <Skeleton className="h-72 w-full rounded-xl" />
+        <Skeleton className="h-10 w-full rounded-lg" />
+        <Skeleton className="h-48 w-full rounded-lg" />
       </div>
     );
   }
@@ -469,29 +549,50 @@ export default function ExerciseDetailPage({ params }: { params: Promise<{ id: s
   return (
     <div className="space-y-6">
       {/* ── Header ── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" asChild>
-            <Link href="/esercizi">
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-          </Button>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start gap-3">
+          <Link
+            href="/esercizi"
+            className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border bg-white shadow-sm transition-colors hover:bg-zinc-50 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold sm:text-2xl">{exercise.nome}</h1>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-2xl font-bold tracking-tight">{exercise.nome}</h1>
               {exercise.is_builtin && <Lock className="h-4 w-4 text-muted-foreground" />}
             </div>
             {exercise.nome_en && (
-              <p className="text-sm text-muted-foreground">{exercise.nome_en}</p>
+              <p className="mt-0.5 text-sm text-muted-foreground">{exercise.nome_en}</p>
             )}
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              <Badge label={CATEGORY_LABELS[exercise.categoria] || exercise.categoria} colorClass={CATEGORY_COLORS[exercise.categoria]} />
+              <Badge label={DIFFICULTY_LABELS[exercise.difficolta] || exercise.difficolta} colorClass={DIFFICULTY_COLORS[exercise.difficolta]} />
+              <Badge label={EQUIPMENT_LABELS[exercise.attrezzatura] || exercise.attrezzatura} />
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge label={EQUIPMENT_LABELS[exercise.attrezzatura] || exercise.attrezzatura} />
-          <Badge label={DIFFICULTY_LABELS[exercise.difficolta] || exercise.difficolta} colorClass={DIFFICULTY_COLORS[exercise.difficolta]} />
-          <Badge label={CATEGORY_LABELS[exercise.categoria] || exercise.categoria} colorClass={CATEGORY_COLORS[exercise.categoria]} />
-        </div>
+        {!exercise.is_builtin && (
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setSheetOpen(true)}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Modifica
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-destructive hover:text-destructive"
+              onClick={() => setDeleteOpen(true)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Elimina
+            </Button>
+          </div>
+        )}
       </div>
+
+      {/* ── Hero: Mappa Muscolare + Classificazione ── */}
+      <ExerciseHero exercise={exercise} />
 
       {/* ── Tabs ── */}
       <Tabs defaultValue="panoramica" className="w-full">
@@ -534,6 +635,22 @@ export default function ExerciseDetailPage({ params }: { params: Promise<{ id: s
           <VariantiTab exercise={exercise} />
         </TabsContent>
       </Tabs>
+
+      {/* ── Sheet modifica + Dialog elimina ── */}
+      {!exercise.is_builtin && (
+        <>
+          <ExerciseSheet
+            open={sheetOpen}
+            onOpenChange={setSheetOpen}
+            exercise={exercise}
+          />
+          <DeleteExerciseDialog
+            open={deleteOpen}
+            onOpenChange={setDeleteOpen}
+            exercise={exercise}
+          />
+        </>
+      )}
     </div>
   );
 }
