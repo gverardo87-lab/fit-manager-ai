@@ -34,7 +34,7 @@ import { useExercises } from "@/hooks/useExercises";
 import type { Exercise, WorkoutSessionInput, WorkoutExerciseInput } from "@/types/api";
 
 // ════════════════════════════════════════════════════════════
-// SMART MATCHING
+// SMART MATCHING v2
 // ════════════════════════════════════════════════════════════
 
 /** Mappa livello template → difficolta esercizio */
@@ -44,21 +44,36 @@ const DIFFICULTY_MAP: Record<string, string> = {
   avanzato: "advanced",
 };
 
+/** Conta intersezione tra due array di stringhe */
+function muscleOverlap(a: string[], b: string[]): number {
+  return a.filter((m) => b.includes(m)).length;
+}
+
 /**
  * Trova l'esercizio migliore per uno slot template.
  *
- * Logica:
- * - avviamento → cerca per categoria "avviamento"
- * - stretching → cerca per categoria "stretching" o "mobilita"
- * - principale → cerca per pattern_movimento
- * - Score: +10 se difficolta allineata, +3 se compound, +1 se bodyweight
- * - Evita duplicati (usedIds)
+ * Matching v2 — scoring multi-dimensionale:
+ *
+ * 1. FILTRO per sezione:
+ *    - avviamento → categoria "avviamento"
+ *    - stretching → categoria "stretching" o "mobilita"
+ *    - principale → pattern_movimento
+ *
+ * 2. SCORING (piu' alto = migliore):
+ *    - +10  difficolta allineata al livello template
+ *    - +8   muscoli_target match (stretching mirato ai muscoli lavorati)
+ *    - +3   compound (priorita multi-articolari)
+ *    - +1   bodyweight (accessibilita)
+ *    - -3   stessa attrezzatura dell'esercizio precedente (varieta)
+ *
+ * 3. FALLBACK: allarga ricerca, poi qualsiasi esercizio
  */
 function findBestExercise(
   exercises: Exercise[],
   slot: TemplateExerciseSlot,
   templateLevel: string,
   usedIds: Set<number>,
+  lastEquipment?: string,
 ): Exercise | undefined {
   const preferred = DIFFICULTY_MAP[templateLevel] ?? "intermediate";
 
@@ -95,16 +110,37 @@ function findBestExercise(
     return exercises.find((e) => !usedIds.has(e.id)) ?? exercises[0];
   }
 
-  // Score e ordinamento
+  // Score multi-dimensionale
+  const targetMuscles = slot.muscoli_target ?? [];
+
   candidates.sort((a, b) => {
     let scoreA = 0;
     let scoreB = 0;
+
+    // Difficolta allineata (+10)
     if (a.difficolta === preferred) scoreA += 10;
     if (b.difficolta === preferred) scoreB += 10;
+
+    // Muscoli target match (+8 per overlap) — cruciale per stretching mirato
+    if (targetMuscles.length > 0) {
+      scoreA += muscleOverlap(a.muscoli_primari, targetMuscles) * 8;
+      scoreB += muscleOverlap(b.muscoli_primari, targetMuscles) * 8;
+    }
+
+    // Compound bonus (+3) — priorita movimenti multi-articolari
     if (a.categoria === "compound") scoreA += 3;
     if (b.categoria === "compound") scoreB += 3;
+
+    // Bodyweight bonus (+1) — accessibilita
     if (a.categoria === "bodyweight") scoreA += 1;
     if (b.categoria === "bodyweight") scoreB += 1;
+
+    // Varieta attrezzatura (-3 se uguale all'ultimo) — solo per principale
+    if (lastEquipment && slot.sezione === "principale") {
+      if (a.attrezzatura === lastEquipment) scoreA -= 3;
+      if (b.attrezzatura === lastEquipment) scoreB -= 3;
+    }
+
     return scoreB - scoreA;
   });
 
@@ -145,14 +181,18 @@ export function TemplateSelector({ open, onOpenChange, clientId }: TemplateSelec
 
       const sessioni: WorkoutSessionInput[] = template.sessioni.map((sess) => {
         const usedIds = new Set<number>();
+        let lastEquipment: string | undefined;
 
         return {
           nome_sessione: sess.nome_sessione,
           focus_muscolare: sess.focus_muscolare,
           durata_minuti: sess.durata_minuti,
           esercizi: sess.slots.map((slot, slotIdx): WorkoutExerciseInput => {
-            const match = findBestExercise(exercises, slot, template.livello, usedIds);
-            if (match) usedIds.add(match.id);
+            const match = findBestExercise(exercises, slot, template.livello, usedIds, lastEquipment);
+            if (match) {
+              usedIds.add(match.id);
+              if (slot.sezione === "principale") lastEquipment = match.attrezzatura;
+            }
 
             return {
               id_esercizio: match?.id ?? exercises[0].id,

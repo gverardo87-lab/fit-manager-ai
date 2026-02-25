@@ -28,6 +28,8 @@ export interface TemplateExerciseSlot {
   ripetizioni: string;
   /** Tempo riposo in secondi */
   tempo_riposo_sec: number;
+  /** Muscoli target per matching intelligente (es. stretching mirato ai muscoli lavorati) */
+  muscoli_target?: string[];
 }
 
 export interface TemplateSession {
@@ -97,10 +99,10 @@ const BEGINNER_TEMPLATE: WorkoutTemplate = {
         { sezione: "principale", pattern_hint: "hinge", label: "Romanian Deadlift", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 90 },
         { sezione: "principale", pattern_hint: "push_v", label: "Shoulder Press", serie: 2, ripetizioni: "10-12", tempo_riposo_sec: 60 },
         { sezione: "principale", pattern_hint: "core", label: "Plank o Crunch", serie: 3, ripetizioni: "30s", tempo_riposo_sec: 45 },
-        // Stretching
-        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Quadricipiti", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0 },
-        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Pettorali", serie: 1, ripetizioni: "30s", tempo_riposo_sec: 0 },
-        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Dorsali", serie: 1, ripetizioni: "30s", tempo_riposo_sec: 0 },
+        // Stretching — mirato ai muscoli lavorati
+        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Quadricipiti", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["quadriceps"] },
+        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Pettorali", serie: 1, ripetizioni: "30s", tempo_riposo_sec: 0, muscoli_target: ["chest"] },
+        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Dorsali", serie: 1, ripetizioni: "30s", tempo_riposo_sec: 0, muscoli_target: ["lats", "back"] },
       ],
     },
     {
@@ -118,10 +120,10 @@ const BEGINNER_TEMPLATE: WorkoutTemplate = {
         { sezione: "principale", pattern_hint: "squat", label: "Affondi o Leg Press", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 90 },
         { sezione: "principale", pattern_hint: "pull_h", label: "Curl Bicipiti", serie: 2, ripetizioni: "12-15", tempo_riposo_sec: 60 },
         { sezione: "principale", pattern_hint: "core", label: "Russian Twist o Side Plank", serie: 3, ripetizioni: "30s", tempo_riposo_sec: 45 },
-        // Stretching
-        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Femorali", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0 },
-        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Spalle", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0 },
-        { sezione: "stretching", pattern_hint: "mobility", label: "Stretching Schiena (Cat-Cow)", serie: 1, ripetizioni: "10 reps", tempo_riposo_sec: 0 },
+        // Stretching — mirato ai muscoli lavorati
+        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Femorali", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["hamstrings", "glutes"] },
+        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Spalle", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["shoulders"] },
+        { sezione: "stretching", pattern_hint: "mobility", label: "Stretching Schiena (Cat-Cow)", serie: 1, ripetizioni: "10 reps", tempo_riposo_sec: 0, muscoli_target: ["back", "core"] },
       ],
     },
   ],
@@ -156,10 +158,10 @@ const INTERMEDIO_TEMPLATE: WorkoutTemplate = {
         { sezione: "principale", pattern_hint: "pull_h", label: "Rematore", serie: 3, ripetizioni: "8-10", tempo_riposo_sec: 90 },
         { sezione: "principale", pattern_hint: "push_h", label: "Tricipiti", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 60 },
         { sezione: "principale", pattern_hint: "pull_h", label: "Curl Bicipiti", serie: 2, ripetizioni: "10-12", tempo_riposo_sec: 60 },
-        // Stretching
-        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Pettorali", serie: 1, ripetizioni: "30s", tempo_riposo_sec: 0 },
-        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Spalle", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0 },
-        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Tricipiti", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0 },
+        // Stretching — mirato a petto/spalle/tricipiti
+        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Pettorali", serie: 1, ripetizioni: "30s", tempo_riposo_sec: 0, muscoli_target: ["chest"] },
+        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Spalle", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["shoulders"] },
+        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Tricipiti", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["triceps"] },
       ],
     },
     {
@@ -178,10 +180,10 @@ const INTERMEDIO_TEMPLATE: WorkoutTemplate = {
         { sezione: "principale", pattern_hint: "squat", label: "Leg Extension", serie: 3, ripetizioni: "12-15", tempo_riposo_sec: 60 },
         { sezione: "principale", pattern_hint: "hinge", label: "Leg Curl", serie: 3, ripetizioni: "12-15", tempo_riposo_sec: 60 },
         { sezione: "principale", pattern_hint: "squat", label: "Calf Raise", serie: 3, ripetizioni: "15-20", tempo_riposo_sec: 45 },
-        // Stretching
-        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Quadricipiti", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0 },
-        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Femorali", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0 },
-        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Polpacci", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0 },
+        // Stretching — mirato a quad/femorali/polpacci
+        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Quadricipiti", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["quadriceps"] },
+        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Femorali", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["hamstrings"] },
+        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Polpacci", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["calves"] },
       ],
     },
     {
@@ -200,10 +202,10 @@ const INTERMEDIO_TEMPLATE: WorkoutTemplate = {
         { sezione: "principale", pattern_hint: "pull_h", label: "Face Pull o Alzate Lat.", serie: 3, ripetizioni: "12-15", tempo_riposo_sec: 60 },
         { sezione: "principale", pattern_hint: "pull_h", label: "Curl Manubri", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 60 },
         { sezione: "principale", pattern_hint: "push_h", label: "French Press", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 60 },
-        // Stretching
-        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Dorsali", serie: 1, ripetizioni: "30s", tempo_riposo_sec: 0 },
-        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Spalle", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0 },
-        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Collo", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0 },
+        // Stretching — mirato a dorsali/spalle/bicipiti
+        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Dorsali", serie: 1, ripetizioni: "30s", tempo_riposo_sec: 0, muscoli_target: ["lats", "back"] },
+        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Spalle", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["shoulders"] },
+        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Collo", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["traps"] },
       ],
     },
     {
@@ -222,10 +224,10 @@ const INTERMEDIO_TEMPLATE: WorkoutTemplate = {
         { sezione: "principale", pattern_hint: "hinge", label: "Leg Curl Sdraiato", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 60 },
         { sezione: "principale", pattern_hint: "core", label: "Plank o Ab Wheel", serie: 3, ripetizioni: "30-45s", tempo_riposo_sec: 60 },
         { sezione: "principale", pattern_hint: "carry", label: "Farmer Walk", serie: 3, ripetizioni: "30m", tempo_riposo_sec: 60 },
-        // Stretching
-        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Flessori Anca", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0 },
-        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Glutei", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0 },
-        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Schiena (Cat-Cow)", serie: 1, ripetizioni: "10 reps", tempo_riposo_sec: 0 },
+        // Stretching — mirato a glutei/flessori anca/schiena
+        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Flessori Anca", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["quadriceps", "glutes"] },
+        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Glutei", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["glutes"] },
+        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Schiena (Cat-Cow)", serie: 1, ripetizioni: "10 reps", tempo_riposo_sec: 0, muscoli_target: ["back", "core"] },
       ],
     },
   ],
@@ -262,9 +264,9 @@ const AVANZATO_TEMPLATE: WorkoutTemplate = {
         { sezione: "principale", pattern_hint: "push_h", label: "Overhead Extension", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 60 },
         { sezione: "principale", pattern_hint: "push_v", label: "Alzate Frontali", serie: 2, ripetizioni: "12-15", tempo_riposo_sec: 45 },
         // Stretching
-        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Pettorali", serie: 1, ripetizioni: "30s", tempo_riposo_sec: 0 },
-        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Spalle", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0 },
-        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Tricipiti", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0 },
+        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Pettorali", serie: 1, ripetizioni: "30s", tempo_riposo_sec: 0, muscoli_target: ["chest"] },
+        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Spalle", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["shoulders"] },
+        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Tricipiti", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["triceps"] },
       ],
     },
     {
@@ -285,9 +287,9 @@ const AVANZATO_TEMPLATE: WorkoutTemplate = {
         { sezione: "principale", pattern_hint: "pull_h", label: "Curl Martello", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 60 },
         { sezione: "principale", pattern_hint: "pull_h", label: "Rear Delt Fly", serie: 2, ripetizioni: "12-15", tempo_riposo_sec: 45 },
         // Stretching
-        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Dorsali", serie: 1, ripetizioni: "30s", tempo_riposo_sec: 0 },
-        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Collo", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0 },
-        { sezione: "stretching", pattern_hint: "mobility", label: "Open Book", serie: 1, ripetizioni: "8/lato", tempo_riposo_sec: 0 },
+        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Dorsali", serie: 1, ripetizioni: "30s", tempo_riposo_sec: 0, muscoli_target: ["lats", "back"] },
+        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Collo", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["traps"] },
+        { sezione: "stretching", pattern_hint: "mobility", label: "Open Book", serie: 1, ripetizioni: "8/lato", tempo_riposo_sec: 0, muscoli_target: ["back", "shoulders"] },
       ],
     },
     {
@@ -308,9 +310,9 @@ const AVANZATO_TEMPLATE: WorkoutTemplate = {
         { sezione: "principale", pattern_hint: "squat", label: "Calf Raise in Piedi", serie: 4, ripetizioni: "12-15", tempo_riposo_sec: 45 },
         { sezione: "principale", pattern_hint: "core", label: "Crunch Cable", serie: 3, ripetizioni: "15-20", tempo_riposo_sec: 45 },
         // Stretching
-        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Quadricipiti", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0 },
-        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Femorali", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0 },
-        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Polpacci", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0 },
+        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Quadricipiti", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["quadriceps"] },
+        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Femorali", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["hamstrings"] },
+        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Polpacci", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["calves"] },
       ],
     },
     {
@@ -329,8 +331,8 @@ const AVANZATO_TEMPLATE: WorkoutTemplate = {
         { sezione: "principale", pattern_hint: "push_h", label: "Tricipiti Corda", serie: 3, ripetizioni: "12-15", tempo_riposo_sec: 60 },
         { sezione: "principale", pattern_hint: "push_h", label: "Kick Back", serie: 3, ripetizioni: "12-15", tempo_riposo_sec: 45 },
         // Stretching
-        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Pettorali", serie: 1, ripetizioni: "30s", tempo_riposo_sec: 0 },
-        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Tricipiti", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0 },
+        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Pettorali", serie: 1, ripetizioni: "30s", tempo_riposo_sec: 0, muscoli_target: ["chest"] },
+        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Tricipiti", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["triceps"] },
       ],
     },
     {
@@ -349,8 +351,8 @@ const AVANZATO_TEMPLATE: WorkoutTemplate = {
         { sezione: "principale", pattern_hint: "pull_h", label: "Curl Concentrato", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 60 },
         { sezione: "principale", pattern_hint: "pull_h", label: "Curl Cavo Presa Alta", serie: 3, ripetizioni: "12-15", tempo_riposo_sec: 45 },
         // Stretching
-        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Dorsali", serie: 1, ripetizioni: "30s", tempo_riposo_sec: 0 },
-        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Spalle", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0 },
+        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Dorsali", serie: 1, ripetizioni: "30s", tempo_riposo_sec: 0, muscoli_target: ["lats", "back"] },
+        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Spalle", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["shoulders", "biceps"] },
       ],
     },
     {
@@ -371,9 +373,9 @@ const AVANZATO_TEMPLATE: WorkoutTemplate = {
         { sezione: "principale", pattern_hint: "squat", label: "Calf Raise Seduto", serie: 4, ripetizioni: "15-20", tempo_riposo_sec: 45 },
         { sezione: "principale", pattern_hint: "core", label: "Plank Laterale", serie: 3, ripetizioni: "30s", tempo_riposo_sec: 45 },
         // Stretching
-        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Flessori Anca", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0 },
-        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Glutei", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0 },
-        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Adduttori", serie: 1, ripetizioni: "30s", tempo_riposo_sec: 0 },
+        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Flessori Anca", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["quadriceps", "glutes"] },
+        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Glutei", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["glutes", "hamstrings"] },
+        { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Adduttori", serie: 1, ripetizioni: "30s", tempo_riposo_sec: 0, muscoli_target: ["adductors"] },
       ],
     },
   ],
