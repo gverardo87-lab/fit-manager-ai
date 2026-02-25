@@ -10,9 +10,9 @@
  * dal database, in base a pattern_movimento/categoria e difficolta.
  */
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Zap, TrendingUp, Flame, FileText } from "lucide-react";
+import { Zap, TrendingUp, Flame, FileText, User } from "lucide-react";
 
 import {
   Dialog,
@@ -22,6 +22,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import {
   WORKOUT_TEMPLATES,
@@ -31,6 +38,7 @@ import {
 } from "@/lib/workout-templates";
 import { useCreateWorkout } from "@/hooks/useWorkouts";
 import { useExercises } from "@/hooks/useExercises";
+import { useClients } from "@/hooks/useClients";
 import type { Exercise, WorkoutSessionInput, WorkoutExerciseInput } from "@/types/api";
 
 // ════════════════════════════════════════════════════════════
@@ -174,6 +182,16 @@ export function TemplateSelector({ open, onOpenChange, clientId }: TemplateSelec
   const createWorkout = useCreateWorkout();
   const { data: exerciseData } = useExercises();
   const exercises = useMemo(() => exerciseData?.items ?? [], [exerciseData]);
+  const { data: clientsData } = useClients();
+  const clients = useMemo(() => clientsData?.items ?? [], [clientsData]);
+
+  // State locale per selezione cliente — pre-compilato se prop esiste
+  const [selectedClientId, setSelectedClientId] = useState<number | null>(clientId ?? null);
+
+  // Sync prop → state quando il dialog si apre
+  useEffect(() => {
+    if (open) setSelectedClientId(clientId ?? null);
+  }, [open, clientId]);
 
   const handleSelectTemplate = useCallback(
     (template: WorkoutTemplate) => {
@@ -213,7 +231,7 @@ export function TemplateSelector({ open, onOpenChange, clientId }: TemplateSelec
           livello: template.livello,
           sessioni_per_settimana: template.sessioni_per_settimana,
           durata_settimane: template.durata_settimane,
-          id_cliente: clientId ?? null,
+          id_cliente: selectedClientId,
           sessioni,
         },
         {
@@ -224,7 +242,7 @@ export function TemplateSelector({ open, onOpenChange, clientId }: TemplateSelec
         },
       );
     },
-    [createWorkout, clientId, onOpenChange, router, exercises],
+    [createWorkout, selectedClientId, onOpenChange, router, exercises],
   );
 
   const handleBlankSheet = useCallback(() => {
@@ -236,7 +254,7 @@ export function TemplateSelector({ open, onOpenChange, clientId }: TemplateSelec
         livello: "intermedio",
         sessioni_per_settimana: 3,
         durata_settimane: 4,
-        id_cliente: clientId ?? null,
+        id_cliente: selectedClientId,
         sessioni: [
           {
             nome_sessione: "Sessione 1",
@@ -260,7 +278,7 @@ export function TemplateSelector({ open, onOpenChange, clientId }: TemplateSelec
         },
       },
     );
-  }, [createWorkout, clientId, onOpenChange, router, exercises]);
+  }, [createWorkout, selectedClientId, onOpenChange, router, exercises]);
 
   const isLoading = !exerciseData || exercises.length === 0;
 
@@ -273,6 +291,27 @@ export function TemplateSelector({ open, onOpenChange, clientId }: TemplateSelec
             Scegli un template di partenza o crea una scheda vuota da personalizzare.
           </DialogDescription>
         </DialogHeader>
+
+        {/* Selezione cliente */}
+        <div className="flex items-center gap-3">
+          <User className="h-4 w-4 text-muted-foreground shrink-0" />
+          <Select
+            value={selectedClientId ? String(selectedClientId) : "__none__"}
+            onValueChange={(v) => setSelectedClientId(v === "__none__" ? null : Number(v))}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Seleziona cliente (opzionale)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">Nessun cliente (scheda generica)</SelectItem>
+              {clients.map((c) => (
+                <SelectItem key={c.id} value={String(c.id)}>
+                  {c.nome} {c.cognome}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mt-4">
           {WORKOUT_TEMPLATES.map((template) => (
