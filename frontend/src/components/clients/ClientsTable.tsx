@@ -53,22 +53,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatShortDate, getFinanceBarColor } from "@/lib/format";
 import type { ClientEnriched } from "@/types/api";
-
-// ── Helpers ──
-
-function formatShortDate(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString("it-IT", { day: "numeric", month: "short", year: "numeric" });
-}
-
-/** Classe colore per progress bar finanze. */
-function getFinanceBarColor(ratio: number): string {
-  if (ratio >= 0.8) return "bg-emerald-500";
-  if (ratio >= 0.4) return "bg-amber-500";
-  return "bg-red-500";
-}
 
 // ── Component ──
 

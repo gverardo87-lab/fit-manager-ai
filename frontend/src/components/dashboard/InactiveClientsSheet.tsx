@@ -36,6 +36,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { useInactiveClients } from "@/hooks/useDashboard";
+import { formatShortDate } from "@/lib/format";
 
 // ── Helpers ──
 
@@ -45,15 +46,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   CORSO: "Corso",
   COLLOQUIO: "Colloquio",
 };
-
-function formatDate(iso: string): string {
-  const d = new Date(iso + "T00:00:00");
-  return d.toLocaleDateString("it-IT", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 function inattivitaColor(giorni: number): string {
   if (giorni >= 30) return "text-red-600 dark:text-red-400";
@@ -146,7 +138,7 @@ export function InactiveClientsSheet({ open, onOpenChange }: InactiveClientsShee
                     <Clock className="h-3 w-3" />
                     {item.ultimo_evento_data ? (
                       <span>
-                        Ultima sessione: {formatDate(item.ultimo_evento_data)}
+                        Ultima sessione: {formatShortDate(item.ultimo_evento_data)}
                         {item.ultimo_evento_categoria && (
                           <> ({CATEGORY_LABELS[item.ultimo_evento_categoria] ?? item.ultimo_evento_categoria})</>
                         )}

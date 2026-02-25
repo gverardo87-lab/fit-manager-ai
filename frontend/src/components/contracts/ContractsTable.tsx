@@ -51,20 +51,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { ContractListItem } from "@/types/api";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, getFinanceBarColor } from "@/lib/format";
 
 interface ContractsTableProps {
   contracts: ContractListItem[];
   onEdit: (contract: ContractListItem) => void;
   onDelete: (contract: ContractListItem) => void;
   onNewContract?: () => void;
-}
-
-/** Colore progress bar finanze (pattern identico a ClientsTable). */
-function getFinanceBarColor(ratio: number): string {
-  if (ratio >= 0.8) return "bg-emerald-500";
-  if (ratio >= 0.4) return "bg-amber-500";
-  return "bg-red-500";
 }
 
 function getPaymentBadge(contract: ContractListItem) {

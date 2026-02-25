@@ -58,6 +58,7 @@ import {
   downloadBackup,
   exportTrainerData,
 } from "@/hooks/useBackup";
+import { formatDateTime } from "@/lib/format";
 
 // ── Helpers ──
 
@@ -66,16 +67,6 @@ function formatBytes(bytes: number): string {
   const kb = bytes / 1024;
   if (kb < 1024) return `${kb.toFixed(0)} KB`;
   return `${(kb / 1024).toFixed(1)} MB`;
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString("it-IT", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 // ── Page ──
@@ -239,7 +230,7 @@ export default function ImpostazioniPage() {
                       {backup.filename}
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">{formatBytes(backup.size_bytes)}</TableCell>
-                    <TableCell className="hidden sm:table-cell">{formatDate(backup.created_at)}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{formatDateTime(backup.created_at)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button

@@ -34,7 +34,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { useExpiringContracts } from "@/hooks/useDashboard";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatShortDate } from "@/lib/format";
 
 // ── Helpers ──
 
@@ -48,15 +48,6 @@ function countdownColor(giorni: number): string {
   if (giorni <= 3) return "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800";
   if (giorni <= 7) return "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800";
   return "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800";
-}
-
-function formatDate(iso: string): string {
-  const d = new Date(iso + "T00:00:00");
-  return d.toLocaleDateString("it-IT", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
 }
 
 // ════════════════════════════════════════════════════════════
@@ -149,7 +140,7 @@ export function ExpiringContractsSheet({ open, onOpenChange }: ExpiringContracts
                       </div>
                       <div className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
-                        <span>Scade il {formatDate(item.data_scadenza)}</span>
+                        <span>Scade il {formatShortDate(item.data_scadenza)}</span>
                       </div>
                     </div>
 

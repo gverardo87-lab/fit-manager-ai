@@ -36,7 +36,6 @@ from api.schemas.exercise import (
     ExerciseRelationResponse,
     ExerciseResponse,
     ExerciseUpdate,
-    VALID_MEDIA_TYPES,
 )
 
 logger = logging.getLogger("fitmanager.api")

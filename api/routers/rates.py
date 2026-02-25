@@ -20,7 +20,7 @@ Pagamento Atomico (POST /api/rates/{id}/pay):
   F) session.commit() SOLO alla fine (rollback automatico su eccezione)
 """
 
-from typing import List, Optional
+from typing import Optional
 from datetime import date, datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import Session, select, func

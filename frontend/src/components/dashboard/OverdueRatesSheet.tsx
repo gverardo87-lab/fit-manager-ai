@@ -44,20 +44,11 @@ import {
 } from "@/components/ui/sheet";
 import { useOverdueRates } from "@/hooks/useDashboard";
 import { usePayRate } from "@/hooks/useRates";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatShortDate } from "@/lib/format";
 import type { OverdueRateItem } from "@/types/api";
 import { PAYMENT_METHODS } from "@/types/api";
 
 // ── Helpers ──
-
-function formatDate(iso: string): string {
-  const d = new Date(iso + "T00:00:00");
-  return d.toLocaleDateString("it-IT", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 function ritardoLabel(giorni: number): string {
   if (giorni === 1) return "1 giorno di ritardo";
@@ -187,7 +178,7 @@ export function OverdueRatesSheet({ open, onOpenChange }: OverdueRatesSheetProps
                       </div>
                       <div className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
-                        <span>Scad. {formatDate(item.data_scadenza)}</span>
+                        <span>Scad. {formatShortDate(item.data_scadenza)}</span>
                       </div>
                     </div>
 

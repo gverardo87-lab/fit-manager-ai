@@ -88,6 +88,7 @@ export function useUpdateClient() {
     },
     onSuccess: (client) => {
       queryClient.invalidateQueries({ queryKey: ["clients"] });
+      queryClient.invalidateQueries({ queryKey: ["client", client.id] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       toast.success(`${client.nome} ${client.cognome} aggiornato`);
     },

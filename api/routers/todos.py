@@ -9,7 +9,7 @@ Soft delete con deleted_at.
 from datetime import date, datetime, timezone
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlmodel import Session, select, func
+from sqlmodel import Session, select
 from pydantic import BaseModel, Field
 
 from api.database import get_session

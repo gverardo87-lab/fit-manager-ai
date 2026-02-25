@@ -237,6 +237,8 @@ Errori reali trovati e corretti. MAI ripeterli.
 | `ha_rate_scadute` ignora contratti scaduti | Solo `rate.data_scadenza < today`, non considera contratto expired con rate future non saldate | `or_(Rate.data_scadenza < today, Contract.data_scadenza < today)` in contracts.py e clients.py |
 | KPI "Rate Scadute" conta contratti | `func.count(func.distinct(Rate.id_contratto))` conta contratti, non rate reali | `func.count(Rate.id)` per conteggio rate effettive (contracts), label corretta per clienti |
 | Badge dentro `SelectTrigger` Radix | `position="item-aligned"` (default) richiede `SelectValue` nel trigger per calcolare posizione dropdown. Badge/div sostitutivo → dropdown non si apre silenziosamente | Usare SEMPRE `SelectValue` + `position="popper"` per trigger custom. Mai sostituire `SelectValue` con Badge |
+| `useUpdateClient` stale profile | `onSuccess` invalidava `["clients"]` lista ma non `["client", id]` → profilo cliente non si aggiornava dopo modifica | Invalidare SEMPRE sia la lista `["entities"]` che il dettaglio `["entity", id]` in ogni mutation di update |
+| Utility duplicate in 8+ file | `formatShortDate`, `getFinanceBarColor` copia-incollate in ogni componente → divergenza e manutenzione impossibile | Centralizzare in `lib/format.ts` e importare. MAI definire utility di formattazione localmente |
 
 ---
 

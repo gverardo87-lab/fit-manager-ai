@@ -176,7 +176,7 @@ export function SessionCard({
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-sm font-bold text-primary">
           {session.numero_sessione}
         </div>
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 group">
           {isEditingName ? (
             <Input
               value={editName}

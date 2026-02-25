@@ -11,7 +11,7 @@ Regola 404: se il contratto non esiste O non appartiene al trainer -> 404.
 Mai 403, mai rivelare l'esistenza di dati altrui.
 """
 
-from typing import List, Optional
+from typing import Optional
 from datetime import date, datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import Session, or_, select, func

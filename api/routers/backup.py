@@ -16,7 +16,6 @@ Sicurezza:
 - Export filtra per trainer_id + esclude soft-deleted
 """
 
-import json
 import logging
 import shutil
 import sqlite3

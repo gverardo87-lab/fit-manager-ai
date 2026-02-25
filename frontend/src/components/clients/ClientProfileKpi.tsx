@@ -15,22 +15,11 @@ import {
 } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatShortDate, getFinanceBarColor } from "@/lib/format";
 import type { ClientEnriched } from "@/types/api";
 
 interface ClientProfileKpiProps {
   client: ClientEnriched;
-}
-
-function formatShortDate(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString("it-IT", { day: "numeric", month: "short", year: "numeric" });
-}
-
-function getFinanceBarColor(ratio: number): string {
-  if (ratio >= 0.8) return "bg-emerald-500";
-  if (ratio >= 0.4) return "bg-amber-500";
-  return "bg-red-500";
 }
 
 export function ClientProfileKpi({ client }: ClientProfileKpiProps) {

@@ -46,7 +46,7 @@ frontend/src/
 ├── lib/
 │   ├── api-client.ts        Axios + JWT interceptor + extractErrorMessage
 │   ├── auth.ts              Login/logout/cookie management
-│   ├── format.ts            formatCurrency + toISOLocal centralizzati
+│   ├── format.ts            5 utility: formatCurrency, toISOLocal, formatShortDate, formatDateTime, getFinanceBarColor
 │   ├── contraindication-engine.ts  Motore controindicazioni anamnesi (classify, extract, batch)
 │   ├── workout-templates.ts Template schede + getSectionForCategory + SECTION_CATEGORIES
 │   └── providers.tsx        QueryClientProvider
@@ -206,13 +206,19 @@ Blocca navigazione e selezione oltre la data. Applicato a:
 
 ### Utility centralizzate (`lib/format.ts`)
 ```typescript
-import { formatCurrency, toISOLocal } from "@/lib/format";
+import { formatCurrency, toISOLocal, formatShortDate, formatDateTime, getFinanceBarColor } from "@/lib/format";
 ```
 - `formatCurrency(amount)` — formatta EUR italiana ("€ 1.200,00")
 - `toISOLocal(date)` — ISO string in ora locale SENZA suffisso "Z".
   Critico per D&D e form: `toISOString()` converte in UTC perdendo l'offset
   fuso orario (es. 12:00 CET → 11:00Z). Il backend salva datetime naive,
   quindi DEVE ricevere l'ora locale. MAI usare `toISOString()` per payload API.
+- `formatShortDate(dateStr, withYear?)` — "3 gen 2026" (default) o "3 gen" (withYear=false)
+- `formatDateTime(iso)` — "25/02/2026, 14:30" (data + ora)
+- `getFinanceBarColor(ratio)` — classe Tailwind progress bar (emerald/amber/red)
+
+MAI definire `formatShortDate`, `formatDate`, `getFinanceBarColor` localmente nei componenti.
+Importare SEMPRE da `@/lib/format`.
 
 ### Error Handling
 ```typescript

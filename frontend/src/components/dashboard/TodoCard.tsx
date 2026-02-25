@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useTodos, useCreateTodo, useToggleTodo, useDeleteTodo } from "@/hooks/useTodos";
+import { formatShortDate } from "@/lib/format";
 import type { Todo } from "@/types/api";
 
 // ── Urgency colors based on scadenza ──
@@ -43,11 +44,6 @@ function getDateBadgeClass(todo: Todo): string {
   if (todo.data_scadenza < today) return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
   if (todo.data_scadenza === today) return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
   return "bg-muted text-muted-foreground";
-}
-
-function formatShortDate(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString("it-IT", { day: "numeric", month: "short" });
 }
 
 // ── Component ──
@@ -230,7 +226,7 @@ function TodoItem({
       {/* Date badge */}
       {todo.data_scadenza && (
         <span className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-medium ${dateBadgeClass}`}>
-          {formatShortDate(todo.data_scadenza)}
+          {formatShortDate(todo.data_scadenza, false)}
         </span>
       )}
 
