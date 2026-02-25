@@ -34,6 +34,8 @@ frontend/src/
 │   │                        OverdueRatesSheet, ExpiringContractsSheet, InactiveClientsSheet)
 │   ├── exercises/           Componenti dominio esercizi (ExercisesTable, ExerciseSheet,
 │   │                        ExerciseForm, DeleteExerciseDialog, MuscleMap, exercise-constants)
+│   ├── workouts/            Componenti dominio schede (SessionCard, SortableExerciseRow,
+│   │                        ExerciseSelector, TemplateSelector, WorkoutPreview, ExportButtons)
 │   ├── movements/           Componenti dominio cassa (MovementsTable, MovementSheet,
 │   │                        DeleteMovementDialog, RecurringExpensesTab (con EditDialog,
 │   │                        AddForm, ExpensesTable, AlertDialog delete confirm),
@@ -45,6 +47,8 @@ frontend/src/
 │   ├── api-client.ts        Axios + JWT interceptor + extractErrorMessage
 │   ├── auth.ts              Login/logout/cookie management
 │   ├── format.ts            formatCurrency + toISOLocal centralizzati
+│   ├── contraindication-engine.ts  Motore controindicazioni anamnesi (classify, extract, batch)
+│   ├── workout-templates.ts Template schede + getSectionForCategory + SECTION_CATEGORIES
 │   └── providers.tsx        QueryClientProvider
 └── types/
     └── api.ts               TypeScript interfaces (mirror Pydantic)
@@ -450,8 +454,38 @@ type NavSection = { section: string; items: NavLink[] };
 type NavEntry = NavLink | NavSection;
 ```
 
-Struttura: Dashboard, Agenda (top-level) → Clienti (sezione) → Contabilita' (Contratti, Cassa) → Allenamento (Esercizi).
+Struttura: Dashboard, Agenda (top-level) → Clienti (sezione) → Contabilita' (Contratti, Cassa) → Allenamento (Esercizi, Schede).
 Impostazioni pinned in fondo via `mt-auto`. Search trigger sopra la nav.
+
+## Exercise Selector — Pattern Professionale
+
+> **Filosofia: INFORMARE, mai LIMITARE.** Per laureati in scienze motorie.
+
+`ExerciseSelector.tsx` — dialog per selezionare esercizi con filtri intelligenti.
+
+### Filtro sezione automatico
+- **Avviamento**: `categoryFilter = ["avviamento"]` → 26 esercizi
+- **Stretching**: `categoryFilter = ["stretching", "mobilita"]` → 54 esercizi
+- **Principale**: nessun filtro categoria → 265 esercizi con chip filtro pattern/attrezzatura
+- Il `categoryFilter` viene passato sia da "Aggiungi" che da "Sostituisci" (deduce sezione dall'esercizio corrente)
+
+### Chip filtri (solo sezione Principale)
+Due righe di chip cliccabili con conteggio:
+- **Pattern movimento**: Squat, Hinge, Push Orizz./Vert., Pull Orizz./Vert., Core, Rotazione, Carry
+- **Attrezzatura**: Corpo libero, Bilanciere, Manubri, Kettlebell, Cavi, Macchina, TRX, Elastici
+
+### Anamnesi — badge informativi
+- Badge rosso "Controindicato" + icona ShieldAlert per `avoid`
+- Badge ambra "Cautela" + icona AlertTriangle per `caution`
+- Motivo visibile sotto il nome (es. "Pattern squat da evitare per ginocchio")
+- Toggle "Filtra" opzionale (OFF di default) — il trainer vede SEMPRE tutto
+- NESSUN riordinamento per safety — ordine naturale del database
+
+### Contraindication Engine (`lib/contraindication-engine.ts`)
+Motore deterministico: `extractTagsFromAnamnesi()` → body part tags → `classifyExercise()` → safe/caution/avoid.
+- 30+ keyword italiane → 11 body part tags + 3 medical flags
+- Regole per tag: `avoid_patterns`, `caution_patterns`, `caution_muscles`
+- Ibrido: prima check DB `controindicazioni` (Ollama), poi rule-based inference
 
 ## Build
 

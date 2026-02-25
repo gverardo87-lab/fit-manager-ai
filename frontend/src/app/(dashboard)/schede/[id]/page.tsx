@@ -190,9 +190,13 @@ export default function SchedaDetailPage({
   }, []);
 
   const handleReplaceExercise = useCallback((sessionId: number, exerciseId: number) => {
-    setSelectorContext({ sessionId, exerciseId });
+    // Deduce la sezione dall'esercizio che si sta sostituendo
+    const session = sessions.find((s) => s.id === sessionId);
+    const exercise = session?.esercizi.find((e) => e.id === exerciseId);
+    const sezione = exercise ? getSectionForCategory(exercise.esercizio_categoria) : undefined;
+    setSelectorContext({ sessionId, exerciseId, sezione });
     setSelectorOpen(true);
-  }, []);
+  }, [sessions]);
 
   const handleExerciseSelected = useCallback((exercise: Exercise) => {
     if (!selectorContext) return;
@@ -466,15 +470,15 @@ export default function SchedaDetailPage({
         </div>
       </div>
 
-      {/* ── Banner anamnesi ── */}
+      {/* ── Banner anamnesi — informativo, il trainer decide ── */}
       {anamnesiSummary.length > 0 && (
         <div className="flex items-start gap-2 rounded-lg border-l-4 border-amber-400 bg-amber-50 p-3 dark:bg-amber-950/30" data-print-hide>
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
           <div className="flex-1 text-xs">
-            <span className="font-medium text-amber-800 dark:text-amber-300">Scudo Anamnesi attivo</span>
-            <span className="text-amber-700 dark:text-amber-400"> — {anamnesiSummary.join(", ")}. </span>
+            <span className="font-medium text-amber-800 dark:text-amber-300">Anamnesi cliente</span>
+            <span className="text-amber-700 dark:text-amber-400"> — {anamnesiSummary.join(", ")}. Gli esercizi mostrano indicatori di cautela. </span>
             <Link href={`/clienti/${plan.id_cliente}`} className="text-amber-700 underline hover:text-amber-900 dark:text-amber-400">
-              Vedi anamnesi
+              Dettagli
             </Link>
           </div>
         </div>

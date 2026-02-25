@@ -61,18 +61,46 @@ File: `frontend/src/components/layout/CommandPalette.tsx` (~700 LOC).
 
 Editor strutturato per creare schede allenamento professionali. Layout split: editor (sinistra) + preview live (destra, desktop).
 
-**Backend**: 3 tabelle (`schede_allenamento`, `sessioni_scheda`, `esercizi_sessione`) con Deep IDOR chain: `EsercizioSessione → SessioneScheda → SchedaAllenamento.trainer_id`. CRUD completo + duplicate + full-replace sessioni (atomico).
+**Backend**: 3 tabelle (`schede_allenamento`, `sessioni_scheda`, `esercizi_sessione`) con Deep IDOR chain: `EsercizioSessione → SessioneScheda → SchedaAllenamento.trainer_id`. CRUD completo + duplicate + full-replace sessioni (atomico). `id_cliente` FK opzionale per collegare schede a clienti (riassegnabile via PUT con bouncer check).
 
 **Frontend**: 3 sezioni per sessione — Avviamento, Principale, Stretching & Mobilita.
 - **Template system**: 3 template (Beginner/Intermedio/Avanzato) con smart matching esercizi per `pattern_movimento` + difficolta
-- **Exercise Selector**: dialog con filtro categoria per sezione (avviamento mostra solo avviamento, ecc.)
+- **Exercise Selector**: dialog professionale con filtri pattern_movimento + attrezzatura (chip cliccabili) + ricerca testuale. Filtro categoria automatico per sezione (avviamento mostra solo avviamento, stretching mostra solo stretching/mobilita, principale mostra tutto il resto)
 - **DnD**: `@dnd-kit/sortable` per riordino esercizi dentro ogni sezione
 - **Export**: Excel via `exceljs` (3 sezioni colorate) + Print/PDF via `@media print`
-- **209 esercizi** builtin: 174 originali + 12 avviamento + 12 stretching + 12 mobilita (nuovo seed)
+- **Client linkage**: assegnazione/riassegnazione cliente inline (Select + `"__none__"` sentinel), filtro cliente nella lista, tab "Schede" nel profilo cliente, cross-link bidirezionale
+- **TemplateSelector**: dialog con selezione cliente integrata (`selectedClientId` state, pre-compilato da contesto)
+- **345 esercizi** builtin (265 principale + 26 avviamento + 27 stretching + 27 mobilita)
 - Categorie: `compound`, `isolation`, `bodyweight`, `cardio`, `stretching`, `mobilita`, `avviamento`
 - Pattern: 9 forza (`squat`, `hinge`, `push_h/v`, `pull_h/v`, `core`, `rotation`, `carry`) + 3 complementari (`warmup`, `stretch`, `mobility`)
 
 File chiave: `lib/workout-templates.ts` (template + `getSectionForCategory`), `components/workouts/SessionCard.tsx` (3 sezioni DnD).
+
+### Motore Controindicazioni Anamnesi — Scudo Informativo
+
+> **Filosofia: INFORMARE, mai LIMITARE.** Il sistema e' progettato per laureati in scienze motorie.
+> Il trainer decide SEMPRE. Il motore fornisce indicatori visivi, mai blocchi o restrizioni.
+
+Motore deterministico frontend-only che incrocia anamnesi cliente con esercizi. Zero latenza, nessuna dipendenza backend.
+
+**File**: `frontend/src/lib/contraindication-engine.ts` (~250 LOC)
+
+**Logica ibrida** (ordine priorita'):
+1. `exercise.controindicazioni` (DB, popolato da Ollama) → match con body part tags → `avoid`
+2. `pattern_movimento` in `avoid_patterns` della regola body part → `avoid`
+3. `pattern_movimento` in `caution_patterns` → `caution`
+4. `muscoli_primari` overlap con `caution_muscles` → `caution`
+5. Condizione cardiaca + compound/cardio → `caution`
+6. Altrimenti → `safe`
+
+**Estrazione anamnesi**: `extractTagsFromAnamnesi()` scansiona TUTTI i campi `AnamnesiQuestion.dettaglio` + `limitazioni_funzionali` + `note`. Keyword matching italiano→tag standardizzati (30+ keyword → 11 body part tags + 3 medical flags).
+
+**Integrazione UI**:
+- `ExerciseSelector`: badge informativi (rosso "Controindicato", ambra "Cautela") + motivo visibile. Toggle opzionale "Filtra" (OFF di default). NESSUN riordinamento safety — ordine naturale.
+- `SortableExerciseRow`: icone ShieldAlert/AlertTriangle accanto al nome (hover mostra motivi)
+- `SessionCard`: passa `exerciseSafetyMap` da classifyExercises()
+- `TemplateSelector`: smart matching penalizza `caution` (-15) e filtra `avoid` (solo per generazione template, il trainer puo' sempre aggiungere manualmente)
+- Banner "Anamnesi cliente" nel builder: informativo, link a profilo cliente
 
 ---
 
@@ -127,7 +155,7 @@ def update_rate(rate_id, data, trainer, session):
 
 ### 2. Deep Relational IDOR (Backend)
 Ogni operazione verifica ownership attraverso la catena FK:
-`Rate → Contract.trainer_id` | `Contract → Client.trainer_id` | `Event → trainer_id`
+`Rate → Contract.trainer_id` | `Contract → Client.trainer_id` | `Event → trainer_id` | `SchedaAllenamento.id_cliente → Client.trainer_id`
 
 Se non trovato → 404. Mai 403 (non rivelare esistenza di dati altrui).
 
@@ -208,6 +236,7 @@ Errori reali trovati e corretti. MAI ripeterli.
 | Rate oltre scadenza contratto | Nessuna validazione date rate vs contratto → rate orfane dopo scadenza | Boundary check bidirezionale: create/update rate (422) + update contract (422) + DatePicker maxDate |
 | `ha_rate_scadute` ignora contratti scaduti | Solo `rate.data_scadenza < today`, non considera contratto expired con rate future non saldate | `or_(Rate.data_scadenza < today, Contract.data_scadenza < today)` in contracts.py e clients.py |
 | KPI "Rate Scadute" conta contratti | `func.count(func.distinct(Rate.id_contratto))` conta contratti, non rate reali | `func.count(Rate.id)` per conteggio rate effettive (contracts), label corretta per clienti |
+| Badge dentro `SelectTrigger` Radix | `position="item-aligned"` (default) richiede `SelectValue` nel trigger per calcolare posizione dropdown. Badge/div sostitutivo → dropdown non si apre silenziosamente | Usare SEMPRE `SelectValue` + `position="popper"` per trigger custom. Mai sostituire `SelectValue` con Badge |
 
 ---
 

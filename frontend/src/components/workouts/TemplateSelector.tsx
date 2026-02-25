@@ -358,14 +358,13 @@ export function TemplateSelector({ open, onOpenChange, clientId }: TemplateSelec
           </Select>
         </div>
 
-        {/* Banner anamnesi */}
+        {/* Banner anamnesi — informativo */}
         {anamnesiSummary.length > 0 && (
           <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/30">
             <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
             <div className="text-xs">
-              <span className="font-medium text-amber-800 dark:text-amber-300">Anamnesi attiva</span>
-              <span className="text-amber-700 dark:text-amber-400"> — I template eviteranno esercizi controindicati per: </span>
-              <span className="font-medium text-amber-800 dark:text-amber-300">{anamnesiSummary.join(", ")}</span>
+              <span className="font-medium text-amber-800 dark:text-amber-300">Anamnesi cliente</span>
+              <span className="text-amber-700 dark:text-amber-400"> — {anamnesiSummary.join(", ")}. I template privilegeranno esercizi compatibili.</span>
             </div>
           </div>
         )}

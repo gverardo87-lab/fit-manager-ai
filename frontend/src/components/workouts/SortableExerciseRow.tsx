@@ -72,9 +72,7 @@ export function SortableExerciseRow({
         {/* Nome esercizio */}
         <button
           onClick={onReplace}
-          className={`flex items-center gap-1 text-left text-xs truncate hover:text-primary transition-colors ${
-            safety?.safety === "avoid" ? "text-red-600 dark:text-red-400" : ""
-          }`}
+          className="flex items-center gap-1 text-left text-xs truncate hover:text-primary transition-colors"
           title={safety && safety.safety !== "safe" ? safety.reasons.join(" · ") : `${exercise.esercizio_nome} — clicca per sostituire`}
         >
           {safety?.safety === "avoid" && <ShieldAlert className="h-3 w-3 shrink-0 text-red-500" />}
@@ -131,9 +129,7 @@ export function SortableExerciseRow({
       {/* Nome esercizio (cliccabile per sostituire) */}
       <button
         onClick={onReplace}
-        className={`flex items-center gap-1 text-left text-sm truncate hover:text-primary transition-colors ${
-          safety?.safety === "avoid" ? "text-red-600 dark:text-red-400" : ""
-        }`}
+        className="flex items-center gap-1 text-left text-sm truncate hover:text-primary transition-colors"
         title={safety && safety.safety !== "safe" ? safety.reasons.join(" · ") : `${exercise.esercizio_nome} — clicca per sostituire`}
       >
         {safety?.safety === "avoid" && <ShieldAlert className="h-3.5 w-3.5 shrink-0 text-red-500" />}

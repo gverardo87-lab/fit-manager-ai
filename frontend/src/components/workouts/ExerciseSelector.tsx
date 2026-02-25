@@ -3,14 +3,20 @@
 
 /**
  * Dialog per cercare e selezionare un esercizio dal database.
- * Ricerca per nome + filtri rapidi (categoria, attrezzatura).
  *
- * Se `clientAnamnesi` fornita: classifica esercizi come safe/caution/avoid
- * e mostra indicatori visivi + toggle per nascondere controindicati.
+ * Filosofia: INFORMARE, mai LIMITARE.
+ * Il trainer (laureato in scienze motorie) decide sempre.
+ *
+ * UX professionale:
+ * - Filtri per pattern_movimento (come ragiona il PT: squat, hinge, push, pull...)
+ * - Filtri per attrezzatura disponibile
+ * - Indicatori anamnesi informativi (badge, non blocchi)
+ * - Ricerca per nome/categoria/attrezzatura
+ * - Nessun limite artificiale: il PT vede TUTTO il catalogo
  */
 
 import { useState, useMemo } from "react";
-import { Search, X, AlertTriangle, ShieldAlert, Eye, EyeOff } from "lucide-react";
+import { Search, X, AlertTriangle, ShieldAlert, Filter } from "lucide-react";
 
 import {
   Dialog,
@@ -36,14 +42,39 @@ interface ExerciseSelectorProps {
   patternHint?: string;
   /** Filtra per categorie specifiche (es. ["stretching", "mobilita"]) */
   categoryFilter?: string[];
-  /** Se fornita, attiva lo scudo protettivo anamnesi */
+  /** Se fornita, mostra indicatori sicurezza anamnesi */
   clientAnamnesi?: AnamnesiData | null;
 }
+
+// ── Labels professionali (come ragiona il PT) ──
 
 const DIFFICULTY_LABELS: Record<string, string> = {
   beginner: "Base",
   intermediate: "Intermedio",
   advanced: "Avanzato",
+};
+
+const PATTERN_LABELS: Record<string, string> = {
+  squat: "Squat",
+  hinge: "Hinge",
+  push_h: "Push Orizz.",
+  push_v: "Push Vert.",
+  pull_h: "Pull Orizz.",
+  pull_v: "Pull Vert.",
+  core: "Core",
+  rotation: "Rotazione",
+  carry: "Carry",
+};
+
+const EQUIPMENT_LABELS: Record<string, string> = {
+  bodyweight: "Corpo libero",
+  barbell: "Bilanciere",
+  dumbbell: "Manubri",
+  kettlebell: "Kettlebell",
+  cable: "Cavi",
+  machine: "Macchina",
+  trx: "TRX",
+  band: "Elastici",
 };
 
 export function ExerciseSelector({
@@ -55,10 +86,17 @@ export function ExerciseSelector({
   clientAnamnesi,
 }: ExerciseSelectorProps) {
   const [search, setSearch] = useState("");
-  const [hideAvoided, setHideAvoided] = useState(true);
+  const [selectedPattern, setSelectedPattern] = useState<string | null>(null);
+  const [selectedEquipment, setSelectedEquipment] = useState<string | null>(null);
+  // Default OFF — il trainer vede SEMPRE tutti gli esercizi
+  const [filterUnsafe, setFilterUnsafe] = useState(false);
   const { data } = useExercises();
 
   const exercises = data?.items ?? [];
+
+  // E' la sezione "principale"? (mostra filtri pattern/attrezzatura)
+  const isPrincipale = !categoryFilter || categoryFilter.length === 0 ||
+    categoryFilter.some((c) => ["compound", "isolation", "bodyweight", "cardio"].includes(c));
 
   // Classificazione sicurezza (solo se anamnesi presente)
   const safetyMap = useMemo(() => {
@@ -66,61 +104,94 @@ export function ExerciseSelector({
     return classifyExercises(exercises, clientAnamnesi);
   }, [exercises, clientAnamnesi]);
 
-  // Filtra per nome e categoria (client-side, gia' tutti in memoria)
-  const filtered = useMemo(() => {
-    let result = exercises;
-
-    // Filtro per categorie (es. solo avviamento o solo stretching/mobilita)
+  // Pool base: esercizi filtrati per sezione (categoria)
+  const sectionPool = useMemo(() => {
     if (categoryFilter && categoryFilter.length > 0) {
-      result = result.filter((e) => categoryFilter.includes(e.categoria));
+      return exercises.filter((e) => categoryFilter.includes(e.categoria));
+    }
+    return exercises;
+  }, [exercises, categoryFilter]);
+
+  // Pattern e attrezzature disponibili nella sezione corrente
+  const availablePatterns = useMemo(() => {
+    if (!isPrincipale) return [];
+    const counts = new Map<string, number>();
+    for (const ex of sectionPool) {
+      const p = ex.pattern_movimento;
+      if (p) counts.set(p, (counts.get(p) ?? 0) + 1);
+    }
+    // Ordina per count decrescente
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([pattern, count]) => ({ pattern, count }));
+  }, [sectionPool, isPrincipale]);
+
+  const availableEquipment = useMemo(() => {
+    if (!isPrincipale) return [];
+    const counts = new Map<string, number>();
+    for (const ex of sectionPool) {
+      counts.set(ex.attrezzatura, (counts.get(ex.attrezzatura) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([equip, count]) => ({ equip, count }));
+  }, [sectionPool, isPrincipale]);
+
+  // Pipeline filtraggio completa
+  const filtered = useMemo(() => {
+    let result = sectionPool;
+
+    // Filtro pattern_movimento (chip attivo)
+    if (selectedPattern) {
+      result = result.filter((e) => e.pattern_movimento === selectedPattern);
     }
 
-    // Se c'e' un hint pattern_movimento, ordina quelli per primi
-    if (patternHint) {
+    // Filtro attrezzatura (chip attivo)
+    if (selectedEquipment) {
+      result = result.filter((e) => e.attrezzatura === selectedEquipment);
+    }
+
+    // Se c'e' un hint pattern_movimento (dal template slot), ordina quelli per primi
+    if (patternHint && !selectedPattern) {
       result = [
         ...result.filter((e) => e.pattern_movimento === patternHint),
         ...result.filter((e) => e.pattern_movimento !== patternHint),
       ];
     }
 
+    // Ricerca testuale
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(
         (e) =>
           e.nome.toLowerCase().includes(q) ||
           e.categoria.toLowerCase().includes(q) ||
-          e.attrezzatura.toLowerCase().includes(q),
+          e.attrezzatura.toLowerCase().includes(q) ||
+          e.muscoli_primari.some((m) => m.toLowerCase().includes(q)),
       );
     }
 
-    // Filtra e ordina per sicurezza (se anamnesi attiva)
-    if (safetyMap) {
-      if (hideAvoided) {
-        result = result.filter((e) => safetyMap.get(e.id)?.safety !== "avoid");
-      }
-      // Ordina: safe → caution → avoid
-      const order = { safe: 0, caution: 1, avoid: 2 };
-      result = [...result].sort((a, b) => {
-        const sa = order[safetyMap.get(a.id)?.safety ?? "safe"];
-        const sb = order[safetyMap.get(b.id)?.safety ?? "safe"];
-        return sa - sb;
-      });
+    // Filtro opzionale controindicati (solo se attivato dal trainer)
+    if (safetyMap && filterUnsafe) {
+      result = result.filter((e) => safetyMap.get(e.id)?.safety !== "avoid");
     }
 
-    return result.slice(0, 50); // Limita per performance
-  }, [exercises, search, patternHint, categoryFilter, safetyMap, hideAvoided]);
+    // NESSUN riordinamento per safety — ordine naturale del database
+    return result;
+  }, [sectionPool, search, patternHint, selectedPattern, selectedEquipment, safetyMap, filterUnsafe]);
 
-  // Contatori sicurezza
+  // Contatori sicurezza (sui candidati della sezione)
   const safetyCounts = useMemo(() => {
     if (!safetyMap) return null;
     let safe = 0, caution = 0, avoid = 0;
-    for (const [, r] of safetyMap) {
-      if (r.safety === "safe") safe++;
+    for (const ex of sectionPool) {
+      const r = safetyMap.get(ex.id);
+      if (!r || r.safety === "safe") safe++;
       else if (r.safety === "caution") caution++;
       else avoid++;
     }
     return { safe, caution, avoid };
-  }, [safetyMap]);
+  }, [safetyMap, sectionPool]);
 
   const handleSelect = (exercise: Exercise) => {
     onSelect(exercise);
@@ -128,18 +199,44 @@ export function ExerciseSelector({
     setSearch("");
   };
 
+  const resetFilters = () => {
+    setSearch("");
+    setSelectedPattern(null);
+    setSelectedEquipment(null);
+    setFilterUnsafe(false);
+  };
+
+  // Label dinamica per la sezione
+  const sectionLabel = categoryFilter?.includes("avviamento")
+    ? "Avviamento"
+    : categoryFilter?.includes("stretching")
+      ? "Stretching & Mobilita"
+      : null;
+
+  const hasActiveFilters = !!selectedPattern || !!selectedEquipment || !!search || filterUnsafe;
+
   return (
-    <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) setSearch(""); }}>
+    <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) resetFilters(); }}>
       <DialogContent className="max-w-lg p-0">
         <DialogHeader className="px-4 pt-4 pb-0">
-          <DialogTitle>Seleziona Esercizio</DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle>
+              {sectionLabel ? `Seleziona ${sectionLabel}` : "Seleziona Esercizio"}
+            </DialogTitle>
+            <span className="text-xs text-muted-foreground">
+              {filtered.length} esercizi
+            </span>
+          </div>
         </DialogHeader>
 
         {/* Search bar */}
-        <div className="relative px-4 pb-2">
+        <div className="relative px-4 pb-1">
           <Search className="absolute left-7 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Cerca per nome, categoria, attrezzatura..."
+            placeholder={isPrincipale
+              ? "Cerca per nome, muscolo, attrezzatura..."
+              : "Cerca per nome, categoria..."
+            }
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -155,40 +252,110 @@ export function ExerciseSelector({
           )}
         </div>
 
-        {/* Hints + Safety bar */}
-        <div className="flex items-center gap-2 px-4 pb-1 flex-wrap">
-          {patternHint && (
-            <Badge variant="outline" className="text-xs">
-              Suggerito: {patternHint}
-            </Badge>
-          )}
+        {/* ── Filtri pattern movimento (solo per sezione principale) ── */}
+        {isPrincipale && availablePatterns.length > 0 && (
+          <div className="px-4 pb-1">
+            <div className="flex flex-wrap gap-1">
+              {availablePatterns.map(({ pattern, count }) => (
+                <button
+                  key={pattern}
+                  onClick={() => setSelectedPattern(selectedPattern === pattern ? null : pattern)}
+                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
+                    selectedPattern === pattern
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  {PATTERN_LABELS[pattern] ?? pattern}
+                  <span className={`text-[9px] ${selectedPattern === pattern ? "text-primary-foreground/70" : "text-muted-foreground/60"}`}>
+                    {count}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
+        {/* ── Filtri attrezzatura (solo per sezione principale) ── */}
+        {isPrincipale && availableEquipment.length > 0 && (
+          <div className="px-4 pb-1">
+            <div className="flex flex-wrap gap-1">
+              {availableEquipment.map(({ equip, count }) => (
+                <button
+                  key={equip}
+                  onClick={() => setSelectedEquipment(selectedEquipment === equip ? null : equip)}
+                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
+                    selectedEquipment === equip
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  {EQUIPMENT_LABELS[equip] ?? equip}
+                  <span className={`text-[9px] ${selectedEquipment === equip ? "text-primary-foreground/70" : "text-muted-foreground/60"}`}>
+                    {count}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Anamnesi info bar + reset filtri ── */}
+        <div className="flex items-center gap-2 px-4 pb-1 flex-wrap">
           {safetyCounts && (
             <>
-              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground ml-auto">
+              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                 <span className="text-emerald-600">{safetyCounts.safe} sicuri</span>
                 <span>&middot;</span>
-                <span className="text-amber-600">{safetyCounts.caution} attenzione</span>
-                <span>&middot;</span>
-                <span className="text-red-600">{safetyCounts.avoid} controindicati</span>
+                <span className="text-amber-600">{safetyCounts.caution} cautela</span>
+                {safetyCounts.avoid > 0 && (
+                  <>
+                    <span>&middot;</span>
+                    <span className="text-red-600">{safetyCounts.avoid} controindicati</span>
+                  </>
+                )}
               </div>
-              <button
-                onClick={() => setHideAvoided((v) => !v)}
-                className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-                title={hideAvoided ? "Mostra controindicati" : "Nascondi controindicati"}
-              >
-                {hideAvoided ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                {hideAvoided ? "Nascosti" : "Visibili"}
-              </button>
+
+              {safetyCounts.avoid > 0 && (
+                <button
+                  onClick={() => setFilterUnsafe((v) => !v)}
+                  className={`flex items-center gap-1 text-[11px] transition-colors ${
+                    filterUnsafe
+                      ? "text-primary font-medium"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  title={filterUnsafe ? "Mostra tutti gli esercizi" : "Nascondi controindicati"}
+                >
+                  <Filter className="h-3 w-3" />
+                  {filterUnsafe ? "Filtro attivo" : "Filtra"}
+                </button>
+              )}
             </>
+          )}
+
+          {hasActiveFilters && (
+            <button
+              onClick={resetFilters}
+              className="ml-auto text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Resetta filtri
+            </button>
           )}
         </div>
 
         {/* Results */}
         <ScrollArea className="h-[350px] px-2 pb-2">
           {filtered.length === 0 ? (
-            <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
-              Nessun esercizio trovato
+            <div className="flex flex-col items-center justify-center py-12 gap-2">
+              <p className="text-sm text-muted-foreground">Nessun esercizio trovato</p>
+              {hasActiveFilters && (
+                <button
+                  onClick={resetFilters}
+                  className="text-xs text-primary hover:underline"
+                >
+                  Resetta filtri
+                </button>
+              )}
             </div>
           ) : (
             <div className="space-y-0.5">
@@ -230,11 +397,9 @@ function ExerciseRow({
   return (
     <button
       onClick={() => onSelect(exercise)}
-      className={`flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-muted/70 ${
-        isAvoid ? "opacity-50" : ""
-      }`}
+      className="flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-muted/70"
     >
-      {/* Safety icon */}
+      {/* Safety icon — informativo, non bloccante */}
       {safety && safety.safety !== "safe" && (
         <div className="mt-0.5 shrink-0" title={safety.reasons.join("\n")}>
           {isAvoid ? (
@@ -247,7 +412,7 @@ function ExerciseRow({
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
-          <p className={`text-sm font-medium truncate ${isAvoid ? "text-red-600 dark:text-red-400" : ""}`}>
+          <p className="text-sm font-medium truncate">
             {exercise.nome}
           </p>
           {isAvoid && (
@@ -257,7 +422,7 @@ function ExerciseRow({
           )}
           {isCaution && (
             <Badge className="shrink-0 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 text-[9px] px-1.5 py-0">
-              Attenzione
+              Cautela
             </Badge>
           )}
         </div>
@@ -266,7 +431,7 @@ function ExerciseRow({
             {exercise.categoria}
           </Badge>
           <Badge variant="outline" className="text-[10px]">
-            {exercise.attrezzatura}
+            {EQUIPMENT_LABELS[exercise.attrezzatura] ?? exercise.attrezzatura}
           </Badge>
           <Badge variant="outline" className="text-[10px]">
             {DIFFICULTY_LABELS[exercise.difficolta] ?? exercise.difficolta}
@@ -277,9 +442,11 @@ function ExerciseRow({
             {exercise.muscoli_primari.join(", ")}
           </p>
         )}
-        {/* Motivo cautela (compatto, una riga) */}
-        {isCaution && safety && safety.reasons.length > 0 && (
-          <p className="mt-0.5 text-[10px] text-amber-600 dark:text-amber-400 truncate">
+        {/* Motivo controindicazione — sempre visibile per avoid E caution */}
+        {safety && safety.safety !== "safe" && safety.reasons.length > 0 && (
+          <p className={`mt-0.5 text-[10px] truncate ${
+            isAvoid ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"
+          }`}>
             {safety.reasons[0]}
           </p>
         )}
