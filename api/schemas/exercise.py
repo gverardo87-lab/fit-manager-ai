@@ -20,8 +20,8 @@ from pydantic import BaseModel, Field, field_validator
 # ENUMS VALIDI
 # ═══════════════════════════════════════════════════════════════
 
-VALID_CATEGORIES = {"compound", "isolation", "bodyweight", "cardio"}
-VALID_PATTERNS = {"squat", "hinge", "push_h", "push_v", "pull_h", "pull_v", "core", "rotation", "carry"}
+VALID_CATEGORIES = {"compound", "isolation", "bodyweight", "cardio", "stretching", "mobilita", "avviamento"}
+VALID_PATTERNS = {"squat", "hinge", "push_h", "push_v", "pull_h", "pull_v", "core", "rotation", "carry", "stretch", "mobility", "warmup"}
 VALID_EQUIPMENT = {"barbell", "dumbbell", "cable", "machine", "bodyweight", "kettlebell", "band", "trx"}
 VALID_DIFFICULTIES = {"beginner", "intermediate", "advanced"}
 VALID_MUSCLES = {

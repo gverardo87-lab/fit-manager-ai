@@ -9,6 +9,9 @@ export const CATEGORY_LABELS: Record<string, string> = {
   isolation: "Isolamento",
   bodyweight: "Corpo Libero",
   cardio: "Cardio",
+  stretching: "Stretching",
+  mobilita: "Mobilità",
+  avviamento: "Avviamento",
 };
 
 export const CATEGORY_OPTIONS = Object.entries(CATEGORY_LABELS).map(
@@ -50,6 +53,9 @@ export const PATTERN_LABELS: Record<string, string> = {
   core: "Core",
   rotation: "Rotazione",
   carry: "Carry",
+  stretch: "Stretching",
+  mobility: "Mobilità",
+  warmup: "Avviamento",
 };
 
 export const PATTERN_OPTIONS = Object.entries(PATTERN_LABELS).map(
@@ -112,6 +118,9 @@ export const CATEGORY_COLORS: Record<string, string> = {
   isolation: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
   bodyweight: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
   cardio: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+  stretching: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400",
+  mobilita: "bg-lime-100 text-lime-700 dark:bg-lime-900/30 dark:text-lime-400",
+  avviamento: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
 };
 
 export const DIFFICULTY_COLORS: Record<string, string> = {

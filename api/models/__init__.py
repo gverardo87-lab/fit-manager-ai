@@ -10,6 +10,7 @@ from .todo import Todo
 from .exercise import Exercise
 from .exercise_media import ExerciseMedia
 from .exercise_relation import ExerciseRelation
+from .workout import WorkoutPlan, WorkoutSession, WorkoutExercise
 
 __all__ = [
     "Trainer",
@@ -24,4 +25,7 @@ __all__ = [
     "Exercise",
     "ExerciseMedia",
     "ExerciseRelation",
+    "WorkoutPlan",
+    "WorkoutSession",
+    "WorkoutExercise",
 ]

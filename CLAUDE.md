@@ -57,25 +57,42 @@ Dati lazy-loaded via React Query (`enabled: open`). Zero prop drilling — custo
 
 File: `frontend/src/components/layout/CommandPalette.tsx` (~700 LOC).
 
+### Workout Template Builder — Schede Allenamento
+
+Editor strutturato per creare schede allenamento professionali. Layout split: editor (sinistra) + preview live (destra, desktop).
+
+**Backend**: 3 tabelle (`schede_allenamento`, `sessioni_scheda`, `esercizi_sessione`) con Deep IDOR chain: `EsercizioSessione → SessioneScheda → SchedaAllenamento.trainer_id`. CRUD completo + duplicate + full-replace sessioni (atomico).
+
+**Frontend**: 3 sezioni per sessione — Avviamento, Principale, Stretching & Mobilita.
+- **Template system**: 3 template (Beginner/Intermedio/Avanzato) con smart matching esercizi per `pattern_movimento` + difficolta
+- **Exercise Selector**: dialog con filtro categoria per sezione (avviamento mostra solo avviamento, ecc.)
+- **DnD**: `@dnd-kit/sortable` per riordino esercizi dentro ogni sezione
+- **Export**: Excel via `exceljs` (3 sezioni colorate) + Print/PDF via `@media print`
+- **209 esercizi** builtin: 174 originali + 12 avviamento + 12 stretching + 12 mobilita (nuovo seed)
+- Categorie: `compound`, `isolation`, `bodyweight`, `cardio`, `stretching`, `mobilita`, `avviamento`
+- Pattern: 9 forza (`squat`, `hinge`, `push_h/v`, `pull_h/v`, `core`, `rotation`, `carry`) + 3 complementari (`warmup`, `stretch`, `mobility`)
+
+File chiave: `lib/workout-templates.ts` (template + `getSectionForCategory`), `components/workouts/SessionCard.tsx` (3 sezioni DnD).
+
 ---
 
 ## Architettura
 
 ```
 frontend/          Next.js 16 + React 19 + TypeScript
-  src/hooks/       React Query (server state) — 10 hook modules
-  src/components/  shadcn/ui + componenti dominio — 71 componenti
+  src/hooks/       React Query (server state) — 11 hook modules
+  src/components/  shadcn/ui + componenti dominio — ~80 componenti
   src/types/       Interfacce TypeScript (mirror Pydantic)
        |
        | REST API (JSON over HTTP, JWT auth)
        v
 api/               FastAPI + SQLModel ORM
-  models/          8 modelli ORM (SQLAlchemy table=True)
-  routers/         10 router con Bouncer Pattern + Deep IDOR
+  models/          11 modelli ORM (SQLAlchemy table=True)
+  routers/         11 router con Bouncer Pattern + Deep IDOR
   schemas/         Pydantic v2 (input/output validation)
        |
        v
-SQLite             data/crm.db — 20 tabelle, FK enforced
+SQLite             data/crm.db — 23 tabelle, FK enforced
        |
 core/              Moduli AI (dormant, non esposti via API — prossima fase)
   exercise_archive, workout_generator, knowledge_chain, card_parser, ...
@@ -336,10 +353,10 @@ sqlite3 data/crm_dev.db ".tables"
 
 ## Metriche Progetto
 
-- **api/**: ~5,800 LOC Python — 8 modelli ORM, 10 router, 1 schema module
-- **frontend/**: ~17,500 LOC TypeScript — 71 componenti, 10 hook modules, 11 pagine
+- **api/**: ~6,500 LOC Python — 11 modelli ORM, 11 router, 2 schema modules
+- **frontend/**: ~20,000 LOC TypeScript — ~80 componenti, 11 hook modules, 13 pagine
 - **core/**: ~11,100 LOC Python — moduli AI (workout, RAG, DNA) in attesa di API endpoints
-- **DB**: 20 tabelle SQLite, FK enforced, multi-tenant via trainer_id
+- **DB**: 23 tabelle SQLite, FK enforced, multi-tenant via trainer_id
 - **Test**: 63 pytest + 67 E2E
 - **Sicurezza**: JWT auth, bcrypt, Deep Relational IDOR, 3-layer route protection
 - **Cloud**: 0 dipendenze, 0 dati verso terzi

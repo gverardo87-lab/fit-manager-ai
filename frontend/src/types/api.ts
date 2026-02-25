@@ -804,3 +804,106 @@ export interface ExerciseListResponse {
   page: number;
   page_size: number;
 }
+
+// ════════════════════════════════════════════════════════════
+// WORKOUT PLAN (api/routers/workouts.py + api/schemas/workout.py)
+// ════════════════════════════════════════════════════════════
+
+export const OBIETTIVI_SCHEDA = ["forza", "ipertrofia", "resistenza", "dimagrimento", "generale"] as const;
+export type ObiettivoScheda = (typeof OBIETTIVI_SCHEDA)[number];
+
+export const LIVELLI_SCHEDA = ["beginner", "intermedio", "avanzato"] as const;
+export type LivelloScheda = (typeof LIVELLI_SCHEDA)[number];
+
+/** Esercizio dentro una sessione — output enriched */
+export interface WorkoutExerciseRow {
+  id: number;
+  id_esercizio: number;
+  esercizio_nome: string;
+  esercizio_categoria: string;
+  esercizio_attrezzatura: string;
+  ordine: number;
+  serie: number;
+  ripetizioni: string;
+  tempo_riposo_sec: number;
+  tempo_esecuzione: string | null;
+  note: string | null;
+}
+
+/** Sessione di allenamento — output con esercizi nested */
+export interface WorkoutSession {
+  id: number;
+  numero_sessione: number;
+  nome_sessione: string;
+  focus_muscolare: string | null;
+  durata_minuti: number;
+  note: string | null;
+  esercizi: WorkoutExerciseRow[];
+}
+
+/** Scheda allenamento — output completo */
+export interface WorkoutPlan {
+  id: number;
+  id_cliente: number | null;
+  client_nome: string | null;
+  client_cognome: string | null;
+  nome: string;
+  obiettivo: string;
+  livello: string;
+  durata_settimane: number;
+  sessioni_per_settimana: number;
+  note: string | null;
+  sessioni: WorkoutSession[];
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+/** GET /api/workouts — lista paginata */
+export interface WorkoutPlanListResponse {
+  items: WorkoutPlan[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+/** Esercizio input per creazione/modifica sessione */
+export interface WorkoutExerciseInput {
+  id_esercizio: number;
+  ordine: number;
+  serie?: number;
+  ripetizioni?: string;
+  tempo_riposo_sec?: number;
+  tempo_esecuzione?: string | null;
+  note?: string | null;
+}
+
+/** Sessione input per creazione/modifica scheda */
+export interface WorkoutSessionInput {
+  nome_sessione: string;
+  focus_muscolare?: string | null;
+  durata_minuti?: number;
+  note?: string | null;
+  esercizi: WorkoutExerciseInput[];
+}
+
+/** POST /api/workouts */
+export interface WorkoutPlanCreate {
+  id_cliente?: number | null;
+  nome: string;
+  obiettivo: string;
+  livello: string;
+  durata_settimane?: number;
+  sessioni_per_settimana?: number;
+  note?: string | null;
+  sessioni: WorkoutSessionInput[];
+}
+
+/** PUT /api/workouts/{id} (partial update metadati) */
+export interface WorkoutPlanUpdate {
+  nome?: string | null;
+  obiettivo?: string | null;
+  livello?: string | null;
+  durata_settimane?: number | null;
+  sessioni_per_settimana?: number | null;
+  note?: string | null;
+}
