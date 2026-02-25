@@ -38,6 +38,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { SortableExerciseRow } from "./SortableExerciseRow";
 import { getSectionForCategory, type TemplateSection } from "@/lib/workout-templates";
 import type { WorkoutExerciseRow } from "@/types/api";
+import type { SafetyResult } from "@/lib/contraindication-engine";
 
 export interface SessionCardData {
   id: number;
@@ -51,6 +52,8 @@ export interface SessionCardData {
 
 interface SessionCardProps {
   session: SessionCardData;
+  /** Mappa id_esercizio → sicurezza anamnesi (opzionale) */
+  exerciseSafetyMap?: Map<number, SafetyResult>;
   onUpdateSession: (sessionId: number, updates: Partial<SessionCardData>) => void;
   onDeleteSession: (sessionId: number) => void;
   onAddExercise: (sessionId: number, sezione?: TemplateSection) => void;
@@ -95,6 +98,7 @@ const SECTION_ORDER: TemplateSection[] = ["avviamento", "principale", "stretchin
 
 export function SessionCard({
   session,
+  exerciseSafetyMap,
   onUpdateSession,
   onDeleteSession,
   onAddExercise,
@@ -251,6 +255,7 @@ export function SessionCard({
                             key={exercise.id}
                             exercise={exercise}
                             compact={sectionKey !== "principale"}
+                            safety={exerciseSafetyMap?.get(exercise.id_esercizio)}
                             onUpdate={(updates) => onUpdateExercise(session.id, exercise.id, updates)}
                             onDelete={() => onDeleteExercise(session.id, exercise.id)}
                             onReplace={() => onReplaceExercise(session.id, exercise.id)}

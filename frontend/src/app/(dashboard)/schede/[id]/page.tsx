@@ -19,6 +19,7 @@ import {
   Pencil,
   Check,
   X,
+  ShieldAlert,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -42,7 +43,8 @@ import {
   useUpdateWorkout,
   useUpdateWorkoutSessions,
 } from "@/hooks/useWorkouts";
-import { useClients } from "@/hooks/useClients";
+import { useClient, useClients } from "@/hooks/useClients";
+import { useExercises } from "@/hooks/useExercises";
 import {
   OBIETTIVI_SCHEDA,
   LIVELLI_SCHEDA,
@@ -55,6 +57,10 @@ import {
   getSectionForCategory,
   type TemplateSection,
 } from "@/lib/workout-templates";
+import {
+  classifyExercises,
+  getAnamnesiSummary,
+} from "@/lib/contraindication-engine";
 
 // ════════════════════════════════════════════════════════════
 // LABELS
@@ -86,6 +92,22 @@ export default function SchedaDetailPage({
   const updateSessions = useUpdateWorkoutSessions();
   const { data: clientsData } = useClients();
   const clients = useMemo(() => clientsData?.items ?? [], [clientsData]);
+
+  // Fetch anamnesi del cliente assegnato (se presente)
+  const { data: clientData } = useClient(plan?.id_cliente ?? null);
+  const clientAnamnesi = clientData?.anamnesi ?? null;
+  const anamnesiSummary = useMemo(
+    () => (clientAnamnesi ? getAnamnesiSummary(clientAnamnesi) : []),
+    [clientAnamnesi],
+  );
+
+  // Classifica sicurezza esercizi rispetto all'anamnesi
+  const exerciseData = useExercises();
+  const allExercises = useMemo(() => exerciseData.data?.items ?? [], [exerciseData.data]);
+  const exerciseSafetyMap = useMemo(() => {
+    if (!clientAnamnesi || allExercises.length === 0) return undefined;
+    return classifyExercises(allExercises, clientAnamnesi);
+  }, [clientAnamnesi, allExercises]);
 
   // Local state per editing
   const [sessions, setSessions] = useState<SessionCardData[]>([]);
@@ -444,6 +466,20 @@ export default function SchedaDetailPage({
         </div>
       </div>
 
+      {/* ── Banner anamnesi ── */}
+      {anamnesiSummary.length > 0 && (
+        <div className="flex items-start gap-2 rounded-lg border-l-4 border-amber-400 bg-amber-50 p-3 dark:bg-amber-950/30" data-print-hide>
+          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+          <div className="flex-1 text-xs">
+            <span className="font-medium text-amber-800 dark:text-amber-300">Scudo Anamnesi attivo</span>
+            <span className="text-amber-700 dark:text-amber-400"> — {anamnesiSummary.join(", ")}. </span>
+            <Link href={`/clienti/${plan.id_cliente}`} className="text-amber-700 underline hover:text-amber-900 dark:text-amber-400">
+              Vedi anamnesi
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* ── Split Layout ── */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Editor (sinistra) */}
@@ -452,6 +488,7 @@ export default function SchedaDetailPage({
             <SessionCard
               key={session.id}
               session={session}
+              exerciseSafetyMap={exerciseSafetyMap}
               onUpdateSession={handleUpdateSession}
               onDeleteSession={handleDeleteSession}
               onAddExercise={handleAddExercise}
@@ -496,6 +533,7 @@ export default function SchedaDetailPage({
             ? SECTION_CATEGORIES[selectorContext.sezione]
             : undefined
         }
+        clientAnamnesi={clientAnamnesi}
       />
     </div>
   );
