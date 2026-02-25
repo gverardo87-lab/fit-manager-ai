@@ -14,6 +14,7 @@ import { useState } from "react";
 import { Menu } from "lucide-react";
 
 import { Sidebar } from "@/components/layout/Sidebar";
+import { CommandPalette } from "@/components/layout/CommandPalette";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,6 +33,7 @@ export default function DashboardLayout({
 
   return (
     <AuthGuard>
+    <CommandPalette />
     <div className="flex min-h-screen bg-zinc-50 dark:bg-zinc-950">
       {/* ── Sidebar desktop (fissa, visibile da lg in su) ── */}
       <aside className="hidden lg:flex lg:w-64 lg:flex-col lg:border-r lg:bg-white dark:lg:bg-zinc-900">
