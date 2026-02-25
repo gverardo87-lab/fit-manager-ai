@@ -373,12 +373,10 @@ export default function SchedaDetailPage({
                   updateWorkout.mutate({ id: plan.id, id_cliente: newClientId });
                 }}
               >
-                <SelectTrigger className="h-6 w-auto text-xs border-0 bg-transparent p-0 font-medium">
-                  <Badge variant="outline" className="text-xs cursor-pointer">
-                    {clientNome ?? "Assegna cliente"}
-                  </Badge>
+                <SelectTrigger size="sm" className="w-[180px] text-xs">
+                  <SelectValue placeholder="Assegna cliente" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper" sideOffset={4}>
                   <SelectItem value="__none__">Nessun cliente</SelectItem>
                   {clients.map((c) => (
                     <SelectItem key={c.id} value={String(c.id)}>
