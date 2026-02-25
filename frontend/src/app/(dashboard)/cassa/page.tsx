@@ -368,19 +368,19 @@ function KpiCards({
         return (
           <div
             key={kpi.key}
-            className={`flex items-start gap-3 rounded-xl border border-l-4 ${borderColor} bg-gradient-to-br ${gradient} p-4 shadow-sm transition-shadow hover:shadow-md`}
+            className={`flex items-start gap-3 rounded-xl border border-l-4 ${borderColor} bg-gradient-to-br ${gradient} p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg`}
           >
             <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg sm:h-10 sm:w-10 ${iconBg}`}>
               <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${iconColor}`} />
             </div>
             <div className="min-w-0">
-              <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+              <p className="text-[10px] font-semibold tracking-widest text-muted-foreground/70 uppercase sm:text-[11px]">
                 {kpi.label}
               </p>
-              <p className={`text-xl font-bold tracking-tight sm:text-2xl ${valueColor}`}>
+              <p className={`text-xl font-extrabold tracking-tighter tabular-nums sm:text-3xl ${valueColor}`}>
                 {formatCurrency(stats[kpi.key])}
               </p>
-              <p className="text-[10px] text-muted-foreground/70">questo mese</p>
+              <p className="text-[10px] font-medium text-muted-foreground/60">questo mese</p>
             </div>
           </div>
         );

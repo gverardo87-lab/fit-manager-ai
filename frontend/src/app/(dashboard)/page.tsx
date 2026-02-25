@@ -297,19 +297,19 @@ function KpiCards({ summary, stats }: { summary: DashboardSummary; stats: Moveme
         return (
           <div
             key={kpi.key}
-            className={`flex items-start gap-2 rounded-xl border border-l-4 ${kpi.borderColor} bg-gradient-to-br ${kpi.gradient} p-3 shadow-sm transition-shadow hover:shadow-md sm:gap-3 sm:p-4`}
+            className={`flex items-start gap-2 rounded-xl border border-l-4 ${kpi.borderColor} bg-gradient-to-br ${kpi.gradient} p-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg sm:gap-3 sm:p-4`}
           >
             <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg sm:h-10 sm:w-10 ${kpi.iconBg}`}>
               <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${kpi.iconColor}`} />
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase sm:text-[11px]">
+              <p className="text-[10px] font-semibold tracking-widest text-muted-foreground/70 uppercase sm:text-[11px]">
                 {kpi.label}
               </p>
-              <p className={`text-lg font-bold tracking-tight sm:text-2xl ${kpi.valueColor}`}>
+              <p className={`text-xl font-extrabold tracking-tighter tabular-nums sm:text-3xl ${kpi.valueColor}`}>
                 {kpi.format === "currency" ? formatCurrency(kpi.value) : kpi.value}
               </p>
-              <p className="text-[10px] text-muted-foreground/70">{kpi.subtitle}</p>
+              <p className="text-[10px] font-medium text-muted-foreground/60">{kpi.subtitle}</p>
             </div>
           </div>
         );
@@ -539,24 +539,24 @@ function FinancialHealth({ aging, isLoading }: { aging: AgingResponse | undefine
       {/* Mini KPI */}
       <div className="mb-4 grid grid-cols-2 gap-3">
         <div className={`rounded-lg border border-l-4 ${hasOverdue ? "border-l-red-500 bg-red-50/50 dark:bg-red-950/20" : "border-l-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20"} p-3`}>
-          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
             Scaduto
           </p>
-          <p className={`text-lg font-bold ${hasOverdue ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`}>
+          <p className={`text-xl font-extrabold tracking-tighter tabular-nums ${hasOverdue ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`}>
             {formatCurrency(aging.totale_scaduto)}
           </p>
-          <p className="text-[10px] text-muted-foreground/70">
+          <p className="text-[10px] font-medium text-muted-foreground/60">
             {aging.rate_scadute} {aging.rate_scadute === 1 ? "rata" : "rate"} — {aging.clienti_con_scaduto} {aging.clienti_con_scaduto === 1 ? "cliente" : "clienti"}
           </p>
         </div>
         <div className="rounded-lg border border-l-4 border-l-amber-500 bg-amber-50/50 p-3 dark:bg-amber-950/20">
-          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
             In Arrivo
           </p>
-          <p className="text-lg font-bold text-amber-600 dark:text-amber-400">
+          <p className="text-xl font-extrabold tracking-tighter tabular-nums text-amber-600 dark:text-amber-400">
             {formatCurrency(aging.totale_in_arrivo)}
           </p>
-          <p className="text-[10px] text-muted-foreground/70">
+          <p className="text-[10px] font-medium text-muted-foreground/60">
             {aging.rate_in_arrivo} {aging.rate_in_arrivo === 1 ? "rata" : "rate"} previste
           </p>
         </div>

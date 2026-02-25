@@ -297,16 +297,16 @@ export default function ContrattiPage() {
             return (
               <div
                 key={kpi.key}
-                className={`flex items-start gap-3 rounded-xl border border-l-4 ${borderColor} bg-gradient-to-br ${gradient} p-3 shadow-sm transition-shadow hover:shadow-md sm:p-4`}
+                className={`flex items-start gap-3 rounded-xl border border-l-4 ${borderColor} bg-gradient-to-br ${gradient} p-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg sm:p-4`}
               >
                 <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${iconBg}`}>
                   <Icon className={`h-4 w-4 ${iconColor}`} />
                 </div>
                 <div>
-                  <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 sm:text-[11px]">
                     {kpi.label}
                   </p>
-                  <p className={`text-xl font-bold tracking-tight sm:text-2xl ${valueColor}`}>
+                  <p className={`text-xl font-extrabold tracking-tighter tabular-nums sm:text-3xl ${valueColor}`}>
                     {kpi.format === "currency" ? formatCurrency(value) : value}
                   </p>
                 </div>
