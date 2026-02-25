@@ -18,6 +18,7 @@ import type {
   ClientUpdate,
   ClientEnriched,
   ClientEnrichedListResponse,
+  AnamnesiData,
 } from "@/types/api";
 
 // ── Query: lista clienti enriched (tutti, filtraggio client-side) ──
@@ -92,6 +93,31 @@ export function useUpdateClient() {
     },
     onError: (error) => {
       toast.error(extractErrorMessage(error, "Errore nell'aggiornamento del cliente"));
+    },
+  });
+}
+
+// ── Mutation: aggiorna anamnesi ──
+
+export function useUpdateAnamnesi() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, anamnesi }: { id: number; anamnesi: AnamnesiData }) => {
+      const { data } = await apiClient.put<Client>(
+        `/clients/${id}`,
+        { anamnesi },
+      );
+      return data;
+    },
+    onSuccess: (client) => {
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      queryClient.invalidateQueries({ queryKey: ["client", client.id] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success("Anamnesi aggiornata");
+    },
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Errore nel salvataggio dell'anamnesi"));
     },
   });
 }

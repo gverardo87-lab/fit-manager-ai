@@ -115,6 +115,55 @@ export interface ClientUpdate {
   note_interne?: string | null;
 }
 
+// ── Anamnesi (struttura questionario a step) ──
+
+/** Singola domanda anamnesi con toggle si/no + dettaglio testuale */
+export interface AnamnesiQuestion {
+  presente: boolean;
+  dettaglio: string | null;
+}
+
+/** Struttura completa anamnesi cliente — 4 step del wizard */
+export interface AnamnesiData {
+  // Step 1: Muscoloscheletrico
+  infortuni_attuali: AnamnesiQuestion;
+  infortuni_pregressi: AnamnesiQuestion;
+  interventi_chirurgici: AnamnesiQuestion;
+  dolori_cronici: AnamnesiQuestion;
+  // Step 2: Condizioni Mediche
+  patologie: AnamnesiQuestion;
+  farmaci: AnamnesiQuestion;
+  problemi_cardiovascolari: AnamnesiQuestion;
+  problemi_respiratori: AnamnesiQuestion;
+  // Step 3: Stile di Vita
+  livello_attivita: string;
+  ore_sonno: string;
+  livello_stress: string;
+  dieta_particolare: AnamnesiQuestion;
+  // Step 4: Obiettivi e Limitazioni
+  obiettivi_specifici: string | null;
+  limitazioni_funzionali: string | null;
+  note: string | null;
+  // Metadata
+  data_compilazione: string;
+  data_ultimo_aggiornamento: string;
+}
+
+export const LIVELLI_ATTIVITA = ["sedentario", "leggero", "moderato", "intenso"] as const;
+export const LIVELLI_ATTIVITA_LABELS: Record<string, string> = {
+  sedentario: "Sedentario", leggero: "Leggero", moderato: "Moderato", intenso: "Intenso",
+};
+
+export const ORE_SONNO = ["<5", "5-6", "6-7", "7-8", "8+"] as const;
+export const ORE_SONNO_LABELS: Record<string, string> = {
+  "<5": "Meno di 5h", "5-6": "5-6 ore", "6-7": "6-7 ore", "7-8": "7-8 ore", "8+": "Oltre 8h",
+};
+
+export const LIVELLI_STRESS = ["basso", "medio", "alto"] as const;
+export const LIVELLI_STRESS_LABELS: Record<string, string> = {
+  basso: "Basso", medio: "Medio", alto: "Alto",
+};
+
 /** ClientResponse — restituito da GET/POST/PUT */
 export interface Client {
   id: number;
@@ -127,6 +176,7 @@ export interface Client {
   stato: string;
   note_interne: string | null;
   crediti_residui: number;
+  anamnesi: AnamnesiData | null;
 }
 
 /** ClientEnrichedResponse — restituito da GET /api/clients (lista enriched) */

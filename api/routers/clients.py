@@ -128,7 +128,7 @@ class ClientUpdate(BaseModel):
 # --- Response schemas (cosa l'API restituisce) ---
 
 class ClientResponse(BaseModel):
-    """Dati cliente restituiti dall'API. Mai esporre campi interni come anamnesi_json raw."""
+    """Dati cliente restituiti dall'API. anamnesi_json raw viene parsato in dict."""
     id: int
     nome: str
     cognome: str
@@ -139,6 +139,7 @@ class ClientResponse(BaseModel):
     stato: str
     note_interne: Optional[str] = None
     crediti_residui: int = 0
+    anamnesi: Optional[dict] = None
 
 
 class ClientEnrichedResponse(ClientResponse):
@@ -372,6 +373,7 @@ def list_clients(
             stato=c.stato,
             note_interne=c.note_interne,
             crediti_residui=credits.get(c.id, 0),
+            anamnesi=json.loads(c.anamnesi_json) if c.anamnesi_json else None,
             contratti_attivi=cdata["count"],
             totale_versato=cdata["versato"],
             prezzo_totale_attivo=cdata["prezzo"],
@@ -470,6 +472,7 @@ def get_client(
         stato=client.stato,
         note_interne=client.note_interne,
         crediti_residui=credits.get(client.id, 0),
+        anamnesi=json.loads(client.anamnesi_json) if client.anamnesi_json else None,
         contratti_attivi=int(contract_row[0]),
         totale_versato=float(contract_row[1]),
         prezzo_totale_attivo=float(contract_row[2]),
@@ -625,4 +628,5 @@ def _to_response(client: Client, crediti_residui: int = 0) -> ClientResponse:
         stato=client.stato,
         note_interne=client.note_interne,
         crediti_residui=crediti_residui,
+        anamnesi=json.loads(client.anamnesi_json) if client.anamnesi_json else None,
     )

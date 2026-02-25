@@ -23,6 +23,7 @@ import {
   User,
   AlertTriangle,
   ClipboardList,
+  HeartPulse,
   Plus,
 } from "lucide-react";
 
@@ -44,13 +45,16 @@ import { ClientProfileHeader } from "@/components/clients/ClientProfileHeader";
 import { ClientProfileKpi } from "@/components/clients/ClientProfileKpi";
 import { ClientSheet } from "@/components/clients/ClientSheet";
 import { TemplateSelector } from "@/components/workouts/TemplateSelector";
+import { AnamnesiSummary } from "@/components/clients/anamnesi/AnamnesiSummary";
+import { AnamnesiWizard } from "@/components/clients/anamnesi/AnamnesiWizard";
+import { isStructuredAnamnesi } from "@/components/clients/anamnesi/anamnesi-helpers";
 import { useClient } from "@/hooks/useClients";
 import { useClientContracts } from "@/hooks/useContracts";
 import { useClientEvents, type EventHydrated } from "@/hooks/useAgenda";
 import { useClientWorkouts } from "@/hooks/useWorkouts";
 import { useMovements } from "@/hooks/useMovements";
 import { formatCurrency } from "@/lib/format";
-import type { ContractListItem, CashMovement, WorkoutPlan } from "@/types/api";
+import type { ContractListItem, CashMovement, WorkoutPlan, AnamnesiData } from "@/types/api";
 
 // ════════════════════════════════════════════════════════════
 // PAGE COMPONENT
@@ -67,6 +71,7 @@ export default function ClientProfilePage({
   const { data: client, isLoading } = useClient(clientId);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
 
   if (isLoading) return <ProfileSkeleton />;
   if (!client) {
@@ -105,6 +110,10 @@ export default function ClientProfilePage({
             <ClipboardList className="mr-2 h-4 w-4" />
             Schede
           </TabsTrigger>
+          <TabsTrigger value="anamnesi">
+            <HeartPulse className="mr-2 h-4 w-4" />
+            Anamnesi
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="panoramica" className="mt-4">
@@ -126,12 +135,26 @@ export default function ClientProfilePage({
         <TabsContent value="schede" className="mt-4">
           <SchedeTab clientId={clientId} onNewScheda={() => setTemplateSelectorOpen(true)} />
         </TabsContent>
+
+        <TabsContent value="anamnesi" className="mt-4">
+          <AnamnesiTab
+            anamnesi={client.anamnesi ?? null}
+            onOpenWizard={() => setWizardOpen(true)}
+          />
+        </TabsContent>
       </Tabs>
 
       <TemplateSelector
         open={templateSelectorOpen}
         onOpenChange={setTemplateSelectorOpen}
         clientId={clientId}
+      />
+
+      <AnamnesiWizard
+        open={wizardOpen}
+        onOpenChange={setWizardOpen}
+        clientId={clientId}
+        existing={client.anamnesi ?? null}
       />
 
       <ClientSheet
@@ -453,6 +476,59 @@ function SchedeTab({ clientId, onNewScheda }: { clientId: number; onNewScheda: (
       </div>
     </div>
   );
+}
+
+// ════════════════════════════════════════════════════════════
+// TAB: Anamnesi
+// ════════════════════════════════════════════════════════════
+
+function AnamnesiTab({
+  anamnesi,
+  onOpenWizard,
+}: {
+  anamnesi: AnamnesiData | Record<string, unknown> | null;
+  onOpenWizard: () => void;
+}) {
+  // Nessuna anamnesi
+  if (!anamnesi) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-12">
+        <HeartPulse className="h-10 w-10 text-muted-foreground/30" />
+        <p className="text-sm text-muted-foreground">
+          Nessuna anamnesi compilata per questo cliente
+        </p>
+        <Button variant="outline" size="sm" onClick={onOpenWizard}>
+          <Plus className="mr-2 h-4 w-4" />
+          Compila Anamnesi
+        </Button>
+      </div>
+    );
+  }
+
+  // Anamnesi formato vecchio (legacy dict)
+  if (!isStructuredAnamnesi(anamnesi as Record<string, unknown>)) {
+    const legacyNote = (anamnesi as Record<string, unknown>).note;
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-12">
+        <HeartPulse className="h-10 w-10 text-amber-500/50" />
+        <p className="text-sm text-muted-foreground">
+          Anamnesi in formato precedente — ricompila per il nuovo questionario
+        </p>
+        {typeof legacyNote === "string" && legacyNote && (
+          <p className="text-xs text-muted-foreground italic max-w-md text-center">
+            Nota precedente: {legacyNote}
+          </p>
+        )}
+        <Button variant="outline" size="sm" onClick={onOpenWizard}>
+          <Plus className="mr-2 h-4 w-4" />
+          Ricompila Anamnesi
+        </Button>
+      </div>
+    );
+  }
+
+  // Anamnesi strutturata
+  return <AnamnesiSummary data={anamnesi as AnamnesiData} onEdit={onOpenWizard} />;
 }
 
 // ════════════════════════════════════════════════════════════
