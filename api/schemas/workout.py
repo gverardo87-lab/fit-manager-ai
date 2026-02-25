@@ -82,6 +82,7 @@ class WorkoutPlanUpdate(BaseModel):
     """Aggiornamento parziale metadati scheda."""
     model_config = {"extra": "forbid"}
 
+    id_cliente: Optional[int] = None
     nome: Optional[str] = Field(None, min_length=1, max_length=200)
     obiettivo: Optional[str] = None
     livello: Optional[str] = None

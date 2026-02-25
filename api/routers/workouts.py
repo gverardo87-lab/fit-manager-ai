@@ -377,6 +377,10 @@ def update_workout(
     if not update_data:
         return _build_plan_response(session, plan)
 
+    # Bouncer: se cambia cliente, verifica ownership
+    if "id_cliente" in update_data and update_data["id_cliente"] is not None:
+        _check_client_ownership(session, update_data["id_cliente"], trainer.id)
+
     for field, value in update_data.items():
         setattr(plan, field, value)
 

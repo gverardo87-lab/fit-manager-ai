@@ -900,6 +900,7 @@ export interface WorkoutPlanCreate {
 
 /** PUT /api/workouts/{id} (partial update metadati) */
 export interface WorkoutPlanUpdate {
+  id_cliente?: number | null;
   nome?: string | null;
   obiettivo?: string | null;
   livello?: string | null;

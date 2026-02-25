@@ -11,6 +11,7 @@
 
 import { use, useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   ArrowLeft,
   Save,
@@ -41,6 +42,7 @@ import {
   useUpdateWorkout,
   useUpdateWorkoutSessions,
 } from "@/hooks/useWorkouts";
+import { useClients } from "@/hooks/useClients";
 import {
   OBIETTIVI_SCHEDA,
   LIVELLI_SCHEDA,
@@ -82,6 +84,8 @@ export default function SchedaDetailPage({
   const { data: plan, isLoading, isError } = useWorkout(isNaN(id) ? null : id);
   const updateWorkout = useUpdateWorkout();
   const updateSessions = useUpdateWorkoutSessions();
+  const { data: clientsData } = useClients();
+  const clients = useMemo(() => clientsData?.items ?? [], [clientsData]);
 
   // Local state per editing
   const [sessions, setSessions] = useState<SessionCardData[]>([]);
@@ -361,9 +365,35 @@ export default function SchedaDetailPage({
                 <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
               </button>
             )}
-            <div className="flex items-center gap-2 mt-1">
-              {clientNome && (
-                <span className="text-sm text-muted-foreground">{clientNome}</span>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <Select
+                value={plan.id_cliente ? String(plan.id_cliente) : "__none__"}
+                onValueChange={(v) => {
+                  const newClientId = v === "__none__" ? null : Number(v);
+                  updateWorkout.mutate({ id: plan.id, id_cliente: newClientId });
+                }}
+              >
+                <SelectTrigger className="h-6 w-auto text-xs border-0 bg-transparent p-0 font-medium">
+                  <Badge variant="outline" className="text-xs cursor-pointer">
+                    {clientNome ?? "Assegna cliente"}
+                  </Badge>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Nessun cliente</SelectItem>
+                  {clients.map((c) => (
+                    <SelectItem key={c.id} value={String(c.id)}>
+                      {c.nome} {c.cognome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {plan.id_cliente && clientNome && (
+                <Link
+                  href={`/clienti/${plan.id_cliente}`}
+                  className="text-xs text-primary hover:underline"
+                >
+                  Vai al profilo
+                </Link>
               )}
               <Select
                 value={plan.obiettivo}

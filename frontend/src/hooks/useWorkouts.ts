@@ -46,6 +46,23 @@ export function useWorkouts(filters?: WorkoutFilters) {
 }
 
 // ════════════════════════════════════════════════════════════
+// QUERY: Schede di un singolo cliente (profilo)
+// ════════════════════════════════════════════════════════════
+
+export function useClientWorkouts(idCliente: number | null) {
+  return useQuery<WorkoutPlanListResponse>({
+    queryKey: ["workouts", { idCliente }],
+    queryFn: async () => {
+      const { data } = await apiClient.get<WorkoutPlanListResponse>("/workouts", {
+        params: { page: 1, page_size: 100, id_cliente: idCliente },
+      });
+      return data;
+    },
+    enabled: idCliente !== null,
+  });
+}
+
+// ════════════════════════════════════════════════════════════
 // QUERY: Singola scheda (con sessioni + esercizi enriched)
 // ════════════════════════════════════════════════════════════
 

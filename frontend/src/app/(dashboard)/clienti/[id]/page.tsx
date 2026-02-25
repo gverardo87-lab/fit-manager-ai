@@ -15,12 +15,15 @@
 import { use, useState } from "react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
+import { useRouter } from "next/navigation";
 import {
   FileText,
   Calendar,
   Wallet,
   User,
   AlertTriangle,
+  ClipboardList,
+  Plus,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -36,15 +39,18 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+import { Button } from "@/components/ui/button";
 import { ClientProfileHeader } from "@/components/clients/ClientProfileHeader";
 import { ClientProfileKpi } from "@/components/clients/ClientProfileKpi";
 import { ClientSheet } from "@/components/clients/ClientSheet";
+import { TemplateSelector } from "@/components/workouts/TemplateSelector";
 import { useClient } from "@/hooks/useClients";
 import { useClientContracts } from "@/hooks/useContracts";
 import { useClientEvents, type EventHydrated } from "@/hooks/useAgenda";
+import { useClientWorkouts } from "@/hooks/useWorkouts";
 import { useMovements } from "@/hooks/useMovements";
 import { formatCurrency } from "@/lib/format";
-import type { ContractListItem, CashMovement } from "@/types/api";
+import type { ContractListItem, CashMovement, WorkoutPlan } from "@/types/api";
 
 // ════════════════════════════════════════════════════════════
 // PAGE COMPONENT
@@ -60,6 +66,7 @@ export default function ClientProfilePage({
 
   const { data: client, isLoading } = useClient(clientId);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
 
   if (isLoading) return <ProfileSkeleton />;
   if (!client) {
@@ -77,7 +84,7 @@ export default function ClientProfilePage({
       <ClientProfileKpi client={client} />
 
       <Tabs defaultValue="panoramica">
-        <TabsList>
+        <TabsList className="w-full overflow-x-auto">
           <TabsTrigger value="panoramica">
             <User className="mr-2 h-4 w-4" />
             Panoramica
@@ -93,6 +100,10 @@ export default function ClientProfilePage({
           <TabsTrigger value="movimenti">
             <Wallet className="mr-2 h-4 w-4" />
             Movimenti
+          </TabsTrigger>
+          <TabsTrigger value="schede">
+            <ClipboardList className="mr-2 h-4 w-4" />
+            Schede
           </TabsTrigger>
         </TabsList>
 
@@ -111,7 +122,17 @@ export default function ClientProfilePage({
         <TabsContent value="movimenti" className="mt-4">
           <MovimentiTab clientId={clientId} />
         </TabsContent>
+
+        <TabsContent value="schede" className="mt-4">
+          <SchedeTab clientId={clientId} onNewScheda={() => setTemplateSelectorOpen(true)} />
+        </TabsContent>
       </Tabs>
+
+      <TemplateSelector
+        open={templateSelectorOpen}
+        onOpenChange={setTemplateSelectorOpen}
+        clientId={clientId}
+      />
 
       <ClientSheet
         open={sheetOpen}
@@ -355,6 +376,81 @@ function MovimentiTab({ clientId }: { clientId: number }) {
           ))}
         </TableBody>
       </Table>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// TAB: Schede Allenamento
+// ════════════════════════════════════════════════════════════
+
+function SchedeTab({ clientId, onNewScheda }: { clientId: number; onNewScheda: () => void }) {
+  const router = useRouter();
+  const { data, isLoading } = useClientWorkouts(clientId);
+
+  if (isLoading) return <TabSkeleton />;
+
+  const workouts = data?.items ?? [];
+
+  if (workouts.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-12">
+        <ClipboardList className="h-10 w-10 text-muted-foreground/30" />
+        <p className="text-sm text-muted-foreground">Nessuna scheda per questo cliente</p>
+        <Button variant="outline" size="sm" onClick={onNewScheda}>
+          <Plus className="mr-2 h-4 w-4" />
+          Crea Scheda
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" onClick={onNewScheda}>
+          <Plus className="mr-2 h-4 w-4" />
+          Nuova Scheda
+        </Button>
+      </div>
+      <div className="rounded-lg border bg-white dark:bg-zinc-900">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nome</TableHead>
+              <TableHead>Obiettivo</TableHead>
+              <TableHead className="hidden sm:table-cell">Livello</TableHead>
+              <TableHead className="text-center hidden sm:table-cell">Sessioni</TableHead>
+              <TableHead className="hidden md:table-cell">Data</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {workouts.map((w: WorkoutPlan) => (
+              <TableRow
+                key={w.id}
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => router.push(`/schede/${w.id}`)}
+              >
+                <TableCell className="font-medium">{w.nome}</TableCell>
+                <TableCell>
+                  <Badge variant="outline" className="text-xs">{w.obiettivo}</Badge>
+                </TableCell>
+                <TableCell className="hidden sm:table-cell">
+                  <Badge variant="outline" className="text-xs">{w.livello}</Badge>
+                </TableCell>
+                <TableCell className="text-center hidden sm:table-cell tabular-nums">
+                  {w.sessioni.length}
+                </TableCell>
+                <TableCell className="hidden md:table-cell text-sm text-muted-foreground tabular-nums">
+                  {w.created_at
+                    ? format(new Date(w.created_at), "dd MMM yyyy", { locale: it })
+                    : "—"}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

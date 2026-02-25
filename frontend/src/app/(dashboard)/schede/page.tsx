@@ -54,6 +54,7 @@ import {
 
 import { TemplateSelector } from "@/components/workouts/TemplateSelector";
 import { useWorkouts, useDeleteWorkout, useDuplicateWorkout, type WorkoutFilters } from "@/hooks/useWorkouts";
+import { useClients } from "@/hooks/useClients";
 import { OBIETTIVI_SCHEDA, LIVELLI_SCHEDA, type WorkoutPlan } from "@/types/api";
 
 // ════════════════════════════════════════════════════════════
@@ -100,6 +101,9 @@ export default function SchedePage() {
   const { data, isLoading, isError, refetch } = useWorkouts(filters);
   const deleteWorkout = useDeleteWorkout();
   const duplicateWorkout = useDuplicateWorkout();
+
+  const { data: clientsData } = useClients();
+  const clients = useMemo(() => clientsData?.items ?? [], [clientsData]);
 
   const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<WorkoutPlan | null>(null);
@@ -247,7 +251,33 @@ export default function SchedePage() {
             ))}
           </SelectContent>
         </Select>
-        {(filters.obiettivo || filters.livello) && (
+        <Select
+          value={filters.id_cliente ? String(filters.id_cliente) : NONE_VALUE}
+          onValueChange={(v) => {
+            setFilters((prev) => {
+              const next = { ...prev };
+              if (v === NONE_VALUE) {
+                delete next.id_cliente;
+              } else {
+                next.id_cliente = Number(v);
+              }
+              return next;
+            });
+          }}
+        >
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Cliente" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NONE_VALUE}>Tutti i clienti</SelectItem>
+            {clients.map((c) => (
+              <SelectItem key={c.id} value={String(c.id)}>
+                {c.nome} {c.cognome}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {(filters.obiettivo || filters.livello || filters.id_cliente) && (
           <Button variant="ghost" size="sm" onClick={() => setFilters({})} className="text-muted-foreground">
             Rimuovi filtri
           </Button>
@@ -302,10 +332,22 @@ export default function SchedePage() {
                   onClick={() => router.push(`/schede/${plan.id}`)}
                 >
                   <TableCell className="font-medium">{plan.nome}</TableCell>
-                  <TableCell className="hidden sm:table-cell text-muted-foreground">
-                    {plan.client_nome && plan.client_cognome
-                      ? `${plan.client_nome} ${plan.client_cognome}`
-                      : "—"}
+                  <TableCell
+                    className="hidden sm:table-cell"
+                    onClick={(e) => {
+                      if (plan.id_cliente) {
+                        e.stopPropagation();
+                        router.push(`/clienti/${plan.id_cliente}`);
+                      }
+                    }}
+                  >
+                    {plan.client_nome && plan.client_cognome ? (
+                      <span className={plan.id_cliente ? "text-primary hover:underline cursor-pointer" : "text-muted-foreground"}>
+                        {plan.client_nome} {plan.client_cognome}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Badge className={`text-xs ${OBIETTIVO_COLORS[plan.obiettivo] ?? ""}`}>
