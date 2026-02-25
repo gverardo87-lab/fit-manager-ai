@@ -14,12 +14,15 @@ frontend/src/
 │   │   ├── contratti/       Pagina contratti + [id]/ scheda contratto
 │   │   ├── agenda/          Pagina agenda/calendario
 │   │   ├── cassa/           Pagina Cassa (5 tab: Libro Mastro, Spese Fisse, Entrate & Uscite, Scadenze, Previsioni)
+│   │   ├── esercizi/        Pagina esercizi + [id]/ scheda esercizio (MuscleMap SVG hero)
 │   │   └── impostazioni/   Pagina impostazioni
 │   ├── login/page.tsx       Login pubblico
 │   └── layout.tsx           Root layout (Providers, fonts)
 ├── components/
 │   ├── auth/AuthGuard.tsx   Client-side route protection
-│   ├── layout/Sidebar.tsx   Navigazione + trainer info
+│   ├── layout/
+│   │   ├── Sidebar.tsx      Navigazione sezioni + trainer info + search trigger
+│   │   └── CommandPalette.tsx  Ctrl+K — preview panel + KPI + azioni contestuali
 │   ├── clients/             Componenti dominio clienti
 │   ├── contracts/           Componenti dominio contratti (PaymentPlanTab con
 │   │                        RateCard, PayRateForm, PaymentHistory, AddRateForm)
@@ -29,6 +32,8 @@ frontend/src/
 │   │                         DeleteEventDialog, calendar-setup.ts)
 │   ├── dashboard/           Componenti dashboard (TodoCard, GhostEventsSheet,
 │   │                        OverdueRatesSheet, ExpiringContractsSheet, InactiveClientsSheet)
+│   ├── exercises/           Componenti dominio esercizi (ExercisesTable, ExerciseSheet,
+│   │                        ExerciseForm, DeleteExerciseDialog, MuscleMap, exercise-constants)
 │   ├── movements/           Componenti dominio cassa (MovementsTable, MovementSheet,
 │   │                        DeleteMovementDialog, RecurringExpensesTab (con EditDialog,
 │   │                        AddForm, ExpensesTable, AlertDialog delete confirm),
@@ -76,6 +81,8 @@ Ogni mutation: `invalidateQueries` sulle key correlate + `toast.success/error`.
 ["events", { start, end }]          // eventi per range temporale
 ["events", { idCliente }]           // eventi per cliente (profilo)
 ["events", { idContratto }]         // eventi per contratto (scheda)
+["exercises", categoryOrUndefined]   // lista esercizi (filtro categoria opzionale)
+["exercise", exerciseId]             // dettaglio singolo esercizio
 ["forecast", { mesi }]              // proiezione finanziaria N mesi
 ["todos", { completato }]           // lista todo (filtro opzionale)
 ```
@@ -406,6 +413,46 @@ I KPI e l'header usano `visibleEvents` che filtra per range + categoria + stato.
 @media (max-width: 640px) { .rbc-header, .rbc-event, .rbc-label { font-size: 0.7rem; } }
 ```
 
+## Command Palette (Ctrl+K)
+
+Componente: `CommandPalette.tsx` (~700 LOC), basato su `cmdk` v1.1.1 + shadcn Command.
+
+### Architettura
+- **Custom Dialog** (non `CommandDialog`) — necessario per split layout left/right
+- **Split panel**: left (search + results), right (preview panel, `hidden md:block`)
+- **value tracking**: `Command value={highlighted} onValueChange={setHighlighted}` + `useMemo` Maps per O(1) lookup
+- **Lazy loading**: 4 query React Query con `enabled: open` + `staleTime: 30_000`
+- **Zero prop drilling**: custom event `open-command-palette` per apertura da sidebar
+
+### 6 gruppi risultati
+1. **Contestuale** (se su `/clienti/[id]`): azioni per il cliente corrente
+2. **Dati Rapidi**: KPI inline (entrate, margine, rate pendenti, appuntamenti) con valori live
+3. **Pagine**: navigazione statica (7 pagine)
+4. **Clienti**: dinamico, `keywords` prop per fuzzy search su nome+cognome+email+telefono
+5. **Esercizi**: dinamico, `keywords` prop su nome+nome_en+categoria+attrezzatura
+6. **Azioni**: Nuovo Cliente, Nuovo Contratto, Nuova Sessione
+
+### Preview panel (desktop)
+- `ClientPreview`: avatar, badge stato, stats grid (crediti, contratti, versato), warning rate scadute, contatti
+- `ExercisePreview`: badges (categoria, difficolta', attrezzatura), pattern/forza, chip muscoli primari/secondari
+- `KpiPreview`: entrate, uscite, margine, clienti attivi, rate pendenti, appuntamenti
+
+### Integrazione
+- Layout: `<CommandPalette />` in `(dashboard)/layout.tsx` dentro `<AuthGuard>`, prima del div flex
+- Sidebar: bottone "Cerca... Ctrl K" con `window.dispatchEvent(new Event("open-command-palette"))`
+
+## Sidebar — Section Labels (Linear/Notion style)
+
+Navigazione organizzata in sezioni con label uppercase. Union type:
+```typescript
+type NavLink = { href: string; label: string; icon: React.ComponentType<{ className?: string }> };
+type NavSection = { section: string; items: NavLink[] };
+type NavEntry = NavLink | NavSection;
+```
+
+Struttura: Dashboard, Agenda (top-level) → Clienti (sezione) → Contabilita' (Contratti, Cassa) → Allenamento (Esercizi).
+Impostazioni pinned in fondo via `mt-auto`. Search trigger sopra la nav.
+
 ## Build
 
 ```bash
@@ -436,4 +483,5 @@ date-fns 4 (date formatting)
 recharts 2 (charts)
 sonner 2 (toast)
 lucide-react (icons)
+cmdk 1.1.1 (command palette fuzzy search)
 ```

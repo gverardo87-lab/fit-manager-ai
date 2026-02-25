@@ -33,14 +33,38 @@ L'UX non e' una feature: e' il motivo per cui il cliente sceglie noi.
 5. **Italiano impeccabile** — Singolare/plurale, accenti, punteggiatura. L'UI e' la voce del prodotto.
 6. **Mobile-first responsive** — Ogni pagina funziona su mobile (375px+), tablet (768px+) e desktop. Breakpoints Tailwind (`sm:`, `md:`, `lg:`), zero librerie extra. Dettagli in `frontend/CLAUDE.md`.
 
+### Visual Identity — Teal Accent
+
+Palette colori: oklch color space in `globals.css`. Primary = teal (hue 170).
+- Light: `oklch(0.55 0.15 170)` — Dark: `oklch(0.70 0.15 170)`
+- Background: warm off-white `oklch(0.995 0.003 180)` / warm charcoal `oklch(0.15 0.01 200)`
+- Radius: `0.75rem` — angoli morbidi
+- Sidebar warm tint, chart e ring allineati a teal
+- KPI typography: extrabold + tracking-tighter + tabular-nums per numeri
+- Card hover: `transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg`
+
+### Command Palette (Ctrl+K) — Feature Distintiva
+
+Elemento chiave di UX: ricerca fuzzy globale con 3 capacita' avanzate.
+
+1. **Preview Panel**: pannello dati a destra (solo desktop) con info live dell'elemento selezionato
+   (statistiche cliente, muscoli esercizio, KPI finanziari)
+2. **Risposte KPI dirette**: digiti "entrate" e vedi il numero inline senza navigare
+3. **Azioni Contestuali**: la palette sa dove sei (es. `/clienti/5`) e suggerisce azioni per quel cliente
+
+Implementazione: `cmdk` v1.1.1 + shadcn Command. Custom Dialog (non CommandDialog) per split layout.
+Dati lazy-loaded via React Query (`enabled: open`). Zero prop drilling — custom event per apertura da sidebar.
+
+File: `frontend/src/components/layout/CommandPalette.tsx` (~700 LOC).
+
 ---
 
 ## Architettura
 
 ```
 frontend/          Next.js 16 + React 19 + TypeScript
-  src/hooks/       React Query (server state)
-  src/components/  shadcn/ui + componenti dominio
+  src/hooks/       React Query (server state) — 10 hook modules
+  src/components/  shadcn/ui + componenti dominio — 71 componenti
   src/types/       Interfacce TypeScript (mirror Pydantic)
        |
        | REST API (JSON over HTTP, JWT auth)
@@ -313,7 +337,7 @@ sqlite3 data/crm_dev.db ".tables"
 ## Metriche Progetto
 
 - **api/**: ~5,800 LOC Python — 8 modelli ORM, 10 router, 1 schema module
-- **frontend/**: ~16,600 LOC TypeScript — 65 componenti, 9 hook modules, 8 pagine
+- **frontend/**: ~17,500 LOC TypeScript — 71 componenti, 10 hook modules, 11 pagine
 - **core/**: ~11,100 LOC Python — moduli AI (workout, RAG, DNA) in attesa di API endpoints
 - **DB**: 20 tabelle SQLite, FK enforced, multi-tenant via trainer_id
 - **Test**: 63 pytest + 67 E2E
