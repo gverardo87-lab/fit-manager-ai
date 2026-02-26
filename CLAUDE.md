@@ -70,11 +70,36 @@ Editor strutturato per creare schede allenamento professionali. Layout split: ed
 - **Export**: Excel via `exceljs` (3 sezioni colorate) + Print/PDF via `@media print`
 - **Client linkage**: assegnazione/riassegnazione cliente inline (Select + `"__none__"` sentinel), filtro cliente nella lista, tab "Schede" nel profilo cliente, cross-link bidirezionale
 - **TemplateSelector**: dialog con selezione cliente integrata (`selectedClientId` state, pre-compilato da contesto)
-- **345 esercizi** builtin (265 principale + 26 avviamento + 27 stretching + 27 mobilita)
+- **~1080 esercizi** builtin (345 originali + 739 da free-exercise-db), ~893 con illustrazioni esecuzione (start/end position)
 - Categorie: `compound`, `isolation`, `bodyweight`, `cardio`, `stretching`, `mobilita`, `avviamento`
 - Pattern: 9 forza (`squat`, `hinge`, `push_h/v`, `pull_h/v`, `core`, `rotation`, `carry`) + 3 complementari (`warmup`, `stretch`, `mobility`)
 
 File chiave: `lib/workout-templates.ts` (template + `getSectionForCategory`), `components/workouts/SessionCard.tsx` (3 sezioni DnD).
+
+### Exercise Quality Engine — Pipeline Dati
+
+> **Filosofia: l'allenamento e' un sottoramo della medicina.** Il database esercizi e' il nucleo del prodotto.
+> Contenuti imprecisi possono causare infortuni. Zero approssimazione.
+
+Pipeline a 6 fasi per pulizia e completamento del database esercizi, eseguibile dalla root del progetto.
+Ogni script e' idempotente (sicuro da rieseguire), opera su entrambi i DB (dev + prod), supporta `--batch` e `--db`.
+
+| Fase | Script | Cosa fa | Modello |
+|------|--------|---------|---------|
+| 0 | `fix_exercise_data_v2.py` | Punteggiatura, duplicati, misclassificazioni, sync prod→dev | Zero Ollama |
+| 1 | `fix_exercise_names.py` | Dizionario manuale ~100 nomi + ri-traduzione Ollama ~640 | gemma2:9b |
+| 2A | `translate_fdb_instructions.py` | Traduzione istruzioni FDB EN→IT (preserva step-by-step) | gemma2:9b |
+| 2B | `upgrade_exercise_instructions.py` | Rigenera esecuzione originali in formato step-by-step | gemma2:9b/Mixtral |
+| 3 | `enrich_exercise_fields.py` | Enrichment campi descrittivi (anatomia, biomeccanica, cues, errori) | Mixtral |
+| 4 | `backfill_exercise_fields.py` | note_sicurezza (Ollama) + force_type/lateral_pattern (deterministico) | gemma2:9b |
+| 5 | `verify_exercise_quality.py` | Audit qualita': completezza, lingua, duplicati, enum, JSON | Zero Ollama |
+
+**Formato esecuzione target**: step-by-step dettagliato e cumulativo (stile free-exercise-db), 5-8 paragrafi,
+include posizione iniziale, fase concentrica/eccentrica, respirazione, tip pratici.
+
+**Prompt category-aware** (Fase 2B e 3): 3 template diversi per strength/stretch/warmup.
+
+Tutti gli script in: `tools/admin_scripts/`
 
 ### Motore Controindicazioni Anamnesi — Scudo Informativo
 
@@ -387,7 +412,9 @@ sqlite3 data/crm_dev.db ".tables"
 - **api/**: ~6,500 LOC Python — 11 modelli ORM, 11 router, 2 schema modules
 - **frontend/**: ~20,000 LOC TypeScript — ~80 componenti, 11 hook modules, 13 pagine
 - **core/**: ~11,100 LOC Python — moduli AI (workout, RAG, DNA) in attesa di API endpoints
+- **tools/admin_scripts/**: ~2,200 LOC Python — 12 script (import, quality engine, seed, test)
 - **DB**: 23 tabelle SQLite, FK enforced, multi-tenant via trainer_id
+- **Esercizi**: ~1080 builtin (345 originali + 739 FDB), ~893 con illustrazioni esecuzione
 - **Test**: 63 pytest + 67 E2E
 - **Sicurezza**: JWT auth, bcrypt, Deep Relational IDOR, 3-layer route protection
 - **Cloud**: 0 dipendenze, 0 dati verso terzi

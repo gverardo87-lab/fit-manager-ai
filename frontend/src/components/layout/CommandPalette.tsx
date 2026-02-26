@@ -416,7 +416,7 @@ export function CommandPalette() {
     queryKey: ["exercises", undefined],
     queryFn: async () => {
       const { data } = await apiClient.get<ExerciseListResponse>("/exercises", {
-        params: { page: 1, page_size: 500 },
+        params: { page: 1, page_size: 1200 },
       });
       return data;
     },

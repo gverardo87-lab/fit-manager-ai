@@ -144,7 +144,7 @@ def list_exercises(
     pattern_movimento: Optional[str] = Query(None),
     muscolo: Optional[str] = Query(None, description="Filtra per muscolo primario"),
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=200, ge=1, le=500),
+    page_size: int = Query(default=1200, ge=1, le=2000),
 ):
     """Lista esercizi con filtri. Include builtin + custom del trainer."""
     query = select(Exercise).where(

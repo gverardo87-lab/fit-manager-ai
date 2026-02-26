@@ -274,7 +274,14 @@ function PanoramicaTab({ exercise }: { exercise: Exercise }) {
 // ════════════════════════════════════════════════════════════
 
 function EsecuzioneTab({ exercise }: { exercise: Exercise }) {
-  const hasContent = exercise.setup || exercise.esecuzione || exercise.respirazione || exercise.coaching_cues.length > 0;
+  // Immagini esecuzione FDB (start/end position)
+  const execImages = exercise.media.filter(
+    (m) => m.tipo === "image" && m.descrizione?.startsWith("fdb:exec_")
+  );
+  const startImg = execImages.find((m) => m.descrizione === "fdb:exec_start");
+  const endImg = execImages.find((m) => m.descrizione === "fdb:exec_end");
+
+  const hasContent = exercise.setup || exercise.esecuzione || exercise.respirazione || exercise.coaching_cues.length > 0 || execImages.length > 0;
 
   if (!hasContent) {
     return <EmptySection title="Istruzioni di esecuzione" description="Contenuto in arrivo — questa sezione conterra' setup, movimento, respirazione e coaching cues" />;
@@ -282,6 +289,44 @@ function EsecuzioneTab({ exercise }: { exercise: Exercise }) {
 
   return (
     <div className="space-y-4">
+      {/* Illustrazioni esecuzione (start/end) */}
+      {(startImg || endImg) && (
+        <ContentCard title="Illustrazione Esecuzione" icon={ImageIcon}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {startImg && (
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-muted-foreground text-center">
+                  Posizione Iniziale
+                </p>
+                <div className="overflow-hidden rounded-lg border bg-zinc-50 dark:bg-zinc-900">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={getMediaUrl(startImg.url) || ""}
+                    alt="Posizione iniziale"
+                    className="h-auto w-full object-contain"
+                  />
+                </div>
+              </div>
+            )}
+            {endImg && (
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-muted-foreground text-center">
+                  Posizione Finale
+                </p>
+                <div className="overflow-hidden rounded-lg border bg-zinc-50 dark:bg-zinc-900">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={getMediaUrl(endImg.url) || ""}
+                    alt="Posizione finale"
+                    className="h-auto w-full object-contain"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </ContentCard>
+      )}
+
       {exercise.setup && (
         <ContentCard title="Setup — Posizione Iniziale" icon={BookOpen}>
           <p className="text-sm leading-relaxed whitespace-pre-line">{exercise.setup}</p>
@@ -376,7 +421,11 @@ function ErroriTab({ exercise }: { exercise: Exercise }) {
 function MediaTab({ exercise }: { exercise: Exercise }) {
   const mainImage = getMediaUrl(exercise.image_url);
   const mainVideo = getMediaUrl(exercise.video_url);
-  const hasMedia = mainImage || mainVideo || exercise.media.length > 0;
+  // Escludi media FDB exec (mostrati in EsecuzioneTab)
+  const userMedia = exercise.media.filter(
+    (m) => !m.descrizione?.startsWith("fdb:")
+  );
+  const hasMedia = mainImage || mainVideo || userMedia.length > 0;
 
   if (!hasMedia) {
     return <EmptySection title="Nessun media" description="Le immagini e i video verranno visualizzati qui" />;
@@ -399,9 +448,9 @@ function MediaTab({ exercise }: { exercise: Exercise }) {
         </div>
       )}
 
-      {exercise.media.length > 0 && (
+      {userMedia.length > 0 && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-          {exercise.media.map((m) => {
+          {userMedia.map((m) => {
             const url = getMediaUrl(m.url);
             if (!url) return null;
             return m.tipo === "image" ? (

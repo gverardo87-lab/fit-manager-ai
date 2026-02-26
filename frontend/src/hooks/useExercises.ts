@@ -40,7 +40,7 @@ export function useExercises(filters?: ExerciseFilters) {
     queryFn: async () => {
       const params: Record<string, string | number> = {
         page: 1,
-        page_size: 500,
+        page_size: 1200,
       };
       if (filters?.search) params.search = filters.search;
       if (filters?.categoria) params.categoria = filters.categoria;

@@ -124,6 +124,9 @@ knowledge_base/documents/*
 .env.local
 frontend/.next-dev/
 
+# External repos (cloned for data import, not tracked)
+tools/external/
+
 # --- NOSTRE REGOLE CUSTOM ---
 
 # Ignora i file di database SQLite nella cartella data
