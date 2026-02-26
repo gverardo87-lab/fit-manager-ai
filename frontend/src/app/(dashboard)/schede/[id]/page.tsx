@@ -39,6 +39,7 @@ import { SessionCard, type SessionCardData } from "@/components/workouts/Session
 import { ExerciseSelector } from "@/components/workouts/ExerciseSelector";
 import { WorkoutPreview } from "@/components/workouts/WorkoutPreview";
 import { ExportButtons } from "@/components/workouts/ExportButtons";
+import { CopilotChat } from "@/components/workouts/CopilotChat";
 import {
   useWorkout,
   useUpdateWorkout,
@@ -53,6 +54,7 @@ import {
   type WorkoutExerciseRow,
   type WorkoutSessionInput,
   type Exercise,
+  type CopilotActionAddExercise,
 } from "@/types/api";
 import {
   SECTION_CATEGORIES,
@@ -308,6 +310,43 @@ export default function SchedaDetailPage({
     setIsDirty(true);
   }, []);
 
+  // ── Copilot AI: aggiunge esercizio da azione inline chat ──
+  const handleCopilotAddExercise = useCallback(
+    (sessionIndex: number, action: CopilotActionAddExercise) => {
+      setSessions((prev) => {
+        const idx = Math.min(sessionIndex, prev.length - 1);
+        if (idx < 0) return prev;
+        const section = action.sezione;
+        const isComplementary = section !== "principale";
+
+        return prev.map((s, i) => {
+          if (i !== idx) return s;
+          return {
+            ...s,
+            esercizi: [
+              ...s.esercizi,
+              {
+                id: -(Date.now()),
+                id_esercizio: action.exercise_id,
+                esercizio_nome: action.nome,
+                esercizio_categoria: action.categoria,
+                esercizio_attrezzatura: action.attrezzatura,
+                ordine: s.esercizi.length + 1,
+                serie: action.serie ?? (isComplementary ? 1 : 3),
+                ripetizioni: action.ripetizioni ?? (isComplementary ? "30s" : "8-12"),
+                tempo_riposo_sec: action.riposo ?? (isComplementary ? 0 : 90),
+                tempo_esecuzione: null,
+                note: null,
+              },
+            ],
+          };
+        });
+      });
+      setIsDirty(true);
+    },
+    [],
+  );
+
   // ── Save ──
 
   const handleSave = useCallback(() => {
@@ -550,8 +589,15 @@ export default function SchedaDetailPage({
           </Button>
         </div>
 
-        {/* Preview (destra, solo desktop) */}
-        <div className="hidden lg:block sticky top-6">
+        {/* Copilot + Preview (destra, solo desktop) */}
+        <div className="hidden lg:block space-y-4 sticky top-6">
+          <CopilotChat
+            planId={plan.id}
+            clientNome={clientNome}
+            sessions={sessions}
+            exerciseMap={exerciseMap}
+            onAddExercise={handleCopilotAddExercise}
+          />
           <WorkoutPreview
             nome={plan.nome}
             obiettivo={plan.obiettivo}

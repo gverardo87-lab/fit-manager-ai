@@ -76,6 +76,29 @@ Editor strutturato per creare schede allenamento professionali. Layout split: ed
 
 File chiave: `lib/workout-templates.ts` (template + `getSectionForCategory`), `components/workouts/SessionCard.tsx` (3 sezioni DnD).
 
+### Copilot AI — Assistente Conversazionale nel Builder
+
+Agente AI integrato nel workout builder. Chat conversazionale nella colonna destra (desktop, collapsabile).
+
+**Backend** (`api/services/workout_copilot.py`, `api/routers/copilot.py`, `api/schemas/copilot.py`):
+- 2 endpoint: `POST /copilot/suggest-exercise` (button click legacy) + `POST /copilot/chat` (agente conversazionale)
+- **Intent Router** a 2 livelli: keyword match deterministico (~0ms) + Ollama fallback (~3s) per casi ambigui
+- 8 intent: `suggest`, `analyze`, `chat` (funzionanti) + `explain`, `search`, `swap`, `modify`, `review` (skeleton)
+- **Capability dispatch**: `_cap_suggest()` (esercizi contestuali), `_cap_analyze()` (analisi strutturale scheda), `_cap_chat()` (conversazione libera con estrazione context notes)
+- **Context notes**: preferenze/note estratte dalla conversazione (es. "odia bilancieri" → nota persistente), inviate ad ogni richiesta
+- **Action validation**: exercise_id suggeriti da Ollama validati contro SQL candidate_map — solo ID reali del DB passano
+- Graceful degradation: mai 500, errori Ollama gestiti con messaggio friendly
+- Ollama locale gemma2:9b, privacy-first (nessun PII nei prompt)
+
+**Frontend** (`components/workouts/CopilotChat.tsx` ~500 LOC):
+- Panel collapsabile con chat UI (messaggi, input, auto-scroll, typing indicator)
+- **Welcome screen** con quick prompts contestuali (chip cliccabili): cambiano in base a stato scheda (vuota/con esercizi) e cliente assegnato
+- **Follow-up prompts** dopo ogni risposta (evita "muro bianco")
+- **Azioni inline** nei messaggi (add_exercise con bottone, reasoning, stato "Applicato")
+- Serializzazione workout state ad ogni chiamata API
+- Conversation history (sliding window 10 messaggi) + context notes management
+- Modulo condiviso: `api/services/ollama_client.py` (config, call_ollama, parse_json_field, format utilities)
+
 ### Exercise Quality Engine — Pipeline Dati
 
 > **Filosofia: l'allenamento e' un sottoramo della medicina.** Il database esercizi e' il nucleo del prodotto.

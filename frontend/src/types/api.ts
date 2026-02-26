@@ -960,3 +960,125 @@ export interface WorkoutPlanUpdate {
   sessioni_per_settimana?: number | null;
   note?: string | null;
 }
+
+// ════════════════════════════════════════════════════════════
+// COPILOT AI (api/schemas/copilot.py)
+// ════════════════════════════════════════════════════════════
+
+/** POST /api/copilot/suggest-exercise — body */
+export interface SuggestExerciseRequest {
+  id_scheda: number;
+  sezione: "avviamento" | "principale" | "stretching";
+  exercise_ids: number[];
+  focus_muscolare?: string | null;
+}
+
+/** Singolo suggerimento esercizio dal copilot */
+export interface ExerciseSuggestion {
+  exercise_id: number;
+  nome: string;
+  categoria: string;
+  pattern_movimento: string;
+  attrezzatura: string;
+  muscoli_primari: string[];
+  reasoning: string;
+}
+
+/** POST /api/copilot/suggest-exercise — response */
+export interface SuggestExerciseResponse {
+  suggestions: ExerciseSuggestion[];
+}
+
+// ── Chat conversazionale ──
+
+/** Esercizio nel workout state per il chat */
+export interface ChatWorkoutExercise {
+  id: number;
+  nome: string;
+  pattern: string;
+  sezione: string;
+  serie: number;
+  ripetizioni: string;
+  riposo: number;
+}
+
+/** Sessione nel workout state per il chat */
+export interface ChatWorkoutSession {
+  nome: string;
+  focus: string | null;
+  exercises: ChatWorkoutExercise[];
+}
+
+/** Snapshot stato scheda per il chat */
+export interface ChatWorkoutState {
+  sessions: ChatWorkoutSession[];
+}
+
+/** Messaggio nella conversation history */
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+/** POST /api/copilot/chat — body */
+export interface CopilotChatRequest {
+  plan_id: number;
+  message: string;
+  workout_state: ChatWorkoutState;
+  conversation_history: ChatMessage[];
+  context_notes: string[];
+}
+
+/** Azione add_exercise nella risposta chat */
+export interface CopilotActionAddExercise {
+  type: "add_exercise";
+  label: string;
+  reasoning: string;
+  exercise_id: number;
+  nome: string;
+  categoria: string;
+  pattern_movimento: string;
+  attrezzatura: string;
+  muscoli_primari: string[];
+  sezione: string;
+  serie: number;
+  ripetizioni: string;
+  riposo: number;
+}
+
+/** Azione swap_exercise nella risposta chat */
+export interface CopilotActionSwapExercise {
+  type: "swap_exercise";
+  label: string;
+  reasoning: string;
+  old_exercise_id: number;
+  new_exercise_id: number;
+  new_nome: string;
+  new_categoria: string;
+  new_attrezzatura: string;
+}
+
+/** Azione modify_params nella risposta chat */
+export interface CopilotActionModifyParams {
+  type: "modify_params";
+  label: string;
+  reasoning: string;
+  exercise_id: number;
+  serie?: number | null;
+  ripetizioni?: string | null;
+  riposo?: number | null;
+}
+
+/** Union tipo azioni copilot */
+export type CopilotAction =
+  | CopilotActionAddExercise
+  | CopilotActionSwapExercise
+  | CopilotActionModifyParams;
+
+/** POST /api/copilot/chat — response */
+export interface CopilotChatResponse {
+  message: string;
+  actions: CopilotAction[];
+  context_notes_update: string[];
+  intent: string;
+}

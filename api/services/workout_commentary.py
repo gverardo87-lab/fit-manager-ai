@@ -11,39 +11,25 @@ Privacy-first: nessun dato personale esce dalla macchina.
 
 import json
 import logging
-import os
 from typing import Optional
 
-import requests
 from sqlmodel import Session, select
 
 from api.models.client import Client
 from api.models.exercise import Exercise
 from api.models.workout import WorkoutPlan, WorkoutSession, WorkoutExercise
+from api.services.ollama_client import (
+    call_ollama,
+    parse_json_field,
+    format_exercise_for_prompt,
+    format_anamnesi_for_prompt,
+)
 
 logger = logging.getLogger("fitmanager.services.commentary")
 
 # ═══════════════════════════════════════════════════════════
-# CONFIG
-# ═══════════════════════════════════════════════════════════
-
-OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma2:9b")
-OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "120"))
-
-# ═══════════════════════════════════════════════════════════
 # DATA ASSEMBLY
 # ═══════════════════════════════════════════════════════════
-
-
-def _parse_json_field(value: Optional[str], fallback=None):
-    """Parse un campo JSON (str in DB) in modo sicuro."""
-    if not value:
-        return fallback if fallback is not None else []
-    try:
-        return json.loads(value) if isinstance(value, str) else value
-    except (json.JSONDecodeError, TypeError):
-        return fallback if fallback is not None else []
 
 
 def _fetch_workout_data(session: Session, plan: WorkoutPlan) -> dict:
@@ -101,97 +87,6 @@ def _fetch_workout_data(session: Session, plan: WorkoutPlan) -> dict:
         "client": client,
         "anamnesi": anamnesi,
     }
-
-
-# ═══════════════════════════════════════════════════════════
-# PROMPT FORMATTING
-# ═══════════════════════════════════════════════════════════
-
-
-def _format_exercise_for_prompt(we: WorkoutExercise, ex: Exercise) -> str:
-    """Formatta un singolo esercizio per il prompt con dati enriched."""
-    lines = [
-        f"  - {ex.nome} ({ex.categoria}, {ex.attrezzatura})",
-        f"    Serie: {we.serie} x {we.ripetizioni}, Riposo: {we.tempo_riposo_sec}s",
-    ]
-    if we.tempo_esecuzione:
-        lines.append(f"    Tempo: {we.tempo_esecuzione}")
-    if we.note:
-        lines.append(f"    Note trainer: {we.note}")
-
-    # Muscoli
-    muscoli_p = _parse_json_field(ex.muscoli_primari)
-    if muscoli_p:
-        lines.append(f"    Muscoli primari: {', '.join(muscoli_p)}")
-
-    muscoli_s = _parse_json_field(ex.muscoli_secondari)
-    if muscoli_s:
-        lines.append(f"    Muscoli secondari: {', '.join(muscoli_s)}")
-
-    # Esecuzione (troncata per context window)
-    if ex.esecuzione:
-        lines.append(f"    Esecuzione: {ex.esecuzione[:200]}")
-
-    # Coaching cues (max 3)
-    cues = _parse_json_field(ex.coaching_cues)
-    if cues:
-        lines.append(f"    Cues: {'; '.join(cues[:3])}")
-
-    # Errori comuni (max 2)
-    errori = _parse_json_field(ex.errori_comuni)
-    if errori:
-        err_strs = []
-        for e in errori[:2]:
-            if isinstance(e, dict) and "errore" in e:
-                err_strs.append(e["errore"])
-            elif isinstance(e, str):
-                err_strs.append(e)
-        if err_strs:
-            lines.append(f"    Errori comuni: {'; '.join(err_strs)}")
-
-    # Sicurezza e controindicazioni
-    if ex.note_sicurezza:
-        lines.append(f"    Sicurezza: {ex.note_sicurezza[:150]}")
-
-    contras = _parse_json_field(ex.controindicazioni)
-    if contras:
-        lines.append(f"    Controindicazioni: {', '.join(contras[:3])}")
-
-    return "\n".join(lines)
-
-
-def _format_anamnesi_for_prompt(anamnesi: dict) -> str:
-    """Formatta l'anamnesi per il prompt SENZA PII (nome, email, telefono)."""
-    lines: list[str] = []
-
-    def add_question(key: str, label: str) -> None:
-        q = anamnesi.get(key, {})
-        if isinstance(q, dict) and q.get("presente"):
-            detail = q.get("dettaglio", "")
-            lines.append(f"- {label}: SI{f' ({detail})' if detail else ''}")
-
-    add_question("infortuni_attuali", "Infortuni attuali")
-    add_question("infortuni_pregressi", "Infortuni pregressi")
-    add_question("interventi_chirurgici", "Interventi chirurgici")
-    add_question("dolori_cronici", "Dolori cronici")
-    add_question("patologie", "Patologie")
-    add_question("farmaci", "Farmaci in uso")
-    add_question("problemi_cardiovascolari", "Problemi cardiovascolari")
-    add_question("problemi_respiratori", "Problemi respiratori")
-
-    livello = anamnesi.get("livello_attivita", "")
-    if livello:
-        lines.append(f"- Livello attivita: {livello}")
-
-    obiettivi = anamnesi.get("obiettivi_specifici", "")
-    if obiettivi:
-        lines.append(f"- Obiettivi specifici: {obiettivi}")
-
-    limitazioni = anamnesi.get("limitazioni_funzionali", "")
-    if limitazioni:
-        lines.append(f"- Limitazioni funzionali: {limitazioni}")
-
-    return "\n".join(lines) if lines else "Nessuna informazione anamnesi disponibile."
 
 
 # ═══════════════════════════════════════════════════════════
@@ -298,10 +193,10 @@ def _analyze_quality(data: dict) -> str:
                 pull_sets += we.serie
 
             # Muscoli (primari: credito pieno, secondari: mezzo credito)
-            primari = _parse_json_field(ex.muscoli_primari)
+            primari = parse_json_field(ex.muscoli_primari)
             for m in primari:
                 muscle_sets[m] = muscle_sets.get(m, 0) + we.serie
-            secondari = _parse_json_field(ex.muscoli_secondari)
+            secondari = parse_json_field(ex.muscoli_secondari)
             for m in secondari:
                 muscle_sets[m] = muscle_sets.get(m, 0) + we.serie * 0.5
 
@@ -371,7 +266,7 @@ def _analyze_quality(data: dict) -> str:
                 ex = exercise_map.get(we.id_esercizio)
                 if not ex:
                     continue
-                contras = _parse_json_field(ex.controindicazioni)
+                contras = parse_json_field(ex.controindicazioni)
                 if contras:
                     contras_found.append(f"{ex.nome} (controindicazioni: {', '.join(contras[:2])})")
         if contras_found:
@@ -443,40 +338,6 @@ ISTRUZIONI SPECIFICHE:
 
 
 # ═══════════════════════════════════════════════════════════
-# OLLAMA CALL
-# ═══════════════════════════════════════════════════════════
-
-
-def _call_ollama(system: str, prompt: str, num_predict: int = 2048) -> str:
-    """Chiama Ollama /api/generate e ritorna il testo generato."""
-    payload = {
-        "model": OLLAMA_MODEL,
-        "prompt": prompt,
-        "system": system,
-        "stream": False,
-        "options": {
-            "temperature": 0.4,
-            "num_predict": num_predict,
-        },
-    }
-
-    try:
-        resp = requests.post(OLLAMA_URL, json=payload, timeout=OLLAMA_TIMEOUT)
-        resp.raise_for_status()
-        return resp.json()["response"]
-    except requests.exceptions.ConnectionError:
-        raise RuntimeError(
-            "Ollama non raggiungibile. Verifica che sia avviato (ollama serve)"
-        )
-    except requests.exceptions.Timeout:
-        raise RuntimeError(
-            "Ollama timeout — la generazione ha superato il limite di tempo"
-        )
-    except Exception as e:
-        raise RuntimeError(f"Errore Ollama: {e}")
-
-
-# ═══════════════════════════════════════════════════════════
 # BLOCK GENERATORS — v2
 # ═══════════════════════════════════════════════════════════
 
@@ -510,7 +371,7 @@ def _generate_panoramica(data: dict, quality_text: str) -> dict:
             lines.append(f"Data nascita: {client.data_nascita}")
         if anamnesi:
             lines.append("Anamnesi:")
-            lines.append(_format_anamnesi_for_prompt(anamnesi))
+            lines.append(format_anamnesi_for_prompt(anamnesi))
 
     if quality_text:
         lines.append("\nANALISI QUALITA' STRUTTURALE:")
@@ -520,7 +381,7 @@ def _generate_panoramica(data: dict, quality_text: str) -> dict:
 
     prompt = "\n".join(lines)
     try:
-        content = _call_ollama(SYSTEM_PANORAMICA, prompt, num_predict=1024)
+        content = call_ollama(SYSTEM_PANORAMICA, prompt, num_predict=1024)
         return {"type": "panoramica", "content": content.strip()}
     except RuntimeError as e:
         logger.error("Panoramica generation failed: %s", e)
@@ -568,29 +429,29 @@ def _generate_session_block(
         lines.append("\nAVVIAMENTO:")
         for i, (we, ex) in enumerate(warmup_exercises, 1):
             lines.append(f"\n{i}.")
-            lines.append(_format_exercise_for_prompt(we, ex))
+            lines.append(format_exercise_for_prompt(we, ex))
 
     if principal_exercises:
         lines.append("\nESERCIZI PRINCIPALI:")
         for i, (we, ex) in enumerate(principal_exercises, 1):
             lines.append(f"\n{i}.")
-            lines.append(_format_exercise_for_prompt(we, ex))
+            lines.append(format_exercise_for_prompt(we, ex))
 
     if stretch_exercises:
         lines.append("\nSTRETCHING/MOBILITA:")
         for i, (we, ex) in enumerate(stretch_exercises, 1):
             lines.append(f"\n{i}.")
-            lines.append(_format_exercise_for_prompt(we, ex))
+            lines.append(format_exercise_for_prompt(we, ex))
 
     if anamnesi:
         lines.append("\nANAMNESI CLIENTE:")
-        lines.append(_format_anamnesi_for_prompt(anamnesi))
+        lines.append(format_anamnesi_for_prompt(anamnesi))
 
     lines.append("\nScrivi la guida per OGNI esercizio elencato sopra, nell'ordine esatto.")
 
     prompt = "\n".join(lines)
     try:
-        content = _call_ollama(SYSTEM_SESSION, prompt, num_predict=2048)
+        content = call_ollama(SYSTEM_SESSION, prompt, num_predict=2048)
         return {
             "type": "session",
             "session_numero": sess.numero_sessione,
@@ -619,7 +480,7 @@ def _generate_consigli(data: dict, quality_text: str) -> dict:
 
     if anamnesi:
         lines.append("\nANAMNESI CLIENTE:")
-        lines.append(_format_anamnesi_for_prompt(anamnesi))
+        lines.append(format_anamnesi_for_prompt(anamnesi))
 
     if quality_text:
         lines.append("\nANALISI QUALITA' STRUTTURALE:")
@@ -629,7 +490,7 @@ def _generate_consigli(data: dict, quality_text: str) -> dict:
 
     prompt = "\n".join(lines)
     try:
-        content = _call_ollama(SYSTEM_CONSIGLI, prompt, num_predict=1024)
+        content = call_ollama(SYSTEM_CONSIGLI, prompt, num_predict=1024)
         return {"type": "consigli", "content": content.strip()}
     except RuntimeError as e:
         logger.error("Consigli generation failed: %s", e)
