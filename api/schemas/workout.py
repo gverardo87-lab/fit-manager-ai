@@ -153,6 +153,7 @@ class WorkoutPlanResponse(BaseModel):
     durata_settimane: int
     sessioni_per_settimana: int
     note: Optional[str] = None
+    ai_commentary: Optional[str] = None
     sessioni: List[WorkoutSessionResponse] = []
     created_at: Optional[str] = None
     updated_at: Optional[str] = None

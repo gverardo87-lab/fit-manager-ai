@@ -309,6 +309,7 @@ class ExerciseResponse(BaseModel):
     controindicazioni: List[str] = []
     image_url: Optional[str] = None
     video_url: Optional[str] = None
+    muscle_map_url: Optional[str] = None
     is_builtin: bool = False
     created_at: Optional[datetime] = None
 

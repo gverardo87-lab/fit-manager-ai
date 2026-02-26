@@ -28,6 +28,7 @@ from api.schemas.workout import (
     WorkoutSessionResponse, WorkoutExerciseResponse,
 )
 from api.routers._audit import log_audit
+from api.services.workout_commentary import generate_commentary
 
 router = APIRouter(prefix="/workouts", tags=["workouts"])
 
@@ -185,6 +186,7 @@ def _plan_base(plan: WorkoutPlan, client: Client | None) -> dict:
         "durata_settimane": plan.durata_settimane,
         "sessioni_per_settimana": plan.sessioni_per_settimana,
         "note": plan.note,
+        "ai_commentary": plan.ai_commentary,
         "created_at": plan.created_at,
         "updated_at": plan.updated_at,
     }
@@ -559,3 +561,45 @@ def duplicate_workout(
     session.refresh(new_plan)
 
     return _build_plan_response(session, new_plan)
+
+
+# ════════════════════════════════════════════════════════════
+# POST: Genera commento AI (Ollama locale)
+# ════════════════════════════════════════════════════════════
+
+@router.post("/{workout_id}/generate-commentary", response_model=WorkoutPlanResponse)
+def generate_workout_commentary(
+    workout_id: int,
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """
+    Genera spiegazione AI della scheda via Ollama locale.
+
+    Fetch completo: plan -> sessioni -> esercizi enriched -> cliente + anamnesi.
+    Chiama Ollama con prompt strutturato. Salva risultato su plan.ai_commentary.
+    Rigenerabile: sovrascrive il commento precedente.
+    """
+    plan = _bouncer_workout(session, workout_id, trainer.id)
+
+    try:
+        commentary = generate_commentary(session, plan)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e),
+        )
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(e),
+        )
+
+    plan.ai_commentary = commentary
+    plan.updated_at = datetime.now(timezone.utc).isoformat()
+    session.add(plan)
+    log_audit(session, "workout_plan", plan.id, "GENERATE_COMMENTARY", trainer.id)
+    session.commit()
+    session.refresh(plan)
+
+    return _build_plan_response(session, plan)

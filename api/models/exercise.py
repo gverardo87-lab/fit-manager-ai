@@ -68,8 +68,9 @@ class Exercise(SQLModel, table=True):
     controindicazioni: Optional[str] = None
 
     # Media (v2)
-    image_url: Optional[str] = None   # path relativo: /media/exercises/42/main.jpg
-    video_url: Optional[str] = None   # path relativo o URL esterno
+    image_url: Optional[str] = None       # path relativo: /media/exercises/42/main.jpg
+    video_url: Optional[str] = None       # path relativo o URL esterno
+    muscle_map_url: Optional[str] = None  # path relativo: /media/exercises/42/muscle-map.svg
 
     # Metadata
     is_builtin: bool = Field(default=False)

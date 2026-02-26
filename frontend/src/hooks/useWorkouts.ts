@@ -183,3 +183,29 @@ export function useDuplicateWorkout() {
     },
   });
 }
+
+// ════════════════════════════════════════════════════════════
+// MUTATION: Genera spiegazione AI (Ollama)
+// ════════════════════════════════════════════════════════════
+
+export function useGenerateCommentary() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { data } = await apiClient.post<WorkoutPlan>(
+        `/workouts/${id}/generate-commentary`,
+        null,
+        { timeout: 600_000 },  // v2: multiple Ollama calls sequenziali
+      );
+      return data;
+    },
+    onSuccess: (plan) => {
+      queryClient.invalidateQueries({ queryKey: ["workouts"] });
+      queryClient.invalidateQueries({ queryKey: ["workout", plan.id] });
+      toast.success("Spiegazione AI generata");
+    },
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Errore generazione AI — verifica che Ollama sia attivo"));
+    },
+  });
+}

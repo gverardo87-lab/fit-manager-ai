@@ -34,6 +34,7 @@ interface ExportData {
   livello: string;
   clientNome?: string;
   sessioni: SessionCardData[];
+  aiCommentary?: string | null;
 }
 
 function groupBySection(esercizi: WorkoutExerciseRow[]) {
@@ -55,6 +56,7 @@ export async function exportWorkoutExcel({
   livello,
   clientNome,
   sessioni,
+  aiCommentary,
 }: ExportData): Promise<void> {
   const wb = new ExcelJS.Workbook();
   wb.creator = "ProFit AI Studio";
@@ -189,6 +191,65 @@ export async function exportWorkoutExcel({
     footerRow.font = { size: 8, italic: true, color: { argb: "999999" } };
   }
 
+  // ── Foglio AI Commentary ──
+  if (aiCommentary) {
+    const parsed = parseCommentaryForExport(aiCommentary);
+
+    if (parsed.version === 2) {
+      // V2: blocchi distribuiti — panoramica, guida per sessione, consigli
+      const panoramica = parsed.blocks.find((b) => b.type === "panoramica");
+      const consigli = parsed.blocks.find((b) => b.type === "consigli");
+      const sessionBlocks = parsed.blocks.filter((b) => b.type === "session") as Array<{
+        type: "session"; session_numero: number; session_nome: string; content: string;
+      }>;
+
+      // Foglio Panoramica
+      if (panoramica?.content) {
+        const ws = wb.addWorksheet("Panoramica");
+        ws.columns = [{ width: 80 }];
+        addCommentaryHeader(ws, "Panoramica del Programma", nome, clientNome);
+        writeMarkdownLines(ws, panoramica.content);
+        addCommentaryFooter(ws);
+      }
+
+      // Guida sessione integrata nei fogli sessione esistenti
+      for (const block of sessionBlocks) {
+        if (!block.content) continue;
+        // Trova il foglio sessione corrispondente
+        const sheetName = sessioni
+          .find((s) => s.numero_sessione === block.session_numero)
+          ?.nome_sessione.slice(0, 31);
+        const ws = sheetName ? wb.getWorksheet(sheetName) : null;
+        if (!ws) continue;
+
+        // Aggiungi guida in coda al foglio sessione
+        ws.addRow([]);
+        const guidaHeader = ws.addRow([`Guida — ${block.session_nome}`]);
+        guidaHeader.font = { bold: true, size: 11, color: { argb: TEAL } };
+        const guidaRowNum = ws.rowCount;
+        ws.mergeCells(`A${guidaRowNum}:G${guidaRowNum}`);
+
+        writeMarkdownLines(ws, block.content, 7);
+      }
+
+      // Foglio Consigli
+      if (consigli?.content) {
+        const ws = wb.addWorksheet("Consigli Generali");
+        ws.columns = [{ width: 80 }];
+        addCommentaryHeader(ws, "Consigli Generali", nome, clientNome);
+        writeMarkdownLines(ws, consigli.content);
+        addCommentaryFooter(ws);
+      }
+    } else {
+      // V1 fallback: foglio monolitico (invariato)
+      const ws = wb.addWorksheet("Guida alla Scheda");
+      ws.columns = [{ width: 80 }];
+      addCommentaryHeader(ws, "Guida alla Scheda", nome, clientNome);
+      writeMarkdownLines(ws, aiCommentary);
+      addCommentaryFooter(ws);
+    }
+  }
+
   // Download
   const buffer = await wb.xlsx.writeBuffer();
   const blob = new Blob([buffer], {
@@ -196,4 +257,91 @@ export async function exportWorkoutExcel({
   });
   const filename = `${nome.replace(/[^a-zA-Z0-9àèéìòùÀÈÉÌÒÙ\s-]/g, "").trim()}.xlsx`;
   saveAs(blob, filename);
+}
+
+// ════════════════════════════════════════════════════════════
+// COMMENTARY EXPORT HELPERS
+// ════════════════════════════════════════════════════════════
+
+interface CommentaryV2Export {
+  version: 2;
+  blocks: Array<{
+    type: string;
+    content?: string;
+    session_numero?: number;
+    session_nome?: string;
+  }>;
+}
+
+type ParsedCommentaryExport =
+  | { version: 1; text: string }
+  | CommentaryV2Export;
+
+function parseCommentaryForExport(raw: string): ParsedCommentaryExport {
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed?.version === 2 && Array.isArray(parsed?.blocks)) {
+      return parsed as CommentaryV2Export;
+    }
+  } catch {
+    // Not JSON — v1
+  }
+  return { version: 1, text: raw };
+}
+
+function addCommentaryHeader(
+  ws: ExcelJS.Worksheet,
+  title: string,
+  nome: string,
+  clientNome?: string,
+) {
+  const titleRow = ws.addRow([title]);
+  titleRow.font = { bold: true, size: 14, color: { argb: TEAL } };
+
+  const subRow = ws.addRow([`${nome} — ${clientNome ?? "Scheda generica"}`]);
+  subRow.font = { size: 10, color: { argb: "666666" } };
+
+  ws.addRow([]);
+}
+
+function addCommentaryFooter(ws: ExcelJS.Worksheet) {
+  ws.addRow([]);
+  const footerRow = ws.addRow(["ProFit AI Studio — " + new Date().toLocaleDateString("it-IT")]);
+  footerRow.font = { size: 8, italic: true, color: { argb: "999999" } };
+}
+
+function writeMarkdownLines(ws: ExcelJS.Worksheet, text: string, mergeWidth?: number) {
+  for (const line of text.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      ws.addRow([]);
+      continue;
+    }
+
+    const clean = trimmed.replace(/\*\*(.+?)\*\*/g, "$1");
+
+    if (trimmed.startsWith("## ")) {
+      const row = ws.addRow([clean.slice(3)]);
+      row.font = { bold: true, size: 12, color: { argb: TEAL } };
+      if (mergeWidth) ws.mergeCells(`A${ws.rowCount}:${colLetter(mergeWidth)}${ws.rowCount}`);
+    } else if (trimmed.startsWith("### ")) {
+      const row = ws.addRow([clean.slice(4)]);
+      row.font = { bold: true, size: 10 };
+      if (mergeWidth) ws.mergeCells(`A${ws.rowCount}:${colLetter(mergeWidth)}${ws.rowCount}`);
+    } else if (trimmed.startsWith("- ")) {
+      const row = ws.addRow([`  \u2022 ${clean.slice(2)}`]);
+      row.font = { size: 10 };
+      row.alignment = { wrapText: true };
+      if (mergeWidth) ws.mergeCells(`A${ws.rowCount}:${colLetter(mergeWidth)}${ws.rowCount}`);
+    } else {
+      const row = ws.addRow([clean]);
+      row.font = { size: 10 };
+      row.alignment = { wrapText: true };
+      if (mergeWidth) ws.mergeCells(`A${ws.rowCount}:${colLetter(mergeWidth)}${ws.rowCount}`);
+    }
+  }
+}
+
+function colLetter(n: number): string {
+  return String.fromCharCode(64 + n); // 1→A, 7→G
 }

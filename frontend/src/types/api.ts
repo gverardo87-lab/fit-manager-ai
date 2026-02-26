@@ -779,6 +779,7 @@ export interface Exercise {
   controindicazioni: string[];
   image_url: string | null;
   video_url: string | null;
+  muscle_map_url: string | null;
   is_builtin: boolean;
   created_at: string | null;
   media: ExerciseMedia[];
@@ -903,6 +904,7 @@ export interface WorkoutPlan {
   durata_settimane: number;
   sessioni_per_settimana: number;
   note: string | null;
+  ai_commentary: string | null;
   sessioni: WorkoutSession[];
   created_at: string | null;
   updated_at: string | null;

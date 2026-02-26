@@ -33,6 +33,7 @@ class WorkoutPlan(SQLModel, table=True):
     durata_settimane: int = Field(default=4)
     sessioni_per_settimana: int = Field(default=3)
     note: Optional[str] = None
+    ai_commentary: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
     deleted_at: Optional[str] = None

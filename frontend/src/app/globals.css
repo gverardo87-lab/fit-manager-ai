@@ -175,6 +175,7 @@
     padding: 0 !important;
   }
   .workout-session { page-break-inside: avoid; }
+  .ai-commentary { page-break-before: always; }
   body { background: white !important; }
   nav, header, aside { display: none !important; }
 }

@@ -10,69 +10,11 @@
 import { useMemo, useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 import Body from "react-muscle-highlighter";
-import type { ExtendedBodyPart, Slug } from "react-muscle-highlighter";
-
-// ════════════════════════════════════════════════════════════
-// MAPPING: nostri nomi muscoli → slug pacchetto
-// ════════════════════════════════════════════════════════════
-
-const MUSCLE_SLUG_MAP: Record<string, Slug[]> = {
-  quadriceps: ["quadriceps"],
-  hamstrings: ["hamstring"],
-  glutes: ["gluteal"],
-  calves: ["calves"],
-  adductors: ["adductors"],
-  chest: ["chest"],
-  back: ["upper-back", "lower-back"],
-  lats: ["upper-back"],
-  shoulders: ["deltoids"],
-  traps: ["trapezius"],
-  biceps: ["biceps"],
-  triceps: ["triceps"],
-  forearms: ["forearm"],
-  core: ["abs", "obliques"],
-};
-
-// Slug visibili per vista
-const FRONT_SLUGS: Set<Slug> = new Set([
-  "abs", "adductors", "biceps", "calves", "chest", "deltoids",
-  "forearm", "obliques", "quadriceps", "tibialis", "trapezius",
-]);
-
-const BACK_SLUGS: Set<Slug> = new Set([
-  "calves", "deltoids", "forearm", "gluteal", "hamstring",
-  "lower-back", "neck", "trapezius", "triceps", "upper-back",
-]);
+import { buildBodyData, FRONT_SLUGS, BACK_SLUGS } from "@/lib/muscle-map-utils";
 
 // Colori: intensity 1 = primario (pieno), intensity 2 = secondario (attenuato)
 const COLORS_LIGHT = ["#2563eb", "#93c5fd"] as const; // blue-600, blue-300
 const COLORS_DARK = ["#3b82f6", "#60a5fa"] as const;  // blue-500, blue-400
-
-// ════════════════════════════════════════════════════════════
-// HELPERS
-// ════════════════════════════════════════════════════════════
-
-function buildBodyData(
-  muscles: string[],
-  intensity: number,
-  sideFilter: Set<Slug>,
-): ExtendedBodyPart[] {
-  const seen = new Set<Slug>();
-  const parts: ExtendedBodyPart[] = [];
-
-  for (const muscle of muscles) {
-    const slugs = MUSCLE_SLUG_MAP[muscle];
-    if (!slugs) continue;
-    for (const slug of slugs) {
-      if (sideFilter.has(slug) && !seen.has(slug)) {
-        seen.add(slug);
-        parts.push({ slug, intensity });
-      }
-    }
-  }
-
-  return parts;
-}
 
 // ════════════════════════════════════════════════════════════
 // COMPONENT

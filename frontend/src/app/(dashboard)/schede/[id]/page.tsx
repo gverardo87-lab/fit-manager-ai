@@ -20,6 +20,7 @@ import {
   Check,
   X,
   ShieldAlert,
+  Sparkles,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +43,7 @@ import {
   useWorkout,
   useUpdateWorkout,
   useUpdateWorkoutSessions,
+  useGenerateCommentary,
 } from "@/hooks/useWorkouts";
 import { useClient, useClients } from "@/hooks/useClients";
 import { useExercises } from "@/hooks/useExercises";
@@ -61,6 +63,8 @@ import {
   classifyExercises,
   getAnamnesiSummary,
 } from "@/lib/contraindication-engine";
+import { analyzeWorkoutQuality } from "@/lib/workout-quality-engine";
+import { QualityReviewPanel } from "@/components/workouts/QualityReviewPanel";
 
 // ════════════════════════════════════════════════════════════
 // LABELS
@@ -90,6 +94,7 @@ export default function SchedaDetailPage({
   const { data: plan, isLoading, isError } = useWorkout(isNaN(id) ? null : id);
   const updateWorkout = useUpdateWorkout();
   const updateSessions = useUpdateWorkoutSessions();
+  const generateCommentary = useGenerateCommentary();
   const { data: clientsData } = useClients();
   const clients = useMemo(() => clientsData?.items ?? [], [clientsData]);
 
@@ -109,9 +114,25 @@ export default function SchedaDetailPage({
     return classifyExercises(allExercises, clientAnamnesi);
   }, [clientAnamnesi, allExercises]);
 
+  // Quality review (deterministico, reattivo)
+  const exerciseMap = useMemo(
+    () => new Map(allExercises.map((e) => [e.id, e])),
+    [allExercises],
+  );
+  // NB: qualityReport dipende da sessions (state locale), ricalcolato ad ogni modifica
+  // Definito dopo useState per avere sessions disponibile
+
   // Local state per editing
   const [sessions, setSessions] = useState<SessionCardData[]>([]);
   const [isDirty, setIsDirty] = useState(false);
+
+  // Quality report (reattivo a sessions)
+  const qualityReport = useMemo(() => {
+    if (sessions.length === 0 || exerciseMap.size === 0 || !plan) return null;
+    return analyzeWorkoutQuality(
+      sessions, exerciseMap, plan.obiettivo, plan.livello, plan.sessioni_per_settimana,
+    );
+  }, [sessions, exerciseMap, plan?.obiettivo, plan?.livello, plan?.sessioni_per_settimana]);
 
   // Header inline editing
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -454,12 +475,26 @@ export default function SchedaDetailPage({
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => generateCommentary.mutate(plan.id)}
+            disabled={generateCommentary.isPending || sessions.length === 0}
+          >
+            <Sparkles className="mr-1.5 h-4 w-4" />
+            {generateCommentary.isPending
+              ? "Generazione..."
+              : plan.ai_commentary
+                ? "Rigenera AI"
+                : "Genera Spiegazione AI"}
+          </Button>
           <ExportButtons
             nome={plan.nome}
             obiettivo={plan.obiettivo}
             livello={plan.livello}
             clientNome={clientNome}
             sessioni={sessions}
+            aiCommentary={plan.ai_commentary}
           />
           {isDirty && (
             <Button onClick={handleSave} disabled={updateSessions.isPending}>
@@ -483,6 +518,9 @@ export default function SchedaDetailPage({
           </div>
         </div>
       )}
+
+      {/* ── Quality Review ── */}
+      <QualityReviewPanel report={qualityReport} />
 
       {/* ── Split Layout ── */}
       <div className="grid gap-6 lg:grid-cols-2">
@@ -523,6 +561,8 @@ export default function SchedaDetailPage({
             sessioni_per_settimana={plan.sessioni_per_settimana}
             sessioni={sessions}
             note={plan.note}
+            aiCommentary={plan.ai_commentary}
+            exerciseMap={exerciseMap}
           />
         </div>
       </div>

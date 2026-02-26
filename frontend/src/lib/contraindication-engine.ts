@@ -339,8 +339,8 @@ export function classifyExercises(
 export function getAnamnesiSummary(anamnesi: AnamnesiData): string[] {
   const items: string[] = [];
 
-  const addIfPresent = (q: AnamnesiQuestion, label: string) => {
-    if (q.presente) items.push(label);
+  const addIfPresent = (q: AnamnesiQuestion | undefined, label: string) => {
+    if (q?.presente) items.push(label);
   };
 
   addIfPresent(anamnesi.infortuni_attuali, "Infortuni attuali");
