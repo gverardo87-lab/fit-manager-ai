@@ -2,12 +2,12 @@
 "use client";
 
 /**
- * Scheda Esercizio — pagina dettaglio con hero muscolare + 5 tab.
+ * Scheda Esercizio — pagina dettaglio con hero muscolare + 4 tab.
  *
  * Pattern identico a /contratti/[id] e /clienti/[id]:
  * - use(params) per unwrap Promise (React 19)
- * - useExercise(id) per fetch enriched (media + relazioni)
- * - Header persistente + Hero section + 5 tab
+ * - useExercise(id) per fetch enriched (media, relazioni, condizioni)
+ * - Header persistente + Hero section + 4 tab (Panoramica, Esecuzione, Sicurezza, Varianti)
  */
 
 import { use, useState } from "react";
@@ -58,7 +58,7 @@ import {
   CONTRACTION_TYPE_LABELS,
   JOINT_ROLE_LABELS,
 } from "@/components/exercises/exercise-constants";
-import type { Exercise, TaxonomyMuscle } from "@/types/api";
+import type { Exercise, TaxonomyMuscle, TaxonomyCondition } from "@/types/api";
 
 // ════════════════════════════════════════════════════════════
 // HELPERS
@@ -488,15 +488,84 @@ function EsecuzioneTab({ exercise }: { exercise: Exercise }) {
 // TAB: ERRORI & SICUREZZA
 // ════════════════════════════════════════════════════════════
 
-function ErroriTab({ exercise }: { exercise: Exercise }) {
-  const hasContent = exercise.errori_comuni.length > 0 || exercise.controindicazioni.length > 0 || exercise.note_sicurezza;
+function SeverityBadge({ severita }: { severita: string }) {
+  const config = severita === "avoid"
+    ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+    : severita === "caution"
+      ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+      : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
+  const label = severita === "avoid" ? "Evitare" : severita === "caution" ? "Cautela" : "Adattare";
+  return (
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${config}`}>
+      {label}
+    </span>
+  );
+}
+
+const CONDITION_CATEGORY_LABELS: Record<string, string> = {
+  orthopedic: "Ortopedico",
+  cardiovascular: "Cardiovascolare",
+  metabolic: "Metabolico",
+  neurological: "Neurologico",
+};
+
+function CondizioniSection({ condizioni }: { condizioni: TaxonomyCondition[] }) {
+  // Raggruppa per categoria condizione
+  const byCategory = new Map<string, TaxonomyCondition[]>();
+  for (const c of condizioni) {
+    const cat = c.categoria;
+    if (!byCategory.has(cat)) byCategory.set(cat, []);
+    byCategory.get(cat)!.push(c);
+  }
+
+  // Ordina: avoid prima di caution
+  const sortBySeverity = (a: TaxonomyCondition, b: TaxonomyCondition) => {
+    const order: Record<string, number> = { avoid: 0, caution: 1, modify: 2 };
+    return (order[a.severita] ?? 3) - (order[b.severita] ?? 3);
+  };
+
+  return (
+    <div className="space-y-4">
+      {Array.from(byCategory.entries()).map(([cat, items]) => (
+        <div key={cat}>
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+            {CONDITION_CATEGORY_LABELS[cat] || cat}
+          </p>
+          <div className="space-y-2">
+            {items.sort(sortBySeverity).map((c) => (
+              <div key={`${c.id}-${c.severita}`} className="flex items-start gap-3 rounded-lg border p-3">
+                <SeverityBadge severita={c.severita} />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">{c.nome}</p>
+                  {c.nota && (
+                    <p className="mt-0.5 text-xs text-muted-foreground">{c.nota}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SicurezzaTab({ exercise }: { exercise: Exercise }) {
+  const hasCondizioni = exercise.condizioni.length > 0;
+  const hasContent = hasCondizioni || exercise.errori_comuni.length > 0 || exercise.controindicazioni.length > 0 || exercise.note_sicurezza;
 
   if (!hasContent) {
-    return <EmptySection title="Errori comuni e sicurezza" description="Contenuto in arrivo — questa sezione conterra' errori da evitare, controindicazioni e note di sicurezza" />;
+    return <EmptySection title="Sicurezza e controindicazioni" description="Nessuna condizione medica, errore comune o nota di sicurezza per questo esercizio" />;
   }
 
   return (
     <div className="space-y-4">
+      {hasCondizioni && (
+        <ContentCard title={`Condizioni Mediche (${exercise.condizioni.length})`} icon={Shield}>
+          <CondizioniSection condizioni={exercise.condizioni} />
+        </ContentCard>
+      )}
+
       {exercise.errori_comuni.length > 0 && (
         <ContentCard title="Errori Comuni" icon={AlertTriangle}>
           <div className="space-y-3">
@@ -530,66 +599,6 @@ function ErroriTab({ exercise }: { exercise: Exercise }) {
         <ContentCard title="Note di Sicurezza" icon={Shield}>
           <p className="text-sm leading-relaxed whitespace-pre-line">{exercise.note_sicurezza}</p>
         </ContentCard>
-      )}
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════
-// TAB: MEDIA
-// ════════════════════════════════════════════════════════════
-
-function MediaTab({ exercise }: { exercise: Exercise }) {
-  const mainImage = getMediaUrl(exercise.image_url);
-  const mainVideo = getMediaUrl(exercise.video_url);
-  // Escludi media FDB exec (mostrati in EsecuzioneTab)
-  const userMedia = exercise.media.filter(
-    (m) => !m.descrizione?.startsWith("fdb:")
-  );
-  const hasMedia = mainImage || mainVideo || userMedia.length > 0;
-
-  if (!hasMedia) {
-    return <EmptySection title="Nessun media" description="Le immagini e i video verranno visualizzati qui" />;
-  }
-
-  return (
-    <div className="space-y-4">
-      {mainImage && (
-        <div className="overflow-hidden rounded-lg border">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={mainImage} alt={exercise.nome} className="h-auto w-full max-h-96 object-contain bg-zinc-50 dark:bg-zinc-900" />
-        </div>
-      )}
-
-      {mainVideo && (
-        <div className="overflow-hidden rounded-lg border">
-          <video controls className="h-auto w-full max-h-96" preload="metadata">
-            <source src={mainVideo} />
-          </video>
-        </div>
-      )}
-
-      {userMedia.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-          {userMedia.map((m) => {
-            const url = getMediaUrl(m.url);
-            if (!url) return null;
-            return m.tipo === "image" ? (
-              <div key={m.id} className="overflow-hidden rounded-lg border">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={url} alt={m.descrizione || exercise.nome} className="h-40 w-full object-cover" />
-                {m.descrizione && <p className="p-2 text-xs text-muted-foreground">{m.descrizione}</p>}
-              </div>
-            ) : (
-              <div key={m.id} className="overflow-hidden rounded-lg border">
-                <video controls className="h-40 w-full object-cover" preload="metadata">
-                  <source src={url} />
-                </video>
-                {m.descrizione && <p className="p-2 text-xs text-muted-foreground">{m.descrizione}</p>}
-              </div>
-            );
-          })}
-        </div>
       )}
     </div>
   );
@@ -775,13 +784,9 @@ export default function ExerciseDetailPage({ params }: { params: Promise<{ id: s
             <Activity className="h-4 w-4" />
             <span className="hidden sm:inline">Esecuzione</span>
           </TabsTrigger>
-          <TabsTrigger value="errori" className="gap-1.5">
-            <AlertTriangle className="h-4 w-4" />
-            <span className="hidden sm:inline">Errori</span>
-          </TabsTrigger>
-          <TabsTrigger value="media" className="gap-1.5">
-            <ImageIcon className="h-4 w-4" />
-            <span className="hidden sm:inline">Media</span>
+          <TabsTrigger value="sicurezza" className="gap-1.5">
+            <Shield className="h-4 w-4" />
+            <span className="hidden sm:inline">Sicurezza</span>
           </TabsTrigger>
           <TabsTrigger value="varianti" className="gap-1.5">
             <GitBranch className="h-4 w-4" />
@@ -795,11 +800,8 @@ export default function ExerciseDetailPage({ params }: { params: Promise<{ id: s
         <TabsContent value="esecuzione">
           <EsecuzioneTab exercise={exercise} />
         </TabsContent>
-        <TabsContent value="errori">
-          <ErroriTab exercise={exercise} />
-        </TabsContent>
-        <TabsContent value="media">
-          <MediaTab exercise={exercise} />
+        <TabsContent value="sicurezza">
+          <SicurezzaTab exercise={exercise} />
         </TabsContent>
         <TabsContent value="varianti">
           <VariantiTab exercise={exercise} />

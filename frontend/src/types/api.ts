@@ -769,6 +769,16 @@ export interface TaxonomyJoint {
   rom_gradi: number | null;
 }
 
+/** Tassonomia: condizione medica associata all'esercizio */
+export interface TaxonomyCondition {
+  id: number;
+  nome: string;
+  nome_en: string;
+  categoria: string; // orthopedic, cardiovascular, metabolic, neurological
+  severita: "avoid" | "caution" | "modify";
+  nota: string | null;
+}
+
 /** ExerciseResponse — restituito da GET/POST/PUT */
 export interface Exercise {
   id: number;
@@ -795,15 +805,12 @@ export interface Exercise {
   coaching_cues: string[];
   errori_comuni: ExerciseError[];
   note_sicurezza: string | null;
-  istruzioni: { setup?: string; esecuzione?: string; errori_comuni?: string } | null;
   controindicazioni: string[];
   // Biomeccanica avanzata (tassonomia v3)
   catena_cinetica: string | null;
   piano_movimento: string | null;
   tipo_contrazione: string | null;
 
-  image_url: string | null;
-  video_url: string | null;
   muscle_map_url: string | null;
   is_builtin: boolean;
   created_at: string | null;
@@ -811,6 +818,7 @@ export interface Exercise {
   relazioni: ExerciseRelation[];
   muscoli_dettaglio: TaxonomyMuscle[];
   articolazioni: TaxonomyJoint[];
+  condizioni: TaxonomyCondition[];
   suggerimenti: string[];
 }
 

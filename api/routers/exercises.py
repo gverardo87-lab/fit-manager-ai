@@ -30,6 +30,7 @@ from api.models.trainer import Trainer
 from api.routers._audit import log_audit
 from api.models.muscle import Muscle, ExerciseMuscle
 from api.models.joint import Joint, ExerciseJoint
+from api.models.medical_condition import MedicalCondition, ExerciseCondition
 from api.schemas.exercise import (
     ExerciseCreate,
     ExerciseListResponse,
@@ -38,6 +39,7 @@ from api.schemas.exercise import (
     ExerciseRelationResponse,
     ExerciseResponse,
     ExerciseUpdate,
+    TaxonomyConditionResponse,
     TaxonomyJointResponse,
     TaxonomyMuscleResponse,
 )
@@ -85,6 +87,7 @@ def _to_response(
     relazioni: list | None = None,
     muscoli_dettaglio: list | None = None,
     articolazioni: list | None = None,
+    condizioni: list | None = None,
 ) -> ExerciseResponse:
     resp = ExerciseResponse.model_validate(exercise)
     if media is not None:
@@ -95,6 +98,8 @@ def _to_response(
         resp.muscoli_dettaglio = muscoli_dettaglio
     if articolazioni is not None:
         resp.articolazioni = articolazioni
+    if condizioni is not None:
+        resp.condizioni = condizioni
     return resp
 
 
@@ -136,6 +141,21 @@ def _get_taxonomy_joints(session: Session, exercise_id: int) -> list[TaxonomyJoi
     ]
 
 
+def _get_taxonomy_conditions(session: Session, exercise_id: int) -> list[TaxonomyConditionResponse]:
+    rows = session.exec(
+        select(ExerciseCondition, MedicalCondition)
+        .join(MedicalCondition, ExerciseCondition.id_condizione == MedicalCondition.id)
+        .where(ExerciseCondition.id_esercizio == exercise_id)
+    ).all()
+    return [
+        TaxonomyConditionResponse(
+            id=mc.id, nome=mc.nome, nome_en=mc.nome_en, categoria=mc.categoria,
+            severita=ec.severita, nota=ec.nota,
+        )
+        for ec, mc in rows
+    ]
+
+
 def _get_relazioni(session: Session, exercise_id: int) -> list[ExerciseRelationResponse]:
     rows = session.exec(
         select(ExerciseRelation, Exercise)
@@ -161,15 +181,10 @@ JSON_LIST_FIELDS = {
     "muscoli_primari", "muscoli_secondari", "controindicazioni",
     "coaching_cues", "errori_comuni",
 }
-JSON_DICT_FIELDS = {"istruzioni"}
-
-
 def _serialize_field(field: str, value):
     """Serializza campi JSON list/dict per storage TEXT."""
     if field in JSON_LIST_FIELDS:
         return json.dumps(value or [], ensure_ascii=False)
-    if field in JSON_DICT_FIELDS:
-        return json.dumps(value, ensure_ascii=False) if value else None
     return value
 
 
@@ -238,6 +253,32 @@ def _validate_exercise(exercise: Exercise) -> list[str]:
 
 
 # ═══════════════════════════════════════════════════════════════
+# ARCHIVE STATS
+# ═══════════════════════════════════════════════════════════════
+
+@router.get("/archive-stats")
+def get_archive_stats(
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """Statistiche esercizi archiviati (in_subset=False). Solo informativo."""
+    rows = session.exec(
+        select(Exercise.categoria, func.count(Exercise.id))
+        .where(
+            Exercise.in_subset == False,  # noqa: E712
+            Exercise.deleted_at == None,  # noqa: E711
+        )
+        .group_by(Exercise.categoria)
+    ).all()
+    by_categoria = {cat: count for cat, count in rows}
+    return {
+        "archived_count": sum(by_categoria.values()),
+        "active_count": 118,
+        "by_categoria": by_categoria,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
 # LIST
 # ═══════════════════════════════════════════════════════════════
 
@@ -255,12 +296,13 @@ def list_exercises(
     page_size: int = Query(default=1200, ge=1, le=2000),
 ):
     """Lista esercizi con filtri. Include builtin + custom del trainer.
-    Filtra solo esercizi nel subset attivo (in_subset=True) durante sviluppo tassonomia.
+    Database attivo: solo esercizi con in_subset=True sono visibili.
+    I 966 esercizi archiviati (in_subset=False) restano nel DB per reinserimento futuro.
     """
     query = select(Exercise).where(
         Exercise.deleted_at == None,  # noqa: E711
         or_(Exercise.trainer_id == trainer.id, Exercise.trainer_id == None),  # noqa: E711
-        Exercise.in_subset == True,  # noqa: E712 — subset attivo
+        Exercise.in_subset == True,  # noqa: E712 — database attivo (118 esercizi)
     )
 
     if search:
@@ -311,8 +353,10 @@ def get_exercise(
     relazioni = _get_relazioni(session, exercise_id)
     muscoli = _get_taxonomy_muscles(session, exercise_id)
     joints = _get_taxonomy_joints(session, exercise_id)
+    conditions = _get_taxonomy_conditions(session, exercise_id)
     return _to_response(exercise, media=media, relazioni=relazioni,
-                        muscoli_dettaglio=muscoli, articolazioni=joints)
+                        muscoli_dettaglio=muscoli, articolazioni=joints,
+                        condizioni=conditions)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -351,7 +395,6 @@ def create_exercise(
         coaching_cues=json.dumps(data.coaching_cues or [], ensure_ascii=False),
         errori_comuni=json.dumps(data.errori_comuni or [], ensure_ascii=False),
         note_sicurezza=data.note_sicurezza,
-        istruzioni=json.dumps(data.istruzioni, ensure_ascii=False) if data.istruzioni else None,
         controindicazioni=json.dumps(data.controindicazioni or [], ensure_ascii=False),
         is_builtin=False,
     )

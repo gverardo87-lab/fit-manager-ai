@@ -70,7 +70,8 @@ Editor strutturato per creare schede allenamento professionali. Layout split: ed
 - **Export**: Excel via `exceljs` (3 sezioni colorate) + Print/PDF via `@media print`
 - **Client linkage**: assegnazione/riassegnazione cliente inline (Select + `"__none__"` sentinel), filtro cliente nella lista, tab "Schede" nel profilo cliente, cross-link bidirezionale
 - **TemplateSelector**: dialog con selezione cliente integrata (`selectedClientId` state, pre-compilato da contesto)
-- **~1080 esercizi** builtin (345 originali + 739 da free-exercise-db), ~893 con illustrazioni esecuzione (start/end position)
+- **118 esercizi attivi** (database curato, 100% completo su tutti i campi) + 966 archiviati (reinserimento graduale post-sviluppo)
+- Tassonomia completa: muscoli FK (1,677 righe), articolazioni FK (394), condizioni mediche FK (341), relazioni (146)
 - Categorie: `compound`, `isolation`, `bodyweight`, `cardio`, `stretching`, `mobilita`, `avviamento`
 - Pattern: 9 forza (`squat`, `hinge`, `push_h/v`, `pull_h/v`, `core`, `rotation`, `carry`) + 3 complementari (`warmup`, `stretch`, `mobility`)
 
@@ -81,25 +82,24 @@ File chiave: `lib/workout-templates.ts` (template + `getSectionForCategory`), `c
 > **Filosofia: l'allenamento e' un sottoramo della medicina.** Il database esercizi e' il nucleo del prodotto.
 > Contenuti imprecisi possono causare infortuni. Zero approssimazione.
 
-Pipeline a 6 fasi per pulizia e completamento del database esercizi, eseguibile dalla root del progetto.
-Ogni script e' idempotente (sicuro da rieseguire), opera su entrambi i DB (dev + prod), supporta `--batch` e `--db`.
+**Strategia "Database 118"**: i 118 esercizi curati sono l'unico database attivo (`in_subset=True`).
+I 966 esercizi archiviati (`in_subset=False`) verranno reinseriti a lotti post-sviluppo.
 
-| Fase | Script | Cosa fa | Modello |
-|------|--------|---------|---------|
-| 0 | `fix_exercise_data_v2.py` | Punteggiatura, duplicati, misclassificazioni, sync prod→dev | Zero Ollama |
-| 1 | `fix_exercise_names.py` | Dizionario manuale ~100 nomi + ri-traduzione Ollama ~640 | gemma2:9b |
-| 2A | `translate_fdb_instructions.py` | Traduzione istruzioni FDB EN→IT (preserva step-by-step) | gemma2:9b |
-| 2B | `upgrade_exercise_instructions.py` | Rigenera esecuzione originali in formato step-by-step | gemma2:9b/Mixtral |
-| 3 | `enrich_exercise_fields.py` | Enrichment campi descrittivi (anatomia, biomeccanica, cues, errori) | Mixtral |
-| 4 | `backfill_exercise_fields.py` | note_sicurezza (Ollama) + force_type/lateral_pattern (deterministico) | gemma2:9b |
-| 5 | `verify_exercise_quality.py` | Audit qualita': completezza, lingua, duplicati, enum, JSON | Zero Ollama |
+Pipeline idempotente, dual-DB (`--db dev|prod|both`), script in `tools/admin_scripts/`:
 
-**Formato esecuzione target**: step-by-step dettagliato e cumulativo (stile free-exercise-db), 5-8 paragrafi,
-include posizione iniziale, fase concentrica/eccentrica, respirazione, tip pratici.
+| Script | Cosa fa | Modello |
+|--------|---------|---------|
+| `populate_taxonomy.py` | Muscoli + articolazioni FK per subset | Zero Ollama |
+| `populate_conditions.py` | Condizioni mediche FK (keyword matching deterministico) | Zero Ollama |
+| `populate_exercise_relations.py` | Progressioni/regressioni tra esercizi subset | Zero Ollama |
+| `fill_subset_gaps.py` | Muscoli secondari + tempo consigliato (lookup deterministico) | Zero Ollama |
+| `fix_subset_classification.py` | Fix pattern/force/plane per subset | Zero Ollama |
+| `enrich_exercise_fields.py` | Enrichment campi descrittivi (per reinserimento batch) | Mixtral |
+| `backfill_exercise_fields.py` | note_sicurezza + force/lateral (per reinserimento batch) | gemma2:9b |
+| `verify_exercise_quality.py` | Audit qualita' (per validazione pre-attivazione) | Zero Ollama |
 
-**Prompt category-aware** (Fase 2B e 3): 3 template diversi per strength/stretch/warmup.
-
-Tutti gli script in: `tools/admin_scripts/`
+**Reinserimento futuro**: batch da 50-100 esercizi → enrichment Ollama → tassonomia → quality check → `in_subset = True`.
+Mai attivare esercizi con campi critici mancanti.
 
 ### Tassonomia Scientifica Esercizi — Architettura a Strati
 
@@ -421,7 +421,7 @@ sqlite3 data/crm_dev.db ".tables"
 - **core/**: ~10,300 LOC Python — moduli AI (RAG, exercise archive) in attesa di API endpoints
 - **tools/admin_scripts/**: ~2,800 LOC Python — 14 script (import, quality engine, taxonomy, seed, test)
 - **DB**: 29 tabelle SQLite, FK enforced, multi-tenant via trainer_id
-- **Esercizi**: ~1080 builtin (345 originali + 739 FDB), 118 in subset attivo con tassonomia completa
+- **Esercizi**: 118 attivi (100% completi, tassonomia completa) + 966 archiviati (reinserimento graduale)
 - **Test**: 63 pytest + 67 E2E
 - **Sicurezza**: JWT auth, bcrypt, Deep Relational IDOR, 3-layer route protection
 - **Cloud**: 0 dipendenze, 0 dati verso terzi

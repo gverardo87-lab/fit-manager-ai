@@ -61,9 +61,6 @@ class Exercise(SQLModel, table=True):
     errori_comuni: Optional[str] = None             # JSON: [{"errore":"...", "correzione":"..."}]
     note_sicurezza: Optional[str] = None            # TEXT: avvertenze
 
-    # Istruzioni legacy (JSON: {setup, esecuzione, errori_comuni}) — deprecato v2
-    istruzioni: Optional[str] = None
-
     # Sicurezza (JSON array: ["ginocchio", "schiena"])
     controindicazioni: Optional[str] = None
 
@@ -73,12 +70,14 @@ class Exercise(SQLModel, table=True):
     tipo_contrazione: Optional[str] = None      # concentric, eccentric, isometric, dynamic
 
     # Media (v2)
-    image_url: Optional[str] = None       # path relativo: /media/exercises/42/main.jpg
-    video_url: Optional[str] = None       # path relativo o URL esterno
     muscle_map_url: Optional[str] = None  # path relativo: /media/exercises/42/muscle-map.svg
 
     # Metadata
     is_builtin: bool = Field(default=False)
-    in_subset: Optional[bool] = Field(default=False)  # flag subset sviluppo tassonomia
+    in_subset: Optional[bool] = Field(
+        default=False,
+        description="Database attivo. True = esercizio visibile e utilizzabile. "
+                    "False = archiviato, reinseribile in futuro.",
+    )
     created_at: Optional[datetime] = Field(default_factory=lambda: datetime.now(timezone.utc))
     deleted_at: Optional[datetime] = None

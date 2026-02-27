@@ -80,9 +80,6 @@ class ExerciseCreate(BaseModel):
     note_sicurezza: Optional[str] = None
     controindicazioni: Optional[List[str]] = None
 
-    # Legacy (deprecato v2, accettato per backward compat)
-    istruzioni: Optional[dict[str, Any]] = None
-
     @field_validator("categoria")
     @classmethod
     def validate_categoria(cls, v: str) -> str:
@@ -171,7 +168,6 @@ class ExerciseUpdate(BaseModel):
     catena_cinetica: Optional[str] = None
     piano_movimento: Optional[str] = None
     tipo_contrazione: Optional[str] = None
-    istruzioni: Optional[dict[str, Any]] = None
 
     @field_validator("categoria")
     @classmethod
@@ -264,19 +260,6 @@ def _parse_json_list(v: Any) -> list:
     return []
 
 
-def _parse_json_dict(v: Any) -> Optional[dict]:
-    """Parse JSON string → dict, passthrough if already dict."""
-    if isinstance(v, dict):
-        return v
-    if isinstance(v, str):
-        try:
-            parsed = json.loads(v)
-            return parsed if isinstance(parsed, dict) else None
-        except (json.JSONDecodeError, TypeError):
-            return None
-    return None
-
-
 # ═══════════════════════════════════════════════════════════════
 # RESPONSE: Media + Relazioni
 # ═══════════════════════════════════════════════════════════════
@@ -320,6 +303,16 @@ class TaxonomyJointResponse(BaseModel):
     rom_gradi: Optional[int] = None
 
 
+class TaxonomyConditionResponse(BaseModel):
+    """Condizione medica associata all'esercizio con severita'."""
+    id: int
+    nome: str
+    nome_en: str
+    categoria: str          # orthopedic, cardiovascular, metabolic, neurological
+    severita: str           # avoid, caution, modify
+    nota: Optional[str] = None
+
+
 # ═══════════════════════════════════════════════════════════════
 # RESPONSE: Exercise
 # ═══════════════════════════════════════════════════════════════
@@ -352,15 +345,12 @@ class ExerciseResponse(BaseModel):
     coaching_cues: List[str] = []
     errori_comuni: List[dict[str, str]] = []
     note_sicurezza: Optional[str] = None
-    istruzioni: Optional[dict[str, Any]] = None
     controindicazioni: List[str] = []
     # Biomeccanica avanzata (tassonomia v3)
     catena_cinetica: Optional[str] = None
     piano_movimento: Optional[str] = None
     tipo_contrazione: Optional[str] = None
 
-    image_url: Optional[str] = None
-    video_url: Optional[str] = None
     muscle_map_url: Optional[str] = None
     is_builtin: bool = False
     created_at: Optional[datetime] = None
@@ -370,6 +360,7 @@ class ExerciseResponse(BaseModel):
     relazioni: List[ExerciseRelationResponse] = []
     muscoli_dettaglio: List[TaxonomyMuscleResponse] = []
     articolazioni: List[TaxonomyJointResponse] = []
+    condizioni: List[TaxonomyConditionResponse] = []
 
     # Suggerimenti validazione post-modifica (informativi, mai bloccanti)
     suggerimenti: List[str] = []
@@ -387,11 +378,6 @@ class ExerciseResponse(BaseModel):
     def parse_errori_comuni(cls, v: Any) -> list:
         parsed = _parse_json_list(v)
         return [item for item in parsed if isinstance(item, dict)]
-
-    @field_validator("istruzioni", mode="before")
-    @classmethod
-    def parse_json_dict(cls, v: Any) -> Optional[dict]:
-        return _parse_json_dict(v)
 
 
 class ExerciseListResponse(BaseModel):
