@@ -4,22 +4,18 @@
 /**
  * Dialog professionale per selezione esercizi nel workout builder.
  *
- * Filosofia: INFORMARE, mai LIMITARE.
- * Il trainer (laureato in scienze motorie) decide sempre.
- *
  * Filtri multi-dimensione (tutti dinamici — mostrano solo opzioni presenti nel pool):
  * - Pattern movimento (come ragiona il PT: squat, hinge, push, pull...)
  * - Gruppo muscolare (tassonomia anatomica, ordinamento regione corpo)
  * - Attrezzatura disponibile
  * - Difficolta (base/intermedio/avanzato)
  * - Biomeccanica avanzata (collapsibile): tipo forza, lateralita
- * - Indicatori anamnesi informativi (badge, non blocchi)
  *
  * Ricerca testuale: nome + muscoli (italiano e inglese) + attrezzatura (italiano).
  */
 
 import { useState, useMemo } from "react";
-import { Search, X, AlertTriangle, ShieldAlert, Filter, ChevronDown, SlidersHorizontal } from "lucide-react";
+import { Search, X, ChevronDown, SlidersHorizontal } from "lucide-react";
 
 import {
   Dialog,
@@ -32,11 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 import { useExercises } from "@/hooks/useExercises";
-import type { AnamnesiData, Exercise } from "@/types/api";
-import {
-  classifyExercises,
-  type SafetyResult,
-} from "@/lib/contraindication-engine";
+import type { Exercise } from "@/types/api";
 import {
   MUSCLE_LABELS,
   EQUIPMENT_LABELS,
@@ -52,8 +44,6 @@ interface ExerciseSelectorProps {
   patternHint?: string;
   /** Filtra per categorie specifiche (es. ["stretching", "mobilita"]) */
   categoryFilter?: string[];
-  /** Se fornita, mostra indicatori sicurezza anamnesi */
-  clientAnamnesi?: AnamnesiData | null;
 }
 
 // ── Chip labels compatte per pattern ──
@@ -102,7 +92,6 @@ export function ExerciseSelector({
   onSelect,
   patternHint,
   categoryFilter,
-  clientAnamnesi,
 }: ExerciseSelectorProps) {
   // ── Filter state ──
   const [search, setSearch] = useState("");
@@ -113,7 +102,6 @@ export function ExerciseSelector({
   const [selectedForceType, setSelectedForceType] = useState<string | null>(null);
   const [selectedLateral, setSelectedLateral] = useState<string | null>(null);
   const [showBiomechanics, setShowBiomechanics] = useState(false);
-  const [filterUnsafe, setFilterUnsafe] = useState(false);
   const [showFilters, setShowFilters] = useState(true);
 
   const { data } = useExercises();
@@ -122,12 +110,6 @@ export function ExerciseSelector({
   // E' la sezione "principale"? (mostra set completo di filtri)
   const isPrincipale = !categoryFilter || categoryFilter.length === 0 ||
     categoryFilter.some((c) => ["compound", "isolation", "bodyweight", "cardio"].includes(c));
-
-  // Classificazione sicurezza anamnesi
-  const safetyMap = useMemo(() => {
-    if (!clientAnamnesi) return null;
-    return classifyExercises(exercises, clientAnamnesi);
-  }, [exercises, clientAnamnesi]);
 
   // ── Section pool: base filter by category ──
 
@@ -208,7 +190,7 @@ export function ExerciseSelector({
       .map((l) => ({ value: l, count: counts.get(l)! }));
   }, [sectionPool]);
 
-  // ── Filtering pipeline (6 dimensioni + search + safety) ──
+  // ── Filtering pipeline (6 dimensioni + search) ──
 
   const filtered = useMemo(() => {
     let result = sectionPool;
@@ -242,29 +224,9 @@ export function ExerciseSelector({
       );
     }
 
-    // Filtro sicurezza (opzionale, OFF di default)
-    if (safetyMap && filterUnsafe) {
-      result = result.filter((e) => safetyMap.get(e.id)?.safety !== "avoid");
-    }
-
-    // NESSUN riordinamento per safety — ordine naturale del database
     return result;
   }, [sectionPool, search, patternHint, selectedPattern, selectedMuscle,
-      selectedEquipment, selectedDifficulty, selectedForceType, selectedLateral,
-      safetyMap, filterUnsafe]);
-
-  // Safety counts
-  const safetyCounts = useMemo(() => {
-    if (!safetyMap) return null;
-    let safe = 0, caution = 0, avoid = 0;
-    for (const ex of sectionPool) {
-      const r = safetyMap.get(ex.id);
-      if (!r || r.safety === "safe") safe++;
-      else if (r.safety === "caution") caution++;
-      else avoid++;
-    }
-    return { safe, caution, avoid };
-  }, [safetyMap, sectionPool]);
+      selectedEquipment, selectedDifficulty, selectedForceType, selectedLateral]);
 
   // ── Handlers ──
 
@@ -283,7 +245,6 @@ export function ExerciseSelector({
     setSelectedForceType(null);
     setSelectedLateral(null);
     setShowBiomechanics(false);
-    setFilterUnsafe(false);
   };
 
   const sectionLabel = categoryFilter?.includes("avviamento")
@@ -293,12 +254,11 @@ export function ExerciseSelector({
       : null;
 
   const hasActiveFilters = !!selectedPattern || !!selectedEquipment || !!selectedMuscle ||
-    !!selectedDifficulty || !!selectedForceType || !!selectedLateral || !!search || filterUnsafe;
+    !!selectedDifficulty || !!selectedForceType || !!selectedLateral || !!search;
 
   // Conteggio filtri chip attivi (esclusa ricerca testo)
   const activeFilterCount = [selectedPattern, selectedMuscle, selectedEquipment,
-    selectedDifficulty, selectedForceType, selectedLateral].filter(Boolean).length
-    + (filterUnsafe ? 1 : 0);
+    selectedDifficulty, selectedForceType, selectedLateral].filter(Boolean).length;
 
   // Riepilogo filtri attivi (per riga compatta quando collassati)
   const activeFilterTags = useMemo(() => {
@@ -511,48 +471,17 @@ export function ExerciseSelector({
               </div>
             )}
 
-            {/* ── Safety info bar + reset filtri ── */}
-            <div className="flex items-center gap-2 px-4 pb-1 flex-wrap">
-              {safetyCounts && (
-                <>
-                  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                    <span className="text-emerald-600">{safetyCounts.safe} sicuri</span>
-                    <span>&middot;</span>
-                    <span className="text-amber-600">{safetyCounts.caution} cautela</span>
-                    {safetyCounts.avoid > 0 && (
-                      <>
-                        <span>&middot;</span>
-                        <span className="text-red-600">{safetyCounts.avoid} controindicati</span>
-                      </>
-                    )}
-                  </div>
-
-                  {safetyCounts.avoid > 0 && (
-                    <button
-                      onClick={() => setFilterUnsafe((v) => !v)}
-                      className={`flex items-center gap-1 text-[11px] transition-colors ${
-                        filterUnsafe
-                          ? "text-primary font-medium"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
-                      title={filterUnsafe ? "Mostra tutti gli esercizi" : "Nascondi controindicati"}
-                    >
-                      <Filter className="h-3 w-3" />
-                      {filterUnsafe ? "Filtro attivo" : "Filtra"}
-                    </button>
-                  )}
-                </>
-              )}
-
-              {hasActiveFilters && (
+            {/* ── Reset filtri ── */}
+            {hasActiveFilters && (
+              <div className="flex items-center px-4 pb-1">
                 <button
                   onClick={resetFilters}
                   className="ml-auto text-[11px] text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Resetta filtri
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </>
         )}
 
@@ -576,7 +505,6 @@ export function ExerciseSelector({
                 <ExerciseRow
                   key={exercise.id}
                   exercise={exercise}
-                  safety={safetyMap?.get(exercise.id)}
                   onSelect={handleSelect}
                 />
               ))}
@@ -634,21 +562,16 @@ function FilterChipRow({
 }
 
 // ════════════════════════════════════════════════════════════
-// EXERCISE ROW (sub-component arricchito con tassonomia)
+// EXERCISE ROW (sub-component)
 // ════════════════════════════════════════════════════════════
 
 function ExerciseRow({
   exercise,
-  safety,
   onSelect,
 }: {
   exercise: Exercise;
-  safety?: SafetyResult;
   onSelect: (e: Exercise) => void;
 }) {
-  const isAvoid = safety?.safety === "avoid";
-  const isCaution = safety?.safety === "caution";
-
   // Muscoli in italiano
   const muscleLabel = exercise.muscoli_primari
     .map((m) => MUSCLE_LABELS[m] ?? m)
@@ -668,32 +591,9 @@ function ExerciseRow({
       onClick={() => onSelect(exercise)}
       className="flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-muted/70"
     >
-      {/* Safety icon — informativo, non bloccante */}
-      {safety && safety.safety !== "safe" && (
-        <div className="mt-0.5 shrink-0" title={safety.reasons.join("\n")}>
-          {isAvoid ? (
-            <ShieldAlert className="h-4 w-4 text-red-500" />
-          ) : isCaution ? (
-            <AlertTriangle className="h-4 w-4 text-amber-500" />
-          ) : null}
-        </div>
-      )}
-
       <div className="min-w-0 flex-1">
-        {/* Row 1: Nome + safety badge */}
-        <div className="flex items-center gap-1.5">
-          <p className="text-sm font-medium truncate">{exercise.nome}</p>
-          {isAvoid && (
-            <Badge className="shrink-0 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-[9px] px-1.5 py-0">
-              Controindicato
-            </Badge>
-          )}
-          {isCaution && (
-            <Badge className="shrink-0 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 text-[9px] px-1.5 py-0">
-              Cautela
-            </Badge>
-          )}
-        </div>
+        {/* Row 1: Nome */}
+        <p className="text-sm font-medium truncate">{exercise.nome}</p>
 
         {/* Row 2: Classification badges */}
         <div className="mt-0.5 flex flex-wrap gap-1">
@@ -714,15 +614,6 @@ function ExerciseRow({
             {muscleLabel}
             {muscleLabel && metaParts.length > 0 && " · "}
             {metaParts.join(" · ")}
-          </p>
-        )}
-
-        {/* Row 4: Motivo controindicazione */}
-        {safety && safety.safety !== "safe" && safety.reasons.length > 0 && (
-          <p className={`mt-0.5 text-[10px] truncate ${
-            isAvoid ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"
-          }`}>
-            {safety.reasons[0]}
           </p>
         )}
       </div>

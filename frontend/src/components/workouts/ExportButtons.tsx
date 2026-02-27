@@ -17,12 +17,11 @@ interface ExportButtonsProps {
   livello: string;
   clientNome?: string;
   sessioni: SessionCardData[];
-  aiCommentary?: string | null;
 }
 
-export function ExportButtons({ nome, obiettivo, livello, clientNome, sessioni, aiCommentary }: ExportButtonsProps) {
+export function ExportButtons({ nome, obiettivo, livello, clientNome, sessioni }: ExportButtonsProps) {
   const handleExcel = async () => {
-    await exportWorkoutExcel({ nome, obiettivo, livello, clientNome, sessioni, aiCommentary });
+    await exportWorkoutExcel({ nome, obiettivo, livello, clientNome, sessioni });
   };
 
   const handlePrint = () => {

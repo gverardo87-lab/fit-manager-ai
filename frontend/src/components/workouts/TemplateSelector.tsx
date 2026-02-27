@@ -6,13 +6,13 @@
  * o creare una scheda vuota. Dopo la selezione, crea la scheda via API
  * e naviga al builder /schede/[id].
  *
- * Smart matching: ogni slot viene popolato con l'esercizio piu' adatto
+ * Matching base: ogni slot viene popolato con l'esercizio piu' adatto
  * dal database, in base a pattern_movimento/categoria e difficolta.
  */
 
 import { useCallback, useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Zap, TrendingUp, Flame, FileText, User, ShieldAlert } from "lucide-react";
+import { Zap, TrendingUp, Flame, FileText, User } from "lucide-react";
 
 import {
   Dialog,
@@ -39,17 +39,10 @@ import {
 import { useCreateWorkout } from "@/hooks/useWorkouts";
 import { useExercises } from "@/hooks/useExercises";
 import { useClients } from "@/hooks/useClients";
-import type { AnamnesiData, Exercise, WorkoutSessionInput, WorkoutExerciseInput } from "@/types/api";
-import {
-  extractTagsFromAnamnesi,
-  classifyExercise,
-  getAnamnesiSummary,
-  type BodyPartTag,
-  type MedicalFlag,
-} from "@/lib/contraindication-engine";
+import type { Exercise, WorkoutSessionInput, WorkoutExerciseInput } from "@/types/api";
 
 // ════════════════════════════════════════════════════════════
-// SMART MATCHING v2
+// MATCHING BASE
 // ════════════════════════════════════════════════════════════
 
 /** Mappa livello template → difficolta esercizio */
@@ -67,21 +60,12 @@ function muscleOverlap(a: string[], b: string[]): number {
 /**
  * Trova l'esercizio migliore per uno slot template.
  *
- * Matching v2 — scoring multi-dimensionale:
- *
- * 1. FILTRO per sezione:
- *    - avviamento → categoria "avviamento"
- *    - stretching → categoria "stretching" o "mobilita"
- *    - principale → pattern_movimento
- *
- * 2. SCORING (piu' alto = migliore):
- *    - +10  difficolta allineata al livello template
- *    - +8   muscoli_target match (stretching mirato ai muscoli lavorati)
- *    - +3   compound (priorita multi-articolari)
- *    - +1   bodyweight (accessibilita)
- *    - -3   stessa attrezzatura dell'esercizio precedente (varieta)
- *
- * 3. FALLBACK: allarga ricerca, poi qualsiasi esercizio
+ * Scoring base:
+ * - +10  difficolta allineata al livello template
+ * - +8   muscoli_target match (stretching mirato ai muscoli lavorati)
+ * - +3   compound (priorita multi-articolari)
+ * - +1   bodyweight (accessibilita)
+ * - -3   stessa attrezzatura dell'esercizio precedente (varieta)
  */
 function findBestExercise(
   exercises: Exercise[],
@@ -89,11 +73,8 @@ function findBestExercise(
   templateLevel: string,
   usedIds: Set<number>,
   lastEquipment?: string,
-  bodyParts?: BodyPartTag[],
-  medicalFlags?: MedicalFlag[],
 ): Exercise | undefined {
   const preferred = DIFFICULTY_MAP[templateLevel] ?? "intermediate";
-  const hasAnamnesi = bodyParts && bodyParts.length > 0;
 
   // Determina i candidati in base alla sezione
   let candidates: Exercise[];
@@ -128,16 +109,6 @@ function findBestExercise(
     return exercises.find((e) => !usedIds.has(e.id)) ?? exercises[0];
   }
 
-  // Scudo protettivo: rimuovi esercizi "avoid", penalizza "caution"
-  if (hasAnamnesi) {
-    const safeCandidates = candidates.filter((e) => {
-      const result = classifyExercise(e, bodyParts, medicalFlags ?? []);
-      return result.safety !== "avoid";
-    });
-    // Usa candidati safe se ne esistono, altrimenti fallback a tutti
-    if (safeCandidates.length > 0) candidates = safeCandidates;
-  }
-
   // Score multi-dimensionale
   const targetMuscles = slot.muscoli_target ?? [];
 
@@ -167,14 +138,6 @@ function findBestExercise(
     if (lastEquipment && slot.sezione === "principale") {
       if (a.attrezzatura === lastEquipment) scoreA -= 3;
       if (b.attrezzatura === lastEquipment) scoreB -= 3;
-    }
-
-    // Penalita' cautela anamnesi (-15 per caution)
-    if (hasAnamnesi) {
-      const safetyA = classifyExercise(a, bodyParts, medicalFlags ?? []);
-      const safetyB = classifyExercise(b, bodyParts, medicalFlags ?? []);
-      if (safetyA.safety === "caution") scoreA -= 15;
-      if (safetyB.safety === "caution") scoreB -= 15;
     }
 
     return scoreB - scoreA;
@@ -221,20 +184,6 @@ export function TemplateSelector({ open, onOpenChange, clientId }: TemplateSelec
     if (open) setSelectedClientId(clientId ?? null);
   }, [open, clientId]);
 
-  // Anamnesi del cliente selezionato (se presente)
-  const selectedClient = useMemo(
-    () => (selectedClientId ? clients.find((c) => c.id === selectedClientId) : null),
-    [selectedClientId, clients],
-  );
-  const anamnesiTags = useMemo(() => {
-    if (!selectedClient?.anamnesi) return null;
-    return extractTagsFromAnamnesi(selectedClient.anamnesi);
-  }, [selectedClient]);
-  const anamnesiSummary = useMemo(() => {
-    if (!selectedClient?.anamnesi) return [];
-    return getAnamnesiSummary(selectedClient.anamnesi);
-  }, [selectedClient]);
-
   const handleSelectTemplate = useCallback(
     (template: WorkoutTemplate) => {
       if (exercises.length === 0) return;
@@ -250,7 +199,6 @@ export function TemplateSelector({ open, onOpenChange, clientId }: TemplateSelec
           esercizi: sess.slots.map((slot, slotIdx): WorkoutExerciseInput => {
             const match = findBestExercise(
               exercises, slot, template.livello, usedIds, lastEquipment,
-              anamnesiTags?.bodyParts, anamnesiTags?.medicalFlags,
             );
             if (match) {
               usedIds.add(match.id);
@@ -287,7 +235,7 @@ export function TemplateSelector({ open, onOpenChange, clientId }: TemplateSelec
         },
       );
     },
-    [createWorkout, selectedClientId, onOpenChange, router, exercises, anamnesiTags],
+    [createWorkout, selectedClientId, onOpenChange, router, exercises],
   );
 
   const handleBlankSheet = useCallback(() => {
@@ -357,17 +305,6 @@ export function TemplateSelector({ open, onOpenChange, clientId }: TemplateSelec
             </SelectContent>
           </Select>
         </div>
-
-        {/* Banner anamnesi — informativo */}
-        {anamnesiSummary.length > 0 && (
-          <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/30">
-            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-            <div className="text-xs">
-              <span className="font-medium text-amber-800 dark:text-amber-300">Anamnesi cliente</span>
-              <span className="text-amber-700 dark:text-amber-400"> — {anamnesiSummary.join(", ")}. I template privilegeranno esercizi compatibili.</span>
-            </div>
-          </div>
-        )}
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mt-4">
           {WORKOUT_TEMPLATES.map((template) => (

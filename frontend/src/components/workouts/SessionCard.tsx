@@ -29,7 +29,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Plus, Trash2, Pencil, Flame, Dumbbell, Heart, BarChart3, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Trash2, Pencil, Flame, Dumbbell, Heart } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,9 +38,6 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { SortableExerciseRow } from "./SortableExerciseRow";
 import { getSectionForCategory, type TemplateSection } from "@/lib/workout-templates";
 import type { WorkoutExerciseRow } from "@/types/api";
-import type { SafetyResult } from "@/lib/contraindication-engine";
-import type { SessionDetailedAnalysis, SessionMuscleEntry } from "@/lib/workout-analysis-engine";
-import { PATTERN_LABELS } from "@/components/exercises/exercise-constants";
 
 export interface SessionCardData {
   id: number;
@@ -54,10 +51,6 @@ export interface SessionCardData {
 
 interface SessionCardProps {
   session: SessionCardData;
-  /** Mappa id_esercizio → sicurezza anamnesi (opzionale) */
-  exerciseSafetyMap?: Map<number, SafetyResult>;
-  /** Analisi dettagliata per-sessione (volume, bilancio, muscoli) */
-  sessionAnalysis?: SessionDetailedAnalysis;
   onUpdateSession: (sessionId: number, updates: Partial<SessionCardData>) => void;
   onDeleteSession: (sessionId: number) => void;
   onAddExercise: (sessionId: number, sezione?: TemplateSection) => void;
@@ -100,133 +93,8 @@ const SECTION_CONFIG: Record<TemplateSection, {
 
 const SECTION_ORDER: TemplateSection[] = ["avviamento", "principale", "stretching"];
 
-/** Micro indicatore push:pull inline — amber se sbilanciato */
-function PushPullMicro({ push, pull }: { push: number; pull: number }) {
-  const max = Math.max(push, pull);
-  const min = Math.min(push, pull);
-  const isUnbalanced = max > 0 && (min === 0 || min / max < 0.6);
-  return (
-    <span className={`tabular-nums ${isUnbalanced ? "text-amber-600 dark:text-amber-400" : ""}`}>
-      Push {push}:Pull {pull}
-    </span>
-  );
-}
-
-// ── Analisi per-sessione (footer collapsabile) ──
-
-function SessionAnalysisFooter({ analysis }: { analysis: SessionDetailedAnalysis }) {
-  const [open, setOpen] = useState(false);
-
-  if (analysis.totalPrincipalSets === 0) return null;
-
-  const maxSets = Math.max(...analysis.muscleVolume.map((m) => m.sets), 1);
-  const pushPullTotal = analysis.pushSets + analysis.pullSets;
-  const upperLowerTotal = analysis.upperSets + analysis.lowerSets;
-
-  return (
-    <div className="border-t mt-2" data-print-hide>
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 w-full px-1 py-1.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <BarChart3 className="h-3 w-3" />
-        <span className="font-medium">Analisi</span>
-        <span className="tabular-nums">{analysis.totalPrincipalSets} serie</span>
-        <span className="text-muted-foreground/40">·</span>
-        <PushPullMicro push={analysis.pushSets} pull={analysis.pullSets} />
-        <span className="text-muted-foreground/40">·</span>
-        <span>{analysis.muscleVolume.length} muscoli</span>
-        <span className="ml-auto">
-          {open ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-        </span>
-      </button>
-
-      {open && (
-        <div className="px-1 pb-2 space-y-3">
-          {/* Volume muscolare */}
-          <div className="space-y-0.5">
-            {analysis.muscleVolume.map((mv) => (
-              <div key={mv.muscle} className="flex items-center gap-1.5">
-                <span className="w-[68px] shrink-0 text-[10px] text-muted-foreground truncate text-right">
-                  {mv.label}
-                </span>
-                <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-primary transition-all duration-300"
-                    style={{ width: `${(mv.sets / maxSets) * 100}%` }}
-                  />
-                </div>
-                <span className="w-[22px] shrink-0 text-[10px] font-medium tabular-nums text-right">
-                  {mv.sets}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {/* Bilancio */}
-          <div className="grid grid-cols-2 gap-2">
-            {pushPullTotal > 0 && (
-              <div>
-                <div className="flex justify-between text-[9px] text-muted-foreground mb-0.5">
-                  <span>Push <span className="tabular-nums font-medium">{analysis.pushSets}</span></span>
-                  <span><span className="tabular-nums font-medium">{analysis.pullSets}</span> Pull</span>
-                </div>
-                <div className="flex h-1.5 rounded-full overflow-hidden bg-muted">
-                  <div
-                    className="h-full bg-sky-400 dark:bg-sky-500"
-                    style={{ width: `${(analysis.pushSets / pushPullTotal) * 100}%` }}
-                  />
-                  <div
-                    className="h-full bg-indigo-400 dark:bg-indigo-500"
-                    style={{ width: `${(analysis.pullSets / pushPullTotal) * 100}%` }}
-                  />
-                </div>
-              </div>
-            )}
-            {upperLowerTotal > 0 && (
-              <div>
-                <div className="flex justify-between text-[9px] text-muted-foreground mb-0.5">
-                  <span>Upper <span className="tabular-nums font-medium">{analysis.upperSets}</span></span>
-                  <span><span className="tabular-nums font-medium">{analysis.lowerSets}</span> Lower</span>
-                </div>
-                <div className="flex h-1.5 rounded-full overflow-hidden bg-muted">
-                  <div
-                    className="h-full bg-violet-400 dark:bg-violet-500"
-                    style={{ width: `${(analysis.upperSets / upperLowerTotal) * 100}%` }}
-                  />
-                  <div
-                    className="h-full bg-emerald-400 dark:bg-emerald-500"
-                    style={{ width: `${(analysis.lowerSets / upperLowerTotal) * 100}%` }}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Pattern usati */}
-          {analysis.patternsUsed.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {analysis.patternsUsed.map((pat) => (
-                <span
-                  key={pat}
-                  className="inline-flex items-center rounded-full bg-muted/80 px-1.5 py-0 text-[9px] text-muted-foreground"
-                >
-                  {PATTERN_LABELS[pat] ?? pat}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export function SessionCard({
   session,
-  exerciseSafetyMap,
-  sessionAnalysis,
   onUpdateSession,
   onDeleteSession,
   onAddExercise,
@@ -326,19 +194,6 @@ export function SessionCard({
           {session.focus_muscolare && (
             <p className="text-xs text-muted-foreground truncate">{session.focus_muscolare}</p>
           )}
-          {sessionAnalysis && sessionAnalysis.totalPrincipalSets > 0 && (
-            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mt-0.5 flex-wrap" data-print-hide>
-              <span>{sessionAnalysis.dominantMuscles.map((m) => m.label).join(", ")}</span>
-              <span className="text-muted-foreground/40">·</span>
-              <span className="tabular-nums">{sessionAnalysis.totalPrincipalSets} serie</span>
-              {(sessionAnalysis.pushSets > 0 || sessionAnalysis.pullSets > 0) && (
-                <>
-                  <span className="text-muted-foreground/40">·</span>
-                  <PushPullMicro push={sessionAnalysis.pushSets} pull={sessionAnalysis.pullSets} />
-                </>
-              )}
-            </div>
-          )}
         </div>
         <Button
           variant="ghost"
@@ -396,7 +251,6 @@ export function SessionCard({
                             key={exercise.id}
                             exercise={exercise}
                             compact={sectionKey !== "principale"}
-                            safety={exerciseSafetyMap?.get(exercise.id_esercizio)}
                             onUpdate={(updates) => onUpdateExercise(session.id, exercise.id, updates)}
                             onDelete={() => onDeleteExercise(session.id, exercise.id)}
                             onReplace={() => onReplaceExercise(session.id, exercise.id)}
@@ -421,9 +275,6 @@ export function SessionCard({
             );
           })}
         </DndContext>
-
-        {/* Analisi per-sessione (footer collapsabile) */}
-        {sessionAnalysis && <SessionAnalysisFooter analysis={sessionAnalysis} />}
       </CardContent>
     </Card>
   );

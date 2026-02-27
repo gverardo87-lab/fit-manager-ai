@@ -11,20 +11,17 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Trash2, AlertTriangle, ShieldAlert } from "lucide-react";
+import { GripVertical, Trash2 } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
 import type { WorkoutExerciseRow } from "@/types/api";
-import type { ExerciseSafety } from "@/lib/contraindication-engine";
 
 interface SortableExerciseRowProps {
   exercise: WorkoutExerciseRow;
   /** Layout compatto per avviamento/stretching */
   compact?: boolean;
-  /** Sicurezza anamnesi (opzionale — se non fornito, nessun indicatore) */
-  safety?: { safety: ExerciseSafety; reasons: string[] };
   onUpdate: (updates: Partial<WorkoutExerciseRow>) => void;
   onDelete: () => void;
   onReplace: () => void;
@@ -33,7 +30,6 @@ interface SortableExerciseRowProps {
 export function SortableExerciseRow({
   exercise,
   compact = false,
-  safety,
   onUpdate,
   onDelete,
   onReplace,
@@ -73,10 +69,8 @@ export function SortableExerciseRow({
         <button
           onClick={onReplace}
           className="flex items-center gap-1 text-left text-xs truncate hover:text-primary transition-colors"
-          title={safety && safety.safety !== "safe" ? safety.reasons.join(" · ") : `${exercise.esercizio_nome} — clicca per sostituire`}
+          title={`${exercise.esercizio_nome} — clicca per sostituire`}
         >
-          {safety?.safety === "avoid" && <ShieldAlert className="h-3 w-3 shrink-0 text-red-500" />}
-          {safety?.safety === "caution" && <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500" />}
           <span className="truncate">{exercise.esercizio_nome}</span>
         </button>
 
@@ -130,10 +124,8 @@ export function SortableExerciseRow({
       <button
         onClick={onReplace}
         className="flex items-center gap-1 text-left text-sm truncate hover:text-primary transition-colors"
-        title={safety && safety.safety !== "safe" ? safety.reasons.join(" · ") : `${exercise.esercizio_nome} — clicca per sostituire`}
+        title={`${exercise.esercizio_nome} — clicca per sostituire`}
       >
-        {safety?.safety === "avoid" && <ShieldAlert className="h-3.5 w-3.5 shrink-0 text-red-500" />}
-        {safety?.safety === "caution" && <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-500" />}
         <span className="truncate">{exercise.esercizio_nome}</span>
       </button>
 

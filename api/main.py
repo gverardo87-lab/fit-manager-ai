@@ -39,7 +39,6 @@ from api.routers.backup import router as backup_router
 from api.routers.todos import router as todos_router
 from api.routers.exercises import router as exercises_router
 from api.routers.workouts import router as workouts_router
-from api.routers.copilot import router as copilot_router
 
 logger = logging.getLogger("fitmanager.api")
 
@@ -102,7 +101,6 @@ app.include_router(backup_router, prefix=API_PREFIX)
 app.include_router(todos_router, prefix=API_PREFIX)
 app.include_router(exercises_router, prefix=API_PREFIX)
 app.include_router(workouts_router, prefix=API_PREFIX)
-app.include_router(copilot_router, prefix=API_PREFIX)
 
 
 @app.get("/health")
