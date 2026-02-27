@@ -11,17 +11,24 @@ import { Button } from "@/components/ui/button";
 import { exportWorkoutExcel } from "@/lib/export-workout";
 import type { SessionCardData } from "./SessionCard";
 
+interface SafetyExportData {
+  clientNome: string;
+  conditionNames: string[];
+  rows: { condizione: string; severita: string; esercizi: string[] }[];
+}
+
 interface ExportButtonsProps {
   nome: string;
   obiettivo: string;
   livello: string;
   clientNome?: string;
   sessioni: SessionCardData[];
+  safety?: SafetyExportData;
 }
 
-export function ExportButtons({ nome, obiettivo, livello, clientNome, sessioni }: ExportButtonsProps) {
+export function ExportButtons({ nome, obiettivo, livello, clientNome, sessioni, safety }: ExportButtonsProps) {
   const handleExcel = async () => {
-    await exportWorkoutExcel({ nome, obiettivo, livello, clientNome, sessioni });
+    await exportWorkoutExcel({ nome, obiettivo, livello, clientNome, sessioni, safety });
   };
 
   const handlePrint = () => {

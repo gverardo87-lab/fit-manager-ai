@@ -235,6 +235,23 @@ export function useDeleteRelation() {
 }
 
 // ════════════════════════════════════════════════════════════
+// QUERY: Relazioni esercizio (leggero, per SafetyPopover)
+// ════════════════════════════════════════════════════════════
+
+export function useExerciseRelations(exerciseId: number | null) {
+  return useQuery<ExerciseRelation[]>({
+    queryKey: ["exercise-relations", exerciseId],
+    queryFn: async () => {
+      const { data } = await apiClient.get<ExerciseRelation[]>(
+        `/exercises/${exerciseId}/relations`,
+      );
+      return data;
+    },
+    enabled: exerciseId !== null && exerciseId > 0,
+  });
+}
+
+// ════════════════════════════════════════════════════════════
 // QUERY: Safety Map (anamnesi × condizioni mediche)
 // ════════════════════════════════════════════════════════════
 

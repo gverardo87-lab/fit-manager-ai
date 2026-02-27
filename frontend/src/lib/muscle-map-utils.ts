@@ -43,6 +43,28 @@ export const BACK_SLUGS: Set<Slug> = new Set([
 ]);
 
 // ════════════════════════════════════════════════════════════
+// MAPPING: body_tags italiani (da condizioni_mediche) → slug
+// Usato dal Risk Body Map nel Safety Overview Panel
+// ════════════════════════════════════════════════════════════
+
+export const BODY_TAG_SLUG_MAP: Record<string, Slug[]> = {
+  schiena: ["upper-back", "lower-back"],
+  lombare: ["lower-back"],
+  cervicale: ["neck", "trapezius"],
+  collo: ["neck", "trapezius"],
+  spalla: ["deltoids"],
+  ginocchio: ["quadriceps", "hamstring"],
+  anca: ["gluteal", "adductors"],
+  gomito: ["biceps", "triceps", "forearm"],
+  polso: ["forearm"],
+  caviglia: ["calves"],
+  piede: ["calves"],
+  gamba: ["quadriceps", "hamstring", "calves"],
+  addome: ["abs", "obliques"],
+  respiratorio: ["chest"],
+};
+
+// ════════════════════════════════════════════════════════════
 // HELPERS
 // ════════════════════════════════════════════════════════════
 

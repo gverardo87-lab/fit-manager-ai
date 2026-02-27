@@ -168,12 +168,19 @@ def build_safety_map(
 
     for ec, mc in rows:
         ex_id = ec.id_esercizio
+        # Parse body_tags JSON
+        try:
+            tags = json.loads(mc.body_tags) if mc.body_tags else []
+        except (json.JSONDecodeError, TypeError):
+            tags = []
+
         detail = SafetyConditionDetail(
             id=mc.id,
             nome=mc.nome,
             severita=ec.severita,
             nota=ec.nota,
             categoria=mc.categoria,
+            body_tags=tags,
         )
 
         if ex_id not in entries:

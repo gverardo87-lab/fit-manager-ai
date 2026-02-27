@@ -12,13 +12,16 @@ import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import { getSectionForCategory, type TemplateSection } from "@/lib/workout-templates";
 import type { SessionCardData } from "@/components/workouts/SessionCard";
-import type { WorkoutExerciseRow } from "@/types/api";
+import type { WorkoutExerciseRow, SafetyMapResponse, ExerciseSafetyEntry } from "@/types/api";
 
 const TEAL = "009688";
 const WHITE = "FFFFFF";
 const LIGHT_TEAL = "E0F2F1";
 const AMBER_LIGHT = "FFF8E1";
 const CYAN_LIGHT = "E0F7FA";
+const RED_LIGHT = "FFEBEE";
+const RED = "C62828";
+const AMBER = "E65100";
 
 const SECTION_COLORS: Record<TemplateSection, { bg: string; label: string }> = {
   avviamento: { bg: AMBER_LIGHT, label: "AVVIAMENTO" },
@@ -28,12 +31,20 @@ const SECTION_COLORS: Record<TemplateSection, { bg: string; label: string }> = {
 
 const SECTION_ORDER: TemplateSection[] = ["avviamento", "principale", "stretching"];
 
+interface SafetyExportData {
+  clientNome: string;
+  conditionNames: string[];
+  /** Condizioni raggruppate: { condizione, severita, esercizi coinvolti } */
+  rows: { condizione: string; severita: string; esercizi: string[] }[];
+}
+
 interface ExportData {
   nome: string;
   obiettivo: string;
   livello: string;
   clientNome?: string;
   sessioni: SessionCardData[];
+  safety?: SafetyExportData;
 }
 
 function groupBySection(esercizi: WorkoutExerciseRow[]) {
@@ -55,10 +66,75 @@ export async function exportWorkoutExcel({
   livello,
   clientNome,
   sessioni,
+  safety,
 }: ExportData): Promise<void> {
   const wb = new ExcelJS.Workbook();
   wb.creator = "ProFit AI Studio";
   wb.created = new Date();
+
+  // ── Foglio Profilo Clinico (se safety presente) ──
+  if (safety && safety.rows.length > 0) {
+    const ws = wb.addWorksheet("Profilo Clinico");
+    ws.columns = [
+      { width: 6 },   // #
+      { width: 30 },  // Condizione
+      { width: 12 },  // Severita
+      { width: 50 },  // Esercizi coinvolti
+    ];
+
+    // Header
+    const titleRow = ws.addRow([`Profilo Clinico — ${safety.clientNome}`]);
+    titleRow.font = { bold: true, size: 14, color: { argb: RED } };
+    ws.mergeCells("A1:D1");
+
+    const subRow = ws.addRow([`${safety.conditionNames.length} condizioni rilevate — Scheda: ${nome}`]);
+    subRow.font = { size: 10, color: { argb: "666666" } };
+    ws.mergeCells("A2:D2");
+
+    ws.addRow([]);
+
+    // Intestazione tabella
+    const thRow = ws.addRow(["#", "Condizione Medica", "Severita", "Esercizi Coinvolti"]);
+    thRow.eachCell((cell) => {
+      cell.font = { bold: true, size: 10, color: { argb: WHITE } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: RED } };
+      cell.alignment = { horizontal: "center", vertical: "middle" };
+    });
+    thRow.getCell(2).alignment = { horizontal: "left", vertical: "middle" };
+    thRow.getCell(4).alignment = { horizontal: "left", vertical: "middle" };
+
+    // Righe condizioni
+    safety.rows.forEach((row, idx) => {
+      const isAvoid = row.severita === "avoid";
+      const dataRow = ws.addRow([
+        idx + 1,
+        row.condizione,
+        isAvoid ? "EVITARE" : "CAUTELA",
+        row.esercizi.join(", "),
+      ]);
+      dataRow.font = { size: 10 };
+      dataRow.getCell(1).alignment = { horizontal: "center" };
+      dataRow.getCell(3).alignment = { horizontal: "center" };
+      dataRow.getCell(3).font = {
+        size: 10,
+        bold: true,
+        color: { argb: isAvoid ? RED : AMBER },
+      };
+
+      // Zebra striping rosso chiaro
+      if (idx % 2 === 0) {
+        dataRow.eachCell((cell) => {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: RED_LIGHT } };
+        });
+      }
+    });
+
+    // Footer
+    ws.addRow([]);
+    const note = ws.addRow(["Nota: questo foglio e' informativo. Il trainer decide SEMPRE."]);
+    note.font = { size: 9, italic: true, color: { argb: "999999" } };
+    ws.mergeCells(`A${ws.rowCount}:D${ws.rowCount}`);
+  }
 
   for (const session of sessioni) {
     // Limita nome foglio a 31 char (limite Excel)

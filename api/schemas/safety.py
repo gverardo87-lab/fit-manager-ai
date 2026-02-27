@@ -18,6 +18,7 @@ class SafetyConditionDetail(BaseModel):
     severita: str           # avoid, caution
     nota: Optional[str] = None
     categoria: str          # orthopedic, cardiovascular, metabolic, neurological, respiratory, special
+    body_tags: list[str] = []  # zone anatomiche (schiena, spalla, ginocchio...) per Risk Body Map
 
 
 class ExerciseSafetyEntry(BaseModel):

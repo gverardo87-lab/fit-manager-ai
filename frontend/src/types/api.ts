@@ -833,6 +833,7 @@ export interface SafetyConditionDetail {
   severita: "avoid" | "caution";
   nota: string | null;
   categoria: string;
+  body_tags: string[];  // zone anatomiche per Risk Body Map
 }
 
 /** Safety entry per un singolo esercizio */

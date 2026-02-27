@@ -68,6 +68,7 @@ import {
   getSectionForCategory,
   type TemplateSection,
 } from "@/lib/workout-templates";
+import { RiskBodyMap } from "@/components/workouts/RiskBodyMap";
 
 // ════════════════════════════════════════════════════════════
 // LABELS
@@ -179,38 +180,112 @@ export default function SchedaDetailPage({
     return { avoid, caution, total: avoid + caution };
   }, [safetyEntries, sessions]);
 
-  // Condizioni raggruppate per categoria (per pannello espanso)
+  // Condizioni raggruppate per categoria + esercizi coinvolti (per pannello espanso)
   const groupedConditions = useMemo(() => {
-    if (!safetyEntries) return new Map<string, { nome: string; worstSeverity: string }[]>();
+    if (!safetyEntries) return new Map<string, { nome: string; worstSeverity: string; exercises: { nome: string; severity: string }[] }[]>();
 
-    // Raccolta condizioni uniche con worst severity
-    const condMap = new Map<number, SafetyConditionDetail & { worstSeverity: string }>();
-    for (const entry of Object.values(safetyEntries)) {
+    // Mappa esercizio_id → nome (dagli esercizi nella scheda corrente)
+    const exerciseNameMap = new Map<number, string>();
+    for (const s of sessions) {
+      for (const ex of s.esercizi) {
+        exerciseNameMap.set(ex.id_esercizio, ex.esercizio_nome);
+      }
+    }
+
+    // Raccolta condizioni uniche con worst severity + esercizi coinvolti
+    const condMap = new Map<number, SafetyConditionDetail & { worstSeverity: string; exercises: Map<number, { nome: string; severity: string }> }>();
+    for (const [exIdStr, entry] of Object.entries(safetyEntries)) {
+      const exId = Number(exIdStr);
+      const exName = exerciseNameMap.get(exId);
+      if (!exName) continue; // esercizio non nella scheda corrente
+
       for (const cond of entry.conditions) {
         const existing = condMap.get(cond.id);
         if (!existing) {
-          condMap.set(cond.id, { ...cond, worstSeverity: cond.severita });
-        } else if (cond.severita === "avoid" && existing.worstSeverity !== "avoid") {
-          existing.worstSeverity = "avoid";
+          const exercises = new Map<number, { nome: string; severity: string }>();
+          exercises.set(exId, { nome: exName, severity: cond.severita });
+          condMap.set(cond.id, { ...cond, worstSeverity: cond.severita, exercises });
+        } else {
+          if (cond.severita === "avoid" && existing.worstSeverity !== "avoid") {
+            existing.worstSeverity = "avoid";
+          }
+          existing.exercises.set(exId, { nome: exName, severity: cond.severita });
         }
       }
     }
 
     // Raggruppa per categoria
-    const groups = new Map<string, { nome: string; worstSeverity: string }[]>();
+    const groups = new Map<string, { nome: string; worstSeverity: string; exercises: { nome: string; severity: string }[] }[]>();
     for (const cond of condMap.values()) {
       const cat = cond.categoria;
       if (!groups.has(cat)) groups.set(cat, []);
-      groups.get(cat)!.push({ nome: cond.nome, worstSeverity: cond.worstSeverity });
+      groups.get(cat)!.push({
+        nome: cond.nome,
+        worstSeverity: cond.worstSeverity,
+        exercises: Array.from(cond.exercises.values()),
+      });
     }
 
     // Ordina per CATEGORY_ORDER
-    const sorted = new Map<string, { nome: string; worstSeverity: string }[]>();
+    const sorted = new Map<string, { nome: string; worstSeverity: string; exercises: { nome: string; severity: string }[] }[]>();
     for (const cat of CATEGORY_ORDER) {
       if (groups.has(cat)) sorted.set(cat, groups.get(cat)!);
     }
     return sorted;
+  }, [safetyEntries, sessions]);
+
+  // Condizioni uniche con body_tags per Risk Body Map
+  const uniqueConditionsForMap = useMemo(() => {
+    if (!safetyEntries) return [];
+    const seen = new Map<number, SafetyConditionDetail>();
+    for (const entry of Object.values(safetyEntries)) {
+      for (const cond of entry.conditions) {
+        if (!seen.has(cond.id)) {
+          seen.set(cond.id, cond);
+        } else if (cond.severita === "avoid") {
+          seen.set(cond.id, cond); // worst severity wins
+        }
+      }
+    }
+    return Array.from(seen.values()).filter((c) => c.body_tags.length > 0);
   }, [safetyEntries]);
+
+  // Dati safety per export Excel
+  const safetyExportData = useMemo(() => {
+    if (!safetyMap || !safetyEntries || safetyMap.condition_count === 0) return undefined;
+
+    // Mappa esercizio_id → nome (dalla scheda corrente)
+    const exerciseNameMap = new Map<number, string>();
+    for (const s of sessions) {
+      for (const ex of s.esercizi) {
+        exerciseNameMap.set(ex.id_esercizio, ex.esercizio_nome);
+      }
+    }
+
+    // Condizioni uniche → esercizi coinvolti
+    const condMap = new Map<number, { nome: string; severita: string; esercizi: Set<string> }>();
+    for (const [exIdStr, entry] of Object.entries(safetyEntries)) {
+      const exName = exerciseNameMap.get(Number(exIdStr));
+      if (!exName) continue;
+      for (const cond of entry.conditions) {
+        const existing = condMap.get(cond.id);
+        if (!existing) {
+          condMap.set(cond.id, { nome: cond.nome, severita: cond.severita, esercizi: new Set([exName]) });
+        } else {
+          existing.esercizi.add(exName);
+          if (cond.severita === "avoid") existing.severita = "avoid";
+        }
+      }
+    }
+
+    return {
+      clientNome: safetyMap.client_nome,
+      conditionNames: safetyMap.condition_names,
+      rows: Array.from(condMap.values())
+        .sort((a, b) => (a.severita === "avoid" ? -1 : 1) - (b.severita === "avoid" ? -1 : 1))
+        .map((c) => ({ condizione: c.nome, severita: c.severita, esercizi: Array.from(c.esercizi) })),
+    };
+  }, [safetyMap, safetyEntries, sessions]);
 
   // ── Handlers sessioni ──
 
@@ -524,6 +599,7 @@ export default function SchedaDetailPage({
             livello={plan.livello}
             clientNome={clientNome}
             sessioni={sessions}
+            safety={safetyExportData}
           />
           {isDirty && (
             <Button onClick={handleSave} disabled={updateSessions.isPending}>
@@ -582,26 +658,59 @@ export default function SchedaDetailPage({
                     ))}
                   </div>
 
-                  {/* Pannello espanso — condizioni raggruppate per categoria */}
+                  {/* Pannello espanso — Risk Body Map + condizioni raggruppate */}
                   <CollapsibleContent className="space-y-3">
                     <Separator />
+                    {/* Risk Body Map */}
+                    {uniqueConditionsForMap.length > 0 && (
+                      <div className="flex flex-col items-center">
+                        <RiskBodyMap conditions={uniqueConditionsForMap} />
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="flex items-center gap-1 text-[9px] text-muted-foreground">
+                            <span className="h-2 w-2 rounded-full bg-red-500" /> Evitare
+                          </span>
+                          <span className="flex items-center gap-1 text-[9px] text-muted-foreground">
+                            <span className="h-2 w-2 rounded-full bg-amber-500" /> Cautela
+                          </span>
+                        </div>
+                      </div>
+                    )}
                     {Array.from(groupedConditions.entries()).map(([categoria, conditions]) => (
                       <div key={categoria}>
                         <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
                           {CONDITION_CATEGORY_LABELS[categoria] ?? categoria}
                         </div>
-                        <div className="space-y-1">
+                        <div className="space-y-2.5">
                           {conditions.map((cond) => (
-                            <div key={cond.nome} className="flex items-center gap-2 text-xs">
-                              {cond.worstSeverity === "avoid" ? (
-                                <ShieldAlert className="h-3.5 w-3.5 shrink-0 text-red-500" />
-                              ) : (
-                                <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                            <div key={cond.nome}>
+                              <div className="flex items-center gap-2 text-xs">
+                                {cond.worstSeverity === "avoid" ? (
+                                  <ShieldAlert className="h-3.5 w-3.5 shrink-0 text-red-500" />
+                                ) : (
+                                  <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                                )}
+                                <span className="flex-1 font-medium">{cond.nome}</span>
+                                <span className={`text-[10px] font-medium ${cond.worstSeverity === "avoid" ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"}`}>
+                                  {cond.worstSeverity === "avoid" ? "Evitare" : "Cautela"}
+                                </span>
+                              </div>
+                              {/* Esercizi coinvolti */}
+                              {cond.exercises.length > 0 && (
+                                <div className="ml-5.5 mt-1 flex flex-wrap gap-1">
+                                  {cond.exercises.map((ex) => (
+                                    <span
+                                      key={ex.nome}
+                                      className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] ${
+                                        ex.severity === "avoid"
+                                          ? "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400"
+                                          : "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
+                                      }`}
+                                    >
+                                      {ex.nome}
+                                    </span>
+                                  ))}
+                                </div>
                               )}
-                              <span className="flex-1">{cond.nome}</span>
-                              <span className={`text-[10px] font-medium ${cond.worstSeverity === "avoid" ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"}`}>
-                                {cond.worstSeverity === "avoid" ? "Evitare" : "Cautela"}
-                              </span>
                             </div>
                           ))}
                         </div>

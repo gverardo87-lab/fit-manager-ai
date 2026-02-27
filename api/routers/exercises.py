@@ -579,6 +579,17 @@ def delete_exercise_media(
 # RELAZIONI (progressioni/regressioni)
 # ═══════════════════════════════════════════════════════════════
 
+@router.get("/{exercise_id}/relations", response_model=list[ExerciseRelationResponse])
+def get_exercise_relations(
+    exercise_id: int,
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """Relazioni di un esercizio (progressioni/regressioni/varianti). Endpoint leggero."""
+    _bouncer_exercise(session, exercise_id, trainer.id)
+    return _get_relazioni(session, exercise_id)
+
+
 @router.post("/{exercise_id}/relations", response_model=ExerciseRelationResponse, status_code=status.HTTP_201_CREATED)
 def create_exercise_relation(
     exercise_id: int,

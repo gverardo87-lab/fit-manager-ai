@@ -11,9 +11,10 @@
  * Safety: icona cliccabile apre Popover ricco con condizioni dettagliate.
  */
 
+import { useState, useMemo } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Trash2, ShieldAlert, AlertTriangle } from "lucide-react";
+import { GripVertical, Trash2, ShieldAlert, AlertTriangle, ArrowRightLeft, CheckCircle2 } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -24,7 +25,14 @@ import {
 } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 
+import { useExerciseRelations } from "@/hooks/useExercises";
 import type { WorkoutExerciseRow, ExerciseSafetyEntry } from "@/types/api";
+
+const RELATION_LABELS: Record<string, string> = {
+  regression: "Regressione",
+  variation: "Variante",
+  progression: "Progressione",
+};
 
 interface SortableExerciseRowProps {
   exercise: WorkoutExerciseRow;
@@ -32,6 +40,8 @@ interface SortableExerciseRowProps {
   compact?: boolean;
   /** Safety entry da anamnesi cliente (informativo) */
   safety?: ExerciseSafetyEntry;
+  /** Full safety entries per filtrare alternative sicure */
+  safetyEntries?: Record<number, ExerciseSafetyEntry>;
   onUpdate: (updates: Partial<WorkoutExerciseRow>) => void;
   onDelete: () => void;
   onReplace: () => void;
@@ -40,17 +50,39 @@ interface SortableExerciseRowProps {
 function SafetyPopover({
   safety,
   exerciseName,
+  exerciseId,
   iconSize,
+  safetyEntries,
 }: {
   safety: ExerciseSafetyEntry;
   exerciseName: string;
+  exerciseId: number;
   iconSize: string;
+  safetyEntries?: Record<number, ExerciseSafetyEntry>;
 }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const { data: relations } = useExerciseRelations(isOpen ? exerciseId : null);
+
+  const safeAlternatives = useMemo(() => {
+    if (!relations || !safetyEntries) return [];
+    return relations
+      .filter((rel) => {
+        const entry = safetyEntries[rel.related_exercise_id];
+        return !entry || entry.severity !== "avoid";
+      })
+      .map((rel) => ({
+        id: rel.related_exercise_id,
+        nome: rel.related_exercise_nome,
+        tipo: rel.tipo_relazione,
+        hasCaution: !!safetyEntries[rel.related_exercise_id],
+      }));
+  }, [relations, safetyEntries]);
+
   const SafetyIcon = safety.severity === "avoid" ? ShieldAlert : AlertTriangle;
   const dotColor = safety.severity === "avoid" ? "bg-red-500" : "bg-amber-500";
 
   return (
-    <Popover>
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <button
           onClick={(e) => e.stopPropagation()}
@@ -87,6 +119,31 @@ function SafetyPopover({
             </div>
           ))}
         </div>
+        {/* Safe alternatives */}
+        {safeAlternatives.length > 0 && (
+          <>
+            <Separator />
+            <div className="px-3 py-2">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <ArrowRightLeft className="h-3 w-3 text-primary" />
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-primary">
+                  Alternative sicure
+                </span>
+              </div>
+              <div className="space-y-1">
+                {safeAlternatives.map((alt) => (
+                  <div key={alt.id} className="flex items-center gap-1.5 text-[11px]">
+                    <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-500" />
+                    <span className="flex-1 truncate">{alt.nome}</span>
+                    <span className="text-[9px] text-muted-foreground shrink-0">
+                      {RELATION_LABELS[alt.tipo] ?? alt.tipo}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </PopoverContent>
     </Popover>
   );
@@ -96,6 +153,7 @@ export function SortableExerciseRow({
   exercise,
   compact = false,
   safety,
+  safetyEntries,
   onUpdate,
   onDelete,
   onReplace,
@@ -115,12 +173,19 @@ export function SortableExerciseRow({
     opacity: isDragging ? 0.5 : 1,
   };
 
+  // Background tint per severity
+  const safetyBg = safety?.severity === "avoid"
+    ? "bg-red-50/60 dark:bg-red-950/20"
+    : safety?.severity === "caution"
+      ? "bg-amber-50/60 dark:bg-amber-950/20"
+      : "";
+
   if (compact) {
     return (
       <div
         ref={setNodeRef}
         style={style}
-        className="grid grid-cols-[24px_1fr_60px_70px_32px] gap-2 items-center rounded-md px-1 py-1 hover:bg-muted/40 transition-colors"
+        className={`grid grid-cols-[24px_1fr_60px_70px_32px] gap-2 items-center rounded-md px-1 py-1 hover:bg-muted/40 transition-colors ${safetyBg}`}
       >
         {/* Drag handle */}
         <button
@@ -134,7 +199,7 @@ export function SortableExerciseRow({
         {/* Nome esercizio + safety icon */}
         <div className="flex items-center gap-1 min-w-0">
           {safety && (
-            <SafetyPopover safety={safety} exerciseName={exercise.esercizio_nome} iconSize="h-3 w-3" />
+            <SafetyPopover safety={safety} exerciseName={exercise.esercizio_nome} exerciseId={exercise.id_esercizio} iconSize="h-3 w-3" safetyEntries={safetyEntries} />
           )}
           <button
             onClick={onReplace}
@@ -180,7 +245,7 @@ export function SortableExerciseRow({
     <div
       ref={setNodeRef}
       style={style}
-      className="grid grid-cols-[24px_1fr_60px_70px_60px_32px] gap-2 items-center rounded-md px-1 py-1.5 hover:bg-muted/40 transition-colors"
+      className={`grid grid-cols-[24px_1fr_60px_70px_60px_32px] gap-2 items-center rounded-md px-1 py-1.5 hover:bg-muted/40 transition-colors ${safetyBg}`}
     >
       {/* Drag handle */}
       <button
@@ -194,7 +259,7 @@ export function SortableExerciseRow({
       {/* Nome esercizio + safety icon */}
       <div className="flex items-center gap-1 min-w-0">
         {safety && (
-          <SafetyPopover safety={safety} exerciseName={exercise.esercizio_nome} iconSize="h-3.5 w-3.5" />
+          <SafetyPopover safety={safety} exerciseName={exercise.esercizio_nome} exerciseId={exercise.id_esercizio} iconSize="h-3.5 w-3.5" safetyEntries={safetyEntries} />
         )}
         <button
           onClick={onReplace}

@@ -284,6 +284,7 @@ export function SessionCard({
                             exercise={exercise}
                             compact={sectionKey !== "principale"}
                             safety={safetyMap?.[exercise.id_esercizio]}
+                            safetyEntries={safetyMap}
                             onUpdate={(updates) => onUpdateExercise(session.id, exercise.id, updates)}
                             onDelete={() => onDeleteExercise(session.id, exercise.id)}
                             onReplace={() => onReplaceExercise(session.id, exercise.id)}
