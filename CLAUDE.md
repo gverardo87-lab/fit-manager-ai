@@ -64,8 +64,8 @@ Editor strutturato per creare schede allenamento professionali. Layout split: ed
 **Backend**: 3 tabelle (`schede_allenamento`, `sessioni_scheda`, `esercizi_sessione`) con Deep IDOR chain: `EsercizioSessione → SessioneScheda → SchedaAllenamento.trainer_id`. CRUD completo + duplicate + full-replace sessioni (atomico). `id_cliente` FK opzionale per collegare schede a clienti (riassegnabile via PUT con bouncer check).
 
 **Frontend**: 3 sezioni per sessione — Avviamento, Principale, Stretching & Mobilita.
-- **Template system**: 3 template (Beginner/Intermedio/Avanzato) con smart matching esercizi per `pattern_movimento` + difficolta
-- **Exercise Selector**: dialog professionale con filtri pattern_movimento + attrezzatura (chip cliccabili) + ricerca testuale. Filtro categoria automatico per sezione (avviamento mostra solo avviamento, stretching mostra solo stretching/mobilita, principale mostra tutto il resto)
+- **Template system**: 3 template (Beginner/Intermedio/Avanzato) con matching base esercizi per `pattern_movimento` + difficolta
+- **Exercise Selector**: dialog professionale con filtri pattern_movimento + gruppo muscolare + attrezzatura + difficolta + biomeccanica (chip cliccabili) + ricerca testuale. Filtro categoria automatico per sezione (avviamento mostra solo avviamento, stretching mostra solo stretching/mobilita, principale mostra tutto il resto)
 - **DnD**: `@dnd-kit/sortable` per riordino esercizi dentro ogni sezione
 - **Export**: Excel via `exceljs` (3 sezioni colorate) + Print/PDF via `@media print`
 - **Client linkage**: assegnazione/riassegnazione cliente inline (Select + `"__none__"` sentinel), filtro cliente nella lista, tab "Schede" nel profilo cliente, cross-link bidirezionale
@@ -75,29 +75,6 @@ Editor strutturato per creare schede allenamento professionali. Layout split: ed
 - Pattern: 9 forza (`squat`, `hinge`, `push_h/v`, `pull_h/v`, `core`, `rotation`, `carry`) + 3 complementari (`warmup`, `stretch`, `mobility`)
 
 File chiave: `lib/workout-templates.ts` (template + `getSectionForCategory`), `components/workouts/SessionCard.tsx` (3 sezioni DnD).
-
-### Copilot AI — Assistente Conversazionale nel Builder
-
-Agente AI integrato nel workout builder. Chat conversazionale nella colonna destra (desktop, collapsabile).
-
-**Backend** (`api/services/workout_copilot.py`, `api/routers/copilot.py`, `api/schemas/copilot.py`):
-- 2 endpoint: `POST /copilot/suggest-exercise` (button click legacy) + `POST /copilot/chat` (agente conversazionale)
-- **Intent Router** a 2 livelli: keyword match deterministico (~0ms) + Ollama fallback (~3s) per casi ambigui
-- 8 intent: `suggest`, `analyze`, `chat` (funzionanti) + `explain`, `search`, `swap`, `modify`, `review` (skeleton)
-- **Capability dispatch**: `_cap_suggest()` (esercizi contestuali), `_cap_analyze()` (analisi strutturale scheda), `_cap_chat()` (conversazione libera con estrazione context notes)
-- **Context notes**: preferenze/note estratte dalla conversazione (es. "odia bilancieri" → nota persistente), inviate ad ogni richiesta
-- **Action validation**: exercise_id suggeriti da Ollama validati contro SQL candidate_map — solo ID reali del DB passano
-- Graceful degradation: mai 500, errori Ollama gestiti con messaggio friendly
-- Ollama locale gemma2:9b, privacy-first (nessun PII nei prompt)
-
-**Frontend** (`components/workouts/CopilotChat.tsx` ~500 LOC):
-- Panel collapsabile con chat UI (messaggi, input, auto-scroll, typing indicator)
-- **Welcome screen** con quick prompts contestuali (chip cliccabili): cambiano in base a stato scheda (vuota/con esercizi) e cliente assegnato
-- **Follow-up prompts** dopo ogni risposta (evita "muro bianco")
-- **Azioni inline** nei messaggi (add_exercise con bottone, reasoning, stato "Applicato")
-- Serializzazione workout state ad ogni chiamata API
-- Conversation history (sliding window 10 messaggi) + context notes management
-- Modulo condiviso: `api/services/ollama_client.py` (config, call_ollama, parse_json_field, format utilities)
 
 ### Exercise Quality Engine — Pipeline Dati
 
@@ -157,32 +134,6 @@ L'API filtra `Exercise.in_subset == True` — rimuovere per riattivare catalogo 
 **Frontend**: hero esercizio mostra muscoli anatomici raggruppati, articolazioni con ruolo,
 classificazione biomeccanica (catena, piano, contrazione). Fallback gruppi generici per esercizi fuori subset.
 
-### Motore Controindicazioni Anamnesi — Scudo Informativo
-
-> **Filosofia: INFORMARE, mai LIMITARE.** Il sistema e' progettato per laureati in scienze motorie.
-> Il trainer decide SEMPRE. Il motore fornisce indicatori visivi, mai blocchi o restrizioni.
-
-Motore deterministico frontend-only che incrocia anamnesi cliente con esercizi. Zero latenza, nessuna dipendenza backend.
-
-**File**: `frontend/src/lib/contraindication-engine.ts` (~250 LOC)
-
-**Logica ibrida** (ordine priorita'):
-1. `exercise.controindicazioni` (DB, popolato da Ollama) → match con body part tags → `avoid`
-2. `pattern_movimento` in `avoid_patterns` della regola body part → `avoid`
-3. `pattern_movimento` in `caution_patterns` → `caution`
-4. `muscoli_primari` overlap con `caution_muscles` → `caution`
-5. Condizione cardiaca + compound/cardio → `caution`
-6. Altrimenti → `safe`
-
-**Estrazione anamnesi**: `extractTagsFromAnamnesi()` scansiona TUTTI i campi `AnamnesiQuestion.dettaglio` + `limitazioni_funzionali` + `note`. Keyword matching italiano→tag standardizzati (30+ keyword → 11 body part tags + 3 medical flags).
-
-**Integrazione UI**:
-- `ExerciseSelector`: badge informativi (rosso "Controindicato", ambra "Cautela") + motivo visibile. Toggle opzionale "Filtra" (OFF di default). NESSUN riordinamento safety — ordine naturale.
-- `SortableExerciseRow`: icone ShieldAlert/AlertTriangle accanto al nome (hover mostra motivi)
-- `SessionCard`: passa `exerciseSafetyMap` da classifyExercises()
-- `TemplateSelector`: smart matching penalizza `caution` (-15) e filtra `avoid` (solo per generazione template, il trainer puo' sempre aggiungere manualmente)
-- Banner "Anamnesi cliente" nel builder: informativo, link a profilo cliente
-
 ---
 
 ## Architettura
@@ -204,7 +155,7 @@ api/               FastAPI + SQLModel ORM
 SQLite             data/crm.db — 23 tabelle, FK enforced
        |
 core/              Moduli AI (dormant, non esposti via API — prossima fase)
-  exercise_archive, workout_generator, knowledge_chain, card_parser, ...
+  exercise_archive, knowledge_chain, card_parser, ...
 ```
 
 ### Separazione dei layer (Il Muro)
@@ -465,9 +416,9 @@ sqlite3 data/crm_dev.db ".tables"
 
 ## Metriche Progetto
 
-- **api/**: ~6,800 LOC Python — 17 modelli ORM, 11 router, 2 schema modules
-- **frontend/**: ~20,500 LOC TypeScript — ~80 componenti, 11 hook modules, 13 pagine
-- **core/**: ~11,100 LOC Python — moduli AI (workout, RAG, DNA) in attesa di API endpoints
+- **api/**: ~4,900 LOC Python — 17 modelli ORM, 10 router, 1 schema module
+- **frontend/**: ~14,500 LOC TypeScript — ~70 componenti, 11 hook modules, 13 pagine
+- **core/**: ~10,300 LOC Python — moduli AI (RAG, exercise archive) in attesa di API endpoints
 - **tools/admin_scripts/**: ~2,800 LOC Python — 14 script (import, quality engine, taxonomy, seed, test)
 - **DB**: 29 tabelle SQLite, FK enforced, multi-tenant via trainer_id
 - **Esercizi**: ~1080 builtin (345 originali + 739 FDB), 118 in subset attivo con tassonomia completa
