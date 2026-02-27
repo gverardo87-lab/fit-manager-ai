@@ -124,6 +124,39 @@ include posizione iniziale, fase concentrica/eccentrica, respirazione, tip prati
 
 Tutti gli script in: `tools/admin_scripts/`
 
+### Tassonomia Scientifica Esercizi — Architettura a Strati
+
+> **Filosofia: senza classi, nessuna AI puo' ragionare.** Ispirata alla classificazione BIC/YOLO:
+> dati strutturati a strati con capacita' di incrociare ogni dimensione.
+
+Approccio ML: subset perfetto (~118 esercizi) → pipeline completa → scala a ~1080.
+
+**Schema** (migrazione `949f3f3fd5ed` — 6 tabelle + 4 colonne):
+
+| Tabella | Tipo | Record | Descrizione |
+|---------|------|--------|-------------|
+| `muscoli` | Catalogo | 53 | Muscoli anatomici NSCA/ACSM (15 gruppi, 3 regioni) |
+| `articolazioni` | Catalogo | 15 | Articolazioni principali (5 tipi, 3 regioni) |
+| `condizioni_mediche` | Catalogo | 30 | Condizioni rilevanti (5 categorie, body_tags JSON) |
+| `esercizi_muscoli` | Junction M:N | ~1677 | Esercizio↔muscolo con ruolo (primary/secondary/stabilizer) + attivazione % |
+| `esercizi_articolazioni` | Junction M:N | ~394 | Esercizio↔articolazione con ruolo (agonist/stabilizer) + ROM gradi |
+| `esercizi_condizioni` | Junction M:N | 0 | Esercizio↔condizione con severita' (avoid/caution/modify) + nota |
+
+Colonne su `esercizi`: `in_subset` (flag sviluppo), `catena_cinetica` (open/closed),
+`piano_movimento` (sagittal/frontal/transverse/multi), `tipo_contrazione` (concentric/eccentric/isometric/dynamic).
+
+**Subset attivo**: 118 esercizi (`in_subset=1`) selezionati algoritmicamente per copertura 100%
+su 12 pattern × 14 gruppi muscolari × 8 attrezzature × 3 difficolta' × 7 categorie.
+L'API filtra `Exercise.in_subset == True` — rimuovere per riattivare catalogo completo.
+
+**Modelli API**: `muscle.py` (Muscle + ExerciseMuscle), `joint.py` (Joint + ExerciseJoint),
+`medical_condition.py` (MedicalCondition + ExerciseCondition).
+
+**Script**: `seed_taxonomy.py` (cataloghi hardcoded), `populate_taxonomy.py` (mapping deterministico).
+
+**Frontend**: hero esercizio mostra muscoli anatomici raggruppati, articolazioni con ruolo,
+classificazione biomeccanica (catena, piano, contrazione). Fallback gruppi generici per esercizi fuori subset.
+
 ### Motore Controindicazioni Anamnesi — Scudo Informativo
 
 > **Filosofia: INFORMARE, mai LIMITARE.** Il sistema e' progettato per laureati in scienze motorie.
@@ -432,12 +465,12 @@ sqlite3 data/crm_dev.db ".tables"
 
 ## Metriche Progetto
 
-- **api/**: ~6,500 LOC Python — 11 modelli ORM, 11 router, 2 schema modules
-- **frontend/**: ~20,000 LOC TypeScript — ~80 componenti, 11 hook modules, 13 pagine
+- **api/**: ~6,800 LOC Python — 17 modelli ORM, 11 router, 2 schema modules
+- **frontend/**: ~20,500 LOC TypeScript — ~80 componenti, 11 hook modules, 13 pagine
 - **core/**: ~11,100 LOC Python — moduli AI (workout, RAG, DNA) in attesa di API endpoints
-- **tools/admin_scripts/**: ~2,200 LOC Python — 12 script (import, quality engine, seed, test)
-- **DB**: 23 tabelle SQLite, FK enforced, multi-tenant via trainer_id
-- **Esercizi**: ~1080 builtin (345 originali + 739 FDB), ~893 con illustrazioni esecuzione
+- **tools/admin_scripts/**: ~2,800 LOC Python — 14 script (import, quality engine, taxonomy, seed, test)
+- **DB**: 29 tabelle SQLite, FK enforced, multi-tenant via trainer_id
+- **Esercizi**: ~1080 builtin (345 originali + 739 FDB), 118 in subset attivo con tassonomia completa
 - **Test**: 63 pytest + 67 E2E
 - **Sicurezza**: JWT auth, bcrypt, Deep Relational IDOR, 3-layer route protection
 - **Cloud**: 0 dipendenze, 0 dati verso terzi

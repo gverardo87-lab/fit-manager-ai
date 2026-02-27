@@ -190,16 +190,19 @@ def upgrade_db(db_path: str, model: str, batch_size: int = 0) -> tuple[int, int,
     print(f"  Upgrading instructions: {db_name} (model: {model})")
     print(f"{'=' * 60}")
 
-    # Load original exercises (id <= 345)
+    # Load exercises needing upgrade:
+    # - Originals (id <= 345): short or missing esecuzione
+    # - Any FDB with missing esecuzione
     exercises = conn.execute("""
         SELECT id, nome, nome_en, categoria, pattern_movimento,
                muscoli_primari, attrezzatura, esecuzione
         FROM esercizi
-        WHERE deleted_at IS NULL AND id <= 345
+        WHERE deleted_at IS NULL
+          AND (id <= 345 OR esecuzione IS NULL OR esecuzione = '')
         ORDER BY id
     """).fetchall()
 
-    print(f"  Total original exercises: {len(exercises)}")
+    print(f"  Total exercises to check: {len(exercises)}")
 
     upgraded = 0
     skipped = 0
@@ -271,33 +274,20 @@ def verify(db_path: str) -> None:
 
     print(f"\n  Verification: {db_name}")
 
-    # Coverage
+    # Coverage — all exercises
     total = conn.execute(
-        "SELECT COUNT(*) FROM esercizi WHERE deleted_at IS NULL AND id <= 345"
+        "SELECT COUNT(*) FROM esercizi WHERE deleted_at IS NULL"
     ).fetchone()[0]
     with_exec = conn.execute(
-        "SELECT COUNT(*) FROM esercizi WHERE deleted_at IS NULL AND id <= 345 AND esecuzione IS NOT NULL AND esecuzione != ''"
+        "SELECT COUNT(*) FROM esercizi WHERE deleted_at IS NULL AND esecuzione IS NOT NULL AND esecuzione != ''"
     ).fetchone()[0]
-    avg_len = conn.execute(
-        "SELECT AVG(LENGTH(esecuzione)) FROM esercizi WHERE deleted_at IS NULL AND id <= 345 AND esecuzione IS NOT NULL"
+    missing = conn.execute(
+        "SELECT COUNT(*) FROM esercizi WHERE deleted_at IS NULL AND (esecuzione IS NULL OR esecuzione = '')"
     ).fetchone()[0]
 
-    print(f"    Total originals: {total}")
+    print(f"    Total exercises: {total}")
     print(f"    With esecuzione: {with_exec}/{total} ({with_exec*100//total}%)")
-    print(f"    Avg length: {avg_len:.0f} chars" if avg_len else "    Avg length: N/A")
-
-    # By category
-    cats = conn.execute("""
-        SELECT categoria,
-               COUNT(*) as total,
-               SUM(CASE WHEN esecuzione IS NOT NULL AND esecuzione != '' THEN 1 ELSE 0 END) as with_exec,
-               AVG(CASE WHEN esecuzione IS NOT NULL THEN LENGTH(esecuzione) END) as avg_len
-        FROM esercizi WHERE deleted_at IS NULL AND id <= 345
-        GROUP BY categoria ORDER BY total DESC
-    """).fetchall()
-    print(f"    By category:")
-    for cat in cats:
-        print(f"      {cat[0]}: {cat[2]}/{cat[1]} (avg {cat[3]:.0f} chars)" if cat[3] else f"      {cat[0]}: {cat[2]}/{cat[1]}")
+    print(f"    Still missing: {missing}")
 
     conn.close()
 

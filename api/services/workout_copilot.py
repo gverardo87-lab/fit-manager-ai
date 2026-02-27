@@ -283,6 +283,7 @@ def _query_candidates(
         Exercise.categoria.in_(categories),
         Exercise.difficolta.in_(allowed_diff),
         or_(Exercise.trainer_id == None, Exercise.trainer_id == trainer_id),
+        Exercise.in_subset == True,  # noqa: E712 — subset attivo
     ]
     if exclude_ids:
         base_filters.append(Exercise.id.notin_(exclude_ids))

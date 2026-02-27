@@ -111,6 +111,38 @@ export const RELATION_TYPE_LABELS: Record<string, string> = {
   variation: "Variante",
 };
 
+// ── Biomeccanica avanzata (tassonomia v3) ──
+
+export const KINETIC_CHAIN_LABELS: Record<string, string> = {
+  open: "Catena Aperta",
+  closed: "Catena Chiusa",
+};
+
+export const MOVEMENT_PLANE_LABELS: Record<string, string> = {
+  sagittal: "Sagittale",
+  frontal: "Frontale",
+  transverse: "Trasversale",
+  multi: "Multiplanare",
+};
+
+export const CONTRACTION_TYPE_LABELS: Record<string, string> = {
+  concentric: "Concentrica",
+  eccentric: "Eccentrica",
+  isometric: "Isometrica",
+  dynamic: "Dinamica",
+};
+
+export const JOINT_ROLE_LABELS: Record<string, string> = {
+  agonist: "Agonista",
+  stabilizer: "Stabilizzatore",
+};
+
+export const MUSCLE_ROLE_LABELS: Record<string, string> = {
+  primary: "Primario",
+  secondary: "Secondario",
+  stabilizer: "Stabilizzatore",
+};
+
 // ── Colori badge ──
 
 export const CATEGORY_COLORS: Record<string, string> = {

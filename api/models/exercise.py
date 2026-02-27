@@ -67,6 +67,11 @@ class Exercise(SQLModel, table=True):
     # Sicurezza (JSON array: ["ginocchio", "schiena"])
     controindicazioni: Optional[str] = None
 
+    # Biomeccanica avanzata (tassonomia v3)
+    catena_cinetica: Optional[str] = None       # open, closed
+    piano_movimento: Optional[str] = None       # sagittal, frontal, transverse, multi
+    tipo_contrazione: Optional[str] = None      # concentric, eccentric, isometric, dynamic
+
     # Media (v2)
     image_url: Optional[str] = None       # path relativo: /media/exercises/42/main.jpg
     video_url: Optional[str] = None       # path relativo o URL esterno
@@ -74,5 +79,6 @@ class Exercise(SQLModel, table=True):
 
     # Metadata
     is_builtin: bool = Field(default=False)
+    in_subset: Optional[bool] = Field(default=False)  # flag subset sviluppo tassonomia
     created_at: Optional[datetime] = Field(default_factory=lambda: datetime.now(timezone.utc))
     deleted_at: Optional[datetime] = None

@@ -53,8 +53,12 @@ import {
   FORCE_TYPE_LABELS,
   LATERAL_PATTERN_LABELS,
   RELATION_TYPE_LABELS,
+  KINETIC_CHAIN_LABELS,
+  MOVEMENT_PLANE_LABELS,
+  CONTRACTION_TYPE_LABELS,
+  JOINT_ROLE_LABELS,
 } from "@/components/exercises/exercise-constants";
-import type { Exercise } from "@/types/api";
+import type { Exercise, TaxonomyMuscle } from "@/types/api";
 
 // ════════════════════════════════════════════════════════════
 // HELPERS
@@ -105,7 +109,59 @@ function ClassificationRow({ label, value }: { label: string; value: string }) {
 // HERO: MAPPA MUSCOLARE + CLASSIFICAZIONE
 // ════════════════════════════════════════════════════════════
 
+function MuscleGroup({ muscles, ruolo, colorIntensity }: {
+  muscles: TaxonomyMuscle[];
+  ruolo: string;
+  colorIntensity: "strong" | "soft";
+}) {
+  // Raggruppa per gruppo muscolare
+  const byGroup = new Map<string, TaxonomyMuscle[]>();
+  for (const m of muscles) {
+    const group = MUSCLE_LABELS[m.gruppo] || m.gruppo;
+    if (!byGroup.has(group)) byGroup.set(group, []);
+    byGroup.get(group)!.push(m);
+  }
+
+  const borderColor = colorIntensity === "strong"
+    ? "border-blue-300 dark:border-blue-700"
+    : "border-blue-200 dark:border-blue-800";
+  const bgColor = colorIntensity === "strong"
+    ? "bg-blue-50 dark:bg-blue-900/20"
+    : "bg-blue-50/50 dark:bg-blue-900/10";
+  const textColor = colorIntensity === "strong"
+    ? "text-blue-700 dark:text-blue-400"
+    : "text-blue-500 dark:text-blue-400/70";
+  const dotColor = colorIntensity === "strong"
+    ? "bg-blue-600 dark:bg-blue-400"
+    : "bg-blue-300 dark:bg-blue-500/50";
+
+  return (
+    <div className="space-y-2">
+      {Array.from(byGroup.entries()).map(([group, groupMuscles]) => (
+        <div key={group}>
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">{group}</p>
+          <div className="flex flex-wrap gap-1">
+            {groupMuscles.map((m) => (
+              <span
+                key={m.id}
+                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${borderColor} ${bgColor} ${textColor}`}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${dotColor}`} />
+                {m.nome}
+              </span>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ExerciseHero({ exercise }: { exercise: Exercise }) {
+  const hasTaxonomy = exercise.muscoli_dettaglio.length > 0;
+  const primaryMuscles = exercise.muscoli_dettaglio.filter((m) => m.ruolo === "primary");
+  const secondaryMuscles = exercise.muscoli_dettaglio.filter((m) => m.ruolo === "secondary");
+
   return (
     <div className="rounded-xl border bg-gradient-to-br from-zinc-50 to-zinc-100/50 p-5 dark:from-zinc-900 dark:to-zinc-800/50">
       <div className="grid gap-6 md:grid-cols-[auto_1fr]">
@@ -119,38 +175,85 @@ function ExerciseHero({ exercise }: { exercise: Exercise }) {
 
         {/* Destra: Muscoli + Classificazione */}
         <div className="space-y-4">
-          {/* Muscoli Primari */}
-          <div>
-            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Muscoli Primari
-            </h3>
-            <div className="flex flex-wrap gap-1.5">
-              {exercise.muscoli_primari.map((m) => (
-                <span
-                  key={m}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-blue-300 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 dark:border-blue-700 dark:bg-blue-900/20 dark:text-blue-400"
-                >
-                  <span className="h-2 w-2 rounded-full bg-blue-600 dark:bg-blue-400" />
-                  {MUSCLE_LABELS[m] || m}
-                </span>
-              ))}
-            </div>
-          </div>
+          {/* Muscoli — anatomici (se disponibili) o gruppi */}
+          {hasTaxonomy ? (
+            <>
+              {primaryMuscles.length > 0 && (
+                <div>
+                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Muscoli Primari ({primaryMuscles.length})
+                  </h3>
+                  <MuscleGroup muscles={primaryMuscles} ruolo="primary" colorIntensity="strong" />
+                </div>
+              )}
+              {secondaryMuscles.length > 0 && (
+                <div>
+                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Muscoli Secondari ({secondaryMuscles.length})
+                  </h3>
+                  <MuscleGroup muscles={secondaryMuscles} ruolo="secondary" colorIntensity="soft" />
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <div>
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Muscoli Primari
+                </h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {exercise.muscoli_primari.map((m) => (
+                    <span
+                      key={m}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-blue-300 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 dark:border-blue-700 dark:bg-blue-900/20 dark:text-blue-400"
+                    >
+                      <span className="h-2 w-2 rounded-full bg-blue-600 dark:bg-blue-400" />
+                      {MUSCLE_LABELS[m] || m}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              {exercise.muscoli_secondari.length > 0 && (
+                <div>
+                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Muscoli Secondari
+                  </h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {exercise.muscoli_secondari.map((m) => (
+                      <span
+                        key={m}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50/50 px-2.5 py-1 text-xs font-medium text-blue-500 dark:border-blue-800 dark:bg-blue-900/10 dark:text-blue-400/70"
+                      >
+                        <span className="h-2 w-2 rounded-full bg-blue-300 dark:bg-blue-500/50" />
+                        {MUSCLE_LABELS[m] || m}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
 
-          {/* Muscoli Secondari */}
-          {exercise.muscoli_secondari.length > 0 && (
+          {/* Articolazioni */}
+          {exercise.articolazioni.length > 0 && (
             <div>
               <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Muscoli Secondari
+                Articolazioni
               </h3>
               <div className="flex flex-wrap gap-1.5">
-                {exercise.muscoli_secondari.map((m) => (
+                {exercise.articolazioni.map((j) => (
                   <span
-                    key={m}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50/50 px-2.5 py-1 text-xs font-medium text-blue-500 dark:border-blue-800 dark:bg-blue-900/10 dark:text-blue-400/70"
+                    key={j.id}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${
+                      j.ruolo === "agonist"
+                        ? "border-teal-300 bg-teal-50 text-teal-700 dark:border-teal-700 dark:bg-teal-900/20 dark:text-teal-400"
+                        : "border-zinc-300 bg-zinc-50 text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-400"
+                    }`}
                   >
-                    <span className="h-2 w-2 rounded-full bg-blue-300 dark:bg-blue-500/50" />
-                    {MUSCLE_LABELS[m] || m}
+                    {j.nome}
+                    <span className="text-[10px] opacity-60">
+                      {JOINT_ROLE_LABELS[j.ruolo] || j.ruolo}
+                    </span>
                   </span>
                 ))}
               </div>
@@ -191,6 +294,24 @@ function ExerciseHero({ exercise }: { exercise: Exercise }) {
                 label="Difficolta&apos;"
                 value={DIFFICULTY_LABELS[exercise.difficolta] || exercise.difficolta}
               />
+              {exercise.catena_cinetica && (
+                <ClassificationRow
+                  label="Catena Cinetica"
+                  value={KINETIC_CHAIN_LABELS[exercise.catena_cinetica] || exercise.catena_cinetica}
+                />
+              )}
+              {exercise.piano_movimento && (
+                <ClassificationRow
+                  label="Piano"
+                  value={MOVEMENT_PLANE_LABELS[exercise.piano_movimento] || exercise.piano_movimento}
+                />
+              )}
+              {exercise.tipo_contrazione && (
+                <ClassificationRow
+                  label="Contrazione"
+                  value={CONTRACTION_TYPE_LABELS[exercise.tipo_contrazione] || exercise.tipo_contrazione}
+                />
+              )}
               <ClassificationRow
                 label="Recupero"
                 value={`${exercise.ore_recupero}h`}

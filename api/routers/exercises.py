@@ -28,6 +28,8 @@ from api.models.exercise_media import ExerciseMedia
 from api.models.exercise_relation import ExerciseRelation
 from api.models.trainer import Trainer
 from api.routers._audit import log_audit
+from api.models.muscle import Muscle, ExerciseMuscle
+from api.models.joint import Joint, ExerciseJoint
 from api.schemas.exercise import (
     ExerciseCreate,
     ExerciseListResponse,
@@ -36,6 +38,8 @@ from api.schemas.exercise import (
     ExerciseRelationResponse,
     ExerciseResponse,
     ExerciseUpdate,
+    TaxonomyJointResponse,
+    TaxonomyMuscleResponse,
 )
 
 logger = logging.getLogger("fitmanager.api")
@@ -75,12 +79,22 @@ def _guard_custom(exercise: Exercise) -> None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Esercizio builtin non modificabile")
 
 
-def _to_response(exercise: Exercise, media: list | None = None, relazioni: list | None = None) -> ExerciseResponse:
+def _to_response(
+    exercise: Exercise,
+    media: list | None = None,
+    relazioni: list | None = None,
+    muscoli_dettaglio: list | None = None,
+    articolazioni: list | None = None,
+) -> ExerciseResponse:
     resp = ExerciseResponse.model_validate(exercise)
     if media is not None:
         resp.media = [ExerciseMediaResponse.model_validate(m) for m in media]
     if relazioni is not None:
         resp.relazioni = relazioni
+    if muscoli_dettaglio is not None:
+        resp.muscoli_dettaglio = muscoli_dettaglio
+    if articolazioni is not None:
+        resp.articolazioni = articolazioni
     return resp
 
 
@@ -90,6 +104,36 @@ def _get_media(session: Session, exercise_id: int) -> list[ExerciseMedia]:
         .where(ExerciseMedia.exercise_id == exercise_id)
         .order_by(ExerciseMedia.ordine, ExerciseMedia.id)
     ).all())
+
+
+def _get_taxonomy_muscles(session: Session, exercise_id: int) -> list[TaxonomyMuscleResponse]:
+    rows = session.exec(
+        select(ExerciseMuscle, Muscle)
+        .join(Muscle, ExerciseMuscle.id_muscolo == Muscle.id)
+        .where(ExerciseMuscle.id_esercizio == exercise_id)
+    ).all()
+    return [
+        TaxonomyMuscleResponse(
+            id=m.id, nome=m.nome, nome_en=m.nome_en, gruppo=m.gruppo,
+            ruolo=em.ruolo, attivazione=em.attivazione,
+        )
+        for em, m in rows
+    ]
+
+
+def _get_taxonomy_joints(session: Session, exercise_id: int) -> list[TaxonomyJointResponse]:
+    rows = session.exec(
+        select(ExerciseJoint, Joint)
+        .join(Joint, ExerciseJoint.id_articolazione == Joint.id)
+        .where(ExerciseJoint.id_esercizio == exercise_id)
+    ).all()
+    return [
+        TaxonomyJointResponse(
+            id=j.id, nome=j.nome, nome_en=j.nome_en, tipo=j.tipo,
+            ruolo=ej.ruolo, rom_gradi=ej.rom_gradi,
+        )
+        for ej, j in rows
+    ]
 
 
 def _get_relazioni(session: Session, exercise_id: int) -> list[ExerciseRelationResponse]:
@@ -146,10 +190,13 @@ def list_exercises(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=1200, ge=1, le=2000),
 ):
-    """Lista esercizi con filtri. Include builtin + custom del trainer."""
+    """Lista esercizi con filtri. Include builtin + custom del trainer.
+    Filtra solo esercizi nel subset attivo (in_subset=True) durante sviluppo tassonomia.
+    """
     query = select(Exercise).where(
         Exercise.deleted_at == None,  # noqa: E711
         or_(Exercise.trainer_id == trainer.id, Exercise.trainer_id == None),  # noqa: E711
+        Exercise.in_subset == True,  # noqa: E712 — subset attivo
     )
 
     if search:
@@ -194,11 +241,14 @@ def get_exercise(
     trainer: Trainer = Depends(get_current_trainer),
     session: Session = Depends(get_session),
 ):
-    """Singolo esercizio per ID — enriched con media e relazioni."""
+    """Singolo esercizio per ID — enriched con media, relazioni e tassonomia."""
     exercise = _bouncer_exercise(session, exercise_id, trainer.id)
     media = _get_media(session, exercise_id)
     relazioni = _get_relazioni(session, exercise_id)
-    return _to_response(exercise, media=media, relazioni=relazioni)
+    muscoli = _get_taxonomy_muscles(session, exercise_id)
+    joints = _get_taxonomy_joints(session, exercise_id)
+    return _to_response(exercise, media=media, relazioni=relazioni,
+                        muscoli_dettaglio=muscoli, articolazioni=joints)
 
 
 # ═══════════════════════════════════════════════════════════════

@@ -11,6 +11,9 @@ from .exercise import Exercise
 from .exercise_media import ExerciseMedia
 from .exercise_relation import ExerciseRelation
 from .workout import WorkoutPlan, WorkoutSession, WorkoutExercise
+from .muscle import Muscle, ExerciseMuscle
+from .joint import Joint, ExerciseJoint
+from .medical_condition import MedicalCondition, ExerciseCondition
 
 __all__ = [
     "Trainer",
@@ -28,4 +31,10 @@ __all__ = [
     "WorkoutPlan",
     "WorkoutSession",
     "WorkoutExercise",
+    "Muscle",
+    "ExerciseMuscle",
+    "Joint",
+    "ExerciseJoint",
+    "MedicalCondition",
+    "ExerciseCondition",
 ]

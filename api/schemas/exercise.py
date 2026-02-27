@@ -273,6 +273,26 @@ class ExerciseRelationResponse(BaseModel):
     tipo_relazione: str
 
 
+class TaxonomyMuscleResponse(BaseModel):
+    """Muscolo anatomico con ruolo nell'esercizio."""
+    id: int
+    nome: str
+    nome_en: str
+    gruppo: str
+    ruolo: str              # primary, secondary, stabilizer
+    attivazione: Optional[int] = None
+
+
+class TaxonomyJointResponse(BaseModel):
+    """Articolazione coinvolta nell'esercizio."""
+    id: int
+    nome: str
+    nome_en: str
+    tipo: str
+    ruolo: str              # agonist, stabilizer
+    rom_gradi: Optional[int] = None
+
+
 # ═══════════════════════════════════════════════════════════════
 # RESPONSE: Exercise
 # ═══════════════════════════════════════════════════════════════
@@ -307,6 +327,11 @@ class ExerciseResponse(BaseModel):
     note_sicurezza: Optional[str] = None
     istruzioni: Optional[dict[str, Any]] = None
     controindicazioni: List[str] = []
+    # Biomeccanica avanzata (tassonomia v3)
+    catena_cinetica: Optional[str] = None
+    piano_movimento: Optional[str] = None
+    tipo_contrazione: Optional[str] = None
+
     image_url: Optional[str] = None
     video_url: Optional[str] = None
     muscle_map_url: Optional[str] = None
@@ -316,6 +341,8 @@ class ExerciseResponse(BaseModel):
     # Populated by GET /{id} (enriched)
     media: List[ExerciseMediaResponse] = []
     relazioni: List[ExerciseRelationResponse] = []
+    muscoli_dettaglio: List[TaxonomyMuscleResponse] = []
+    articolazioni: List[TaxonomyJointResponse] = []
 
     @field_validator(
         "muscoli_primari", "muscoli_secondari", "controindicazioni",

@@ -749,6 +749,26 @@ export interface ExerciseError {
   correzione: string;
 }
 
+/** Tassonomia: muscolo anatomico con ruolo nell'esercizio */
+export interface TaxonomyMuscle {
+  id: number;
+  nome: string;
+  nome_en: string;
+  gruppo: string;
+  ruolo: "primary" | "secondary" | "stabilizer";
+  attivazione: number | null;
+}
+
+/** Tassonomia: articolazione coinvolta nell'esercizio */
+export interface TaxonomyJoint {
+  id: number;
+  nome: string;
+  nome_en: string;
+  tipo: string;
+  ruolo: "agonist" | "stabilizer";
+  rom_gradi: number | null;
+}
+
 /** ExerciseResponse — restituito da GET/POST/PUT */
 export interface Exercise {
   id: number;
@@ -777,6 +797,11 @@ export interface Exercise {
   note_sicurezza: string | null;
   istruzioni: { setup?: string; esecuzione?: string; errori_comuni?: string } | null;
   controindicazioni: string[];
+  // Biomeccanica avanzata (tassonomia v3)
+  catena_cinetica: string | null;
+  piano_movimento: string | null;
+  tipo_contrazione: string | null;
+
   image_url: string | null;
   video_url: string | null;
   muscle_map_url: string | null;
@@ -784,6 +809,8 @@ export interface Exercise {
   created_at: string | null;
   media: ExerciseMedia[];
   relazioni: ExerciseRelation[];
+  muscoli_dettaglio: TaxonomyMuscle[];
+  articolazioni: TaxonomyJoint[];
 }
 
 /** POST /api/exercises */
