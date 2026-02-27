@@ -91,7 +91,7 @@ def generate_safety_notes(
     return None
 
 
-def backfill_safety(db_path: str, batch_size: int = 0) -> tuple[int, int]:
+def backfill_safety(db_path: str, batch_size: int = 0, subset_only: bool = False) -> tuple[int, int]:
     """Backfill note_sicurezza for exercises missing them."""
     if not os.path.exists(db_path):
         print(f"  SKIP: {db_path} not found")
@@ -103,13 +103,16 @@ def backfill_safety(db_path: str, batch_size: int = 0) -> tuple[int, int]:
 
     print(f"\n  [4A] Safety notes: {db_name}")
 
-    exercises = conn.execute("""
+    query = """
         SELECT id, nome, nome_en, categoria, muscoli_primari, attrezzatura
         FROM esercizi
         WHERE deleted_at IS NULL
           AND (note_sicurezza IS NULL OR note_sicurezza = '')
-        ORDER BY id
-    """).fetchall()
+    """
+    if subset_only:
+        query += "  AND in_subset = 1\n"
+    query += "        ORDER BY id"
+    exercises = conn.execute(query).fetchall()
 
     print(f"    To process: {len(exercises)}")
 
@@ -274,6 +277,8 @@ if __name__ == "__main__":
     parser.add_argument("--db", choices=["dev", "prod", "both"], default="both")
     parser.add_argument("--batch", type=int, default=0, help="Limit safety notes per DB")
     parser.add_argument("--only", choices=["safety", "force"], help="Run only one sub-phase")
+    parser.add_argument("--subset-only", action="store_true",
+                        help="Process only curated subset (in_subset=1)")
     args = parser.parse_args()
 
     print("Exercise Backfill — Phase 4")
@@ -287,7 +292,7 @@ if __name__ == "__main__":
 
     for db_path in dbs:
         if args.only != "force":
-            backfill_safety(db_path, batch_size=args.batch)
+            backfill_safety(db_path, batch_size=args.batch, subset_only=args.subset_only)
         if args.only != "safety":
             backfill_force(db_path)
 

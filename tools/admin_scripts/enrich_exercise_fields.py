@@ -236,7 +236,7 @@ def validate_response(data: dict, categoria: str) -> list[str]:
 # EXECUTION
 # ================================================================
 
-def enrich_db(db_path: str, model: str, batch_size: int = 0, category: str | None = None) -> tuple[int, int, int]:
+def enrich_db(db_path: str, model: str, batch_size: int = 0, category: str | None = None, subset_only: bool = False) -> tuple[int, int, int]:
     """Enrich exercises in a single database.
     Returns (enriched, skipped, errors)."""
     if not os.path.exists(db_path):
@@ -251,13 +251,16 @@ def enrich_db(db_path: str, model: str, batch_size: int = 0, category: str | Non
     print(f"  Enriching: {db_name} (model: {model})")
     print(f"{'=' * 60}")
 
-    # Load unenriched exercises
+    # Load unenriched exercises (any enrichment field NULL)
     query = """
         SELECT * FROM esercizi
         WHERE deleted_at IS NULL
-          AND (descrizione_anatomica IS NULL OR descrizione_anatomica = '')
+          AND (descrizione_anatomica IS NULL OR descrizione_anatomica = ''
+               OR controindicazioni IS NULL OR controindicazioni = '')
     """
     params = []
+    if subset_only:
+        query += " AND in_subset = 1"
     if category:
         query += " AND categoria = ?"
         params.append(category)
@@ -300,23 +303,24 @@ def enrich_db(db_path: str, model: str, batch_size: int = 0, category: str | Non
                 print(f"    WARN id={eid} ({nome}): {'; '.join(issues)}")
 
             # Update DB — only enrichment fields, NOT esecuzione
+            # Field-level idempotent: skip fields already populated
             fields = {}
             ft = data.get("force_type")
-            if ft in VALID_FORCE_TYPES:
+            if ft in VALID_FORCE_TYPES and not ex["force_type"]:
                 fields["force_type"] = ft
             lp = data.get("lateral_pattern")
-            if lp in VALID_LATERAL_PATTERNS:
+            if lp in VALID_LATERAL_PATTERNS and not ex["lateral_pattern"]:
                 fields["lateral_pattern"] = lp
 
             for text_field in ["descrizione_anatomica", "descrizione_biomeccanica",
                                "setup", "respirazione", "tempo_consigliato"]:
                 val = data.get(text_field)
-                if val and isinstance(val, str) and len(val) > 10:
+                if val and isinstance(val, str) and len(val) > 10 and not ex[text_field]:
                     fields[text_field] = val
 
             for json_field in ["coaching_cues", "errori_comuni", "controindicazioni"]:
                 val = data.get(json_field)
-                if val and isinstance(val, list):
+                if val and isinstance(val, list) and not ex[json_field]:
                     fields[json_field] = json.dumps(val, ensure_ascii=False)
 
             if fields:
@@ -393,6 +397,8 @@ if __name__ == "__main__":
     parser.add_argument("--batch", type=int, default=0, help="Limit per DB (0=unlimited)")
     parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument("--category", type=str, help="Process only this category")
+    parser.add_argument("--subset-only", action="store_true",
+                        help="Process only exercises with in_subset = 1")
     args = parser.parse_args()
 
     print("Exercise Enrichment — Phase 3")
@@ -405,7 +411,8 @@ if __name__ == "__main__":
         dbs.append(os.path.join(BASE_DIR, "crm.db"))
 
     for db_path in dbs:
-        enrich_db(db_path, model=args.model, batch_size=args.batch, category=args.category)
+        enrich_db(db_path, model=args.model, batch_size=args.batch,
+                  category=args.category, subset_only=args.subset_only)
 
     print(f"\n{'=' * 60}")
     print("  VERIFICATION")
