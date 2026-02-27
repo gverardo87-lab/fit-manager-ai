@@ -114,10 +114,10 @@ Approccio ML: subset perfetto (~118 esercizi) → pipeline completa → scala a 
 |---------|------|--------|-------------|
 | `muscoli` | Catalogo | 53 | Muscoli anatomici NSCA/ACSM (15 gruppi, 3 regioni) |
 | `articolazioni` | Catalogo | 15 | Articolazioni principali (5 tipi, 3 regioni) |
-| `condizioni_mediche` | Catalogo | 30 | Condizioni rilevanti (5 categorie, body_tags JSON) |
+| `condizioni_mediche` | Catalogo | 39 | Condizioni rilevanti (5 categorie, body_tags JSON) |
 | `esercizi_muscoli` | Junction M:N | ~1677 | Esercizio↔muscolo con ruolo (primary/secondary/stabilizer) + attivazione % |
 | `esercizi_articolazioni` | Junction M:N | ~394 | Esercizio↔articolazione con ruolo (agonist/stabilizer) + ROM gradi |
-| `esercizi_condizioni` | Junction M:N | 0 | Esercizio↔condizione con severita' (avoid/caution/modify) + nota |
+| `esercizi_condizioni` | Junction M:N | ~577 | Esercizio↔condizione con severita' (avoid/caution/modify) + nota |
 
 Colonne su `esercizi`: `in_subset` (flag sviluppo), `catena_cinetica` (open/closed),
 `piano_movimento` (sagittal/frontal/transverse/multi), `tipo_contrazione` (concentric/eccentric/isometric/dynamic).
@@ -146,9 +146,12 @@ una safety map per-esercizio. Zero Ollama, zero latenza percepita.
 - `extract_client_conditions(anamnesi_json)` → `set[condition_id]` (2 livelli: flag strutturali + keyword matching)
 - `build_safety_map(session, client_id, trainer_id)` → `SafetyMapResponse` (bouncer + anti-N+1: 3 query)
 - `condition_rules.py`: regole deterministiche (`ANAMNESI_KEYWORD_RULES`, `STRUCTURAL_FLAGS`, `match_keywords`)
-- Endpoint: `GET /safety/map?client_id=N` (JWT auth + trainer bouncer)
+- 39 condizioni mediche (30 specifiche + 9 generiche: 7 post-traumatiche per zona + cervicalgia + lombalgia)
+- `match_keywords()` accent-insensitive: normalizza `a'` == `a` == Unicode accent (italiano)
+- `obiettivi_specifici` ESCLUSO dal keyword scanning (previene falsi positivi da goal text)
+- Endpoint: `GET /exercises/safety-map?client_id=N` (JWT auth + trainer bouncer)
 - Response: `SafetyMapResponse` con `entries: dict[exercise_id, ExerciseSafetyEntry]`, `condition_names`, `condition_count`
-- Severita' per esercizio: worst-case aggregation (`avoid > caution > modify`)
+- Severita' per esercizio: worst-case aggregation (`_SEVERITY_ORDER`: avoid > caution > modify)
 - `SafetyConditionDetail` include `categoria` (orthopedic, cardiovascular, metabolic, neurological, respiratory, special)
 
 **Frontend** — 4 livelli di visualizzazione (dal macro al micro):
@@ -424,6 +427,9 @@ python tools/admin_scripts/test_crud_idor.py
 python tools/admin_scripts/test_financial_idor.py
 python tools/admin_scripts/test_agenda_idor.py
 python tools/admin_scripts/test_ledger_dashboard.py
+
+# Test Safety Engine (puro, no server — 10 profili clinici + edge cases)
+python -m tools.admin_scripts.test_safety_engine
 
 # ── Migrazioni ──
 alembic revision -m "desc"                                # crea nuova migrazione

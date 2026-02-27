@@ -33,6 +33,9 @@ from api.services.condition_rules import (
 
 logger = logging.getLogger(__name__)
 
+# Gerarchia severity: avoid > caution > modify
+_SEVERITY_ORDER = {"modify": 0, "caution": 1, "avoid": 2}
+
 # Campi AnamnesiData con struttura {presente: bool, dettaglio: str|null}
 _QUESTION_FIELDS = [
     "infortuni_attuali",
@@ -193,9 +196,9 @@ def build_safety_map(
         else:
             entry = entries[ex_id]
             entry.conditions.append(detail)
-            # Worst-case: avoid > caution > modify
-            if ec.severita == "avoid":
-                entry.severity = "avoid"
+            # Worst-case severity: avoid > caution > modify
+            if _SEVERITY_ORDER.get(ec.severita, 0) > _SEVERITY_ORDER.get(entry.severity, 0):
+                entry.severity = ec.severita
 
     return SafetyMapResponse(
         client_id=client_id,

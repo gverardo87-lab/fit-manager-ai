@@ -153,7 +153,37 @@ STRUCTURAL_FLAGS: dict[str, list[int]] = {
 }
 
 
+def _normalize_accents(text: str) -> str:
+    """Normalizza accenti Unicode e apostrofi italiani per matching robusto.
+
+    Gestisce 2 convenzioni di scrittura italiana:
+      - Unicode: instabilità, attività, rigidità
+      - Apostrofo: instabilita', attivita', rigidita'
+
+    Entrambe vengono normalizzate alla forma base (senza accento ne' apostrofo).
+    Preserva apostrofi di elisione: l'ernia, dell'anca, un'artroscopia.
+    """
+    import re
+
+    t = text
+    for accented, base in [
+        ('\u00e0', 'a'), ('\u00e8', 'e'), ('\u00ec', 'i'),
+        ('\u00f2', 'o'), ('\u00f9', 'u'),
+        ('\u00e1', 'a'), ('\u00e9', 'e'), ('\u00ed', 'i'),
+        ('\u00f3', 'o'), ('\u00fa', 'u'),
+    ]:
+        t = t.replace(accented, base)
+    # Apostrofo dopo vocale a fine parola (accento italiano): rimuovi
+    # "instabilita'" → "instabilita", "attivita'" → "attivita"
+    # Ma preserva elisione: "l'ernia" (consonante+apostrofo+vocale)
+    t = re.sub(r"([aeiou])'(?=\s|$|[,;.\-])", r"\1", t)
+    return t
+
+
 def match_keywords(text: str, keywords: list[str]) -> bool:
-    """Ritorna True se almeno una keyword e' presente nel testo (case-insensitive)."""
-    text_lower = text.lower().strip()
-    return any(kw.lower() in text_lower for kw in keywords)
+    """Ritorna True se almeno una keyword e' presente nel testo.
+
+    Case-insensitive + accent-insensitive (à == a' == a).
+    """
+    text_norm = _normalize_accents(text.lower().strip())
+    return any(_normalize_accents(kw.lower()) in text_norm for kw in keywords)
