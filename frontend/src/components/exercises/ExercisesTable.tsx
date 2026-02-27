@@ -2,17 +2,15 @@
 "use client";
 
 /**
- * Tabella esercizi con ricerca client-side, badge colorati, dropdown azioni.
- * Gli esercizi builtin non hanno azioni di modifica/eliminazione.
+ * Tabella esercizi con badge colorati e dropdown azioni.
+ * Riceve esercizi pre-filtrati dalla pagina. Gli esercizi builtin non hanno azioni.
  */
 
-import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Search, MoreHorizontal, Pencil, Trash2, Dumbbell, Lock } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, Dumbbell, Lock } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,43 +54,17 @@ export function ExercisesTable({
   onDelete,
   onNewExercise,
 }: ExercisesTableProps) {
-  const [search, setSearch] = useState("");
-
-  const filtered = useMemo(() => {
-    if (!search.trim()) return exercises;
-    const q = search.toLowerCase();
-    return exercises.filter(
-      (e) =>
-        e.nome.toLowerCase().includes(q) ||
-        e.nome_en?.toLowerCase().includes(q) ||
-        e.muscoli_primari.some((m) => (MUSCLE_LABELS[m] ?? m).toLowerCase().includes(q))
-    );
-  }, [exercises, search]);
-
   return (
     <div className="space-y-3">
-      {/* ── Search ── */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Cerca esercizio..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
-        />
-      </div>
-
       {/* ── Empty State ── */}
-      {filtered.length === 0 ? (
+      {exercises.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-12">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
             <Dumbbell className="h-6 w-6 text-muted-foreground/50" />
           </div>
           <div className="text-center">
-            <p className="font-medium text-muted-foreground">
-              {search ? "Nessun risultato" : "Nessun esercizio"}
-            </p>
-            {!search && onNewExercise && (
+            <p className="font-medium text-muted-foreground">Nessun esercizio trovato</p>
+            {onNewExercise && (
               <Button variant="link" size="sm" onClick={onNewExercise} className="mt-1">
                 Crea il primo esercizio
               </Button>
@@ -113,7 +85,7 @@ export function ExercisesTable({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((exercise) => (
+              {exercises.map((exercise) => (
                 <TableRow key={exercise.id}>
                   {/* Nome */}
                   <TableCell>

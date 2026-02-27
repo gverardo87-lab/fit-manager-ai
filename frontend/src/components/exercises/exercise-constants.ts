@@ -143,6 +143,18 @@ export const MUSCLE_ROLE_LABELS: Record<string, string> = {
   stabilizer: "Stabilizzatore",
 };
 
+// ── Colori chip (hex per inline style nel FilterBar) ──
+
+export const CATEGORY_CHIP_COLORS: Record<string, string> = {
+  compound: "#3b82f6",
+  isolation: "#a855f7",
+  bodyweight: "#10b981",
+  cardio: "#f97316",
+  stretching: "#06b6d4",
+  mobilita: "#84cc16",
+  avviamento: "#f59e0b",
+};
+
 // ── Colori badge ──
 
 export const CATEGORY_COLORS: Record<string, string> = {

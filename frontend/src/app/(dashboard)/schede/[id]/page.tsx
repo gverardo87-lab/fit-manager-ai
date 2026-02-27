@@ -65,8 +65,7 @@ import {
   classifyExercises,
   getAnamnesiSummary,
 } from "@/lib/contraindication-engine";
-import { analyzeWorkoutQuality } from "@/lib/workout-quality-engine";
-import { QualityReviewPanel } from "@/components/workouts/QualityReviewPanel";
+import { analyzeSessionsDetailed } from "@/lib/workout-analysis-engine";
 
 // ════════════════════════════════════════════════════════════
 // LABELS
@@ -121,20 +120,15 @@ export default function SchedaDetailPage({
     () => new Map(allExercises.map((e) => [e.id, e])),
     [allExercises],
   );
-  // NB: qualityReport dipende da sessions (state locale), ricalcolato ad ogni modifica
-  // Definito dopo useState per avere sessions disponibile
-
   // Local state per editing
   const [sessions, setSessions] = useState<SessionCardData[]>([]);
   const [isDirty, setIsDirty] = useState(false);
 
-  // Quality report (reattivo a sessions)
-  const qualityReport = useMemo(() => {
-    if (sessions.length === 0 || exerciseMap.size === 0 || !plan) return null;
-    return analyzeWorkoutQuality(
-      sessions, exerciseMap, plan.obiettivo, plan.livello, plan.sessioni_per_settimana,
-    );
-  }, [sessions, exerciseMap, plan?.obiettivo, plan?.livello, plan?.sessioni_per_settimana]);
+  // Per-session detailed analysis (inline in SessionCard)
+  const sessionAnalysis = useMemo(
+    () => analyzeSessionsDetailed(sessions, exerciseMap),
+    [sessions, exerciseMap],
+  );
 
   // Header inline editing
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -558,18 +552,16 @@ export default function SchedaDetailPage({
         </div>
       )}
 
-      {/* ── Quality Review ── */}
-      <QualityReviewPanel report={qualityReport} />
-
       {/* ── Split Layout ── */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Editor (sinistra) */}
         <div className="space-y-4" data-print-hide>
-          {sessions.map((session) => (
+          {sessions.map((session, idx) => (
             <SessionCard
               key={session.id}
               session={session}
               exerciseSafetyMap={exerciseSafetyMap}
+              sessionAnalysis={sessionAnalysis[idx]}
               onUpdateSession={handleUpdateSession}
               onDeleteSession={handleDeleteSession}
               onAddExercise={handleAddExercise}
