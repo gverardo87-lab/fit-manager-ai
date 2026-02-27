@@ -304,6 +304,14 @@ def populate_db(db_path: str) -> None:
         if override_key in CLOSED_CHAIN_OVERRIDES:
             catena = CLOSED_CHAIN_OVERRIDES[override_key]
 
+        # Preserva piano_movimento se gia' impostato a un valore diverso
+        # dal default pattern-based (es. fix manuali per "frontal")
+        current_piano = conn.execute(
+            "SELECT piano_movimento FROM esercizi WHERE id = ?", (eid,)
+        ).fetchone()["piano_movimento"]
+        if current_piano and current_piano != piano:
+            piano = current_piano  # preserva il valore manuale
+
         conn.execute(
             "UPDATE esercizi SET catena_cinetica = ?, piano_movimento = ?, tipo_contrazione = ? WHERE id = ?",
             (catena, piano, contrazione, eid),
