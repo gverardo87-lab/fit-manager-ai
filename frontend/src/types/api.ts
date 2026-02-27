@@ -822,6 +822,36 @@ export interface Exercise {
   suggerimenti: string[];
 }
 
+// ═══════════════════════════════════════════════════════════════
+// SAFETY MAP (anamnesi × condizioni mediche)
+// ═══════════════════════════════════════════════════════════════
+
+/** Singola condizione medica rilevante per un esercizio nella safety map */
+export interface SafetyConditionDetail {
+  id: number;
+  nome: string;
+  severita: "avoid" | "caution";
+  nota: string | null;
+  categoria: string;
+}
+
+/** Safety entry per un singolo esercizio */
+export interface ExerciseSafetyEntry {
+  exercise_id: number;
+  severity: "avoid" | "caution";
+  conditions: SafetyConditionDetail[];
+}
+
+/** GET /api/exercises/safety-map?client_id=X */
+export interface SafetyMapResponse {
+  client_id: number;
+  client_nome: string;
+  has_anamnesi: boolean;
+  condition_count: number;
+  condition_names: string[];
+  entries: Record<number, ExerciseSafetyEntry>;
+}
+
 /** POST /api/exercises */
 export interface ExerciseCreate {
   nome: string;

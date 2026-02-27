@@ -279,6 +279,26 @@ def get_archive_stats(
 
 
 # ═══════════════════════════════════════════════════════════════
+# SAFETY MAP (anamnesi × condizioni mediche)
+# ═══════════════════════════════════════════════════════════════
+
+@router.get("/safety-map")
+def get_safety_map(
+    client_id: int = Query(..., description="ID cliente per cui calcolare la safety map"),
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """Mappa sicurezza esercizi per un cliente specifico.
+
+    Incrocia anamnesi cliente con esercizi_condizioni.
+    Informativo, mai bloccante — il trainer decide SEMPRE.
+    """
+    from api.services.safety_engine import build_safety_map
+
+    return build_safety_map(session, client_id, trainer.id)
+
+
+# ═══════════════════════════════════════════════════════════════
 # LIST
 # ═══════════════════════════════════════════════════════════════
 

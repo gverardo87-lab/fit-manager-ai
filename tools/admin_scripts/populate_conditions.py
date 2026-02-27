@@ -150,18 +150,7 @@ PATTERN_CONDITION_RULES: list[tuple[dict, int, str, str]] = [
 ]
 
 
-def _normalize(text: str) -> str:
-    """Normalizza testo per matching: lowercase, strip."""
-    return text.lower().strip()
-
-
-def _match_keywords(text: str, keywords: list[str]) -> bool:
-    """Ritorna True se almeno una keyword e' presente nel testo."""
-    text_lower = _normalize(text)
-    for kw in keywords:
-        if kw.lower() in text_lower:
-            return True
-    return False
+from api.services.condition_rules import match_keywords as _match_keywords
 
 
 def process_db(db_path: str, dry_run: bool = False) -> dict:

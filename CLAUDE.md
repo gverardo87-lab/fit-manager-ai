@@ -134,6 +134,38 @@ L'API filtra `Exercise.in_subset == True` — rimuovere per riattivare catalogo 
 **Frontend**: hero esercizio mostra muscoli anatomici raggruppati, articolazioni con ruolo,
 classificazione biomeccanica (catena, piano, contrazione). Fallback gruppi generici per esercizi fuori subset.
 
+### Safety Engine — Scudo Clinico Interattivo
+
+> **Filosofia: INFORMARE, mai LIMITARE.** Il sistema e' progettato per laureati in scienze motorie.
+> Il trainer decide SEMPRE. Il motore fornisce indicatori visivi, mai blocchi o restrizioni.
+
+Motore backend deterministico che incrocia anamnesi cliente con condizioni mediche per produrre
+una safety map per-esercizio. Zero Ollama, zero latenza percepita.
+
+**Backend** (`api/services/safety_engine.py`, `api/services/condition_rules.py`, `api/schemas/safety.py`):
+- `extract_client_conditions(anamnesi_json)` → `set[condition_id]` (2 livelli: flag strutturali + keyword matching)
+- `build_safety_map(session, client_id, trainer_id)` → `SafetyMapResponse` (bouncer + anti-N+1: 3 query)
+- `condition_rules.py`: regole deterministiche (`ANAMNESI_KEYWORD_RULES`, `STRUCTURAL_FLAGS`, `match_keywords`)
+- Endpoint: `GET /safety/map?client_id=N` (JWT auth + trainer bouncer)
+- Response: `SafetyMapResponse` con `entries: dict[exercise_id, ExerciseSafetyEntry]`, `condition_names`, `condition_count`
+- Severita' per esercizio: worst-case aggregation (`avoid > caution > modify`)
+- `SafetyConditionDetail` include `categoria` (orthopedic, cardiovascular, metabolic, neurological, respiratory, special)
+
+**Frontend** — 4 livelli di visualizzazione (dal macro al micro):
+
+1. **Safety Overview Panel** (`schede/[id]/page.tsx`): Card collapsibile con KPI (condizioni/evitare/cautela),
+   badge condizioni, e dettaglio espanso raggruppato per categoria. Sostituisce il vecchio banner ambra.
+2. **Session Pills** (`SessionCard.tsx`): contatori avoid/caution nel CardHeader di ogni sessione.
+3. **Exercise Popover** (`SortableExerciseRow.tsx`): click su icona safety → Popover ricco (w-72) con
+   condizioni dettagliate (severita + nome + nota). SafetyPopover come componente separato.
+4. **Selector Detail** (`ExerciseSelector.tsx`): badge safety cliccabile → pannello espandibile inline
+   con dettaglio condizioni per ogni esercizio nel dialog di selezione.
+
+**Hook**: `useExerciseSafetyMap(clientId)` in `hooks/useWorkouts.ts` — React Query con `enabled: !!clientId`.
+
+File chiave: `api/services/safety_engine.py` (engine), `api/services/condition_rules.py` (regole),
+`components/workouts/SortableExerciseRow.tsx` (SafetyPopover), `schede/[id]/page.tsx` (Overview Panel).
+
 ---
 
 ## Architettura
@@ -271,6 +303,7 @@ Errori reali trovati e corretti. MAI ripeterli.
 | Badge dentro `SelectTrigger` Radix | `position="item-aligned"` (default) richiede `SelectValue` nel trigger per calcolare posizione dropdown. Badge/div sostitutivo → dropdown non si apre silenziosamente | Usare SEMPRE `SelectValue` + `position="popper"` per trigger custom. Mai sostituire `SelectValue` con Badge |
 | `useUpdateClient` stale profile | `onSuccess` invalidava `["clients"]` lista ma non `["client", id]` → profilo cliente non si aggiornava dopo modifica | Invalidare SEMPRE sia la lista `["entities"]` che il dettaglio `["entity", id]` in ogni mutation di update |
 | Utility duplicate in 8+ file | `formatShortDate`, `getFinanceBarColor` copia-incollate in ogni componente → divergenza e manutenzione impossibile | Centralizzare in `lib/format.ts` e importare. MAI definire utility di formattazione localmente |
+| `<button>` nested in `<button>` | PopoverTrigger (button) dentro button nome esercizio → hydration error Next.js | SafetyPopover e name button come siblings dentro `<div>`, MAI annidati |
 
 ---
 

@@ -19,6 +19,7 @@ import type {
   ExerciseMedia,
   ExerciseRelation,
   ExerciseRelationCreate,
+  SafetyMapResponse,
 } from "@/types/api";
 
 // ════════════════════════════════════════════════════════════
@@ -230,5 +231,23 @@ export function useDeleteRelation() {
     onError: (error) => {
       toast.error(extractErrorMessage(error, "Errore nell'eliminazione della relazione"));
     },
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+// QUERY: Safety Map (anamnesi × condizioni mediche)
+// ════════════════════════════════════════════════════════════
+
+export function useExerciseSafetyMap(clientId: number | null) {
+  return useQuery<SafetyMapResponse>({
+    queryKey: ["exercise-safety-map", clientId],
+    queryFn: async () => {
+      const { data } = await apiClient.get<SafetyMapResponse>(
+        "/exercises/safety-map",
+        { params: { client_id: clientId } },
+      );
+      return data;
+    },
+    enabled: clientId !== null && clientId > 0,
   });
 }

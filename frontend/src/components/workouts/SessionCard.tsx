@@ -29,7 +29,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Plus, Trash2, Pencil, Flame, Dumbbell, Heart } from "lucide-react";
+import { Plus, Trash2, Pencil, Flame, Dumbbell, Heart, ShieldAlert, AlertTriangle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,7 +37,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 import { SortableExerciseRow } from "./SortableExerciseRow";
 import { getSectionForCategory, type TemplateSection } from "@/lib/workout-templates";
-import type { WorkoutExerciseRow } from "@/types/api";
+import type { WorkoutExerciseRow, ExerciseSafetyEntry } from "@/types/api";
 
 export interface SessionCardData {
   id: number;
@@ -51,6 +51,8 @@ export interface SessionCardData {
 
 interface SessionCardProps {
   session: SessionCardData;
+  /** Safety map per-esercizio (da anamnesi cliente). Informativo, mai bloccante. */
+  safetyMap?: Record<number, ExerciseSafetyEntry>;
   onUpdateSession: (sessionId: number, updates: Partial<SessionCardData>) => void;
   onDeleteSession: (sessionId: number) => void;
   onAddExercise: (sessionId: number, sezione?: TemplateSection) => void;
@@ -95,6 +97,7 @@ const SECTION_ORDER: TemplateSection[] = ["avviamento", "principale", "stretchin
 
 export function SessionCard({
   session,
+  safetyMap,
   onUpdateSession,
   onDeleteSession,
   onAddExercise,
@@ -123,6 +126,20 @@ export function SessionCard({
     }
     return groups;
   }, [session.esercizi]);
+
+  // Safety pills: contatori avoid/caution per questa sessione
+  const sessionSafety = useMemo(() => {
+    if (!safetyMap) return { avoid: 0, caution: 0 };
+    let avoid = 0;
+    let caution = 0;
+    for (const ex of session.esercizi) {
+      const entry = safetyMap[ex.id_esercizio];
+      if (!entry) continue;
+      if (entry.severity === "avoid") avoid++;
+      else caution++;
+    }
+    return { avoid, caution };
+  }, [safetyMap, session.esercizi]);
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
@@ -195,6 +212,21 @@ export function SessionCard({
             <p className="text-xs text-muted-foreground truncate">{session.focus_muscolare}</p>
           )}
         </div>
+        {/* Safety pills */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {sessionSafety.avoid > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-red-100 dark:bg-red-950/40 px-2 py-0.5 text-[11px] font-medium text-red-700 dark:text-red-400">
+              <ShieldAlert className="h-3 w-3" />
+              {sessionSafety.avoid}
+            </span>
+          )}
+          {sessionSafety.caution > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-950/40 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+              <AlertTriangle className="h-3 w-3" />
+              {sessionSafety.caution}
+            </span>
+          )}
+        </div>
         <Button
           variant="ghost"
           size="icon"
@@ -251,6 +283,7 @@ export function SessionCard({
                             key={exercise.id}
                             exercise={exercise}
                             compact={sectionKey !== "principale"}
+                            safety={safetyMap?.[exercise.id_esercizio]}
                             onUpdate={(updates) => onUpdateExercise(session.id, exercise.id, updates)}
                             onDelete={() => onDeleteExercise(session.id, exercise.id)}
                             onReplace={() => onReplaceExercise(session.id, exercise.id)}

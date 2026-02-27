@@ -15,7 +15,7 @@
  */
 
 import { useState, useMemo } from "react";
-import { Search, X, ChevronDown, SlidersHorizontal } from "lucide-react";
+import { Search, X, ChevronDown, SlidersHorizontal, ShieldAlert, AlertTriangle } from "lucide-react";
 
 import {
   Dialog,
@@ -28,7 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 import { useExercises } from "@/hooks/useExercises";
-import type { Exercise } from "@/types/api";
+import type { Exercise, ExerciseSafetyEntry } from "@/types/api";
 import {
   MUSCLE_LABELS,
   EQUIPMENT_LABELS,
@@ -44,6 +44,8 @@ interface ExerciseSelectorProps {
   patternHint?: string;
   /** Filtra per categorie specifiche (es. ["stretching", "mobilita"]) */
   categoryFilter?: string[];
+  /** Safety map per-esercizio (da anamnesi cliente). Informativo, mai bloccante. */
+  safetyMap?: Record<number, ExerciseSafetyEntry>;
 }
 
 // ── Chip labels compatte per pattern ──
@@ -92,6 +94,7 @@ export function ExerciseSelector({
   onSelect,
   patternHint,
   categoryFilter,
+  safetyMap,
 }: ExerciseSelectorProps) {
   // ── Filter state ──
   const [search, setSearch] = useState("");
@@ -103,6 +106,7 @@ export function ExerciseSelector({
   const [selectedLateral, setSelectedLateral] = useState<string | null>(null);
   const [showBiomechanics, setShowBiomechanics] = useState(false);
   const [showFilters, setShowFilters] = useState(true);
+  const [expandedSafetyId, setExpandedSafetyId] = useState<number | null>(null);
 
   const { data } = useExercises();
   const exercises = data?.items ?? [];
@@ -245,6 +249,7 @@ export function ExerciseSelector({
     setSelectedForceType(null);
     setSelectedLateral(null);
     setShowBiomechanics(false);
+    setExpandedSafetyId(null);
   };
 
   const sectionLabel = categoryFilter?.includes("avviamento")
@@ -505,6 +510,9 @@ export function ExerciseSelector({
                 <ExerciseRow
                   key={exercise.id}
                   exercise={exercise}
+                  safety={safetyMap?.[exercise.id]}
+                  safetyExpanded={expandedSafetyId === exercise.id}
+                  onToggleSafety={(id) => setExpandedSafetyId(expandedSafetyId === id ? null : id)}
                   onSelect={handleSelect}
                 />
               ))}
@@ -567,9 +575,15 @@ function FilterChipRow({
 
 function ExerciseRow({
   exercise,
+  safety,
+  safetyExpanded,
+  onToggleSafety,
   onSelect,
 }: {
   exercise: Exercise;
+  safety?: ExerciseSafetyEntry;
+  safetyExpanded?: boolean;
+  onToggleSafety?: (id: number) => void;
   onSelect: (e: Exercise) => void;
 }) {
   // Muscoli in italiano
@@ -587,36 +601,85 @@ function ExerciseRow({
   }
 
   return (
-    <button
-      onClick={() => onSelect(exercise)}
-      className="flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-muted/70"
-    >
-      <div className="min-w-0 flex-1">
-        {/* Row 1: Nome */}
-        <p className="text-sm font-medium truncate">{exercise.nome}</p>
+    <div className="rounded-lg transition-colors hover:bg-muted/70">
+      {/* Clickable area per selezione */}
+      <button
+        onClick={() => onSelect(exercise)}
+        className="flex w-full items-start gap-3 px-3 py-2.5 text-left"
+      >
+        <div className="min-w-0 flex-1">
+          {/* Row 1: Nome + safety badge */}
+          <div className="flex items-center gap-1.5">
+            <p className="text-sm font-medium truncate">{exercise.nome}</p>
+            {safety && (
+              <span
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleSafety?.(exercise.id);
+                }}
+                className={`shrink-0 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none cursor-pointer transition-colors ${
+                  safety.severity === "avoid"
+                    ? "bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-950/50 dark:text-red-400 dark:hover:bg-red-950/70"
+                    : "bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:hover:bg-amber-950/70"
+                }`}
+              >
+                {safety.severity === "avoid" ? "Controindicato" : "Cautela"}
+                <ChevronDown className={`h-2.5 w-2.5 transition-transform ${safetyExpanded ? "rotate-180" : ""}`} />
+              </span>
+            )}
+          </div>
 
-        {/* Row 2: Classification badges */}
-        <div className="mt-0.5 flex flex-wrap gap-1">
-          <Badge variant="outline" className="text-[10px]">
-            {exercise.categoria}
-          </Badge>
-          <Badge variant="outline" className="text-[10px]">
-            {EQUIPMENT_LABELS[exercise.attrezzatura] ?? exercise.attrezzatura}
-          </Badge>
-          <Badge variant="outline" className="text-[10px]">
-            {DIFFICULTY_LABELS[exercise.difficolta] ?? exercise.difficolta}
-          </Badge>
+          {/* Row 2: Classification badges */}
+          <div className="mt-0.5 flex flex-wrap gap-1">
+            <Badge variant="outline" className="text-[10px]">
+              {exercise.categoria}
+            </Badge>
+            <Badge variant="outline" className="text-[10px]">
+              {EQUIPMENT_LABELS[exercise.attrezzatura] ?? exercise.attrezzatura}
+            </Badge>
+            <Badge variant="outline" className="text-[10px]">
+              {DIFFICULTY_LABELS[exercise.difficolta] ?? exercise.difficolta}
+            </Badge>
+          </div>
+
+          {/* Row 3: Muscoli (IT) + tipo forza + lateralita */}
+          {(muscleLabel || metaParts.length > 0) && (
+            <p className="mt-0.5 text-[11px] text-muted-foreground truncate">
+              {muscleLabel}
+              {muscleLabel && metaParts.length > 0 && " · "}
+              {metaParts.join(" · ")}
+            </p>
+          )}
         </div>
+      </button>
 
-        {/* Row 3: Muscoli (IT) + tipo forza + lateralita */}
-        {(muscleLabel || metaParts.length > 0) && (
-          <p className="mt-0.5 text-[11px] text-muted-foreground truncate">
-            {muscleLabel}
-            {muscleLabel && metaParts.length > 0 && " · "}
-            {metaParts.join(" · ")}
-          </p>
-        )}
-      </div>
-    </button>
+      {/* Safety detail — pannello espandibile inline */}
+      {safety && safetyExpanded && (
+        <div className="mx-3 mb-2.5 rounded-md border border-dashed bg-muted/20 px-3 py-2 space-y-2">
+          {safety.conditions.map((cond) => (
+            <div key={cond.id} className="flex items-start gap-2">
+              {cond.severita === "avoid" ? (
+                <ShieldAlert className="h-3.5 w-3.5 shrink-0 mt-0.5 text-red-500" />
+              ) : (
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-500" />
+              )}
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-[10px] font-semibold uppercase tracking-wider ${
+                    cond.severita === "avoid" ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"
+                  }`}>
+                    {cond.severita === "avoid" ? "Evitare" : "Cautela"}
+                  </span>
+                  <span className="text-xs font-medium">{cond.nome}</span>
+                </div>
+                {cond.nota && (
+                  <p className="text-[11px] text-muted-foreground leading-relaxed mt-0.5">{cond.nota}</p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

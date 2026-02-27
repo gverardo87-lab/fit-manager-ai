@@ -19,11 +19,22 @@ import {
   Pencil,
   Check,
   X,
+  Shield,
+  ShieldAlert,
+  AlertTriangle,
+  ChevronDown,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -43,13 +54,14 @@ import {
   useUpdateWorkoutSessions,
 } from "@/hooks/useWorkouts";
 import { useClients } from "@/hooks/useClients";
-import { useExercises } from "@/hooks/useExercises";
+import { useExercises, useExerciseSafetyMap } from "@/hooks/useExercises";
 import {
   OBIETTIVI_SCHEDA,
   LIVELLI_SCHEDA,
   type WorkoutExerciseRow,
   type WorkoutSessionInput,
   type Exercise,
+  type SafetyConditionDetail,
 } from "@/types/api";
 import {
   SECTION_CATEGORIES,
@@ -68,6 +80,17 @@ const OBIETTIVO_LABELS: Record<string, string> = {
 const LIVELLO_LABELS: Record<string, string> = {
   beginner: "Principiante", intermedio: "Intermedio", avanzato: "Avanzato",
 };
+
+const CONDITION_CATEGORY_LABELS: Record<string, string> = {
+  orthopedic: "Ortopedico",
+  cardiovascular: "Cardiovascolare",
+  metabolic: "Metabolico",
+  neurological: "Neurologico",
+  respiratory: "Respiratorio",
+  special: "Speciale",
+};
+
+const CATEGORY_ORDER = ["orthopedic", "cardiovascular", "metabolic", "neurological", "respiratory", "special"];
 
 // ════════════════════════════════════════════════════════════
 // PAGE
@@ -95,6 +118,13 @@ export default function SchedaDetailPage({
     () => new Map(allExercises.map((e) => [e.id, e])),
     [allExercises],
   );
+
+  // Safety map: anamnesi × condizioni mediche (lazy, solo con cliente assegnato)
+  const { data: safetyMap } = useExerciseSafetyMap(plan?.id_cliente ?? null);
+  const safetyEntries = safetyMap?.entries;
+
+  // Safety overview panel
+  const [safetyExpanded, setSafetyExpanded] = useState(false);
 
   // Local state per editing
   const [sessions, setSessions] = useState<SessionCardData[]>([]);
@@ -134,6 +164,53 @@ export default function SchedaDetailPage({
   const clientNome = plan?.client_nome && plan?.client_cognome
     ? `${plan.client_nome} ${plan.client_cognome}`
     : undefined;
+
+  // Safety stats: conteggi avoid/caution sugli esercizi nella scheda corrente
+  const safetyStats = useMemo(() => {
+    if (!safetyEntries) return { avoid: 0, caution: 0, total: 0 };
+    const exerciseIds = new Set(sessions.flatMap((s) => s.esercizi.map((e) => e.id_esercizio)));
+    let avoid = 0;
+    let caution = 0;
+    for (const [exId, entry] of Object.entries(safetyEntries)) {
+      if (!exerciseIds.has(Number(exId))) continue;
+      if (entry.severity === "avoid") avoid++;
+      else caution++;
+    }
+    return { avoid, caution, total: avoid + caution };
+  }, [safetyEntries, sessions]);
+
+  // Condizioni raggruppate per categoria (per pannello espanso)
+  const groupedConditions = useMemo(() => {
+    if (!safetyEntries) return new Map<string, { nome: string; worstSeverity: string }[]>();
+
+    // Raccolta condizioni uniche con worst severity
+    const condMap = new Map<number, SafetyConditionDetail & { worstSeverity: string }>();
+    for (const entry of Object.values(safetyEntries)) {
+      for (const cond of entry.conditions) {
+        const existing = condMap.get(cond.id);
+        if (!existing) {
+          condMap.set(cond.id, { ...cond, worstSeverity: cond.severita });
+        } else if (cond.severita === "avoid" && existing.worstSeverity !== "avoid") {
+          existing.worstSeverity = "avoid";
+        }
+      }
+    }
+
+    // Raggruppa per categoria
+    const groups = new Map<string, { nome: string; worstSeverity: string }[]>();
+    for (const cond of condMap.values()) {
+      const cat = cond.categoria;
+      if (!groups.has(cat)) groups.set(cat, []);
+      groups.get(cat)!.push({ nome: cond.nome, worstSeverity: cond.worstSeverity });
+    }
+
+    // Ordina per CATEGORY_ORDER
+    const sorted = new Map<string, { nome: string; worstSeverity: string }[]>();
+    for (const cat of CATEGORY_ORDER) {
+      if (groups.has(cat)) sorted.set(cat, groups.get(cat)!);
+    }
+    return sorted;
+  }, [safetyEntries]);
 
   // ── Handlers sessioni ──
 
@@ -461,10 +538,94 @@ export default function SchedaDetailPage({
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Editor (sinistra) */}
         <div className="space-y-4" data-print-hide>
+          {/* Safety Overview Panel — dashboard clinica collapsibile */}
+          {safetyMap && safetyMap.condition_count > 0 && (
+            <Collapsible open={safetyExpanded} onOpenChange={setSafetyExpanded}>
+              <Card className={`border-l-4 ${safetyStats.avoid > 0 ? "border-l-red-500" : "border-l-amber-400"} transition-all duration-200`}>
+                <CardContent className="p-4 space-y-3">
+                  {/* Header — sempre visibile */}
+                  <CollapsibleTrigger asChild>
+                    <button className="flex items-center justify-between w-full text-left group">
+                      <div className="flex items-center gap-2">
+                        <Shield className={`h-4.5 w-4.5 ${safetyStats.avoid > 0 ? "text-red-500" : "text-amber-500"}`} />
+                        <div>
+                          <span className="text-sm font-semibold">Profilo Clinico</span>
+                          <span className="text-sm text-muted-foreground"> — {safetyMap.client_nome}</span>
+                        </div>
+                      </div>
+                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${safetyExpanded ? "rotate-180" : ""}`} />
+                    </button>
+                  </CollapsibleTrigger>
+
+                  {/* KPI mini-row */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="rounded-lg bg-muted/50 px-3 py-2 text-center">
+                      <div className="text-lg font-extrabold tracking-tighter tabular-nums">{safetyMap.condition_count}</div>
+                      <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Condizioni</div>
+                    </div>
+                    <div className="rounded-lg bg-red-50 dark:bg-red-950/30 px-3 py-2 text-center">
+                      <div className="text-lg font-extrabold tracking-tighter tabular-nums text-red-600 dark:text-red-400">{safetyStats.avoid}</div>
+                      <div className="text-[10px] text-red-600/70 dark:text-red-400/70 uppercase tracking-wider">Evitare</div>
+                    </div>
+                    <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-center">
+                      <div className="text-lg font-extrabold tracking-tighter tabular-nums text-amber-600 dark:text-amber-400">{safetyStats.caution}</div>
+                      <div className="text-[10px] text-amber-600/70 dark:text-amber-400/70 uppercase tracking-wider">Cautela</div>
+                    </div>
+                  </div>
+
+                  {/* Badge condizioni */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {safetyMap.condition_names.map((name) => (
+                      <Badge key={name} variant="outline" className="text-[11px] font-normal">
+                        {name}
+                      </Badge>
+                    ))}
+                  </div>
+
+                  {/* Pannello espanso — condizioni raggruppate per categoria */}
+                  <CollapsibleContent className="space-y-3">
+                    <Separator />
+                    {Array.from(groupedConditions.entries()).map(([categoria, conditions]) => (
+                      <div key={categoria}>
+                        <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                          {CONDITION_CATEGORY_LABELS[categoria] ?? categoria}
+                        </div>
+                        <div className="space-y-1">
+                          {conditions.map((cond) => (
+                            <div key={cond.nome} className="flex items-center gap-2 text-xs">
+                              {cond.worstSeverity === "avoid" ? (
+                                <ShieldAlert className="h-3.5 w-3.5 shrink-0 text-red-500" />
+                              ) : (
+                                <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                              )}
+                              <span className="flex-1">{cond.nome}</span>
+                              <span className={`text-[10px] font-medium ${cond.worstSeverity === "avoid" ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"}`}>
+                                {cond.worstSeverity === "avoid" ? "Evitare" : "Cautela"}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    {plan.id_cliente && (
+                      <Link
+                        href={`/clienti/${plan.id_cliente}`}
+                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1"
+                      >
+                        Vai al profilo di {safetyMap.client_nome.split(" ")[0]}
+                      </Link>
+                    )}
+                  </CollapsibleContent>
+                </CardContent>
+              </Card>
+            </Collapsible>
+          )}
+
           {sessions.map((session) => (
             <SessionCard
               key={session.id}
               session={session}
+              safetyMap={safetyEntries}
               onUpdateSession={handleUpdateSession}
               onDeleteSession={handleDeleteSession}
               onAddExercise={handleAddExercise}
@@ -510,6 +671,7 @@ export default function SchedaDetailPage({
             ? SECTION_CATEGORIES[selectorContext.sezione]
             : undefined
         }
+        safetyMap={safetyEntries}
       />
     </div>
   );
