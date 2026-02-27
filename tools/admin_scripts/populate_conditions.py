@@ -1,11 +1,15 @@
 """
 Popola esercizi_condizioni — mapping deterministico esercizio → condizioni mediche.
 
-Per i 118 esercizi con in_subset=1:
+Per gli esercizi con in_subset=1:
   1. Scansiona campo 'controindicazioni' (JSON array di frasi testuali IT)
-  2. Keyword matching → condizioni mediche dal catalogo (30 condizioni)
+  2. Keyword matching → condizioni mediche dal catalogo (39 condizioni)
   3. Pattern-based rules → condizioni aggiuntive (cardiaco, metabolico)
   4. Severita': avoid (controindicazione diretta), caution (rischio, adattare)
+
+v2: +9 condizioni generiche (31-39). Ogni condizione generica include
+    le keyword di TUTTE le condizioni specifiche della stessa zona,
+    garantendo che il set di esercizi mappati sia un superset.
 
 Zero Ollama. 100% deterministico e replicabile.
 
@@ -120,6 +124,67 @@ KEYWORD_RULES: list[tuple[list[str], int, str, str]] = [
      "Gravidanza: evitare posizioni supine e carichi addominali diretti."),
     (["diastasi"], 30, "avoid",
      "Diastasi retti: evitare crunch, sit-up e pressione intra-addominale."),
+
+    # ═══════════════════════════════════════════════════════
+    # CONDIZIONI GENERICHE POST-TRAUMATICHE (31-37)
+    # Superset: include keyword specifiche + generiche zona
+    # ═══════════════════════════════════════════════════════
+
+    # ── Polso/Mano (31) — superset di cond 17 ──
+    (["polso", "avambraccio", "tunnel carpale",
+      "frattura polso", "frattura radio", "frattura al polso", "frattura al radio"], 31, "caution",
+     "Esiti post-traumatici polso: adattare presa e carico sul polso."),
+
+    # ── Ginocchio (32) — superset di cond 10, 11, 12, 13 ──
+    (["ginocchio", "ginocchia", "crociato", "lca", "menisco",
+      "femoro-rotulea", "rotula", "gonartrosi",
+      "frattura ginocchio"], 32, "caution",
+     "Esiti post-traumatici ginocchio: monitorare allineamento e carico."),
+
+    # ── Spalla (33) — superset di cond 6, 7, 8, 9 ──
+    (["spalla", "spalle", "subacromiale", "impingement",
+      "cuffia dei rotatori", "cuffia rotatori",
+      "capsulite", "spalla congelata",
+      "frattura spalla", "frattura clavicola", "frattura omero",
+      "lussazione spalla"], 33, "caution",
+     "Esiti post-traumatici spalla: verificare ROM e carico overhead."),
+
+    # ── Caviglia/Piede (34) — superset di cond 18, 19 ──
+    (["caviglia", "achille", "fascite plantare", "plantare",
+      "frattura caviglia", "frattura piede", "frattura metatarso",
+      "distorsione"], 34, "caution",
+     "Esiti post-traumatici caviglia: attenzione a equilibrio e impatto."),
+
+    # ── Anca (35) — superset di cond 14, 15 ──
+    (["anca", "coxartrosi", "artrosi anca",
+      "conflitto femoro-acetabolare", "impingement anca",
+      "frattura femore", "frattura anca", "protesi anca"], 35, "caution",
+     "Esiti post-traumatici anca: monitorare ROM e carico."),
+
+    # ── Colonna (36) — superset di cond 1, 3, 4, 5 ──
+    (["colonna", "vertebrale", "ernia", "hernia discale",
+      "scoliosi", "stenosi spinale", "spondilolistesi",
+      "frattura vertebrale", "frattura vertebra"], 36, "caution",
+     "Esiti post-traumatici colonna: proteggere rachide, evitare carichi assiali pesanti."),
+
+    # ── Gomito (37) — superset di cond 16 ──
+    (["gomito", "epicondilite", "gomito del tennista",
+      "frattura gomito"], 37, "caution",
+     "Esiti post-traumatici gomito: monitorare carico in presa e flessione."),
+
+    # ═══════════════════════════════════════════════════════
+    # CONDIZIONI GENERICHE SINTOMATOLOGICHE (38-39)
+    # ═══════════════════════════════════════════════════════
+
+    # ── Cervicalgia (38) — superset di cond 2 ──
+    (["cervical", "collo", "cervicobrachialgia",
+      "ernia cervicale"], 38, "caution",
+     "Cervicalgia: proteggere rachide cervicale, evitare compressione e carico overhead."),
+
+    # ── Lombalgia (39) — superset di cond 1 ──
+    (["lombalgia", "mal di schiena", "lombare", "schiena",
+      "ernia", "hernia discale"], 39, "caution",
+     "Lombalgia: proteggere rachide lombare, evitare flessione sotto carico."),
 ]
 
 # ── Pattern-based rules (NO keyword match needed) ──

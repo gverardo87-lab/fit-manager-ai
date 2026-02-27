@@ -87,25 +87,25 @@ export function StepMuscoloscheletrico({ data, onChange }: StepProps) {
         label="Hai infortuni attuali?"
         value={data.infortuni_attuali}
         onChange={(v) => onChange({ infortuni_attuali: v })}
-        placeholder="Es. distorsione caviglia destra, tendinite spalla..."
+        placeholder="Es. distorsione caviglia destra, tendinite spalla sinistra..."
       />
       <QuestionToggle
         label="Hai avuto infortuni pregressi?"
         value={data.infortuni_pregressi}
         onChange={(v) => onChange({ infortuni_pregressi: v })}
-        placeholder="Es. frattura polso 2020, strappo muscolare quadricipite..."
+        placeholder="Es. frattura polso destro 2020, frattura ginocchio sinistro, strappo quadricipite..."
       />
       <QuestionToggle
         label="Hai subito interventi chirurgici?"
         value={data.interventi_chirurgici}
         onChange={(v) => onChange({ interventi_chirurgici: v })}
-        placeholder="Es. artroscopia ginocchio 2019, ernia discale..."
+        placeholder="Es. artroscopia ginocchio destro 2019, ernia discale lombare..."
       />
       <QuestionToggle
         label="Hai dolori cronici?"
         value={data.dolori_cronici}
         onChange={(v) => onChange({ dolori_cronici: v })}
-        placeholder="Es. lombalgia cronica, cervicalgia, dolore spalla..."
+        placeholder="Es. lombalgia cronica, cervicalgia, gonalgia ginocchio destro..."
       />
     </div>
   );

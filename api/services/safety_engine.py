@@ -47,8 +47,9 @@ _QUESTION_FIELDS = [
 ]
 
 # Campi AnamnesiData con testo libero (str|null)
+# NOTA: obiettivi_specifici ESCLUSO — contiene goal ("migliorare spalle"),
+# non condizioni mediche. Includerlo causa falsi positivi.
 _FREE_TEXT_FIELDS = [
-    "obiettivi_specifici",
     "limitazioni_funzionali",
     "note",
 ]

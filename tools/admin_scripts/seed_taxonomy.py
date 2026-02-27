@@ -214,6 +214,28 @@ MEDICAL_CONDITIONS = [
      '["addome", "schiena"]'),
     ("Diastasi dei retti", "Diastasis recti", "special",
      '["addome"]'),
+
+    # ── Generiche post-traumatiche (per zona anatomica) ──
+    ("Esiti post-traumatici \u2014 Polso/Mano", "Post-traumatic \u2014 Wrist/Hand", "orthopedic",
+     '["polso"]'),
+    ("Esiti post-traumatici \u2014 Ginocchio", "Post-traumatic \u2014 Knee", "orthopedic",
+     '["ginocchio"]'),
+    ("Esiti post-traumatici \u2014 Spalla", "Post-traumatic \u2014 Shoulder", "orthopedic",
+     '["spalla"]'),
+    ("Esiti post-traumatici \u2014 Caviglia/Piede", "Post-traumatic \u2014 Ankle/Foot", "orthopedic",
+     '["caviglia", "piede"]'),
+    ("Esiti post-traumatici \u2014 Anca", "Post-traumatic \u2014 Hip", "orthopedic",
+     '["anca"]'),
+    ("Esiti post-traumatici \u2014 Colonna", "Post-traumatic \u2014 Spine", "orthopedic",
+     '["schiena", "lombare"]'),
+    ("Esiti post-traumatici \u2014 Gomito", "Post-traumatic \u2014 Elbow", "orthopedic",
+     '["gomito"]'),
+
+    # ── Generiche sintomatologiche ──
+    ("Cervicalgia (dolore cervicale)", "Cervicalgia (neck pain)", "orthopedic",
+     '["collo", "cervicale"]'),
+    ("Lombalgia (dolore lombare)", "Lombalgia (low back pain)", "orthopedic",
+     '["schiena", "lombare"]'),
 ]
 
 
