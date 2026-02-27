@@ -14,8 +14,8 @@
  * Ricerca testuale: nome + muscoli (italiano e inglese) + attrezzatura (italiano).
  */
 
-import { useState, useMemo } from "react";
-import { Search, X, ChevronDown, SlidersHorizontal, ShieldAlert, AlertTriangle } from "lucide-react";
+import { useState, useMemo, useCallback } from "react";
+import { Search, X, ChevronDown, SlidersHorizontal, ShieldAlert, AlertTriangle, Info } from "lucide-react";
 
 import {
   Dialog,
@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 import { useExercises } from "@/hooks/useExercises";
+import { ExerciseDetailPanel } from "./ExerciseDetailPanel";
 import type { Exercise, ExerciseSafetyEntry } from "@/types/api";
 import {
   MUSCLE_LABELS,
@@ -46,6 +47,8 @@ interface ExerciseSelectorProps {
   categoryFilter?: string[];
   /** Safety map per-esercizio (da anamnesi cliente). Informativo, mai bloccante. */
   safetyMap?: Record<number, ExerciseSafetyEntry>;
+  /** ID scheda per deep-link ritorno dalla pagina esercizio */
+  schedaId?: number;
 }
 
 // ── Chip labels compatte per pattern ──
@@ -95,6 +98,7 @@ export function ExerciseSelector({
   patternHint,
   categoryFilter,
   safetyMap,
+  schedaId,
 }: ExerciseSelectorProps) {
   // ── Filter state ──
   const [search, setSearch] = useState("");
@@ -107,9 +111,22 @@ export function ExerciseSelector({
   const [showBiomechanics, setShowBiomechanics] = useState(false);
   const [showFilters, setShowFilters] = useState(true);
   const [expandedSafetyId, setExpandedSafetyId] = useState<number | null>(null);
+  const [expandedDetailId, setExpandedDetailId] = useState<number | null>(null);
 
   const { data } = useExercises();
   const exercises = data?.items ?? [];
+
+  // Mappa id→Exercise per quick-select da relazioni
+  const exerciseMap = useMemo(
+    () => new Map(exercises.map((e) => [e.id, e])),
+    [exercises],
+  );
+
+  // Seleziona un esercizio da relazione (cercandolo nella mappa)
+  const handleSelectById = useCallback((exerciseId: number) => {
+    const ex = exerciseMap.get(exerciseId);
+    if (ex) handleSelect(ex);
+  }, [exerciseMap]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // E' la sezione "principale"? (mostra set completo di filtri)
   const isPrincipale = !categoryFilter || categoryFilter.length === 0 ||
@@ -250,6 +267,7 @@ export function ExerciseSelector({
     setSelectedLateral(null);
     setShowBiomechanics(false);
     setExpandedSafetyId(null);
+    setExpandedDetailId(null);
   };
 
   const sectionLabel = categoryFilter?.includes("avviamento")
@@ -511,9 +529,14 @@ export function ExerciseSelector({
                   key={exercise.id}
                   exercise={exercise}
                   safety={safetyMap?.[exercise.id]}
+                  safetyEntries={safetyMap}
                   safetyExpanded={expandedSafetyId === exercise.id}
                   onToggleSafety={(id) => setExpandedSafetyId(expandedSafetyId === id ? null : id)}
+                  detailExpanded={expandedDetailId === exercise.id}
+                  onToggleDetail={(id) => setExpandedDetailId(expandedDetailId === id ? null : id)}
+                  schedaId={schedaId}
                   onSelect={handleSelect}
+                  onSelectById={handleSelectById}
                 />
               ))}
             </div>
@@ -576,15 +599,25 @@ function FilterChipRow({
 function ExerciseRow({
   exercise,
   safety,
+  safetyEntries,
   safetyExpanded,
   onToggleSafety,
+  detailExpanded,
+  onToggleDetail,
+  schedaId,
   onSelect,
+  onSelectById,
 }: {
   exercise: Exercise;
   safety?: ExerciseSafetyEntry;
+  safetyEntries?: Record<number, ExerciseSafetyEntry>;
   safetyExpanded?: boolean;
   onToggleSafety?: (id: number) => void;
+  detailExpanded?: boolean;
+  onToggleDetail?: (id: number) => void;
+  schedaId?: number;
   onSelect: (e: Exercise) => void;
+  onSelectById?: (exerciseId: number) => void;
 }) {
   // Muscoli in italiano
   const muscleLabel = exercise.muscoli_primari
@@ -603,11 +636,20 @@ function ExerciseRow({
   return (
     <div className="rounded-lg transition-colors hover:bg-muted/70">
       {/* Clickable area per selezione */}
-      <button
-        onClick={() => onSelect(exercise)}
-        className="flex w-full items-start gap-3 px-3 py-2.5 text-left"
-      >
-        <div className="min-w-0 flex-1">
+      <div className="flex w-full items-start gap-2 px-3 py-2.5">
+        {/* Info icon */}
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggleDetail?.(exercise.id); }}
+          className={`mt-0.5 shrink-0 transition-colors ${detailExpanded ? "text-primary" : "text-muted-foreground/40 hover:text-muted-foreground"}`}
+        >
+          <Info className="h-4 w-4" />
+        </button>
+
+        {/* Main content — cliccabile per selezione */}
+        <button
+          onClick={() => onSelect(exercise)}
+          className="min-w-0 flex-1 text-left"
+        >
           {/* Row 1: Nome + safety badge */}
           <div className="flex items-center gap-1.5">
             <p className="text-sm font-medium truncate">{exercise.nome}</p>
@@ -650,8 +692,8 @@ function ExerciseRow({
               {metaParts.join(" · ")}
             </p>
           )}
-        </div>
-      </button>
+        </button>
+      </div>
 
       {/* Safety detail — pannello espandibile inline */}
       {safety && safetyExpanded && (
@@ -678,6 +720,20 @@ function ExerciseRow({
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Exercise detail panel — pannello riassuntivo inline */}
+      {detailExpanded && (
+        <div className="mx-3 mb-2.5">
+          <ExerciseDetailPanel
+            exercise={exercise}
+            exerciseId={exercise.id}
+            safety={safety}
+            safetyEntries={safetyEntries}
+            schedaId={schedaId}
+            onQuickReplace={onSelectById}
+          />
         </div>
       )}
     </div>

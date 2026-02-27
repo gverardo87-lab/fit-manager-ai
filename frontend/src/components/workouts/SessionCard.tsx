@@ -37,7 +37,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 import { SortableExerciseRow } from "./SortableExerciseRow";
 import { getSectionForCategory, type TemplateSection } from "@/lib/workout-templates";
-import type { WorkoutExerciseRow, ExerciseSafetyEntry } from "@/types/api";
+import type { WorkoutExerciseRow, ExerciseSafetyEntry, Exercise } from "@/types/api";
 
 export interface SessionCardData {
   id: number;
@@ -53,12 +53,18 @@ interface SessionCardProps {
   session: SessionCardData;
   /** Safety map per-esercizio (da anamnesi cliente). Informativo, mai bloccante. */
   safetyMap?: Record<number, ExerciseSafetyEntry>;
+  /** Mappa esercizi completi per pannello dettaglio inline */
+  exerciseMap?: Map<number, Exercise>;
+  /** ID scheda per deep-link ritorno dalla pagina esercizio */
+  schedaId?: number;
   onUpdateSession: (sessionId: number, updates: Partial<SessionCardData>) => void;
   onDeleteSession: (sessionId: number) => void;
   onAddExercise: (sessionId: number, sezione?: TemplateSection) => void;
   onUpdateExercise: (sessionId: number, exerciseId: number, updates: Partial<WorkoutExerciseRow>) => void;
   onDeleteExercise: (sessionId: number, exerciseId: number) => void;
   onReplaceExercise: (sessionId: number, exerciseId: number) => void;
+  /** Quick-replace: sostituisci esercizio preservando serie/rip/riposo */
+  onQuickReplace?: (sessionId: number, exerciseId: number, newExerciseId: number) => void;
 }
 
 // ── Sezione config ──
@@ -98,12 +104,15 @@ const SECTION_ORDER: TemplateSection[] = ["avviamento", "principale", "stretchin
 export function SessionCard({
   session,
   safetyMap,
+  exerciseMap,
+  schedaId,
   onUpdateSession,
   onDeleteSession,
   onAddExercise,
   onUpdateExercise,
   onDeleteExercise,
   onReplaceExercise,
+  onQuickReplace,
 }: SessionCardProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState(session.nome_sessione);
@@ -263,7 +272,8 @@ export function SessionCard({
                   <>
                     {/* Column header solo per principale */}
                     {sectionKey === "principale" && (
-                      <div className="grid grid-cols-[24px_1fr_60px_70px_60px_32px] gap-2 px-1 pb-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                      <div className="grid grid-cols-[24px_16px_1fr_60px_70px_60px_32px] gap-2 px-1 pb-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                        <span />
                         <span />
                         <span>Esercizio</span>
                         <span className="text-center">Serie</span>
@@ -285,9 +295,12 @@ export function SessionCard({
                             compact={sectionKey !== "principale"}
                             safety={safetyMap?.[exercise.id_esercizio]}
                             safetyEntries={safetyMap}
+                            exerciseData={exerciseMap?.get(exercise.id_esercizio)}
+                            schedaId={schedaId}
                             onUpdate={(updates) => onUpdateExercise(session.id, exercise.id, updates)}
                             onDelete={() => onDeleteExercise(session.id, exercise.id)}
                             onReplace={() => onReplaceExercise(session.id, exercise.id)}
+                            onQuickReplace={onQuickReplace ? (newId) => onQuickReplace(session.id, exercise.id, newId) : undefined}
                           />
                         ))}
                       </div>

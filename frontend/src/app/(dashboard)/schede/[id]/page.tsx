@@ -426,6 +426,31 @@ export default function SchedaDetailPage({
     setIsDirty(true);
   }, []);
 
+  const handleQuickReplace = useCallback((sessionId: number, exerciseId: number, newExerciseId: number) => {
+    const newEx = exerciseMap.get(newExerciseId);
+    if (!newEx) return;
+    setSessions((prev) =>
+      prev.map((s) => {
+        if (s.id !== sessionId) return s;
+        return {
+          ...s,
+          esercizi: s.esercizi.map((e) =>
+            e.id === exerciseId
+              ? {
+                  ...e,
+                  id_esercizio: newEx.id,
+                  esercizio_nome: newEx.nome,
+                  esercizio_categoria: newEx.categoria,
+                  esercizio_attrezzatura: newEx.attrezzatura,
+                }
+              : e,
+          ),
+        };
+      }),
+    );
+    setIsDirty(true);
+  }, [exerciseMap]);
+
   // ── Save ──
 
   const handleSave = useCallback(() => {
@@ -735,12 +760,15 @@ export default function SchedaDetailPage({
               key={session.id}
               session={session}
               safetyMap={safetyEntries}
+              exerciseMap={exerciseMap}
+              schedaId={id}
               onUpdateSession={handleUpdateSession}
               onDeleteSession={handleDeleteSession}
               onAddExercise={handleAddExercise}
               onUpdateExercise={handleUpdateExercise}
               onDeleteExercise={handleDeleteExercise}
               onReplaceExercise={handleReplaceExercise}
+              onQuickReplace={handleQuickReplace}
             />
           ))}
 
@@ -781,6 +809,7 @@ export default function SchedaDetailPage({
             : undefined
         }
         safetyMap={safetyEntries}
+        schedaId={id}
       />
     </div>
   );

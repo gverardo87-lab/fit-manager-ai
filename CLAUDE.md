@@ -65,7 +65,7 @@ Editor strutturato per creare schede allenamento professionali. Layout split: ed
 
 **Frontend**: 3 sezioni per sessione — Avviamento, Principale, Stretching & Mobilita.
 - **Template system**: 3 template (Beginner/Intermedio/Avanzato) con matching base esercizi per `pattern_movimento` + difficolta
-- **Exercise Selector**: dialog professionale con filtri pattern_movimento + gruppo muscolare + attrezzatura + difficolta + biomeccanica (chip cliccabili) + ricerca testuale. Filtro categoria automatico per sezione (avviamento mostra solo avviamento, stretching mostra solo stretching/mobilita, principale mostra tutto il resto)
+- **Exercise Selector**: dialog professionale con filtri pattern_movimento + gruppo muscolare + attrezzatura + difficolta + biomeccanica (chip cliccabili) + ricerca testuale. Filtro categoria automatico per sezione. **Pannello dettaglio inline** (icona Info): muscoli, classificazione, setup, note sicurezza, relazioni actionable con "Sostituisci", deep-link a pagina esercizio con ritorno
 - **DnD**: `@dnd-kit/sortable` per riordino esercizi dentro ogni sezione
 - **Export**: Excel via `exceljs` (3 sezioni colorate) + Print/PDF via `@media print`
 - **Client linkage**: assegnazione/riassegnazione cliente inline (Select + `"__none__"` sentinel), filtro cliente nella lista, tab "Schede" nel profilo cliente, cross-link bidirezionale
@@ -75,7 +75,10 @@ Editor strutturato per creare schede allenamento professionali. Layout split: ed
 - Categorie: `compound`, `isolation`, `bodyweight`, `cardio`, `stretching`, `mobilita`, `avviamento`
 - Pattern: 9 forza (`squat`, `hinge`, `push_h/v`, `pull_h/v`, `core`, `rotation`, `carry`) + 3 complementari (`warmup`, `stretch`, `mobility`)
 
-File chiave: `lib/workout-templates.ts` (template + `getSectionForCategory`), `components/workouts/SessionCard.tsx` (3 sezioni DnD).
+- **Exercise Detail Panel** (`ExerciseDetailPanel.tsx`): pannello riassuntivo riusabile (muscoli, classificazione, setup, note sicurezza, relazioni con quick-swap "Sostituisci", deep-link con ritorno). Usato sia in SortableExerciseRow che in ExerciseSelector
+- **Deep-Link Esercizio**: `/esercizi/{id}?from=scheda-{schedaId}` → banner "Torna alla scheda" + back button condizionale. Navigazione bidirezionale builder↔dettaglio esercizio
+
+File chiave: `lib/workout-templates.ts` (template + `getSectionForCategory`), `components/workouts/SessionCard.tsx` (3 sezioni DnD), `components/workouts/ExerciseDetailPanel.tsx` (dettaglio inline).
 
 ### Exercise Quality Engine — Pipeline Dati
 
@@ -160,14 +163,17 @@ una safety map per-esercizio. Zero Ollama, zero latenza percepita.
    badge condizioni, e dettaglio espanso raggruppato per categoria. Sostituisce il vecchio banner ambra.
 2. **Session Pills** (`SessionCard.tsx`): contatori avoid/caution nel CardHeader di ogni sessione.
 3. **Exercise Popover** (`SortableExerciseRow.tsx`): click su icona safety → Popover ricco (w-72) con
-   condizioni dettagliate (severita + nome + nota). SafetyPopover come componente separato.
+   condizioni dettagliate (severita + nome + nota) + **alternative sicure con "Sostituisci"** (quick-swap).
 4. **Selector Detail** (`ExerciseSelector.tsx`): badge safety cliccabile → pannello espandibile inline
    con dettaglio condizioni per ogni esercizio nel dialog di selezione.
+5. **Exercise Detail Panel** (inline nel builder + selector): icona Info → pannello riassuntivo con
+   muscoli, classificazione, setup, note sicurezza, relazioni actionable (progressioni/regressioni con "Sostituisci").
 
 **Hook**: `useExerciseSafetyMap(clientId)` in `hooks/useWorkouts.ts` — React Query con `enabled: !!clientId`.
 
 File chiave: `api/services/safety_engine.py` (engine), `api/services/condition_rules.py` (regole),
-`components/workouts/SortableExerciseRow.tsx` (SafetyPopover), `schede/[id]/page.tsx` (Overview Panel).
+`components/workouts/SortableExerciseRow.tsx` (SafetyPopover + Info panel), `components/workouts/ExerciseDetailPanel.tsx` (dettaglio inline riusabile),
+`components/workouts/ExerciseSelector.tsx` (selettore con dettaglio), `schede/[id]/page.tsx` (Overview Panel + quick-replace handler).
 
 ---
 

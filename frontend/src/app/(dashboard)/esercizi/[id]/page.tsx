@@ -680,9 +680,17 @@ function VariantiTab({ exercise }: { exercise: Exercise }) {
 // PAGE
 // ════════════════════════════════════════════════════════════
 
-export default function ExerciseDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default function ExerciseDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ from?: string }>;
+}) {
   const { id } = use(params);
+  const { from } = use(searchParams);
   const exerciseId = parseInt(id, 10);
+  const returnSchedaId = from?.startsWith("scheda-") ? from.slice(7) : null;
   const { data: exercise, isLoading, isError, refetch } = useExercise(exerciseId);
 
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -731,7 +739,7 @@ export default function ExerciseDetailPage({ params }: { params: Promise<{ id: s
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3">
           <Link
-            href="/esercizi"
+            href={returnSchedaId ? `/schede/${returnSchedaId}` : "/esercizi"}
             className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border bg-white shadow-sm transition-colors hover:bg-zinc-50 dark:bg-zinc-900 dark:hover:bg-zinc-800"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -769,6 +777,19 @@ export default function ExerciseDetailPage({ params }: { params: Promise<{ id: s
           )}
         </div>
       </div>
+
+      {/* ── Banner ritorno alla scheda ── */}
+      {returnSchedaId && (
+        <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-2 flex items-center gap-2">
+          <ArrowLeft className="h-3.5 w-3.5 text-primary" />
+          <Link
+            href={`/schede/${returnSchedaId}`}
+            className="text-sm text-primary hover:underline"
+          >
+            Torna alla scheda in costruzione
+          </Link>
+        </div>
+      )}
 
       {/* ── Hero: Mappa Muscolare + Classificazione ── */}
       <ExerciseHero exercise={exercise} />
