@@ -174,6 +174,70 @@ def _serialize_field(field: str, value):
 
 
 # ═══════════════════════════════════════════════════════════════
+# VALIDAZIONE POST-MODIFICA (informativa, mai bloccante)
+# ═══════════════════════════════════════════════════════════════
+
+# Mapping pattern -> force_type atteso
+_PATTERN_FORCE = {
+    "push_h": "push", "push_v": "push", "pull_h": "pull", "pull_v": "pull",
+    "squat": "push", "hinge": "pull", "core": "static", "rotation": "pull",
+    "carry": "static", "warmup": "static", "stretch": "static", "mobility": "static",
+}
+# Muscoli tipicamente "pull"
+_PULL_MUSCLES = {"back", "lats", "biceps"}
+# Muscoli tipicamente "push"
+_PUSH_MUSCLES = {"chest", "triceps"}
+
+
+def _validate_exercise(exercise: Exercise) -> list[str]:
+    """Genera suggerimenti di coerenza post-modifica. Informativi, mai bloccanti."""
+    hints: list[str] = []
+    pat = exercise.pattern_movimento or ""
+
+    # 1. Pattern vs force_type
+    expected_ft = _PATTERN_FORCE.get(pat)
+    if expected_ft and exercise.force_type and exercise.force_type != expected_ft:
+        hints.append(
+            f"force_type '{exercise.force_type}' diverso da atteso '{expected_ft}' "
+            f"per pattern '{pat}'. Potrebbe essere corretto (es. Croci = push_h/pull)."
+        )
+
+    # 2. Pattern vs muscoli primari
+    try:
+        muscles = set(json.loads(exercise.muscoli_primari)) if exercise.muscoli_primari else set()
+    except (json.JSONDecodeError, TypeError):
+        muscles = set()
+
+    if pat in ("push_h", "push_v") and muscles & _PULL_MUSCLES:
+        overlap = muscles & _PULL_MUSCLES
+        hints.append(
+            f"Pattern push con muscoli primari pull ({', '.join(overlap)}). "
+            f"Verificare classificazione."
+        )
+    if pat in ("pull_h", "pull_v") and muscles & _PUSH_MUSCLES:
+        overlap = muscles & _PUSH_MUSCLES
+        hints.append(
+            f"Pattern pull con muscoli primari push ({', '.join(overlap)}). "
+            f"Verificare classificazione."
+        )
+
+    # 3. Campi critici mancanti (per subset)
+    if exercise.in_subset:
+        missing = []
+        for field in ("esecuzione", "note_sicurezza", "controindicazioni",
+                       "force_type", "piano_movimento", "catena_cinetica"):
+            val = getattr(exercise, field, None)
+            if not val or val in ("", "[]"):
+                missing.append(field)
+        if missing:
+            hints.append(
+                f"Campi obbligatori mancanti per il subset: {', '.join(missing)}."
+            )
+
+    return hints
+
+
+# ═══════════════════════════════════════════════════════════════
 # LIST
 # ═══════════════════════════════════════════════════════════════
 
@@ -310,9 +374,8 @@ def update_exercise(
     trainer: Trainer = Depends(get_current_trainer),
     session: Session = Depends(get_session),
 ):
-    """Aggiorna esercizio custom. Blocca su builtin."""
+    """Aggiorna esercizio (builtin o custom). Il trainer ha pieno controllo."""
     exercise = _bouncer_exercise(session, exercise_id, trainer.id)
-    _guard_custom(exercise)
 
     update_data = data.model_dump(exclude_unset=True)
     changes: dict = {}
@@ -329,7 +392,10 @@ def update_exercise(
     session.add(exercise)
     session.commit()
     session.refresh(exercise)
-    return _to_response(exercise)
+
+    resp = _to_response(exercise)
+    resp.suggerimenti = _validate_exercise(exercise)
+    return resp
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -459,7 +525,6 @@ def create_exercise_relation(
 ):
     """Crea relazione tra esercizi (progressione/regressione/variante)."""
     exercise = _bouncer_exercise(session, exercise_id, trainer.id)
-    _guard_custom(exercise)
 
     # Verifica che l'esercizio correlato esista
     related = _bouncer_exercise(session, data.related_exercise_id, trainer.id)
@@ -504,7 +569,6 @@ def delete_exercise_relation(
 ):
     """Elimina relazione tra esercizi."""
     exercise = _bouncer_exercise(session, exercise_id, trainer.id)
-    _guard_custom(exercise)
 
     relation = session.exec(
         select(ExerciseRelation).where(

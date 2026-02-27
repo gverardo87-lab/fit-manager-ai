@@ -742,12 +742,12 @@ export default function ExerciseDetailPage({ params }: { params: Promise<{ id: s
             </div>
           </div>
         </div>
-        {!exercise.is_builtin && (
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setSheetOpen(true)}>
-              <Pencil className="mr-2 h-4 w-4" />
-              Modifica
-            </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setSheetOpen(true)}>
+            <Pencil className="mr-2 h-4 w-4" />
+            Modifica
+          </Button>
+          {!exercise.is_builtin && (
             <Button
               variant="outline"
               size="sm"
@@ -757,8 +757,8 @@ export default function ExerciseDetailPage({ params }: { params: Promise<{ id: s
               <Trash2 className="mr-2 h-4 w-4" />
               Elimina
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* ── Hero: Mappa Muscolare + Classificazione ── */}
@@ -807,19 +807,17 @@ export default function ExerciseDetailPage({ params }: { params: Promise<{ id: s
       </Tabs>
 
       {/* ── Sheet modifica + Dialog elimina ── */}
+      <ExerciseSheet
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        exercise={exercise}
+      />
       {!exercise.is_builtin && (
-        <>
-          <ExerciseSheet
-            open={sheetOpen}
-            onOpenChange={setSheetOpen}
-            exercise={exercise}
-          />
-          <DeleteExerciseDialog
-            open={deleteOpen}
-            onOpenChange={setDeleteOpen}
-            exercise={exercise}
-          />
-        </>
+        <DeleteExerciseDialog
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          exercise={exercise}
+        />
       )}
     </div>
   );

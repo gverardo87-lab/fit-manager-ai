@@ -32,6 +32,9 @@ import {
   MUSCLE_OPTIONS,
   FORCE_TYPE_OPTIONS,
   LATERAL_PATTERN_OPTIONS,
+  KINETIC_CHAIN_OPTIONS,
+  MOVEMENT_PLANE_OPTIONS,
+  CONTRACTION_TYPE_OPTIONS,
 } from "./exercise-constants";
 import type { Exercise } from "@/types/api";
 
@@ -49,6 +52,11 @@ const exerciseSchema = z.object({
   pattern_movimento: z.string().min(1, "Pattern obbligatorio"),
   force_type: z.string().optional(),
   lateral_pattern: z.string().optional(),
+
+  // Biomeccanica avanzata (v3)
+  catena_cinetica: z.string().optional(),
+  piano_movimento: z.string().optional(),
+  tipo_contrazione: z.string().optional(),
 
   // Muscoli
   muscoli_primari: z.array(z.string()).min(1, "Seleziona almeno un muscolo"),
@@ -128,6 +136,9 @@ export function ExerciseForm({ exercise, onSubmit, isPending }: ExerciseFormProp
       pattern_movimento: exercise?.pattern_movimento ?? "",
       force_type: exercise?.force_type ?? "",
       lateral_pattern: exercise?.lateral_pattern ?? "",
+      catena_cinetica: exercise?.catena_cinetica ?? "",
+      piano_movimento: exercise?.piano_movimento ?? "",
+      tipo_contrazione: exercise?.tipo_contrazione ?? "",
       muscoli_primari: exercise?.muscoli_primari ?? [],
       muscoli_secondari: exercise?.muscoli_secondari ?? [],
       attrezzatura: exercise?.attrezzatura ?? "",
@@ -177,6 +188,9 @@ export function ExerciseForm({ exercise, onSubmit, isPending }: ExerciseFormProp
       pattern_movimento: values.pattern_movimento,
       force_type: clean(values.force_type),
       lateral_pattern: clean(values.lateral_pattern),
+      catena_cinetica: clean(values.catena_cinetica),
+      piano_movimento: clean(values.piano_movimento),
+      tipo_contrazione: clean(values.tipo_contrazione),
       muscoli_primari: values.muscoli_primari,
       muscoli_secondari: values.muscoli_secondari?.length ? values.muscoli_secondari : undefined,
       attrezzatura: values.attrezzatura,
@@ -301,7 +315,7 @@ export function ExerciseForm({ exercise, onSubmit, isPending }: ExerciseFormProp
         </div>
       </div>
 
-      {/* ── Biomeccanica (v2) ── */}
+      {/* ── Biomeccanica (v2 + v3) ── */}
       <div>
         <SectionHeader>Biomeccanica</SectionHeader>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -333,6 +347,57 @@ export function ExerciseForm({ exercise, onSubmit, isPending }: ExerciseFormProp
               </SelectTrigger>
               <SelectContent>
                 {LATERAL_PATTERN_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Catena Cinetica</Label>
+            <Select
+              value={watch("catena_cinetica") || ""}
+              onValueChange={(v) => setValue("catena_cinetica", v)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Opzionale..." />
+              </SelectTrigger>
+              <SelectContent>
+                {KINETIC_CHAIN_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Piano di Movimento</Label>
+            <Select
+              value={watch("piano_movimento") || ""}
+              onValueChange={(v) => setValue("piano_movimento", v)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Opzionale..." />
+              </SelectTrigger>
+              <SelectContent>
+                {MOVEMENT_PLANE_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2 sm:col-span-2">
+            <Label>Tipo di Contrazione</Label>
+            <Select
+              value={watch("tipo_contrazione") || ""}
+              onValueChange={(v) => setValue("tipo_contrazione", v)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Opzionale..." />
+              </SelectTrigger>
+              <SelectContent>
+                {CONTRACTION_TYPE_OPTIONS.map((o) => (
                   <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                 ))}
               </SelectContent>

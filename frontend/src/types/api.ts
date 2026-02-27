@@ -811,6 +811,7 @@ export interface Exercise {
   relazioni: ExerciseRelation[];
   muscoli_dettaglio: TaxonomyMuscle[];
   articolazioni: TaxonomyJoint[];
+  suggerimenti: string[];
 }
 
 /** POST /api/exercises */
@@ -867,6 +868,9 @@ export interface ExerciseUpdate {
   errori_comuni?: ExerciseError[] | null;
   note_sicurezza?: string | null;
   controindicazioni?: string[] | null;
+  catena_cinetica?: string | null;
+  piano_movimento?: string | null;
+  tipo_contrazione?: string | null;
 }
 
 /** POST /api/exercises/{id}/relations */

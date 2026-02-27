@@ -118,6 +118,10 @@ export const KINETIC_CHAIN_LABELS: Record<string, string> = {
   closed: "Catena Chiusa",
 };
 
+export const KINETIC_CHAIN_OPTIONS = Object.entries(KINETIC_CHAIN_LABELS).map(
+  ([value, label]) => ({ value, label })
+);
+
 export const MOVEMENT_PLANE_LABELS: Record<string, string> = {
   sagittal: "Sagittale",
   frontal: "Frontale",
@@ -125,12 +129,20 @@ export const MOVEMENT_PLANE_LABELS: Record<string, string> = {
   multi: "Multiplanare",
 };
 
+export const MOVEMENT_PLANE_OPTIONS = Object.entries(MOVEMENT_PLANE_LABELS).map(
+  ([value, label]) => ({ value, label })
+);
+
 export const CONTRACTION_TYPE_LABELS: Record<string, string> = {
   concentric: "Concentrica",
   eccentric: "Eccentrica",
   isometric: "Isometrica",
   dynamic: "Dinamica",
 };
+
+export const CONTRACTION_TYPE_OPTIONS = Object.entries(CONTRACTION_TYPE_LABELS).map(
+  ([value, label]) => ({ value, label })
+);
 
 export const JOINT_ROLE_LABELS: Record<string, string> = {
   agonist: "Agonista",

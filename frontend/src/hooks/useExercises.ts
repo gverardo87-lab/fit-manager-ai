@@ -106,6 +106,13 @@ export function useUpdateExercise() {
       queryClient.invalidateQueries({ queryKey: ["exercises"] });
       queryClient.invalidateQueries({ queryKey: ["exercise", exercise.id] });
       toast.success(`Esercizio "${exercise.nome}" aggiornato`);
+      // Suggerimenti validazione post-save (informativi, mai bloccanti)
+      const suggerimenti = (exercise as Exercise & { suggerimenti?: string[] }).suggerimenti;
+      if (suggerimenti?.length) {
+        for (const s of suggerimenti) {
+          toast.warning(s, { duration: 8000 });
+        }
+      }
     },
     onError: (error) => {
       toast.error(extractErrorMessage(error, "Errore nell'aggiornamento dell'esercizio"));

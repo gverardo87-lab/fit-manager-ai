@@ -31,6 +31,9 @@ VALID_MUSCLES = {
 }
 VALID_FORCE_TYPES = {"push", "pull", "static"}
 VALID_LATERAL_PATTERNS = {"bilateral", "unilateral", "alternating"}
+VALID_CHAIN_TYPES = {"open", "closed"}
+VALID_PLANE_TYPES = {"sagittal", "frontal", "transverse", "multi"}
+VALID_CONTRACTION_TYPES = {"concentric", "eccentric", "isometric", "dynamic"}
 VALID_RELATION_TYPES = {"progression", "regression", "variation"}
 VALID_MEDIA_TYPES = {"image", "video"}
 
@@ -165,6 +168,9 @@ class ExerciseUpdate(BaseModel):
     errori_comuni: Optional[List[dict[str, str]]] = None
     note_sicurezza: Optional[str] = None
     controindicazioni: Optional[List[str]] = None
+    catena_cinetica: Optional[str] = None
+    piano_movimento: Optional[str] = None
+    tipo_contrazione: Optional[str] = None
     istruzioni: Optional[dict[str, Any]] = None
 
     @field_validator("categoria")
@@ -217,6 +223,27 @@ class ExerciseUpdate(BaseModel):
         for m in v:
             if m not in VALID_MUSCLES:
                 raise ValueError(f"Muscolo '{m}' invalido. Validi: {sorted(VALID_MUSCLES)}")
+        return v
+
+    @field_validator("catena_cinetica")
+    @classmethod
+    def validate_catena(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in VALID_CHAIN_TYPES:
+            raise ValueError(f"Catena cinetica invalida. Valide: {sorted(VALID_CHAIN_TYPES)}")
+        return v
+
+    @field_validator("piano_movimento")
+    @classmethod
+    def validate_piano(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in VALID_PLANE_TYPES:
+            raise ValueError(f"Piano invalido. Validi: {sorted(VALID_PLANE_TYPES)}")
+        return v
+
+    @field_validator("tipo_contrazione")
+    @classmethod
+    def validate_contrazione(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in VALID_CONTRACTION_TYPES:
+            raise ValueError(f"Contrazione invalida. Valide: {sorted(VALID_CONTRACTION_TYPES)}")
         return v
 
 
@@ -343,6 +370,9 @@ class ExerciseResponse(BaseModel):
     relazioni: List[ExerciseRelationResponse] = []
     muscoli_dettaglio: List[TaxonomyMuscleResponse] = []
     articolazioni: List[TaxonomyJointResponse] = []
+
+    # Suggerimenti validazione post-modifica (informativi, mai bloccanti)
+    suggerimenti: List[str] = []
 
     @field_validator(
         "muscoli_primari", "muscoli_secondari", "controindicazioni",
