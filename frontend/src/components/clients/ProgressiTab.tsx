@@ -2,9 +2,17 @@
 "use client";
 
 /**
- * ProgressiTab — Tab principale per il tracking misurazioni corporee.
+ * ProgressiTab v2 — Dashboard completa tracking misurazioni corporee.
  *
- * Layout: KPI cards -> Chart trend -> Storico tabellare
+ * Layout (top to bottom):
+ *   1. Header: titolo + Stampa + Nuova Misurazione
+ *   2. KPI Cards (dinamici, basati sulle metriche tracciate)
+ *   3. Category Summary (mini-card per categoria con conteggio metriche)
+ *   4. Trend Chart (multi-metric con dual Y-axis)
+ *   5. Mappa Corporea Interattiva (click zone → misurazioni + esercizi + anamnesi)
+ *   6. Confronto Sessioni (Collapsible)
+ *   7. Storico Misurazioni (tabella espandibile)
+ *
  * Empty state: CTA per prima misurazione.
  * Create/Edit: navigazione a pagina dedicata /clienti/{id}/misurazioni.
  */
@@ -16,9 +24,13 @@ import { it } from "date-fns/locale";
 import {
   Activity,
   Calendar,
+  ChevronDown,
+  Dumbbell,
+  Heart,
   Pencil,
   Plus,
   Printer,
+  Ruler,
   Scale,
   Trash2,
   TrendingDown,
@@ -46,13 +58,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+import { InteractiveBodyMap } from "@/components/clients/InteractiveBodyMap";
 import { MeasurementChart } from "@/components/clients/MeasurementChart";
+import { SessionComparison } from "@/components/clients/SessionComparison";
 import {
   useClientMeasurements,
   useDeleteMeasurement,
   useMetrics,
 } from "@/hooks/useMeasurements";
-import type { Measurement } from "@/types/api";
+import type { Measurement, Metric, MetricCategory } from "@/types/api";
+import { METRIC_CATEGORY_LABELS } from "@/types/api";
 
 // ════════════════════════════════════════════════════════════
 // TYPES
@@ -63,29 +78,18 @@ interface ProgressiTabProps {
 }
 
 // ════════════════════════════════════════════════════════════
-// KPI CONFIG
+// KPI LOGIC — Dinamici
 // ════════════════════════════════════════════════════════════
 
-interface KpiCardConfig {
-  key: string;
-  label: string;
-  icon: typeof Scale;
-  borderColor: string;
-  getValue: (measurements: Measurement[]) => string;
-  getDelta: (measurements: Measurement[]) => { value: string; positive: boolean } | null;
-}
+// Metriche prioritarie per KPI (ordine di preferenza)
+const PRIORITY_METRIC_IDS = [1, 3, 5]; // Peso, Massa Grassa, BMI
 
-function getMetricValue(
-  measurements: Measurement[],
-  metricId: number
-): number | null {
-  if (measurements.length === 0) return null;
-  const latest = measurements[0];
-  const val = latest.valori.find((v) => v.id_metrica === metricId);
-  return val ? val.valore : null;
-}
+// Metriche dove calare e' positivo (peso, grasso, BMI, vita, fianchi)
+const LOWER_IS_BETTER = new Set([1, 3, 5, 9, 10]);
+// Metriche dove aumentare e' positivo (forza, massa magra)
+const HIGHER_IS_BETTER = new Set([4, 20, 21, 22]);
 
-function getMetricDelta(
+function computeDeltaInfo(
   measurements: Measurement[],
   metricId: number
 ): { value: string; positive: boolean } | null {
@@ -96,56 +100,33 @@ function getMetricDelta(
   const diff = latest.valore - prev.valore;
   if (diff === 0) return null;
   const sign = diff > 0 ? "+" : "";
-  return {
-    value: `${sign}${diff.toFixed(1)}`,
-    positive: diff < 0, // per peso/grasso: calare e' positivo
-  };
+  let positive: boolean;
+  if (LOWER_IS_BETTER.has(metricId)) {
+    positive = diff < 0;
+  } else if (HIGHER_IS_BETTER.has(metricId)) {
+    positive = diff > 0;
+  } else {
+    // Neutro — mostra la freccia ma non colora
+    positive = diff > 0; // just for icon direction
+  }
+  return { value: `${sign}${diff.toFixed(1)}`, positive };
 }
 
-const PROGRESSI_KPI: KpiCardConfig[] = [
-  {
-    key: "peso",
-    label: "Peso",
-    icon: Scale,
-    borderColor: "border-l-teal-500",
-    getValue: (m) => {
-      const v = getMetricValue(m, 1);
-      return v !== null ? `${v} kg` : "—";
-    },
-    getDelta: (m) => getMetricDelta(m, 1),
-  },
-  {
-    key: "grassa",
-    label: "Massa Grassa",
-    icon: Activity,
-    borderColor: "border-l-amber-500",
-    getValue: (m) => {
-      const v = getMetricValue(m, 3);
-      return v !== null ? `${v}%` : "—";
-    },
-    getDelta: (m) => getMetricDelta(m, 3),
-  },
-  {
-    key: "data",
-    label: "Ultima Misurazione",
-    icon: Calendar,
-    borderColor: "border-l-blue-500",
-    getValue: (m) => {
-      if (m.length === 0) return "—";
-      return format(parseISO(m[0].data_misurazione), "d MMM yyyy", {
-        locale: it,
-      });
-    },
-    getDelta: () => null,
-  },
-  {
-    key: "sessioni",
-    label: "Sessioni Totali",
-    icon: TrendingUp,
-    borderColor: "border-l-emerald-500",
-    getValue: (m) => String(m.length),
-    getDelta: () => null,
-  },
+// Icona + colore per categoria
+const CATEGORY_CONFIG: Record<MetricCategory, { icon: typeof Scale; color: string }> = {
+  antropometrica: { icon: Scale, color: "border-l-teal-500" },
+  composizione: { icon: Activity, color: "border-l-violet-500" },
+  circonferenza: { icon: Ruler, color: "border-l-blue-500" },
+  cardiovascolare: { icon: Heart, color: "border-l-rose-500" },
+  forza: { icon: Dumbbell, color: "border-l-amber-500" },
+};
+
+// KPI card border colors (cycle through)
+const KPI_BORDER_COLORS = [
+  "border-l-teal-500",
+  "border-l-amber-500",
+  "border-l-violet-500",
+  "border-l-blue-500",
 ];
 
 // ════════════════════════════════════════════════════════════
@@ -159,26 +140,94 @@ export function ProgressiTab({ clientId }: ProgressiTabProps) {
   const deleteMutation = useDeleteMeasurement(clientId);
 
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
   const measurements = measurementsData?.items ?? [];
 
-  // Metriche chiave presenti nelle misurazioni (per colonne tabella)
-  const keyMetricIds = useMemo(() => {
-    const candidates = [1, 3, 9]; // Peso, Massa Grassa, Vita
-    const available = new Set<number>();
+  // ── Metriche tracciate (con almeno 1 valore) ──
+  const trackedMetricIds = useMemo(() => {
+    const ids = new Set<number>();
     for (const m of measurements) {
       for (const v of m.valori) {
-        available.add(v.id_metrica);
+        ids.add(v.id_metrica);
       }
     }
-    return candidates.filter((id) => available.has(id));
+    return ids;
   }, [measurements]);
 
+  // ── Metric lookup ──
   const metricMap = useMemo(() => {
-    if (!metrics) return new Map<number, string>();
-    return new Map(metrics.map((m) => [m.id, m.nome]));
+    if (!metrics) return new Map<number, Metric>();
+    return new Map(metrics.map((m) => [m.id, m]));
   }, [metrics]);
 
+  // ── KPI dinamici: top metriche prioritarie + fill con piu' tracciate ──
+  const dynamicKpiMetrics = useMemo(() => {
+    // Start with priority metrics that have data
+    const kpis: Metric[] = [];
+    for (const id of PRIORITY_METRIC_IDS) {
+      if (trackedMetricIds.has(id)) {
+        const m = metricMap.get(id);
+        if (m) kpis.push(m);
+      }
+    }
+    // Fill up to 2 metric KPIs with most tracked metrics
+    if (kpis.length < 2 && metrics) {
+      const usedIds = new Set(kpis.map((m) => m.id));
+      // Count occurrences per metric
+      const counts = new Map<number, number>();
+      for (const m of measurements) {
+        for (const v of m.valori) {
+          if (!usedIds.has(v.id_metrica)) {
+            counts.set(v.id_metrica, (counts.get(v.id_metrica) ?? 0) + 1);
+          }
+        }
+      }
+      const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+      for (const [id] of sorted) {
+        if (kpis.length >= 2) break;
+        const m = metricMap.get(id);
+        if (m) kpis.push(m);
+      }
+    }
+    return kpis;
+  }, [trackedMetricIds, metricMap, metrics, measurements]);
+
+  // ── Category summary (categorie con dati) ──
+  const categorySummary = useMemo(() => {
+    if (!metrics) return [];
+    const catCounts = new Map<MetricCategory, number>();
+    for (const id of trackedMetricIds) {
+      const m = metricMap.get(id);
+      if (m) {
+        const cat = m.categoria as MetricCategory;
+        catCounts.set(cat, (catCounts.get(cat) ?? 0) + 1);
+      }
+    }
+    return [...catCounts.entries()].map(([cat, count]) => ({
+      category: cat,
+      count,
+      label: METRIC_CATEGORY_LABELS[cat],
+      ...CATEGORY_CONFIG[cat],
+    }));
+  }, [metrics, trackedMetricIds, metricMap]);
+
+  // ── Top colonne per tabella storico ──
+  const tableMetricIds = useMemo(() => {
+    // Conta frequenza per trovare le metriche piu' tracciate
+    const counts = new Map<number, number>();
+    for (const m of measurements) {
+      for (const v of m.valori) {
+        counts.set(v.id_metrica, (counts.get(v.id_metrica) ?? 0) + 1);
+      }
+    }
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4)
+      .map(([id]) => id);
+  }, [measurements]);
+
+  // ── Handlers ──
   const handleNewMeasurement = () => {
     router.push(`/clienti/${clientId}/misurazioni`);
   };
@@ -199,7 +248,11 @@ export function ProgressiTab({ clientId }: ProgressiTabProps) {
     window.print();
   };
 
-  // Loading state
+  const toggleExpanded = (id: number) => {
+    setExpandedId((prev) => (prev === id ? null : id));
+  };
+
+  // ── Loading state ──
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -212,7 +265,7 @@ export function ProgressiTab({ clientId }: ProgressiTabProps) {
     );
   }
 
-  // Empty state
+  // ── Empty state ──
   if (measurements.length === 0) {
     return (
       <Card className="border-dashed">
@@ -238,7 +291,7 @@ export function ProgressiTab({ clientId }: ProgressiTabProps) {
   return (
     <>
       <div className="space-y-6">
-        {/* Header */}
+        {/* ── 1. Header ── */}
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Progressi Fisici</h2>
           <div className="flex gap-2" data-print-hide>
@@ -253,25 +306,33 @@ export function ProgressiTab({ clientId }: ProgressiTabProps) {
           </div>
         </div>
 
-        {/* KPI Cards */}
+        {/* ── 2. KPI Cards (dinamici) ── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {PROGRESSI_KPI.map((kpi) => {
-            const delta = kpi.getDelta(measurements);
+          {/* Metric-based KPIs */}
+          {dynamicKpiMetrics.map((metric, idx) => {
+            const latest = measurements[0]?.valori.find(
+              (v) => v.id_metrica === metric.id
+            );
+            const delta = computeDeltaInfo(measurements, metric.id);
+            const borderColor = KPI_BORDER_COLORS[idx % KPI_BORDER_COLORS.length];
+
             return (
               <Card
-                key={kpi.key}
-                className={`border-l-4 ${kpi.borderColor} bg-gradient-to-br from-background to-muted/30 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg`}
+                key={metric.id}
+                className={`border-l-4 ${borderColor} bg-gradient-to-br from-background to-muted/30 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg`}
               >
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-medium text-muted-foreground">
-                      {kpi.label}
+                      {metric.nome}
                     </span>
-                    <kpi.icon className="h-4 w-4 text-muted-foreground/50" />
+                    <Scale className="h-4 w-4 text-muted-foreground/50" />
                   </div>
                   <div className="mt-2 flex items-baseline gap-2">
                     <span className="text-2xl font-extrabold tracking-tighter tabular-nums">
-                      {kpi.getValue(measurements)}
+                      {latest
+                        ? `${latest.valore} ${metric.unita_misura}`
+                        : "—"}
                     </span>
                     {delta && (
                       <span
@@ -294,9 +355,63 @@ export function ProgressiTab({ clientId }: ProgressiTabProps) {
               </Card>
             );
           })}
+
+          {/* Ultima Misurazione */}
+          <Card className="border-l-4 border-l-blue-500 bg-gradient-to-br from-background to-muted/30 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">
+                  Ultima Misurazione
+                </span>
+                <Calendar className="h-4 w-4 text-muted-foreground/50" />
+              </div>
+              <div className="mt-2">
+                <span className="text-2xl font-extrabold tracking-tighter tabular-nums">
+                  {format(parseISO(measurements[0].data_misurazione), "d MMM yyyy", {
+                    locale: it,
+                  })}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Sessioni Totali */}
+          <Card className="border-l-4 border-l-emerald-500 bg-gradient-to-br from-background to-muted/30 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">
+                  Sessioni Totali
+                </span>
+                <TrendingUp className="h-4 w-4 text-muted-foreground/50" />
+              </div>
+              <div className="mt-2">
+                <span className="text-2xl font-extrabold tracking-tighter tabular-nums">
+                  {measurements.length}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Chart */}
+        {/* ── 3. Category Summary ── */}
+        {categorySummary.length > 1 && (
+          <div className="flex flex-wrap gap-2">
+            {categorySummary.map(({ category, count, label, icon: CatIcon, color }) => (
+              <div
+                key={category}
+                className={`inline-flex items-center gap-2 rounded-lg border-l-4 ${color} bg-muted/30 px-3 py-2`}
+              >
+                <CatIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium">{label}</span>
+                <span className="rounded-full bg-background px-1.5 py-0.5 text-[10px] font-bold tabular-nums">
+                  {count}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── 4. Chart ── */}
         {metrics && (
           <Card>
             <CardContent className="pt-6">
@@ -308,7 +423,24 @@ export function ProgressiTab({ clientId }: ProgressiTabProps) {
           </Card>
         )}
 
-        {/* Storico tabellare */}
+        {/* ── 5. Mappa Corporea Interattiva ── */}
+        {metrics && (
+          <InteractiveBodyMap
+            clientId={clientId}
+            measurements={measurements}
+            metrics={metrics}
+          />
+        )}
+
+        {/* ── 6. Confronto Sessioni ── */}
+        {metrics && (
+          <SessionComparison
+            measurements={measurements}
+            metrics={metrics}
+          />
+        )}
+
+        {/* ── 7. Storico Misurazioni (espandibile) ── */}
         <Card>
           <CardContent className="pt-6">
             <h3 className="mb-4 text-sm font-semibold">Storico Misurazioni</h3>
@@ -316,10 +448,11 @@ export function ProgressiTab({ clientId }: ProgressiTabProps) {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-8" data-print-hide />
                     <TableHead>Data</TableHead>
-                    {keyMetricIds.map((id) => (
+                    {tableMetricIds.map((id) => (
                       <TableHead key={id} className="text-right">
-                        {metricMap.get(id) ?? `#${id}`}
+                        {metricMap.get(id)?.nome ?? `#${id}`}
                       </TableHead>
                     ))}
                     <TableHead>Note</TableHead>
@@ -329,48 +462,21 @@ export function ProgressiTab({ clientId }: ProgressiTabProps) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {measurements.map((m) => (
-                    <TableRow key={m.id}>
-                      <TableCell className="font-medium whitespace-nowrap">
-                        {format(parseISO(m.data_misurazione), "d MMM yyyy", {
-                          locale: it,
-                        })}
-                      </TableCell>
-                      {keyMetricIds.map((metricId) => {
-                        const val = m.valori.find(
-                          (v) => v.id_metrica === metricId
-                        );
-                        return (
-                          <TableCell key={metricId} className="text-right tabular-nums">
-                            {val ? `${val.valore} ${val.unita}` : "—"}
-                          </TableCell>
-                        );
-                      })}
-                      <TableCell className="max-w-[200px] truncate text-muted-foreground">
-                        {m.note ?? "—"}
-                      </TableCell>
-                      <TableCell className="text-right" data-print-hide>
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => handleEditMeasurement(m)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive hover:text-destructive"
-                            onClick={() => setDeleteId(m.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {measurements.map((m) => {
+                    const isExpanded = expandedId === m.id;
+                    return (
+                      <HistoryRow
+                        key={m.id}
+                        measurement={m}
+                        tableMetricIds={tableMetricIds}
+                        metricMap={metricMap}
+                        isExpanded={isExpanded}
+                        onToggleExpand={() => toggleExpanded(m.id)}
+                        onEdit={() => handleEditMeasurement(m)}
+                        onDelete={() => setDeleteId(m.id)}
+                      />
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -402,6 +508,133 @@ export function ProgressiTab({ clientId }: ProgressiTabProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// HISTORY ROW — Espandibile con tutti i valori
+// ════════════════════════════════════════════════════════════
+
+function HistoryRow({
+  measurement,
+  tableMetricIds,
+  metricMap,
+  isExpanded,
+  onToggleExpand,
+  onEdit,
+  onDelete,
+}: {
+  measurement: Measurement;
+  tableMetricIds: number[];
+  metricMap: Map<number, Metric>;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  // Group expanded values by category
+  const expandedGroups = useMemo(() => {
+    if (!isExpanded) return [];
+    const groups = new Map<MetricCategory, { nome: string; valore: number; unita: string }[]>();
+    for (const v of measurement.valori) {
+      const metric = metricMap.get(v.id_metrica);
+      if (!metric) continue;
+      const cat = metric.categoria as MetricCategory;
+      if (!groups.has(cat)) groups.set(cat, []);
+      groups.get(cat)!.push({
+        nome: metric.nome,
+        valore: v.valore,
+        unita: metric.unita_misura,
+      });
+    }
+    return [...groups.entries()];
+  }, [isExpanded, measurement.valori, metricMap]);
+
+  const colSpan = 2 + tableMetricIds.length + 2; // chevron + data + metrics + note + azioni
+
+  return (
+    <>
+      <TableRow
+        className="cursor-pointer hover:bg-muted/50"
+        onClick={onToggleExpand}
+      >
+        <TableCell className="w-8 px-2" data-print-hide>
+          <ChevronDown
+            className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${
+              isExpanded ? "rotate-180" : ""
+            }`}
+          />
+        </TableCell>
+        <TableCell className="font-medium whitespace-nowrap">
+          {format(parseISO(measurement.data_misurazione), "d MMM yyyy", {
+            locale: it,
+          })}
+        </TableCell>
+        {tableMetricIds.map((metricId) => {
+          const val = measurement.valori.find(
+            (v) => v.id_metrica === metricId
+          );
+          return (
+            <TableCell key={metricId} className="text-right tabular-nums">
+              {val ? `${val.valore} ${val.unita}` : "—"}
+            </TableCell>
+          );
+        })}
+        <TableCell className="max-w-[200px] truncate text-muted-foreground">
+          {measurement.note ?? "—"}
+        </TableCell>
+        <TableCell className="text-right" data-print-hide>
+          <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={onEdit}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-destructive hover:text-destructive"
+              onClick={onDelete}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </TableCell>
+      </TableRow>
+
+      {/* Riga espansa con tutti i valori raggruppati per categoria */}
+      {isExpanded && (
+        <TableRow>
+          <TableCell colSpan={colSpan} className="bg-muted/20 px-6 py-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {expandedGroups.map(([category, values]) => (
+                <div key={category} className="space-y-1.5">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    {METRIC_CATEGORY_LABELS[category]}
+                  </span>
+                  <div className="space-y-1">
+                    {values.map((v) => (
+                      <div
+                        key={v.nome}
+                        className="flex items-center justify-between text-sm"
+                      >
+                        <span className="text-muted-foreground">{v.nome}</span>
+                        <span className="font-medium tabular-nums">
+                          {v.valore} {v.unita}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </TableCell>
+        </TableRow>
+      )}
     </>
   );
 }
