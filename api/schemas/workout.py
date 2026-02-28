@@ -36,6 +36,7 @@ class WorkoutExerciseInput(BaseModel):
     ripetizioni: str = Field(min_length=1, max_length=20, default="8-12")
     tempo_riposo_sec: int = Field(ge=0, le=300, default=90)
     tempo_esecuzione: Optional[str] = Field(None, max_length=20)
+    carico_kg: Optional[float] = Field(None, ge=0, le=500)
     note: Optional[str] = Field(None, max_length=500)
 
 
@@ -123,6 +124,7 @@ class WorkoutExerciseResponse(BaseModel):
     ripetizioni: str
     tempo_riposo_sec: int
     tempo_esecuzione: Optional[str] = None
+    carico_kg: Optional[float] = None
     note: Optional[str] = None
 
 

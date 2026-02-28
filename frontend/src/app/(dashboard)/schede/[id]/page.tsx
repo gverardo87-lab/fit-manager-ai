@@ -424,6 +424,7 @@ export default function SchedaDetailPage({
                 ripetizioni: defaults.ripetizioni,
                 tempo_riposo_sec: defaults.tempo_riposo_sec,
                 tempo_esecuzione: null,
+                carico_kg: null,
                 note: null,
               },
             ],
@@ -512,6 +513,7 @@ export default function SchedaDetailPage({
         ripetizioni: e.ripetizioni,
         tempo_riposo_sec: e.tempo_riposo_sec,
         tempo_esecuzione: e.tempo_esecuzione,
+        carico_kg: e.carico_kg,
         note: e.note,
       })),
     }));

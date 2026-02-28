@@ -110,6 +110,15 @@ const SECTION_CONFIG: Record<TemplateSection, {
 
 const SECTION_ORDER: TemplateSection[] = ["avviamento", "principale", "stretching"];
 
+/** Parsa range ripetizioni → media. "8-12" → 10, "5" → 5, "30s" → 0. */
+function parseAvgReps(reps: string): number {
+  const range = reps.match(/^(\d+)\s*-\s*(\d+)$/);
+  if (range) return (parseInt(range[1]) + parseInt(range[2])) / 2;
+  const single = reps.match(/^(\d+)$/);
+  if (single) return parseInt(single[1]);
+  return 0;
+}
+
 export function SessionCard({
   session,
   safetyMap,
@@ -146,6 +155,18 @@ export function SessionCard({
     }
     return groups;
   }, [session.esercizi]);
+
+  // Volume sessione (solo sezione principale, solo se >= 1 esercizio ha carico)
+  const sessionVolume = useMemo(() => {
+    const principale = groupedExercises.principale;
+    const withLoad = principale.filter((e) => e.carico_kg != null && e.carico_kg > 0);
+    if (withLoad.length === 0) return null;
+    const total = withLoad.reduce((sum, e) => {
+      const reps = parseAvgReps(e.ripetizioni);
+      return sum + e.serie * reps * (e.carico_kg ?? 0);
+    }, 0);
+    return Math.round(total);
+  }, [groupedExercises.principale]);
 
   // Safety pills: contatori avoid/caution per questa sessione
   const sessionSafety = useMemo(() => {
@@ -312,6 +333,11 @@ export function SessionCard({
                       ({exercises.length})
                     </span>
                   )}
+                  {isPrincipale && sessionVolume != null && (
+                    <span className="text-[10px] font-semibold text-muted-foreground ml-auto tabular-nums">
+                      Vol: {sessionVolume.toLocaleString("it-IT")} kg
+                    </span>
+                  )}
                 </div>
 
                 {/* Exercise rows */}
@@ -319,7 +345,7 @@ export function SessionCard({
                   <>
                     {/* Column header — allineato ai nuovi grid */}
                     <div className={`grid ${isPrincipale
-                      ? "grid-cols-[20px_14px_1fr_44px_52px_44px_24px]"
+                      ? "grid-cols-[20px_14px_1fr_44px_52px_52px_44px_24px]"
                       : "grid-cols-[20px_14px_1fr_44px_52px_24px]"
                     } gap-1 px-1 pb-0.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider`}>
                       <span />
@@ -328,7 +354,10 @@ export function SessionCard({
                       <span className="text-center">Serie</span>
                       <span className="text-center">Rip</span>
                       {isPrincipale && (
-                        <span className="text-center">Riposo</span>
+                        <>
+                          <span className="text-center">Kg</span>
+                          <span className="text-center">Riposo</span>
+                        </>
                       )}
                       <span />
                     </div>

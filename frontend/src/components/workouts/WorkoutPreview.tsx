@@ -184,6 +184,7 @@ function SessionPreview({
                     <th className="py-1 text-left font-medium">Esercizio</th>
                     <th className="py-1 text-center font-medium w-12">Serie</th>
                     <th className="py-1 text-center font-medium w-14">Rip</th>
+                    <th className="py-1 text-center font-medium w-12">Kg</th>
                     <th className="py-1 text-center font-medium w-14">Riposo</th>
                     <th className="py-1 text-left font-medium w-28">Note</th>
                   </tr>
@@ -206,6 +207,9 @@ function SessionPreview({
                       <td className="py-1 text-center tabular-nums">{ex.ripetizioni}</td>
                       {isPrincipale && (
                         <>
+                          <td className="py-1 text-center tabular-nums">
+                            {ex.carico_kg != null ? ex.carico_kg : "—"}
+                          </td>
                           <td className="py-1 text-center tabular-nums">{ex.tempo_riposo_sec}s</td>
                           <td className="py-1 text-muted-foreground truncate max-w-[120px]">
                             {ex.note ?? "—"}

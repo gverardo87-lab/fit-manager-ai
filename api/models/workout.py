@@ -64,4 +64,5 @@ class WorkoutExercise(SQLModel, table=True):
     ripetizioni: str = Field(default="8-12")
     tempo_riposo_sec: int = Field(default=90)
     tempo_esecuzione: Optional[str] = None
+    carico_kg: Optional[float] = None
     note: Optional[str] = None

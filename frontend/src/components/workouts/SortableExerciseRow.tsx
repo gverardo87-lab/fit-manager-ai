@@ -6,7 +6,7 @@
  *
  * Due layout (entrambi snelli):
  * - compact=true: avviamento/stretching — 6 colonne (grip, info, nome, serie, rip, delete)
- * - compact=false: principale — 7 colonne (+ riposo)
+ * - compact=false: principale — 8 colonne (+ kg + riposo)
  *
  * Info icon: espande pannello unificato (nota + tempo + ExerciseDetailPanel).
  * Safety: icona cliccabile apre Popover ricco con condizioni dettagliate.
@@ -310,12 +310,12 @@ export function SortableExerciseRow({
     );
   }
 
-  // ── Layout principale (7 colonne) ──
+  // ── Layout principale (8 colonne) ──
 
   return (
     <div ref={setNodeRef} style={style}>
       <div
-        className={`group/row grid grid-cols-[20px_14px_1fr_44px_52px_44px_24px] gap-1 items-center rounded-md px-1 py-1 hover:bg-muted/40 transition-colors ${safetyBg}`}
+        className={`group/row grid grid-cols-[20px_14px_1fr_44px_52px_52px_44px_24px] gap-1 items-center rounded-md px-1 py-1 hover:bg-muted/40 transition-colors ${safetyBg}`}
       >
         {/* Drag handle */}
         <button
@@ -367,6 +367,20 @@ export function SortableExerciseRow({
           onChange={(e) => onUpdate({ ripetizioni: e.target.value })}
           className="h-6 text-center text-[11px] px-1"
           placeholder="8-12"
+        />
+
+        {/* Carico kg */}
+        <Input
+          type="number"
+          value={exercise.carico_kg ?? ""}
+          onChange={(e) => onUpdate({
+            carico_kg: e.target.value ? parseFloat(e.target.value) : null,
+          })}
+          min={0}
+          max={500}
+          step={0.5}
+          className="h-6 text-center text-[11px] px-1"
+          placeholder="—"
         />
 
         {/* Tempo riposo */}

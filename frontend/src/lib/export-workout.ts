@@ -67,7 +67,7 @@ const LIVELLO_LABELS: Record<string, string> = {
 // ── Colonne ──
 
 const MERGE_CARD = "H";  // 8 colonne (A-H) — layout card con immagini
-const MERGE_TABLE = "G";  // 7 colonne (A-G) — layout tabella senza immagini
+const MERGE_TABLE = "H";  // 8 colonne (A-H) — layout tabella senza immagini (+ carico)
 
 // ── Interfaces ──
 
@@ -346,25 +346,25 @@ function addExerciseCard(
   }
   headerRow.height = 22;
 
-  // ── Row 2: Data line 1 (Serie + Riposo) ──
+  // ── Row 2: Data line 1 (Serie + Carico) ──
   const dataRow1 = ws.addRow([
     "", "", "",
     "Serie",
     ex.serie,
-    "Riposo",
-    `${ex.tempo_riposo_sec}s`,
+    "Kg",
+    ex.carico_kg != null ? `${ex.carico_kg}` : "—",
     ex.note ?? "",
   ]);
   const dataRow1Num = ws.rowCount;
 
-  // ── Row 3: Data line 2 (Rip + Tempo) ──
+  // ── Row 3: Data line 2 (Rip + Riposo) ──
   const dataRow2 = ws.addRow([
     "", "", "",
     "Rip",
     ex.ripetizioni,
-    "Tempo",
-    ex.tempo_esecuzione ?? "—",
-    "",
+    "Riposo",
+    `${ex.tempo_riposo_sec}s`,
+    ex.tempo_esecuzione ? `Tempo: ${ex.tempo_esecuzione}` : "",
   ]);
   const dataRow2Num = ws.rowCount;
 
@@ -468,12 +468,13 @@ function addCompactRow(
       });
     }
   } else {
-    // Layout 7 colonne: senza immagini
+    // Layout 8 colonne: senza immagini
     const row = ws.addRow([
       idx + 1,
       ex.esercizio_nome,
       ex.serie,
       ex.ripetizioni,
+      "",
       "",
       "",
       ex.note ?? "",
@@ -565,9 +566,10 @@ export async function exportWorkoutExcel({
         { width: 30 },  // B: Esercizio
         { width: 8 },   // C: Serie
         { width: 12 },  // D: Ripetizioni
-        { width: 10 },  // E: Riposo
-        { width: 12 },  // F: Tempo
-        { width: 25 },  // G: Note
+        { width: 10 },  // E: Carico (kg)
+        { width: 10 },  // F: Riposo
+        { width: 12 },  // G: Tempo
+        { width: 25 },  // H: Note
       ];
     }
 
@@ -620,7 +622,7 @@ export async function exportWorkoutExcel({
         });
       } else if (isPrincipale && !hasImages) {
         // ── Tabella classica per principale senza immagini ──
-        const colHeaders = ["#", "Esercizio", "Serie", "Ripetizioni", "Riposo (s)", "Tempo", "Note"];
+        const colHeaders = ["#", "Esercizio", "Serie", "Ripetizioni", "Carico (kg)", "Riposo (s)", "Tempo", "Note"];
         const thRow = ws.addRow(colHeaders);
         thRow.eachCell((cell) => {
           cell.font = { bold: true, size: 10, color: { argb: WHITE } };
@@ -636,6 +638,7 @@ export async function exportWorkoutExcel({
             ex.esercizio_nome,
             ex.serie,
             ex.ripetizioni,
+            ex.carico_kg != null ? ex.carico_kg : "",
             ex.tempo_riposo_sec,
             ex.tempo_esecuzione ?? "",
             ex.note ?? "",
@@ -653,6 +656,7 @@ export async function exportWorkoutExcel({
           row.getCell(4).alignment = { horizontal: "center" };
           row.getCell(5).alignment = { horizontal: "center" };
           row.getCell(6).alignment = { horizontal: "center" };
+          row.getCell(7).alignment = { horizontal: "center" };
           row.font = { size: 10 };
         });
       } else {
@@ -678,9 +682,7 @@ export async function exportWorkoutExcel({
 
     // ── Footer ──
     ws.addRow([]);
-    const footerCells = hasImages
-      ? ["ProFit AI Studio", "", "", "", "", "", "", new Date().toLocaleDateString("it-IT")]
-      : ["ProFit AI Studio", "", "", "", "", "", new Date().toLocaleDateString("it-IT")];
+    const footerCells = ["ProFit AI Studio", "", "", "", "", "", "", new Date().toLocaleDateString("it-IT")];
     const footerRow = ws.addRow(footerCells);
     footerRow.font = { size: 8, italic: true, color: { argb: GRAY_LIGHT } };
   }

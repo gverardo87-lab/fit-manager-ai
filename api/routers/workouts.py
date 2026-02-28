@@ -153,6 +153,7 @@ def _build_plan_response(
                 ripetizioni=e.ripetizioni,
                 tempo_riposo_sec=e.tempo_riposo_sec,
                 tempo_esecuzione=e.tempo_esecuzione,
+                carico_kg=e.carico_kg,
                 note=e.note,
             ))
         session_responses.append(WorkoutSessionResponse(
@@ -230,6 +231,7 @@ def _insert_sessions(
                 ripetizioni=ex_in.ripetizioni,
                 tempo_riposo_sec=ex_in.tempo_riposo_sec,
                 tempo_esecuzione=ex_in.tempo_esecuzione,
+                carico_kg=ex_in.carico_kg,
                 note=ex_in.note,
             )
             session.add(we)
@@ -550,6 +552,7 @@ def duplicate_workout(
                 ripetizioni=e.ripetizioni,
                 tempo_riposo_sec=e.tempo_riposo_sec,
                 tempo_esecuzione=e.tempo_esecuzione,
+                carico_kg=e.carico_kg,
                 note=e.note,
             ))
 

@@ -948,6 +948,7 @@ export interface WorkoutExerciseRow {
   ripetizioni: string;
   tempo_riposo_sec: number;
   tempo_esecuzione: string | null;
+  carico_kg: number | null;
   note: string | null;
 }
 
@@ -995,6 +996,7 @@ export interface WorkoutExerciseInput {
   ripetizioni?: string;
   tempo_riposo_sec?: number;
   tempo_esecuzione?: string | null;
+  carico_kg?: number | null;
   note?: string | null;
 }
 

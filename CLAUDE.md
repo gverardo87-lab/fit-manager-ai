@@ -184,6 +184,51 @@ File chiave: `api/services/safety_engine.py` (engine), `api/services/condition_r
 `components/workouts/SortableExerciseRow.tsx` (SafetyPopover + Info panel), `components/workouts/ExerciseDetailPanel.tsx` (dettaglio inline riusabile),
 `components/workouts/ExerciseSelector.tsx` (selettore con dettaglio), `schede/[id]/page.tsx` (Overview Panel + quick-replace handler).
 
+### Analisi Clinica — Motore Chinesiologico Client-Side
+
+> **Filosofia: il chinesiologo non guarda solo "dove sei" ma "come cambi" e "dove vai".**
+> Il sistema trasforma dati grezzi in insight actionable basati su fonti scientifiche.
+
+4 librerie TypeScript pure (zero backend, dati statici + computazione da misurazioni):
+
+**`lib/normative-ranges.ts`** — Range normativi OMS/ACSM/AHA/ESH per classificare valori:
+- BMI (OMS universale), Massa Grassa % (ACSM × sesso × 5 fasce eta'), FC Riposo (AHA),
+  PA Sistolica/Diastolica (ESH/ESC 2023)
+- `classifyValue(metricId, value, sesso, age)` → `{ label, color }` o null
+- `getNormativeBands(metricId, sesso, age)` → bande per chart ReferenceArea
+- `getHealthyRange(metricId, sesso, age)` → fascia sana per hint target goal
+- `BAND_COLOR_CLASSES` / `BAND_CHART_FILLS` per styling coerente
+
+**`lib/measurement-analytics.ts`** — Velocita' di cambiamento settimanale:
+- `computeWeeklyRate(measurements, metricId, windowDays)` → delta/settimana
+- `formatRate(rate, unit)` → "−0.5 kg/sett"
+- Backend: `velocita_settimanale` + `num_misurazioni` in `GoalProgress`
+
+**`lib/derived-metrics.ts`** — Metriche derivate da dati raw:
+- BMI, LBM (massa magra), FFMI (Kouri et al. 1995), WHR, MAP (pressione arteriosa media)
+- Forza relativa: NSCA benchmarks (squat/panca/stacco × sesso) con 5 livelli
+- `computeAllDerived(measurements, sesso, age)` → `DerivedMetricsResult`
+
+**`lib/clinical-analysis.ts`** — Orchestratore 5 moduli clinici:
+1. **Metriche Derivate** — BMI + LBM + FFMI + WHR + MAP con classificazione
+2. **Assessment Velocita'** — rate vs soglie ACSM (>1% peso/sett = rischio catabolismo)
+3. **Composizione Espansa** — 8 fasi (cutting/recomp/lean_bulk/plateau/muscle_loss/optimal_growth/critical/bulk),
+   decomposizione ΔFM + ΔLBM, proiezione temporale al goal
+4. **Simmetria Bilaterale** — braccia/cosce/polpacci R/L con soglie (1.0-2.5cm per body part)
+5. **Profilo Rischio** — screening metabolico (WHR + BMI + grasso%) + cardiovascolare (PA + FC),
+   suggerimento referral se alto rischio
+
+**`lib/metric-correlations.ts`** — Correlazione inter-metrica (3 coppie):
+- Peso + Grasso % → 8 scenari composizione (perdita grasso, catabolismo, ricomposizione...)
+- Vita + Fianchi → WHR con classificazione OMS per sesso + trend
+- PA Sistolica + Diastolica → classificazione ESH combinata + pressione differenziale
+
+**Frontend**: `ClinicalAnalysisPanel.tsx` (~510 LOC) in ProgressiTab — 5 sezioni collassabili
+con bordo severity-colorato + badge. Riceve `measurements`, `sesso`, `dataNascita`, `goals`.
+
+**Integrazione**: `MeasurementChart` mostra `<ReferenceArea>` bande normative.
+`GoalFormDialog` mostra hint range sano sotto target. `GoalsSummary` propaga sesso/dataNascita.
+
 ---
 
 ## Architettura

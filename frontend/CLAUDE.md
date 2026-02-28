@@ -49,6 +49,11 @@ frontend/src/
 │   ├── format.ts            5 utility: formatCurrency, toISOLocal, formatShortDate, formatDateTime, getFinanceBarColor
 │   ├── contraindication-engine.ts  Motore controindicazioni anamnesi (classify, extract, batch)
 │   ├── workout-templates.ts Template schede + getSectionForCategory + SECTION_CATEGORIES
+│   ├── normative-ranges.ts  Range normativi OMS/ACSM/AHA/ESH (classifyValue, getNormativeBands)
+│   ├── derived-metrics.ts   Metriche derivate (BMI, LBM, FFMI, WHR, MAP, forza relativa NSCA)
+│   ├── clinical-analysis.ts Orchestratore 5 moduli clinici (generateClinicalReport)
+│   ├── metric-correlations.ts Correlazioni inter-metrica (3 coppie, analyzeCorrelations)
+│   ├── measurement-analytics.ts Rate settimanale (computeWeeklyRate, formatRate)
 │   └── providers.tsx        QueryClientProvider
 └── types/
     └── api.ts               TypeScript interfaces (mirror Pydantic)
