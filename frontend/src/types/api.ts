@@ -1163,6 +1163,8 @@ export interface GoalProgress {
   delta_da_baseline: number | null;
   percentuale_progresso: number | null;
   tendenza_positiva: boolean | null;
+  velocita_settimanale: number | null;
+  num_misurazioni: number;
 }
 
 /** Obiettivo con progresso inline */

@@ -137,7 +137,7 @@ export default function MisurazionePage({
     const valori: MeasurementValueInput[] = [];
     for (const [idStr, valStr] of Object.entries(values)) {
       const numVal = parseFloat(valStr);
-      if (!isNaN(numVal) && numVal > 0) {
+      if (!isNaN(numVal)) {
         valori.push({ id_metrica: parseInt(idStr, 10), valore: numVal });
       }
     }
@@ -271,7 +271,6 @@ export default function MisurazionePage({
                         id={`metric-${metric.id}`}
                         type="number"
                         step="0.1"
-                        min="0"
                         placeholder="—"
                         value={values[metric.id] ?? ""}
                         onChange={(e) =>

@@ -21,7 +21,7 @@ class MeasurementValueInput(BaseModel):
     model_config = {"extra": "forbid"}
 
     id_metrica: int = Field(gt=0)
-    valore: float = Field(gt=0)
+    valore: float
 
 
 class MeasurementCreate(BaseModel):

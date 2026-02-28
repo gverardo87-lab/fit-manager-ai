@@ -15,7 +15,7 @@ Progress computation: enrichment dalla misurazione piu' recente per ogni metrica
 Anti-N+1: 3 query batch (obiettivi + metriche + valori recenti).
 """
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -116,14 +116,91 @@ def _get_latest_values(
     return result
 
 
+def _get_metric_history(
+    session: Session, client_id: int, trainer_id: int, metric_ids: set[int]
+) -> dict[int, list[tuple[date, float]]]:
+    """
+    Time series per metriche specifiche. Anti-N+1: 2 query batch.
+    Returns: {metric_id: [(date, value), ...]} ordinato ASC per data.
+    """
+    if not metric_ids:
+        return {}
+
+    # Query 1: sessioni attive (ID + date) ordinate ASC
+    rows = session.exec(
+        select(ClientMeasurement.id, ClientMeasurement.data_misurazione)
+        .where(
+            ClientMeasurement.id_cliente == client_id,
+            ClientMeasurement.trainer_id == trainer_id,
+            ClientMeasurement.deleted_at == None,
+        )
+        .order_by(ClientMeasurement.data_misurazione.asc())
+    ).all()
+
+    if not rows:
+        return {}
+
+    measurement_ids = [r[0] for r in rows]
+    date_by_id: dict[int, date] = {r[0]: r[1] for r in rows}
+
+    # Query 2: valori per metric_ids nelle sessioni trovate
+    values = session.exec(
+        select(MeasurementValue).where(
+            MeasurementValue.id_misurazione.in_(measurement_ids),
+            MeasurementValue.id_metrica.in_(metric_ids),
+        )
+    ).all()
+
+    # Group by metric_id, sort by date ASC
+    result: dict[int, list[tuple[date, float]]] = {}
+    for v in values:
+        d = date_by_id.get(v.id_misurazione)
+        if d:
+            result.setdefault(v.id_metrica, []).append((d, v.valore))
+
+    for metric_id in result:
+        result[metric_id].sort(key=lambda x: x[0])
+
+    return result
+
+
+def _compute_weekly_rate(history: list[tuple[date, float]]) -> Optional[float]:
+    """
+    Velocita' settimanale: pendenza su ultimi 30 giorni.
+    Fallback: primo + ultimo se < 2 punti nel window.
+    """
+    if len(history) < 2:
+        return None
+
+    latest = history[-1]
+    cutoff = latest[0] - timedelta(days=30)
+    recent = [p for p in history if p[0] >= cutoff]
+
+    # Fallback a range completo se < 2 punti in 30gg
+    if len(recent) < 2:
+        recent = [history[0], history[-1]]
+
+    first, last = recent[0], recent[-1]
+    days = (last[0] - first[0]).days
+    if days == 0:
+        return None
+
+    delta = last[1] - first[1]
+    weekly_rate = delta / days * 7
+    return round(weekly_rate, 2)
+
+
 def _compute_progress(
     goal: ClientGoal,
     latest_value: Optional[float],
     latest_date: Optional[str],
+    history: Optional[list[tuple[date, float]]] = None,
 ) -> GoalProgress:
-    """Computa progresso obiettivo dalla misurazione piu' recente."""
+    """Computa progresso obiettivo dalla misurazione piu' recente + rate."""
+    num = len(history) if history else 0
+
     if latest_value is None:
-        return GoalProgress()
+        return GoalProgress(num_misurazioni=num)
 
     delta = None
     pct = None
@@ -147,12 +224,16 @@ def _compute_progress(
                 raw_pct = (latest_value - goal.valore_baseline) / span * 100
                 pct = max(0.0, min(100.0, raw_pct))
 
+    rate = _compute_weekly_rate(history) if history else None
+
     return GoalProgress(
         valore_corrente=latest_value,
         data_corrente=latest_date,
         delta_da_baseline=round(delta, 2) if delta is not None else None,
         percentuale_progresso=round(pct, 1) if pct is not None else None,
         tendenza_positiva=trend,
+        velocita_settimanale=rate,
+        num_misurazioni=num,
     )
 
 
@@ -160,15 +241,18 @@ def _build_goal_response(
     goal: ClientGoal,
     metric_map: dict[int, Metric],
     latest_values: dict[int, tuple[float, str]],
+    metric_histories: Optional[dict[int, list[tuple[date, float]]]] = None,
 ) -> GoalResponse:
     """Assembla response enriched con nome metrica e progresso."""
     metric = metric_map.get(goal.id_metrica)
     latest = latest_values.get(goal.id_metrica)
+    history = metric_histories.get(goal.id_metrica) if metric_histories else None
 
     progress = _compute_progress(
         goal,
         latest[0] if latest else None,
         latest[1] if latest else None,
+        history=history,
     )
 
     return GoalResponse(
@@ -225,8 +309,12 @@ def list_goals(
     metric_map = _load_metric_map(session)
     latest_values = _get_latest_values(session, client_id, trainer.id)
 
+    # Fetch storico metriche per rate of change (anti-N+1: 2 query batch)
+    goal_metric_ids = {g.id_metrica for g in goals}
+    metric_histories = _get_metric_history(session, client_id, trainer.id, goal_metric_ids)
+
     items = [
-        _build_goal_response(g, metric_map, latest_values)
+        _build_goal_response(g, metric_map, latest_values, metric_histories)
         for g in goals
     ]
 

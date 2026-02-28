@@ -52,6 +52,8 @@ interface GoalsSummaryProps {
   clientId: number;
   /** Valori correnti dalla misurazione piu' recente — per il form dialog */
   currentValues?: Map<number, number>;
+  sesso?: string | null;
+  dataNascita?: string | null;
 }
 
 // Colore progress bar basato su tendenza
@@ -78,7 +80,7 @@ function DirectionIcon({ direzione }: { direzione: string }) {
 // COMPONENT
 // ════════════════════════════════════════════════════════════
 
-export function GoalsSummary({ clientId, currentValues }: GoalsSummaryProps) {
+export function GoalsSummary({ clientId, currentValues, sesso, dataNascita }: GoalsSummaryProps) {
   const { data: goalsData } = useClientGoals(clientId);
   const updateGoal = useUpdateGoal(clientId);
   const deleteGoal = useDeleteGoal(clientId);
@@ -188,6 +190,8 @@ export function GoalsSummary({ clientId, currentValues }: GoalsSummaryProps) {
         clientId={clientId}
         goal={editGoal}
         currentValues={currentValues}
+        sesso={sesso}
+        dataNascita={dataNascita}
       />
 
       {/* Delete confirm */}
@@ -352,6 +356,27 @@ function GoalCard({
               {progresso.delta_da_baseline} {goal.unita_misura}
             </span>
           </div>
+        )}
+
+        {/* Rate of change */}
+        {progresso.velocita_settimanale !== null && progresso.num_misurazioni >= 2 && (
+          <span
+            className={`text-[10px] font-medium tabular-nums ${
+              progresso.tendenza_positiva
+                ? "text-emerald-600 dark:text-emerald-400"
+                : progresso.tendenza_positiva === false
+                  ? "text-rose-600 dark:text-rose-400"
+                  : "text-muted-foreground"
+            }`}
+          >
+            {progresso.velocita_settimanale > 0 ? "+" : ""}
+            {Math.abs(progresso.velocita_settimanale) >= 10
+              ? progresso.velocita_settimanale.toFixed(0)
+              : Math.abs(progresso.velocita_settimanale) >= 1
+                ? progresso.velocita_settimanale.toFixed(1)
+                : progresso.velocita_settimanale.toFixed(2)}{" "}
+            {goal.unita_misura}/sett
+          </span>
         )}
 
         {/* Deadline */}

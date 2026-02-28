@@ -143,7 +143,7 @@ export default function ClientProfilePage({
         </TabsContent>
 
         <TabsContent value="progressi" className="mt-4">
-          <ProgressiTab clientId={clientId} />
+          <ProgressiTab clientId={clientId} sesso={client.sesso} dataNascita={client.data_nascita} />
         </TabsContent>
 
         <TabsContent value="anamnesi" className="mt-4">

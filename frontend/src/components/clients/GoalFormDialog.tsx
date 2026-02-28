@@ -49,6 +49,7 @@ import type {
   MetricCategory,
 } from "@/types/api";
 import { toISOLocal } from "@/lib/format";
+import { getHealthyRange, computeAge } from "@/lib/normative-ranges";
 
 // ════════════════════════════════════════════════════════════
 // TYPES
@@ -62,6 +63,8 @@ interface GoalFormDialogProps {
   goal?: ClientGoal | null;
   /** Baseline attuale dalla misurazione piu' recente, per display */
   currentValues?: Map<number, number>;
+  sesso?: string | null;
+  dataNascita?: string | null;
 }
 
 const DIRECTION_OPTIONS: {
@@ -84,6 +87,8 @@ export function GoalFormDialog({
   clientId,
   goal,
   currentValues,
+  sesso,
+  dataNascita,
 }: GoalFormDialogProps) {
   const isEdit = !!goal;
 
@@ -155,6 +160,14 @@ export function GoalFormDialog({
     if (!metricId || !currentValues) return null;
     return currentValues.get(parseInt(metricId, 10)) ?? null;
   }, [metricId, currentValues]);
+
+  // Hint range sano per metrica selezionata
+  const healthyHint = useMemo(() => {
+    if (!metricId) return null;
+    const id = parseInt(metricId, 10);
+    const age = computeAge(dataNascita);
+    return getHealthyRange(id, sesso, age);
+  }, [metricId, sesso, dataNascita]);
 
   // ── Submit ──
   const handleSubmit = () => {
@@ -315,6 +328,18 @@ export function GoalFormDialog({
                 </span>
               )}
             </div>
+            {healthyHint && (
+              <p className="text-[11px] text-muted-foreground">
+                Fascia sana:{" "}
+                <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                  {healthyHint.min !== null ? healthyHint.min : ""}
+                  {healthyHint.min !== null && healthyHint.max !== null ? "–" : ""}
+                  {healthyHint.max !== null ? healthyHint.max : ""}
+                </span>
+                {selectedMetric ? ` ${selectedMetric.unita_misura}` : ""}
+                {" "}({healthyHint.label})
+              </p>
+            )}
           </div>
 
           {/* Date */}

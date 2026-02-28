@@ -12,7 +12,14 @@
  */
 
 import { useMemo, useState } from "react";
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ReferenceArea,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 
@@ -31,6 +38,11 @@ import {
 } from "@/components/ui/select";
 
 import type { Measurement, Metric } from "@/types/api";
+import {
+  getNormativeBands,
+  computeAge,
+  BAND_CHART_FILLS,
+} from "@/lib/normative-ranges";
 
 // ════════════════════════════════════════════════════════════
 // COLORS
@@ -46,6 +58,8 @@ const COLOR_SECONDARY = "oklch(0.55 0.15 295)"; // violet
 interface MeasurementChartProps {
   measurements: Measurement[];
   metrics: Metric[];
+  sesso?: string | null;
+  dataNascita?: string | null;
 }
 
 interface ChartDatum {
@@ -64,6 +78,8 @@ const NONE_VALUE = "__none__";
 export function MeasurementChart({
   measurements,
   metrics,
+  sesso,
+  dataNascita,
 }: MeasurementChartProps) {
   // Metriche disponibili (con almeno 1 dato)
   const availableMetricIds = useMemo(() => {
@@ -140,6 +156,34 @@ export function MeasurementChart({
         }
       : {}),
   };
+
+  // Bande normative per metrica primaria (solo se definite)
+  const normBands = useMemo(() => {
+    const id1 = parseInt(metric1Id, 10);
+    const age = computeAge(dataNascita);
+    const bands = getNormativeBands(id1, sesso, age);
+    if (!bands) return null;
+
+    // Clamp bande aperte a valori ragionevoli per il chart
+    // (ReferenceArea ha bisogno di y1/y2 numerici)
+    const values = chartData.map((d) => d.valore1).filter((v): v is number => v != null);
+    if (values.length === 0) return null;
+
+    const dataMin = Math.min(...values);
+    const dataMax = Math.max(...values);
+    const margin = (dataMax - dataMin) * 0.3 || 10;
+    const lo = dataMin - margin;
+    const hi = dataMax + margin;
+
+    return bands
+      .map((band) => ({
+        ...band,
+        y1: band.min ?? lo,
+        y2: band.max ?? hi,
+        fill: BAND_CHART_FILLS[band.color] ?? "oklch(0.5 0 0 / 0.05)",
+      }))
+      .filter((b) => b.y2 >= lo && b.y1 <= hi); // solo bande visibili
+  }, [metric1Id, sesso, dataNascita, chartData]);
 
   if (availableMetrics.length === 0) return null;
 
@@ -239,6 +283,25 @@ export function MeasurementChart({
                 unit={metric2 ? ` ${metric2.unita_misura}` : ""}
               />
             )}
+
+            {/* Bande normative (solo metrica primaria) */}
+            {normBands?.map((band) => (
+              <ReferenceArea
+                key={band.label}
+                yAxisId="left"
+                y1={band.y1}
+                y2={band.y2}
+                fill={band.fill}
+                fillOpacity={1}
+                ifOverflow="extendDomain"
+                label={{
+                  value: band.label,
+                  position: "insideTopLeft",
+                  fontSize: 9,
+                  fill: "oklch(0.5 0 0 / 0.4)",
+                }}
+              />
+            ))}
 
             <ChartTooltip
               content={

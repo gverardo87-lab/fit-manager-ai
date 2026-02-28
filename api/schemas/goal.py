@@ -51,6 +51,8 @@ class GoalProgress(BaseModel):
     delta_da_baseline: Optional[float] = None
     percentuale_progresso: Optional[float] = None
     tendenza_positiva: Optional[bool] = None
+    velocita_settimanale: Optional[float] = None   # delta/settimana
+    num_misurazioni: int = 0                        # data point disponibili
 
 
 class GoalResponse(BaseModel):

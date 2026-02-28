@@ -63,6 +63,7 @@ import { GoalsSummary } from "@/components/clients/GoalsSummary";
 import { GoalFormDialog } from "@/components/clients/GoalFormDialog";
 import { InteractiveBodyMap } from "@/components/clients/InteractiveBodyMap";
 import { MeasurementChart } from "@/components/clients/MeasurementChart";
+import { ClinicalAnalysisPanel } from "@/components/clients/ClinicalAnalysisPanel";
 import { SessionComparison } from "@/components/clients/SessionComparison";
 import {
   useClientMeasurements,
@@ -70,6 +71,8 @@ import {
   useMetrics,
 } from "@/hooks/useMeasurements";
 import { useClientGoals } from "@/hooks/useGoals";
+import { computeWeeklyRate, formatRate } from "@/lib/measurement-analytics";
+import { classifyValue, computeAge, BAND_COLOR_CLASSES } from "@/lib/normative-ranges";
 import type { Measurement, Metric, MetricCategory } from "@/types/api";
 import { METRIC_CATEGORY_LABELS } from "@/types/api";
 
@@ -79,6 +82,8 @@ import { METRIC_CATEGORY_LABELS } from "@/types/api";
 
 interface ProgressiTabProps {
   clientId: number;
+  sesso?: string | null;
+  dataNascita?: string | null;
 }
 
 // ════════════════════════════════════════════════════════════
@@ -137,7 +142,7 @@ const KPI_BORDER_COLORS = [
 // COMPONENT
 // ════════════════════════════════════════════════════════════
 
-export function ProgressiTab({ clientId }: ProgressiTabProps) {
+export function ProgressiTab({ clientId, sesso, dataNascita }: ProgressiTabProps) {
   const router = useRouter();
   const { data: measurementsData, isLoading } = useClientMeasurements(clientId);
   const { data: metrics } = useMetrics();
@@ -320,6 +325,8 @@ export function ProgressiTab({ clientId }: ProgressiTabProps) {
           clientId={clientId}
           goal={null}
           currentValues={currentValues}
+          sesso={sesso}
+          dataNascita={dataNascita}
         />
       </>
     );
@@ -354,7 +361,15 @@ export function ProgressiTab({ clientId }: ProgressiTabProps) {
         </div>
 
         {/* ── 2. Obiettivi ── */}
-        <GoalsSummary clientId={clientId} currentValues={currentValues} />
+        <GoalsSummary clientId={clientId} currentValues={currentValues} sesso={sesso} dataNascita={dataNascita} />
+
+        {/* ── 2b. Analisi Clinica ── */}
+        <ClinicalAnalysisPanel
+          measurements={measurements}
+          sesso={sesso}
+          dataNascita={dataNascita}
+          goals={goalsData?.items}
+        />
 
         {/* ── 3. KPI Cards (dinamici) ── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -364,6 +379,11 @@ export function ProgressiTab({ clientId }: ProgressiTabProps) {
               (v) => v.id_metrica === metric.id
             );
             const delta = computeDeltaInfo(measurements, metric.id);
+            const rate = computeWeeklyRate(measurements, metric.id);
+            const clientAge = computeAge(dataNascita);
+            const normClass = latest
+              ? classifyValue(metric.id, latest.valore, sesso, clientAge)
+              : null;
             const borderColor = KPI_BORDER_COLORS[idx % KPI_BORDER_COLORS.length];
 
             return (
@@ -401,6 +421,20 @@ export function ProgressiTab({ clientId }: ProgressiTabProps) {
                       </span>
                     )}
                   </div>
+                  {rate !== null && (
+                    <p className="mt-1 text-[10px] font-medium tabular-nums text-muted-foreground">
+                      {formatRate(rate, metric.unita_misura)}
+                    </p>
+                  )}
+                  {normClass && (
+                    <span
+                      className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[9px] font-semibold ${
+                        BAND_COLOR_CLASSES[normClass.color]?.bg ?? ""
+                      } ${BAND_COLOR_CLASSES[normClass.color]?.text ?? ""}`}
+                    >
+                      {normClass.label}
+                    </span>
+                  )}
                 </CardContent>
               </Card>
             );
@@ -468,6 +502,8 @@ export function ProgressiTab({ clientId }: ProgressiTabProps) {
               <MeasurementChart
                 measurements={measurements}
                 metrics={metrics}
+                sesso={sesso}
+                dataNascita={dataNascita}
               />
             </CardContent>
           </Card>

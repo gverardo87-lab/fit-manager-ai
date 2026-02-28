@@ -42,6 +42,7 @@ import type { BodyZone } from "@/lib/body-zone-config";
 import { useClientWorkouts } from "@/hooks/useWorkouts";
 import { useExercises, useExerciseSafetyMap } from "@/hooks/useExercises";
 import { useClientGoals } from "@/hooks/useGoals";
+import { computeWeeklyRate } from "@/lib/measurement-analytics";
 import type {
   ClientGoal,
   Measurement,
@@ -75,6 +76,7 @@ interface ZoneMetricData {
   label: string;
   latestValue: number | null;
   delta: number | null;
+  rate: number | null;
   unita: string;
   history: { date: string; value: number }[];
 }
@@ -184,6 +186,7 @@ export function InteractiveBodyMap({
           latestValue: latestVal?.valore ?? null,
           delta:
             latestVal && prevVal ? latestVal.valore - prevVal.valore : null,
+          rate: computeWeeklyRate(measurements, metricId),
           unita: metric.unita_misura,
           history,
         });
@@ -572,6 +575,13 @@ function ZoneDetailPanel({
                       />
                     )}
                   </div>
+                  {m.rate !== null && (
+                    <span className="text-[9px] font-medium tabular-nums text-muted-foreground">
+                      {m.rate > 0 ? "+" : ""}
+                      {Math.abs(m.rate) >= 1 ? m.rate.toFixed(1) : m.rate.toFixed(2)}{" "}
+                      {m.unita}/sett
+                    </span>
+                  )}
                   {m.history.length >= 2 && (
                     <MiniSparkline data={m.history} isDark={isDark} />
                   )}
