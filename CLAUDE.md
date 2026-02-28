@@ -78,8 +78,8 @@ Editor strutturato per creare schede allenamento professionali. Layout split: ed
 - **Export "Scheda Clinica"**: Excel via `exceljs` — documento medico-sportivo proprietario. 3+ fogli: Copertina (branding + dati programma) → Profilo Clinico (safety, opzionale) → 1 foglio per sessione. Esercizi principali in card-block (header teal + 2 righe dati + immagini 150x100 affiancate + separatore). Avviamento/stretching compatti. Immagini via Next.js rewrite proxy (`/media/*` → backend, evita CORS su StaticFiles). Print/PDF via `@media print`
 - **Client linkage**: assegnazione/riassegnazione cliente inline (Select + `"__none__"` sentinel), filtro cliente nella lista, tab "Schede" nel profilo cliente, cross-link bidirezionale
 - **TemplateSelector**: dialog con selezione cliente integrata (`selectedClientId` state, pre-compilato da contesto)
-- **118 esercizi attivi** (database curato, 100% completo su tutti i campi) + 966 archiviati (reinserimento graduale post-sviluppo)
-- Tassonomia completa: muscoli FK (1,677 righe), articolazioni FK (394), condizioni mediche FK (341), relazioni (146)
+- **97 esercizi attivi** (database curato, 100% completo su tutti i campi, 100% con foto) + 962 archiviati (reinserimento graduale post-sviluppo)
+- Tassonomia completa: muscoli FK (1,271 righe), articolazioni FK (299), condizioni mediche FK (474+), relazioni (38)
 - Categorie: `compound`, `isolation`, `bodyweight`, `cardio`, `stretching`, `mobilita`, `avviamento`
 - Pattern: 9 forza (`squat`, `hinge`, `push_h/v`, `pull_h/v`, `core`, `rotation`, `carry`) + 3 complementari (`warmup`, `stretch`, `mobility`)
 
@@ -93,8 +93,8 @@ File chiave: `lib/workout-templates.ts` (template + `getSectionForCategory` + `g
 > **Filosofia: l'allenamento e' un sottoramo della medicina.** Il database esercizi e' il nucleo del prodotto.
 > Contenuti imprecisi possono causare infortuni. Zero approssimazione.
 
-**Strategia "Database 118"**: i 118 esercizi curati sono l'unico database attivo (`in_subset=True`).
-I 966 esercizi archiviati (`in_subset=False`) verranno reinseriti a lotti post-sviluppo.
+**Strategia "Database 97"**: i 97 esercizi curati sono l'unico database attivo (`in_subset=True`), tutti con foto.
+I 962 esercizi archiviati (`in_subset=False`) verranno reinseriti a lotti post-sviluppo.
 
 Pipeline idempotente, dual-DB (`--db dev|prod|both`), script in `tools/admin_scripts/`:
 
@@ -108,16 +108,17 @@ Pipeline idempotente, dual-DB (`--db dev|prod|both`), script in `tools/admin_scr
 | `enrich_exercise_fields.py` | Enrichment campi descrittivi (per reinserimento batch) | Mixtral |
 | `backfill_exercise_fields.py` | note_sicurezza + force/lateral (per reinserimento batch) | gemma2:9b |
 | `verify_exercise_quality.py` | Audit qualita' (per validazione pre-attivazione) | Zero Ollama |
+| `activate_batch.py` | Orchestratore foto-first: audit, deactivate, select, enrich, activate, verify | gemma2:9b |
 
-**Reinserimento futuro**: batch da 50-100 esercizi → enrichment Ollama → tassonomia → quality check → `in_subset = True`.
-Mai attivare esercizi con campi critici mancanti.
+**Reinserimento futuro**: `activate_batch.py --db both` — coverage-driven selection, enrichment Ollama, quality gate con rollback automatico.
+Mai attivare esercizi con campi critici mancanti o senza foto.
 
 ### Tassonomia Scientifica Esercizi — Architettura a Strati
 
 > **Filosofia: senza classi, nessuna AI puo' ragionare.** Ispirata alla classificazione BIC/YOLO:
 > dati strutturati a strati con capacita' di incrociare ogni dimensione.
 
-Approccio ML: subset perfetto (~118 esercizi) → pipeline completa → scala a ~1080.
+Approccio ML: subset perfetto (~97 esercizi, 100% foto) → pipeline completa → scala a ~1059.
 
 **Schema** (migrazione `949f3f3fd5ed` — 6 tabelle + 4 colonne):
 
@@ -126,15 +127,15 @@ Approccio ML: subset perfetto (~118 esercizi) → pipeline completa → scala a 
 | `muscoli` | Catalogo | 53 | Muscoli anatomici NSCA/ACSM (15 gruppi, 3 regioni) |
 | `articolazioni` | Catalogo | 15 | Articolazioni principali (5 tipi, 3 regioni) |
 | `condizioni_mediche` | Catalogo | 39 | Condizioni rilevanti (5 categorie, body_tags JSON) |
-| `esercizi_muscoli` | Junction M:N | ~1677 | Esercizio↔muscolo con ruolo (primary/secondary/stabilizer) + attivazione % |
-| `esercizi_articolazioni` | Junction M:N | ~394 | Esercizio↔articolazione con ruolo (agonist/stabilizer) + ROM gradi |
-| `esercizi_condizioni` | Junction M:N | ~577 | Esercizio↔condizione con severita' (avoid/caution/modify) + nota |
+| `esercizi_muscoli` | Junction M:N | ~1271 | Esercizio↔muscolo con ruolo (primary/secondary/stabilizer) + attivazione % |
+| `esercizi_articolazioni` | Junction M:N | ~299 | Esercizio↔articolazione con ruolo (agonist/stabilizer) + ROM gradi |
+| `esercizi_condizioni` | Junction M:N | ~474 | Esercizio↔condizione con severita' (avoid/caution/modify) + nota |
 
 Colonne su `esercizi`: `in_subset` (flag sviluppo), `catena_cinetica` (open/closed),
 `piano_movimento` (sagittal/frontal/transverse/multi), `tipo_contrazione` (concentric/eccentric/isometric/dynamic).
 
-**Subset attivo**: 118 esercizi (`in_subset=1`) selezionati algoritmicamente per copertura 100%
-su 12 pattern × 14 gruppi muscolari × 8 attrezzature × 3 difficolta' × 7 categorie.
+**Subset attivo**: 97 esercizi (`in_subset=1`) selezionati algoritmicamente per copertura
+su 11 pattern × 14 gruppi muscolari × 8 attrezzature × 3 difficolta' × 6 categorie, tutti con foto.
 L'API filtra `Exercise.in_subset == True` — rimuovere per riattivare catalogo completo.
 
 **Modelli API**: `muscle.py` (Muscle + ExerciseMuscle), `joint.py` (Joint + ExerciseJoint),
@@ -475,7 +476,7 @@ sqlite3 data/crm_dev.db ".tables"
 - **core/**: ~10,300 LOC Python — moduli AI (RAG, exercise archive) in attesa di API endpoints
 - **tools/admin_scripts/**: ~2,800 LOC Python — 14 script (import, quality engine, taxonomy, seed, test)
 - **DB**: 29 tabelle SQLite, FK enforced, multi-tenant via trainer_id
-- **Esercizi**: 118 attivi (100% completi, tassonomia completa) + 966 archiviati (reinserimento graduale)
+- **Esercizi**: 97 attivi (100% completi, 100% foto, tassonomia completa) + 962 archiviati (reinserimento graduale)
 - **Test**: 63 pytest + 67 E2E
 - **Sicurezza**: JWT auth, bcrypt, Deep Relational IDOR, 3-layer route protection
 - **Cloud**: 0 dipendenze, 0 dati verso terzi
