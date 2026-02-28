@@ -265,33 +265,37 @@ def populate_relations(db_path: str, dry_run: bool) -> dict:
 
     print(f"\n  Esercizi nel subset: {len(subset)}")
 
-    # Validazione: tutti gli ID nelle catene esistono nel subset
-    all_chain_ids = set()
-    errors = []
+    # Filtra catene: rimuove ID fuori subset, logga warning
+    skipped = 0
+
+    filtered_chains: list[tuple[str, list[int]]] = []
     for label, chain in PROGRESSION_CHAINS:
-        for eid in chain:
-            all_chain_ids.add(eid)
-            if eid not in subset:
-                errors.append(f"  ERRORE: id={eid} in '{label}' non nel subset!")
+        valid = [eid for eid in chain if eid in subset]
+        removed = [eid for eid in chain if eid not in subset]
+        if removed:
+            skipped += len(removed)
+            print(f"  WARN: '{label}' — {len(removed)} ID fuori subset: {removed}")
+        if len(valid) >= 2:
+            filtered_chains.append((label, valid))
 
+    filtered_variations: list[tuple[int, int, str]] = []
     for a, b, label in VARIATION_PAIRS:
-        for eid in (a, b):
-            all_chain_ids.add(eid)
-            if eid not in subset:
-                errors.append(f"  ERRORE: id={eid} in variante '{label}' non nel subset!")
+        if a in subset and b in subset:
+            filtered_variations.append((a, b, label))
+        else:
+            skipped += sum(1 for x in (a, b) if x not in subset)
+            print(f"  WARN: variante '{label}' — ID fuori subset, skippata")
 
+    filtered_cross: list[tuple[int, int, str]] = []
     for a, b, label in CROSS_PATTERN_PROGRESSIONS:
-        for eid in (a, b):
-            all_chain_ids.add(eid)
-            if eid not in subset:
-                errors.append(f"  ERRORE: id={eid} in cross '{label}' non nel subset!")
+        if a in subset and b in subset:
+            filtered_cross.append((a, b, label))
+        else:
+            skipped += sum(1 for x in (a, b) if x not in subset)
+            print(f"  WARN: cross '{label}' — ID fuori subset, skippata")
 
-    if errors:
-        for e in errors:
-            print(e)
-        print("\n  ABORT: errori di validazione. Correggi gli ID.")
-        conn.close()
-        return {}
+    if skipped:
+        print(f"\n  {skipped} ID fuori subset skippati (esercizi disattivati)")
 
     # Cancella relazioni esistenti per esercizi del subset (idempotente)
     if not dry_run:
@@ -307,9 +311,7 @@ def populate_relations(db_path: str, dry_run: bool) -> dict:
 
     # ── Catene di progressione ──
     print("\n  --- CATENE DI PROGRESSIONE ---")
-    for label, chain in PROGRESSION_CHAINS:
-        if len(chain) < 2:
-            continue
+    for label, chain in filtered_chains:
         print(f"\n  {label}:")
         for i in range(len(chain) - 1):
             a_id = chain[i]
@@ -327,9 +329,9 @@ def populate_relations(db_path: str, dry_run: bool) -> dict:
             print(f"    {a_name:45s} [{a_diff:12s}] -> {b_name} [{b_diff}]")
 
     # ── Cross-pattern progressions ──
-    if CROSS_PATTERN_PROGRESSIONS:
+    if filtered_cross:
         print("\n  --- PROGRESSIONI CROSS-PATTERN ---")
-        for a_id, b_id, label in CROSS_PATTERN_PROGRESSIONS:
+        for a_id, b_id, label in filtered_cross:
             a_name = subset[a_id]["nome"]
             b_name = subset[b_id]["nome"]
             relations.append((a_id, b_id, "progression"))
@@ -338,7 +340,7 @@ def populate_relations(db_path: str, dry_run: bool) -> dict:
 
     # ── Varianti ──
     print("\n  --- VARIANTI ---")
-    for a_id, b_id, label in VARIATION_PAIRS:
+    for a_id, b_id, label in filtered_variations:
         a_name = subset[a_id]["nome"]
         b_name = subset[b_id]["nome"]
         relations.append((a_id, b_id, "variation"))
