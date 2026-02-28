@@ -168,14 +168,18 @@
 @media print {
   [data-print-hide] { display: none !important; }
   .workout-preview {
+    display: block !important;
     width: 100%;
     background: white !important;
     color: black !important;
     border: none !important;
     padding: 0 !important;
   }
+  .workout-preview-container {
+    display: block !important;
+    position: static !important;
+  }
   .workout-session { page-break-inside: avoid; }
-  .ai-commentary { page-break-before: always; }
   body { background: white !important; }
   nav, header, aside { display: none !important; }
 }

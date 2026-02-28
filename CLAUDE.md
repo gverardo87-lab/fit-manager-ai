@@ -75,7 +75,7 @@ Editor strutturato per creare schede allenamento professionali. Layout split: ed
 - **Template system**: 3 template (Beginner/Intermedio/Avanzato) con matching base esercizi per `pattern_movimento` + difficolta
 - **Exercise Selector**: dialog professionale con filtri pattern_movimento + gruppo muscolare + attrezzatura + difficolta + biomeccanica (chip cliccabili) + ricerca testuale. Filtro categoria automatico per sezione. **Pannello dettaglio inline** (icona Info): muscoli, classificazione, setup, note sicurezza, relazioni actionable con "Sostituisci", deep-link a pagina esercizio con ritorno
 - **DnD**: `@dnd-kit/sortable` per riordino esercizi dentro ogni sezione
-- **Export**: Excel via `exceljs` (3 sezioni colorate) + Print/PDF via `@media print`
+- **Export "Scheda Clinica"**: Excel via `exceljs` — documento medico-sportivo proprietario. 3+ fogli: Copertina (branding + dati programma) → Profilo Clinico (safety, opzionale) → 1 foglio per sessione. Esercizi principali in card-block (header teal + 2 righe dati + immagini 150x100 affiancate + separatore). Avviamento/stretching compatti. Immagini via Next.js rewrite proxy (`/media/*` → backend, evita CORS su StaticFiles). Print/PDF via `@media print`
 - **Client linkage**: assegnazione/riassegnazione cliente inline (Select + `"__none__"` sentinel), filtro cliente nella lista, tab "Schede" nel profilo cliente, cross-link bidirezionale
 - **TemplateSelector**: dialog con selezione cliente integrata (`selectedClientId` state, pre-compilato da contesto)
 - **118 esercizi attivi** (database curato, 100% completo su tutti i campi) + 966 archiviati (reinserimento graduale post-sviluppo)
@@ -321,6 +321,7 @@ Errori reali trovati e corretti. MAI ripeterli.
 | `useUpdateClient` stale profile | `onSuccess` invalidava `["clients"]` lista ma non `["client", id]` → profilo cliente non si aggiornava dopo modifica | Invalidare SEMPRE sia la lista `["entities"]` che il dettaglio `["entity", id]` in ogni mutation di update |
 | Utility duplicate in 8+ file | `formatShortDate`, `getFinanceBarColor` copia-incollate in ogni componente → divergenza e manutenzione impossibile | Centralizzare in `lib/format.ts` e importare. MAI definire utility di formattazione localmente |
 | `<button>` nested in `<button>` | PopoverTrigger (button) dentro button nome esercizio → hydration error Next.js | SafetyPopover e name button come siblings dentro `<div>`, MAI annidati |
+| `fetch()` CORS su StaticFiles | `fetch()` cross-origin bloccato da CORS su StaticFiles backend, ma `<img>` funziona (esente da CORS) → export Excel senza foto | Next.js `rewrites` in `next.config.ts` proxya `/media/*` al backend → fetch same-origin. MAI `getMediaUrl()` per fetch, solo URL relativi |
 
 ---
 

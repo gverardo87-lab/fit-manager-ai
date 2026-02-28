@@ -10,9 +10,10 @@
  * Dati esercizio dal exerciseMap (gia' cached). Relazioni lazy-loaded.
  */
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowUp, ArrowDown, Shuffle, ArrowRight, RefreshCw } from "lucide-react";
+import { getMediaUrl } from "@/lib/media";
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -53,6 +54,49 @@ function truncate(text: string, max: number): string {
   return text.slice(0, max).trimEnd() + "...";
 }
 
+function ExerciseThumbnails({ exerciseId }: { exerciseId: number }) {
+  const [startVisible, setStartVisible] = useState(true);
+  const [endVisible, setEndVisible] = useState(true);
+
+  const startUrl = getMediaUrl(`/media/exercises/${exerciseId}/exec_start.jpg`);
+  const endUrl = getMediaUrl(`/media/exercises/${exerciseId}/exec_end.jpg`);
+
+  if (!startVisible && !endVisible) return null;
+
+  return (
+    <div className="flex gap-2">
+      {startVisible && startUrl && (
+        <div className="relative">
+          <img
+            src={startUrl}
+            alt="Posizione iniziale"
+            className="h-24 w-auto rounded-lg border object-contain bg-white"
+            onError={() => setStartVisible(false)}
+            loading="lazy"
+          />
+          <span className="absolute bottom-0.5 left-0.5 bg-black/60 text-white text-[9px] px-1.5 py-0.5 rounded-sm">
+            Start
+          </span>
+        </div>
+      )}
+      {endVisible && endUrl && (
+        <div className="relative">
+          <img
+            src={endUrl}
+            alt="Posizione finale"
+            className="h-24 w-auto rounded-lg border object-contain bg-white"
+            onError={() => setEndVisible(false)}
+            loading="lazy"
+          />
+          <span className="absolute bottom-0.5 left-0.5 bg-black/60 text-white text-[9px] px-1.5 py-0.5 rounded-sm">
+            End
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ExerciseDetailPanel({
   exercise,
   exerciseId,
@@ -77,6 +121,9 @@ export function ExerciseDetailPanel({
 
   return (
     <div className="col-span-full rounded-lg border bg-muted/30 p-3 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+      {/* Illustrazioni esecuzione */}
+      <ExerciseThumbnails exerciseId={exerciseId} />
+
       {/* Muscoli */}
       <div className="flex flex-wrap gap-1.5">
         {exercise.muscoli_primari.map((m) => (

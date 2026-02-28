@@ -5,13 +5,13 @@
  * Preview professionale stampabile della scheda allenamento.
  *
  * Layout: header, tabella esercizi per sessione (3 sezioni), note, footer.
+ * Immagini esecuzione (exec_start.jpg) inline nella sezione principale.
  * Tempo esecuzione mostrato inline accanto al nome (se compilato).
  */
 
 import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { getSectionForCategory, type TemplateSection } from "@/lib/workout-templates";
-import { getMediaUrl } from "@/lib/media";
 import type { SessionCardData } from "./SessionCard";
 import type { WorkoutExerciseRow, Exercise } from "@/types/api";
 
@@ -83,7 +83,6 @@ export function WorkoutPreview({
   sessioni_per_settimana,
   sessioni,
   note,
-  exerciseMap,
 }: WorkoutPreviewProps) {
   return (
     <div className="workout-preview bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 rounded-lg border p-6 space-y-6">
@@ -114,7 +113,6 @@ export function WorkoutPreview({
         <SessionPreview
           key={session.id}
           session={session}
-          exerciseMap={exerciseMap}
         />
       ))}
 
@@ -141,10 +139,8 @@ export function WorkoutPreview({
 
 function SessionPreview({
   session,
-  exerciseMap,
 }: {
   session: SessionCardData;
-  exerciseMap?: Map<number, Exercise>;
 }) {
   const grouped = useMemo(() => groupBySection(session.esercizi), [session.esercizi]);
 
@@ -173,7 +169,7 @@ function SessionPreview({
         const exercises = grouped[sectionKey];
         if (exercises.length === 0) return null;
         const config = SECTION_PREVIEW_CONFIG[sectionKey];
-        const showMuscleMap = sectionKey === "principale" && exerciseMap;
+        const isPrincipale = sectionKey === "principale";
 
         return (
           <div key={sectionKey} className="mb-2">
@@ -181,13 +177,10 @@ function SessionPreview({
               {config.label}
             </p>
             <table className="w-full text-xs border-collapse">
-              {sectionKey === "principale" && (
+              {isPrincipale && (
                 <thead>
                   <tr className="border-b text-muted-foreground">
                     <th className="py-1 text-left font-medium w-8">#</th>
-                    {showMuscleMap && (
-                      <th className="py-1 text-center font-medium w-12"></th>
-                    )}
                     <th className="py-1 text-left font-medium">Esercizio</th>
                     <th className="py-1 text-center font-medium w-12">Serie</th>
                     <th className="py-1 text-center font-medium w-14">Rip</th>
@@ -198,28 +191,9 @@ function SessionPreview({
               )}
               <tbody>
                 {exercises.map((ex, idx) => {
-                  const fullExercise = exerciseMap?.get(ex.id_esercizio);
-                  const muscleMapUrl = fullExercise?.muscle_map_url
-                    ? getMediaUrl(fullExercise.muscle_map_url)
-                    : null;
-
                   return (
                     <tr key={ex.id} className="border-b border-dashed last:border-0">
                       <td className="py-1 text-muted-foreground">{idx + 1}</td>
-                      {showMuscleMap && (
-                        <td className="py-1 text-center">
-                          {muscleMapUrl ? (
-                            <img
-                              src={muscleMapUrl}
-                              alt=""
-                              className="inline-block h-10 w-auto opacity-80"
-                              loading="lazy"
-                            />
-                          ) : (
-                            <div className="inline-block h-10 w-5" />
-                          )}
-                        </td>
-                      )}
                       <td className="py-1 font-medium">
                         {ex.esercizio_nome}
                         {ex.tempo_esecuzione && (
@@ -230,7 +204,7 @@ function SessionPreview({
                       </td>
                       <td className="py-1 text-center tabular-nums">{ex.serie}</td>
                       <td className="py-1 text-center tabular-nums">{ex.ripetizioni}</td>
-                      {sectionKey === "principale" && (
+                      {isPrincipale && (
                         <>
                           <td className="py-1 text-center tabular-nums">{ex.tempo_riposo_sec}s</td>
                           <td className="py-1 text-muted-foreground truncate max-w-[120px]">
@@ -238,7 +212,7 @@ function SessionPreview({
                           </td>
                         </>
                       )}
-                      {sectionKey !== "principale" && (
+                      {!isPrincipale && (
                         <td colSpan={2} className="py-1 text-muted-foreground truncate max-w-[120px]">
                           {ex.note ?? ""}
                         </td>

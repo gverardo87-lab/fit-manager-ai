@@ -12,6 +12,15 @@ const nextConfig: NextConfig = {
       { protocol: "http", hostname: "127.0.0.1" },
     ],
   },
+
+  // Proxy /media/* al backend — rende i fetch same-origin (evita CORS su StaticFiles).
+  // Necessario per l'export Excel che usa fetch() per scaricare immagini esercizi.
+  rewrites: async () => [
+    {
+      source: "/media/:path*",
+      destination: `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/media/:path*`,
+    },
+  ],
 };
 
 export default nextConfig;

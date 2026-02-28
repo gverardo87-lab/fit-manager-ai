@@ -667,6 +667,8 @@ export default function SchedaDetailPage({
             obiettivo={plan.obiettivo}
             livello={plan.livello}
             clientNome={clientNome}
+            durata_settimane={plan.durata_settimane}
+            sessioni_per_settimana={plan.sessioni_per_settimana}
             sessioni={sessions}
             safety={safetyExportData}
           />
@@ -680,7 +682,7 @@ export default function SchedaDetailPage({
       </div>
 
       {/* ── Split Layout ── */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-2 print:block">
         {/* Editor (sinistra) */}
         <div className="space-y-3" data-print-hide>
           {/* Safety Overview Panel — dashboard clinica collapsibile */}
@@ -827,8 +829,8 @@ export default function SchedaDetailPage({
           </Button>
         </div>
 
-        {/* Preview (destra, solo desktop) */}
-        <div className="hidden lg:block space-y-4 sticky top-6">
+        {/* Preview (destra, solo desktop + stampa) */}
+        <div className="hidden lg:block print:block space-y-4 sticky top-6 workout-preview-container">
           <WorkoutPreview
             nome={plan.nome}
             obiettivo={plan.obiettivo}
