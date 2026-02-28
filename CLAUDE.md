@@ -399,9 +399,56 @@ Ogni feature segue 4 step in ordine. Il codice non passa al successivo finche' i
 - Pagina in `frontend/src/app/(dashboard)/`
 
 ### Step 4: Build + Verifica
-- `npx next build` (frontend) — zero errori TypeScript
+- `bash tools/scripts/check-all.sh` — ruff check + next build, zero errori
 - Test end-to-end: avvia API → avvia frontend → login → verifica flusso
 - Commit con messaggio chiaro
+
+---
+
+## Workflow Operativo per Claude Code
+
+> Regole imperative per l'agente AI. Seguile alla lettera.
+
+### Quando aggiungi un campo al DB
+1. Migrazione Alembic (`alembic revision -m "desc"`)
+2. `api/models/` — campo SQLModel
+3. `api/schemas/` — campo Pydantic (input + output)
+4. `api/routers/` — grep TUTTI i punti che costruiscono/copiano quel modello (insert, build_response, duplicate)
+5. `frontend/src/types/api.ts` — interfaccia TypeScript mirror
+6. Componenti UI che usano quel tipo — grep e aggiornare
+7. `bash tools/scripts/migrate-all.sh` — entrambi i DB
+8. `bash tools/scripts/check-all.sh` — zero errori
+
+### Quando modifichi uno schema Pydantic
+1. Aggiorna il mirror TypeScript in `types/api.ts`
+2. Grep i componenti frontend che consumano quel tipo
+3. Verifica che i campi aggiunti/rimossi siano gestiti in UI
+
+### Quando crei un mutation hook (useMutation)
+1. `onSuccess` DEVE invalidare TUTTE le query correlate (lista + dettaglio + correlate)
+2. Operazioni inverse (pay/unpay, create/delete) DEVONO avere invalidazione IDENTICA
+3. Mostrare toast di conferma (sonner)
+
+### Quando crei un nuovo esercizio in memoria (oggetto JS)
+- DEVE avere TUTTI i campi di `WorkoutExerciseRow`, inclusi quelli nullable (= `null`)
+- Il build fallisce se manca un campo required nell'interfaccia
+
+### Prima di ogni commit
+- `bash tools/scripts/check-all.sh` — OBBLIGATORIO, zero eccezioni
+
+---
+
+## Definition of Done
+
+Checklist da verificare prima di dichiarare una feature completata.
+
+- [ ] `ruff check api/` — zero warning
+- [ ] `npx next build` — zero errori TypeScript
+- [ ] Type sync: ogni campo Pydantic ha il mirror in `types/api.ts`
+- [ ] Invalidation check: ogni `useMutation` invalida lista + dettaglio + correlate
+- [ ] Nessun `any` TypeScript introdotto
+
+Shortcut: `bash tools/scripts/check-all.sh` copre i primi 2 punti.
 
 ---
 
@@ -480,7 +527,8 @@ bash tools/scripts/restart-backend.sh dev                 # Kill + restart 8001
 bash tools/scripts/restart-backend.sh prod                # Kill + restart 8000
 
 # ── Build + Test ──
-cd frontend && npx next build                             # OBBLIGATORIO prima di ogni commit
+bash tools/scripts/check-all.sh                           # ruff + next build — OBBLIGATORIO prima di ogni commit
+cd frontend && npx next build                             # solo frontend (se serve)
 pytest tests/ -v                                          # 63 test
 
 # Test E2E (richiede server avviato)
