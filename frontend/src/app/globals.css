@@ -180,6 +180,7 @@
     position: static !important;
   }
   .workout-session { page-break-inside: avoid; }
+  .measurement-table tr { page-break-inside: avoid; }
   body { background: white !important; }
   nav, header, aside { display: none !important; }
 }

@@ -1030,3 +1030,77 @@ export interface WorkoutPlanUpdate {
   note?: string | null;
 }
 
+// ════════════════════════════════════════════════════════════
+// MISURAZIONI CORPOREE (api/schemas/measurement.py)
+// ════════════════════════════════════════════════════════════
+
+export const METRIC_CATEGORIES = [
+  "antropometrica",
+  "composizione",
+  "circonferenza",
+  "cardiovascolare",
+  "forza",
+] as const;
+export type MetricCategory = (typeof METRIC_CATEGORIES)[number];
+
+export const METRIC_CATEGORY_LABELS: Record<MetricCategory, string> = {
+  antropometrica: "Antropometrica",
+  composizione: "Composizione Corporea",
+  circonferenza: "Circonferenze",
+  cardiovascolare: "Cardiovascolare",
+  forza: "Forza",
+};
+
+/** GET /api/metrics — catalogo metriche */
+export interface Metric {
+  id: number;
+  nome: string;
+  nome_en: string;
+  unita_misura: string;
+  categoria: MetricCategory;
+  ordinamento: number;
+}
+
+/** Singolo valore misurato (input) */
+export interface MeasurementValueInput {
+  id_metrica: number;
+  valore: number;
+}
+
+/** POST /api/clients/{id}/measurements */
+export interface MeasurementCreate {
+  data_misurazione: string;
+  note?: string | null;
+  valori: MeasurementValueInput[];
+}
+
+/** PUT /api/clients/{id}/measurements/{session_id} */
+export interface MeasurementUpdate {
+  data_misurazione?: string | null;
+  note?: string | null;
+  valori?: MeasurementValueInput[] | null;
+}
+
+/** Singolo valore misurato (output enriched) */
+export interface MeasurementValue {
+  id_metrica: number;
+  nome_metrica: string;
+  unita: string;
+  valore: number;
+}
+
+/** Sessione di misurazione — output con valori nested */
+export interface Measurement {
+  id: number;
+  id_cliente: number;
+  data_misurazione: string;
+  note: string | null;
+  valori: MeasurementValue[];
+}
+
+/** GET /api/clients/{id}/measurements — lista paginata */
+export interface MeasurementListResponse {
+  items: Measurement[];
+  total: number;
+}
+

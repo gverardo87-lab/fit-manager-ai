@@ -78,3 +78,16 @@ class ExpenseFrequency(str, Enum):
     TRIMESTRALE = "TRIMESTRALE"
     SEMESTRALE = "SEMESTRALE"
     ANNUALE = "ANNUALE"
+
+
+# ════════════════════════════════════════════════════════════
+# CATEGORIA METRICA (metriche.categoria)
+# ════════════════════════════════════════════════════════════
+
+class MetricCategory(str, Enum):
+    """Categorie di metriche corporee/prestazionali — catalogo metriche."""
+    ANTROPOMETRICA = "antropometrica"
+    COMPOSIZIONE = "composizione"
+    CIRCONFERENZA = "circonferenza"
+    CARDIOVASCOLARE = "cardiovascolare"
+    FORZA = "forza"

@@ -25,6 +25,7 @@ import {
   ClipboardList,
   HeartPulse,
   Plus,
+  TrendingUp,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +49,7 @@ import { TemplateSelector } from "@/components/workouts/TemplateSelector";
 import { AnamnesiSummary } from "@/components/clients/anamnesi/AnamnesiSummary";
 import { AnamnesiWizard } from "@/components/clients/anamnesi/AnamnesiWizard";
 import { isStructuredAnamnesi } from "@/components/clients/anamnesi/anamnesi-helpers";
+import { ProgressiTab } from "@/components/clients/ProgressiTab";
 import { useClient } from "@/hooks/useClients";
 import { useClientContracts } from "@/hooks/useContracts";
 import { useClientEvents, type EventHydrated } from "@/hooks/useAgenda";
@@ -110,6 +112,10 @@ export default function ClientProfilePage({
             <ClipboardList className="mr-2 h-4 w-4" />
             Schede
           </TabsTrigger>
+          <TabsTrigger value="progressi">
+            <TrendingUp className="mr-2 h-4 w-4" />
+            Progressi
+          </TabsTrigger>
           <TabsTrigger value="anamnesi">
             <HeartPulse className="mr-2 h-4 w-4" />
             Anamnesi
@@ -134,6 +140,10 @@ export default function ClientProfilePage({
 
         <TabsContent value="schede" className="mt-4">
           <SchedeTab clientId={clientId} onNewScheda={() => setTemplateSelectorOpen(true)} />
+        </TabsContent>
+
+        <TabsContent value="progressi" className="mt-4">
+          <ProgressiTab clientId={clientId} />
         </TabsContent>
 
         <TabsContent value="anamnesi" className="mt-4">

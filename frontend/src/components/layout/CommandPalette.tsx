@@ -32,6 +32,7 @@ import {
   CalendarCheck,
   CreditCard,
   Activity,
+  Scale,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -533,6 +534,15 @@ export function CommandPalette() {
                       >
                         <CalendarPlus className="mr-2 h-4 w-4 text-muted-foreground" />
                         Nuova sessione con {contextClient.nome}
+                      </CommandItem>
+                      <CommandItem
+                        value={`ctx-measurement-${contextClient.id}`}
+                        onSelect={() => {
+                          navigate(`/clienti/${contextClient.id}/misurazioni`);
+                        }}
+                      >
+                        <Scale className="mr-2 h-4 w-4 text-muted-foreground" />
+                        Registra misurazione per {contextClient.nome}
                       </CommandItem>
                     </CommandGroup>
                     <CommandSeparator />
