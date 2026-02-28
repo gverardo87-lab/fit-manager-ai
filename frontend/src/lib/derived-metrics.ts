@@ -359,3 +359,14 @@ export function computeAllDerived(
 
   return { metrics, strengthRatios };
 }
+
+// ════════════════════════════════════════════════════════════
+// 1RM MAPPING — per workout builder (% 1RM badge)
+// ════════════════════════════════════════════════════════════
+
+/** Mappa pattern_movimento → metric_id 1RM. Solo i 3 big lifts. */
+export const PATTERN_TO_1RM: Record<string, number> = {
+  squat: ID.SQUAT_1RM,
+  push_h: ID.PANCA_1RM,
+  hinge: ID.STACCO_1RM,
+};

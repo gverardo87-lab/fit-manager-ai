@@ -598,7 +598,7 @@ def create_exercise_relation(
     session: Session = Depends(get_session),
 ):
     """Crea relazione tra esercizi (progressione/regressione/variante)."""
-    exercise = _bouncer_exercise(session, exercise_id, trainer.id)
+    _bouncer_exercise(session, exercise_id, trainer.id)
 
     # Verifica che l'esercizio correlato esista
     related = _bouncer_exercise(session, data.related_exercise_id, trainer.id)
@@ -642,7 +642,7 @@ def delete_exercise_relation(
     session: Session = Depends(get_session),
 ):
     """Elimina relazione tra esercizi."""
-    exercise = _bouncer_exercise(session, exercise_id, trainer.id)
+    _bouncer_exercise(session, exercise_id, trainer.id)
 
     relation = session.exec(
         select(ExerciseRelation).where(

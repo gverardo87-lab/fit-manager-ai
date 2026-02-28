@@ -86,7 +86,17 @@ Editor strutturato per creare schede allenamento professionali. Layout split: ed
 - **Exercise Detail Panel** (`ExerciseDetailPanel.tsx`): pannello riassuntivo riusabile (muscoli, classificazione, setup, note sicurezza, relazioni con quick-swap "Sostituisci", deep-link con ritorno). Usato sia in SortableExerciseRow che in ExerciseSelector
 - **Deep-Link Esercizio**: `/esercizi/{id}?from=scheda-{schedaId}` → banner "Torna alla scheda" + back button condizionale. Navigazione bidirezionale builder↔dettaglio esercizio
 
-File chiave: `lib/workout-templates.ts` (template + `getSectionForCategory` + `getSmartDefaults`), `components/workouts/SessionCard.tsx` (3 sezioni DnD, overflow menu), `components/workouts/SortableExerciseRow.tsx` (grid compatto, espansione unificata), `components/workouts/ExerciseDetailPanel.tsx` (dettaglio inline).
+**Carico & Analytics** (Fase 1+2):
+- `carico_kg` opzionale su ogni esercizio (Float nullable, 0-500 kg)
+- Volume sessione: `Σ(serie × parseAvgReps(rip) × carico_kg)` — KPI in SessionCard header
+- Volume totale scheda: badge nell'header builder + preview
+- **% 1RM**: badge `78% 1RM` sotto campo kg per esercizi squat/panca/stacco
+  - Mapping: `PATTERN_TO_1RM` in `derived-metrics.ts` (squat→id20, push_h→id21, hinge→id22)
+  - Fetch: `useLatestMeasurement(clientId)` lazy nel builder → `oneRMByPattern` useMemo
+  - Visibile solo se: cliente assegnato + misurazione 1RM presente + carico compilato
+- `parseAvgReps()`: exported da SessionCard, parsa "8-12"→10, "5"→5, "30s"→0
+
+File chiave: `lib/workout-templates.ts` (template + `getSectionForCategory` + `getSmartDefaults`), `lib/derived-metrics.ts` (PATTERN_TO_1RM), `components/workouts/SessionCard.tsx` (3 sezioni DnD, volume, overflow menu), `components/workouts/SortableExerciseRow.tsx` (grid 8-col, % 1RM badge, espansione unificata), `components/workouts/ExerciseDetailPanel.tsx` (dettaglio inline).
 
 ### Exercise Quality Engine — Pipeline Dati
 

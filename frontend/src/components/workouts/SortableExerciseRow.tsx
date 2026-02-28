@@ -49,6 +49,8 @@ interface SortableExerciseRowProps {
   exerciseData?: Exercise;
   /** ID scheda per deep-link ritorno */
   schedaId?: number;
+  /** Mappa pattern_movimento → valore 1RM cliente (per badge % 1RM) */
+  oneRMByPattern?: Record<string, number> | null;
   onUpdate: (updates: Partial<WorkoutExerciseRow>) => void;
   onDelete: () => void;
   onReplace: () => void;
@@ -182,12 +184,23 @@ export function SortableExerciseRow({
   safetyEntries,
   exerciseData,
   schedaId,
+  oneRMByPattern,
   onUpdate,
   onDelete,
   onReplace,
   onQuickReplace,
 }: SortableExerciseRowProps) {
   const [expanded, setExpanded] = useState(false);
+
+  // % 1RM (solo principale, solo se carico + 1RM disponibili)
+  const percentOneRM = useMemo(() => {
+    if (!oneRMByPattern || !exercise.carico_kg || exercise.carico_kg <= 0) return null;
+    const pattern = exerciseData?.pattern_movimento;
+    if (!pattern) return null;
+    const oneRM = oneRMByPattern[pattern];
+    if (!oneRM || oneRM <= 0) return null;
+    return Math.round((exercise.carico_kg / oneRM) * 100);
+  }, [oneRMByPattern, exercise.carico_kg, exerciseData?.pattern_movimento]);
 
   const {
     attributes,
@@ -369,19 +382,26 @@ export function SortableExerciseRow({
           placeholder="8-12"
         />
 
-        {/* Carico kg */}
-        <Input
-          type="number"
-          value={exercise.carico_kg ?? ""}
-          onChange={(e) => onUpdate({
-            carico_kg: e.target.value ? parseFloat(e.target.value) : null,
-          })}
-          min={0}
-          max={500}
-          step={0.5}
-          className="h-6 text-center text-[11px] px-1"
-          placeholder="—"
-        />
+        {/* Carico kg + % 1RM badge */}
+        <div className="flex flex-col items-center">
+          <Input
+            type="number"
+            value={exercise.carico_kg ?? ""}
+            onChange={(e) => onUpdate({
+              carico_kg: e.target.value ? parseFloat(e.target.value) : null,
+            })}
+            min={0}
+            max={500}
+            step={0.5}
+            className="h-6 text-center text-[11px] px-1"
+            placeholder="—"
+          />
+          {percentOneRM != null && (
+            <span className="text-[9px] text-muted-foreground tabular-nums mt-0.5">
+              {percentOneRM}% 1RM
+            </span>
+          )}
+        </div>
 
         {/* Tempo riposo */}
         <Input

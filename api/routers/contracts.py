@@ -116,7 +116,6 @@ def _to_response_with_rates(
     # ── KPI contratto ──
     prezzo = contract.prezzo_totale or 0
     versato = contract.totale_versato or 0
-    acconto = contract.acconto or 0
 
     residuo = round(max(0, prezzo - versato), 2)
     percentuale = round((versato / prezzo) * 100) if prezzo > 0 else 0

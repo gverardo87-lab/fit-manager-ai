@@ -16,7 +16,7 @@ Come funziona:
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from api.database import get_session
 from api.models.trainer import Trainer

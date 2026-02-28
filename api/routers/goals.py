@@ -19,7 +19,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import Session, select, func, col
+from sqlmodel import Session, select
 
 from api.database import get_session
 from api.dependencies import get_current_trainer

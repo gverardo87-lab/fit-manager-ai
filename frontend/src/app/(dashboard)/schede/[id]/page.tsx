@@ -44,7 +44,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { SessionCard, type SessionCardData } from "@/components/workouts/SessionCard";
+import { SessionCard, parseAvgReps, type SessionCardData } from "@/components/workouts/SessionCard";
 import { ExerciseSelector } from "@/components/workouts/ExerciseSelector";
 import { WorkoutPreview } from "@/components/workouts/WorkoutPreview";
 import { ExportButtons } from "@/components/workouts/ExportButtons";
@@ -55,6 +55,8 @@ import {
 } from "@/hooks/useWorkouts";
 import { useClients } from "@/hooks/useClients";
 import { useExercises, useExerciseSafetyMap } from "@/hooks/useExercises";
+import { useLatestMeasurement } from "@/hooks/useMeasurements";
+import { PATTERN_TO_1RM } from "@/lib/derived-metrics";
 import {
   OBIETTIVI_SCHEDA,
   LIVELLI_SCHEDA,
@@ -125,6 +127,18 @@ export default function SchedaDetailPage({
   const { data: safetyMap } = useExerciseSafetyMap(plan?.id_cliente ?? null);
   const safetyEntries = safetyMap?.entries;
 
+  // 1RM: ultima misurazione forza cliente (lazy, solo con cliente assegnato)
+  const { data: latestMeasurement } = useLatestMeasurement(plan?.id_cliente ?? null);
+  const oneRMByPattern = useMemo(() => {
+    if (!latestMeasurement) return null;
+    const map: Record<string, number> = {};
+    for (const [pattern, metricId] of Object.entries(PATTERN_TO_1RM)) {
+      const val = latestMeasurement.valori.find(v => v.id_metrica === metricId);
+      if (val) map[pattern] = val.valore;
+    }
+    return Object.keys(map).length > 0 ? map : null;
+  }, [latestMeasurement]);
+
   // Safety overview panel
   const [safetyExpanded, setSafetyExpanded] = useState(false);
 
@@ -166,6 +180,19 @@ export default function SchedaDetailPage({
   const clientNome = plan?.client_nome && plan?.client_cognome
     ? `${plan.client_nome} ${plan.client_cognome}`
     : undefined;
+
+  // Volume totale scheda (solo esercizi principali con carico)
+  const totalVolume = useMemo(() => {
+    let total = 0;
+    for (const session of sessions) {
+      for (const ex of session.esercizi) {
+        if (getSectionForCategory(ex.esercizio_categoria) !== "principale") continue;
+        if (!ex.carico_kg || ex.carico_kg <= 0) continue;
+        total += ex.serie * parseAvgReps(ex.ripetizioni) * ex.carico_kg;
+      }
+    }
+    return total > 0 ? Math.round(total) : null;
+  }, [sessions]);
 
   // Safety stats: conteggi avoid/caution sugli esercizi nella scheda corrente
   const safetyStats = useMemo(() => {
@@ -659,6 +686,11 @@ export default function SchedaDetailPage({
                   ))}
                 </SelectContent>
               </Select>
+              {totalVolume != null && (
+                <Badge variant="outline" className="text-xs tabular-nums">
+                  Vol. totale: {totalVolume.toLocaleString("it-IT")} kg
+                </Badge>
+              )}
             </div>
           </div>
         </div>
@@ -810,6 +842,7 @@ export default function SchedaDetailPage({
               safetyMap={safetyEntries}
               exerciseMap={exerciseMap}
               schedaId={id}
+              oneRMByPattern={oneRMByPattern}
               onUpdateSession={handleUpdateSession}
               onDeleteSession={handleDeleteSession}
               onDuplicateSession={handleDuplicateSession}

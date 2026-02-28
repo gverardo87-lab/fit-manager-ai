@@ -10,7 +10,7 @@ ClientMeasurement: trainer_id per bouncer + id_cliente per ownership chain.
 MeasurementValue: segue lifecycle della sessione padre (no deleted_at).
 """
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from typing import Optional
 
 from sqlmodel import Field, SQLModel

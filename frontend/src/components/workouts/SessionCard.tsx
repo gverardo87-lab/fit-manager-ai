@@ -65,6 +65,8 @@ interface SessionCardProps {
   exerciseMap?: Map<number, Exercise>;
   /** ID scheda per deep-link ritorno dalla pagina esercizio */
   schedaId?: number;
+  /** Mappa pattern_movimento → valore 1RM cliente (per badge % 1RM) */
+  oneRMByPattern?: Record<string, number> | null;
   onUpdateSession: (sessionId: number, updates: Partial<SessionCardData>) => void;
   onDeleteSession: (sessionId: number) => void;
   onDuplicateSession?: (sessionId: number) => void;
@@ -111,7 +113,7 @@ const SECTION_CONFIG: Record<TemplateSection, {
 const SECTION_ORDER: TemplateSection[] = ["avviamento", "principale", "stretching"];
 
 /** Parsa range ripetizioni → media. "8-12" → 10, "5" → 5, "30s" → 0. */
-function parseAvgReps(reps: string): number {
+export function parseAvgReps(reps: string): number {
   const range = reps.match(/^(\d+)\s*-\s*(\d+)$/);
   if (range) return (parseInt(range[1]) + parseInt(range[2])) / 2;
   const single = reps.match(/^(\d+)$/);
@@ -124,6 +126,7 @@ export function SessionCard({
   safetyMap,
   exerciseMap,
   schedaId,
+  oneRMByPattern,
   onUpdateSession,
   onDeleteSession,
   onDuplicateSession,
@@ -376,6 +379,7 @@ export function SessionCard({
                             safetyEntries={safetyMap}
                             exerciseData={exerciseMap?.get(exercise.id_esercizio)}
                             schedaId={schedaId}
+                            oneRMByPattern={isPrincipale ? oneRMByPattern : undefined}
                             onUpdate={(updates) => onUpdateExercise(session.id, exercise.id, updates)}
                             onDelete={() => onDeleteExercise(session.id, exercise.id)}
                             onReplace={() => onReplaceExercise(session.id, exercise.id)}

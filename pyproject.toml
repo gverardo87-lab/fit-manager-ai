@@ -71,6 +71,14 @@ dependencies = [
 testpaths = ["tests"]
 norecursedirs = ["tests/legacy"]
 
+[tool.ruff]
+target-version = "py39"
+
+[tool.ruff.lint]
+# E711/E712: SQLAlchemy richiede == None / == False per generare IS NULL / IS FALSE
+# F541: f-string senza placeholder (innocui, stile)
+ignore = ["E711", "E712", "F541"]
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["core*", "api*", "tools*", "knowledge_base*"]

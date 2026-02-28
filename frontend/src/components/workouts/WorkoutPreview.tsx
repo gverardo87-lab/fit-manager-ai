@@ -12,7 +12,7 @@
 import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { getSectionForCategory, type TemplateSection } from "@/lib/workout-templates";
-import type { SessionCardData } from "./SessionCard";
+import { parseAvgReps, type SessionCardData } from "./SessionCard";
 import type { WorkoutExerciseRow, Exercise } from "@/types/api";
 
 // ════════════════════════════════════════════════════════════
@@ -84,6 +84,19 @@ export function WorkoutPreview({
   sessioni,
   note,
 }: WorkoutPreviewProps) {
+  // Volume totale scheda (solo esercizi principali con carico)
+  const totalVolume = useMemo(() => {
+    let total = 0;
+    for (const session of sessioni) {
+      for (const ex of session.esercizi) {
+        if (getSectionForCategory(ex.esercizio_categoria) !== "principale") continue;
+        if (!ex.carico_kg || ex.carico_kg <= 0) continue;
+        total += ex.serie * parseAvgReps(ex.ripetizioni) * ex.carico_kg;
+      }
+    }
+    return total > 0 ? Math.round(total) : null;
+  }, [sessioni]);
+
   return (
     <div className="workout-preview bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 rounded-lg border p-6 space-y-6">
       {/* ── Header ── */}
@@ -105,6 +118,11 @@ export function WorkoutPreview({
           <Badge variant="outline" className="text-xs">
             {durata_settimane} settimane
           </Badge>
+          {totalVolume != null && (
+            <Badge variant="outline" className="text-xs tabular-nums">
+              Vol. totale: {totalVolume.toLocaleString("it-IT")} kg
+            </Badge>
+          )}
         </div>
       </div>
 
