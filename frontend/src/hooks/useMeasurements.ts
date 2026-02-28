@@ -78,9 +78,20 @@ export function useCreateMeasurement(clientId: number) {
       );
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["measurements", clientId] });
+      queryClient.invalidateQueries({ queryKey: ["goals", clientId] });
       toast.success("Misurazione registrata");
+
+      // Celebra obiettivi auto-completati
+      if (data.obiettivi_raggiunti && data.obiettivi_raggiunti.length > 0) {
+        for (const goal of data.obiettivi_raggiunti) {
+          toast.success(
+            `Obiettivo raggiunto! ${goal.nome_metrica}: ${goal.valore_raggiunto} (target: ${goal.valore_target})`,
+            { duration: 6000 }
+          );
+        }
+      }
     },
     onError: (error) => {
       toast.error(
@@ -109,9 +120,20 @@ export function useUpdateMeasurement(clientId: number) {
       );
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["measurements", clientId] });
+      queryClient.invalidateQueries({ queryKey: ["goals", clientId] });
       toast.success("Misurazione aggiornata");
+
+      // Celebra obiettivi auto-completati
+      if (data.obiettivi_raggiunti && data.obiettivi_raggiunti.length > 0) {
+        for (const goal of data.obiettivi_raggiunti) {
+          toast.success(
+            `Obiettivo raggiunto! ${goal.nome_metrica}: ${goal.valore_raggiunto} (target: ${goal.valore_target})`,
+            { duration: 6000 }
+          );
+        }
+      }
     },
     onError: (error) => {
       toast.error(
@@ -134,6 +156,7 @@ export function useDeleteMeasurement(clientId: number) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["measurements", clientId] });
+      queryClient.invalidateQueries({ queryKey: ["goals", clientId] });
       toast.success("Misurazione eliminata");
     },
     onError: (error) => {

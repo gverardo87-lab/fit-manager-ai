@@ -15,6 +15,7 @@ from .muscle import Muscle, ExerciseMuscle
 from .joint import Joint, ExerciseJoint
 from .medical_condition import MedicalCondition, ExerciseCondition
 from .measurement import Metric, ClientMeasurement, MeasurementValue
+from .goal import ClientGoal
 
 __all__ = [
     "Trainer",
@@ -41,4 +42,5 @@ __all__ = [
     "Metric",
     "ClientMeasurement",
     "MeasurementValue",
+    "ClientGoal",
 ]

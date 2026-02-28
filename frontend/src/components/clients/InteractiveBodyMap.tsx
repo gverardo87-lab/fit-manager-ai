@@ -31,6 +31,7 @@ import {
   Dumbbell,
   Ruler,
   ShieldAlert,
+  Target,
 } from "lucide-react";
 import { Line, LineChart, ResponsiveContainer } from "recharts";
 
@@ -40,7 +41,9 @@ import { BODY_ZONES, SLUG_TO_ZONE_MAP } from "@/lib/body-zone-config";
 import type { BodyZone } from "@/lib/body-zone-config";
 import { useClientWorkouts } from "@/hooks/useWorkouts";
 import { useExercises, useExerciseSafetyMap } from "@/hooks/useExercises";
+import { useClientGoals } from "@/hooks/useGoals";
 import type {
+  ClientGoal,
   Measurement,
   Metric,
   Exercise,
@@ -119,6 +122,7 @@ export function InteractiveBodyMap({
   const { data: workoutsData } = useClientWorkouts(clientId);
   const { data: exercisesData } = useExercises();
   const { data: safetyMap } = useExerciseSafetyMap(clientId);
+  const { data: goalsData } = useClientGoals(clientId);
 
   // ── Exercise catalog map ──
   const exerciseCatalog = useMemo(() => {
@@ -286,24 +290,45 @@ export function InteractiveBodyMap({
     return result;
   }, [safetyMap]);
 
-  // D. Data availability per zone (per chip indicators)
+  // D. Goals per zone (obiettivi attivi raggruppati per zona via metricIds)
+  const zoneGoals = useMemo(() => {
+    const result = new Map<string, ClientGoal[]>();
+    for (const zone of BODY_ZONES) {
+      result.set(zone.id, []);
+    }
+    if (!goalsData) return result;
+
+    const activeGoals = goalsData.items.filter((g) => g.stato === "attivo");
+    for (const goal of activeGoals) {
+      for (const zone of BODY_ZONES) {
+        if (zone.metricIds.includes(goal.id_metrica)) {
+          result.get(zone.id)!.push(goal);
+        }
+      }
+    }
+    return result;
+  }, [goalsData]);
+
+  // E. Data availability per zone (per chip indicators)
   const zoneDataStatus = useMemo(() => {
     const status = new Map<
       string,
-      { hasMeasurement: boolean; hasExercises: boolean; hasConditions: boolean }
+      { hasMeasurement: boolean; hasExercises: boolean; hasConditions: boolean; hasGoals: boolean }
     >();
     for (const zone of BODY_ZONES) {
       const metrics = zoneMetrics.get(zone.id) ?? [];
       const exercises = zoneExercises.get(zone.id) ?? [];
       const conditions = zoneConditions.get(zone.id) ?? [];
+      const goals = zoneGoals.get(zone.id) ?? [];
       status.set(zone.id, {
         hasMeasurement: metrics.some((m) => m.latestValue !== null),
         hasExercises: exercises.length > 0,
         hasConditions: conditions.length > 0,
+        hasGoals: goals.length > 0,
       });
     }
     return status;
-  }, [zoneMetrics, zoneExercises, zoneConditions]);
+  }, [zoneMetrics, zoneExercises, zoneConditions, zoneGoals]);
 
   // ════════════════════════════════════════════════════════════
   // SVG BODY HIGHLIGHT
@@ -374,8 +399,11 @@ export function InteractiveBodyMap({
                 }`}
               >
                 {zone.label}
-                {status && (status.hasMeasurement || status.hasExercises || status.hasConditions) && (
+                {status && (status.hasMeasurement || status.hasExercises || status.hasConditions || status.hasGoals) && (
                   <span className="flex gap-0.5">
+                    {status.hasGoals && (
+                      <span className={`h-1.5 w-1.5 rounded-full ${isActive ? "bg-white/70" : "bg-teal-400"}`} />
+                    )}
                     {status.hasMeasurement && (
                       <span className={`h-1.5 w-1.5 rounded-full ${isActive ? "bg-white/70" : "bg-emerald-400"}`} />
                     )}
@@ -448,6 +476,7 @@ export function InteractiveBodyMap({
             <ZoneDetailPanel
               zone={selectedZone}
               metricsData={zoneMetrics.get(selectedZone.id) ?? []}
+              goalsData={zoneGoals.get(selectedZone.id) ?? []}
               exercisesData={zoneExercises.get(selectedZone.id) ?? []}
               conditionsData={zoneConditions.get(selectedZone.id) ?? []}
               hasAnamnesi={safetyMap?.has_anamnesi ?? false}
@@ -467,6 +496,7 @@ export function InteractiveBodyMap({
 function ZoneDetailPanel({
   zone,
   metricsData,
+  goalsData,
   exercisesData,
   conditionsData,
   hasAnamnesi,
@@ -474,6 +504,7 @@ function ZoneDetailPanel({
 }: {
   zone: BodyZone;
   metricsData: ZoneMetricData[];
+  goalsData: ClientGoal[];
   exercisesData: ZoneExerciseData[];
   conditionsData: ZoneConditionData[];
   hasAnamnesi: boolean;
@@ -550,7 +581,65 @@ function ZoneDetailPanel({
         )}
       </div>
 
-      {/* ── Sezione 2: Esercizi Collegati ── */}
+      {/* ── Sezione 2: Obiettivi ── */}
+      {goalsData.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5">
+            <Target className="h-3.5 w-3.5 text-teal-500" />
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Obiettivi Attivi
+            </span>
+          </div>
+          <div className="space-y-1.5">
+            {goalsData.map((goal) => {
+              const progress = goal.progresso.percentuale_progresso;
+              const trend = goal.progresso.tendenza_positiva;
+              const barColor =
+                trend === null
+                  ? "bg-teal-500"
+                  : trend
+                    ? "bg-emerald-500"
+                    : "bg-rose-500";
+              return (
+                <div
+                  key={goal.id}
+                  className="rounded-md bg-muted/30 px-2.5 py-2 space-y-1.5"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium">{goal.nome_metrica}</span>
+                    <span className="text-[10px] text-muted-foreground tabular-nums">
+                      {goal.direzione === "aumentare" ? "↑" : goal.direzione === "diminuire" ? "↓" : "="}{" "}
+                      {goal.valore_target !== null
+                        ? `${goal.valore_target} ${goal.unita_misura}`
+                        : goal.direzione}
+                    </span>
+                  </div>
+                  {progress !== null && (
+                    <div className="space-y-0.5">
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-primary/10">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+                          style={{ width: `${Math.min(100, progress)}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] text-muted-foreground tabular-nums">
+                        <span>{progress.toFixed(0)}%</span>
+                        {goal.progresso.valore_corrente !== null && (
+                          <span>
+                            {goal.progresso.valore_corrente} {goal.unita_misura}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Sezione 3: Esercizi Collegati ── */}
       <div className="space-y-2">
         <div className="flex items-center gap-1.5">
           <Dumbbell className="h-3.5 w-3.5 text-blue-500" />
@@ -589,7 +678,7 @@ function ZoneDetailPanel({
         )}
       </div>
 
-      {/* ── Sezione 3: Note Cliniche ── */}
+      {/* ── Sezione 4: Note Cliniche ── */}
       <div className="space-y-2">
         <div className="flex items-center gap-1.5">
           <ClipboardList className="h-3.5 w-3.5 text-amber-500" />

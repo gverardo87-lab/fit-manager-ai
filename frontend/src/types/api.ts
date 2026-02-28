@@ -1089,6 +1089,14 @@ export interface MeasurementValue {
   valore: number;
 }
 
+/** Info obiettivo auto-completato — per toast frontend */
+export interface GoalCompletionInfo {
+  id: number;
+  nome_metrica: string;
+  valore_target: number;
+  valore_raggiunto: number;
+}
+
 /** Sessione di misurazione — output con valori nested */
 export interface Measurement {
   id: number;
@@ -1096,11 +1104,95 @@ export interface Measurement {
   data_misurazione: string;
   note: string | null;
   valori: MeasurementValue[];
+  obiettivi_raggiunti?: GoalCompletionInfo[];
 }
 
 /** GET /api/clients/{id}/measurements — lista paginata */
 export interface MeasurementListResponse {
   items: Measurement[];
   total: number;
+}
+
+// ════════════════════════════════════════════════════════════
+// CLIENT GOALS (api/schemas/goal.py)
+// ════════════════════════════════════════════════════════════
+
+export const GOAL_DIRECTIONS = ["aumentare", "diminuire", "mantenere"] as const;
+export type GoalDirection = (typeof GOAL_DIRECTIONS)[number];
+
+export const GOAL_DIRECTION_LABELS: Record<GoalDirection, string> = {
+  aumentare: "Aumentare",
+  diminuire: "Diminuire",
+  mantenere: "Mantenere",
+};
+
+export const GOAL_STATUSES = ["attivo", "raggiunto", "abbandonato"] as const;
+export type GoalStatus = (typeof GOAL_STATUSES)[number];
+
+export const GOAL_STATUS_LABELS: Record<GoalStatus, string> = {
+  attivo: "Attivo",
+  raggiunto: "Raggiunto",
+  abbandonato: "Abbandonato",
+};
+
+/** POST /api/clients/{id}/goals */
+export interface GoalCreate {
+  id_metrica: number;
+  direzione: GoalDirection;
+  valore_target?: number | null;
+  data_inizio: string;
+  data_scadenza?: string | null;
+  priorita?: number;
+  note?: string | null;
+}
+
+/** PUT /api/clients/{id}/goals/{goalId} */
+export interface GoalUpdate {
+  direzione?: GoalDirection | null;
+  valore_target?: number | null;
+  data_scadenza?: string | null;
+  priorita?: number | null;
+  stato?: GoalStatus | null;
+  note?: string | null;
+}
+
+/** Progresso computato dal backend */
+export interface GoalProgress {
+  valore_corrente: number | null;
+  data_corrente: string | null;
+  delta_da_baseline: number | null;
+  percentuale_progresso: number | null;
+  tendenza_positiva: boolean | null;
+}
+
+/** Obiettivo con progresso inline */
+export interface ClientGoal {
+  id: number;
+  id_cliente: number;
+  id_metrica: number;
+  nome_metrica: string;
+  unita_misura: string;
+  categoria_metrica: string;
+  tipo_obiettivo: "corporeo" | "atletico";
+  direzione: GoalDirection;
+  valore_target: number | null;
+  valore_baseline: number | null;
+  data_baseline: string | null;
+  data_inizio: string;
+  data_scadenza: string | null;
+  priorita: number;
+  stato: GoalStatus;
+  completed_at: string | null;
+  completato_automaticamente: boolean;
+  note: string | null;
+  progresso: GoalProgress;
+}
+
+/** GET /api/clients/{id}/goals */
+export interface GoalListResponse {
+  items: ClientGoal[];
+  total: number;
+  attivi: number;
+  raggiunti: number;
 }
 

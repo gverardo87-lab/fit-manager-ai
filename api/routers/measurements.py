@@ -27,9 +27,10 @@ from api.models.client import Client
 from api.models.measurement import Metric, ClientMeasurement, MeasurementValue
 from api.schemas.measurement import (
     MeasurementCreate, MeasurementUpdate,
-    MetricResponse, MeasurementResponse,
+    MetricResponse, MeasurementResponse, GoalCompletionInfo,
     MeasurementValueResponse, MeasurementListResponse,
 )
+from api.services.goal_engine import sync_goal_completion
 
 router = APIRouter(tags=["measurements"])
 
@@ -263,10 +264,17 @@ def create_measurement(
         session.add(value)
         values.append(value)
 
+    # Auto-check obiettivi (prima del commit — atomico)
+    completed_goals = sync_goal_completion(session, client_id, trainer.id)
+
     session.commit()
     session.refresh(measurement)
 
-    return _build_measurement_response(measurement, values, metric_map)
+    response = _build_measurement_response(measurement, values, metric_map)
+    response.obiettivi_raggiunti = [
+        GoalCompletionInfo(**g) for g in completed_goals
+    ]
+    return response
 
 
 @router.put(
@@ -342,10 +350,17 @@ def update_measurement(
             )
         ).all()
 
+    # Auto-check obiettivi (prima del commit — atomico)
+    completed_goals = sync_goal_completion(session, client_id, trainer.id)
+
     session.commit()
     session.refresh(measurement)
 
-    return _build_measurement_response(measurement, new_values, metric_map)
+    response = _build_measurement_response(measurement, new_values, metric_map)
+    response.obiettivi_raggiunti = [
+        GoalCompletionInfo(**g) for g in completed_goals
+    ]
+    return response
 
 
 @router.delete(

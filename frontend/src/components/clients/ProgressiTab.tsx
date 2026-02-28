@@ -33,6 +33,7 @@ import {
   Ruler,
   Scale,
   Trash2,
+  Target,
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
@@ -58,6 +59,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+import { GoalsSummary } from "@/components/clients/GoalsSummary";
+import { GoalFormDialog } from "@/components/clients/GoalFormDialog";
 import { InteractiveBodyMap } from "@/components/clients/InteractiveBodyMap";
 import { MeasurementChart } from "@/components/clients/MeasurementChart";
 import { SessionComparison } from "@/components/clients/SessionComparison";
@@ -66,6 +69,7 @@ import {
   useDeleteMeasurement,
   useMetrics,
 } from "@/hooks/useMeasurements";
+import { useClientGoals } from "@/hooks/useGoals";
 import type { Measurement, Metric, MetricCategory } from "@/types/api";
 import { METRIC_CATEGORY_LABELS } from "@/types/api";
 
@@ -137,10 +141,12 @@ export function ProgressiTab({ clientId }: ProgressiTabProps) {
   const router = useRouter();
   const { data: measurementsData, isLoading } = useClientMeasurements(clientId);
   const { data: metrics } = useMetrics();
+  const { data: goalsData } = useClientGoals(clientId);
   const deleteMutation = useDeleteMeasurement(clientId);
 
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [goalFormOpen, setGoalFormOpen] = useState(false);
 
   const measurements = measurementsData?.items ?? [];
 
@@ -160,6 +166,13 @@ export function ProgressiTab({ clientId }: ProgressiTabProps) {
     if (!metrics) return new Map<number, Metric>();
     return new Map(metrics.map((m) => [m.id, m]));
   }, [metrics]);
+
+  // ── Valori correnti (dalla sessione piu' recente) per GoalFormDialog ──
+  const currentValues = useMemo(() => {
+    if (measurements.length === 0) return new Map<number, number>();
+    const latest = measurements[0];
+    return new Map(latest.valori.map((v) => [v.id_metrica, v.valore]));
+  }, [measurements]);
 
   // ── KPI dinamici: top metriche prioritarie + fill con piu' tracciate ──
   const dynamicKpiMetrics = useMemo(() => {
@@ -265,26 +278,50 @@ export function ProgressiTab({ clientId }: ProgressiTabProps) {
     );
   }
 
+  // ── Goals limit check ──
+  const activeGoalsCount = goalsData?.attivi ?? 0;
+  const goalsMaxed = activeGoalsCount >= 3;
+
   // ── Empty state ──
   if (measurements.length === 0) {
     return (
-      <Card className="border-dashed">
-        <CardContent className="flex flex-col items-center justify-center gap-4 py-16">
-          <div className="rounded-full bg-teal-50 p-4 dark:bg-teal-950/30">
-            <Scale className="h-10 w-10 text-teal-500" />
-          </div>
-          <div className="text-center">
-            <p className="text-lg font-semibold">Nessuna misurazione registrata</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Registra la prima misurazione per visualizzare il trend del cliente
-            </p>
-          </div>
-          <Button onClick={handleNewMeasurement}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nuova Misurazione
-          </Button>
-        </CardContent>
-      </Card>
+      <>
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center gap-4 py-16">
+            <div className="rounded-full bg-teal-50 p-4 dark:bg-teal-950/30">
+              <Scale className="h-10 w-10 text-teal-500" />
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-semibold">Nessuna misurazione registrata</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Registra la prima misurazione o imposta gli obiettivi del cliente
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setGoalFormOpen(true)}
+                disabled={goalsMaxed}
+                title={goalsMaxed ? "Max 3 obiettivi attivi" : undefined}
+              >
+                <Target className="mr-2 h-4 w-4" />
+                Nuovo Obiettivo
+              </Button>
+              <Button onClick={handleNewMeasurement}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nuova Misurazione
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+        <GoalFormDialog
+          open={goalFormOpen}
+          onOpenChange={setGoalFormOpen}
+          clientId={clientId}
+          goal={null}
+          currentValues={currentValues}
+        />
+      </>
     );
   }
 
@@ -299,6 +336,16 @@ export function ProgressiTab({ clientId }: ProgressiTabProps) {
               <Printer className="mr-2 h-4 w-4" />
               Stampa
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setGoalFormOpen(true)}
+              disabled={goalsMaxed}
+              title={goalsMaxed ? "Max 3 obiettivi attivi" : undefined}
+            >
+              <Target className="mr-2 h-4 w-4" />
+              Nuovo Obiettivo
+            </Button>
             <Button size="sm" onClick={handleNewMeasurement}>
               <Plus className="mr-2 h-4 w-4" />
               Nuova Misurazione
@@ -306,7 +353,10 @@ export function ProgressiTab({ clientId }: ProgressiTabProps) {
           </div>
         </div>
 
-        {/* ── 2. KPI Cards (dinamici) ── */}
+        {/* ── 2. Obiettivi ── */}
+        <GoalsSummary clientId={clientId} currentValues={currentValues} />
+
+        {/* ── 3. KPI Cards (dinamici) ── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {/* Metric-based KPIs */}
           {dynamicKpiMetrics.map((metric, idx) => {
@@ -508,6 +558,15 @@ export function ProgressiTab({ clientId }: ProgressiTabProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Goal form dialog (header CTA) */}
+      <GoalFormDialog
+        open={goalFormOpen}
+        onOpenChange={setGoalFormOpen}
+        clientId={clientId}
+        goal={null}
+        currentValues={currentValues}
+      />
     </>
   );
 }

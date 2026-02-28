@@ -66,6 +66,14 @@ class MeasurementValueResponse(BaseModel):
     valore: float
 
 
+class GoalCompletionInfo(BaseModel):
+    """Info obiettivo auto-completato — per toast nel frontend."""
+    id: int
+    nome_metrica: str
+    valore_target: float
+    valore_raggiunto: float
+
+
 class MeasurementResponse(BaseModel):
     """Sessione di misurazione — output con valori nested."""
     id: int
@@ -73,6 +81,7 @@ class MeasurementResponse(BaseModel):
     data_misurazione: str
     note: Optional[str] = None
     valori: List[MeasurementValueResponse] = []
+    obiettivi_raggiunti: List[GoalCompletionInfo] = []
 
 
 class MeasurementListResponse(BaseModel):
