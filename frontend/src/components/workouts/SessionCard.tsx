@@ -11,6 +11,7 @@
  *
  * Ogni sezione ha drag & drop indipendente e + button dedicato.
  * La sezione viene determinata da esercizio_categoria.
+ * Azioni sessione in overflow menu (⋮) per header compatto.
  */
 
 import { useCallback, useMemo, useState } from "react";
@@ -29,11 +30,18 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Plus, Trash2, Pencil, Flame, Dumbbell, Heart, ShieldAlert, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, Pencil, Flame, Dumbbell, Heart, ShieldAlert, AlertTriangle, Copy, StickyNote, MoreVertical } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 import { SortableExerciseRow } from "./SortableExerciseRow";
 import { getSectionForCategory, type TemplateSection } from "@/lib/workout-templates";
@@ -59,6 +67,7 @@ interface SessionCardProps {
   schedaId?: number;
   onUpdateSession: (sessionId: number, updates: Partial<SessionCardData>) => void;
   onDeleteSession: (sessionId: number) => void;
+  onDuplicateSession?: (sessionId: number) => void;
   onAddExercise: (sessionId: number, sezione?: TemplateSection) => void;
   onUpdateExercise: (sessionId: number, exerciseId: number, updates: Partial<WorkoutExerciseRow>) => void;
   onDeleteExercise: (sessionId: number, exerciseId: number) => void;
@@ -108,6 +117,7 @@ export function SessionCard({
   schedaId,
   onUpdateSession,
   onDeleteSession,
+  onDuplicateSession,
   onAddExercise,
   onUpdateExercise,
   onDeleteExercise,
@@ -116,6 +126,7 @@ export function SessionCard({
 }: SessionCardProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState(session.nome_sessione);
+  const [showNotes, setShowNotes] = useState(!!session.note);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -155,7 +166,6 @@ export function SessionCard({
       const { active, over } = event;
       if (!over || active.id === over.id) return;
 
-      // Trova a quale sezione appartengono
       const activeEx = session.esercizi.find((e) => e.id === active.id);
       const overEx = session.esercizi.find((e) => e.id === over.id);
       if (!activeEx || !overEx) return;
@@ -173,7 +183,6 @@ export function SessionCard({
 
       const reordered = arrayMove(sectionExs, oldIdx, newIdx);
 
-      // Ricostruisci lista completa: avviamento → principale → stretching
       const fullList = [
         ...(activeSection === "avviamento" ? reordered : groupedExercises.avviamento),
         ...(activeSection === "principale" ? reordered : groupedExercises.principale),
@@ -194,8 +203,8 @@ export function SessionCard({
 
   return (
     <Card className="transition-all duration-200 hover:shadow-md">
-      <CardHeader className="flex flex-row items-center gap-3 pb-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-sm font-bold text-primary">
+      <CardHeader className="flex flex-row items-center gap-2 pb-2">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
           {session.numero_sessione}
         </div>
         <div className="flex-1 min-w-0 group">
@@ -214,6 +223,10 @@ export function SessionCard({
               className="flex items-center gap-1 text-sm font-semibold hover:text-primary transition-colors"
             >
               {session.nome_sessione}
+              {/* Dot indicatore note sessione */}
+              {session.note && (
+                <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+              )}
               <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-100" />
             </button>
           )}
@@ -222,40 +235,74 @@ export function SessionCard({
           )}
         </div>
         {/* Safety pills */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
           {sessionSafety.avoid > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-red-100 dark:bg-red-950/40 px-2 py-0.5 text-[11px] font-medium text-red-700 dark:text-red-400">
+            <span className="inline-flex items-center gap-0.5 rounded-full bg-red-100 dark:bg-red-950/40 px-1.5 py-0.5 text-[10px] font-medium text-red-700 dark:text-red-400">
               <ShieldAlert className="h-3 w-3" />
               {sessionSafety.avoid}
             </span>
           )}
           {sessionSafety.caution > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-950/40 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+            <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 dark:bg-amber-950/40 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
               <AlertTriangle className="h-3 w-3" />
               {sessionSafety.caution}
             </span>
           )}
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 text-muted-foreground hover:text-destructive"
-          onClick={() => onDeleteSession(session.id)}
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
+        {/* Overflow menu (⋮) — note, duplica, elimina */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => setShowNotes(!showNotes)}>
+              <StickyNote className="h-3.5 w-3.5 mr-2" />
+              {session.note ? "Modifica note" : "Aggiungi note"}
+            </DropdownMenuItem>
+            {onDuplicateSession && (
+              <DropdownMenuItem onClick={() => onDuplicateSession(session.id)}>
+                <Copy className="h-3.5 w-3.5 mr-2" />
+                Duplica sessione
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => onDeleteSession(session.id)}
+              className="text-destructive focus:text-destructive"
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-2" />
+              Elimina sessione
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </CardHeader>
 
-      <CardContent className="pt-0 space-y-3">
+      {/* Note sessione espandibili */}
+      {showNotes && (
+        <div className="px-6 pb-2">
+          <Input
+            value={session.note ?? ""}
+            onChange={(e) => onUpdateSession(session.id, { note: e.target.value || null })}
+            placeholder="Note sessione: RPE target, focus, indicazioni generali..."
+            className="h-7 text-xs"
+            autoFocus={!session.note}
+          />
+        </div>
+      )}
+
+      <CardContent className="pt-0 space-y-2">
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           {SECTION_ORDER.map((sectionKey) => {
             const config = SECTION_CONFIG[sectionKey];
             const exercises = groupedExercises[sectionKey];
+            const isPrincipale = sectionKey === "principale";
 
             return (
               <div key={sectionKey} className={`border-l-2 ${config.borderColor} pl-3`}>
                 {/* Section header */}
-                <div className={`flex items-center gap-1.5 mb-1.5 ${config.color}`}>
+                <div className={`flex items-center gap-1.5 mb-1 ${config.color}`}>
                   {config.icon}
                   <span className="text-[11px] font-semibold uppercase tracking-wider">
                     {config.label}
@@ -270,18 +317,21 @@ export function SessionCard({
                 {/* Exercise rows */}
                 {exercises.length > 0 && (
                   <>
-                    {/* Column header solo per principale */}
-                    {sectionKey === "principale" && (
-                      <div className="grid grid-cols-[24px_16px_1fr_60px_70px_60px_32px] gap-2 px-1 pb-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                        <span />
-                        <span />
-                        <span>Esercizio</span>
-                        <span className="text-center">Serie</span>
-                        <span className="text-center">Rip</span>
+                    {/* Column header — allineato ai nuovi grid */}
+                    <div className={`grid ${isPrincipale
+                      ? "grid-cols-[20px_14px_1fr_44px_52px_44px_24px]"
+                      : "grid-cols-[20px_14px_1fr_44px_52px_24px]"
+                    } gap-1 px-1 pb-0.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider`}>
+                      <span />
+                      <span />
+                      <span>Esercizio</span>
+                      <span className="text-center">Serie</span>
+                      <span className="text-center">Rip</span>
+                      {isPrincipale && (
                         <span className="text-center">Riposo</span>
-                        <span />
-                      </div>
-                    )}
+                      )}
+                      <span />
+                    </div>
 
                     <SortableContext
                       items={exercises.map((e) => e.id)}
@@ -292,7 +342,7 @@ export function SessionCard({
                           <SortableExerciseRow
                             key={exercise.id}
                             exercise={exercise}
-                            compact={sectionKey !== "principale"}
+                            compact={!isPrincipale}
                             safety={safetyMap?.[exercise.id_esercizio]}
                             safetyEntries={safetyMap}
                             exerciseData={exerciseMap?.get(exercise.id_esercizio)}

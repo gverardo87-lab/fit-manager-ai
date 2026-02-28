@@ -49,6 +49,8 @@ interface ExerciseSelectorProps {
   safetyMap?: Record<number, ExerciseSafetyEntry>;
   /** ID scheda per deep-link ritorno dalla pagina esercizio */
   schedaId?: number;
+  /** Set di exercise ID gia' presenti nella scheda (per badge "In scheda") */
+  usedExerciseIds?: Set<number>;
 }
 
 // ── Chip labels compatte per pattern ──
@@ -99,6 +101,7 @@ export function ExerciseSelector({
   categoryFilter,
   safetyMap,
   schedaId,
+  usedExerciseIds,
 }: ExerciseSelectorProps) {
   // ── Filter state ──
   const [search, setSearch] = useState("");
@@ -535,6 +538,7 @@ export function ExerciseSelector({
                   detailExpanded={expandedDetailId === exercise.id}
                   onToggleDetail={(id) => setExpandedDetailId(expandedDetailId === id ? null : id)}
                   schedaId={schedaId}
+                  isUsed={usedExerciseIds?.has(exercise.id)}
                   onSelect={handleSelect}
                   onSelectById={handleSelectById}
                 />
@@ -605,6 +609,7 @@ function ExerciseRow({
   detailExpanded,
   onToggleDetail,
   schedaId,
+  isUsed,
   onSelect,
   onSelectById,
 }: {
@@ -616,6 +621,7 @@ function ExerciseRow({
   detailExpanded?: boolean;
   onToggleDetail?: (id: number) => void;
   schedaId?: number;
+  isUsed?: boolean;
   onSelect: (e: Exercise) => void;
   onSelectById?: (exerciseId: number) => void;
 }) {
@@ -650,9 +656,14 @@ function ExerciseRow({
           onClick={() => onSelect(exercise)}
           className="min-w-0 flex-1 text-left"
         >
-          {/* Row 1: Nome + safety badge */}
+          {/* Row 1: Nome + badges */}
           <div className="flex items-center gap-1.5">
             <p className="text-sm font-medium truncate">{exercise.nome}</p>
+            {isUsed && (
+              <span className="shrink-0 inline-flex items-center rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary">
+                In scheda
+              </span>
+            )}
             {safety && (
               <span
                 onClick={(e) => {

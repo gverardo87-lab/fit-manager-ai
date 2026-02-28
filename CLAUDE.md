@@ -64,6 +64,14 @@ Editor strutturato per creare schede allenamento professionali. Layout split: ed
 **Backend**: 3 tabelle (`schede_allenamento`, `sessioni_scheda`, `esercizi_sessione`) con Deep IDOR chain: `EsercizioSessione → SessioneScheda → SchedaAllenamento.trainer_id`. CRUD completo + duplicate + full-replace sessioni (atomico). `id_cliente` FK opzionale per collegare schede a clienti (riassegnabile via PUT con bouncer check).
 
 **Frontend**: 3 sezioni per sessione — Avviamento, Principale, Stretching & Mobilita.
+- **Grid compatto**: principale 7 colonne `[grip_20|info_14|nome_1fr|serie_44|rip_52|riposo_44|del_24]`, compact 6 colonne (senza riposo). Tempo esecuzione e note NON in griglia — accessibili via espansione unificata (Info icon)
+- **Espansione unificata**: click Info → riga con nota input + tempo esecuzione input + ExerciseDetailPanel. Un solo toggle, non 3 separati
+- **Dot indicator**: teal dot accanto al nome se esercizio ha note/tempo compilati
+- **Delete hover-reveal**: bottone elimina semi-trasparente, visibile pieno su hover riga (`group/row`)
+- **Session overflow menu**: azioni sessione (note, duplica, elimina) in DropdownMenu (⋮) invece di 3 bottoni icon
+- **Smart Defaults**: `getSmartDefaults()` in `workout-templates.ts` — serie/rip/riposo basati su obiettivo scheda + rep range esercizio
+- **Badge "In scheda"**: ExerciseSelector mostra badge per esercizi gia' presenti nella scheda corrente
+- **Guardia beforeunload**: previene perdita modifiche non salvate su chiusura tab/refresh
 - **Template system**: 3 template (Beginner/Intermedio/Avanzato) con matching base esercizi per `pattern_movimento` + difficolta
 - **Exercise Selector**: dialog professionale con filtri pattern_movimento + gruppo muscolare + attrezzatura + difficolta + biomeccanica (chip cliccabili) + ricerca testuale. Filtro categoria automatico per sezione. **Pannello dettaglio inline** (icona Info): muscoli, classificazione, setup, note sicurezza, relazioni actionable con "Sostituisci", deep-link a pagina esercizio con ritorno
 - **DnD**: `@dnd-kit/sortable` per riordino esercizi dentro ogni sezione
@@ -78,7 +86,7 @@ Editor strutturato per creare schede allenamento professionali. Layout split: ed
 - **Exercise Detail Panel** (`ExerciseDetailPanel.tsx`): pannello riassuntivo riusabile (muscoli, classificazione, setup, note sicurezza, relazioni con quick-swap "Sostituisci", deep-link con ritorno). Usato sia in SortableExerciseRow che in ExerciseSelector
 - **Deep-Link Esercizio**: `/esercizi/{id}?from=scheda-{schedaId}` → banner "Torna alla scheda" + back button condizionale. Navigazione bidirezionale builder↔dettaglio esercizio
 
-File chiave: `lib/workout-templates.ts` (template + `getSectionForCategory`), `components/workouts/SessionCard.tsx` (3 sezioni DnD), `components/workouts/ExerciseDetailPanel.tsx` (dettaglio inline).
+File chiave: `lib/workout-templates.ts` (template + `getSectionForCategory` + `getSmartDefaults`), `components/workouts/SessionCard.tsx` (3 sezioni DnD, overflow menu), `components/workouts/SortableExerciseRow.tsx` (grid compatto, espansione unificata), `components/workouts/ExerciseDetailPanel.tsx` (dettaglio inline).
 
 ### Exercise Quality Engine — Pipeline Dati
 

@@ -5,6 +5,7 @@
  * Preview professionale stampabile della scheda allenamento.
  *
  * Layout: header, tabella esercizi per sessione (3 sezioni), note, footer.
+ * Tempo esecuzione mostrato inline accanto al nome (se compilato).
  */
 
 import { useMemo } from "react";
@@ -161,6 +162,13 @@ function SessionPreview({
         )}
       </div>
 
+      {/* Note sessione */}
+      {session.note && (
+        <p className="text-[10px] text-muted-foreground italic mb-1.5 ml-8">
+          {session.note}
+        </p>
+      )}
+
       {SECTION_ORDER.map((sectionKey) => {
         const exercises = grouped[sectionKey];
         if (exercises.length === 0) return null;
@@ -181,10 +189,10 @@ function SessionPreview({
                       <th className="py-1 text-center font-medium w-12"></th>
                     )}
                     <th className="py-1 text-left font-medium">Esercizio</th>
-                    <th className="py-1 text-center font-medium w-14">Serie</th>
-                    <th className="py-1 text-center font-medium w-16">Rip</th>
-                    <th className="py-1 text-center font-medium w-16">Riposo</th>
-                    <th className="py-1 text-left font-medium w-24">Note</th>
+                    <th className="py-1 text-center font-medium w-12">Serie</th>
+                    <th className="py-1 text-center font-medium w-14">Rip</th>
+                    <th className="py-1 text-center font-medium w-14">Riposo</th>
+                    <th className="py-1 text-left font-medium w-28">Note</th>
                   </tr>
                 </thead>
               )}
@@ -212,19 +220,26 @@ function SessionPreview({
                           )}
                         </td>
                       )}
-                      <td className="py-1 font-medium">{ex.esercizio_nome}</td>
+                      <td className="py-1 font-medium">
+                        {ex.esercizio_nome}
+                        {ex.tempo_esecuzione && (
+                          <span className="ml-1 text-[10px] text-muted-foreground font-normal">
+                            ({ex.tempo_esecuzione})
+                          </span>
+                        )}
+                      </td>
                       <td className="py-1 text-center tabular-nums">{ex.serie}</td>
                       <td className="py-1 text-center tabular-nums">{ex.ripetizioni}</td>
                       {sectionKey === "principale" && (
                         <>
                           <td className="py-1 text-center tabular-nums">{ex.tempo_riposo_sec}s</td>
-                          <td className="py-1 text-muted-foreground truncate max-w-[100px]">
+                          <td className="py-1 text-muted-foreground truncate max-w-[120px]">
                             {ex.note ?? "—"}
                           </td>
                         </>
                       )}
                       {sectionKey !== "principale" && (
-                        <td colSpan={2} className="py-1 text-muted-foreground truncate max-w-[100px]">
+                        <td colSpan={2} className="py-1 text-muted-foreground truncate max-w-[120px]">
                           {ex.note ?? ""}
                         </td>
                       )}

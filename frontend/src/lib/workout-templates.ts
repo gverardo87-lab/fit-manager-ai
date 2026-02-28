@@ -394,3 +394,54 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
 export function getTemplateById(id: string): WorkoutTemplate | undefined {
   return WORKOUT_TEMPLATES.find((t) => t.id === id);
 }
+
+// ════════════════════════════════════════════════════════════
+// SMART DEFAULTS
+// ════════════════════════════════════════════════════════════
+
+interface SmartDefaults {
+  serie: number;
+  ripetizioni: string;
+  tempo_riposo_sec: number;
+}
+
+const OBIETTIVO_DEFAULTS: Record<string, SmartDefaults> = {
+  forza:        { serie: 5, ripetizioni: "3-5",   tempo_riposo_sec: 180 },
+  ipertrofia:   { serie: 4, ripetizioni: "8-12",  tempo_riposo_sec: 90  },
+  resistenza:   { serie: 3, ripetizioni: "15-20", tempo_riposo_sec: 45  },
+  dimagrimento: { serie: 3, ripetizioni: "12-15", tempo_riposo_sec: 60  },
+  generale:     { serie: 3, ripetizioni: "8-12",  tempo_riposo_sec: 90  },
+};
+
+/**
+ * Calcola serie/rip/riposo intelligenti per un esercizio basandosi su:
+ * 1. Sezione (avviamento/stretching → defaults specifici)
+ * 2. Obiettivo della scheda (forza → 5x3-5/180s, ipertrofia → 4x8-12/90s, etc.)
+ * 3. Rep range specifico dell'esercizio (se popolato nel DB)
+ */
+export function getSmartDefaults(
+  exercise: { rep_range_forza?: string | null; rep_range_ipertrofia?: string | null; rep_range_resistenza?: string | null },
+  obiettivo: string,
+  sezione: TemplateSection,
+): SmartDefaults {
+  if (sezione !== "principale") {
+    return { serie: 1, ripetizioni: "30s", tempo_riposo_sec: 0 };
+  }
+
+  const base = OBIETTIVO_DEFAULTS[obiettivo] ?? OBIETTIVO_DEFAULTS.generale;
+
+  // Usa rep range specifico dell'esercizio se disponibile
+  const repRangeMap: Record<string, string | null | undefined> = {
+    forza: exercise.rep_range_forza,
+    ipertrofia: exercise.rep_range_ipertrofia,
+    resistenza: exercise.rep_range_resistenza,
+    dimagrimento: exercise.rep_range_resistenza, // dimagrimento usa range resistenza
+  };
+  const exerciseRepRange = repRangeMap[obiettivo];
+
+  return {
+    serie: base.serie,
+    ripetizioni: exerciseRepRange ?? base.ripetizioni,
+    tempo_riposo_sec: base.tempo_riposo_sec,
+  };
+}

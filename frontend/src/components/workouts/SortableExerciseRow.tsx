@@ -4,12 +4,13 @@
 /**
  * Singola riga esercizio sortabile dentro una SessionCard.
  *
- * Due layout:
- * - compact=false (default): grid completo con serie/rip/riposo inputs
- * - compact=true: riga semplificata per avviamento/stretching (nome + rip + delete)
+ * Due layout (entrambi snelli):
+ * - compact=true: avviamento/stretching — 6 colonne (grip, info, nome, serie, rip, delete)
+ * - compact=false: principale — 7 colonne (+ riposo)
  *
+ * Info icon: espande pannello unificato (nota + tempo + ExerciseDetailPanel).
  * Safety: icona cliccabile apre Popover ricco con condizioni dettagliate.
- * Info: icona cliccabile espande pannello riassuntivo inline (ExerciseDetailPanel).
+ * Dot indicator: teal dot accanto al nome se esercizio ha note/tempo compilati.
  */
 
 import { useState, useMemo } from "react";
@@ -142,7 +143,7 @@ function SafetyPopover({
               </div>
               <div className="space-y-1">
                 {safeAlternatives.map((alt) => (
-                  <div key={alt.id} className="flex items-center gap-1.5 text-[11px]">
+                  <div key={`${alt.id}-${alt.tipo}`} className="flex items-center gap-1.5 text-[11px]">
                     <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-500" />
                     <span className="flex-1 truncate">{alt.nome}</span>
                     <span className="text-[9px] text-muted-foreground shrink-0">
@@ -210,11 +211,14 @@ export function SortableExerciseRow({
       ? "bg-amber-50/60 dark:bg-amber-950/20"
       : "";
 
+  // Indicatore contenuto secondario (nota o tempo compilati)
+  const hasSecondaryContent = !!exercise.note || !!exercise.tempo_esecuzione;
+
   if (compact) {
     return (
       <div ref={setNodeRef} style={style}>
         <div
-          className={`grid grid-cols-[24px_16px_1fr_60px_70px_32px] gap-2 items-center rounded-md px-1 py-1 hover:bg-muted/40 transition-colors ${safetyBg}`}
+          className={`group/row grid grid-cols-[20px_14px_1fr_44px_52px_24px] gap-1 items-center rounded-md px-1 py-1 hover:bg-muted/40 transition-colors ${safetyBg}`}
         >
           {/* Drag handle */}
           <button
@@ -225,7 +229,7 @@ export function SortableExerciseRow({
             <GripVertical className="h-3.5 w-3.5" />
           </button>
 
-          {/* Info icon */}
+          {/* Info icon — espande pannello unificato */}
           <button
             onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
             className={`flex items-center justify-center transition-colors ${expanded ? "text-primary" : "text-muted-foreground/40 hover:text-muted-foreground"}`}
@@ -233,7 +237,7 @@ export function SortableExerciseRow({
             <Info className="h-3 w-3" />
           </button>
 
-          {/* Nome esercizio + safety icon */}
+          {/* Nome esercizio + safety icon + dot indicator */}
           <div className="flex items-center gap-1 min-w-0">
             {safety && (
               <SafetyPopover safety={safety} exerciseName={exercise.esercizio_nome} exerciseId={exercise.id_esercizio} iconSize="h-3 w-3" safetyEntries={safetyEntries} onQuickReplace={onQuickReplace} />
@@ -245,6 +249,9 @@ export function SortableExerciseRow({
             >
               {exercise.esercizio_nome}
             </button>
+            {hasSecondaryContent && (
+              <span className="shrink-0 h-1.5 w-1.5 rounded-full bg-primary/60" />
+            )}
           </div>
 
           {/* Serie */}
@@ -254,47 +261,61 @@ export function SortableExerciseRow({
             onChange={(e) => onUpdate({ serie: parseInt(e.target.value) || 1 })}
             min={1}
             max={10}
-            className="h-6 text-center text-xs px-1"
+            className="h-6 text-center text-[11px] px-1"
           />
 
           {/* Ripetizioni */}
           <Input
             value={exercise.ripetizioni}
             onChange={(e) => onUpdate({ ripetizioni: e.target.value })}
-            className="h-6 text-center text-xs px-1"
+            className="h-6 text-center text-[11px] px-1"
             placeholder="30s"
           />
 
-          {/* Delete */}
+          {/* Delete — semi-trasparente, visibile su hover */}
           <Button
             variant="ghost"
             size="icon"
-            className="h-6 w-6 text-muted-foreground/50 hover:text-destructive"
+            className="h-5 w-5 text-muted-foreground/0 group-hover/row:text-muted-foreground/50 hover:!text-destructive transition-colors"
             onClick={onDelete}
           >
             <Trash2 className="h-3 w-3" />
           </Button>
         </div>
 
-        {/* Expanded detail panel */}
-        {expanded && exerciseData && (
-          <ExerciseDetailPanel
-            exercise={exerciseData}
-            exerciseId={exercise.id_esercizio}
-            safety={safety}
-            safetyEntries={safetyEntries}
-            schedaId={schedaId}
-            onQuickReplace={onQuickReplace}
-          />
+        {/* Pannello espandibile unificato: nota + dettagli */}
+        {expanded && (
+          <div className="ml-[34px] mr-1 mt-0.5 mb-1 space-y-1.5">
+            {/* Nota input */}
+            <Input
+              value={exercise.note ?? ""}
+              onChange={(e) => onUpdate({ note: e.target.value || null })}
+              placeholder="Es: 30s per lato, focus respirazione..."
+              className="h-6 text-xs"
+            />
+            {/* Detail panel */}
+            {exerciseData && (
+              <ExerciseDetailPanel
+                exercise={exerciseData}
+                exerciseId={exercise.id_esercizio}
+                safety={safety}
+                safetyEntries={safetyEntries}
+                schedaId={schedaId}
+                onQuickReplace={onQuickReplace}
+              />
+            )}
+          </div>
         )}
       </div>
     );
   }
 
+  // ── Layout principale (7 colonne) ──
+
   return (
     <div ref={setNodeRef} style={style}>
       <div
-        className={`grid grid-cols-[24px_16px_1fr_60px_70px_60px_32px] gap-2 items-center rounded-md px-1 py-1.5 hover:bg-muted/40 transition-colors ${safetyBg}`}
+        className={`group/row grid grid-cols-[20px_14px_1fr_44px_52px_44px_24px] gap-1 items-center rounded-md px-1 py-1 hover:bg-muted/40 transition-colors ${safetyBg}`}
       >
         {/* Drag handle */}
         <button
@@ -302,21 +323,21 @@ export function SortableExerciseRow({
           {...listeners}
           className="flex items-center justify-center cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground"
         >
-          <GripVertical className="h-4 w-4" />
+          <GripVertical className="h-3.5 w-3.5" />
         </button>
 
-        {/* Info icon */}
+        {/* Info icon — espande pannello unificato */}
         <button
           onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
           className={`flex items-center justify-center transition-colors ${expanded ? "text-primary" : "text-muted-foreground/40 hover:text-muted-foreground"}`}
         >
-          <Info className="h-3.5 w-3.5" />
+          <Info className="h-3 w-3" />
         </button>
 
-        {/* Nome esercizio + safety icon */}
+        {/* Nome esercizio + safety icon + dot indicator */}
         <div className="flex items-center gap-1 min-w-0">
           {safety && (
-            <SafetyPopover safety={safety} exerciseName={exercise.esercizio_nome} exerciseId={exercise.id_esercizio} iconSize="h-3.5 w-3.5" safetyEntries={safetyEntries} onQuickReplace={onQuickReplace} />
+            <SafetyPopover safety={safety} exerciseName={exercise.esercizio_nome} exerciseId={exercise.id_esercizio} iconSize="h-3 w-3" safetyEntries={safetyEntries} onQuickReplace={onQuickReplace} />
           )}
           <button
             onClick={onReplace}
@@ -325,6 +346,9 @@ export function SortableExerciseRow({
           >
             {exercise.esercizio_nome}
           </button>
+          {hasSecondaryContent && (
+            <span className="shrink-0 h-1.5 w-1.5 rounded-full bg-primary/60" />
+          )}
         </div>
 
         {/* Serie */}
@@ -334,14 +358,14 @@ export function SortableExerciseRow({
           onChange={(e) => onUpdate({ serie: parseInt(e.target.value) || 1 })}
           min={1}
           max={10}
-          className="h-7 text-center text-xs px-1"
+          className="h-6 text-center text-[11px] px-1"
         />
 
         {/* Ripetizioni */}
         <Input
           value={exercise.ripetizioni}
           onChange={(e) => onUpdate({ ripetizioni: e.target.value })}
-          className="h-7 text-center text-xs px-1"
+          className="h-6 text-center text-[11px] px-1"
           placeholder="8-12"
         />
 
@@ -353,30 +377,50 @@ export function SortableExerciseRow({
           min={0}
           max={300}
           step={15}
-          className="h-7 text-center text-xs px-1"
+          className="h-6 text-center text-[11px] px-1"
         />
 
-        {/* Delete */}
+        {/* Delete — semi-trasparente, visibile su hover */}
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7 text-muted-foreground/50 hover:text-destructive"
+          className="h-5 w-5 text-muted-foreground/0 group-hover/row:text-muted-foreground/50 hover:!text-destructive transition-colors"
           onClick={onDelete}
         >
-          <Trash2 className="h-3.5 w-3.5" />
+          <Trash2 className="h-3 w-3" />
         </Button>
       </div>
 
-      {/* Expanded detail panel */}
-      {expanded && exerciseData && (
-        <ExerciseDetailPanel
-          exercise={exerciseData}
-          exerciseId={exercise.id_esercizio}
-          safety={safety}
-          safetyEntries={safetyEntries}
-          schedaId={schedaId}
-          onQuickReplace={onQuickReplace}
-        />
+      {/* Pannello espandibile unificato: nota + tempo esecuzione + dettagli */}
+      {expanded && (
+        <div className="ml-[34px] mr-1 mt-0.5 mb-1 space-y-1.5">
+          {/* Nota + Tempo inline */}
+          <div className="flex gap-1.5">
+            <Input
+              value={exercise.note ?? ""}
+              onChange={(e) => onUpdate({ note: e.target.value || null })}
+              placeholder="Nota: presa supina, pausa 2s, RPE 8..."
+              className="h-6 text-xs flex-1"
+            />
+            <Input
+              value={exercise.tempo_esecuzione ?? ""}
+              onChange={(e) => onUpdate({ tempo_esecuzione: e.target.value || null })}
+              className="h-6 text-[11px] text-center w-20"
+              placeholder="Tempo 3-1-2-0"
+            />
+          </div>
+          {/* Detail panel */}
+          {exerciseData && (
+            <ExerciseDetailPanel
+              exercise={exerciseData}
+              exerciseId={exercise.id_esercizio}
+              safety={safety}
+              safetyEntries={safetyEntries}
+              schedaId={schedaId}
+              onQuickReplace={onQuickReplace}
+            />
+          )}
+        </div>
       )}
     </div>
   );

@@ -66,6 +66,7 @@ import {
 import {
   SECTION_CATEGORIES,
   getSectionForCategory,
+  getSmartDefaults,
   type TemplateSection,
 } from "@/lib/workout-templates";
 import { RiskBodyMap } from "@/components/workouts/RiskBodyMap";
@@ -250,6 +251,28 @@ export default function SchedaDetailPage({
     return Array.from(seen.values()).filter((c) => c.body_tags.length > 0);
   }, [safetyEntries]);
 
+  // Set di exercise ID gia' usati nella scheda (per badge "In scheda" nel selector)
+  const usedExerciseIds = useMemo(() => {
+    const ids = new Set<number>();
+    for (const s of sessions) {
+      for (const e of s.esercizi) {
+        ids.add(e.id_esercizio);
+      }
+    }
+    return ids;
+  }, [sessions]);
+
+  // Guardia modifiche non salvate (chiusura tab / refresh)
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isDirty]);
+
   // Dati safety per export Excel
   const safetyExportData = useMemo(() => {
     if (!safetyMap || !safetyEntries || safetyMap.condition_count === 0) return undefined;
@@ -321,6 +344,27 @@ export default function SchedaDetailPage({
     setIsDirty(true);
   }, []);
 
+  const handleDuplicateSession = useCallback((sessionId: number) => {
+    const source = sessions.find((s) => s.id === sessionId);
+    if (!source) return;
+    const now = Date.now();
+    setSessions((prev) => [
+      ...prev,
+      {
+        ...source,
+        id: -now,
+        numero_sessione: prev.length + 1,
+        nome_sessione: `${source.nome_sessione} (copia)`,
+        esercizi: source.esercizi.map((e, idx) => ({
+          ...e,
+          id: -(now + idx + 1),
+          ordine: idx + 1,
+        })),
+      },
+    ]);
+    setIsDirty(true);
+  }, [sessions]);
+
   // ── Handlers esercizi ──
 
   const handleAddExercise = useCallback((sessionId: number, sezione?: TemplateSection) => {
@@ -361,10 +405,10 @@ export default function SchedaDetailPage({
             ),
           };
         } else {
-          // Add new — defaults basati sulla sezione
+          // Add new — smart defaults basati su obiettivo + esercizio
           const newId = -(Date.now());
           const section = getSectionForCategory(exercise.categoria);
-          const isComplementary = section !== "principale";
+          const defaults = getSmartDefaults(exercise, plan?.obiettivo ?? "generale", section);
           return {
             ...s,
             esercizi: [
@@ -376,9 +420,9 @@ export default function SchedaDetailPage({
                 esercizio_categoria: exercise.categoria,
                 esercizio_attrezzatura: exercise.attrezzatura,
                 ordine: s.esercizi.length + 1,
-                serie: isComplementary ? 1 : 3,
-                ripetizioni: isComplementary ? "30s" : "8-12",
-                tempo_riposo_sec: isComplementary ? 0 : 90,
+                serie: defaults.serie,
+                ripetizioni: defaults.ripetizioni,
+                tempo_riposo_sec: defaults.tempo_riposo_sec,
                 tempo_esecuzione: null,
                 note: null,
               },
@@ -638,7 +682,7 @@ export default function SchedaDetailPage({
       {/* ── Split Layout ── */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Editor (sinistra) */}
-        <div className="space-y-4" data-print-hide>
+        <div className="space-y-3" data-print-hide>
           {/* Safety Overview Panel — dashboard clinica collapsibile */}
           {safetyMap && safetyMap.condition_count > 0 && (
             <Collapsible open={safetyExpanded} onOpenChange={setSafetyExpanded}>
@@ -764,6 +808,7 @@ export default function SchedaDetailPage({
               schedaId={id}
               onUpdateSession={handleUpdateSession}
               onDeleteSession={handleDeleteSession}
+              onDuplicateSession={handleDuplicateSession}
               onAddExercise={handleAddExercise}
               onUpdateExercise={handleUpdateExercise}
               onDeleteExercise={handleDeleteExercise}
@@ -810,6 +855,7 @@ export default function SchedaDetailPage({
         }
         safetyMap={safetyEntries}
         schedaId={id}
+        usedExerciseIds={usedExerciseIds}
       />
     </div>
   );
