@@ -25,6 +25,7 @@ from api.schemas.financial import (
     DashboardSummary, ReconciliationItem, ReconciliationResponse,
     AlertItem, DashboardAlerts,
 )
+from api.routers.movements import _compute_saldo
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -118,12 +119,16 @@ def get_dashboard_summary(
         )
     """), {"tid": trainer.id}).scalar() or 0
 
+    # 6. Saldo di cassa attuale (computed on read)
+    saldo_attuale = _compute_saldo(session, trainer)
+
     return DashboardSummary(
         active_clients=active_clients,
         monthly_revenue=round(monthly_revenue, 2),
         pending_rates=pending_rates,
         todays_appointments=todays_appointments,
         ledger_alerts=divergent_count,
+        saldo_attuale=saldo_attuale,
     )
 
 

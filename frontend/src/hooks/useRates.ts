@@ -56,6 +56,7 @@ export function useGeneratePaymentPlan() {
       queryClient.invalidateQueries({ queryKey: ["movements"] });
       queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
       queryClient.invalidateQueries({ queryKey: ["aging-report"] });
+      queryClient.invalidateQueries({ queryKey: ["cash-balance"] });
       toast.success(`Piano generato: ${data.total} rate create`);
     },
     onError: (error) => {
@@ -81,6 +82,7 @@ export function useCreateRate() {
       queryClient.invalidateQueries({ queryKey: ["movements"] });
       queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
       queryClient.invalidateQueries({ queryKey: ["aging-report"] });
+      queryClient.invalidateQueries({ queryKey: ["cash-balance"] });
       toast.success("Rata aggiunta");
     },
     onError: (error) => {
@@ -109,6 +111,7 @@ export function useUpdateRate() {
       queryClient.invalidateQueries({ queryKey: ["movements"] });
       queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
       queryClient.invalidateQueries({ queryKey: ["aging-report"] });
+      queryClient.invalidateQueries({ queryKey: ["cash-balance"] });
       toast.success("Rata aggiornata");
     },
     onError: (error) => {
@@ -133,6 +136,7 @@ export function useDeleteRate() {
       queryClient.invalidateQueries({ queryKey: ["movements"] });
       queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
       queryClient.invalidateQueries({ queryKey: ["aging-report"] });
+      queryClient.invalidateQueries({ queryKey: ["cash-balance"] });
       toast.success("Rata eliminata");
     },
     onError: (error) => {
@@ -158,6 +162,7 @@ export function useUnpayRate() {
       queryClient.invalidateQueries({ queryKey: ["movements"] });
       queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
       queryClient.invalidateQueries({ queryKey: ["aging-report"] });
+      queryClient.invalidateQueries({ queryKey: ["cash-balance"] });
       toast.success("Pagamento revocato");
     },
     onError: (error) => {
@@ -189,6 +194,7 @@ export function usePayRate() {
       queryClient.invalidateQueries({ queryKey: ["movements"] });
       queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
       queryClient.invalidateQueries({ queryKey: ["aging-report"] });
+      queryClient.invalidateQueries({ queryKey: ["cash-balance"] });
       toast.success("Pagamento registrato");
     },
     onError: (error) => {

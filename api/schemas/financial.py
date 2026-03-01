@@ -382,6 +382,7 @@ class DashboardSummary(BaseModel):
     pending_rates: int = 0
     todays_appointments: int = 0
     ledger_alerts: int = 0
+    saldo_attuale: float = 0.0
 
 
 # ════════════════════════════════════════════════════════════

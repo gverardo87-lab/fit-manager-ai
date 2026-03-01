@@ -11,7 +11,7 @@
  * Scalabile: future sezioni (profilo, sicurezza, tema) si aggiungono qui.
  */
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import {
   Settings,
   Database,
@@ -21,6 +21,9 @@ import {
   HardDrive,
   RefreshCw,
   AlertTriangle,
+  Wallet,
+  CalendarIcon,
+  Save,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -31,6 +34,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -58,7 +63,8 @@ import {
   downloadBackup,
   exportTrainerData,
 } from "@/hooks/useBackup";
-import { formatDateTime } from "@/lib/format";
+import { useSaldoIniziale, useUpdateSaldoIniziale } from "@/hooks/useMovements";
+import { formatDateTime, formatCurrency } from "@/lib/format";
 
 // ── Helpers ──
 
@@ -128,6 +134,9 @@ export default function ImpostazioniPage() {
           </p>
         </div>
       </div>
+
+      {/* ── Sezione Saldo Iniziale ── */}
+      <SaldoInizialeSection />
 
       {/* ── Sezione Backup ── */}
       <Card>
@@ -321,5 +330,122 @@ export default function ImpostazioniPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// Saldo Iniziale di Cassa — configurazione
+// ════════════════════════════════════════════════════════════
+
+function SaldoInizialeSection() {
+  const { data: saldoData, isLoading } = useSaldoIniziale();
+  const updateSaldo = useUpdateSaldoIniziale();
+
+  const [importo, setImporto] = useState("");
+  const [dataInizio, setDataInizio] = useState("");
+
+  // Sync state quando arrivano i dati dal server
+  useEffect(() => {
+    if (!saldoData) return;
+    setImporto(String(saldoData.saldo_iniziale_cassa));
+    setDataInizio(saldoData.data_saldo_iniziale ?? "");
+  }, [saldoData]);
+
+  const handleSave = () => {
+    const parsed = parseFloat(importo);
+    if (isNaN(parsed)) return;
+    updateSaldo.mutate({
+      saldo_iniziale_cassa: parsed,
+      data_saldo_iniziale: dataInizio || null,
+    });
+  };
+
+  const isDirty =
+    saldoData != null &&
+    (String(saldoData.saldo_iniziale_cassa) !== importo ||
+      (saldoData.data_saldo_iniziale ?? "") !== dataInizio);
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-6 w-48" />
+          <Skeleton className="h-4 w-72" />
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-10 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Wallet className="h-5 w-5 text-teal-600" />
+          <div>
+            <CardTitle>Saldo Iniziale di Cassa</CardTitle>
+            <CardDescription>
+              Inserisci il saldo del tuo conto all&apos;inizio dell&apos;utilizzo del programma.
+              Tutti i saldi verranno calcolati a partire da questo valore.
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {/* Importo */}
+          <div className="space-y-2">
+            <Label htmlFor="saldo-iniziale">Importo (&euro;)</Label>
+            <Input
+              id="saldo-iniziale"
+              type="number"
+              step="0.01"
+              placeholder="0.00"
+              value={importo}
+              onChange={(e) => setImporto(e.target.value)}
+            />
+          </div>
+
+          {/* Data */}
+          <div className="space-y-2">
+            <Label htmlFor="data-saldo">Data di riferimento (opzionale)</Label>
+            <div className="relative">
+              <CalendarIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="data-saldo"
+                type="date"
+                value={dataInizio}
+                onChange={(e) => setDataInizio(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Se impostata, solo i movimenti da questa data in poi verranno conteggiati
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 flex items-center gap-3">
+          <Button
+            onClick={handleSave}
+            disabled={updateSaldo.isPending || !isDirty}
+            size="sm"
+          >
+            <Save className="mr-2 h-4 w-4" />
+            {updateSaldo.isPending ? "Salvataggio..." : "Salva"}
+          </Button>
+          {saldoData && saldoData.saldo_iniziale_cassa !== 0 && (
+            <p className="text-xs text-muted-foreground">
+              Valore attuale: <span className="font-semibold tabular-nums">{formatCurrency(saldoData.saldo_iniziale_cassa)}</span>
+              {saldoData.data_saldo_iniziale && (
+                <> dal {new Date(saldoData.data_saldo_iniziale + "T00:00:00").toLocaleDateString("it-IT")}</>
+              )}
+            </p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

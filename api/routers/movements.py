@@ -28,8 +28,8 @@ from datetime import date, datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel
-from sqlalchemy import extract
+from pydantic import BaseModel, Field
+from sqlalchemy import extract, case
 from sqlmodel import Session, select, func, text
 
 from api.database import get_session
@@ -46,6 +46,91 @@ from api.routers._audit import log_audit
 
 logger = logging.getLogger("fitmanager.api")
 router = APIRouter(prefix="/movements", tags=["movements"])
+
+
+# ════════════════════════════════════════════════════════════
+# SALDO ENGINE: Calcolo saldo cassa cumulativo
+# ════════════════════════════════════════════════════════════
+
+_signed_importo = case(
+    (CashMovement.tipo == "ENTRATA", CashMovement.importo),
+    else_=-CashMovement.importo,
+)
+
+
+def _compute_saldo(session: Session, trainer: Trainer) -> float:
+    """Saldo cassa attuale = saldo_iniziale + SUM(signed movements)."""
+    q = select(func.coalesce(func.sum(_signed_importo), 0)).where(
+        CashMovement.trainer_id == trainer.id,
+        CashMovement.deleted_at == None,
+    )
+    if trainer.data_saldo_iniziale:
+        q = q.where(CashMovement.data_effettiva >= trainer.data_saldo_iniziale)
+    result = float(session.exec(q).one())
+    return round(trainer.saldo_iniziale_cassa + result, 2)
+
+
+def _compute_saldo_before(session: Session, trainer: Trainer, before_date: date) -> float:
+    """Saldo cumulativo fino a (esclusa) una data specifica."""
+    q = select(func.coalesce(func.sum(_signed_importo), 0)).where(
+        CashMovement.trainer_id == trainer.id,
+        CashMovement.deleted_at == None,
+        CashMovement.data_effettiva < before_date,
+    )
+    if trainer.data_saldo_iniziale:
+        q = q.where(CashMovement.data_effettiva >= trainer.data_saldo_iniziale)
+    result = float(session.exec(q).one())
+    return round(trainer.saldo_iniziale_cassa + result, 2)
+
+
+# ════════════════════════════════════════════════════════════
+# GET: Saldo di cassa attuale
+# ════════════════════════════════════════════════════════════
+
+class BalanceResponse(BaseModel):
+    saldo_attuale: float
+    saldo_iniziale: float
+    totale_entrate_storico: float
+    totale_uscite_storico: float
+    data_saldo_iniziale: Optional[date]
+
+
+@router.get("/balance", response_model=BalanceResponse)
+def get_balance(
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """Saldo di cassa attuale — computed on read."""
+    base_filter = [
+        CashMovement.trainer_id == trainer.id,
+        CashMovement.deleted_at == None,
+    ]
+    if trainer.data_saldo_iniziale:
+        base_filter.append(CashMovement.data_effettiva >= trainer.data_saldo_iniziale)
+
+    totale_entrate = float(session.exec(
+        select(func.coalesce(func.sum(CashMovement.importo), 0)).where(
+            *base_filter,
+            CashMovement.tipo == "ENTRATA",
+        )
+    ).one())
+
+    totale_uscite = float(session.exec(
+        select(func.coalesce(func.sum(CashMovement.importo), 0)).where(
+            *base_filter,
+            CashMovement.tipo == "USCITA",
+        )
+    ).one())
+
+    saldo_attuale = round(trainer.saldo_iniziale_cassa + totale_entrate - totale_uscite, 2)
+
+    return BalanceResponse(
+        saldo_attuale=saldo_attuale,
+        saldo_iniziale=trainer.saldo_iniziale_cassa,
+        totale_entrate_storico=round(totale_entrate, 2),
+        totale_uscite_storico=round(totale_uscite, 2),
+        data_saldo_iniziale=trainer.data_saldo_iniziale,
+    )
 
 
 # ════════════════════════════════════════════════════════════
@@ -401,21 +486,43 @@ def list_movements(
     if id_cliente is not None:
         query = query.where(CashMovement.id_cliente == id_cliente)
 
+    # Subquery una sola volta — riusata per count e sum
+    subq = query.subquery()
+
     # Count dalla stessa query base (zero duplicazione filtri)
     total = session.exec(
-        select(func.count()).select_from(query.subquery())
+        select(func.count()).select_from(subq)
     ).one()
+
+    # Saldo totale del periodo filtrato (per running balance)
+    # IMPORTANTE: usare subq.c.* (colonne del subquery) e NON CashMovement.*
+    # per evitare cross-join implicito con la tabella originale
+    saldo_totale_periodo = float(session.exec(
+        select(func.coalesce(func.sum(
+            case(
+                (subq.c.tipo == "ENTRATA", subq.c.importo),
+                else_=-subq.c.importo,
+            )
+        ), 0))
+    ).one())
+
+    # Saldo pre-periodo: tutto cio' che viene prima del periodo filtrato
+    saldo_pre = _compute_saldo_before(session, trainer, date(anno or 2000, mese or 1, 1)) if anno and mese else 0.0
 
     # Paginazione
     offset = (page - 1) * page_size
-    query = query.order_by(CashMovement.data_effettiva.desc()).offset(offset).limit(page_size)
+    query = query.order_by(CashMovement.data_effettiva.desc(), CashMovement.id.desc()).offset(offset).limit(page_size)
     movements = session.exec(query).all()
+
+    # saldo_fine_periodo: saldo alla fine di tutte le righe del periodo
+    saldo_fine_periodo = round(saldo_pre + saldo_totale_periodo, 2)
 
     return {
         "items": [MovementResponse.model_validate(m) for m in movements],
         "total": total,
         "page": page,
         "page_size": page_size,
+        "saldo_fine_periodo": saldo_fine_periodo,
     }
 
 
@@ -427,12 +534,15 @@ class ChartDataPoint(BaseModel):
     giorno: int
     entrate: float
     uscite: float
+    saldo: float = 0.0
 
 class MovementStatsResponse(BaseModel):
     totale_entrate: float
     totale_uscite_variabili: float
     totale_uscite_fisse: float
     margine_netto: float
+    saldo_inizio_mese: float = 0.0
+    saldo_fine_mese: float = 0.0
     chart_data: list[ChartDataPoint]
 
 
@@ -476,7 +586,12 @@ def get_movement_stats(
 
     margine_netto = totale_entrate - totale_uscite_variabili - totale_uscite_fisse
 
-    # Chart data: raggruppamento per giorno del mese
+    # Saldo inizio mese: saldo cumulativo fino alla fine del mese precedente
+    primo_giorno = date(anno, mese, 1)
+    saldo_inizio_mese = _compute_saldo_before(session, trainer, primo_giorno)
+    saldo_fine_mese = round(saldo_inizio_mese + margine_netto, 2)
+
+    # Chart data: raggruppamento per giorno del mese + running balance
     days_in_month = calendar.monthrange(anno, mese)[1]
     entrate_per_giorno: dict[int, float] = defaultdict(float)
     uscite_per_giorno: dict[int, float] = defaultdict(float)
@@ -488,20 +603,21 @@ def get_movement_stats(
         else:
             uscite_per_giorno[day] += m.importo
 
-    chart_data = [
-        ChartDataPoint(
-            giorno=d,
-            entrate=round(entrate_per_giorno.get(d, 0), 2),
-            uscite=round(uscite_per_giorno.get(d, 0), 2),
-        )
-        for d in range(1, days_in_month + 1)
-    ]
+    running = saldo_inizio_mese
+    chart_data = []
+    for d in range(1, days_in_month + 1):
+        e = round(entrate_per_giorno.get(d, 0), 2)
+        u = round(uscite_per_giorno.get(d, 0), 2)
+        running = round(running + e - u, 2)
+        chart_data.append(ChartDataPoint(giorno=d, entrate=e, uscite=u, saldo=running))
 
     return MovementStatsResponse(
         totale_entrate=round(totale_entrate, 2),
         totale_uscite_variabili=round(totale_uscite_variabili, 2),
         totale_uscite_fisse=round(totale_uscite_fisse, 2),
         margine_netto=round(margine_netto, 2),
+        saldo_inizio_mese=saldo_inizio_mese,
+        saldo_fine_mese=saldo_fine_mese,
         chart_data=chart_data,
     )
 
@@ -585,6 +701,51 @@ def delete_movement(
     session.add(movement)
     log_audit(session, "movement", movement.id, "DELETE", trainer.id)
     session.commit()
+
+
+# ════════════════════════════════════════════════════════════
+# PUT: Configura saldo iniziale di cassa
+# ════════════════════════════════════════════════════════════
+
+class SaldoInizialeUpdate(BaseModel):
+    model_config = {"extra": "forbid"}
+    saldo_iniziale_cassa: float = Field(ge=-1_000_000, le=1_000_000)
+    data_saldo_iniziale: Optional[date] = None
+
+
+class SaldoInizialeResponse(BaseModel):
+    saldo_iniziale_cassa: float
+    data_saldo_iniziale: Optional[date]
+
+
+@router.put("/saldo-iniziale", response_model=SaldoInizialeResponse)
+def update_saldo_iniziale(
+    data: SaldoInizialeUpdate,
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """Configura il saldo iniziale di cassa del trainer."""
+    trainer.saldo_iniziale_cassa = data.saldo_iniziale_cassa
+    trainer.data_saldo_iniziale = data.data_saldo_iniziale
+    session.add(trainer)
+    session.commit()
+    session.refresh(trainer)
+
+    return SaldoInizialeResponse(
+        saldo_iniziale_cassa=trainer.saldo_iniziale_cassa,
+        data_saldo_iniziale=trainer.data_saldo_iniziale,
+    )
+
+
+@router.get("/saldo-iniziale", response_model=SaldoInizialeResponse)
+def get_saldo_iniziale(
+    trainer: Trainer = Depends(get_current_trainer),
+):
+    """Ritorna la configurazione saldo iniziale del trainer."""
+    return SaldoInizialeResponse(
+        saldo_iniziale_cassa=trainer.saldo_iniziale_cassa,
+        data_saldo_iniziale=trainer.data_saldo_iniziale,
+    )
 
 
 # ════════════════════════════════════════════════════════════
@@ -680,19 +841,8 @@ def get_forecast(
     current_anno, current_mese = today.year, today.month
     future_months = _next_months(current_anno, current_mese, mesi)
 
-    # ── 1. Saldo iniziale: margine mese corrente ──
-    current_movements = session.exec(
-        select(CashMovement).where(
-            CashMovement.trainer_id == trainer.id,
-            extract("year", CashMovement.data_effettiva) == current_anno,
-            extract("month", CashMovement.data_effettiva) == current_mese,
-            CashMovement.deleted_at == None,
-        )
-    ).all()
-
-    saldo_entrate = sum(m.importo for m in current_movements if m.tipo == "ENTRATA")
-    saldo_uscite = sum(m.importo for m in current_movements if m.tipo == "USCITA")
-    saldo_iniziale = round(saldo_entrate - saldo_uscite, 2)
+    # ── 1. Saldo iniziale: saldo di cassa reale (non piu' margine mese corrente) ──
+    saldo_iniziale = _compute_saldo(session, trainer)
 
     # ── 2. Entrate certe: rate PENDENTE/PARZIALE nei mesi futuri ──
     rates = session.exec(

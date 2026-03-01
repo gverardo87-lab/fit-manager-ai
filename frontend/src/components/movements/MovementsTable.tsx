@@ -55,11 +55,13 @@ import { formatCurrency } from "@/lib/format";
 interface MovementsTableProps {
   movements: CashMovement[];
   onDelete: (movement: CashMovement) => void;
+  saldoFinePeriodo?: number;
 }
 
 export function MovementsTable({
   movements,
   onDelete,
+  saldoFinePeriodo,
 }: MovementsTableProps) {
   const [search, setSearch] = useState("");
 
@@ -73,6 +75,19 @@ export function MovementsTable({
       (m.metodo ?? "").toLowerCase().includes(q)
     );
   }, [movements, search]);
+
+  // Running balance per-riga (ordinamento DESC: la prima riga è la più recente)
+  const balanceMap = useMemo(() => {
+    if (saldoFinePeriodo == null) return null;
+    const map = new Map<number, number>();
+    let running = saldoFinePeriodo;
+    for (const m of movements) {
+      map.set(m.id, running);
+      // Scendendo nella lista (verso il passato) sottraiamo il signed di questa riga
+      running -= m.tipo === "ENTRATA" ? m.importo : -m.importo;
+    }
+    return map;
+  }, [movements, saldoFinePeriodo]);
 
   // Raggruppa per data (display-only, zero logic change)
   const grouped = useMemo(() => {
@@ -131,12 +146,15 @@ export function MovementsTable({
                 <TableHead className="hidden md:table-cell">Categoria</TableHead>
                 <TableHead className="hidden md:table-cell">Metodo</TableHead>
                 <TableHead className="text-right">Importo</TableHead>
+                {balanceMap && (
+                  <TableHead className="hidden lg:table-cell text-right">Saldo</TableHead>
+                )}
                 <TableHead className="w-[80px]">Azioni</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {[...grouped.entries()].map(([dateKey, items]) => (
-                <DateGroup key={dateKey} dateKey={dateKey} items={items} onDelete={onDelete} />
+                <DateGroup key={dateKey} dateKey={dateKey} items={items} onDelete={onDelete} balanceMap={balanceMap} />
               ))}
             </TableBody>
           </Table>
@@ -152,10 +170,12 @@ function DateGroup({
   dateKey,
   items,
   onDelete,
+  balanceMap,
 }: {
   dateKey: string;
   items: CashMovement[];
   onDelete: (m: CashMovement) => void;
+  balanceMap: Map<number, number> | null;
 }) {
   return (
     <>
@@ -167,7 +187,7 @@ function DateGroup({
         </TableCell>
       </TableRow>
       {items.map((movement, idx) => (
-        <MovementRow key={movement.id} movement={movement} onDelete={onDelete} striped={idx % 2 !== 0} />
+        <MovementRow key={movement.id} movement={movement} onDelete={onDelete} striped={idx % 2 !== 0} balance={balanceMap?.get(movement.id)} />
       ))}
     </>
   );
@@ -179,10 +199,12 @@ function MovementRow({
   movement,
   onDelete,
   striped,
+  balance,
 }: {
   movement: CashMovement;
   onDelete: (m: CashMovement) => void;
   striped: boolean;
+  balance?: number;
 }) {
   const isEntrata = movement.tipo === "ENTRATA";
   const isContract = movement.id_contratto !== null;
@@ -248,6 +270,19 @@ function MovementRow({
           {isEntrata ? "+" : "−"}{formatCurrency(movement.importo)}
         </span>
       </TableCell>
+
+      {/* ── Saldo (running balance, hidden mobile/tablet) ── */}
+      {balance != null && (
+        <TableCell className="hidden lg:table-cell text-right">
+          <span className={`text-sm font-semibold tabular-nums ${
+            balance >= 0
+              ? "text-zinc-700 dark:text-zinc-300"
+              : "text-red-600 dark:text-red-400"
+          }`}>
+            {formatCurrency(balance)}
+          </span>
+        </TableCell>
+      )}
 
       {/* ── Azioni ── */}
       <TableCell>

@@ -416,11 +416,12 @@ export interface CashMovement {
 // MOVEMENT STATS (api/routers/movements.py)
 // ════════════════════════════════════════════════════════════
 
-/** Punto dati per il grafico giornaliero entrate/uscite */
+/** Punto dati per il grafico giornaliero entrate/uscite + saldo */
 export interface ChartDataPoint {
   giorno: number;
   entrate: number;
   uscite: number;
+  saldo: number;
 }
 
 /** GET /api/movements/stats?anno=X&mese=Y */
@@ -429,6 +430,8 @@ export interface MovementStats {
   totale_uscite_variabili: number;
   totale_uscite_fisse: number;
   margine_netto: number;
+  saldo_inizio_mese: number;
+  saldo_fine_mese: number;
   chart_data: ChartDataPoint[];
 }
 
@@ -503,6 +506,33 @@ export interface DashboardSummary {
   pending_rates: number;
   todays_appointments: number;
   ledger_alerts: number;
+  saldo_attuale: number;
+}
+
+/** GET /api/movements/balance */
+export interface BalanceResponse {
+  saldo_attuale: number;
+  saldo_iniziale: number;
+  totale_entrate_storico: number;
+  totale_uscite_storico: number;
+  data_saldo_iniziale: string | null;
+}
+
+/** PUT /api/movements/saldo-iniziale */
+export interface SaldoInizialeUpdate {
+  saldo_iniziale_cassa: number;
+  data_saldo_iniziale: string | null;
+}
+
+/** GET /api/movements/saldo-iniziale */
+export interface SaldoInizialeResponse {
+  saldo_iniziale_cassa: number;
+  data_saldo_iniziale: string | null;
+}
+
+/** Response paginata movimenti con saldo fine periodo */
+export interface MovementsPaginatedResponse extends PaginatedResponse<CashMovement> {
+  saldo_fine_periodo: number;
 }
 
 /** Rate scaduta per risoluzione inline dalla Dashboard */

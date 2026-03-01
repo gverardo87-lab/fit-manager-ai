@@ -82,6 +82,7 @@ export function useCreateContract() {
       queryClient.invalidateQueries({ queryKey: ["movements"] });
       queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
       queryClient.invalidateQueries({ queryKey: ["aging-report"] });
+      queryClient.invalidateQueries({ queryKey: ["cash-balance"] });
       toast.success("Contratto creato");
     },
     onError: (error) => {
@@ -136,6 +137,7 @@ export function useDeleteContract() {
       queryClient.invalidateQueries({ queryKey: ["movements"] });
       queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
       queryClient.invalidateQueries({ queryKey: ["aging-report"] });
+      queryClient.invalidateQueries({ queryKey: ["cash-balance"] });
       toast.success("Contratto eliminato");
     },
     onError: (error) => {

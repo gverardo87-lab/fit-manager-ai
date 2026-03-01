@@ -5,8 +5,10 @@
  * - useMovements(anno, mese, tipo): lista paginata con filtri server-side
  * - useCreateMovement(): inserisce movimento manuale
  * - useDeleteMovement(): elimina movimento (solo manuali — Ledger Integrity)
+ * - useCashBalance(): saldo di cassa attuale (computed on read)
+ * - useUpdateSaldoIniziale(): configura saldo iniziale
  *
- * Ogni mutation invalida ["movements"] e ["dashboard"].
+ * Ogni mutation invalida ["movements"], ["dashboard"], e ["cash-balance"].
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -16,9 +18,12 @@ import type {
   CashMovement,
   MovementManualCreate,
   MovementStats,
-  PaginatedResponse,
+  MovementsPaginatedResponse,
   PendingExpensesResponse,
   ForecastResponse,
+  BalanceResponse,
+  SaldoInizialeUpdate,
+  SaldoInizialeResponse,
 } from "@/types/api";
 
 // ── Query: lista movimenti filtrata ──
@@ -44,7 +49,7 @@ export function useMovements({
   page = 1,
   pageSize = 100,
 }: UseMovementsParams = {}) {
-  return useQuery<PaginatedResponse<CashMovement>>({
+  return useQuery<MovementsPaginatedResponse>({
     queryKey: ["movements", { anno, mese, tipo, data_da, data_a, id_cliente, page, pageSize }],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -59,7 +64,7 @@ export function useMovements({
       if (tipo) params.set("tipo", tipo);
       if (id_cliente) params.set("id_cliente", String(id_cliente));
 
-      const { data } = await apiClient.get<PaginatedResponse<CashMovement>>(
+      const { data } = await apiClient.get<MovementsPaginatedResponse>(
         `/movements?${params.toString()}`
       );
       return data;
@@ -67,7 +72,7 @@ export function useMovements({
   });
 }
 
-// ── Query: statistiche mensili (KPI + chart) ──
+// ── Query: statistiche mensili (KPI + chart + saldi mese) ──
 
 export function useMovementStats(anno: number, mese: number) {
   return useQuery<MovementStats>({
@@ -77,6 +82,57 @@ export function useMovementStats(anno: number, mese: number) {
         `/movements/stats?anno=${anno}&mese=${mese}`
       );
       return data;
+    },
+  });
+}
+
+// ── Query: saldo di cassa attuale ──
+
+export function useCashBalance() {
+  return useQuery<BalanceResponse>({
+    queryKey: ["cash-balance"],
+    queryFn: async () => {
+      const { data } = await apiClient.get<BalanceResponse>("/movements/balance");
+      return data;
+    },
+  });
+}
+
+// ── Query: configurazione saldo iniziale ──
+
+export function useSaldoIniziale() {
+  return useQuery<SaldoInizialeResponse>({
+    queryKey: ["saldo-iniziale"],
+    queryFn: async () => {
+      const { data } = await apiClient.get<SaldoInizialeResponse>("/movements/saldo-iniziale");
+      return data;
+    },
+  });
+}
+
+// ── Mutation: aggiorna saldo iniziale ──
+
+export function useUpdateSaldoIniziale() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: SaldoInizialeUpdate) => {
+      const { data } = await apiClient.put<SaldoInizialeResponse>(
+        "/movements/saldo-iniziale",
+        payload
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["saldo-iniziale"] });
+      queryClient.invalidateQueries({ queryKey: ["cash-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["forecast"] });
+      toast.success("Saldo iniziale aggiornato");
+    },
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Errore nell'aggiornamento del saldo iniziale"));
     },
   });
 }
@@ -99,6 +155,7 @@ export function useCreateMovement() {
       queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["aging-report"] });
+      queryClient.invalidateQueries({ queryKey: ["cash-balance"] });
       toast.success("Movimento registrato");
     },
     onError: (error) => {
@@ -121,6 +178,7 @@ export function useDeleteMovement() {
       queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["aging-report"] });
+      queryClient.invalidateQueries({ queryKey: ["cash-balance"] });
       toast.success("Movimento eliminato");
     },
     onError: (error) => {
@@ -159,6 +217,7 @@ export function useConfirmExpenses() {
       queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["aging-report"] });
+      queryClient.invalidateQueries({ queryKey: ["cash-balance"] });
       toast.success(`${result.created} ${result.created === 1 ? "spesa registrata" : "spese registrate"}`);
     },
     onError: (error) => {

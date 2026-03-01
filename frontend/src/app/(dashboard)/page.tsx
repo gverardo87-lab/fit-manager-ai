@@ -35,6 +35,7 @@ import {
   UserX,
   CreditCard,
   Bell,
+  Wallet,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -255,6 +256,21 @@ function buildKpiList(summary: DashboardSummary, stats: MovementStats): KpiDef[]
       iconBg: isPositive ? "bg-emerald-100 dark:bg-emerald-900/30" : "bg-red-100 dark:bg-red-900/30",
       iconColor: isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400",
       valueColor: isPositive ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400",
+    },
+    {
+      key: "saldo",
+      label: "Saldo di Cassa",
+      subtitle: "attuale",
+      icon: Wallet,
+      value: summary.saldo_attuale,
+      format: "currency",
+      borderColor: summary.saldo_attuale >= 0 ? "border-l-teal-500" : "border-l-red-500",
+      gradient: summary.saldo_attuale >= 0
+        ? "from-teal-50/80 to-white dark:from-teal-950/40 dark:to-zinc-900"
+        : "from-red-50/80 to-white dark:from-red-950/40 dark:to-zinc-900",
+      iconBg: summary.saldo_attuale >= 0 ? "bg-teal-100 dark:bg-teal-900/30" : "bg-red-100 dark:bg-red-900/30",
+      iconColor: summary.saldo_attuale >= 0 ? "text-teal-600 dark:text-teal-400" : "text-red-600 dark:text-red-400",
+      valueColor: summary.saldo_attuale >= 0 ? "text-teal-700 dark:text-teal-400" : "text-red-700 dark:text-red-400",
     },
     {
       key: "rates",
@@ -779,6 +795,7 @@ function KpiSkeleton() {
     "border-l-emerald-500",
     "border-l-red-500",
     "border-l-emerald-500",
+    "border-l-teal-500",
     "border-l-amber-500",
     "border-l-violet-500",
   ];

@@ -6,9 +6,10 @@
  *
  * Layout:
  * 1. Header con filtri globali Mese/Anno
- * 2. Hero Section: 4 KPI cards (Entrate, Uscite Var, Uscite Fisse, Margine Netto)
- * 3. BarChart giornaliero Entrate vs Uscite (recharts via shadcn/chart)
- * 4. Tabs: "Libro Mastro" (tabella movimenti) + "Spese Fisse" (ricorrenti)
+ * 2. Saldo Hero: card teal prominente con saldo attuale + sub-KPI mese
+ * 3. Hero Section: 4 KPI cards (Entrate, Uscite Var, Uscite Fisse, Margine Netto)
+ * 4. ComposedChart giornaliero: barre Entrate/Uscite + linea Saldo
+ * 5. Tabs: "Libro Mastro" (tabella movimenti) + "Spese Fisse" (ricorrenti)
  */
 
 import { useState } from "react";
@@ -24,8 +25,16 @@ import {
   ArrowLeftRight,
   Clock,
   LineChart,
+  Wallet,
 } from "lucide-react";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import {
+  Bar,
+  ComposedChart,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Line,
+} from "recharts";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -52,7 +61,7 @@ import { RecurringExpensesTab } from "@/components/movements/RecurringExpensesTa
 import { SplitLedgerView } from "@/components/movements/SplitLedgerView";
 import { AgingReport } from "@/components/movements/AgingReport";
 import { ForecastTab } from "@/components/movements/ForecastTab";
-import { useMovements, useMovementStats, usePendingExpenses } from "@/hooks/useMovements";
+import { useMovements, useMovementStats, usePendingExpenses, useCashBalance } from "@/hooks/useMovements";
 import type { CashMovement } from "@/types/api";
 import { formatCurrency } from "@/lib/format";
 
@@ -87,6 +96,10 @@ const chartConfig: ChartConfig = {
     label: "Uscite",
     color: "var(--color-red-500)",
   },
+  saldo: {
+    label: "Saldo",
+    color: "oklch(0.55 0.15 170)",
+  },
 };
 
 // ════════════════════════════════════════════════════════════
@@ -107,6 +120,7 @@ export default function CassaPage() {
   const { data: stats, isLoading: statsLoading } =
     useMovementStats(anno, mese);
   const { data: pendingData } = usePendingExpenses(anno, mese);
+  const { data: balance, isLoading: balanceLoading } = useCashBalance();
   const pendingCount = pendingData?.items.length ?? 0;
 
   const handleDelete = (movement: CashMovement) => {
@@ -173,11 +187,24 @@ export default function CassaPage() {
         </div>
       </div>
 
+      {/* ── Saldo Hero Card ── */}
+      {balanceLoading && (
+        <Skeleton className="h-28 w-full rounded-xl" />
+      )}
+      {balance && stats && (
+        <SaldoHeroCard
+          saldoAttuale={balance.saldo_attuale}
+          saldoInizioMese={stats.saldo_inizio_mese}
+          margineMese={stats.margine_netto}
+          saldoFineMese={stats.saldo_fine_mese}
+        />
+      )}
+
       {/* ── Hero Section: 4 KPI ── */}
       {statsLoading && <KpiSkeleton />}
       {stats && <KpiCards stats={stats} />}
 
-      {/* ── Grafico Entrate vs Uscite ── */}
+      {/* ── Grafico Entrate vs Uscite + Saldo ── */}
       {stats && stats.chart_data.length > 0 && (
         <DailyChart data={stats.chart_data} meseLabel={meseLabel} />
       )}
@@ -235,6 +262,7 @@ export default function CassaPage() {
             <MovementsTable
               movements={movementsData.items}
               onDelete={handleDelete}
+              saldoFinePeriodo={movementsData.saldo_fine_periodo}
             />
           )}
         </TabsContent>
@@ -263,6 +291,71 @@ export default function CassaPage() {
         onOpenChange={setDeleteOpen}
         movement={selectedMovement}
       />
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// Saldo Hero Card
+// ════════════════════════════════════════════════════════════
+
+function SaldoHeroCard({
+  saldoAttuale,
+  saldoInizioMese,
+  margineMese,
+  saldoFineMese,
+}: {
+  saldoAttuale: number;
+  saldoInizioMese: number;
+  margineMese: number;
+  saldoFineMese: number;
+}) {
+  const isPositive = saldoAttuale >= 0;
+
+  return (
+    <div className="rounded-xl border border-l-4 border-l-teal-500 bg-gradient-to-br from-teal-50/80 to-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:from-teal-950/40 dark:to-zinc-900">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        {/* Saldo principale */}
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-teal-100 dark:bg-teal-900/30">
+            <Wallet className="h-6 w-6 text-teal-600 dark:text-teal-400" />
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold tracking-widest text-muted-foreground/70 uppercase">
+              Saldo di Cassa
+            </p>
+            <p className={`text-3xl font-extrabold tracking-tighter tabular-nums sm:text-4xl ${
+              isPositive ? "text-teal-700 dark:text-teal-400" : "text-red-700 dark:text-red-400"
+            }`}>
+              {formatCurrency(saldoAttuale)}
+            </p>
+          </div>
+        </div>
+
+        {/* Sub-KPI mese */}
+        <div className="flex gap-6 sm:gap-8">
+          <div className="text-center">
+            <p className="text-[10px] font-medium text-muted-foreground/60 uppercase">Inizio Mese</p>
+            <p className="text-base font-bold tabular-nums text-zinc-700 dark:text-zinc-300">
+              {formatCurrency(saldoInizioMese)}
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="text-[10px] font-medium text-muted-foreground/60 uppercase">Margine</p>
+            <p className={`text-base font-bold tabular-nums ${
+              margineMese >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+            }`}>
+              {margineMese >= 0 ? "+" : ""}{formatCurrency(margineMese)}
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="text-[10px] font-medium text-muted-foreground/60 uppercase">Fine Mese</p>
+            <p className="text-base font-bold tabular-nums text-zinc-700 dark:text-zinc-300">
+              {formatCurrency(saldoFineMese)}
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -390,14 +483,14 @@ function KpiCards({
 }
 
 // ════════════════════════════════════════════════════════════
-// Grafico giornaliero
+// Grafico giornaliero (ComposedChart: barre + linea saldo)
 // ════════════════════════════════════════════════════════════
 
 function DailyChart({
   data,
   meseLabel,
 }: {
-  data: { giorno: number; entrate: number; uscite: number }[];
+  data: { giorno: number; entrate: number; uscite: number; saldo: number }[];
   meseLabel: string;
 }) {
   const hasData = data.some((d) => d.entrate > 0 || d.uscite > 0);
@@ -413,7 +506,7 @@ function DailyChart({
             Andamento Giornaliero — {meseLabel}
           </h3>
           <p className="text-xs text-muted-foreground">
-            Entrate e uscite per giorno del mese
+            Entrate e uscite per giorno + saldo progressivo
           </p>
         </div>
         <Badge variant="outline" className="text-[10px]">
@@ -422,7 +515,7 @@ function DailyChart({
       </div>
 
       <ChartContainer config={chartConfig} className="h-[200px] w-full sm:h-[280px]">
-        <BarChart data={data} accessibilityLayer>
+        <ComposedChart data={data} accessibilityLayer>
           <CartesianGrid vertical={false} strokeDasharray="3 3" />
           <XAxis
             dataKey="giorno"
@@ -432,11 +525,21 @@ function DailyChart({
             fontSize={11}
           />
           <YAxis
+            yAxisId="bars"
             tickLine={false}
             axisLine={false}
             tickMargin={8}
             fontSize={11}
-            tickFormatter={(v) => `€${v}`}
+            tickFormatter={(v) => `\u20AC${v}`}
+          />
+          <YAxis
+            yAxisId="saldo"
+            orientation="right"
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            fontSize={10}
+            tickFormatter={(v) => `\u20AC${v}`}
           />
           <ChartTooltip
             cursor={{ fill: "var(--color-muted)", opacity: 0.3 }}
@@ -447,26 +550,34 @@ function DailyChart({
                   <p className="mb-1.5 text-xs font-semibold text-muted-foreground">
                     Giorno {label}
                   </p>
-                  {payload.map((entry) => (
-                    <div key={entry.name} className="flex items-center gap-2 text-sm">
-                      <div
-                        className="h-2.5 w-2.5 rounded-full"
-                        style={{ backgroundColor: entry.color }}
-                      />
-                      <span className="text-muted-foreground">
-                        {entry.name === "entrate" ? "Entrate" : "Uscite"}
-                      </span>
-                      <span className="ml-auto font-bold tabular-nums">
-                        {formatCurrency(Number(entry.value))}
-                      </span>
-                    </div>
-                  ))}
+                  {payload.map((entry) => {
+                    const nameMap: Record<string, string> = {
+                      entrate: "Entrate",
+                      uscite: "Uscite",
+                      saldo: "Saldo",
+                    };
+                    return (
+                      <div key={entry.name} className="flex items-center gap-2 text-sm">
+                        <div
+                          className="h-2.5 w-2.5 rounded-full"
+                          style={{ backgroundColor: entry.color }}
+                        />
+                        <span className="text-muted-foreground">
+                          {nameMap[entry.name as string] ?? entry.name}
+                        </span>
+                        <span className="ml-auto font-bold tabular-nums">
+                          {formatCurrency(Number(entry.value))}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               );
             }}
           />
           <ChartLegend content={<ChartLegendContent />} />
           <Bar
+            yAxisId="bars"
             dataKey="entrate"
             fill="var(--color-emerald-500)"
             radius={[4, 4, 2, 2]}
@@ -475,6 +586,7 @@ function DailyChart({
             animationDuration={800}
           />
           <Bar
+            yAxisId="bars"
             dataKey="uscite"
             fill="var(--color-red-500)"
             radius={[4, 4, 2, 2]}
@@ -482,7 +594,17 @@ function DailyChart({
             animationBegin={100}
             animationDuration={800}
           />
-        </BarChart>
+          <Line
+            yAxisId="saldo"
+            dataKey="saldo"
+            type="monotone"
+            stroke="oklch(0.55 0.15 170)"
+            strokeWidth={2}
+            dot={false}
+            animationBegin={200}
+            animationDuration={1000}
+          />
+        </ComposedChart>
       </ChartContainer>
     </div>
   );

@@ -324,6 +324,41 @@ con bordo severity-colorato + badge. Riceve `measurements`, `sesso`, `dataNascit
 **Integrazione**: `MeasurementChart` mostra `<ReferenceArea>` bande normative.
 `GoalFormDialog` mostra hint range sano sotto target. `GoalsSummary` propaga sesso/dataNascita.
 
+### Saldo Contabile Cumulativo — Running Balance
+
+> **Filosofia: Computed on Read.** Nessun campo saldo nel DB — calcolato a runtime.
+> Formula: `saldo = saldo_iniziale_cassa + SUM(CASE tipo WHEN 'ENTRATA' THEN importo ELSE -importo END)`.
+
+**Backend** (`api/routers/movements.py`):
+- `_signed_importo`: case expression module-level (ENTRATA → +importo, USCITA → -importo)
+- `_compute_saldo(session, trainer)`: saldo cassa attuale (usato da balance, dashboard, forecast)
+- `_compute_saldo_before(session, trainer, before_date)`: saldo cumulativo fino a una data
+- `GET /movements/balance` → `BalanceResponse` (saldo_attuale, storico entrate/uscite)
+- `GET /movements/saldo-iniziale` + `PUT /movements/saldo-iniziale` → configurazione trainer
+- `GET /movements/stats` += `saldo_inizio_mese`, `saldo_fine_mese`, `chart_data[].saldo`
+- `GET /movements` += `saldo_fine_periodo` (per running balance frontend)
+- `GET /movements/forecast` → saldo_iniziale ora usa `_compute_saldo()` (saldo reale)
+- `DashboardSummary` += `saldo_attuale`
+
+**Modello Trainer** (`api/models/trainer.py`):
+- `saldo_iniziale_cassa: float = Field(default=0.0)` — configurabile da Impostazioni
+- `data_saldo_iniziale: Optional[date] = None` — se presente, filtra movimenti >= questa data
+
+**Frontend**:
+- `useCashBalance()` — `GET /movements/balance`, queryKey `["cash-balance"]`
+- `useSaldoIniziale()` + `useUpdateSaldoIniziale()` — configurazione saldo iniziale
+- `["cash-balance"]` invalidato da TUTTE le mutation che modificano movimenti (useMovements, useRates, useContracts)
+- **SaldoHeroCard** (cassa/page.tsx): card teal full-width con saldo attuale + 3 sub-KPI mese
+- **ComposedChart** (cassa/page.tsx): `BarChart` → `ComposedChart` con `Line` teal per saldo (dual Y-axis)
+- **Running Balance** (MovementsTable.tsx): colonna "Saldo" (`hidden lg:table-cell`), balance progressivo dal `saldoFinePeriodo`
+- **Dashboard KPI**: card "Saldo di Cassa" con icona Wallet, colori teal
+- **Impostazioni**: sezione "Saldo Iniziale di Cassa" (importo + data + salva)
+
+File chiave: `api/routers/movements.py` (_compute_saldo, _compute_saldo_before, balance/saldo-iniziale endpoints),
+`frontend/src/hooks/useMovements.ts` (useCashBalance, useSaldoIniziale, useUpdateSaldoIniziale),
+`frontend/src/app/(dashboard)/cassa/page.tsx` (SaldoHeroCard, ComposedChart),
+`frontend/src/components/movements/MovementsTable.tsx` (running balance column).
+
 ---
 
 ## Architettura
@@ -481,6 +516,7 @@ Errori reali trovati e corretti. MAI ripeterli.
 | `useLatestMeasurement` bare catch inghiotte 5xx | `catch {}` cattura ogni errore e ritorna `null` → 500/network error silenzioso, React Query non ritenta | Separato: 404 → `null`, altri errori → `throw` (React Query gestisce retry) |
 | `date.fromisoformat()` senza try/except | Input utente malformato → `ValueError` non gestito → 500 in `workouts.py` e `goals.py` | Aggiunto `try/except (ValueError, TypeError)` → 422 con messaggio specifico |
 | `useCreateContract`/`useDeleteContract` invalidazione incompleta | Invalidavano solo `["contracts"]` e `["dashboard"]`. Mancavano contract detail, clients, movements, aging | Aggiunte 6 invalidazioni: `["contract"]`, `["clients"]`, `["client"]`, `["movements"]`, `["movement-stats"]`, `["aging-report"]` |
+| SQLAlchemy subquery cross-join | `select(func.sum(case(CashMovement.tipo...))).select_from(query.subquery())` — i riferimenti `CashMovement.*` non vengono adattati alle colonne del subquery → cross-join implicito con tabella originale → somma enorme | Usare `subq = query.subquery()` poi `subq.c.tipo`, `subq.c.importo` nelle espressioni. MAI `CashMovement.*` con `select_from(subquery)` |
 
 ---
 
