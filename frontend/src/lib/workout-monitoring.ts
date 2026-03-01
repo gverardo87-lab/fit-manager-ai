@@ -127,6 +127,25 @@ export function getComplianceTextColor(percentage: number): string {
   return "text-red-600 dark:text-red-400";
 }
 
+// ── Smart date suggestion ──
+
+/**
+ * Suggerisce data per sessione N di M nella settimana.
+ * Con 2 sessioni → giorno 0 e 3 (lun/gio).
+ * Con 3 sessioni → giorno 0, 2, 4 (lun/mer/ven).
+ */
+export function suggestSessionDate(
+  week: WeekSlot,
+  sessionIndex: number,
+  totalSessions: number,
+): Date {
+  const spacing = totalSessions <= 1 ? 0 : Math.floor(6 / totalSessions);
+  const dayOffset = sessionIndex * spacing;
+  const suggested = new Date(week.startDate);
+  suggested.setDate(suggested.getDate() + dayOffset);
+  return suggested > week.endDate ? new Date(week.endDate) : suggested;
+}
+
 // ── Helpers data ──
 
 /** Settimana e' passata o corrente (oggi compreso). */
@@ -139,6 +158,40 @@ export function isWeekPastOrCurrent(week: WeekSlot): boolean {
 /** Settimana e' futura (inizia dopo oggi). */
 export function isWeekFuture(week: WeekSlot): boolean {
   return !isWeekPastOrCurrent(week);
+}
+
+/** Settimana corrente (oggi compreso nel range). */
+export function isCurrentWeek(week: WeekSlot): boolean {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return week.startDate <= today && week.endDate >= today;
+}
+
+/**
+ * Calcola sessioni "expected" in modo preciso.
+ * Settimane passate: tutte le sessioni contano.
+ * Settimana corrente: solo sessioni il cui giorno suggerito e' gia' passato.
+ * Settimane future: zero.
+ */
+export function computeExpected(
+  weeks: WeekSlot[],
+  sessionCount: number,
+): number {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  let total = 0;
+  for (const week of weeks) {
+    if (isWeekFuture(week)) continue;
+    if (isCurrentWeek(week)) {
+      for (let i = 0; i < sessionCount; i++) {
+        const suggested = suggestSessionDate(week, i, sessionCount);
+        if (suggested <= today) total++;
+      }
+    } else {
+      total += sessionCount;
+    }
+  }
+  return total;
 }
 
 /** Formatta data in formato corto "3 mar". */

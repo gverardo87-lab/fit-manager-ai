@@ -131,8 +131,14 @@ tools/external/
 
 # Ignora i file di database SQLite nella cartella data
 data/*.db
+data/*.db-shm
+data/*.db-wal
 data/backups/
 data/media/
+
+# Script temporanei e report generati
+tools/admin_scripts/_temp_*
+tools/admin_scripts/reports/
 
 # File della Knowledge Base (PDF, DOCX, etc.)
 knowledge_base/documents/*
