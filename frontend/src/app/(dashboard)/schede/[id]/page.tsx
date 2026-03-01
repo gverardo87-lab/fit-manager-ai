@@ -894,6 +894,7 @@ export default function SchedaDetailPage({
         schedaId={id}
         usedExerciseIds={usedExerciseIds}
       />
+
     </div>
   );
 }

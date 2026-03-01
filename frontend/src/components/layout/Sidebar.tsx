@@ -22,6 +22,7 @@ import {
   LogOut,
   Dumbbell,
   ClipboardList,
+  Activity,
   Search,
 } from "lucide-react";
 
@@ -64,6 +65,7 @@ const NAV_TOP: NavEntry[] = [
     items: [
       { href: "/esercizi", label: "Esercizi", icon: Dumbbell },
       { href: "/schede", label: "Schede", icon: ClipboardList },
+      { href: "/allenamenti", label: "Monitoraggio", icon: Activity },
     ],
   },
 ];

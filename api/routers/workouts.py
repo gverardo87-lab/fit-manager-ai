@@ -10,7 +10,7 @@ Operazioni atomiche: plan + sessioni + esercizi in una transazione.
 Full-replace sessions: DELETE old + INSERT new (semplice e sicuro).
 """
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -188,6 +188,8 @@ def _plan_base(plan: WorkoutPlan, client: Client | None) -> dict:
         "note": plan.note,
         "created_at": plan.created_at,
         "updated_at": plan.updated_at,
+        "data_inizio": str(plan.data_inizio) if plan.data_inizio else None,
+        "data_fine": str(plan.data_fine) if plan.data_fine else None,
     }
 
 
@@ -383,8 +385,23 @@ def update_workout(
     if "id_cliente" in update_data and update_data["id_cliente"] is not None:
         _check_client_ownership(session, update_data["id_cliente"], trainer.id)
 
+    # Converti stringhe data → oggetti date (il modello usa Optional[date])
+    for key in ("data_inizio", "data_fine"):
+        if key in update_data and update_data[key] is not None:
+            update_data[key] = date.fromisoformat(update_data[key])
+
     for field, value in update_data.items():
         setattr(plan, field, value)
+
+    # Validazione date: data_fine > data_inizio quando entrambe presenti
+    if plan.data_inizio and plan.data_fine:
+        di = plan.data_inizio if isinstance(plan.data_inizio, date) else date.fromisoformat(str(plan.data_inizio))
+        df = plan.data_fine if isinstance(plan.data_fine, date) else date.fromisoformat(str(plan.data_fine))
+        if df <= di:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="La data fine deve essere successiva alla data inizio",
+            )
 
     plan.updated_at = datetime.now(timezone.utc).isoformat()
     session.add(plan)

@@ -90,6 +90,8 @@ class WorkoutPlanUpdate(BaseModel):
     durata_settimane: Optional[int] = Field(None, ge=1, le=52)
     sessioni_per_settimana: Optional[int] = Field(None, ge=1, le=7)
     note: Optional[str] = Field(None, max_length=1000)
+    data_inizio: Optional[str] = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    data_fine: Optional[str] = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")
 
     @field_validator("obiettivo")
     @classmethod
@@ -159,6 +161,8 @@ class WorkoutPlanResponse(BaseModel):
     sessioni: List[WorkoutSessionResponse] = []
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
+    data_inizio: Optional[str] = None
+    data_fine: Optional[str] = None
 
 
 class WorkoutPlanListResponse(BaseModel):

@@ -15,6 +15,9 @@ import type {
   WorkoutPlanUpdate,
   WorkoutPlanListResponse,
   WorkoutSessionInput,
+  WorkoutLog,
+  WorkoutLogCreate,
+  WorkoutLogListResponse,
 } from "@/types/api";
 
 // ════════════════════════════════════════════════════════════
@@ -180,6 +183,95 @@ export function useDuplicateWorkout() {
     },
     onError: (error) => {
       toast.error(extractErrorMessage(error, "Errore nella duplicazione della scheda"));
+    },
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+// WORKOUT LOGS — Esecuzione sessioni
+// ════════════════════════════════════════════════════════════
+
+/**
+ * Lista log esecuzione per un cliente (profilo cliente, SchedeTab).
+ * Filtro opzionale per scheda specifica.
+ */
+export function useClientWorkoutLogs(
+  clientId: number | null,
+  idScheda?: number,
+) {
+  return useQuery<WorkoutLogListResponse>({
+    queryKey: ["workout-logs", clientId, { id_scheda: idScheda }],
+    queryFn: async () => {
+      const params: Record<string, number> = {};
+      if (idScheda) params.id_scheda = idScheda;
+      const { data } = await apiClient.get<WorkoutLogListResponse>(
+        `/clients/${clientId}/workout-logs`,
+        { params },
+      );
+      return data;
+    },
+    enabled: clientId !== null,
+  });
+}
+
+/**
+ * Lista log esecuzione per una scheda (builder page).
+ */
+export function useWorkoutLogs(workoutId: number | null) {
+  return useQuery<WorkoutLogListResponse>({
+    queryKey: ["workout-logs", { workoutId }],
+    queryFn: async () => {
+      const { data } = await apiClient.get<WorkoutLogListResponse>(
+        `/workouts/${workoutId}/logs`,
+      );
+      return data;
+    },
+    enabled: workoutId !== null,
+  });
+}
+
+/**
+ * Mutation: registra esecuzione sessione.
+ */
+export function useCreateWorkoutLog(clientId: number | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: WorkoutLogCreate) => {
+      const { data } = await apiClient.post<WorkoutLog>(
+        `/clients/${clientId}/workout-logs`,
+        payload,
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["workout-logs"] });
+      toast.success("Sessione registrata");
+    },
+    onError: (error) => {
+      toast.error(
+        extractErrorMessage(error, "Errore nella registrazione della sessione"),
+      );
+    },
+  });
+}
+
+/**
+ * Mutation: elimina log esecuzione (soft delete).
+ */
+export function useDeleteWorkoutLog(clientId: number | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (logId: number) => {
+      await apiClient.delete(`/clients/${clientId}/workout-logs/${logId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["workout-logs"] });
+      toast.success("Registrazione rimossa");
+    },
+    onError: (error) => {
+      toast.error(
+        extractErrorMessage(error, "Errore nella rimozione della registrazione"),
+      );
     },
   });
 }

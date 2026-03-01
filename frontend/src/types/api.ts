@@ -978,6 +978,8 @@ export interface WorkoutPlan {
   sessioni: WorkoutSession[];
   created_at: string | null;
   updated_at: string | null;
+  data_inizio: string | null;
+  data_fine: string | null;
 }
 
 /** GET /api/workouts — lista paginata */
@@ -1030,6 +1032,41 @@ export interface WorkoutPlanUpdate {
   durata_settimane?: number | null;
   sessioni_per_settimana?: number | null;
   note?: string | null;
+  data_inizio?: string | null;
+  data_fine?: string | null;
+}
+
+// ════════════════════════════════════════════════════════════
+// WORKOUT LOGS (api/schemas/workout_log.py)
+// ════════════════════════════════════════════════════════════
+
+/** POST /api/clients/{id}/workout-logs */
+export interface WorkoutLogCreate {
+  id_scheda: number;
+  id_sessione: number;
+  data_esecuzione: string; // ISO date "YYYY-MM-DD"
+  id_evento?: number | null;
+  note?: string | null;
+}
+
+/** WorkoutLogResponse — restituito da GET/POST */
+export interface WorkoutLog {
+  id: number;
+  id_scheda: number;
+  id_sessione: number;
+  id_cliente: number;
+  data_esecuzione: string;
+  id_evento: number | null;
+  note: string | null;
+  created_at: string | null;
+  scheda_nome: string;
+  sessione_nome: string;
+}
+
+/** GET /api/clients/{id}/workout-logs */
+export interface WorkoutLogListResponse {
+  items: WorkoutLog[];
+  total: number;
 }
 
 // ════════════════════════════════════════════════════════════

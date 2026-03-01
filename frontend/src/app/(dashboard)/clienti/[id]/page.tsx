@@ -16,6 +16,7 @@ import { use, useState } from "react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   FileText,
   Calendar,
@@ -56,6 +57,7 @@ import { useClientEvents, type EventHydrated } from "@/hooks/useAgenda";
 import { useClientWorkouts } from "@/hooks/useWorkouts";
 import { useMovements } from "@/hooks/useMovements";
 import { formatCurrency } from "@/lib/format";
+import { getProgramStatus, STATUS_LABELS, STATUS_COLORS } from "@/lib/workout-monitoring";
 import type { ContractListItem, CashMovement, WorkoutPlan, AnamnesiData } from "@/types/api";
 
 // ════════════════════════════════════════════════════════════
@@ -454,6 +456,7 @@ function SchedeTab({ clientId, onNewScheda }: { clientId: number; onNewScheda: (
               <TableHead>Obiettivo</TableHead>
               <TableHead className="hidden sm:table-cell">Livello</TableHead>
               <TableHead className="text-center hidden sm:table-cell">Sessioni</TableHead>
+              <TableHead className="hidden sm:table-cell">Stato</TableHead>
               <TableHead className="hidden md:table-cell">Data</TableHead>
             </TableRow>
           </TableHeader>
@@ -474,6 +477,16 @@ function SchedeTab({ clientId, onNewScheda }: { clientId: number; onNewScheda: (
                 <TableCell className="text-center hidden sm:table-cell tabular-nums">
                   {w.sessioni.length}
                 </TableCell>
+                <TableCell className="hidden sm:table-cell">
+                  {(() => {
+                    const status = getProgramStatus(w);
+                    return (
+                      <Badge className={`text-xs ${STATUS_COLORS[status]}`}>
+                        {STATUS_LABELS[status]}
+                      </Badge>
+                    );
+                  })()}
+                </TableCell>
                 <TableCell className="hidden md:table-cell text-sm text-muted-foreground tabular-nums">
                   {w.created_at
                     ? format(new Date(w.created_at), "dd MMM yyyy", { locale: it })
@@ -483,6 +496,14 @@ function SchedeTab({ clientId, onNewScheda }: { clientId: number; onNewScheda: (
             ))}
           </TableBody>
         </Table>
+      </div>
+      <div className="flex justify-end">
+        <Link
+          href={`/allenamenti?idCliente=${clientId}`}
+          className="text-xs text-primary hover:underline"
+        >
+          Vedi monitoraggio →
+        </Link>
       </div>
     </div>
   );

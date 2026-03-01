@@ -16,6 +16,7 @@ Multi-tenancy:
 Soft delete: solo WorkoutPlan ha deleted_at (a cascata logica).
 """
 
+from datetime import date as date_type
 from typing import Optional
 from sqlmodel import SQLModel, Field
 
@@ -32,6 +33,8 @@ class WorkoutPlan(SQLModel, table=True):
     livello: str         # beginner, intermedio, avanzato
     durata_settimane: int = Field(default=4)
     sessioni_per_settimana: int = Field(default=3)
+    data_inizio: Optional[date_type] = Field(default=None)
+    data_fine: Optional[date_type] = Field(default=None)
     note: Optional[str] = None
     ai_commentary: Optional[str] = None
     created_at: Optional[str] = None

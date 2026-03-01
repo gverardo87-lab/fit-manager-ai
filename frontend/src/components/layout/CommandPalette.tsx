@@ -80,6 +80,8 @@ const NAV_ITEMS = [
   { id: "nav-clienti", href: "/clienti", label: "Clienti", icon: Users },
   { id: "nav-contratti", href: "/contratti", label: "Contratti", icon: FileText },
   { id: "nav-esercizi", href: "/esercizi", label: "Esercizi", icon: Dumbbell },
+  { id: "nav-schede", href: "/schede", label: "Schede Allenamento", icon: Dumbbell },
+  { id: "nav-allenamenti", href: "/allenamenti", label: "Monitoraggio Allenamenti", icon: Activity },
   { id: "nav-cassa", href: "/cassa", label: "Cassa", icon: Wallet },
   { id: "nav-impostazioni", href: "/impostazioni", label: "Impostazioni", icon: Settings },
 ] as const;

@@ -98,6 +98,46 @@ Editor strutturato per creare schede allenamento professionali. Layout split: ed
 
 File chiave: `lib/workout-templates.ts` (template + `getSectionForCategory` + `getSmartDefaults`), `lib/derived-metrics.ts` (PATTERN_TO_1RM), `components/workouts/SessionCard.tsx` (3 sezioni DnD, volume, overflow menu), `components/workouts/SortableExerciseRow.tsx` (grid 8-col, % 1RM badge, espansione unificata), `components/workouts/ExerciseDetailPanel.tsx` (dettaglio inline).
 
+### Workout Monitoring — Pagina `/allenamenti`
+
+Pagina top-level per monitorare aderenza ai programmi di allenamento. Ogni piano con cliente
+assegnato puo' essere "attivato" impostando date inizio/fine, poi tracciato su griglia
+settimane x sessioni con compliance %.
+
+**Backend**: `data_inizio`/`data_fine` su `WorkoutPlan` (Optional[date], migrazione `9d7720a02d95`).
+`WorkoutLog` (allenamenti_eseguiti) — modello + router + schema per CRUD esecuzioni.
+Conversione stringa→date nel router prima di `setattr` (pitfall documentato).
+
+**Frontend**:
+- **Status derivato client-side**: `getProgramStatus(plan)` → `da_attivare` | `attivo` | `completato`
+  (nessun campo `stato` nel DB — calcolato da date)
+- **Utility** `lib/workout-monitoring.ts`: `computeWeeks()`, `matchLogsToGrid()`, `computeCompliance()`,
+  `STATUS_LABELS`, `STATUS_COLORS`, helper data/formattazione
+- **Pagina** `app/(dashboard)/allenamenti/page.tsx`:
+  - Filtri: Select cliente + chip status (Tutti/Attivi/Da attivare/Completati)
+  - **ProgramCard**: header con nome, cliente linkato, badge obiettivo/livello/status, date range
+  - **ComplianceGrid**: `<Table>` settimane × sessioni. Celle interattive:
+    - Log presente: sfondo verde + check + data. Click → Popover dettaglio + "Rimuovi"
+    - Vuota (settimana passata/corrente): bordo tratteggiato + click → Popover con DatePicker + nota + "Registra"
+    - Vuota (settimana futura): grigia, non clickable
+  - **ComplianceBar**: progress bar colorata (verde >=80%, ambra >=50%, rossa <50%)
+  - **ActivateDialog**: Dialog con 2 DatePicker (inizio + fine), validazione fine > inizio
+  - URL search param: `?idCliente={id}` per deep-linking dal profilo cliente
+- **Sidebar**: voce "Monitoraggio" (icona Activity) nella sezione Allenamento
+- **CommandPalette**: "Schede Allenamento" + "Monitoraggio Allenamenti"
+- **SchedeTab profilo cliente**: colonna "Stato" con badge colorato + link "Vedi monitoraggio →"
+
+**Data flow**:
+```
+useWorkouts() → piani con id_cliente (filtro client-side)
+useWorkoutLogs(planId) → log per piano (1 query per ProgramCard visibile)
+useCreateWorkoutLog(clientId) / useDeleteWorkoutLog(clientId) → CRUD celle griglia
+useUpdateWorkout() → attivazione/modifica date
+```
+
+File chiave: `lib/workout-monitoring.ts` (utility), `app/(dashboard)/allenamenti/page.tsx` (pagina),
+`api/models/workout_log.py` (modello), `api/routers/workout_logs.py` (4 endpoint).
+
 ### Exercise Quality Engine — Pipeline Dati
 
 > **Filosofia: l'allenamento e' un sottoramo della medicina.** Il database esercizi e' il nucleo del prodotto.
@@ -378,6 +418,7 @@ Errori reali trovati e corretti. MAI ripeterli.
 | Utility duplicate in 8+ file | `formatShortDate`, `getFinanceBarColor` copia-incollate in ogni componente → divergenza e manutenzione impossibile | Centralizzare in `lib/format.ts` e importare. MAI definire utility di formattazione localmente |
 | `<button>` nested in `<button>` | PopoverTrigger (button) dentro button nome esercizio → hydration error Next.js | SafetyPopover e name button come siblings dentro `<div>`, MAI annidati |
 | `fetch()` CORS su StaticFiles | `fetch()` cross-origin bloccato da CORS su StaticFiles backend, ma `<img>` funziona (esente da CORS) → export Excel senza foto | Next.js `rewrites` in `next.config.ts` proxya `/media/*` al backend → fetch same-origin. MAI `getMediaUrl()` per fetch, solo URL relativi |
+| `setattr(plan, "data_inizio", "str")` su campo Date | Schema Pydantic manda stringhe, modello SQLModel ha `Optional[date]` → SQLAlchemy non converte automaticamente | Convertire `date.fromisoformat(value)` nel router PRIMA di `setattr`. MAI passare stringhe a campi date del modello |
 
 ---
 
@@ -497,10 +538,13 @@ Chiara accede da **qualsiasi rete** (lavoro, 4G) tramite Tailscale (WireGuard P2
 
 ### Script di gestione (`tools/scripts/`)
 ```bash
-bash tools/scripts/migrate-all.sh        # Alembic su ENTRAMBI i DB
-bash tools/scripts/kill-port.sh 8000     # Kill pulito (tree-kill, no zombie)
-bash tools/scripts/restart-backend.sh dev   # Kill + restart porta 8001
-bash tools/scripts/restart-backend.sh prod  # Kill + restart porta 8000
+bash tools/scripts/migrate-all.sh            # Alembic su ENTRAMBI i DB
+bash tools/scripts/kill-port.sh 8000         # Kill pulito (tree-kill, no zombie)
+bash tools/scripts/restart-backend.sh dev    # Kill + restart porta 8001
+bash tools/scripts/restart-backend.sh prod   # Kill + restart porta 8000
+bash tools/scripts/check-all.sh              # ruff + next build — gate pre-commit
+bash tools/scripts/activate-exercises.sh     # Batch 50 esercizi (Ollama + pipeline)
+bash tools/scripts/activate-exercises.sh --dry-run  # Solo audit, zero modifiche
 ```
 
 ### Regole blindate
@@ -575,7 +619,7 @@ sqlite3 data/crm_dev.db ".tables"
 ## Metriche Progetto
 
 - **api/**: ~4,900 LOC Python — 17 modelli ORM, 10 router, 1 schema module
-- **frontend/**: ~14,500 LOC TypeScript — ~70 componenti, 11 hook modules, 13 pagine
+- **frontend/**: ~15,000 LOC TypeScript — ~70 componenti, 11 hook modules, 14 pagine
 - **core/**: ~10,300 LOC Python — moduli AI (RAG, exercise archive) in attesa di API endpoints
 - **tools/admin_scripts/**: ~2,800 LOC Python — 14 script (import, quality engine, taxonomy, seed, test)
 - **DB**: 29 tabelle SQLite, FK enforced, multi-tenant via trainer_id
