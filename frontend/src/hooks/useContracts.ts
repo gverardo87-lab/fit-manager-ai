@@ -103,6 +103,7 @@ export function useUpdateContract() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["contract"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       toast.success("Contratto aggiornato");
     },

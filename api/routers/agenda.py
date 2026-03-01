@@ -442,7 +442,14 @@ def create_event(
                 detail="Impossibile assegnare eventi a un contratto chiuso",
             )
 
-        # Bouncer 2b: Credit guard — crediti esauriti?
+        # Bouncer 2b: Cross-validation cliente ↔ contratto
+        if data.id_cliente and contract.id_cliente != data.id_cliente:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Il contratto non appartiene al cliente selezionato",
+            )
+
+        # Bouncer 2c: Credit guard — crediti esauriti?
         if contract.crediti_totali and contract.crediti_totali > 0:
             crediti_usati = session.exec(
                 select(func.count(Event.id)).where(

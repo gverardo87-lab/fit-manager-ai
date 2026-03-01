@@ -157,6 +157,7 @@ export function useDeleteWorkout() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workouts"] });
+      queryClient.invalidateQueries({ queryKey: ["workout"] });
       toast.success("Scheda eliminata");
     },
     onError: (error) => {

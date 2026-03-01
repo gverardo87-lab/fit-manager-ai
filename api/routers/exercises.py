@@ -439,6 +439,7 @@ def update_exercise(
 ):
     """Aggiorna esercizio (builtin o custom). Il trainer ha pieno controllo."""
     exercise = _bouncer_exercise(session, exercise_id, trainer.id)
+    _guard_custom(exercise)
 
     update_data = data.model_dump(exclude_unset=True)
     changes: dict = {}
@@ -566,7 +567,7 @@ def delete_exercise_media(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Media non trovato")
 
     # Rimuovi file da disco (best-effort)
-    file_path = MEDIA_ROOT.parent.parent.parent / media.url.lstrip("/")
+    file_path = MEDIA_ROOT / str(exercise_id) / Path(media.url).name
     if file_path.exists():
         file_path.unlink()
 
