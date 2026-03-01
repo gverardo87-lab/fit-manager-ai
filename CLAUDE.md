@@ -78,8 +78,8 @@ Editor strutturato per creare schede allenamento professionali. Layout split: ed
 - **Export "Scheda Clinica"**: Excel via `exceljs` — documento medico-sportivo proprietario. 3+ fogli: Copertina (branding + dati programma) → Profilo Clinico (safety, opzionale) → 1 foglio per sessione. Esercizi principali in card-block (header teal + 2 righe dati + immagini 150x100 affiancate + separatore). Avviamento/stretching compatti. Immagini via Next.js rewrite proxy (`/media/*` → backend, evita CORS su StaticFiles). Print/PDF via `@media print`
 - **Client linkage**: assegnazione/riassegnazione cliente inline (Select + `"__none__"` sentinel), filtro cliente nella lista, tab "Schede" nel profilo cliente, cross-link bidirezionale
 - **TemplateSelector**: dialog con selezione cliente integrata (`selectedClientId` state, pre-compilato da contesto)
-- **205 esercizi attivi** (72 compound, 55 isolation, 35 stretching, 18 bodyweight, 11 avviamento, 8 mobilita, 6 cardio) + 854 archiviati
-- Tassonomia completa: muscoli FK (2,458 righe), articolazioni FK (643), condizioni mediche FK (921+), relazioni (46)
+- **269 esercizi attivi** (87 compound, 69 isolation, 41 stretching, 31 bodyweight, 17 mobilita, 14 avviamento, 10 cardio) + 790 archiviati
+- Tassonomia completa: muscoli FK (3,370 righe), articolazioni FK (858), condizioni mediche FK (1,280), relazioni (460)
 - Categorie: `compound`, `isolation`, `bodyweight`, `cardio`, `stretching`, `mobilita`, `avviamento`
 - Pattern: 9 forza (`squat`, `hinge`, `push_h/v`, `pull_h/v`, `core`, `rotation`, `carry`) + 3 complementari (`warmup`, `stretch`, `mobility`)
 
@@ -187,9 +187,9 @@ File chiave: `lib/smart-programming.ts` (engine), `hooks/useSmartProgramming.ts`
 > **Filosofia: l'allenamento e' un sottoramo della medicina.** Il database esercizi e' il nucleo del prodotto.
 > Contenuti imprecisi possono causare infortuni. Zero approssimazione.
 
-**Strategia "Database 205"**: 205 esercizi attivi (`in_subset=True`): 72 compound, 55 isolation, 35 stretching,
-18 bodyweight, 11 avviamento, 8 mobilita, 6 cardio. Avviamento/mobilita photo-optional (semplici bodyweight).
-854 esercizi archiviati (`in_subset=False`) reinseribili via `activate_batch.py`.
+**Strategia "Database 269"**: 269 esercizi attivi (`in_subset=True`): 87 compound, 69 isolation, 41 stretching,
+31 bodyweight, 17 mobilita, 14 avviamento, 10 cardio. Avviamento/mobilita photo-optional (semplici bodyweight).
+790 esercizi archiviati (`in_subset=False`) reinseribili via `activate_batch.py`.
 
 Pipeline idempotente, dual-DB (`--db dev|prod|both`), script in `tools/admin_scripts/`:
 
@@ -517,6 +517,8 @@ Errori reali trovati e corretti. MAI ripeterli.
 | `date.fromisoformat()` senza try/except | Input utente malformato → `ValueError` non gestito → 500 in `workouts.py` e `goals.py` | Aggiunto `try/except (ValueError, TypeError)` → 422 con messaggio specifico |
 | `useCreateContract`/`useDeleteContract` invalidazione incompleta | Invalidavano solo `["contracts"]` e `["dashboard"]`. Mancavano contract detail, clients, movements, aging | Aggiunte 6 invalidazioni: `["contract"]`, `["clients"]`, `["client"]`, `["movements"]`, `["movement-stats"]`, `["aging-report"]` |
 | SQLAlchemy subquery cross-join | `select(func.sum(case(CashMovement.tipo...))).select_from(query.subquery())` — i riferimenti `CashMovement.*` non vengono adattati alle colonne del subquery → cross-join implicito con tabella originale → somma enorme | Usare `subq = query.subquery()` poi `subq.c.tipo`, `subq.c.importo` nelle espressioni. MAI `CashMovement.*` con `select_from(subquery)` |
+| `activate_batch.py` verify rollback asimmetrico | Verify per-DB: DB-A rollbacka 5, DB-B rollbacka 3 → delta silenzioso tra DB. Anche: verify PRIMA di fill_tempo → 43/50 rollbackati per campo auto-fillable | 3 safeguard: (1) pre-check sync (union), (2) fill_tempo_consigliato pre-verify, (3) rollback union (se fallisce su QUALSIASI DB → rollback su TUTTI) |
+| `populate_exercise_relations` chain IDs stale | Chain IDs puntano a esercizi disattivati (57/91 stale) → 21% copertura relazioni | Aggiornare chains ad OGNI batch activation. Riscrittura completa chains da 186→269 esercizi |
 
 ---
 
@@ -592,6 +594,14 @@ Ogni feature segue 4 step in ordine. Il codice non passa al successivo finche' i
 
 ### Prima di ogni commit
 - `bash tools/scripts/check-all.sh` — OBBLIGATORIO, zero eccezioni
+
+### Regole deployment-aware (SEMPRE)
+1. **Path**: `Path(__file__).parent` (Python), import relativi (TS). Zero path assoluti nel codice.
+2. **Empty state**: ogni pagina/componente deve gestire zero-records con messaggio + CTA, mai crash o schermo bianco.
+3. **Import AI condizionale**: `torch`, `transformers`, `langchain` con `try/except ImportError` → graceful fallback.
+4. **Dati solo in `data/`**: DB, media, licenza, log, backup. Mai scrivere file fuori da `data/`.
+5. **Nessun seed a runtime**: l'app deve funzionare con DB vuoto (Setup Wizard crea il primo trainer).
+6. **Configurazione via env**: ogni parametro configurabile deve leggere da env var con default sensato.
 
 ---
 
@@ -676,6 +686,56 @@ usa `taskkill /T /F` per uccidere l'intero albero di processi.
 
 ---
 
+## Distribuzione Commerciale — Regole di Sviluppo
+
+> Piano completo in `docs/DEPLOYMENT_PLAN.md`. Strategia: **Installer Nativo Windows + Licenza RSA**.
+> Queste regole governano lo sviluppo QUOTIDIANO per garantire che il codice sia sempre distribuibile.
+
+### Principi (Da Rispettare SEMPRE)
+
+1. **Zero path assoluti** — Ogni path DEVE essere relativo a `Path(__file__).parent` (backend) o import relativo (frontend). Mai `C:\Users\...` o `/home/...` nel codice.
+2. **Graceful first-run** — Se il DB e' vuoto, l'app DEVE funzionare (Setup Wizard). Ogni query che assume dati esistenti deve gestire il caso zero-records.
+3. **Self-contained runtime** — A runtime nessuna dipendenza da tool CLI (npm, pip, alembic). Migrazioni DB automatiche all'avvio.
+4. **License-aware** — Feature premium (AI, export avanzati) devono poter essere gated per tier di licenza. Middleware licenza su ogni request API.
+5. **Versioning esplicito** — `__version__` nel backend (`api/__init__.py`), `version` nel `package.json`, mostrato in UI (Impostazioni). Formato SemVer.
+6. **Dipendenze AI opzionali** — `torch`, `transformers`, `langchain`, `chromadb`, `sentence-transformers` NON richiesti per funzionamento base. Import condizionale con `try/except ImportError`.
+7. **Configurazione runtime** — `JWT_SECRET`, porta, path DB configurabili via env vars O file `.env` nella cartella dati. Mai hardcoded.
+8. **Dati in `data/`** — Tutto cio' che e' persistente (DB, media, licenza, log, backup) va in `data/`. Unica cartella che sopravvive agli aggiornamenti.
+9. **Empty state UX** — Ogni pagina con zero dati mostra messaggio descrittivo + CTA per creare il primo record. Mai schermo bianco.
+10. **Nessun segreto nel bundle** — La chiave pubblica RSA (verifica licenza) puo' essere embedded. La chiave privata (firma licenze) MAI.
+
+### Architettura Build (Riferimento)
+
+```
+Source (Git privato)
+|
++-- api/           -> PyInstaller -> api.exe (~50MB, esclude torch/transformers)
++-- frontend/      -> next build --standalone -> bundle (~30MB, include Node.js runtime)
++-- installer/     -> Inno Setup -> FitManager_Setup.exe (~80MB)
+|   launcher.bat      Avvia api.exe + frontend
+|   assets/           Icone, EULA
++-- data/          -> Sopravvive agli aggiornamenti
+    crm.db            Database SQLite
+    media/            Foto esercizi
+    license.key       JWT firmato RSA
+    .env              Configurazione locale (JWT_SECRET auto-generato)
+```
+
+### Checklist Pre-Distribuzione
+
+- [ ] Setup Wizard funzionante (crea trainer da zero senza seed)
+- [ ] Sistema licenza RSA integrato (middleware + UI scadenza)
+- [ ] JWT_SECRET auto-generato al primo avvio (salvato in `data/.env`)
+- [ ] `next build` in modalita' standalone produce bundle autonomo
+- [ ] PyInstaller produce `api.exe` funzionante (senza torch/transformers)
+- [ ] Launcher `.bat` avvia backend + frontend + apre browser
+- [ ] Installer Inno Setup testato su PC pulito (senza Python/Node)
+- [ ] Flusso end-to-end: install → licenza → setup → primo cliente → contratto → pagamento → agenda
+- [ ] `__version__` visibile in UI Impostazioni
+- [ ] Empty state descrittivo su OGNI pagina a zero dati
+
+---
+
 ## Comandi
 
 ```bash
@@ -737,7 +797,7 @@ sqlite3 data/crm_dev.db ".tables"
 - **core/**: ~10,300 LOC Python — moduli AI (RAG, exercise archive) in attesa di API endpoints
 - **tools/admin_scripts/**: ~2,800 LOC Python — 14 script (import, quality engine, taxonomy, seed, test)
 - **DB**: 29 tabelle SQLite, FK enforced, multi-tenant via trainer_id
-- **Esercizi**: 205 attivi (tassonomia completa, avviamento/mobilita photo-optional) + 854 archiviati (reinserimento graduale)
+- **Esercizi**: 269 attivi (tassonomia completa, avviamento/mobilita photo-optional) + 790 archiviati (reinserimento graduale)
 - **Test**: 63 pytest + 67 E2E
 - **Sicurezza**: JWT auth, bcrypt, Deep Relational IDOR, 3-layer route protection
 - **Cloud**: 0 dipendenze, 0 dati verso terzi

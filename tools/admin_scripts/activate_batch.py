@@ -50,6 +50,18 @@ REQUIRED_TEXT_FIELDS = [
     "note_sicurezza", "respirazione", "tempo_consigliato",
 ]
 
+# Tempo consigliato — auto-fill deterministico (stessi defaults di fill_subset_gaps.py)
+# Formato: "ecc-pausa-conc-pausa" in secondi
+TEMPO_DEFAULTS: dict[str, dict[str, str]] = {
+    "compound": {"default": "3-1-2-0", "core": "2-1-2-0", "carry": "0-0-0-0"},
+    "isolation": {"default": "2-0-2-0", "core": "2-1-2-0", "carry": "2-0-2-0", "rotation": "2-0-2-0"},
+    "bodyweight": {"default": "2-0-2-0", "core": "2-1-2-0", "push_h": "2-1-2-0"},
+    "cardio": {"default": "0-0-0-0"},
+    "stretching": {"default": "0-30-0-0"},
+    "mobilita": {"default": "2-0-2-0"},
+    "avviamento": {"default": "1-0-1-0"},
+}
+
 # Dimensioni copertura
 COVERAGE_DIMS = ["categoria", "pattern_movimento", "attrezzatura", "difficolta"]
 
@@ -92,6 +104,73 @@ def field_filled(val) -> bool:
         return False
     s = str(val).strip()
     return len(s) > 0 and s != "[]" and s != "{}"
+
+
+# ================================================================
+# PRE-CHECK: SYNC BETWEEN DBs
+# ================================================================
+
+def check_db_sync(db_paths: list[str], auto_fix: bool = True) -> bool:
+    """Compare in_subset across DBs. If delta found, sync to union (activate on both).
+    Returns True if DBs are in sync (or were fixed), False if delta exists and not fixed."""
+    if len(db_paths) < 2:
+        return True
+
+    connections = [(p, sqlite3.connect(p)) for p in db_paths]
+    active_sets = {}
+    for path, conn in connections:
+        name = os.path.basename(path)
+        ids = set(r[0] for r in conn.execute(
+            "SELECT id FROM esercizi WHERE in_subset = 1"
+        ).fetchall())
+        active_sets[name] = ids
+
+    names = list(active_sets.keys())
+    set_a, set_b = active_sets[names[0]], active_sets[names[1]]
+
+    only_a = set_a - set_b
+    only_b = set_b - set_a
+
+    if not only_a and not only_b:
+        print(f"\n  SYNC CHECK: OK — entrambi i DB hanno {len(set_a)} esercizi attivi")
+        for _, conn in connections:
+            conn.close()
+        return True
+
+    print(f"\n  {'!' * 60}")
+    print(f"  SYNC CHECK: DELTA RILEVATO!")
+    print(f"  {'!' * 60}")
+    print(f"  {names[0]}: {len(set_a)} attivi")
+    print(f"  {names[1]}: {len(set_b)} attivi")
+    if only_a:
+        print(f"  Solo in {names[0]} ({len(only_a)}): {sorted(only_a)}")
+    if only_b:
+        print(f"  Solo in {names[1]} ({len(only_b)}): {sorted(only_b)}")
+
+    if auto_fix:
+        # Strategy: activate the union on both DBs
+        union_ids = set_a | set_b
+        missing_a = union_ids - set_a
+        missing_b = union_ids - set_b
+
+        for path, conn in connections:
+            name = os.path.basename(path)
+            missing = union_ids - active_sets[name]
+            if missing:
+                ph = ",".join("?" * len(missing))
+                conn.execute(
+                    f"UPDATE esercizi SET in_subset = 1 WHERE id IN ({ph})",
+                    list(missing),
+                )
+                conn.commit()
+                print(f"  AUTO-FIX: attivati {len(missing)} esercizi su {name}")
+
+        print(f"  Entrambi i DB ora hanno {len(union_ids)} esercizi attivi")
+
+    for _, conn in connections:
+        conn.close()
+
+    return auto_fix
 
 
 # ================================================================
@@ -540,6 +619,37 @@ def phase_activate(db_path: str, selected_ids: list[int], dry_run: bool) -> int:
 
 
 # ================================================================
+# FASE 4b: FILL TEMPO CONSIGLIATO (pre-verify)
+# ================================================================
+
+def fill_tempo_consigliato(db_path: str, selected_ids: list[int]) -> int:
+    """Auto-fill tempo_consigliato for newly activated exercises (deterministic)."""
+    conn = sqlite3.connect(db_path)
+    placeholders = ",".join("?" * len(selected_ids))
+    rows = conn.execute(
+        f"SELECT id, categoria, pattern_movimento FROM esercizi "
+        f"WHERE id IN ({placeholders}) AND (tempo_consigliato IS NULL OR tempo_consigliato = '')",
+        selected_ids,
+    ).fetchall()
+
+    filled = 0
+    for ex_id, cat, pattern in rows:
+        cat_map = TEMPO_DEFAULTS.get(cat or "", {})
+        tempo = cat_map.get(pattern or "", cat_map.get("default", "2-0-2-0"))
+        conn.execute(
+            "UPDATE esercizi SET tempo_consigliato = ? WHERE id = ?",
+            (tempo, ex_id),
+        )
+        filled += 1
+
+    if filled:
+        conn.commit()
+        print(f"  Tempo consigliato auto-filled: {filled}/{len(selected_ids)}")
+    conn.close()
+    return filled
+
+
+# ================================================================
 # FASE 5: VERIFY
 # ================================================================
 
@@ -692,6 +802,10 @@ def main():
         print("ERROR: nessun database trovato.")
         sys.exit(1)
 
+    # ── Pre-check: sync between DBs (solo se --db both) ──
+    if len(db_paths) > 1:
+        check_db_sync(db_paths, auto_fix=not args.dry_run)
+
     # ── Fase 0: Audit (primo DB come riferimento per selezione) ──
     audit_data = phase_audit(db_paths[0])
 
@@ -740,11 +854,25 @@ def main():
     for db_path in db_paths:
         phase_activate(db_path, selected_ids, dry_run=False)
 
+    # ── Fase 4b: Fill tempo_consigliato (deterministico, pre-verify) ──
+    for db_path in db_paths:
+        fill_tempo_consigliato(db_path, selected_ids)
+
     # ── Fase 5: Verify ──
+    # Collect ALL failed IDs across DBs — rollback union to keep DBs symmetric
+    all_failed: set[int] = set()
     for db_path in db_paths:
         failed = phase_verify(db_path, selected_ids)
-        if failed:
-            rollback_failed(db_path, failed)
+        all_failed.update(failed)
+
+    if all_failed:
+        print(f"\n  Rollback simmetrico: {len(all_failed)} esercizi su TUTTI i DB")
+        for db_path in db_paths:
+            rollback_failed(db_path, list(all_failed))
+
+    # ── Post-verify sync check ──
+    if len(db_paths) > 1:
+        check_db_sync(db_paths, auto_fix=False)
 
     # ── Report finale ──
     for db_path in db_paths:
