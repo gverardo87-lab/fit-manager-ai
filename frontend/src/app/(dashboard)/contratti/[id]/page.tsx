@@ -54,12 +54,16 @@ import { useContractEvents, type EventHydrated } from "@/hooks/useAgenda";
 
 export default function ContractDetailPage({
   params,
+  searchParams: searchParamsPromise,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ from?: string }>;
 }) {
   const { id } = use(params);
+  const { from } = use(searchParamsPromise);
   const contractId = parseInt(id, 10);
   const router = useRouter();
+  const returnClientId = from?.startsWith("clienti-") ? from.slice(8) : null;
 
   const { data: contract, isLoading } = useContract(contractId);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -85,7 +89,7 @@ export default function ContractDetailPage({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3">
           <Link
-            href="/contratti"
+            href={returnClientId ? `/clienti/${returnClientId}?tab=contratti` : "/contratti"}
             className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border bg-white shadow-sm transition-colors hover:bg-zinc-50 dark:bg-zinc-900 dark:hover:bg-zinc-800"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -142,6 +146,19 @@ export default function ContractDetailPage({
           </Button>
         </div>
       </div>
+
+      {/* ── Banner ritorno al cliente ── */}
+      {returnClientId && (
+        <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-2 flex items-center gap-2">
+          <ArrowLeft className="h-3.5 w-3.5 text-primary" />
+          <Link
+            href={`/clienti/${returnClientId}?tab=contratti`}
+            className="text-sm text-primary hover:underline"
+          >
+            Torna al profilo cliente
+          </Link>
+        </div>
+      )}
 
       {/* ── Financial Hero KPI ── */}
       <ContractFinancialHero contract={contract} />

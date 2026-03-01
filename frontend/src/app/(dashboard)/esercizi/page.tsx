@@ -15,7 +15,8 @@
  * - Sheet per crea/modifica + Dialog per elimina
  */
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { useSearchParams, usePathname, useRouter } from "next/navigation";
 import {
   Plus,
   Dumbbell,
@@ -108,6 +109,11 @@ function useExerciseKpi(exercises: Exercise[]) {
 // ════════════════════════════════════════════════════════════
 
 export default function EserciziPage() {
+  // ── URL-backed filter state ──
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
+
   // Carica TUTTI gli esercizi (client-side filtering, come ExerciseSelector)
   const { data, isLoading, isError, refetch } = useExercises();
 
@@ -116,18 +122,38 @@ export default function EserciziPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
 
-  // ── Filter state ──
-  const [activeCategories, setActiveCategories] = useState<Set<string>>(
-    () => new Set(ALL_CATEGORIES)
-  );
-  const [selectedPattern, setSelectedPattern] = useState<string | null>(null);
-  const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
-  const [selectedEquipment, setSelectedEquipment] = useState<string | null>(null);
-  const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null);
-  const [selectedForceType, setSelectedForceType] = useState<string | null>(null);
-  const [selectedLateral, setSelectedLateral] = useState<string | null>(null);
+  // ── Filter state (initialized from URL for back-nav persistence) ──
+  const [activeCategories, setActiveCategories] = useState<Set<string>>(() => {
+    const catParam = searchParams.get("cat");
+    if (!catParam) return new Set(ALL_CATEGORIES);
+    return new Set(catParam.split(",").filter((c) => ALL_CATEGORIES.includes(c)));
+  });
+  const [selectedPattern, setSelectedPattern] = useState<string | null>(searchParams.get("pattern"));
+  const [selectedMuscle, setSelectedMuscle] = useState<string | null>(searchParams.get("muscle"));
+  const [selectedEquipment, setSelectedEquipment] = useState<string | null>(searchParams.get("equipment"));
+  const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(searchParams.get("difficulty"));
+  const [selectedForceType, setSelectedForceType] = useState<string | null>(searchParams.get("force"));
+  const [selectedLateral, setSelectedLateral] = useState<string | null>(searchParams.get("lateral"));
   const [showBiomechanics, setShowBiomechanics] = useState(false);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(searchParams.get("q") ?? "");
+
+  // ── Sync filter state → URL (replaceState = no re-render, just URL bar) ──
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (activeCategories.size < ALL_CATEGORIES.length) {
+      params.set("cat", [...activeCategories].join(","));
+    }
+    if (selectedPattern) params.set("pattern", selectedPattern);
+    if (selectedMuscle) params.set("muscle", selectedMuscle);
+    if (selectedEquipment) params.set("equipment", selectedEquipment);
+    if (selectedDifficulty) params.set("difficulty", selectedDifficulty);
+    if (selectedForceType) params.set("force", selectedForceType);
+    if (selectedLateral) params.set("lateral", selectedLateral);
+    if (search) params.set("q", search);
+    const qs = params.toString();
+    router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+  }, [activeCategories, selectedPattern, selectedMuscle, selectedEquipment,
+      selectedDifficulty, selectedForceType, selectedLateral, search, pathname, router]);
 
   const allExercises = data?.items ?? [];
   const kpi = useExerciseKpi(allExercises);

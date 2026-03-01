@@ -10,7 +10,8 @@
  * Questo layout NON appare nell'URL grazie al Route Group (dashboard).
  */
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -30,6 +31,51 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const mainRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
+  const isPopRef = useRef(false);
+
+  // Track back/forward navigation via popstate
+  useEffect(() => {
+    const handler = () => {
+      isPopRef.current = true;
+    };
+    window.addEventListener("popstate", handler);
+    return () => window.removeEventListener("popstate", handler);
+  }, []);
+
+  // Save/restore scroll position for <main> container
+  useEffect(() => {
+    const main = mainRef.current;
+    if (!main) return;
+
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
+    if (isPopRef.current) {
+      // Back/forward navigation → restore saved position
+      // Retry: content may still be loading (React Query cache hit is fast but async)
+      const saved = sessionStorage.getItem(`scroll:${pathname}`);
+      if (saved) {
+        const target = parseInt(saved, 10);
+        const tryRestore = () => {
+          main.scrollTop = target;
+        };
+        requestAnimationFrame(tryRestore);
+        timers.push(setTimeout(tryRestore, 100));
+        timers.push(setTimeout(tryRestore, 300));
+      }
+      isPopRef.current = false;
+    } else {
+      // Forward navigation → scroll to top
+      main.scrollTop = 0;
+    }
+
+    return () => {
+      timers.forEach(clearTimeout);
+      // Save scroll before leaving this page
+      sessionStorage.setItem(`scroll:${pathname}`, String(main.scrollTop));
+    };
+  }, [pathname]);
 
   return (
     <AuthGuard>
@@ -60,7 +106,7 @@ export default function DashboardLayout({
         </header>
 
         {/* ── Page content ── */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
+        <main ref={mainRef} className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
           {children}
         </main>
       </div>

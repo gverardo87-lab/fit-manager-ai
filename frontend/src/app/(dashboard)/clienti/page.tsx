@@ -13,7 +13,8 @@
  * - DeleteClientDialog per conferma eliminazione
  */
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
+import { useSearchParams, usePathname, useRouter } from "next/navigation";
 import {
   Plus,
   Users,
@@ -122,19 +123,41 @@ const SITUAZIONE_CHIPS: FilterChipDef[] = [
 // ── Page Component ──
 
 export default function ClientiPage() {
+  // ── URL-backed filter state ──
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
+
   const [sheetOpen, setSheetOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<ClientEnriched | null>(null);
 
-  // Filter state: Set<string> per ogni asse (pattern Agenda)
-  const [activeStati, setActiveStati] = useState<Set<string>>(
-    () => new Set(STATO_CHIPS.map((c) => c.key))
-  );
-  const [activeSituazioni, setActiveSituazioni] = useState<Set<string>>(
-    () => new Set(SITUAZIONE_CHIPS.map((c) => c.key))
-  );
+  // Filter state: Set<string> per ogni asse (initialized from URL for back-nav persistence)
+  const [activeStati, setActiveStati] = useState<Set<string>>(() => {
+    const param = searchParams.get("stato");
+    if (!param) return new Set(STATO_CHIPS.map((c) => c.key));
+    return new Set(param.split(","));
+  });
+  const [activeSituazioni, setActiveSituazioni] = useState<Set<string>>(() => {
+    const param = searchParams.get("situazione");
+    if (!param) return new Set(SITUAZIONE_CHIPS.map((c) => c.key));
+    return new Set(param.split(","));
+  });
 
   const { data, isLoading, isError, refetch } = useClients();
+
+  // ── Sync filter state → URL ──
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (activeStati.size < STATO_CHIPS.length) {
+      params.set("stato", [...activeStati].join(","));
+    }
+    if (activeSituazioni.size < SITUAZIONE_CHIPS.length) {
+      params.set("situazione", [...activeSituazioni].join(","));
+    }
+    const qs = params.toString();
+    router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+  }, [activeStati, activeSituazioni, pathname, router]);
 
   // ── Filter handlers (immutable Set toggle, pattern Agenda) ──
 

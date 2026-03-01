@@ -12,7 +12,8 @@
  * 5. Tabs: "Libro Mastro" (tabella movimenti) + "Spese Fisse" (ricorrenti)
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams, usePathname, useRouter } from "next/navigation";
 import {
   Plus,
   Landmark,
@@ -108,8 +109,22 @@ const chartConfig: ChartConfig = {
 
 export default function CassaPage() {
   const now = new Date();
-  const [mese, setMese] = useState(now.getMonth() + 1);
-  const [anno, setAnno] = useState(now.getFullYear());
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
+
+  const [mese, setMese] = useState(() => {
+    const m = searchParams.get("mese");
+    return m ? parseInt(m, 10) : now.getMonth() + 1;
+  });
+  const [anno, setAnno] = useState(() => {
+    const a = searchParams.get("anno");
+    return a ? parseInt(a, 10) : now.getFullYear();
+  });
+  const [activeTab, setActiveTab] = useState(
+    () => searchParams.get("tab") ?? "ledger",
+  );
+
   const [sheetOpen, setSheetOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [selectedMovement, setSelectedMovement] =
@@ -122,6 +137,20 @@ export default function CassaPage() {
   const { data: pendingData } = usePendingExpenses(anno, mese);
   const { data: balance, isLoading: balanceLoading } = useCashBalance();
   const pendingCount = pendingData?.items.length ?? 0;
+
+  // ── Sync all params → URL ──
+  useEffect(() => {
+    const params = new URLSearchParams();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+    if (mese !== currentMonth || anno !== currentYear) {
+      params.set("mese", String(mese));
+      params.set("anno", String(anno));
+    }
+    if (activeTab !== "ledger") params.set("tab", activeTab);
+    const qs = params.toString();
+    router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+  }, [mese, anno, activeTab, pathname, router]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDelete = (movement: CashMovement) => {
     setSelectedMovement(movement);
@@ -210,7 +239,7 @@ export default function CassaPage() {
       )}
 
       {/* ── Tabs: Libro Mastro + Spese Fisse ── */}
-      <Tabs defaultValue="ledger" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="w-full overflow-x-auto bg-muted/50 p-1">
           <TabsTrigger value="ledger" className="flex-1 gap-1.5">
             <BookOpen className="h-3.5 w-3.5" />

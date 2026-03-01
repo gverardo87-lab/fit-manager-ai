@@ -10,7 +10,7 @@
  */
 
 import { use, useState, useCallback, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -107,6 +107,8 @@ export default function SchedaDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: idStr } = use(params);
+  const fromParam = useSearchParams().get("from");
+  const returnClientId = fromParam?.startsWith("clienti-") ? fromParam.slice(8) : null;
   const id = parseInt(idStr, 10);
   const router = useRouter();
 
@@ -600,7 +602,7 @@ export default function SchedaDetailPage({
       {/* ── Header ── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" data-print-hide>
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => router.push("/schede")}>
+          <Button variant="ghost" size="icon" onClick={() => router.push(returnClientId ? `/clienti/${returnClientId}?tab=schede` : "/schede")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
@@ -715,6 +717,19 @@ export default function SchedaDetailPage({
           )}
         </div>
       </div>
+
+      {/* ── Banner ritorno al cliente ── */}
+      {returnClientId && (
+        <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-2 flex items-center gap-2" data-print-hide>
+          <ArrowLeft className="h-3.5 w-3.5 text-primary" />
+          <Link
+            href={`/clienti/${returnClientId}?tab=schede`}
+            className="text-sm text-primary hover:underline"
+          >
+            Torna al profilo cliente
+          </Link>
+        </div>
+      )}
 
       {/* ── Split Layout ── */}
       <div className="grid gap-6 lg:grid-cols-2 print:block">

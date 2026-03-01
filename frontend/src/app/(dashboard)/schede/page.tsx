@@ -11,8 +11,8 @@
  * - Click riga → /schede/[id]
  */
 
-import { useState, useMemo, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import {
   Plus,
   ClipboardList,
@@ -97,13 +97,35 @@ const NONE_VALUE = "__none__";
 
 export default function SchedePage() {
   const router = useRouter();
-  const [filters, setFilters] = useState<WorkoutFilters>({});
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+
+  const [filters, setFilters] = useState<WorkoutFilters>(() => {
+    const init: WorkoutFilters = {};
+    const ob = searchParams.get("obiettivo");
+    if (ob) init.obiettivo = ob;
+    const lv = searchParams.get("livello");
+    if (lv) init.livello = lv;
+    const cl = searchParams.get("cliente");
+    if (cl) init.id_cliente = Number(cl);
+    return init;
+  });
   const { data, isLoading, isError, refetch } = useWorkouts(filters);
   const deleteWorkout = useDeleteWorkout();
   const duplicateWorkout = useDuplicateWorkout();
 
   const { data: clientsData } = useClients();
   const clients = useMemo(() => clientsData?.items ?? [], [clientsData]);
+
+  // ── Sync filter state → URL ──
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (filters.obiettivo) params.set("obiettivo", filters.obiettivo);
+    if (filters.livello) params.set("livello", filters.livello);
+    if (filters.id_cliente) params.set("cliente", String(filters.id_cliente));
+    const qs = params.toString();
+    router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+  }, [filters, pathname, router]);
 
   const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<WorkoutPlan | null>(null);

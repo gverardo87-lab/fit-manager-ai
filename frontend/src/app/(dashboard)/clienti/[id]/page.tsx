@@ -13,10 +13,10 @@
  * Primo dynamic route dell'app. Params unwrapped con React 19 use().
  */
 
-import { use, useState } from "react";
+import { use, useState, useCallback } from "react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -74,6 +74,19 @@ export default function ClientProfilePage({
   const [sheetOpen, setSheetOpen] = useState(false);
   const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
 
+  // ── URL-backed tab state ──
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
+  const activeTab = searchParams.get("tab") ?? "panoramica";
+  const handleTabChange = useCallback((value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value === "panoramica") params.delete("tab");
+    else params.set("tab", value);
+    const qs = params.toString();
+    router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+  }, [searchParams, pathname, router]);
+
   if (isLoading) return <ProfileSkeleton />;
   if (!client) {
     return (
@@ -125,7 +138,7 @@ export default function ClientProfilePage({
         </Link>
       </div>
 
-      <Tabs defaultValue="panoramica">
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList className="w-full overflow-x-auto">
           <TabsTrigger value="panoramica">
             <User className="mr-2 h-4 w-4" />
@@ -472,7 +485,7 @@ function SchedeTab({ clientId, onNewScheda }: { clientId: number; onNewScheda: (
               <TableRow
                 key={w.id}
                 className="cursor-pointer hover:bg-muted/50"
-                onClick={() => router.push(`/schede/${w.id}`)}
+                onClick={() => router.push(`/schede/${w.id}?from=clienti-${clientId}`)}
               >
                 <TableCell className="font-medium">{w.nome}</TableCell>
                 <TableCell>

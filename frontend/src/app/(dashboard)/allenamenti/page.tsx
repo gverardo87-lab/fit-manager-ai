@@ -18,13 +18,14 @@
  * - Status derivato client-side da date (zero campo DB)
  */
 
-import { useState, useMemo, useCallback } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import {
   Activity,
+  ArrowLeft,
   ClipboardList,
   CalendarDays,
   Check,
@@ -195,14 +196,28 @@ const STATUS_CARD_GRADIENT: Record<ProgramStatus, string> = {
 export default function AllenamentiPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const initialClientId = searchParams.get("idCliente");
 
   const { data: workoutsData, isLoading: loadingWorkouts } = useWorkouts();
   const { data: clientsData } = useClients();
 
-  // Filtri
+  // Filtri (initialized from URL)
   const [clientFilter, setClientFilter] = useState<string>(initialClientId ?? "__all__");
-  const [statusFilter, setStatusFilter] = useState<"tutti" | ProgramStatus>("tutti");
+  const [statusFilter, setStatusFilter] = useState<"tutti" | ProgramStatus>(() => {
+    const s = searchParams.get("status");
+    if (s && ["attivo", "da_attivare", "completato"].includes(s)) return s as ProgramStatus;
+    return "tutti";
+  });
+
+  // ── Sync filter state → URL ──
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (clientFilter !== "__all__") params.set("idCliente", clientFilter);
+    if (statusFilter !== "tutti") params.set("status", statusFilter);
+    const qs = params.toString();
+    router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+  }, [clientFilter, statusFilter, pathname, router]);
 
   const clients = useMemo(() => clientsData?.items ?? [], [clientsData]);
 
@@ -303,6 +318,19 @@ export default function AllenamentiPage() {
           <p className="text-sm text-muted-foreground">Monitora aderenza e progresso dei programmi</p>
         </div>
       </div>
+
+      {/* ── Banner ritorno al cliente ── */}
+      {initialClientId && (
+        <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-2 flex items-center gap-2">
+          <ArrowLeft className="h-3.5 w-3.5 text-primary" />
+          <Link
+            href={`/clienti/${initialClientId}?tab=schede`}
+            className="text-sm text-primary hover:underline"
+          >
+            Torna al profilo cliente
+          </Link>
+        </div>
+      )}
 
       {/* ── KPI Hero Cards ── */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
