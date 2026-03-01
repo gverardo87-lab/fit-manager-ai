@@ -13,7 +13,7 @@ Idempotente (cancella e rigenera), dual-DB, dry-run obbligatorio prima dell'appl
 Eseguire dalla root:
   python -m tools.admin_scripts.populate_exercise_relations [--db dev|prod|both] [--dry-run]
 
-Ultimo aggiornamento catene: 2026-03-01 (186+ esercizi attivi).
+Ultimo aggiornamento catene: 2026-03-01 (280+ esercizi attivi).
 """
 
 import argparse
@@ -38,9 +38,9 @@ PROGRESSION_CHAINS: list[tuple[str, list[int]]] = [
 
     (
         "Push orizzontale — petto compound",
-        # Flessioni -> Chest Press Macchina -> Panca Manubri
+        # Piegamenti TRX -> Piegamenti -> Chest Press Macchina -> Panca Manubri
         # -> Panca Piana BB -> Dip Anelli
-        [43, 50, 39, 38, 290],
+        [149, 43, 50, 39, 38, 290],
     ),
     (
         "Push orizzontale — floor press",
@@ -95,8 +95,8 @@ PROGRESSION_CHAINS: list[tuple[str, list[int]]] = [
     ),
     (
         "Push verticale — dip progression",
-        # Dip su Panca -> Dip Parallele -> Flessioni in Verticale -> HSPU
-        [113, 65, 64, 289],
+        # Dip su Panca -> Dip Parallele -> Pike TRX -> Piegamenti in Verticale -> HSPU
+        [113, 65, 151, 64, 289],
     ),
     (
         "Push verticale — spalle isolation",
@@ -127,9 +127,9 @@ PROGRESSION_CHAINS: list[tuple[str, list[int]]] = [
 
     (
         "Pull orizzontale — rematori compound",
-        # Rematore Inverso -> Rematore Cavi Seduto -> Rematore Cavo In piedi
+        # Remata TRX -> Rematore Inverso -> Rematore Cavi Seduto -> Rematore Cavo In piedi
         # -> Remata Manubrio -> Remata Bilanciere
-        [77, 78, 1054, 72, 71],
+        [148, 77, 78, 1054, 72, 71],
     ),
     (
         "Pull orizzontale — bicipiti main",
@@ -201,9 +201,9 @@ PROGRESSION_CHAINS: list[tuple[str, list[int]]] = [
 
     (
         "Squat — quadricipiti compound",
-        # Squat a Corpo Libero -> Goblet Squat -> Goblet Squat KB
+        # Squat TRX -> Squat a Corpo Libero -> Goblet Squat -> Goblet Squat KB
         # -> Squat al Multipower -> Squat Bilanciere -> Squat Anteriore
-        [5, 3, 141, 12, 1, 2],
+        [150, 5, 3, 141, 12, 1, 2],
     ),
     (
         "Squat — macchine gambe",
@@ -255,13 +255,13 @@ PROGRESSION_CHAINS: list[tuple[str, list[int]]] = [
     ),
     (
         "Hinge — hamstring isolation",
-        # Curl Gambe -> Leg Curl Seduto -> Reverse Hyperextension
-        [27, 28, 267],
+        # Curl Gambe -> Leg Curl Seduto -> Reverse Hyperextension -> Nordic Hamstring Curl
+        [27, 28, 267, 266],
     ),
     (
         "Hinge — kettlebell power",
-        # Schiacciamento Palla -> KB Snatch
-        [760, 297],
+        # Med Ball Slam -> Schiacciamento Palla -> KB Snatch
+        [134, 760, 297],
     ),
     (
         "Hinge — olympic lifts",
@@ -334,8 +334,9 @@ PROGRESSION_CHAINS: list[tuple[str, list[int]]] = [
 
     (
         "Carry — trasporto",
-        # Farmer Walk -> Camminata del Mostro -> Camminata con la Trave
-        [116, 731, 1081],
+        # Farmer Walk -> Farmer Carry -> Overhead Carry -> Camminata del Mostro
+        # -> Camminata con la Trave
+        [116, 136, 138, 731, 1081],
     ),
     (
         "Carry — polsi",
@@ -368,8 +369,9 @@ PROGRESSION_CHAINS: list[tuple[str, list[int]]] = [
     ),
     (
         "Stretch — schiena",
-        # Allungamento Dinamico Schiena -> Allungamento lombare sedia -> Child's Pose
-        [544, 462, 327],
+        # Cat-Cow Stretching -> Allungamento Dinamico Schiena
+        # -> Allungamento lombare sedia -> Child's Pose
+        [196, 544, 462, 327],
     ),
     (
         "Stretch — adduttori/anca",
@@ -407,6 +409,27 @@ PROGRESSION_CHAINS: list[tuple[str, list[int]]] = [
         "Stretch — gambe esplosive",
         # Elevazioni Frontali -> Salti da rana
         [580, 572],
+    ),
+
+    # ══════════════════════════════════════════════
+    # WARMUP — avviamento
+    # ══════════════════════════════════════════════
+
+    (
+        "Warmup — mobilita' colonna",
+        # Cat-Cow Avviamento -> Inchworm -> Bear Crawl Riscaldamento
+        # -> Plank Walk-Out
+        [1085, 182, 305, 313],
+    ),
+
+    # ══════════════════════════════════════════════
+    # PULL VERTICALE — corda
+    # ══════════════════════════════════════════════
+
+    (
+        "Pull verticale — corda/salita",
+        # Trazioni Assistite -> Trazioni -> Salita alla Corda
+        [92, 83, 849],
     ),
 ]
 
@@ -460,6 +483,12 @@ VARIATION_PAIRS: list[tuple[int, int, str]] = [
     (466, 1024, "Push da Terra Tre Punti <-> Lancio Pettorale Sdraiato"),
     (358, 398, "Salto Alternato Diagonale <-> Salto sulla Panca"),
     (582, 369, "Elevazioni Frontali Pullover <-> Pressa Anti-Gravita"),
+    # Nuovi: TRX, carry, Cat-Cow
+    (116, 136, "Farmer Walk <-> Farmer Carry"),
+    (149, 43, "Piegamenti TRX <-> Piegamenti"),
+    (148, 77, "Remata TRX <-> Rematore Inverso"),
+    (150, 5, "Squat TRX <-> Squat a Corpo Libero"),
+    (196, 1085, "Cat-Cow Stretching <-> Cat-Cow Avviamento"),
 ]
 
 # ================================================================
