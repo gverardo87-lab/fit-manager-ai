@@ -390,6 +390,7 @@ Il contratto e' l'entita' centrale: collega pagamenti, crediti, sessioni.
 - **Residual validation**: `_cap_rateizzabile()` centralizzato — calcola `acconto = totale_versato - sum(saldato)`, `cap = prezzo - acconto`, `spazio = cap - sum(previsto)`. Usato da `create_rate` e `update_rate` (con `exclude_rate_id` per escludere la rata in modifica)
 - **Chiuso guard**: rate, piani, eventi bloccati su contratti chiusi
 - **Credit guard**: `create_event` rifiuta assegnazione a contratti con crediti esauriti (400)
+- **Cross-validation evento↔contratto↔cliente**: `create_event` verifica `contract.id_cliente == data.id_cliente` (400 se mismatch)
 - **Auto-close/reopen** (SIMMETRICO):
   - Condizione chiusura: `stato_pagamento == "SALDATO"` AND `crediti_usati >= crediti_totali`
   - **Lato rate**: `pay_rate` chiude, `unpay_rate` riapre (via stato_pagamento)
@@ -417,7 +418,7 @@ Se cambi uno, DEVI aggiornare l'altro. File: `api/schemas/` ↔ `frontend/src/ty
 ## Anti-Pattern Vietati
 
 1. **Arrow code** — Nesting > 3 livelli. Usare Bouncer + list comprehension.
-2. **Catch-all** — `except Exception: pass` e bare `except:`. Solo eccezioni specifiche.
+2. **Catch-all** — `except Exception: pass` e bare `except:` / `catch {}`. Solo eccezioni specifiche. Frontend: `catch(e) { if (axios.isAxiosError(e) && e.response?.status === 404) return null; throw e; }`
 3. **Magic strings** — Usare Enum/costanti. Mai `"PENDENTE"` inline.
 4. **print() per logging** — Usare `logger` (core) o `console.error` (frontend).
 5. **Dict raw** — I repository/router restituiscono modelli Pydantic tipizzati.
@@ -465,6 +466,21 @@ Errori reali trovati e corretti. MAI ripeterli.
 | `<button>` nested in `<button>` | PopoverTrigger (button) dentro button nome esercizio → hydration error Next.js | SafetyPopover e name button come siblings dentro `<div>`, MAI annidati |
 | `fetch()` CORS su StaticFiles | `fetch()` cross-origin bloccato da CORS su StaticFiles backend, ma `<img>` funziona (esente da CORS) → export Excel senza foto | Next.js `rewrites` in `next.config.ts` proxya `/media/*` al backend → fetch same-origin. MAI `getMediaUrl()` per fetch, solo URL relativi |
 | `setattr(plan, "data_inizio", "str")` su campo Date | Schema Pydantic manda stringhe, modello SQLModel ha `Optional[date]` → SQLAlchemy non converte automaticamente | Convertire `date.fromisoformat(value)` nel router PRIMA di `setattr`. MAI passare stringhe a campi date del modello |
+| Spese annuali non confermabili | `_date_from_mese_anno_key("2026", giorno)` ritorna `None` per key annuali (formato "YYYY" senza mese) → `confirm_expenses` skippa silenziosamente | Aggiunto parametro `start_month` a `_date_from_mese_anno_key()`. Call site passa `_get_start_date(expense).month` |
+| Invalidazione rate CRUD asimmetrica | `useCreateRate`/`useUpdateRate`/`useDeleteRate`/`useGeneratePaymentPlan` invalidavano 3 query, ma `usePayRate`/`useUnpayRate` ne invalidavano 6 → pagina Cassa stale dopo CRUD rate | Aggiunte `["movements"]`, `["movement-stats"]`, `["aging-report"]` a tutte le 4 mutation |
+| Movimenti: aging-report non invalidato | `useCreateMovement`/`useDeleteMovement`/`useConfirmExpenses` non invalidavano `["aging-report"]` → aging stale dopo operazioni ledger | Aggiunta invalidazione `["aging-report"]` a tutte e 3 le mutation |
+| Spese ricorrenti: invalidazione incompleta | Le 3 mutation invalidavano solo `["recurring-expenses"]` e `["movement-stats"]`. Mancavano dashboard, pending, forecast | Aggiunte `["dashboard"]`, `["pending-expenses"]`, `["forecast"]` |
+| Type sync `DashboardSummary.ledger_alerts` | Backend restituisce `ledger_alerts: int` ma interfaccia TypeScript non lo dichiarava → frontend vede `undefined` | Aggiunto `ledger_alerts: number` a `DashboardSummary` in `types/api.ts` |
+| Evento assegnabile a contratto di altro cliente | `create_event` validava ownership contratto (trainer) ma non `contract.id_cliente == data.id_cliente` → crediti scalati dal contratto sbagliato | Aggiunto Bouncer 2b: cross-validation cliente↔contratto in `agenda.py` |
+| Esercizi builtin modificabili via PUT | `delete_exercise` chiama `_guard_custom()` ma `update_exercise` no → trainer puo' corrompere esercizi builtin | Aggiunto `_guard_custom(exercise)` in `update_exercise` dopo il bouncer |
+| Delete media path errato (manca `data/`) | `MEDIA_ROOT.parent.parent.parent / media.url.lstrip("/")` risolve a `project_root/media/...` invece di `project_root/data/media/...` → file orfani su disco | Ricostruito path da `MEDIA_ROOT / str(exercise_id) / Path(media.url).name` |
+| `useUpdateContract` stale dettaglio | Invalidava `["contracts"]` e `["dashboard"]` ma non `["contract"]` → pagina dettaglio stale dopo modifica | Aggiunta invalidazione `["contract"]` (prefix match) |
+| `useDeleteWorkout` stale builder | Invalidava `["workouts"]` ma non `["workout"]` → builder visibile con dati fantasma dopo eliminazione | Aggiunta invalidazione `["workout"]` |
+| `active_count` hardcoded a 118 | `get_archive_stats` ritornava `"active_count": 118` hardcoded (reale: 205, cambia con batch) | Sostituito con query dinamica `func.count(Exercise.id).where(in_subset == True)` |
+| JWT_SECRET fallback silenzioso | Se env var mancante, log WARNING facilmente ignorabile + token firmati con stringa pubblica | Upgrade a log CRITICAL con messaggio esplicito |
+| `useLatestMeasurement` bare catch inghiotte 5xx | `catch {}` cattura ogni errore e ritorna `null` → 500/network error silenzioso, React Query non ritenta | Separato: 404 → `null`, altri errori → `throw` (React Query gestisce retry) |
+| `date.fromisoformat()` senza try/except | Input utente malformato → `ValueError` non gestito → 500 in `workouts.py` e `goals.py` | Aggiunto `try/except (ValueError, TypeError)` → 422 con messaggio specifico |
+| `useCreateContract`/`useDeleteContract` invalidazione incompleta | Invalidavano solo `["contracts"]` e `["dashboard"]`. Mancavano contract detail, clients, movements, aging | Aggiunte 6 invalidazioni: `["contract"]`, `["clients"]`, `["client"]`, `["movements"]`, `["movement-stats"]`, `["aging-report"]` |
 
 ---
 
@@ -473,8 +489,10 @@ Errori reali trovati e corretti. MAI ripeterli.
 1. **Multi-tenancy**: trainer_id da JWT, iniettato server-side, mai dal body
 2. **Query parametrizzate**: `WHERE id = ?` (core/) o `select().where()` (api/)
 3. **3 layer auth**: Edge Middleware → AuthGuard client → JWT API validation
-4. **Niente PII nei prompt LLM**: usare attributi anonimi
-5. **Solo LLM locale** (Ollama): mai inviare dati a cloud senza consenso
+4. **Builtin guard**: `_guard_custom(exercise)` blocca modifica/eliminazione esercizi builtin su update E delete
+5. **JWT_SECRET**: log CRITICAL se non configurato. Token firmati con chiave di sviluppo — MAI in produzione esposta
+6. **Niente PII nei prompt LLM**: usare attributi anonimi
+7. **Solo LLM locale** (Ollama): mai inviare dati a cloud senza consenso
 
 ---
 
@@ -524,7 +542,13 @@ Ogni feature segue 4 step in ordine. Il codice non passa al successivo finche' i
 ### Quando crei un mutation hook (useMutation)
 1. `onSuccess` DEVE invalidare TUTTE le query correlate (lista + dettaglio + correlate)
 2. Operazioni inverse (pay/unpay, create/delete) DEVONO avere invalidazione IDENTICA
-3. Mostrare toast di conferma (sonner)
+3. Operazioni che toccano entita' collegate (es. contratto → rate → movements) DEVONO invalidare l'intera catena
+4. Mostrare toast di conferma (sonner)
+
+### Quando usi date.fromisoformat() su input utente
+- SEMPRE wrappare in `try/except (ValueError, TypeError)` → `raise HTTPException(422, "Formato data non valido")`
+- Mai fidarsi che il frontend mandi date valide — un client API o un fuzzer puo' mandare qualsiasi stringa
+- Pattern: vedi `workout_logs.py:139-145` (corretto) vs `workouts.py:389-391` (corretto con Sprint 3)
 
 ### Quando crei un nuovo esercizio in memoria (oggetto JS)
 - DEVE avere TUTTI i campi di `WorkoutExerciseRow`, inclusi quelli nullable (= `null`)
