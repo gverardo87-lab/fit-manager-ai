@@ -33,6 +33,7 @@ import {
   CreditCard,
   Activity,
   Scale,
+  HeartPulse,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -545,6 +546,20 @@ export function CommandPalette() {
                       >
                         <Scale className="mr-2 h-4 w-4 text-muted-foreground" />
                         Registra misurazione per {contextClient.nome}
+                      </CommandItem>
+                      <CommandItem
+                        value={`ctx-progressi-${contextClient.id}`}
+                        onSelect={() => navigate(`/clienti/${contextClient.id}/progressi`)}
+                      >
+                        <TrendingUp className="mr-2 h-4 w-4 text-muted-foreground" />
+                        Progressi di {contextClient.nome}
+                      </CommandItem>
+                      <CommandItem
+                        value={`ctx-anamnesi-${contextClient.id}`}
+                        onSelect={() => navigate(`/clienti/${contextClient.id}/anamnesi`)}
+                      >
+                        <HeartPulse className="mr-2 h-4 w-4 text-muted-foreground" />
+                        Anamnesi di {contextClient.nome}
                       </CommandItem>
                     </CommandGroup>
                     <CommandSeparator />

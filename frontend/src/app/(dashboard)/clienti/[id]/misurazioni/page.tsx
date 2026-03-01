@@ -9,7 +9,7 @@
  *   /clienti/{id}/misurazioni           → nuova misurazione
  *   /clienti/{id}/misurazioni?edit={mid} → modifica misurazione esistente
  *
- * Back button: torna al profilo cliente tab Progressi.
+ * Back button: torna alla pagina Progressi del cliente.
  */
 
 import { use, useEffect, useMemo, useState } from "react";
@@ -130,7 +130,7 @@ export default function MisurazionePage({
   };
 
   const goBack = () => {
-    router.push(`/clienti/${clientId}?tab=progressi`);
+    router.push(`/clienti/${clientId}/progressi`);
   };
 
   const handleSubmit = () => {

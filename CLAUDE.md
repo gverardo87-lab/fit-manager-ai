@@ -318,7 +318,7 @@ File chiave: `api/services/safety_engine.py` (engine), `api/services/condition_r
 - Vita + Fianchi → WHR con classificazione OMS per sesso + trend
 - PA Sistolica + Diastolica → classificazione ESH combinata + pressione differenziale
 
-**Frontend**: `ClinicalAnalysisPanel.tsx` (~510 LOC) in ProgressiTab — 5 sezioni collassabili
+**Frontend**: `ClinicalAnalysisPanel.tsx` (~510 LOC) nella pagina Progressi (`/clienti/[id]/progressi`) — 5 sezioni collassabili
 con bordo severity-colorato + badge. Riceve `measurements`, `sesso`, `dataNascita`, `goals`.
 
 **Integrazione**: `MeasurementChart` mostra `<ReferenceArea>` bande normative.
@@ -733,7 +733,7 @@ sqlite3 data/crm_dev.db ".tables"
 ## Metriche Progetto
 
 - **api/**: ~4,900 LOC Python — 17 modelli ORM, 10 router, 1 schema module
-- **frontend/**: ~15,000 LOC TypeScript — ~70 componenti, 11 hook modules, 14 pagine
+- **frontend/**: ~15,000 LOC TypeScript — ~70 componenti, 11 hook modules, 16 pagine
 - **core/**: ~10,300 LOC Python — moduli AI (RAG, exercise archive) in attesa di API endpoints
 - **tools/admin_scripts/**: ~2,800 LOC Python — 14 script (import, quality engine, taxonomy, seed, test)
 - **DB**: 29 tabelle SQLite, FK enforced, multi-tenant via trainer_id

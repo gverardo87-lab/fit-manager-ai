@@ -7,7 +7,8 @@
  * Layout:
  * - ProfileHeader (persistente): avatar, nome, contatti, badge stato, modifica
  * - ProfileKpi (persistente): 4 card (crediti, contratti, finanze, ultimo evento)
- * - Tabs: Panoramica | Contratti | Sessioni | Movimenti
+ * - CTA Cards: Progressi Fisici + Anamnesi (pagine dedicate)
+ * - Tabs: Panoramica | Contratti | Sessioni | Movimenti | Schede
  *
  * Primo dynamic route dell'app. Params unwrapped con React 19 use().
  */
@@ -18,6 +19,7 @@ import { it } from "date-fns/locale";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
+  ArrowRight,
   FileText,
   Calendar,
   Wallet,
@@ -47,10 +49,6 @@ import { ClientProfileHeader } from "@/components/clients/ClientProfileHeader";
 import { ClientProfileKpi } from "@/components/clients/ClientProfileKpi";
 import { ClientSheet } from "@/components/clients/ClientSheet";
 import { TemplateSelector } from "@/components/workouts/TemplateSelector";
-import { AnamnesiSummary } from "@/components/clients/anamnesi/AnamnesiSummary";
-import { AnamnesiWizard } from "@/components/clients/anamnesi/AnamnesiWizard";
-import { isStructuredAnamnesi } from "@/components/clients/anamnesi/anamnesi-helpers";
-import { ProgressiTab } from "@/components/clients/ProgressiTab";
 import { useClient } from "@/hooks/useClients";
 import { useClientContracts } from "@/hooks/useContracts";
 import { useClientEvents, type EventHydrated } from "@/hooks/useAgenda";
@@ -58,7 +56,7 @@ import { useClientWorkouts } from "@/hooks/useWorkouts";
 import { useMovements } from "@/hooks/useMovements";
 import { formatCurrency } from "@/lib/format";
 import { getProgramStatus, STATUS_LABELS, STATUS_COLORS } from "@/lib/workout-monitoring";
-import type { ContractListItem, CashMovement, WorkoutPlan, AnamnesiData } from "@/types/api";
+import type { ContractListItem, CashMovement, WorkoutPlan } from "@/types/api";
 
 // ════════════════════════════════════════════════════════════
 // PAGE COMPONENT
@@ -75,7 +73,6 @@ export default function ClientProfilePage({
   const { data: client, isLoading } = useClient(clientId);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
-  const [wizardOpen, setWizardOpen] = useState(false);
 
   if (isLoading) return <ProfileSkeleton />;
   if (!client) {
@@ -91,6 +88,42 @@ export default function ClientProfilePage({
     <div className="space-y-6">
       <ClientProfileHeader client={client} onEdit={() => setSheetOpen(true)} />
       <ClientProfileKpi client={client} />
+
+      {/* ── Quick Access: Progressi & Anamnesi ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Link href={`/clienti/${clientId}/progressi`}>
+          <Card className="group cursor-pointer border-l-4 border-l-teal-500 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
+            <CardContent className="flex items-center gap-4 p-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-100 dark:bg-teal-900/30">
+                <TrendingUp className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold">Progressi Fisici</p>
+                <p className="text-xs text-muted-foreground">
+                  Misurazioni, obiettivi e analisi clinica
+                </p>
+              </div>
+              <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href={`/clienti/${clientId}/anamnesi`}>
+          <Card className="group cursor-pointer border-l-4 border-l-rose-500 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
+            <CardContent className="flex items-center gap-4 p-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-rose-100 dark:bg-rose-900/30">
+                <HeartPulse className="h-5 w-5 text-rose-600 dark:text-rose-400" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold">Anamnesi</p>
+                <p className="text-xs text-muted-foreground">
+                  Questionario clinico e stile di vita
+                </p>
+              </div>
+              <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
 
       <Tabs defaultValue="panoramica">
         <TabsList className="w-full overflow-x-auto">
@@ -114,14 +147,6 @@ export default function ClientProfilePage({
             <ClipboardList className="mr-2 h-4 w-4" />
             Schede
           </TabsTrigger>
-          <TabsTrigger value="progressi">
-            <TrendingUp className="mr-2 h-4 w-4" />
-            Progressi
-          </TabsTrigger>
-          <TabsTrigger value="anamnesi">
-            <HeartPulse className="mr-2 h-4 w-4" />
-            Anamnesi
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="panoramica" className="mt-4">
@@ -143,30 +168,12 @@ export default function ClientProfilePage({
         <TabsContent value="schede" className="mt-4">
           <SchedeTab clientId={clientId} onNewScheda={() => setTemplateSelectorOpen(true)} />
         </TabsContent>
-
-        <TabsContent value="progressi" className="mt-4">
-          <ProgressiTab clientId={clientId} sesso={client.sesso} dataNascita={client.data_nascita} />
-        </TabsContent>
-
-        <TabsContent value="anamnesi" className="mt-4">
-          <AnamnesiTab
-            anamnesi={client.anamnesi ?? null}
-            onOpenWizard={() => setWizardOpen(true)}
-          />
-        </TabsContent>
       </Tabs>
 
       <TemplateSelector
         open={templateSelectorOpen}
         onOpenChange={setTemplateSelectorOpen}
         clientId={clientId}
-      />
-
-      <AnamnesiWizard
-        open={wizardOpen}
-        onOpenChange={setWizardOpen}
-        clientId={clientId}
-        existing={client.anamnesi ?? null}
       />
 
       <ClientSheet
@@ -507,59 +514,6 @@ function SchedeTab({ clientId, onNewScheda }: { clientId: number; onNewScheda: (
       </div>
     </div>
   );
-}
-
-// ════════════════════════════════════════════════════════════
-// TAB: Anamnesi
-// ════════════════════════════════════════════════════════════
-
-function AnamnesiTab({
-  anamnesi,
-  onOpenWizard,
-}: {
-  anamnesi: AnamnesiData | Record<string, unknown> | null;
-  onOpenWizard: () => void;
-}) {
-  // Nessuna anamnesi
-  if (!anamnesi) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-12">
-        <HeartPulse className="h-10 w-10 text-muted-foreground/30" />
-        <p className="text-sm text-muted-foreground">
-          Nessuna anamnesi compilata per questo cliente
-        </p>
-        <Button variant="outline" size="sm" onClick={onOpenWizard}>
-          <Plus className="mr-2 h-4 w-4" />
-          Compila Anamnesi
-        </Button>
-      </div>
-    );
-  }
-
-  // Anamnesi formato vecchio (legacy dict)
-  if (!isStructuredAnamnesi(anamnesi as Record<string, unknown>)) {
-    const legacyNote = (anamnesi as Record<string, unknown>).note;
-    return (
-      <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-12">
-        <HeartPulse className="h-10 w-10 text-amber-500/50" />
-        <p className="text-sm text-muted-foreground">
-          Anamnesi in formato precedente — ricompila per il nuovo questionario
-        </p>
-        {typeof legacyNote === "string" && legacyNote && (
-          <p className="text-xs text-muted-foreground italic max-w-md text-center">
-            Nota precedente: {legacyNote}
-          </p>
-        )}
-        <Button variant="outline" size="sm" onClick={onOpenWizard}>
-          <Plus className="mr-2 h-4 w-4" />
-          Ricompila Anamnesi
-        </Button>
-      </div>
-    );
-  }
-
-  // Anamnesi strutturata
-  return <AnamnesiSummary data={anamnesi as AnamnesiData} onEdit={onOpenWizard} />;
 }
 
 // ════════════════════════════════════════════════════════════
