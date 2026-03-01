@@ -203,11 +203,14 @@ def phase_select(
     active_with_photos: list[dict],
     candidates: list[dict],
     batch_size: int,
+    prefer_category: str | None = None,
 ) -> list[dict]:
     """Select best candidates from archive based on coverage gaps."""
 
     print(f"\n{'=' * 60}")
     print(f"  FASE 2 — SELECT (top {batch_size} da {len(candidates)} candidati)")
+    if prefer_category:
+        print(f"  Preferenza categoria: {prefer_category}")
     print(f"{'=' * 60}")
 
     # Distribuzione corrente degli attivi
@@ -269,6 +272,10 @@ def phase_select(
         # +0.5 per pattern sotto-rappresentato (< 3)
         if pat and current_dist["pattern_movimento"].get(pat, 0) < 3:
             score += 0.5
+
+        # +2.5 per categoria preferita (--prefer flag)
+        if prefer_category and cat == prefer_category:
+            score += 2.5
 
         # +1 se ha gia' campi ricchi compilati (meno lavoro Ollama)
         rich_count = sum(1 for f in REQUIRED_TEXT_FIELDS if field_filled(ex.get(f)))
@@ -667,6 +674,8 @@ def main():
                         help="Salta Fase 3 (per ri-esecuzione dopo fix manuale)")
     parser.add_argument("--model", default=ENRICH_MODEL,
                         help=f"Modello Ollama per enrichment (default: {ENRICH_MODEL})")
+    parser.add_argument("--prefer", default=None,
+                        help="Categoria da preferire nella selezione (es. bodyweight, stretching)")
     args = parser.parse_args()
 
     print("=" * 60)
@@ -674,6 +683,8 @@ def main():
     print("=" * 60)
     print(f"  DB: {args.db} | Batch: {args.batch_size} | Dry-run: {args.dry_run}")
     print(f"  Model: {args.model} | Skip enrich: {args.skip_enrich}")
+    if args.prefer:
+        print(f"  Preferenza categoria: {args.prefer}")
 
     db_paths = get_db_paths(args.db)
     if not db_paths:
@@ -703,6 +714,7 @@ def main():
         audit_data["active_with_photos"],
         unique_candidates,
         args.batch_size,
+        prefer_category=args.prefer,
     )
     selected_ids = [e["id"] for e in selected]
 

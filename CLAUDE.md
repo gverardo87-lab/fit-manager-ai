@@ -145,17 +145,19 @@ File chiave: `lib/workout-monitoring.ts` (utility), `app/(dashboard)/allenamenti
 
 **Architettura a 3 layer** (pattern `clinical-analysis.ts`, `derived-metrics.ts`):
 
-1. **Core Engine** (`lib/smart-programming.ts`, ~690 LOC):
+1. **Core Engine** (`lib/smart-programming.ts`, ~1150 LOC):
    - **ClientProfile**: profilo aggregato (tutto nullable per graceful degradation)
    - **14 Scorer composabili**: safety (0.15), muscle_match (0.12), pattern_match (0.10),
      difficulty (0.10), goal_alignment (0.08), strength_level (0.06), recovery_fit (0.06),
      compound_priority (0.05), equipment_variety (0.05), uniqueness (0.05),
      plane_variety (0.05), chain_variety (0.04), bilateral_balance (0.04), contraction_variety (0.05)
    - **`scoreExercisesForSlot()`**: orchestra tutti i scorer, ritorna ExerciseScore[] ordinati
-   - **`generateSmartPlan()`**: genera struttura da sessioni/settimana (2-6) × livello (3)
+   - **`generateSmartPlan()`**: genera struttura da sessioni/settimana (2-6) × livello (3) + **slot accessori dinamici** per muscoli scoperti
    - **`fillSmartPlan()`**: assegna esercizi ottimali a ogni slot via scoring 14D
    - **`assessFitnessLevel()`**: combina strength ratios NSCA + livello attivita anamnesi
    - **`computeSmartAnalysis()`**: orchestratore analisi (coverage + volume + biomeccanics + recovery + safety)
+   - **SPLIT_PATTERNS bilanciati**: Upper alterna push/pull (2+2), Lower alterna squat/hinge, `rotation` in 3-day C
+   - **scoreMuscleMatch v2**: coverage ratio (intersection/target.length) invece di Jaccard
    - **Senza client**: dim. safety/strength/bilateral → neutral (0.5). Funziona anche senza dati client.
 
 2. **Hook** (`hooks/useSmartProgramming.ts`, ~60 LOC):
@@ -164,8 +166,9 @@ File chiave: `lib/workout-monitoring.ts` (utility), `app/(dashboard)/allenamenti
    - Zero nuove API — composizione di dati esistenti
 
 3. **UI**:
-   - **Card "Scheda Smart"** in TemplateSelector — gradiente teal, icona Brain, abilitata solo con cliente.
-     Badge dinamici: safety-aware, N obiettivi, bilaterale. Click → `generateSmartPlan` + `fillSmartPlan`
+   - **Card "Scheda Smart"** in TemplateSelector — pannello teal con configurazione inline:
+     3 Select (sessioni/sett 2-6, obiettivo, livello auto/manuale) + bottone "Genera" teal.
+     Badge dinamici: safety-aware, N obiettivi, bilaterale. Funziona anche senza cliente.
    - **SmartAnalysisPanel** nel builder (`components/workouts/SmartAnalysisPanel.tsx`, ~270 LOC) —
      Collapsible card (pattern Safety Overview Panel) con 5 sezioni:
      1. Copertura Muscolare — barre colorate per 13 gruppi muscolari vs target NSCA per livello
@@ -451,6 +454,7 @@ Errori reali trovati e corretti. MAI ripeterli.
 | uvicorn senza `--host 0.0.0.0` | Backend ascolta solo `127.0.0.1` → LAN (`192.168.1.23`) rifiutata → Chiara vede errore su tutte le pagine ma localhost funziona | SEMPRE `--host 0.0.0.0` su entrambi i backend |
 | `next start` senza `-H 0.0.0.0` | Frontend ascolta solo localhost → iPad/Tailscale (`100.x.x.x`) riceve "Application error: client-side exception" | SEMPRE `-H 0.0.0.0` su `next start` prod: `next start -p 3000 -H 0.0.0.0` |
 | Zombie uvicorn: PID morto nel netstat | `netstat` mostra PID padre (morto), `taskkill` dice "non trovato", figlio zombie ha PID diverso | `kill-port.sh` (tree-kill) oppure cercare figli: `Get-CimInstance Win32_Process \| Where ParentProcessId -eq <PID>` |
+| Dev backend usa crm.db (prod) | `api/config.py` default hardcoded a `crm.db`, `DATABASE_URL` non settato | Auto-detect da porta: `--port 8001` → `crm_dev.db`. Logica in `_resolve_database_url()` |
 | KPI NaN da worker zombie | Worker zombie serve codice vecchio (senza campi KPI) → `data.kpi_X` = undefined → `formatCurrency(undefined)` = NaN | `?? 0` guard su ogni `getKpiValue` + kill zombie e riavviare |
 | Rate oltre scadenza contratto | Nessuna validazione date rate vs contratto → rate orfane dopo scadenza | Boundary check bidirezionale: create/update rate (422) + update contract (422) + DatePicker maxDate |
 | `ha_rate_scadute` ignora contratti scaduti | Solo `rate.data_scadenza < today`, non considera contratto expired con rate future non saldate | `or_(Rate.data_scadenza < today, Contract.data_scadenza < today)` in contracts.py e clients.py |
@@ -563,6 +567,14 @@ SVILUPPO (gvera — dati di test, libero per esperimenti):
   Frontend: porta 3001  →  next dev (hot reload)
   Accesso: http://localhost:3001
 ```
+
+### Database Auto-Detect (zero rischio di toccare dati prod)
+Il backend rileva automaticamente quale DB usare dalla porta uvicorn:
+- `--port 8000` → `crm.db` (prod, default)
+- `--port 8001` → `crm_dev.db` (dev, auto)
+- Se `DATABASE_URL` e' settato esplicitamente, ha sempre priorita'
+- Logica: `api/config.py` → `_resolve_database_url()`
+- Log di startup mostra `DEV (crm_dev.db)` o `PROD (crm.db)` per conferma visiva
 
 ### API URL Dinamico (zero IP hardcodati nel build)
 Il frontend deduce l'API URL da `window.location` a runtime:

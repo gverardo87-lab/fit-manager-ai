@@ -12,7 +12,7 @@
 
 import { useCallback, useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Zap, TrendingUp, Flame, FileText, User, Brain } from "lucide-react";
+import { Zap, TrendingUp, Flame, FileText, User, Brain, Sparkles } from "lucide-react";
 
 import {
   Dialog,
@@ -22,6 +22,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -188,9 +190,17 @@ export function TemplateSelector({ open, onOpenChange, clientId }: TemplateSelec
   // State locale per selezione cliente — pre-compilato se prop esiste
   const [selectedClientId, setSelectedClientId] = useState<number | null>(clientId ?? null);
 
+  // State configurazione Smart
+  const [smartSessions, setSmartSessions] = useState<number>(4);
+  const [smartObiettivo, setSmartObiettivo] = useState<string>("generale");
+  const [smartLivello, setSmartLivello] = useState<string>("auto");
+
   // Sync prop → state quando il dialog si apre
   useEffect(() => {
-    if (open) setSelectedClientId(clientId ?? null);
+    if (open) {
+      setSelectedClientId(clientId ?? null);
+      setSmartLivello("auto");
+    }
   }, [open, clientId]);
 
   // Smart programming — profile client per scoring potenziato
@@ -287,17 +297,14 @@ export function TemplateSelector({ open, onOpenChange, clientId }: TemplateSelec
 
   // ── Handler: Scheda Smart (generazione automatica 14 dimensioni) ──
   const handleSmartTemplate = useCallback(() => {
-    if (exercises.length === 0 || !selectedClientId) return;
+    if (exercises.length === 0) return;
 
-    const livello: FitnessLevel = smartProfile
-      ? assessFitnessLevel(smartProfile)
-      : "intermedio";
-    const obiettivo = smartProfile?.goals[0]?.tipo_obiettivo === "atletico"
-      ? "forza" : "generale";
-    const sessioniPerSettimana = livello === "beginner" ? 3 : livello === "avanzato" ? 5 : 4;
+    const livello: FitnessLevel = smartLivello === "auto"
+      ? (smartProfile ? assessFitnessLevel(smartProfile) : "intermedio")
+      : smartLivello as FitnessLevel;
 
     // Genera struttura smart
-    const smartPlan = generateSmartPlan(sessioniPerSettimana, livello, obiettivo);
+    const smartPlan = generateSmartPlan(smartSessions, livello, smartObiettivo);
 
     // Riempi slot con scoring 14 dimensioni
     const filledMap = fillSmartPlan(smartPlan, exercises, smartProfile);
@@ -319,7 +326,7 @@ export function TemplateSelector({ open, onOpenChange, clientId }: TemplateSelec
 
           const exerciseToUse = bestExercise ?? exercises[0];
           const sezione = getSectionForCategory(exerciseToUse.categoria);
-          const defaults = getSmartDefaults(exerciseToUse, obiettivo, sezione);
+          const defaults = getSmartDefaults(exerciseToUse, smartObiettivo, sezione);
 
           return {
             id_esercizio: exerciseToUse.id,
@@ -350,7 +357,7 @@ export function TemplateSelector({ open, onOpenChange, clientId }: TemplateSelec
         },
       },
     );
-  }, [createWorkout, selectedClientId, smartProfile, onOpenChange, router, exercises]);
+  }, [createWorkout, selectedClientId, smartProfile, smartSessions, smartObiettivo, smartLivello, onOpenChange, router, exercises]);
 
   const isLoading = !exerciseData || exercises.length === 0;
 
@@ -386,13 +393,8 @@ export function TemplateSelector({ open, onOpenChange, clientId }: TemplateSelec
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 mt-4">
-          {/* Card Scheda Smart */}
-          <button
-            onClick={handleSmartTemplate}
-            disabled={createWorkout.isPending || isLoading || !selectedClientId}
-            className="group relative rounded-xl border bg-gradient-to-br from-teal-50 to-cyan-100 dark:from-teal-950/30 dark:to-cyan-900/20 border-teal-200 dark:border-teal-800 p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50 sm:col-span-2"
-            title={!selectedClientId ? "Seleziona un cliente per la Scheda Smart" : undefined}
-          >
+          {/* Card Scheda Smart — configurazione inline */}
+          <div className="relative rounded-xl border bg-gradient-to-br from-teal-50 to-cyan-100 dark:from-teal-950/30 dark:to-cyan-900/20 border-teal-200 dark:border-teal-800 p-4 sm:col-span-2 space-y-3">
             <div className="flex items-center gap-2">
               <Brain className="h-6 w-6 text-teal-600 dark:text-teal-400" />
               <h3 className="font-semibold text-sm">Scheda Smart</h3>
@@ -402,31 +404,90 @@ export function TemplateSelector({ open, onOpenChange, clientId }: TemplateSelec
                 </Badge>
               )}
             </div>
-            <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
-              {selectedClientId
-                ? "Genera una scheda ottimizzata su 14 dimensioni: safety, muscoli, pattern, recupero, obiettivi e biomeccanica del cliente."
-                : "Seleziona un cliente per generare una scheda personalizzata basata su anamnesi, safety e obiettivi."}
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Genera una scheda ottimizzata su 14 dimensioni: safety, muscoli, pattern, recupero, obiettivi e biomeccanica.
             </p>
-            {selectedClientId && smartProfile && (
-              <div className="mt-3 flex flex-wrap gap-1">
-                {smartProfile.safetyMap && Object.keys(smartProfile.safetyMap).length > 0 && (
-                  <Badge variant="outline" className="text-[10px] border-teal-300 dark:border-teal-700">
-                    Safety-aware
-                  </Badge>
-                )}
-                {smartProfile.goals.length > 0 && (
-                  <Badge variant="outline" className="text-[10px] border-teal-300 dark:border-teal-700">
-                    {smartProfile.goals.length} obiettiv{smartProfile.goals.length === 1 ? "o" : "i"}
-                  </Badge>
-                )}
-                {smartProfile.symmetryDeficits.length > 0 && (
-                  <Badge variant="outline" className="text-[10px] border-teal-300 dark:border-teal-700">
-                    Bilaterale
-                  </Badge>
+
+            {/* Configurazione Smart */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-1">
+                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Sessioni/Sett</Label>
+                <Select value={String(smartSessions)} onValueChange={(v) => setSmartSessions(Number(v))}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[2, 3, 4, 5, 6].map(n => (
+                      <SelectItem key={n} value={String(n)}>{n}x</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Obiettivo</Label>
+                <Select value={smartObiettivo} onValueChange={setSmartObiettivo}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="generale">Generale</SelectItem>
+                    <SelectItem value="forza">Forza</SelectItem>
+                    <SelectItem value="ipertrofia">Ipertrofia</SelectItem>
+                    <SelectItem value="resistenza">Resistenza</SelectItem>
+                    <SelectItem value="dimagrimento">Dimagrimento</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Livello</Label>
+                <Select value={smartLivello} onValueChange={setSmartLivello}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto {smartProfile ? `(${assessFitnessLevel(smartProfile)})` : ""}</SelectItem>
+                    <SelectItem value="beginner">Principiante</SelectItem>
+                    <SelectItem value="intermedio">Intermedio</SelectItem>
+                    <SelectItem value="avanzato">Avanzato</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Badge profilo + Genera */}
+            <div className="flex items-center justify-between">
+              <div className="flex flex-wrap gap-1">
+                {selectedClientId && smartProfile && (
+                  <>
+                    {smartProfile.safetyMap && Object.keys(smartProfile.safetyMap).length > 0 && (
+                      <Badge variant="outline" className="text-[10px] border-teal-300 dark:border-teal-700">
+                        Safety-aware
+                      </Badge>
+                    )}
+                    {smartProfile.goals.length > 0 && (
+                      <Badge variant="outline" className="text-[10px] border-teal-300 dark:border-teal-700">
+                        {smartProfile.goals.length} obiettiv{smartProfile.goals.length === 1 ? "o" : "i"}
+                      </Badge>
+                    )}
+                    {smartProfile.symmetryDeficits.length > 0 && (
+                      <Badge variant="outline" className="text-[10px] border-teal-300 dark:border-teal-700">
+                        Bilaterale
+                      </Badge>
+                    )}
+                  </>
                 )}
               </div>
-            )}
-          </button>
+              <Button
+                size="sm"
+                onClick={handleSmartTemplate}
+                disabled={createWorkout.isPending || isLoading}
+                className="bg-teal-600 hover:bg-teal-700 text-white gap-1.5"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Genera
+              </Button>
+            </div>
+          </div>
 
           {/* Template statici */}
           {WORKOUT_TEMPLATES.map((template) => (

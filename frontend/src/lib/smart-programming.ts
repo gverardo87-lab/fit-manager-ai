@@ -173,6 +173,7 @@ interface SplitPattern {
 }
 
 const SPLIT_PATTERNS: Record<number, Record<FitnessLevel, SplitPattern>> = {
+  // ── 2 sessioni: Full Body A/B ──
   2: {
     beginner: { sessioni: [
       { nome: "Full Body A", focus: "quadricipiti, petto, dorsali", patterns: ["squat", "push_h", "pull_h", "hinge", "core"] },
@@ -187,90 +188,94 @@ const SPLIT_PATTERNS: Record<number, Record<FitnessLevel, SplitPattern>> = {
       { nome: "Full Body B", focus: "glutei, spalle, braccia", patterns: ["hinge", "push_v", "pull_v", "squat", "pull_h", "core"] },
     ]},
   },
+  // ── 3 sessioni: Full Body (beginner) / PPL (intermedio+) ──
   3: {
     beginner: { sessioni: [
       { nome: "Full Body A", focus: "quadricipiti, petto", patterns: ["squat", "push_h", "pull_h", "core"] },
       { nome: "Full Body B", focus: "glutei, dorsali", patterns: ["hinge", "pull_v", "push_v", "core"] },
-      { nome: "Full Body C", focus: "spalle, braccia, core", patterns: ["push_v", "pull_h", "squat", "core"] },
+      { nome: "Full Body C", focus: "spalle, braccia, core", patterns: ["squat", "pull_h", "push_v", "rotation"] },
     ]},
     intermedio: { sessioni: [
       { nome: "Push", focus: "petto, spalle, tricipiti", patterns: ["push_h", "push_v", "push_h", "push_v"] },
-      { nome: "Pull", focus: "dorsali, trapezio, bicipiti", patterns: ["pull_v", "pull_h", "pull_h", "pull_h"] },
-      { nome: "Legs", focus: "quadricipiti, glutei, polpacci", patterns: ["squat", "hinge", "squat", "core"] },
+      { nome: "Pull", focus: "dorsali, trapezio, bicipiti", patterns: ["pull_v", "pull_h", "pull_v", "pull_h"] },
+      { nome: "Legs", focus: "quadricipiti, glutei, core", patterns: ["squat", "hinge", "squat", "hinge", "core"] },
     ]},
     avanzato: { sessioni: [
       { nome: "Push", focus: "petto, spalle, tricipiti", patterns: ["push_h", "push_v", "push_h", "push_v", "push_h"] },
       { nome: "Pull", focus: "dorsali, trapezio, bicipiti", patterns: ["pull_v", "pull_h", "pull_v", "pull_h", "pull_h"] },
-      { nome: "Legs", focus: "quadricipiti, glutei, polpacci", patterns: ["squat", "hinge", "squat", "hinge", "core"] },
+      { nome: "Legs", focus: "quadricipiti, glutei, core", patterns: ["squat", "hinge", "squat", "hinge", "core"] },
     ]},
   },
+  // ── 4 sessioni: Upper/Lower x2 (bilanciato push/pull per Upper, squat/hinge per Lower) ──
   4: {
     beginner: { sessioni: [
-      { nome: "Upper A", focus: "petto, spalle, tricipiti", patterns: ["push_h", "push_v", "pull_h", "push_h"] },
+      { nome: "Upper A", focus: "petto, dorsali, spalle", patterns: ["push_h", "pull_h", "push_v", "pull_v"] },
       { nome: "Lower A", focus: "quadricipiti, glutei", patterns: ["squat", "hinge", "squat", "core"] },
-      { nome: "Upper B", focus: "dorsali, bicipiti", patterns: ["pull_v", "pull_h", "push_v", "pull_h"] },
+      { nome: "Upper B", focus: "dorsali, petto, braccia", patterns: ["pull_h", "push_h", "pull_v", "push_v"] },
       { nome: "Lower B", focus: "glutei, femorali, core", patterns: ["hinge", "squat", "hinge", "core"] },
     ]},
     intermedio: { sessioni: [
-      { nome: "Upper A — Push", focus: "petto, spalle, tricipiti", patterns: ["push_h", "push_v", "push_h", "pull_h", "push_h"] },
-      { nome: "Lower A — Quad", focus: "quadricipiti, glutei, polpacci", patterns: ["squat", "squat", "hinge", "squat", "squat"] },
-      { nome: "Upper B — Pull", focus: "dorsali, trapezio, bicipiti", patterns: ["pull_v", "pull_h", "push_v", "pull_h", "pull_h"] },
-      { nome: "Lower B — Hip", focus: "glutei, femorali, core", patterns: ["hinge", "hinge", "squat", "hinge", "core"] },
+      { nome: "Upper A", focus: "petto, dorsali, spalle", patterns: ["push_h", "pull_h", "push_v", "pull_v", "core"] },
+      { nome: "Lower A", focus: "quadricipiti, glutei, femorali", patterns: ["squat", "hinge", "squat", "hinge", "core"] },
+      { nome: "Upper B", focus: "dorsali, petto, braccia", patterns: ["pull_h", "push_h", "pull_v", "push_v", "core"] },
+      { nome: "Lower B", focus: "glutei, femorali, quadricipiti", patterns: ["hinge", "squat", "hinge", "squat", "core"] },
     ]},
     avanzato: { sessioni: [
-      { nome: "Upper A — Push", focus: "petto, spalle, tricipiti", patterns: ["push_h", "push_v", "push_h", "pull_h", "push_h", "push_h"] },
-      { nome: "Lower A — Quad", focus: "quadricipiti, glutei, polpacci", patterns: ["squat", "squat", "hinge", "squat", "squat", "squat"] },
-      { nome: "Upper B — Pull", focus: "dorsali, trapezio, bicipiti", patterns: ["pull_v", "pull_h", "push_v", "pull_h", "pull_h", "pull_h"] },
-      { nome: "Lower B — Hip", focus: "glutei, femorali, core", patterns: ["hinge", "hinge", "squat", "hinge", "core", "carry"] },
+      { nome: "Upper A", focus: "petto, dorsali, spalle", patterns: ["push_h", "pull_h", "push_v", "pull_v", "push_h", "core"] },
+      { nome: "Lower A", focus: "quadricipiti, glutei, femorali", patterns: ["squat", "hinge", "squat", "hinge", "squat", "core"] },
+      { nome: "Upper B", focus: "dorsali, petto, braccia", patterns: ["pull_h", "push_h", "pull_v", "push_v", "pull_h", "core"] },
+      { nome: "Lower B", focus: "glutei, femorali, core", patterns: ["hinge", "squat", "hinge", "squat", "hinge", "core"] },
     ]},
   },
+  // ── 5 sessioni: Upper/Lower x2 + Full Body ──
   5: {
     beginner: { sessioni: [
-      { nome: "Upper A", focus: "petto, spalle", patterns: ["push_h", "push_v", "pull_h", "push_h"] },
-      { nome: "Lower A", focus: "quadricipiti", patterns: ["squat", "hinge", "squat", "core"] },
-      { nome: "Upper B", focus: "dorsali, bicipiti", patterns: ["pull_v", "pull_h", "push_v", "pull_h"] },
+      { nome: "Upper A", focus: "petto, dorsali", patterns: ["push_h", "pull_h", "push_v", "pull_v"] },
+      { nome: "Lower A", focus: "quadricipiti, glutei", patterns: ["squat", "hinge", "squat", "core"] },
+      { nome: "Upper B", focus: "dorsali, spalle", patterns: ["pull_h", "push_h", "pull_v", "push_v"] },
       { nome: "Lower B", focus: "glutei, femorali", patterns: ["hinge", "squat", "hinge", "core"] },
-      { nome: "Full Body", focus: "recupero attivo, core", patterns: ["squat", "push_h", "pull_v", "core"] },
+      { nome: "Full Body", focus: "recupero attivo, core", patterns: ["squat", "push_h", "pull_v", "hinge", "core"] },
     ]},
     intermedio: { sessioni: [
-      { nome: "Upper A", focus: "petto, spalle", patterns: ["push_h", "push_v", "push_h", "pull_h", "push_h"] },
-      { nome: "Lower A", focus: "quadricipiti", patterns: ["squat", "squat", "hinge", "squat", "squat"] },
-      { nome: "Upper B", focus: "dorsali, bicipiti", patterns: ["pull_v", "pull_h", "push_v", "pull_h", "pull_h"] },
-      { nome: "Lower B", focus: "glutei, femorali", patterns: ["hinge", "hinge", "squat", "hinge", "core"] },
+      { nome: "Upper A", focus: "petto, dorsali, spalle", patterns: ["push_h", "pull_h", "push_v", "pull_v", "core"] },
+      { nome: "Lower A", focus: "quadricipiti, glutei", patterns: ["squat", "hinge", "squat", "hinge", "core"] },
+      { nome: "Upper B", focus: "dorsali, petto, braccia", patterns: ["pull_h", "push_h", "pull_v", "push_v", "core"] },
+      { nome: "Lower B", focus: "glutei, femorali", patterns: ["hinge", "squat", "hinge", "squat", "core"] },
       { nome: "Full Body", focus: "compenso, core", patterns: ["squat", "push_v", "pull_h", "hinge", "core"] },
     ]},
     avanzato: { sessioni: [
-      { nome: "Upper A", focus: "petto, spalle", patterns: ["push_h", "push_v", "push_h", "pull_h", "push_h", "push_h"] },
-      { nome: "Lower A", focus: "quadricipiti", patterns: ["squat", "squat", "hinge", "squat", "squat", "squat"] },
-      { nome: "Upper B", focus: "dorsali, bicipiti", patterns: ["pull_v", "pull_h", "push_v", "pull_h", "pull_h", "pull_h"] },
-      { nome: "Lower B", focus: "glutei, femorali", patterns: ["hinge", "hinge", "squat", "hinge", "core", "carry"] },
+      { nome: "Upper A", focus: "petto, dorsali, spalle", patterns: ["push_h", "pull_h", "push_v", "pull_v", "push_h", "core"] },
+      { nome: "Lower A", focus: "quadricipiti, glutei", patterns: ["squat", "hinge", "squat", "hinge", "squat", "core"] },
+      { nome: "Upper B", focus: "dorsali, petto, braccia", patterns: ["pull_h", "push_h", "pull_v", "push_v", "pull_h", "core"] },
+      { nome: "Lower B", focus: "glutei, femorali", patterns: ["hinge", "squat", "hinge", "squat", "hinge", "core"] },
       { nome: "Full Body", focus: "volume extra", patterns: ["squat", "push_h", "pull_v", "hinge", "push_v", "core"] },
     ]},
   },
+  // ── 6 sessioni: PPL x2 (bilanciato push_h/push_v, pull_h/pull_v, squat/hinge) ──
   6: {
     beginner: { sessioni: [
       { nome: "Push A", focus: "petto, spalle, tricipiti", patterns: ["push_h", "push_v", "push_h", "push_v"] },
-      { nome: "Pull A", focus: "dorsali, trapezio, bicipiti", patterns: ["pull_v", "pull_h", "pull_h", "pull_h"] },
+      { nome: "Pull A", focus: "dorsali, trapezio, bicipiti", patterns: ["pull_v", "pull_h", "pull_v", "pull_h"] },
       { nome: "Legs A", focus: "quadricipiti, glutei", patterns: ["squat", "hinge", "squat", "core"] },
-      { nome: "Push B", focus: "petto, spalle, tricipiti", patterns: ["push_h", "push_h", "push_v", "push_h"] },
-      { nome: "Pull B", focus: "dorsali, trapezio, bicipiti", patterns: ["pull_v", "pull_h", "pull_h", "pull_h"] },
-      { nome: "Legs B", focus: "glutei, femorali, core", patterns: ["hinge", "hinge", "squat", "core"] },
+      { nome: "Push B", focus: "petto, spalle, tricipiti", patterns: ["push_h", "push_v", "push_h", "push_v"] },
+      { nome: "Pull B", focus: "dorsali, trapezio, bicipiti", patterns: ["pull_h", "pull_v", "pull_h", "pull_v"] },
+      { nome: "Legs B", focus: "glutei, femorali, core", patterns: ["hinge", "squat", "hinge", "core"] },
     ]},
     intermedio: { sessioni: [
       { nome: "Push A — Forza", focus: "petto, spalle, tricipiti", patterns: ["push_h", "push_v", "push_h", "push_v", "push_h"] },
       { nome: "Pull A — Forza", focus: "dorsali, trapezio, bicipiti", patterns: ["pull_v", "pull_h", "pull_v", "pull_h", "pull_h"] },
-      { nome: "Legs A — Quad", focus: "quadricipiti, glutei, polpacci", patterns: ["squat", "squat", "hinge", "squat", "squat"] },
-      { nome: "Push B — Ipertrofia", focus: "petto, spalle, tricipiti", patterns: ["push_h", "push_h", "push_v", "push_v", "push_h"] },
-      { nome: "Pull B — Ipertrofia", focus: "dorsali, trapezio, bicipiti", patterns: ["pull_v", "pull_h", "pull_h", "pull_h", "pull_h"] },
-      { nome: "Legs B — Hip", focus: "glutei, femorali, core", patterns: ["hinge", "hinge", "squat", "hinge", "core"] },
+      { nome: "Legs A — Quad", focus: "quadricipiti, glutei, core", patterns: ["squat", "hinge", "squat", "hinge", "core"] },
+      { nome: "Push B — Ipertrofia", focus: "petto, spalle, tricipiti", patterns: ["push_h", "push_v", "push_h", "push_v", "push_h"] },
+      { nome: "Pull B — Ipertrofia", focus: "dorsali, trapezio, bicipiti", patterns: ["pull_h", "pull_v", "pull_h", "pull_v", "pull_h"] },
+      { nome: "Legs B — Hip", focus: "glutei, femorali, core", patterns: ["hinge", "squat", "hinge", "squat", "core"] },
     ]},
     avanzato: { sessioni: [
       { nome: "Push A — Forza", focus: "petto, spalle, tricipiti", patterns: ["push_h", "push_v", "push_h", "push_v", "push_h", "push_h"] },
       { nome: "Pull A — Forza", focus: "dorsali, trapezio, bicipiti", patterns: ["pull_v", "pull_h", "pull_v", "pull_h", "pull_h", "pull_h"] },
-      { nome: "Legs A — Quad", focus: "quadricipiti, glutei, polpacci", patterns: ["squat", "squat", "hinge", "squat", "squat", "squat"] },
-      { nome: "Push B — Ipertrofia", focus: "petto, spalle, tricipiti", patterns: ["push_h", "push_h", "push_v", "push_v", "push_h", "push_h"] },
-      { nome: "Pull B — Ipertrofia", focus: "dorsali, trapezio, bicipiti", patterns: ["pull_v", "pull_h", "pull_h", "pull_h", "pull_h", "pull_h"] },
-      { nome: "Legs B — Hip", focus: "glutei, femorali, core", patterns: ["hinge", "hinge", "squat", "hinge", "hinge", "core"] },
+      { nome: "Legs A — Quad", focus: "quadricipiti, glutei, core", patterns: ["squat", "hinge", "squat", "hinge", "squat", "core"] },
+      { nome: "Push B — Ipertrofia", focus: "petto, spalle, tricipiti", patterns: ["push_h", "push_v", "push_h", "push_v", "push_h", "push_h"] },
+      { nome: "Pull B — Ipertrofia", focus: "dorsali, trapezio, bicipiti", patterns: ["pull_h", "pull_v", "pull_h", "pull_v", "pull_h", "pull_h"] },
+      { nome: "Legs B — Hip", focus: "glutei, femorali, core", patterns: ["hinge", "squat", "hinge", "squat", "hinge", "core"] },
     ]},
   },
 };
@@ -336,6 +341,8 @@ interface ScorerContext {
   sessionChains: Record<string, number>;
   /** Tipi contrazione gia' usati nella sessione */
   sessionContractions: Record<string, number>;
+  /** Sessioni per settimana (per scoring recupero) */
+  sessioniPerSettimana: number;
 }
 
 // ════════════════════════════════════════════════════════════
@@ -394,23 +401,30 @@ function scoreSafety(ex: Exercise, ctx: ScorerContext): { score: number; reason:
   return { score: 0.5, reason: `Cautela: ${entry.conditions.map(c => c.nome).join(", ")}` };
 }
 
-/** 2. Muscle Match — Jaccard tra slot.muscoli_target e exercise.muscoli_primari */
+/** 2. Muscle Match — coverage ratio (quanti target sono coperti dall'esercizio) */
 function scoreMuscleMatch(ex: Exercise, ctx: ScorerContext): { score: number; reason: string } {
   const target = ctx.slot.muscoli_target;
   if (target.length === 0) return { score: 0.5, reason: "Nessun target muscolare" };
-  const j = jaccard(target, ex.muscoli_primari);
-  if (j >= 0.5) return { score: 1.0, reason: `Ottimo match muscolare (${Math.round(j * 100)}%)` };
-  if (j > 0) return { score: 0.3 + j, reason: `Match parziale (${Math.round(j * 100)}%)` };
+  const targetSet = new Set(target.map(m => m.toLowerCase()));
+  const priSet = new Set(ex.muscoli_primari.map(m => m.toLowerCase()));
+  const secSet = new Set(ex.muscoli_secondari.map(m => m.toLowerCase()));
+  // Coverage: quanti muscoli target sono tra i primari dell'esercizio
+  let priHits = 0;
+  for (const t of targetSet) if (priSet.has(t)) priHits++;
+  const coverage = priHits / targetSet.size;
+  if (coverage >= 0.5) return { score: 0.8 + coverage * 0.2, reason: `Match muscolare ${Math.round(coverage * 100)}%` };
+  if (coverage > 0) return { score: 0.3 + coverage * 0.4, reason: `Match parziale (${priHits}/${targetSet.size})` };
   // Prova sui secondari
-  const jSec = jaccard(target, ex.muscoli_secondari);
-  if (jSec > 0) return { score: 0.2 + jSec * 0.3, reason: `Match secondario (${Math.round(jSec * 100)}%)` };
+  let secHits = 0;
+  for (const t of targetSet) if (secSet.has(t)) secHits++;
+  if (secHits > 0) return { score: 0.2 + (secHits / targetSet.size) * 0.3, reason: `Match secondario (${secHits}/${targetSet.size})` };
   return { score: 0.1, reason: "Nessun match muscolare" };
 }
 
 /** 3. Pattern Match — pattern esatto=1.0, stesso force_type=0.4, else=0.1 */
 function scorePatternMatch(ex: Exercise, ctx: ScorerContext): { score: number; reason: string } {
   const hint = ctx.slot.pattern_hint;
-  if (!hint || hint === "warmup" || hint === "stretch" || hint === "mobility") {
+  if (!hint || hint === "warmup" || hint === "stretch" || hint === "mobility" || hint === "accessory") {
     return { score: 0.5, reason: "Pattern complementare" };
   }
   if (ex.pattern_movimento === hint) return { score: 1.0, reason: `Pattern ${hint} esatto` };
@@ -463,10 +477,7 @@ function scoreStrengthLevel(ex: Exercise, ctx: ScorerContext): { score: number; 
 
 /** 7. Recovery Fit — ore_recupero rispettate (solo indicativo nella generazione) */
 function scoreRecoveryFit(ex: Exercise, ctx: ScorerContext): { score: number; reason: string } {
-  // Nella generazione, i conflitti di recupero sono analizzati post-hoc
-  // Qui penalizziamo esercizi con recupero molto lungo se in sessioni frequenti
-  const sessPerWeek = Math.max(2, ctx.allPlanExercises.length > 0 ? 4 : 3);
-  const oreTraSessioni = (7 * 24) / sessPerWeek;
+  const oreTraSessioni = (7 * 24) / ctx.sessioniPerSettimana;
   if (ex.ore_recupero <= oreTraSessioni) return { score: 1.0, reason: `Recupero ${ex.ore_recupero}h ok` };
   if (ex.ore_recupero <= oreTraSessioni * 1.5) return { score: 0.6, reason: `Recupero ${ex.ore_recupero}h accettabile` };
   return { score: 0.3, reason: `Recupero ${ex.ore_recupero}h lungo` };
@@ -572,6 +583,7 @@ export function scoreExercisesForSlot(
   obiettivo: string,
   sessionExercises: Exercise[],
   allPlanExercises: Exercise[],
+  sessioniPerSettimana: number = 4,
 ): ExerciseScore[] {
   // Costruisci contesto sessione
   const sessionEquipment = new Set(sessionExercises.map(e => e.attrezzatura));
@@ -596,6 +608,7 @@ export function scoreExercisesForSlot(
     sessionPlanes,
     sessionChains,
     sessionContractions,
+    sessioniPerSettimana,
   };
 
   const scores: ExerciseScore[] = exercises.map(ex => {
@@ -716,6 +729,24 @@ export function generateSmartPlan(
       });
     }
 
+    // Accessori: 1-2 slot per muscoli non coperti dai pattern principali
+    const coveredMuscles = new Set(s.patterns.flatMap(p => patternToMuscoli(p)));
+    const ACCESSORY_PRIORITY = ["polpacci", "bicipiti", "tricipiti", "adduttori", "avambracci", "trapezio"];
+    const uncovered = ACCESSORY_PRIORITY.filter(m => !coveredMuscles.has(m));
+    const maxAccessories = livello === "beginner" ? 1 : 2;
+    const accessoryTargets = uncovered.slice(0, maxAccessories);
+    for (const muscle of accessoryTargets) {
+      slots.push({
+        sezione: "principale",
+        pattern_hint: "accessory",
+        muscoli_target: [muscle],
+        label: `Accessorio ${capitalizeFirst(muscle)}`,
+        serie: 3,
+        ripetizioni: "10-15",
+        tempo_riposo_sec: 60,
+      });
+    }
+
     // Stretching: 2-3 slot mirati ai muscoli lavorati
     const stretchCount = livello === "avanzato" ? 3 : 2;
     const workedMuscles = new Set(s.patterns.flatMap(p => patternToMuscoli(p)));
@@ -791,6 +822,7 @@ export function fillSmartPlan(
         plan.obiettivo,
         sessionAssigned,
         allAssigned,
+        plan.sessioni_per_settimana,
       );
 
       sessionMap.set(sli, scores.slice(0, 10)); // top 10 per slot

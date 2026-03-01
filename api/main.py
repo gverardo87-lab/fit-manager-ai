@@ -54,7 +54,10 @@ async def lifespan(app: FastAPI):
     - Crea tabelle SQLModel (CREATE IF NOT EXISTS) — primo avvio
     - Migrazioni gestite da Alembic: `alembic upgrade head`
     """
-    logger.info("API startup: inizializzazione database...")
+    from api.config import DATABASE_URL
+    db_label = "DEV (crm_dev.db)" if "crm_dev" in DATABASE_URL else "PROD (crm.db)"
+    logger.info(f"API startup: database {db_label}")
+    logger.info(f"  DATABASE_URL = {DATABASE_URL}")
     create_db_and_tables()
 
     # Seed esercizi builtin (idempotente)
