@@ -379,6 +379,18 @@ def create_goal(
     latest_values = _get_latest_values(session, client_id, trainer.id)
     baseline_entry = latest_values.get(data.id_metrica)
 
+    # Converti date da stringa con guard
+    try:
+        parsed_data_inizio = date.fromisoformat(data.data_inizio)
+    except (ValueError, TypeError):
+        raise HTTPException(422, "Formato data_inizio non valido")
+    parsed_data_scadenza = None
+    if data.data_scadenza:
+        try:
+            parsed_data_scadenza = date.fromisoformat(data.data_scadenza)
+        except (ValueError, TypeError):
+            raise HTTPException(422, "Formato data_scadenza non valido")
+
     goal = ClientGoal(
         id_cliente=client_id,
         trainer_id=trainer.id,
@@ -387,8 +399,8 @@ def create_goal(
         valore_target=data.valore_target,
         valore_baseline=baseline_entry[0] if baseline_entry else None,
         data_baseline=date.fromisoformat(baseline_entry[1]) if baseline_entry else None,
-        data_inizio=date.fromisoformat(data.data_inizio),
-        data_scadenza=date.fromisoformat(data.data_scadenza) if data.data_scadenza else None,
+        data_inizio=parsed_data_inizio,
+        data_scadenza=parsed_data_scadenza,
         priorita=data.priorita,
         note=data.note,
     )
@@ -428,7 +440,10 @@ def update_goal(
 
     for field, value in update_data.items():
         if field == "data_scadenza" and value is not None:
-            setattr(goal, field, date.fromisoformat(value))
+            try:
+                setattr(goal, field, date.fromisoformat(value))
+            except (ValueError, TypeError):
+                raise HTTPException(422, "Formato data_scadenza non valido")
         elif field == "stato" and value is not None:
             goal.stato = value
             if value in ("raggiunto", "abbandonato"):

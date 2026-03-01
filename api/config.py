@@ -51,9 +51,9 @@ DATABASE_URL: str = _resolve_database_url()
 JWT_SECRET: str = os.getenv("JWT_SECRET", "")
 if not JWT_SECRET:
     import logging
-    logging.getLogger("fitmanager.config").warning(
-        "JWT_SECRET non configurato — uso default di sviluppo. "
-        "NON usare in produzione!"
+    logging.getLogger("fitmanager.config").critical(
+        "JWT_SECRET NON CONFIGURATO — token firmati con chiave di sviluppo. "
+        "Impostare JWT_SECRET come variabile d'ambiente per la produzione!"
     )
     JWT_SECRET = "dev-secret-change-in-production"
 JWT_ALGORITHM: str = "HS256"

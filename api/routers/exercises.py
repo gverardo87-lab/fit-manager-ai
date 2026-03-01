@@ -271,9 +271,15 @@ def get_archive_stats(
         .group_by(Exercise.categoria)
     ).all()
     by_categoria = {cat: count for cat, count in rows}
+    active_count = session.exec(
+        select(func.count(Exercise.id)).where(
+            Exercise.in_subset == True,  # noqa: E712
+            Exercise.deleted_at == None,  # noqa: E711
+        )
+    ).one()
     return {
         "archived_count": sum(by_categoria.values()),
-        "active_count": 118,
+        "active_count": active_count,
         "by_categoria": by_categoria,
     }
 

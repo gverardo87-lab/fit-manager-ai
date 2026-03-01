@@ -388,7 +388,13 @@ def update_workout(
     # Converti stringhe data → oggetti date (il modello usa Optional[date])
     for key in ("data_inizio", "data_fine"):
         if key in update_data and update_data[key] is not None:
-            update_data[key] = date.fromisoformat(update_data[key])
+            try:
+                update_data[key] = date.fromisoformat(update_data[key])
+            except (ValueError, TypeError):
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Formato data non valido per {key}",
+                )
 
     for field, value in update_data.items():
         setattr(plan, field, value)

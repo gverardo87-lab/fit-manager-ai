@@ -8,6 +8,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import axios from "axios";
 import apiClient, { extractErrorMessage } from "@/lib/api-client";
 import type {
   Metric,
@@ -56,9 +57,12 @@ export function useLatestMeasurement(clientId: number | null) {
           `/clients/${clientId}/measurements/latest`
         );
         return data;
-      } catch {
+      } catch (error) {
         // 404 = nessuna misurazione — non e' un errore
-        return null;
+        if (axios.isAxiosError(error) && error.response?.status === 404) {
+          return null;
+        }
+        throw error; // 5xx, network → React Query gestisce retry + isError
       }
     },
     enabled: clientId !== null,
