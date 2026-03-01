@@ -112,10 +112,15 @@ export function SmartAnalysisPanel({
     const hasExercises = sessions.some(s => s.esercizi.length > 0);
     if (!hasExercises) return null;
 
+    const VALID_LEVELS: FitnessLevel[] = ["beginner", "intermedio", "avanzato"];
+    const validLivello: FitnessLevel = VALID_LEVELS.includes(livello as FitnessLevel)
+      ? (livello as FitnessLevel)
+      : "intermedio";
+
     return computeSmartAnalysis(
       sessions,
       exerciseMap,
-      (livello as FitnessLevel) || "intermedio",
+      validLivello,
       sessioniPerSettimana,
       safetyMap,
     );
@@ -308,7 +313,7 @@ function BiomechanicsChip({ label, data }: { label: string; data: Record<string,
     <div className="rounded-lg bg-muted/50 px-2 py-1.5 text-center">
       <div className="text-xs font-semibold tabular-nums">{variety}</div>
       <div className="text-[10px] text-muted-foreground">{label}</div>
-      {entries.length > 0 && (
+      {entries.length > 0 && total > 0 && (
         <div className="text-[9px] text-muted-foreground mt-0.5 truncate" title={entries.map(([k, v]) => `${k}: ${v}`).join(", ")}>
           {entries.slice(0, 2).map(([k, v]) => `${k} ${Math.round(v / total * 100)}%`).join(", ")}
         </div>

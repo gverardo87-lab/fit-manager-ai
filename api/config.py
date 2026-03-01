@@ -26,15 +26,23 @@ def _resolve_database_url() -> str:
     explicit = os.getenv("DATABASE_URL")
     if explicit:
         return explicit
-    # Auto-detect da porta uvicorn: --port 8001 = dev
+    # Auto-detect da porta uvicorn: --port 8001 o --port=8001 = dev
     import sys
-    if "--port" in sys.argv:
-        try:
-            port_idx = sys.argv.index("--port") + 1
-            if port_idx < len(sys.argv) and sys.argv[port_idx] == "8001":
+    for arg in sys.argv:
+        # Forma: --port 8001
+        if arg == "--port":
+            try:
+                port_idx = sys.argv.index("--port") + 1
+                if port_idx < len(sys.argv) and sys.argv[port_idx] == "8001":
+                    return f"sqlite:///{DATA_DIR / 'crm_dev.db'}"
+            except (ValueError, IndexError):
+                pass
+            break
+        # Forma: --port=8001
+        if arg.startswith("--port="):
+            if arg.split("=", 1)[1] == "8001":
                 return f"sqlite:///{DATA_DIR / 'crm_dev.db'}"
-        except (ValueError, IndexError):
-            pass
+            break
     return f"sqlite:///{DATA_DIR / 'crm.db'}"
 
 DATABASE_URL: str = _resolve_database_url()

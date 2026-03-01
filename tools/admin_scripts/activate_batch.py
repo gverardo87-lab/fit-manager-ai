@@ -674,7 +674,8 @@ def main():
                         help="Salta Fase 3 (per ri-esecuzione dopo fix manuale)")
     parser.add_argument("--model", default=ENRICH_MODEL,
                         help=f"Modello Ollama per enrichment (default: {ENRICH_MODEL})")
-    parser.add_argument("--prefer", default=None,
+    VALID_CATEGORIES = ["compound", "isolation", "bodyweight", "cardio", "stretching", "mobilita", "avviamento"]
+    parser.add_argument("--prefer", default=None, choices=VALID_CATEGORIES,
                         help="Categoria da preferire nella selezione (es. bodyweight, stretching)")
     args = parser.parse_args()
 

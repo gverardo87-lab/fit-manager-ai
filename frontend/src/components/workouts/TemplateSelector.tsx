@@ -195,10 +195,12 @@ export function TemplateSelector({ open, onOpenChange, clientId }: TemplateSelec
   const [smartObiettivo, setSmartObiettivo] = useState<string>("generale");
   const [smartLivello, setSmartLivello] = useState<string>("auto");
 
-  // Sync prop → state quando il dialog si apre
+  // Sync prop → state quando il dialog si apre (resetta TUTTA la config smart)
   useEffect(() => {
     if (open) {
       setSelectedClientId(clientId ?? null);
+      setSmartSessions(4);
+      setSmartObiettivo("generale");
       setSmartLivello("auto");
     }
   }, [open, clientId]);
@@ -324,16 +326,19 @@ export function TemplateSelector({ open, onOpenChange, clientId }: TemplateSelec
             ? exercises.find(e => e.id === bestScore.exerciseId)
             : undefined;
 
-          const exerciseToUse = bestExercise ?? exercises[0];
+          // Fallback: esercizio della sezione corretta (mai compound in slot avviamento)
+          const exerciseToUse = bestExercise
+            ?? exercises.find(e => SECTION_CATEGORIES[slot.sezione]?.includes(e.categoria))
+            ?? exercises[0];
           const sezione = getSectionForCategory(exerciseToUse.categoria);
           const defaults = getSmartDefaults(exerciseToUse, smartObiettivo, sezione);
 
           return {
             id_esercizio: exerciseToUse.id,
             ordine: sli + 1,
-            serie: slot.serie || defaults.serie,
-            ripetizioni: slot.ripetizioni || defaults.ripetizioni,
-            tempo_riposo_sec: slot.tempo_riposo_sec || defaults.tempo_riposo_sec,
+            serie: slot.serie ?? defaults.serie,
+            ripetizioni: slot.ripetizioni ?? defaults.ripetizioni,
+            tempo_riposo_sec: slot.tempo_riposo_sec ?? defaults.tempo_riposo_sec,
             note: slot.label,
           };
         }),
@@ -445,7 +450,7 @@ export function TemplateSelector({ open, onOpenChange, clientId }: TemplateSelec
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="auto">Auto {smartProfile ? `(${assessFitnessLevel(smartProfile)})` : ""}</SelectItem>
+                    <SelectItem value="auto">Auto {smartProfile?.strengthLevel ? `(${smartProfile.strengthLevel})` : ""}</SelectItem>
                     <SelectItem value="beginner">Principiante</SelectItem>
                     <SelectItem value="intermedio">Intermedio</SelectItem>
                     <SelectItem value="avanzato">Avanzato</SelectItem>

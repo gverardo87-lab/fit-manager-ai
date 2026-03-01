@@ -57,7 +57,11 @@ async def lifespan(app: FastAPI):
     from api.config import DATABASE_URL
     db_label = "DEV (crm_dev.db)" if "crm_dev" in DATABASE_URL else "PROD (crm.db)"
     logger.info(f"API startup: database {db_label}")
-    logger.info(f"  DATABASE_URL = {DATABASE_URL}")
+    # Maschera credenziali per PostgreSQL (user:pass@host)
+    safe_url = DATABASE_URL
+    if "@" in DATABASE_URL:
+        safe_url = DATABASE_URL.split("@", 1)[0].rsplit(":", 1)[0] + ":***@" + DATABASE_URL.split("@", 1)[1]
+    logger.info(f"  DATABASE_URL = {safe_url}")
     create_db_and_tables()
 
     # Seed esercizi builtin (idempotente)

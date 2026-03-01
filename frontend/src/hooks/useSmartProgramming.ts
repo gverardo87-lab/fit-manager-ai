@@ -54,11 +54,12 @@ export function useSmartProgramming(clientId: number | null) {
       symmetryDeficits,
     );
 
-    // Arricchisci measurements nel profilo
-    if (profile && latestMeasurement) {
-      const peso = getLatestValue([latestMeasurement], 1);     // ID.PESO
-      const altezza = getLatestValue([latestMeasurement], 2);   // ID.ALTEZZA
-      const grassoPct = getLatestValue([latestMeasurement], 3); // ID.GRASSO_PCT
+    // Arricchisci measurements nel profilo (usa TUTTA la lista, non solo l'ultima
+    // sessione — l'ultima potrebbe non avere tutte le metriche)
+    if (profile && measurements.length > 0) {
+      const peso = getLatestValue(measurements, 1);     // ID.PESO
+      const altezza = getLatestValue(measurements, 2);   // ID.ALTEZZA
+      const grassoPct = getLatestValue(measurements, 3); // ID.GRASSO_PCT
       profile.measurements = { peso, altezza, grassoPct };
     }
 

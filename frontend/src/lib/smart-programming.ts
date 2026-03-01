@@ -349,19 +349,6 @@ interface ScorerContext {
 // HELPERS
 // ════════════════════════════════════════════════════════════
 
-/** Intersezione Jaccard tra due array di stringhe */
-function jaccard(a: string[], b: string[]): number {
-  if (a.length === 0 && b.length === 0) return 0;
-  const setA = new Set(a.map(s => s.toLowerCase()));
-  const setB = new Set(b.map(s => s.toLowerCase()));
-  let intersection = 0;
-  for (const item of setA) {
-    if (setB.has(item)) intersection++;
-  }
-  const union = new Set([...setA, ...setB]).size;
-  return union > 0 ? intersection / union : 0;
-}
-
 /** Parsa rep range tipo "8-12" → media 10, "5" → 5, "30s" → 0 */
 export function parseAvgReps(rip: string): number {
   const match = rip.match(/^(\d+)\s*-\s*(\d+)$/);
@@ -477,6 +464,7 @@ function scoreStrengthLevel(ex: Exercise, ctx: ScorerContext): { score: number; 
 
 /** 7. Recovery Fit — ore_recupero rispettate (solo indicativo nella generazione) */
 function scoreRecoveryFit(ex: Exercise, ctx: ScorerContext): { score: number; reason: string } {
+  if (ctx.sessioniPerSettimana <= 0) return { score: 0.5, reason: "Sessioni/settimana non valide" };
   const oreTraSessioni = (7 * 24) / ctx.sessioniPerSettimana;
   if (ex.ore_recupero <= oreTraSessioni) return { score: 1.0, reason: `Recupero ${ex.ore_recupero}h ok` };
   if (ex.ore_recupero <= oreTraSessioni * 1.5) return { score: 0.6, reason: `Recupero ${ex.ore_recupero}h accettabile` };
@@ -650,12 +638,16 @@ export function assessFitnessLevel(profile: ClientProfile | null): FitnessLevel 
   if (!profile) return "beginner";
 
   // Livello da strength ratios (piu' affidabile)
+  // StrengthRatio.level puo' essere IT o EN: mappiamo entrambi
   if (profile.strengthRatios.length > 0) {
-    const levels = profile.strengthRatios.map(sr => sr.level.toLowerCase());
-    const hasAvanzato = levels.some(l => l === "avanzato" || l === "elite");
-    const hasIntermedio = levels.some(l => l === "intermedio");
-    if (hasAvanzato) return "avanzato";
-    if (hasIntermedio) return "intermedio";
+    const LEVEL_MAP: Record<string, FitnessLevel> = {
+      elite: "avanzato", avanzato: "avanzato", advanced: "avanzato",
+      intermedio: "intermedio", intermediate: "intermedio",
+      principiante: "beginner", beginner: "beginner",
+    };
+    const mapped = profile.strengthRatios.map(sr => LEVEL_MAP[sr.level.toLowerCase()] ?? "beginner");
+    if (mapped.some(l => l === "avanzato")) return "avanzato";
+    if (mapped.some(l => l === "intermedio")) return "intermedio";
     return "beginner";
   }
 
@@ -764,8 +756,8 @@ export function generateSmartPlan(
       });
     }
 
-    // Durata stimata (minuti)
-    const durataMinuti = warmupCount * 5 + s.patterns.length * 8 + stretchCount * 2;
+    // Durata stimata (minuti): avviamento + principali + accessori + stretching
+    const durataMinuti = warmupCount * 5 + s.patterns.length * 8 + accessoryTargets.length * 5 + stretchCount * 2;
 
     return {
       nome_sessione: s.nome,
@@ -986,7 +978,7 @@ export function analyzeRecovery(
   sessioniPerSettimana: number,
   exerciseMap: Map<number, Exercise>,
 ): RecoveryConflict[] {
-  if (sessions.length < 2) return [];
+  if (sessions.length < 2 || sessioniPerSettimana <= 0) return [];
 
   const oreTraSessioni = (7 * 24) / sessioniPerSettimana;
   const conflicts: RecoveryConflict[] = [];
@@ -1057,7 +1049,8 @@ function computeSafetyScore(
       total++;
       const entry = safetyMap[ex.id_esercizio];
       if (!entry) safe++;
-      else if (entry.severity === "caution") safe += 0.5;
+      else if (entry.severity === "avoid") { /* 0 */ }
+      else safe += 0.5; // caution o qualsiasi altra severity
     }
   }
 
