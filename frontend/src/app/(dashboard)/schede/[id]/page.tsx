@@ -72,6 +72,7 @@ import {
   type TemplateSection,
 } from "@/lib/workout-templates";
 import { RiskBodyMap } from "@/components/workouts/RiskBodyMap";
+import { SmartAnalysisPanel } from "@/components/workouts/SmartAnalysisPanel";
 
 // ════════════════════════════════════════════════════════════
 // LABELS
@@ -833,6 +834,23 @@ export default function SchedaDetailPage({
                 </CardContent>
               </Card>
             </Collapsible>
+          )}
+
+          {/* Smart Analysis Panel — analisi copertura muscolare, volume, biomeccanica */}
+          {sessions.length > 0 && (
+            <SmartAnalysisPanel
+              sessions={sessions.map(s => ({
+                nome_sessione: s.nome_sessione,
+                esercizi: s.esercizi.map(e => ({
+                  id_esercizio: e.id_esercizio,
+                  serie: e.serie,
+                })),
+              }))}
+              exerciseMap={exerciseMap}
+              livello={plan.livello}
+              sessioniPerSettimana={plan.sessioni_per_settimana}
+              safetyMap={safetyEntries ?? null}
+            />
           )}
 
           {sessions.map((session) => (

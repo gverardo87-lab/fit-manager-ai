@@ -54,9 +54,13 @@ REQUIRED_TEXT_FIELDS = [
 COVERAGE_DIMS = ["categoria", "pattern_movimento", "attrezzatura", "difficolta"]
 
 # Constraint selezione
-MAX_PER_CATEGORY = 12
+MAX_PER_CATEGORY = 15
 MAX_PER_PATTERN = 8
-MIN_COMPLEMENTARY = {"stretching": 3, "avviamento": 3, "mobilita": 2}
+MIN_COMPLEMENTARY = {"stretching": 3, "avviamento": 10, "mobilita": 5}
+
+# Categorie che possono essere attivate senza foto (bodyweight semplice)
+# Richiedono comunque il campo 'esecuzione' compilato
+PHOTO_OPTIONAL_CATEGORIES = {"avviamento", "mobilita"}
 
 
 # ================================================================
@@ -112,17 +116,27 @@ def phase_audit(db_path: str) -> dict:
     archived = [e for e in all_ex if e["in_subset"] == 0]
 
     active_with_photos = [e for e in active if has_photos(e["id"])]
-    active_no_photos = [e for e in active if not has_photos(e["id"])]
+    active_no_photos = [
+        e for e in active
+        if not has_photos(e["id"]) and e["categoria"] not in PHOTO_OPTIONAL_CATEGORIES
+    ]
     archived_with_photos = [e for e in archived if has_photos(e["id"])]
     archived_no_photos = [e for e in archived if not has_photos(e["id"])]
+
+    # Candidati photo-optional: no foto ma hanno esecuzione compilata
+    archived_photo_optional = [
+        e for e in archived_no_photos
+        if e["categoria"] in PHOTO_OPTIONAL_CATEGORIES and field_filled(e["esecuzione"])
+    ]
 
     print(f"\n  Totale esercizi: {len(all_ex)}")
     print(f"  Attivi (in_subset=1): {len(active)}")
     print(f"    Con foto:  {len(active_with_photos)}")
-    print(f"    Senza foto: {len(active_no_photos)}")
+    print(f"    Senza foto (da disattivare): {len(active_no_photos)}")
     print(f"  Archiviati (in_subset=0): {len(archived)}")
     print(f"    Con foto:  {len(archived_with_photos)}")
     print(f"    Senza foto: {len(archived_no_photos)}")
+    print(f"    Photo-optional (avviamento/mobilita con esecuzione): {len(archived_photo_optional)}")
 
     # Distribuzione attivi CON foto
     print(f"\n  Distribuzione attivi CON foto ({len(active_with_photos)}):")
@@ -144,6 +158,7 @@ def phase_audit(db_path: str) -> dict:
         "active_no_photos_ids": [e["id"] for e in active_no_photos],
         "archived_with_photos": [dict(e) for e in archived_with_photos],
         "archived_no_photos_ids": [e["id"] for e in archived_no_photos],
+        "archived_photo_optional": [dict(e) for e in archived_photo_optional],
     }
 
 
@@ -552,8 +567,9 @@ def phase_verify(db_path: str, selected_ids: list[int]) -> list[int]:
             if not field_filled(ex[f]):
                 issues.append(f"{f}: vuoto")
 
-        # Foto (double-check)
-        if not has_photos(eid):
+        # Foto (double-check — skip per categorie photo-optional)
+        cat = ex["categoria"] or ""
+        if not has_photos(eid) and cat not in PHOTO_OPTIONAL_CATEGORIES:
             issues.append("foto: mancanti")
 
         # Esecuzione (campo critico)
@@ -673,9 +689,19 @@ def main():
         phase_deactivate(db_path, ids_to_deactivate, args.dry_run)
 
     # ── Fase 2: Select ──
+    # Merge photo candidates + photo-optional (avviamento/mobilita con esecuzione)
+    all_candidates = audit_data["archived_with_photos"] + audit_data["archived_photo_optional"]
+    # Deduplica per id (photo-optional non dovrebbe sovrapporre, ma safety check)
+    seen_ids = set()
+    unique_candidates = []
+    for c in all_candidates:
+        if c["id"] not in seen_ids:
+            unique_candidates.append(c)
+            seen_ids.add(c["id"])
+
     selected = phase_select(
         audit_data["active_with_photos"],
-        audit_data["archived_with_photos"],
+        unique_candidates,
         args.batch_size,
     )
     selected_ids = [e["id"] for e in selected]

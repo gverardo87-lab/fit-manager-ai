@@ -12,7 +12,7 @@
 
 import { useCallback, useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Zap, TrendingUp, Flame, FileText, User } from "lucide-react";
+import { Zap, TrendingUp, Flame, FileText, User, Brain } from "lucide-react";
 
 import {
   Dialog,
@@ -33,12 +33,21 @@ import {
 import {
   WORKOUT_TEMPLATES,
   SECTION_CATEGORIES,
+  getSmartDefaults,
+  getSectionForCategory,
   type WorkoutTemplate,
   type TemplateExerciseSlot,
 } from "@/lib/workout-templates";
+import {
+  generateSmartPlan,
+  fillSmartPlan,
+  assessFitnessLevel,
+  type FitnessLevel,
+} from "@/lib/smart-programming";
 import { useCreateWorkout } from "@/hooks/useWorkouts";
 import { useExercises } from "@/hooks/useExercises";
 import { useClients } from "@/hooks/useClients";
+import { useSmartProgramming } from "@/hooks/useSmartProgramming";
 import type { Exercise, WorkoutSessionInput, WorkoutExerciseInput } from "@/types/api";
 
 // ════════════════════════════════════════════════════════════
@@ -184,6 +193,9 @@ export function TemplateSelector({ open, onOpenChange, clientId }: TemplateSelec
     if (open) setSelectedClientId(clientId ?? null);
   }, [open, clientId]);
 
+  // Smart programming — profile client per scoring potenziato
+  const { profile: smartProfile } = useSmartProgramming(selectedClientId);
+
   const handleSelectTemplate = useCallback(
     (template: WorkoutTemplate) => {
       if (exercises.length === 0) return;
@@ -273,6 +285,73 @@ export function TemplateSelector({ open, onOpenChange, clientId }: TemplateSelec
     );
   }, [createWorkout, selectedClientId, onOpenChange, router, exercises]);
 
+  // ── Handler: Scheda Smart (generazione automatica 14 dimensioni) ──
+  const handleSmartTemplate = useCallback(() => {
+    if (exercises.length === 0 || !selectedClientId) return;
+
+    const livello: FitnessLevel = smartProfile
+      ? assessFitnessLevel(smartProfile)
+      : "intermedio";
+    const obiettivo = smartProfile?.goals[0]?.tipo_obiettivo === "atletico"
+      ? "forza" : "generale";
+    const sessioniPerSettimana = livello === "beginner" ? 3 : livello === "avanzato" ? 5 : 4;
+
+    // Genera struttura smart
+    const smartPlan = generateSmartPlan(sessioniPerSettimana, livello, obiettivo);
+
+    // Riempi slot con scoring 14 dimensioni
+    const filledMap = fillSmartPlan(smartPlan, exercises, smartProfile);
+
+    // Converti in formato API
+    const sessioni: WorkoutSessionInput[] = smartPlan.sessioni.map((sess, si) => {
+      const slotScores = filledMap.get(si);
+
+      return {
+        nome_sessione: sess.nome_sessione,
+        focus_muscolare: sess.focus_muscolare,
+        durata_minuti: sess.durata_minuti,
+        esercizi: sess.slots.map((slot, sli): WorkoutExerciseInput => {
+          const scores = slotScores?.get(sli);
+          const bestScore = scores?.[0];
+          const bestExercise = bestScore
+            ? exercises.find(e => e.id === bestScore.exerciseId)
+            : undefined;
+
+          const exerciseToUse = bestExercise ?? exercises[0];
+          const sezione = getSectionForCategory(exerciseToUse.categoria);
+          const defaults = getSmartDefaults(exerciseToUse, obiettivo, sezione);
+
+          return {
+            id_esercizio: exerciseToUse.id,
+            ordine: sli + 1,
+            serie: slot.serie || defaults.serie,
+            ripetizioni: slot.ripetizioni || defaults.ripetizioni,
+            tempo_riposo_sec: slot.tempo_riposo_sec || defaults.tempo_riposo_sec,
+            note: slot.label,
+          };
+        }),
+      };
+    });
+
+    createWorkout.mutate(
+      {
+        nome: smartPlan.nome,
+        obiettivo: smartPlan.obiettivo,
+        livello: smartPlan.livello,
+        sessioni_per_settimana: smartPlan.sessioni_per_settimana,
+        durata_settimane: smartPlan.durata_settimane,
+        id_cliente: selectedClientId,
+        sessioni,
+      },
+      {
+        onSuccess: (plan) => {
+          onOpenChange(false);
+          router.push(`/schede/${plan.id}`);
+        },
+      },
+    );
+  }, [createWorkout, selectedClientId, smartProfile, onOpenChange, router, exercises]);
+
   const isLoading = !exerciseData || exercises.length === 0;
 
   return (
@@ -306,7 +385,50 @@ export function TemplateSelector({ open, onOpenChange, clientId }: TemplateSelec
           </Select>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mt-4">
+        <div className="grid gap-3 sm:grid-cols-2 mt-4">
+          {/* Card Scheda Smart */}
+          <button
+            onClick={handleSmartTemplate}
+            disabled={createWorkout.isPending || isLoading || !selectedClientId}
+            className="group relative rounded-xl border bg-gradient-to-br from-teal-50 to-cyan-100 dark:from-teal-950/30 dark:to-cyan-900/20 border-teal-200 dark:border-teal-800 p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50 sm:col-span-2"
+            title={!selectedClientId ? "Seleziona un cliente per la Scheda Smart" : undefined}
+          >
+            <div className="flex items-center gap-2">
+              <Brain className="h-6 w-6 text-teal-600 dark:text-teal-400" />
+              <h3 className="font-semibold text-sm">Scheda Smart</h3>
+              {smartProfile && (
+                <Badge variant="secondary" className="text-[10px] bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300">
+                  {smartProfile.strengthLevel ?? "auto"}
+                </Badge>
+              )}
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+              {selectedClientId
+                ? "Genera una scheda ottimizzata su 14 dimensioni: safety, muscoli, pattern, recupero, obiettivi e biomeccanica del cliente."
+                : "Seleziona un cliente per generare una scheda personalizzata basata su anamnesi, safety e obiettivi."}
+            </p>
+            {selectedClientId && smartProfile && (
+              <div className="mt-3 flex flex-wrap gap-1">
+                {smartProfile.safetyMap && Object.keys(smartProfile.safetyMap).length > 0 && (
+                  <Badge variant="outline" className="text-[10px] border-teal-300 dark:border-teal-700">
+                    Safety-aware
+                  </Badge>
+                )}
+                {smartProfile.goals.length > 0 && (
+                  <Badge variant="outline" className="text-[10px] border-teal-300 dark:border-teal-700">
+                    {smartProfile.goals.length} obiettiv{smartProfile.goals.length === 1 ? "o" : "i"}
+                  </Badge>
+                )}
+                {smartProfile.symmetryDeficits.length > 0 && (
+                  <Badge variant="outline" className="text-[10px] border-teal-300 dark:border-teal-700">
+                    Bilaterale
+                  </Badge>
+                )}
+              </div>
+            )}
+          </button>
+
+          {/* Template statici */}
           {WORKOUT_TEMPLATES.map((template) => (
             <button
               key={template.id}

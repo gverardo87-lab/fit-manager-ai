@@ -78,8 +78,8 @@ Editor strutturato per creare schede allenamento professionali. Layout split: ed
 - **Export "Scheda Clinica"**: Excel via `exceljs` — documento medico-sportivo proprietario. 3+ fogli: Copertina (branding + dati programma) → Profilo Clinico (safety, opzionale) → 1 foglio per sessione. Esercizi principali in card-block (header teal + 2 righe dati + immagini 150x100 affiancate + separatore). Avviamento/stretching compatti. Immagini via Next.js rewrite proxy (`/media/*` → backend, evita CORS su StaticFiles). Print/PDF via `@media print`
 - **Client linkage**: assegnazione/riassegnazione cliente inline (Select + `"__none__"` sentinel), filtro cliente nella lista, tab "Schede" nel profilo cliente, cross-link bidirezionale
 - **TemplateSelector**: dialog con selezione cliente integrata (`selectedClientId` state, pre-compilato da contesto)
-- **97 esercizi attivi** (database curato, 100% completo su tutti i campi, 100% con foto) + 962 archiviati (reinserimento graduale post-sviluppo)
-- Tassonomia completa: muscoli FK (1,271 righe), articolazioni FK (299), condizioni mediche FK (474+), relazioni (38)
+- **205 esercizi attivi** (72 compound, 55 isolation, 35 stretching, 18 bodyweight, 11 avviamento, 8 mobilita, 6 cardio) + 854 archiviati
+- Tassonomia completa: muscoli FK (2,458 righe), articolazioni FK (643), condizioni mediche FK (921+), relazioni (46)
 - Categorie: `compound`, `isolation`, `bodyweight`, `cardio`, `stretching`, `mobilita`, `avviamento`
 - Pattern: 9 forza (`squat`, `hinge`, `push_h/v`, `pull_h/v`, `core`, `rotation`, `carry`) + 3 complementari (`warmup`, `stretch`, `mobility`)
 
@@ -138,13 +138,55 @@ useUpdateWorkout() → attivazione/modifica date
 File chiave: `lib/workout-monitoring.ts` (utility), `app/(dashboard)/allenamenti/page.tsx` (pagina),
 `api/models/workout_log.py` (modello), `api/routers/workout_logs.py` (4 endpoint).
 
+### Smart Programming Engine — Motore 14 Dimensioni
+
+> **Filosofia: INFORMARE, mai LIMITARE.** Zero Ollama. Tutto client-side deterministico.
+> Il motore incrocia 14 dimensioni per suggerire esercizi ottimali per ogni slot.
+
+**Architettura a 3 layer** (pattern `clinical-analysis.ts`, `derived-metrics.ts`):
+
+1. **Core Engine** (`lib/smart-programming.ts`, ~690 LOC):
+   - **ClientProfile**: profilo aggregato (tutto nullable per graceful degradation)
+   - **14 Scorer composabili**: safety (0.15), muscle_match (0.12), pattern_match (0.10),
+     difficulty (0.10), goal_alignment (0.08), strength_level (0.06), recovery_fit (0.06),
+     compound_priority (0.05), equipment_variety (0.05), uniqueness (0.05),
+     plane_variety (0.05), chain_variety (0.04), bilateral_balance (0.04), contraction_variety (0.05)
+   - **`scoreExercisesForSlot()`**: orchestra tutti i scorer, ritorna ExerciseScore[] ordinati
+   - **`generateSmartPlan()`**: genera struttura da sessioni/settimana (2-6) × livello (3)
+   - **`fillSmartPlan()`**: assegna esercizi ottimali a ogni slot via scoring 14D
+   - **`assessFitnessLevel()`**: combina strength ratios NSCA + livello attivita anamnesi
+   - **`computeSmartAnalysis()`**: orchestratore analisi (coverage + volume + biomeccanics + recovery + safety)
+   - **Senza client**: dim. safety/strength/bilateral → neutral (0.5). Funziona anche senza dati client.
+
+2. **Hook** (`hooks/useSmartProgramming.ts`, ~60 LOC):
+   - Aggrega 5 hook esistenti: useClient + useExerciseSafetyMap + useLatestMeasurement + useClientMeasurements + useClientGoals
+   - Calcola: strength ratios (NSCA), simmetria bilaterale (deficit da ClinicalReport), fitness level
+   - Zero nuove API — composizione di dati esistenti
+
+3. **UI**:
+   - **Card "Scheda Smart"** in TemplateSelector — gradiente teal, icona Brain, abilitata solo con cliente.
+     Badge dinamici: safety-aware, N obiettivi, bilaterale. Click → `generateSmartPlan` + `fillSmartPlan`
+   - **SmartAnalysisPanel** nel builder (`components/workouts/SmartAnalysisPanel.tsx`, ~270 LOC) —
+     Collapsible card (pattern Safety Overview Panel) con 5 sezioni:
+     1. Copertura Muscolare — barre colorate per 13 gruppi muscolari vs target NSCA per livello
+     2. Volume Totale — set/settimana vs target con Progress bar
+     3. Varieta Biomeccanica — distribuzione piani/catene/contrazioni
+     4. Conflitti Recupero — overlap muscolare tra sessioni consecutive
+     5. Score Sicurezza — % esercizi compatibili con profilo clinico
+
+**Volume targets NSCA** (set/muscolo/settimana): beginner 10-12, intermedio 14-18, avanzato 18-25.
+
+File chiave: `lib/smart-programming.ts` (engine), `hooks/useSmartProgramming.ts` (aggregatore),
+`components/workouts/SmartAnalysisPanel.tsx` (pannello), `components/workouts/TemplateSelector.tsx` (card Smart).
+
 ### Exercise Quality Engine — Pipeline Dati
 
 > **Filosofia: l'allenamento e' un sottoramo della medicina.** Il database esercizi e' il nucleo del prodotto.
 > Contenuti imprecisi possono causare infortuni. Zero approssimazione.
 
-**Strategia "Database 97"**: i 97 esercizi curati sono l'unico database attivo (`in_subset=True`), tutti con foto.
-I 962 esercizi archiviati (`in_subset=False`) verranno reinseriti a lotti post-sviluppo.
+**Strategia "Database 205"**: 205 esercizi attivi (`in_subset=True`): 72 compound, 55 isolation, 35 stretching,
+18 bodyweight, 11 avviamento, 8 mobilita, 6 cardio. Avviamento/mobilita photo-optional (semplici bodyweight).
+854 esercizi archiviati (`in_subset=False`) reinseribili via `activate_batch.py`.
 
 Pipeline idempotente, dual-DB (`--db dev|prod|both`), script in `tools/admin_scripts/`:
 
@@ -623,7 +665,7 @@ sqlite3 data/crm_dev.db ".tables"
 - **core/**: ~10,300 LOC Python — moduli AI (RAG, exercise archive) in attesa di API endpoints
 - **tools/admin_scripts/**: ~2,800 LOC Python — 14 script (import, quality engine, taxonomy, seed, test)
 - **DB**: 29 tabelle SQLite, FK enforced, multi-tenant via trainer_id
-- **Esercizi**: 97 attivi (100% completi, 100% foto, tassonomia completa) + 962 archiviati (reinserimento graduale)
+- **Esercizi**: 205 attivi (tassonomia completa, avviamento/mobilita photo-optional) + 854 archiviati (reinserimento graduale)
 - **Test**: 63 pytest + 67 E2E
 - **Sicurezza**: JWT auth, bcrypt, Deep Relational IDOR, 3-layer route protection
 - **Cloud**: 0 dipendenze, 0 dati verso terzi
