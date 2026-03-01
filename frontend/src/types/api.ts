@@ -502,6 +502,7 @@ export interface DashboardSummary {
   monthly_revenue: number;
   pending_rates: number;
   todays_appointments: number;
+  ledger_alerts: number;
 }
 
 /** Rate scaduta per risoluzione inline dalla Dashboard */

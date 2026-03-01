@@ -53,6 +53,9 @@ export function useGeneratePaymentPlan() {
       queryClient.invalidateQueries({ queryKey: ["contract"] });
       queryClient.invalidateQueries({ queryKey: ["contracts"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["movements"] });
+      queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["aging-report"] });
       toast.success(`Piano generato: ${data.total} rate create`);
     },
     onError: (error) => {
@@ -75,6 +78,9 @@ export function useCreateRate() {
       queryClient.invalidateQueries({ queryKey: ["contract"] });
       queryClient.invalidateQueries({ queryKey: ["contracts"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["movements"] });
+      queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["aging-report"] });
       toast.success("Rata aggiunta");
     },
     onError: (error) => {
@@ -100,6 +106,9 @@ export function useUpdateRate() {
       queryClient.invalidateQueries({ queryKey: ["contract"] });
       queryClient.invalidateQueries({ queryKey: ["contracts"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["movements"] });
+      queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["aging-report"] });
       toast.success("Rata aggiornata");
     },
     onError: (error) => {
@@ -121,6 +130,9 @@ export function useDeleteRate() {
       queryClient.invalidateQueries({ queryKey: ["contract"] });
       queryClient.invalidateQueries({ queryKey: ["contracts"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["movements"] });
+      queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["aging-report"] });
       toast.success("Rata eliminata");
     },
     onError: (error) => {

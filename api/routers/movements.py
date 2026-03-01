@@ -273,9 +273,11 @@ def confirm_expenses(
             continue  # Silently skip: spesa non trovata o non del trainer
 
         # Calcola data_effettiva dalla chiave (la key codifica il periodo)
-        # Per sicurezza, ricalcoliamo le occorrenze e verifichiamo la key
-        # Ma per semplicita' usiamo il giorno_scadenza del mese derivato dalla key
-        data_effettiva = _date_from_mese_anno_key(item.mese_anno_key, expense.giorno_scadenza)
+        # Per spese annuali, start_month e' necessario (la key "YYYY" non contiene il mese)
+        start = _get_start_date(expense)
+        data_effettiva = _date_from_mese_anno_key(
+            item.mese_anno_key, expense.giorno_scadenza, start.month
+        )
         if not data_effettiva:
             continue
 
@@ -320,19 +322,25 @@ def confirm_expenses(
     return ConfirmExpensesResponse(created=created, totale=round(totale, 2))
 
 
-def _date_from_mese_anno_key(key: str, giorno_scadenza: int) -> Optional[date]:
+def _date_from_mese_anno_key(
+    key: str, giorno_scadenza: int, start_month: Optional[int] = None
+) -> Optional[date]:
     """
     Ricostruisce data_effettiva dalla chiave mese_anno.
 
     Formati: "2026-02" (mensile/trim/sem), "2026-02-W1" (settimanale), "2026" (annuale).
+    Per chiavi annuali ("YYYY"), start_month e' necessario per ricostruire la data.
     """
     parts = key.split("-")
     try:
         anno = int(parts[0])
         if len(parts) == 1:
-            # ANNUALE: "2026" — usa giorno_scadenza nel mese corrente (non sappiamo il mese dalla key)
-            # Il mese viene derivato dal contesto, ma per safety usiamo il giorno come fallback
-            return None  # Non supportato senza mese — il chiamante deve passare key con mese
+            # ANNUALE: "2026" — usa start_month dalla spesa ricorrente
+            if not start_month:
+                return None
+            days_in_month = calendar.monthrange(anno, start_month)[1]
+            giorno = min(giorno_scadenza, days_in_month)
+            return date(anno, start_month, giorno)
         mese = int(parts[1])
         days_in_month = calendar.monthrange(anno, mese)[1]
         if len(parts) == 3 and parts[2].startswith("W"):

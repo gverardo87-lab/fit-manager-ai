@@ -98,6 +98,7 @@ export function useCreateMovement() {
       queryClient.invalidateQueries({ queryKey: ["movements"] });
       queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["aging-report"] });
       toast.success("Movimento registrato");
     },
     onError: (error) => {
@@ -119,6 +120,7 @@ export function useDeleteMovement() {
       queryClient.invalidateQueries({ queryKey: ["movements"] });
       queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["aging-report"] });
       toast.success("Movimento eliminato");
     },
     onError: (error) => {
@@ -156,6 +158,7 @@ export function useConfirmExpenses() {
       queryClient.invalidateQueries({ queryKey: ["movements"] });
       queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["aging-report"] });
       toast.success(`${result.created} ${result.created === 1 ? "spesa registrata" : "spese registrate"}`);
     },
     onError: (error) => {

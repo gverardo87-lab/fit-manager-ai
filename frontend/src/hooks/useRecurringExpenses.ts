@@ -50,6 +50,9 @@ export function useCreateRecurringExpense() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["recurring-expenses"] });
       queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["pending-expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["forecast"] });
       toast.success("Spesa ricorrente creata");
     },
     onError: (error) => {
@@ -77,6 +80,9 @@ export function useUpdateRecurringExpense() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["recurring-expenses"] });
       queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["pending-expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["forecast"] });
       toast.success("Spesa ricorrente aggiornata");
     },
     onError: (error) => {
@@ -97,6 +103,9 @@ export function useDeleteRecurringExpense() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["recurring-expenses"] });
       queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["pending-expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["forecast"] });
       toast.success("Spesa ricorrente eliminata");
     },
     onError: (error) => {
