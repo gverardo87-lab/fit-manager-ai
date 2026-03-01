@@ -12,7 +12,8 @@
  */
 
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { loadFilters, saveFilters, getUrlParams, syncUrlParams } from "@/lib/url-state";
 import {
   Plus,
   ClipboardList,
@@ -97,16 +98,23 @@ const NONE_VALUE = "__none__";
 
 export default function SchedePage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const pathname = usePathname();
 
   const [filters, setFilters] = useState<WorkoutFilters>(() => {
+    const saved = loadFilters("schede");
+    if (saved && Object.keys(saved).some((k) => saved[k] != null)) {
+      const init: WorkoutFilters = {};
+      if (saved.obiettivo) init.obiettivo = saved.obiettivo as string;
+      if (saved.livello) init.livello = saved.livello as string;
+      if (saved.id_cliente) init.id_cliente = saved.id_cliente as number;
+      return init;
+    }
     const init: WorkoutFilters = {};
-    const ob = searchParams.get("obiettivo");
+    const p = getUrlParams();
+    const ob = p.get("obiettivo");
     if (ob) init.obiettivo = ob;
-    const lv = searchParams.get("livello");
+    const lv = p.get("livello");
     if (lv) init.livello = lv;
-    const cl = searchParams.get("cliente");
+    const cl = p.get("cliente");
     if (cl) init.id_cliente = Number(cl);
     return init;
   });
@@ -117,15 +125,19 @@ export default function SchedePage() {
   const { data: clientsData } = useClients();
   const clients = useMemo(() => clientsData?.items ?? [], [clientsData]);
 
-  // ── Sync filter state → URL ──
+  // ── Persist filters → sessionStorage + URL ──
   useEffect(() => {
+    saveFilters("schede", {
+      obiettivo: filters.obiettivo ?? null,
+      livello: filters.livello ?? null,
+      id_cliente: filters.id_cliente ?? null,
+    });
     const params = new URLSearchParams();
     if (filters.obiettivo) params.set("obiettivo", filters.obiettivo);
     if (filters.livello) params.set("livello", filters.livello);
     if (filters.id_cliente) params.set("cliente", String(filters.id_cliente));
-    const qs = params.toString();
-    router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
-  }, [filters, pathname, router]);
+    syncUrlParams(window.location.pathname, params);
+  }, [filters]);
 
   const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<WorkoutPlan | null>(null);

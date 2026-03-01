@@ -13,7 +13,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { useSearchParams, usePathname, useRouter } from "next/navigation";
+import { loadFilters, saveFilters, getUrlParams, syncUrlParams } from "@/lib/url-state";
 import {
   Plus,
   Landmark,
@@ -109,21 +109,24 @@ const chartConfig: ChartConfig = {
 
 export default function CassaPage() {
   const now = new Date();
-  const searchParams = useSearchParams();
-  const pathname = usePathname();
-  const router = useRouter();
+
+  // sessionStorage = fonte primaria (sopravvive a back-navigation)
+  const [_initFilters] = useState(() => loadFilters("cassa"));
 
   const [mese, setMese] = useState(() => {
-    const m = searchParams.get("mese");
+    if (_initFilters?.mese != null) return _initFilters.mese as number;
+    const m = getUrlParams().get("mese");
     return m ? parseInt(m, 10) : now.getMonth() + 1;
   });
   const [anno, setAnno] = useState(() => {
-    const a = searchParams.get("anno");
+    if (_initFilters?.anno != null) return _initFilters.anno as number;
+    const a = getUrlParams().get("anno");
     return a ? parseInt(a, 10) : now.getFullYear();
   });
-  const [activeTab, setActiveTab] = useState(
-    () => searchParams.get("tab") ?? "ledger",
-  );
+  const [activeTab, setActiveTab] = useState(() => {
+    if (_initFilters?.tab) return _initFilters.tab as string;
+    return getUrlParams().get("tab") ?? "ledger";
+  });
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -138,19 +141,26 @@ export default function CassaPage() {
   const { data: balance, isLoading: balanceLoading } = useCashBalance();
   const pendingCount = pendingData?.items.length ?? 0;
 
-  // ── Sync all params → URL ──
+  // ── Sync filtri → sessionStorage (primario) + URL (feedback visivo) ──
   useEffect(() => {
-    const params = new URLSearchParams();
     const currentMonth = now.getMonth() + 1;
     const currentYear = now.getFullYear();
+    const isDefault = mese === currentMonth && anno === currentYear && activeTab === "ledger";
+
+    saveFilters("cassa", {
+      mese: isDefault ? null : mese,
+      anno: isDefault ? null : anno,
+      tab: activeTab !== "ledger" ? activeTab : null,
+    });
+
+    const params = new URLSearchParams();
     if (mese !== currentMonth || anno !== currentYear) {
       params.set("mese", String(mese));
       params.set("anno", String(anno));
     }
     if (activeTab !== "ledger") params.set("tab", activeTab);
-    const qs = params.toString();
-    router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
-  }, [mese, anno, activeTab, pathname, router]); // eslint-disable-line react-hooks/exhaustive-deps
+    syncUrlParams(window.location.pathname, params);
+  }, [mese, anno, activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDelete = (movement: CashMovement) => {
     setSelectedMovement(movement);

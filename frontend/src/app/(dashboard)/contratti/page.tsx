@@ -12,7 +12,7 @@
  * - ContractSheet per crea/modifica, ContractDetailSheet per master-detail
  */
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { differenceInDays, parseISO, startOfToday } from "date-fns";
 import {
   Plus,
@@ -34,6 +34,7 @@ import { ContractSheet } from "@/components/contracts/ContractSheet";
 import { DeleteContractDialog } from "@/components/contracts/DeleteContractDialog";
 import { useContracts } from "@/hooks/useContracts";
 import { formatCurrency } from "@/lib/format";
+import { loadFilters, saveFilters, getUrlParams, syncUrlParams } from "@/lib/url-state";
 import type { ContractListItem, ContractListResponse } from "@/types/api";
 
 // ── KPI Config (pattern CLIENTI_KPI) ──
@@ -154,15 +155,36 @@ export default function ContrattiPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [selectedContract, setSelectedContract] = useState<ContractListItem | null>(null);
 
-  // Filter state: Set<string> per ogni asse (pattern Clienti/Agenda)
-  const [activeStati, setActiveStati] = useState<Set<string>>(
-    () => new Set(STATO_CHIPS.map((c) => c.key))
-  );
-  const [activeSituazioni, setActiveSituazioni] = useState<Set<string>>(
-    () => new Set(SITUAZIONE_CHIPS.map((c) => c.key))
-  );
+  // sessionStorage = fonte primaria (sopravvive a back-navigation)
+  const [_initFilters] = useState(() => loadFilters("contratti"));
+
+  const [activeStati, setActiveStati] = useState<Set<string>>(() => {
+    if (_initFilters?.stato) return new Set(_initFilters.stato as string[]);
+    const param = getUrlParams().get("stato");
+    if (param) return new Set(param.split(","));
+    return new Set(STATO_CHIPS.map((c) => c.key));
+  });
+  const [activeSituazioni, setActiveSituazioni] = useState<Set<string>>(() => {
+    if (_initFilters?.situazione) return new Set(_initFilters.situazione as string[]);
+    const param = getUrlParams().get("situazione");
+    if (param) return new Set(param.split(","));
+    return new Set(SITUAZIONE_CHIPS.map((c) => c.key));
+  });
 
   const { data: contractsData, isLoading, isError, refetch } = useContracts();
+
+  // ── Sync filtri → sessionStorage (primario) + URL (feedback visivo) ──
+  useEffect(() => {
+    const statiArr = activeStati.size < STATO_CHIPS.length ? [...activeStati] : null;
+    const sitArr = activeSituazioni.size < SITUAZIONE_CHIPS.length ? [...activeSituazioni] : null;
+
+    saveFilters("contratti", { stato: statiArr, situazione: sitArr });
+
+    const params = new URLSearchParams();
+    if (statiArr) params.set("stato", statiArr.join(","));
+    if (sitArr) params.set("situazione", sitArr.join(","));
+    syncUrlParams(window.location.pathname, params);
+  }, [activeStati, activeSituazioni]);
 
   // ── Filter handlers (immutable Set toggle, pattern Clienti/Agenda) ──
 

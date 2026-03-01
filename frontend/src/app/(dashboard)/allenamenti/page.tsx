@@ -19,7 +19,8 @@
  */
 
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { loadFilters, saveFilters, getUrlParams, syncUrlParams } from "@/lib/url-state";
 import Link from "next/link";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
@@ -195,29 +196,43 @@ const STATUS_CARD_GRADIENT: Record<ProgramStatus, string> = {
 
 export default function AllenamentiPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const pathname = usePathname();
-  const initialClientId = searchParams.get("idCliente");
+  const initialClientId = getUrlParams().get("idCliente");
 
   const { data: workoutsData, isLoading: loadingWorkouts } = useWorkouts();
   const { data: clientsData } = useClients();
 
-  // Filtri (initialized from URL)
-  const [clientFilter, setClientFilter] = useState<string>(initialClientId ?? "__all__");
+  // sessionStorage = fonte primaria (sopravvive a back-navigation)
+  const [_initFilters] = useState(() => loadFilters("allenamenti"));
+
+  const [clientFilter, setClientFilter] = useState<string>(() => {
+    // URL idCliente ha priorita' (deep-link da profilo cliente)
+    if (initialClientId) return initialClientId;
+    if (_initFilters?.idCliente) return _initFilters.idCliente as string;
+    return "__all__";
+  });
   const [statusFilter, setStatusFilter] = useState<"tutti" | ProgramStatus>(() => {
-    const s = searchParams.get("status");
+    if (_initFilters?.status) {
+      const s = _initFilters.status as string;
+      if (["attivo", "da_attivare", "completato"].includes(s)) return s as ProgramStatus;
+      if (s === "tutti") return "tutti";
+    }
+    const s = getUrlParams().get("status");
     if (s && ["attivo", "da_attivare", "completato"].includes(s)) return s as ProgramStatus;
     return "tutti";
   });
 
-  // ── Sync filter state → URL ──
+  // ── Sync filtri → sessionStorage (primario) + URL (feedback visivo) ──
   useEffect(() => {
+    saveFilters("allenamenti", {
+      idCliente: clientFilter !== "__all__" ? clientFilter : null,
+      status: statusFilter !== "tutti" ? statusFilter : null,
+    });
+
     const params = new URLSearchParams();
     if (clientFilter !== "__all__") params.set("idCliente", clientFilter);
     if (statusFilter !== "tutti") params.set("status", statusFilter);
-    const qs = params.toString();
-    router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
-  }, [clientFilter, statusFilter, pathname, router]);
+    syncUrlParams(window.location.pathname, params);
+  }, [clientFilter, statusFilter]);
 
   const clients = useMemo(() => clientsData?.items ?? [], [clientsData]);
 

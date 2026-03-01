@@ -359,6 +359,55 @@ File chiave: `api/routers/movements.py` (_compute_saldo, _compute_saldo_before, 
 `frontend/src/app/(dashboard)/cassa/page.tsx` (SaldoHeroCard, ComposedChart),
 `frontend/src/components/movements/MovementsTable.tsx` (running balance column).
 
+### Navigation UX — Filtri + Scroll Persistenti
+
+> **Filosofia: sessionStorage come fonte primaria.** L'URL e' feedback visivo, non fonte di verita'.
+> Next.js 14.1+ intercetta pushState/replaceState e puo' normalizzare l'URL durante back-navigation.
+
+**Problema**: filtri e scroll si perdevano al back-navigation (browser back button) perche'
+ne' `useSearchParams()` ne' `window.location.search` sono affidabili al mount dopo un popstate
+in Next.js App Router.
+
+**Soluzione**: `lib/url-state.ts` — 4 utility centralizzate:
+- `saveFilters(pageKey, state)` → scrive in `sessionStorage` (sopravvive a qualsiasi navigazione)
+- `loadFilters(pageKey)` → legge da `sessionStorage` (fonte primaria al mount)
+- `getUrlParams()` → legge da `window.location.search` (fallback per link diretti/bookmark)
+- `syncUrlParams(pathname, params)` → scrive URL con `replaceState(window.history.state, ...)` (preserva stato Next.js)
+
+**Pattern per ogni pagina con filtri** (6 pagine):
+```typescript
+// 1. INIT: sessionStorage → URL → default
+const [_initFilters] = useState(() => loadFilters("pageKey"));
+const [filter, setFilter] = useState(() => {
+  if (_initFilters?.field) return _initFilters.field as Type;
+  const param = getUrlParams().get("field");
+  if (param) return parseParam(param);
+  return defaultValue;
+});
+
+// 2. WRITE: ogni cambio → sessionStorage + URL
+useEffect(() => {
+  saveFilters("pageKey", { field: filter !== default ? filter : null });
+  const params = new URLSearchParams();
+  if (filter !== default) params.set("field", String(filter));
+  syncUrlParams(window.location.pathname, params);
+}, [filter]);
+```
+
+**Pagine convertite**: esercizi (8 filtri), clienti (2 filtri), contratti (2 filtri),
+schede (3 filtri), cassa (3 filtri), allenamenti (2 filtri).
+
+**Scroll Restoration** (`layout.tsx`): popstate event listener + sessionStorage keyed by pathname.
+Retry con requestAnimationFrame + 100ms + 300ms (attesa async render React Query).
+Target: `<main ref={mainRef}>` (scroll container custom, non window).
+
+**Cross-link contestuali**: `?from=clienti-{id}` su contratti/[id] e schede/[id] → banner "Torna al profilo" + back button condizionale.
+
+**Tab persistence**: `clienti/[id]` persiste tab attiva via `router.replace(url, { scroll: false })`.
+
+File chiave: `lib/url-state.ts` (utility), `layout.tsx` (scroll restoration),
+tutte le 6 pagine filtri (esercizi, clienti, contratti, schede, cassa, allenamenti).
+
 ---
 
 ## Architettura
@@ -519,6 +568,7 @@ Errori reali trovati e corretti. MAI ripeterli.
 | SQLAlchemy subquery cross-join | `select(func.sum(case(CashMovement.tipo...))).select_from(query.subquery())` — i riferimenti `CashMovement.*` non vengono adattati alle colonne del subquery → cross-join implicito con tabella originale → somma enorme | Usare `subq = query.subquery()` poi `subq.c.tipo`, `subq.c.importo` nelle espressioni. MAI `CashMovement.*` con `select_from(subquery)` |
 | `activate_batch.py` verify rollback asimmetrico | Verify per-DB: DB-A rollbacka 5, DB-B rollbacka 3 → delta silenzioso tra DB. Anche: verify PRIMA di fill_tempo → 43/50 rollbackati per campo auto-fillable | 3 safeguard: (1) pre-check sync (union), (2) fill_tempo_consigliato pre-verify, (3) rollback union (se fallisce su QUALSIASI DB → rollback su TUTTI) |
 | `populate_exercise_relations` chain IDs stale | Chain IDs puntano a esercizi disattivati (57/91 stale) → 21% copertura relazioni | Aggiornare chains ad OGNI batch activation. Riscrittura completa chains da 186→269 esercizi |
+| Next.js URL state perso su back-nav | `useSearchParams()` e `window.location.search` inaffidabili al mount dopo popstate (Next.js 14.1+ intercetta pushState/replaceState) | sessionStorage come fonte primaria (`lib/url-state.ts`). URL solo per feedback visivo. Pattern: `loadFilters()` → `getUrlParams()` → default |
 
 ---
 

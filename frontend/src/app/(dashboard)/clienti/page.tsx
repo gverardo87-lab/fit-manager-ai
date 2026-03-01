@@ -14,7 +14,8 @@
  */
 
 import { useState, useCallback, useMemo, useEffect } from "react";
-import { useSearchParams, usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { loadFilters, saveFilters, getUrlParams, syncUrlParams } from "@/lib/url-state";
 import {
   Plus,
   Users,
@@ -124,40 +125,40 @@ const SITUAZIONE_CHIPS: FilterChipDef[] = [
 
 export default function ClientiPage() {
   // ── URL-backed filter state ──
-  const searchParams = useSearchParams();
   const pathname = usePathname();
-  const router = useRouter();
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<ClientEnriched | null>(null);
 
-  // Filter state: Set<string> per ogni asse (initialized from URL for back-nav persistence)
+  // Filter state (sessionStorage = primary, URL = fallback)
+  const [_initFilters] = useState(() => loadFilters("clienti"));
+
   const [activeStati, setActiveStati] = useState<Set<string>>(() => {
-    const param = searchParams.get("stato");
-    if (!param) return new Set(STATO_CHIPS.map((c) => c.key));
-    return new Set(param.split(","));
+    if (_initFilters?.stato) return new Set(_initFilters.stato as string[]);
+    const param = getUrlParams().get("stato");
+    if (param) return new Set(param.split(","));
+    return new Set(STATO_CHIPS.map((c) => c.key));
   });
   const [activeSituazioni, setActiveSituazioni] = useState<Set<string>>(() => {
-    const param = searchParams.get("situazione");
-    if (!param) return new Set(SITUAZIONE_CHIPS.map((c) => c.key));
-    return new Set(param.split(","));
+    if (_initFilters?.situazione) return new Set(_initFilters.situazione as string[]);
+    const param = getUrlParams().get("situazione");
+    if (param) return new Set(param.split(","));
+    return new Set(SITUAZIONE_CHIPS.map((c) => c.key));
   });
 
   const { data, isLoading, isError, refetch } = useClients();
 
-  // ── Sync filter state → URL ──
+  // ── Persist filters → sessionStorage + URL ──
   useEffect(() => {
+    const statiArr = activeStati.size < STATO_CHIPS.length ? [...activeStati] : null;
+    const sitArr = activeSituazioni.size < SITUAZIONE_CHIPS.length ? [...activeSituazioni] : null;
+    saveFilters("clienti", { stato: statiArr, situazione: sitArr });
     const params = new URLSearchParams();
-    if (activeStati.size < STATO_CHIPS.length) {
-      params.set("stato", [...activeStati].join(","));
-    }
-    if (activeSituazioni.size < SITUAZIONE_CHIPS.length) {
-      params.set("situazione", [...activeSituazioni].join(","));
-    }
-    const qs = params.toString();
-    router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
-  }, [activeStati, activeSituazioni, pathname, router]);
+    if (statiArr) params.set("stato", statiArr.join(","));
+    if (sitArr) params.set("situazione", sitArr.join(","));
+    syncUrlParams(pathname, params);
+  }, [activeStati, activeSituazioni, pathname]);
 
   // ── Filter handlers (immutable Set toggle, pattern Agenda) ──
 
