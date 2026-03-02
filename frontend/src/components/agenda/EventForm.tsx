@@ -92,6 +92,7 @@ interface EventFormProps {
   event?: CalendarEvent | null;
   defaultStart?: Date;
   defaultEnd?: Date;
+  defaultClientId?: number;
   onSubmit: (values: EventSubmitPayload) => void;
   onDelete?: () => void;
   isPending: boolean;
@@ -102,6 +103,7 @@ export function EventForm({
   event,
   defaultStart,
   defaultEnd,
+  defaultClientId,
   onSubmit,
   onDelete,
   isPending,
@@ -122,7 +124,7 @@ export function EventForm({
       titolo: event?.title ?? "",
       categoria: event?.categoria ?? "PT",
       stato: event?.stato ?? "Programmato",
-      id_cliente: event?.id_cliente ?? undefined,
+      id_cliente: event?.id_cliente ?? defaultClientId ?? undefined,
       data_inizio_date: event?.start ?? defaultStart ?? new Date(),
       ora_inizio: event?.start
         ? format(event.start, "HH:mm")

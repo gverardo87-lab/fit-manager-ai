@@ -24,12 +24,14 @@ interface ContractSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   contract?: Contract | null;
+  defaultClientId?: number;
 }
 
 export function ContractSheet({
   open,
   onOpenChange,
   contract,
+  defaultClientId,
 }: ContractSheetProps) {
   const isEdit = !!contract;
   const createMutation = useCreateContract();
@@ -74,6 +76,7 @@ export function ContractSheet({
           <ContractForm
             key={contract?.id ?? "new"}
             contract={contract}
+            defaultClientId={defaultClientId}
             onSubmit={handleSubmit}
             isPending={isPending}
             onDirtyChange={handleDirtyChange}

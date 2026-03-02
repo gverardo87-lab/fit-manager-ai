@@ -12,7 +12,7 @@
  * - ContractSheet per crea/modifica, ContractDetailSheet per master-detail
  */
 
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { differenceInDays, parseISO, startOfToday } from "date-fns";
 import {
   Plus,
@@ -154,6 +154,22 @@ export default function ContrattiPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [selectedContract, setSelectedContract] = useState<ContractListItem | null>(null);
+  const [defaultClientId, setDefaultClientId] = useState<number | undefined>();
+
+  // ── Deep-link: ?new=1&cliente=X → auto-apre Sheet con cliente ──
+  const deepLinkConsumed = useRef(false);
+  useEffect(() => {
+    if (deepLinkConsumed.current) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("new") === "1") {
+      deepLinkConsumed.current = true;
+      const cid = params.get("cliente");
+      if (cid) setDefaultClientId(Number(cid));
+      setSelectedContract(null);
+      setSheetOpen(true);
+      window.history.replaceState(window.history.state, "", window.location.pathname);
+    }
+  }, []);
 
   // sessionStorage = fonte primaria (sopravvive a back-navigation)
   const [_initFilters] = useState(() => loadFilters("contratti"));
@@ -381,6 +397,7 @@ export default function ContrattiPage() {
         open={sheetOpen}
         onOpenChange={setSheetOpen}
         contract={selectedContract}
+        defaultClientId={defaultClientId}
       />
 
       {/* ── Dialog elimina ── */}

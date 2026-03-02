@@ -26,6 +26,7 @@ interface EventSheetProps {
   event?: CalendarEvent | null;
   defaultStart?: Date;
   defaultEnd?: Date;
+  defaultClientId?: number;
   onDeleteRequest?: () => void;
 }
 
@@ -35,6 +36,7 @@ export function EventSheet({
   event,
   defaultStart,
   defaultEnd,
+  defaultClientId,
   onDeleteRequest,
 }: EventSheetProps) {
   const isEdit = !!event;
@@ -97,6 +99,7 @@ export function EventSheet({
             event={event}
             defaultStart={defaultStart}
             defaultEnd={defaultEnd}
+            defaultClientId={defaultClientId}
             onSubmit={handleSubmit}
             onDelete={isEdit ? onDeleteRequest : undefined}
             isPending={isPending}

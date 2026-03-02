@@ -13,7 +13,7 @@
  * - DeleteClientDialog per conferma eliminazione
  */
 
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { loadFilters, saveFilters, getUrlParams, syncUrlParams } from "@/lib/url-state";
 import {
@@ -130,6 +130,19 @@ export default function ClientiPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<ClientEnriched | null>(null);
+
+  // ── Deep-link: ?new=1 → auto-apre Sheet creazione ──
+  const deepLinkConsumed = useRef(false);
+  useEffect(() => {
+    if (deepLinkConsumed.current) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("new") === "1") {
+      deepLinkConsumed.current = true;
+      setSelectedClient(null);
+      setSheetOpen(true);
+      window.history.replaceState(window.history.state, "", window.location.pathname);
+    }
+  }, []);
 
   // Filter state (sessionStorage = primary, URL = fallback)
   const [_initFilters] = useState(() => loadFilters("clienti"));

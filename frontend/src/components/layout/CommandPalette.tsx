@@ -90,7 +90,7 @@ const NAV_ITEMS = [
 const ACTIONS = [
   { id: "action-new-client", label: "Nuovo Cliente", icon: UserPlus, href: "/clienti?new=1" },
   { id: "action-new-contract", label: "Nuovo Contratto", icon: FilePlus, href: "/contratti?new=1" },
-  { id: "action-new-session", label: "Nuova Sessione", icon: CalendarPlus, href: "/agenda" },
+  { id: "action-new-session", label: "Nuova Sessione", icon: CalendarPlus, href: "/agenda?newEvent=1" },
 ] as const;
 
 // ════════════════════════════════════════════════════════════
@@ -533,7 +533,7 @@ export function CommandPalette() {
                       </CommandItem>
                       <CommandItem
                         value={`ctx-session-${contextClient.id}`}
-                        onSelect={() => navigate(`/agenda?cliente=${contextClient.id}`)}
+                        onSelect={() => navigate(`/agenda?newEvent=1&clientId=${contextClient.id}`)}
                       >
                         <CalendarPlus className="mr-2 h-4 w-4 text-muted-foreground" />
                         Nuova sessione con {contextClient.nome}

@@ -83,6 +83,7 @@ export interface ContractSubmitPayload {
 
 interface ContractFormProps {
   contract?: Contract | null;
+  defaultClientId?: number;
   onSubmit: (values: ContractSubmitPayload) => void;
   isPending: boolean;
   onDirtyChange?: (dirty: boolean) => void;
@@ -90,6 +91,7 @@ interface ContractFormProps {
 
 export function ContractForm({
   contract,
+  defaultClientId,
   onSubmit,
   isPending,
   onDirtyChange,
@@ -107,7 +109,7 @@ export function ContractForm({
   } = useForm<ContractFormValues>({
     resolver: zodResolver(contractSchema),
     defaultValues: {
-      id_cliente: contract?.id_cliente ?? undefined,
+      id_cliente: contract?.id_cliente ?? defaultClientId ?? undefined,
       tipo_pacchetto: contract?.tipo_pacchetto ?? "",
       crediti_totali: contract?.crediti_totali ?? 10,
       prezzo_totale: contract?.prezzo_totale ?? 0,

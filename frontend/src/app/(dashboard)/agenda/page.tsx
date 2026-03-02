@@ -12,7 +12,7 @@
  * - Color coding per categoria (PT=blu, SALA=grigio, ecc.)
  */
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { format, startOfWeek, endOfWeek, endOfDay, startOfMonth, endOfMonth, subMonths, addMonths } from "date-fns";
 import { it } from "date-fns/locale";
 import { Plus, CalendarDays, Eye, EyeOff, CheckCircle2, Clock, Target, AlertTriangle, Loader2 } from "lucide-react";
@@ -50,6 +50,25 @@ export default function AgendaPage() {
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [slotStart, setSlotStart] = useState<Date | undefined>();
   const [slotEnd, setSlotEnd] = useState<Date | undefined>();
+  const [defaultClientId, setDefaultClientId] = useState<number | undefined>();
+
+  // ── Deep-link: ?newEvent=1&clientId=X → auto-apre Sheet con cliente ──
+  const deepLinkConsumed = useRef(false);
+  useEffect(() => {
+    if (deepLinkConsumed.current) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("newEvent") === "1") {
+      deepLinkConsumed.current = true;
+      const cid = params.get("clientId");
+      if (cid) setDefaultClientId(Number(cid));
+      setSelectedEvent(null);
+      setSlotStart(undefined);
+      setSlotEnd(undefined);
+      setSheetOpen(true);
+      // Pulisci URL senza ricaricare
+      window.history.replaceState(window.history.state, "", window.location.pathname);
+    }
+  }, []);
 
   // ── State: Dialog elimina ──
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -317,6 +336,7 @@ export default function AgendaPage() {
         event={selectedEvent}
         defaultStart={slotStart}
         defaultEnd={slotEnd}
+        defaultClientId={defaultClientId}
         onDeleteRequest={handleDeleteRequest}
       />
 

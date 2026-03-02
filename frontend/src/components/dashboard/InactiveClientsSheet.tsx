@@ -178,7 +178,7 @@ export function InactiveClientsSheet({ open, onOpenChange }: InactiveClientsShee
                   </div>
 
                   {/* CTA */}
-                  <Link href="/agenda">
+                  <Link href={`/agenda?newEvent=1&clientId=${item.client_id}`}>
                     <Button
                       size="sm"
                       className="h-8 w-full gap-1.5 bg-blue-600 text-xs font-medium text-white hover:bg-blue-700"

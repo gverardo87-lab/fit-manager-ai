@@ -731,7 +731,7 @@ const QUICK_ACTIONS = [
   {
     label: "Nuovo Cliente",
     icon: UserPlus,
-    href: "/clienti",
+    href: "/clienti?new=1",
     gradient: "from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-zinc-900",
     iconColor: "text-blue-600 dark:text-blue-400",
     border: "border-blue-200 dark:border-blue-800/50",
@@ -739,7 +739,7 @@ const QUICK_ACTIONS = [
   {
     label: "Nuovo Contratto",
     icon: FileText,
-    href: "/contratti",
+    href: "/contratti?new=1",
     gradient: "from-violet-50 to-violet-100/50 dark:from-violet-950/30 dark:to-zinc-900",
     iconColor: "text-violet-600 dark:text-violet-400",
     border: "border-violet-200 dark:border-violet-800/50",
