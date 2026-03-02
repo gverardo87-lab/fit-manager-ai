@@ -903,6 +903,8 @@ export default function SchedaDetailPage({
             <MuscleMapPanel
               sessions={sessions}
               exerciseMap={exerciseMap}
+              livello={plan.livello}
+              sessioniPerSettimana={plan.sessioni_per_settimana}
             />
           )}
 

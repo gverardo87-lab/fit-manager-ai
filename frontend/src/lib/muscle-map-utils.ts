@@ -47,6 +47,27 @@ export const BACK_SLUGS: Set<Slug> = new Set([
 // Usato dal Risk Body Map nel Safety Overview Panel
 // ════════════════════════════════════════════════════════════
 
+// ════════════════════════════════════════════════════════════
+// MAPPING: SmartAnalysis coverage muscle names (IT) → MUSCLE_SLUG_MAP keys (EN)
+// Ponte tra i nomi italiani di computeSmartAnalysis e le chiavi inglesi di MUSCLE_SLUG_MAP
+// ════════════════════════════════════════════════════════════
+
+export const SMART_TO_SLUG_MAP: Record<string, string> = {
+  petto:        "chest",
+  dorsali:      "back",
+  spalle:       "shoulders",
+  bicipiti:     "biceps",
+  tricipiti:    "triceps",
+  quadricipiti: "quadriceps",
+  femorali:     "hamstrings",
+  glutei:       "glutes",
+  polpacci:     "calves",
+  core:         "core",
+  trapezio:     "traps",
+  adduttori:    "adductors",
+  avambracci:   "forearms",
+};
+
 export const BODY_TAG_SLUG_MAP: Record<string, Slug[]> = {
   schiena: ["upper-back", "lower-back"],
   lombare: ["lower-back"],

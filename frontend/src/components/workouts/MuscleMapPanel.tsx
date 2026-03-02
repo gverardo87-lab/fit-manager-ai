@@ -3,17 +3,17 @@
 /**
  * MuscleMapPanel — Pannello Copertura Muscolare nel Workout Builder
  *
- * Aggrega tutti i muscoli di tutte le sessioni della scheda e mostra
- * la silhouette anatomica con i gruppi muscolari illuminati in teal.
+ * Quando `livello` è fornito (caso normale nel builder):
+ *   - Calcola la copertura NSCA via computeSmartAnalysis
+ *   - Colora i muscoli per stato: emerald = ottimale, amber = eccesso/deficit
+ *   - Legenda allineata con SmartAnalysisPanel → la body map è la sua rappresentazione spaziale
  *
- * - Primari (pieno): muscoli target principali degli esercizi
- * - Secondari (attenuato): muscoli stabilizzatori/sinergici
- * - Coverage badge: "X / 14 gruppi attivi" aggiornato live
+ * Senza `livello` (fallback):
+ *   - Comportamento originale: teal per primari/secondari
+ *
+ * - Coverage badge: "X / 14 gruppi" aggiornato live
  * - Collassabile. Si aggiorna ad ogni modifica della scheda (reactive).
  * - Empty state quando non ci sono ancora esercizi.
- *
- * Colori teal (invece di blue) per differenziare dal contesto
- * "esercizio singolo" → qui si guarda la scheda come un sistema.
  */
 
 import { useMemo, useState } from "react";
@@ -21,49 +21,117 @@ import { useTheme } from "next-themes";
 import { Activity, ChevronDown } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { MuscleMap } from "@/components/exercises/MuscleMap";
-import { MUSCLE_SLUG_MAP } from "@/lib/muscle-map-utils";
+import { MUSCLE_SLUG_MAP, SMART_TO_SLUG_MAP } from "@/lib/muscle-map-utils";
+import {
+  computeSmartAnalysis,
+  type MuscleCoverage,
+  type FitnessLevel,
+} from "@/lib/smart-programming";
+import type { Exercise } from "@/types/api";
 
-// ── Palette teal — identità del builder (differente da blue del dettaglio esercizio)
-const TEAL_COLORS_LIGHT = ["#0d9488", "#99f6e4"] as const; // teal-600 / teal-200
-const TEAL_COLORS_DARK  = ["#2dd4bf", "#0f766e"] as const; // teal-400 / teal-700
+// ── Palette teal — fallback senza livello
+const TEAL_COLORS_LIGHT = ["#0d9488", "#99f6e4"] as const;
+const TEAL_COLORS_DARK  = ["#2dd4bf", "#0f766e"] as const;
+
+// ── Palette status-aware — allineata a SmartAnalysisPanel (emerald + amber)
+const STATUS_COLORS_LIGHT = ["#10b981", "#f59e0b"] as const; // emerald-500, amber-500
+const STATUS_COLORS_DARK  = ["#34d399", "#fbbf24"] as const; // emerald-400, amber-400
 
 const TOTAL_GROUPS = Object.keys(MUSCLE_SLUG_MAP).length; // 14
+const VALID_LEVELS: FitnessLevel[] = ["beginner", "intermedio", "avanzato"];
 
-// ── Tipi minimi — non dipende da SessionCardData per restare riusabile
+// ── Tipi minimi — compatibili con SessionCardData / WorkoutExerciseRow
 interface ExerciseInSession {
   id_esercizio: number;
+  serie: number;
 }
 interface SessionInput {
+  nome_sessione?: string;
   esercizi: ExerciseInSession[];
-}
-interface ExerciseMuscleSummary {
-  muscoli_primari: string[];
-  muscoli_secondari: string[];
 }
 
 interface MuscleMapPanelProps {
   sessions: SessionInput[];
-  exerciseMap: Map<number, ExerciseMuscleSummary> | null;
+  exerciseMap: Map<number, Exercise> | null;
+  /** Abilita la colorazione per stato di copertura NSCA (allineata con SmartAnalysisPanel) */
+  livello?: string;
+  sessioniPerSettimana?: number;
 }
 
 // ════════════════════════════════════════════════════════════
 // COMPONENT
 // ════════════════════════════════════════════════════════════
 
-export function MuscleMapPanel({ sessions, exerciseMap }: MuscleMapPanelProps) {
+export function MuscleMapPanel({
+  sessions,
+  exerciseMap,
+  livello,
+  sessioniPerSettimana,
+}: MuscleMapPanelProps) {
   const [open, setOpen] = useState(true);
   const { resolvedTheme } = useTheme();
-  const tealColors = resolvedTheme === "dark" ? TEAL_COLORS_DARK : TEAL_COLORS_LIGHT;
+  const isDark = resolvedTheme === "dark";
 
-  // Aggrega muscoli da tutte le sessioni in modo reattivo
-  const { muscoliPrimari, muscoliSecondari, activeGroups } = useMemo(() => {
+  // ── Copertura NSCA (quando livello disponibile)
+  const coverage = useMemo<MuscleCoverage[] | null>(() => {
+    if (!livello || !exerciseMap) return null;
+    const validLivello = VALID_LEVELS.includes(livello as FitnessLevel)
+      ? (livello as FitnessLevel)
+      : "intermedio";
+
+    const sessionsForAnalysis = sessions.map(s => ({
+      nome_sessione: s.nome_sessione ?? "",
+      esercizi: s.esercizi.map(e => ({
+        id_esercizio: e.id_esercizio,
+        serie: e.serie,
+      })),
+    }));
+
+    try {
+      const analysis = computeSmartAnalysis(
+        sessionsForAnalysis,
+        exerciseMap,
+        validLivello,
+        sessioniPerSettimana ?? 3,
+        null,
+      );
+      return analysis.coverage;
+    } catch {
+      return null;
+    }
+  }, [sessions, exerciseMap, livello, sessioniPerSettimana]);
+
+  // ── Status mode: muscoli per stato NSCA (emerald / amber)
+  const { muscoliOttimali, muscoliDaAggiustare } = useMemo(() => {
+    if (!coverage) return { muscoliOttimali: [] as string[], muscoliDaAggiustare: [] as string[] };
+
+    const ottimali: string[] = [];
+    const daAggiustare: string[] = [];
+
+    for (const cov of coverage) {
+      if (cov.setsPerWeek === 0) continue; // non allenato → defaultFill
+      const slugKey = SMART_TO_SLUG_MAP[cov.muscolo];
+      if (!slugKey) continue;
+      if (cov.status === "optimal") {
+        ottimali.push(slugKey);
+      } else {
+        daAggiustare.push(slugKey); // "excess" o "deficit" → entrambi richiedono attenzione
+      }
+    }
+
+    return { muscoliOttimali: ottimali, muscoliDaAggiustare: daAggiustare };
+  }, [coverage]);
+
+  // ── Fallback teal: aggrega primari/secondari dagli esercizi (senza info di volume)
+  const { muscoliPrimari, muscoliSecondari } = useMemo(() => {
+    if (coverage) return { muscoliPrimari: [] as string[], muscoliSecondari: [] as string[] };
+
     const primari  = new Set<string>();
     const secondari = new Set<string>();
 
@@ -76,39 +144,65 @@ export function MuscleMapPanel({ sessions, exerciseMap }: MuscleMapPanelProps) {
       }
     }
 
-    // I primari hanno priorità: rimuovili dai secondari se presenti in entrambi
     primari.forEach((m) => secondari.delete(m));
+    return { muscoliPrimari: [...primari], muscoliSecondari: [...secondari] };
+  }, [sessions, exerciseMap, coverage]);
 
-    // Conta solo i muscoli riconosciuti da MUSCLE_SLUG_MAP
-    const activeGroups = [...primari].filter((m) => m in MUSCLE_SLUG_MAP).length;
+  // ── Dati effettivi per MuscleMap (status mode o fallback)
+  const isStatusMode = coverage !== null;
+  const displayPrimary   = isStatusMode ? muscoliOttimali    : muscoliPrimari;
+  const displaySecondary = isStatusMode ? muscoliDaAggiustare : muscoliSecondari;
+  const mapColors = isStatusMode
+    ? (isDark ? STATUS_COLORS_DARK : STATUS_COLORS_LIGHT)
+    : (isDark ? TEAL_COLORS_DARK   : TEAL_COLORS_LIGHT);
 
-    return {
-      muscoliPrimari:  [...primari],
-      muscoliSecondari: [...secondari],
-      activeGroups,
-    };
-  }, [sessions, exerciseMap]);
+  const hasData = displayPrimary.length > 0 || displaySecondary.length > 0;
 
-  const hasData = muscoliPrimari.length > 0 || muscoliSecondari.length > 0;
+  // ── KPI per badge e bordo
+  const activeGroups = isStatusMode
+    ? (coverage?.filter(c => c.setsPerWeek > 0).length ?? 0)
+    : [...muscoliPrimari].filter((m) => m in MUSCLE_SLUG_MAP).length;
 
-  // Badge colore: verde se copertura buona (≥6), ambra se parziale, grigio se niente
-  const badgeStyle =
-    activeGroups >= 6
-      ? "bg-teal-100 text-teal-700 border-teal-200 dark:bg-teal-900/30 dark:text-teal-400 dark:border-teal-800"
-      : activeGroups >= 1
-      ? "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800"
-      : "bg-muted text-muted-foreground";
+  const deficitCount = coverage?.filter(c => c.status === "deficit" && c.setsPerWeek > 0).length ?? 0;
+  const optimalCount = coverage?.filter(c => c.status === "optimal").length ?? 0;
+
+  // Colore bordo — stessa logica di SmartAnalysisPanel
+  const borderColor = isStatusMode
+    ? (deficitCount > 3
+        ? "border-l-amber-400"
+        : deficitCount === 0 && activeGroups >= 3
+          ? "border-l-emerald-400"
+          : "border-l-teal-400")
+    : "border-l-teal-500";
+
+  // Badge colore
+  const badgeStyle = isStatusMode
+    ? (optimalCount >= 6 && deficitCount === 0
+        ? "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800"
+        : activeGroups >= 1
+          ? "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800"
+          : "bg-muted text-muted-foreground")
+    : (activeGroups >= 6
+        ? "bg-teal-100 text-teal-700 border-teal-200 dark:bg-teal-900/30 dark:text-teal-400 dark:border-teal-800"
+        : activeGroups >= 1
+          ? "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800"
+          : "bg-muted text-muted-foreground");
+
+  // Icon color
+  const iconColor = isStatusMode
+    ? (deficitCount === 0 && activeGroups >= 3 ? "text-emerald-500" : "text-amber-500")
+    : "text-teal-500";
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <Card className="border-l-4 border-l-teal-500 transition-all duration-200">
+      <Card className={`border-l-4 ${borderColor} transition-all duration-200`}>
         <CardContent className="p-4 space-y-3">
 
           {/* ── Header ── */}
           <CollapsibleTrigger asChild>
             <button className="flex w-full items-center justify-between text-left group">
               <div className="flex items-center gap-2">
-                <Activity className="h-4 w-4 text-teal-500" />
+                <Activity className={`h-4 w-4 ${iconColor}`} />
                 <span className="text-sm font-semibold">Mappa Muscolare</span>
               </div>
               <div className="flex items-center gap-2">
@@ -129,12 +223,12 @@ export function MuscleMapPanel({ sessions, exerciseMap }: MuscleMapPanelProps) {
                 {/* Legenda */}
                 <div className="mb-3 flex items-center gap-4 text-[11px] text-muted-foreground">
                   <span className="flex items-center gap-1.5">
-                    <span className="inline-block h-2.5 w-2.5 rounded-full bg-teal-500" />
-                    Primari
+                    <span className={`inline-block h-2.5 w-2.5 rounded-full ${isStatusMode ? "bg-emerald-500" : "bg-teal-500"}`} />
+                    {isStatusMode ? "Ottimale" : "Primari"}
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className="inline-block h-2.5 w-2.5 rounded-full bg-teal-200 dark:bg-teal-700" />
-                    Secondari
+                    <span className={`inline-block h-2.5 w-2.5 rounded-full ${isStatusMode ? "bg-amber-400 dark:bg-amber-500" : "bg-teal-200 dark:bg-teal-700"}`} />
+                    {isStatusMode ? "Da aggiustare" : "Secondari"}
                   </span>
                   <span className="flex items-center gap-1.5">
                     <span className="inline-block h-2.5 w-2.5 rounded-full bg-zinc-200 dark:bg-zinc-700" />
@@ -142,13 +236,13 @@ export function MuscleMapPanel({ sessions, exerciseMap }: MuscleMapPanelProps) {
                   </span>
                 </div>
 
-                {/* MuscleMap a scala compatta (0.5) con teal */}
+                {/* MuscleMap a scala compatta (0.5) */}
                 <div className="flex justify-center">
                   <MuscleMap
-                    muscoliPrimari={muscoliPrimari}
-                    muscoliSecondari={muscoliSecondari}
+                    muscoliPrimari={displayPrimary}
+                    muscoliSecondari={displaySecondary}
                     scale={0.5}
-                    colors={tealColors}
+                    colors={mapColors}
                   />
                 </div>
               </div>
