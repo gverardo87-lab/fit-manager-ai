@@ -23,13 +23,17 @@ const COLORS_DARK = ["#3b82f6", "#60a5fa"] as const;  // blue-500, blue-400
 interface MuscleMapProps {
   muscoliPrimari: string[];
   muscoliSecondari: string[];
+  /** Sovrascrive la scala responsive (default: 0.65 desktop / 0.5 mobile) */
+  scale?: number;
+  /** Sovrascrive i colori tema [primario, secondario] */
+  colors?: readonly [string, string];
 }
 
-export function MuscleMap({ muscoliPrimari, muscoliSecondari }: MuscleMapProps) {
+export function MuscleMap({ muscoliPrimari, muscoliSecondari, scale: scaleProp, colors: colorsProp }: MuscleMapProps) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
 
-  // Responsive scale
+  // Responsive scale — usato solo se scale non è passato dall'esterno
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 640px)");
@@ -39,9 +43,9 @@ export function MuscleMap({ muscoliPrimari, muscoliSecondari }: MuscleMapProps) 
     return () => mq.removeEventListener("change", handler);
   }, []);
 
-  const bodyScale = isMobile ? 0.5 : 0.65;
+  const bodyScale = scaleProp ?? (isMobile ? 0.5 : 0.65);
   const defaultFill = isDark ? "#3f3f46" : "#e5e7eb"; // zinc-700 / zinc-200
-  const colors = isDark ? [...COLORS_DARK] : [...COLORS_LIGHT];
+  const colors = colorsProp ? [...colorsProp] : (isDark ? [...COLORS_DARK] : [...COLORS_LIGHT]);
 
   // Build data per vista — primari first (intensity 1), secondari dopo (intensity 2)
   // seen set in buildBodyData previene duplicati: se un muscolo e' primario, non viene

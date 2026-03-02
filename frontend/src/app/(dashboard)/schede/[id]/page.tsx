@@ -73,6 +73,7 @@ import {
 } from "@/lib/workout-templates";
 import { RiskBodyMap } from "@/components/workouts/RiskBodyMap";
 import { SmartAnalysisPanel } from "@/components/workouts/SmartAnalysisPanel";
+import { MuscleMapPanel } from "@/components/workouts/MuscleMapPanel";
 
 // ════════════════════════════════════════════════════════════
 // LABELS
@@ -895,6 +896,14 @@ export default function SchedaDetailPage({
                 </CardContent>
               </Card>
             </Collapsible>
+          )}
+
+          {/* Muscle Map Panel — silhouette anatomica con muscoli illuminati live */}
+          {sessions.length > 0 && (
+            <MuscleMapPanel
+              sessions={sessions}
+              exerciseMap={exerciseMap}
+            />
           )}
 
           {/* Smart Analysis Panel — analisi copertura muscolare, volume, biomeccanica */}
