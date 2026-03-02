@@ -23,13 +23,15 @@ const COLORS_DARK = ["#3b82f6", "#60a5fa"] as const;  // blue-500, blue-400
 interface MuscleMapProps {
   muscoliPrimari: string[];
   muscoliSecondari: string[];
+  /** Terza categoria (intensity 3) — es. muscoli in deficit nel builder */
+  muscoliTerziari?: string[];
   /** Sovrascrive la scala responsive (default: 0.65 desktop / 0.5 mobile) */
   scale?: number;
-  /** Sovrascrive i colori tema [primario, secondario] */
-  colors?: readonly [string, string];
+  /** Sovrascrive i colori tema — array generico: [intensity1, intensity2, intensity3?] */
+  colors?: string[];
 }
 
-export function MuscleMap({ muscoliPrimari, muscoliSecondari, scale: scaleProp, colors: colorsProp }: MuscleMapProps) {
+export function MuscleMap({ muscoliPrimari, muscoliSecondari, muscoliTerziari, scale: scaleProp, colors: colorsProp }: MuscleMapProps) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
 
@@ -47,18 +49,19 @@ export function MuscleMap({ muscoliPrimari, muscoliSecondari, scale: scaleProp, 
   const defaultFill = isDark ? "#3f3f46" : "#e5e7eb"; // zinc-700 / zinc-200
   const colors = colorsProp ? [...colorsProp] : (isDark ? [...COLORS_DARK] : [...COLORS_LIGHT]);
 
-  // Build data per vista — primari first (intensity 1), secondari dopo (intensity 2)
-  // seen set in buildBodyData previene duplicati: se un muscolo e' primario, non viene
-  // sovrascritto dalla versione secondaria
+  // Build data per vista — intensity 1 → primari, 2 → secondari, 3 → terziari
+  // Ordine: 1 prima degli altri → la priorità è mantenuta (seen set in buildBodyData)
   const frontData = useMemo(() => [
     ...buildBodyData(muscoliPrimari, 1, FRONT_SLUGS),
     ...buildBodyData(muscoliSecondari, 2, FRONT_SLUGS),
-  ], [muscoliPrimari, muscoliSecondari]);
+    ...(muscoliTerziari ? buildBodyData(muscoliTerziari, 3, FRONT_SLUGS) : []),
+  ], [muscoliPrimari, muscoliSecondari, muscoliTerziari]);
 
   const backData = useMemo(() => [
     ...buildBodyData(muscoliPrimari, 1, BACK_SLUGS),
     ...buildBodyData(muscoliSecondari, 2, BACK_SLUGS),
-  ], [muscoliPrimari, muscoliSecondari]);
+    ...(muscoliTerziari ? buildBodyData(muscoliTerziari, 3, BACK_SLUGS) : []),
+  ], [muscoliPrimari, muscoliSecondari, muscoliTerziari]);
 
   return (
     <div className="flex items-start justify-center gap-3 sm:gap-5">

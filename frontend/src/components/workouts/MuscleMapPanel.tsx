@@ -39,9 +39,10 @@ import type { Exercise } from "@/types/api";
 const TEAL_COLORS_LIGHT = ["#0d9488", "#99f6e4"] as const;
 const TEAL_COLORS_DARK  = ["#2dd4bf", "#0f766e"] as const;
 
-// ── Palette status-aware — allineata a SmartAnalysisPanel (emerald + amber)
-const STATUS_COLORS_LIGHT = ["#10b981", "#f59e0b"] as const; // emerald-500, amber-500
-const STATUS_COLORS_DARK  = ["#34d399", "#fbbf24"] as const; // emerald-400, amber-400
+// ── Palette status-aware — allineata a SmartAnalysisPanel (emerald / amber / red)
+// Stessa semantica delle barre: ottimale → emerald, eccesso → amber, deficit → red
+const STATUS_COLORS_LIGHT = ["#10b981", "#f59e0b", "#ef4444"]; // emerald-500, amber-500, red-500
+const STATUS_COLORS_DARK  = ["#34d399", "#fbbf24", "#f87171"]; // emerald-400, amber-400, red-400
 
 const TOTAL_GROUPS = Object.keys(MUSCLE_SLUG_MAP).length; // 14
 const VALID_LEVELS: FitnessLevel[] = ["beginner", "intermedio", "avanzato"];
@@ -107,25 +108,29 @@ export function MuscleMapPanel({
     }
   }, [sessions, exerciseMap, livello, sessioniPerSettimana]);
 
-  // ── Status mode: muscoli per stato NSCA (emerald / amber)
-  const { muscoliOttimali, muscoliDaAggiustare } = useMemo(() => {
-    if (!coverage) return { muscoliOttimali: [] as string[], muscoliDaAggiustare: [] as string[] };
+  // ── Status mode: muscoli separati per i 3 stati NSCA
+  // Allineati 1:1 con SmartAnalysisPanel: emerald=ottimale / amber=eccesso / red=deficit
+  const { muscoliOttimali, muscoliEccesso, muscoliDeficit } = useMemo(() => {
+    if (!coverage) return {
+      muscoliOttimali: [] as string[],
+      muscoliEccesso:  [] as string[],
+      muscoliDeficit:  [] as string[],
+    };
 
     const ottimali: string[] = [];
-    const daAggiustare: string[] = [];
+    const eccesso:  string[] = [];
+    const deficit:  string[] = [];
 
     for (const cov of coverage) {
-      if (cov.setsPerWeek === 0) continue; // non allenato → defaultFill
+      if (cov.setsPerWeek === 0) continue; // non allenato → defaultFill (grigio)
       const slugKey = SMART_TO_SLUG_MAP[cov.muscolo];
       if (!slugKey) continue;
-      if (cov.status === "optimal") {
-        ottimali.push(slugKey);
-      } else {
-        daAggiustare.push(slugKey); // "excess" o "deficit" → entrambi richiedono attenzione
-      }
+      if (cov.status === "optimal") ottimali.push(slugKey);
+      else if (cov.status === "excess") eccesso.push(slugKey);
+      else deficit.push(slugKey); // "deficit"
     }
 
-    return { muscoliOttimali: ottimali, muscoliDaAggiustare: daAggiustare };
+    return { muscoliOttimali: ottimali, muscoliEccesso: eccesso, muscoliDeficit: deficit };
   }, [coverage]);
 
   // ── Fallback teal: aggrega primari/secondari dagli esercizi (senza info di volume)
@@ -150,13 +155,14 @@ export function MuscleMapPanel({
 
   // ── Dati effettivi per MuscleMap (status mode o fallback)
   const isStatusMode = coverage !== null;
-  const displayPrimary   = isStatusMode ? muscoliOttimali    : muscoliPrimari;
-  const displaySecondary = isStatusMode ? muscoliDaAggiustare : muscoliSecondari;
-  const mapColors = isStatusMode
+  const displayPrimary   = isStatusMode ? muscoliOttimali : muscoliPrimari;
+  const displaySecondary = isStatusMode ? muscoliEccesso  : muscoliSecondari;
+  const displayTertiary  = isStatusMode ? muscoliDeficit  : undefined;
+  const mapColors: string[] = isStatusMode
     ? (isDark ? STATUS_COLORS_DARK : STATUS_COLORS_LIGHT)
-    : (isDark ? TEAL_COLORS_DARK   : TEAL_COLORS_LIGHT);
+    : (isDark ? [...TEAL_COLORS_DARK] : [...TEAL_COLORS_LIGHT]); // spread → string[] da readonly tuple
 
-  const hasData = displayPrimary.length > 0 || displaySecondary.length > 0;
+  const hasData = displayPrimary.length > 0 || displaySecondary.length > 0 || (displayTertiary?.length ?? 0) > 0;
 
   // ── KPI per badge e bordo
   const activeGroups = isStatusMode
@@ -221,15 +227,21 @@ export function MuscleMapPanel({
             {hasData ? (
               <div className="pt-1">
                 {/* Legenda */}
-                <div className="mb-3 flex items-center gap-4 text-[11px] text-muted-foreground">
+                <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-muted-foreground">
                   <span className="flex items-center gap-1.5">
                     <span className={`inline-block h-2.5 w-2.5 rounded-full ${isStatusMode ? "bg-emerald-500" : "bg-teal-500"}`} />
                     {isStatusMode ? "Ottimale" : "Primari"}
                   </span>
                   <span className="flex items-center gap-1.5">
                     <span className={`inline-block h-2.5 w-2.5 rounded-full ${isStatusMode ? "bg-amber-400 dark:bg-amber-500" : "bg-teal-200 dark:bg-teal-700"}`} />
-                    {isStatusMode ? "Da aggiustare" : "Secondari"}
+                    {isStatusMode ? "Eccesso" : "Secondari"}
                   </span>
+                  {isStatusMode && (
+                    <span className="flex items-center gap-1.5">
+                      <span className="inline-block h-2.5 w-2.5 rounded-full bg-red-400 dark:bg-red-500" />
+                      Deficit
+                    </span>
+                  )}
                   <span className="flex items-center gap-1.5">
                     <span className="inline-block h-2.5 w-2.5 rounded-full bg-zinc-200 dark:bg-zinc-700" />
                     Non allenato
@@ -241,6 +253,7 @@ export function MuscleMapPanel({
                   <MuscleMap
                     muscoliPrimari={displayPrimary}
                     muscoliSecondari={displaySecondary}
+                    muscoliTerziari={displayTertiary}
                     scale={0.5}
                     colors={mapColors}
                   />
