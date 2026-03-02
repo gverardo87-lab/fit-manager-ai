@@ -503,18 +503,66 @@ function FilterBar({
 
 // ── Skeleton per KPI + tabella ──
 
+const KPI_BORDERS_CONTRATTI = [
+  "border-l-blue-500",
+  "border-l-emerald-500",
+  "border-l-amber-500",
+  "border-l-violet-500",
+] as const;
+
 function TableSkeleton() {
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      {/* KPI cards */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-20 w-full rounded-xl" />
+        {KPI_BORDERS_CONTRATTI.map((border, i) => (
+          <div key={i} className={`flex items-start gap-3 rounded-xl border border-l-4 ${border} p-3 sm:p-4`}>
+            <Skeleton className="h-8 w-8 shrink-0 rounded-lg sm:h-10 sm:w-10" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-2.5 w-16" />
+              <Skeleton className="h-5 w-20" />
+              <Skeleton className="h-2 w-12" />
+            </div>
+          </div>
         ))}
       </div>
-      <Skeleton className="h-10 w-full" />
-      {Array.from({ length: 5 }).map((_, i) => (
-        <Skeleton key={i} className="h-14 w-full" />
-      ))}
+
+      {/* FilterBar — select + search */}
+      <div className="rounded-xl border p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Skeleton className="h-9 w-40 rounded-md" />
+          <Skeleton className="h-9 w-36 rounded-md" />
+          <Skeleton className="ml-auto h-9 w-48 rounded-md" />
+        </div>
+      </div>
+
+      {/* Tabella */}
+      <div className="rounded-lg border">
+        <div className="flex items-center gap-4 border-b px-4 py-3">
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="hidden h-3 w-20 md:block" />
+          <Skeleton className="hidden h-3 w-16 sm:block" />
+          <Skeleton className="ml-auto h-3 w-10" />
+          <Skeleton className="h-3 w-12" />
+        </div>
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-4 border-b px-4 py-3.5 last:border-0">
+            {/* Cliente */}
+            <div className="space-y-1.5">
+              <Skeleton className="h-3.5 w-24" />
+              <Skeleton className="hidden h-3 w-20 opacity-60 sm:block" />
+            </div>
+            {/* Pacchetto */}
+            <Skeleton className="hidden h-5 w-20 rounded-full md:block" />
+            {/* Finanze */}
+            <Skeleton className="hidden h-2 w-24 rounded-full sm:block" />
+            {/* Rate badge */}
+            <Skeleton className="ml-auto h-5 w-16 rounded-full" />
+            {/* Azioni */}
+            <Skeleton className="h-7 w-7 rounded-md" />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

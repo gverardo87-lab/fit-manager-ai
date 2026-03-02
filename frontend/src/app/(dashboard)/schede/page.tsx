@@ -475,10 +475,42 @@ function KpiCard({
 
 function TableSkeleton() {
   return (
-    <div className="space-y-3">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <Skeleton key={i} className="h-12 w-full" />
-      ))}
+    <div className="space-y-4">
+      {/* FilterBar — select cliente + chip obiettivo/livello */}
+      <div className="rounded-xl border p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Skeleton className="h-9 w-44 rounded-md" />
+          <Skeleton className="h-9 w-32 rounded-md" />
+          <Skeleton className="h-9 w-28 rounded-md" />
+        </div>
+      </div>
+
+      {/* Tabella schede: Nome + Cliente + Obiettivo + Livello + Sessioni + Data */}
+      <div className="rounded-lg border">
+        <div className="flex items-center gap-4 border-b px-4 py-3">
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="hidden h-3 w-16 sm:block" />
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="hidden h-3 w-14 md:block" />
+          <Skeleton className="ml-auto h-3 w-8" />
+        </div>
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-4 border-b px-4 py-3.5 last:border-0">
+            {/* Nome scheda */}
+            <Skeleton className="h-3.5 w-32" />
+            {/* Cliente badge */}
+            <Skeleton className="hidden h-5 w-24 rounded-full sm:block" />
+            {/* Obiettivo badge */}
+            <Skeleton className="h-5 w-20 rounded-full" />
+            {/* Livello badge */}
+            <Skeleton className="hidden h-5 w-16 rounded-full md:block" />
+            {/* Sessioni count */}
+            <Skeleton className="ml-auto hidden h-4 w-6 lg:block" />
+            {/* Azioni */}
+            <Skeleton className="h-7 w-7 rounded-md" />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

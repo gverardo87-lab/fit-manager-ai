@@ -705,12 +705,51 @@ function KpiCard({
 
 function TableSkeleton() {
   return (
-    <div className="space-y-3">
-      <Skeleton className="h-10 w-full" />
-      <Skeleton className="h-10 w-full" />
-      <Skeleton className="h-10 w-full" />
-      <Skeleton className="h-10 w-full" />
-      <Skeleton className="h-10 w-full" />
+    <div className="space-y-4">
+      {/* FilterBar — 2 righe: chip filtri + ricerca */}
+      <div className="rounded-xl border p-3 space-y-2">
+        <div className="flex flex-wrap gap-2">
+          {[72, 88, 64, 80, 68, 76, 60, 84].map((w, i) => (
+            <Skeleton key={i} className="h-7 rounded-full" style={{ width: w }} />
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {[68, 80, 72, 64, 76].map((w, i) => (
+            <Skeleton key={i} className="h-7 rounded-full" style={{ width: w }} />
+          ))}
+        </div>
+      </div>
+
+      {/* Search bar */}
+      <Skeleton className="h-10 w-full max-w-sm" />
+
+      {/* Tabella esercizi — immagine + nome + badge categoria + muscle chips */}
+      <div className="rounded-lg border">
+        <div className="flex items-center gap-4 border-b px-4 py-3">
+          <Skeleton className="h-3 w-8" />
+          <Skeleton className="h-3 w-20" />
+          <Skeleton className="hidden h-3 w-16 sm:block" />
+          <Skeleton className="hidden h-3 w-20 md:block" />
+          <Skeleton className="ml-auto h-3 w-12" />
+        </div>
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-4 border-b px-4 py-3 last:border-0">
+            {/* Thumbnail */}
+            <Skeleton className="h-10 w-10 shrink-0 rounded-md" />
+            {/* Nome */}
+            <div className="flex-1 space-y-1.5">
+              <Skeleton className="h-3.5 w-36" />
+              <Skeleton className="h-3 w-24 opacity-60" />
+            </div>
+            {/* Categoria */}
+            <Skeleton className="hidden h-5 w-16 rounded-full sm:block" />
+            {/* Muscolo */}
+            <Skeleton className="hidden h-5 w-20 rounded-full md:block" />
+            {/* Azioni */}
+            <Skeleton className="h-7 w-7 rounded-md" />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

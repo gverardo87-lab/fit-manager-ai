@@ -164,6 +164,12 @@
   }
 }
 
+/* ── Skeleton Shimmer ── */
+@keyframes shimmer {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100%);  }
+}
+
 /* ── Workout Preview: Print/PDF ── */
 @media print {
   [data-print-hide] { display: none !important; }
