@@ -107,6 +107,7 @@ export function GoalsSummary({ clientId, currentValues, sesso, dataNascita }: Go
   };
 
   const handleAbandon = (goalId: number) => {
+    if (!window.confirm("Vuoi davvero abbandonare questo obiettivo? Potrai riattivarlo in seguito.")) return;
     updateGoal.mutate({ goalId, payload: { stato: "abbandonato" } });
   };
 

@@ -203,15 +203,10 @@ export default function ContractDetailPage({
       {/* ── Dialog elimina (redirect dopo eliminazione) ── */}
       <DeleteContractDialog
         open={deleteOpen}
-        onOpenChange={(open) => {
-          setDeleteOpen(open);
-          if (!open && deleteOpen) {
-            // Se il dialog si chiude dopo aver confermato, torna alla lista
-            // (il contratto sara' gia' stato eliminato dalla mutation)
-          }
-        }}
+        onOpenChange={setDeleteOpen}
         contract={contract}
         clientName={clientName}
+        onDeleted={() => router.push(returnClientId ? `/clienti/${returnClientId}?tab=contratti` : "/contratti")}
       />
     </div>
   );

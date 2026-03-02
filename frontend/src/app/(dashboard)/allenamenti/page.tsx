@@ -691,12 +691,13 @@ function ComplianceGrid({
 function LoggedCell({ log, clientId }: { log: WorkoutLog; clientId: number }) {
   const deleteLog = useDeleteWorkoutLog(clientId);
   const [open, setOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const logDate = new Date(log.data_esecuzione + "T00:00:00");
   const dateStr = format(logDate, "dd MMM", { locale: it });
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) setConfirmDelete(false); }}>
       <PopoverTrigger asChild>
         <button className="flex flex-col items-center justify-center h-12 w-full rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/50 dark:border-emerald-800/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors">
           <Check className="h-4 w-4" />
@@ -713,19 +714,36 @@ function LoggedCell({ log, clientId }: { log: WorkoutLog; clientId: number }) {
             <div className="text-muted-foreground italic border-l-2 border-muted pl-2">{log.note}</div>
           )}
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full text-xs text-destructive hover:text-destructive"
-          onClick={() => {
-            deleteLog.mutate(log.id);
-            setOpen(false);
-          }}
-          disabled={deleteLog.isPending}
-        >
-          <Trash2 className="mr-1.5 h-3 w-3" />
-          Rimuovi
-        </Button>
+        {!confirmDelete ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full text-xs text-destructive hover:text-destructive"
+            onClick={() => setConfirmDelete(true)}
+            disabled={deleteLog.isPending}
+          >
+            <Trash2 className="mr-1.5 h-3 w-3" />
+            Rimuovi
+          </Button>
+        ) : (
+          <div className="space-y-1.5">
+            <p className="text-xs text-muted-foreground text-center">Confermi la rimozione?</p>
+            <div className="flex gap-1.5">
+              <Button variant="outline" size="sm" className="h-7 flex-1 text-xs" onClick={() => setConfirmDelete(false)}>
+                Annulla
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                className="h-7 flex-1 text-xs"
+                onClick={() => { deleteLog.mutate(log.id); setOpen(false); }}
+                disabled={deleteLog.isPending}
+              >
+                Conferma
+              </Button>
+            </div>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );

@@ -28,6 +28,7 @@ interface DeleteContractDialogProps {
   onOpenChange: (open: boolean) => void;
   contract: Contract | null;
   clientName?: string;
+  onDeleted?: () => void;
 }
 
 export function DeleteContractDialog({
@@ -35,6 +36,7 @@ export function DeleteContractDialog({
   onOpenChange,
   contract,
   clientName,
+  onDeleted,
 }: DeleteContractDialogProps) {
   const deleteMutation = useDeleteContract();
 
@@ -42,7 +44,7 @@ export function DeleteContractDialog({
 
   const handleConfirm = () => {
     deleteMutation.mutate(contract.id, {
-      onSuccess: () => onOpenChange(false),
+      onSuccess: () => { onOpenChange(false); onDeleted?.(); },
     });
   };
 

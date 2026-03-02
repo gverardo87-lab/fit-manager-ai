@@ -248,6 +248,7 @@ function PanoramicaTab({ client }: { client: { data_nascita: string | null; sess
 // ════════════════════════════════════════════════════════════
 
 function ContrattiTab({ clientId }: { clientId: number }) {
+  const router = useRouter();
   const { data, isLoading } = useClientContracts(clientId);
 
   if (isLoading) return <TabSkeleton />;
@@ -274,7 +275,7 @@ function ContrattiTab({ clientId }: { clientId: number }) {
             const prezzo = c.prezzo_totale ?? 0;
             const ratio = prezzo > 0 ? c.totale_versato / prezzo : 0;
             return (
-              <TableRow key={c.id}>
+              <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => router.push(`/contratti/${c.id}?from=clienti-${clientId}`)}>
                 <TableCell className="font-medium">{c.tipo_pacchetto ?? "—"}</TableCell>
                 <TableCell>
                   {prezzo > 0 ? (
