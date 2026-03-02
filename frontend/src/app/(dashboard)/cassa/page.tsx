@@ -65,6 +65,7 @@ import { ForecastTab } from "@/components/movements/ForecastTab";
 import { useMovements, useMovementStats, usePendingExpenses, useCashBalance } from "@/hooks/useMovements";
 import type { CashMovement } from "@/types/api";
 import { formatCurrency } from "@/lib/format";
+import { AnimatedNumber } from "@/components/ui/animated-number";
 
 // ── Costanti ──
 
@@ -361,11 +362,13 @@ function SaldoHeroCard({
             <p className="text-[11px] font-semibold tracking-widest text-muted-foreground/70 uppercase">
               Saldo di Cassa
             </p>
-            <p className={`text-3xl font-extrabold tracking-tighter tabular-nums sm:text-4xl ${
-              isPositive ? "text-teal-700 dark:text-teal-400" : "text-red-700 dark:text-red-400"
-            }`}>
-              {formatCurrency(saldoAttuale)}
-            </p>
+            <AnimatedNumber
+              value={saldoAttuale}
+              format="currency"
+              className={`text-3xl font-extrabold tracking-tighter tabular-nums sm:text-4xl ${
+                isPositive ? "text-teal-700 dark:text-teal-400" : "text-red-700 dark:text-red-400"
+              }`}
+            />
           </div>
         </div>
 
@@ -373,23 +376,28 @@ function SaldoHeroCard({
         <div className="flex gap-6 sm:gap-8">
           <div className="text-center">
             <p className="text-[10px] font-medium text-muted-foreground/60 uppercase">Inizio Mese</p>
-            <p className="text-base font-bold tabular-nums text-zinc-700 dark:text-zinc-300">
-              {formatCurrency(saldoInizioMese)}
-            </p>
+            <AnimatedNumber
+              value={saldoInizioMese}
+              format="currency"
+              className="text-base font-bold tabular-nums text-zinc-700 dark:text-zinc-300"
+            />
           </div>
           <div className="text-center">
             <p className="text-[10px] font-medium text-muted-foreground/60 uppercase">Margine</p>
             <p className={`text-base font-bold tabular-nums ${
               margineMese >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
             }`}>
-              {margineMese >= 0 ? "+" : ""}{formatCurrency(margineMese)}
+              {margineMese >= 0 ? "+" : ""}
+              <AnimatedNumber value={margineMese} format="currency" />
             </p>
           </div>
           <div className="text-center">
             <p className="text-[10px] font-medium text-muted-foreground/60 uppercase">Fine Mese</p>
-            <p className="text-base font-bold tabular-nums text-zinc-700 dark:text-zinc-300">
-              {formatCurrency(saldoFineMese)}
-            </p>
+            <AnimatedNumber
+              value={saldoFineMese}
+              format="currency"
+              className="text-base font-bold tabular-nums text-zinc-700 dark:text-zinc-300"
+            />
           </div>
         </div>
       </div>
@@ -507,9 +515,11 @@ function KpiCards({
               <p className="text-[10px] font-semibold tracking-widest text-muted-foreground/70 uppercase sm:text-[11px]">
                 {kpi.label}
               </p>
-              <p className={`text-xl font-extrabold tracking-tighter tabular-nums sm:text-3xl ${valueColor}`}>
-                {formatCurrency(stats[kpi.key])}
-              </p>
+              <AnimatedNumber
+                value={stats[kpi.key]}
+                format="currency"
+                className={`text-xl font-extrabold tracking-tighter tabular-nums sm:text-3xl ${valueColor}`}
+              />
               <p className="text-[10px] font-medium text-muted-foreground/60">questo mese</p>
             </div>
           </div>

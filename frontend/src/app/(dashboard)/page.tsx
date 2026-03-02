@@ -48,6 +48,7 @@ import { useMovementStats } from "@/hooks/useMovements";
 import { useAgingReport } from "@/hooks/useRates";
 import { useEvents, type EventHydrated } from "@/hooks/useAgenda";
 import { formatCurrency } from "@/lib/format";
+import { AnimatedNumber } from "@/components/ui/animated-number";
 import { GhostEventsSheet } from "@/components/dashboard/GhostEventsSheet";
 import { OverdueRatesSheet } from "@/components/dashboard/OverdueRatesSheet";
 import { ExpiringContractsSheet } from "@/components/dashboard/ExpiringContractsSheet";
@@ -322,9 +323,11 @@ function KpiCards({ summary, stats }: { summary: DashboardSummary; stats: Moveme
               <p className="text-[10px] font-semibold tracking-widest text-muted-foreground/70 uppercase sm:text-[11px]">
                 {kpi.label}
               </p>
-              <p className={`text-xl font-extrabold tracking-tighter tabular-nums sm:text-3xl ${kpi.valueColor}`}>
-                {kpi.format === "currency" ? formatCurrency(kpi.value) : kpi.value}
-              </p>
+              <AnimatedNumber
+                value={kpi.value}
+                format={kpi.format}
+                className={`text-xl font-extrabold tracking-tighter tabular-nums sm:text-3xl ${kpi.valueColor}`}
+              />
               <p className="text-[10px] font-medium text-muted-foreground/60">{kpi.subtitle}</p>
             </div>
           </div>
