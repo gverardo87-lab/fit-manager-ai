@@ -95,7 +95,7 @@ export default function DashboardLayout({
   return (
     <AuthGuard>
     <CommandPalette />
-    <div className="flex h-screen bg-zinc-50 dark:bg-zinc-950">
+    <div className="bg-mesh-app flex h-screen">
       {/* ── Sidebar desktop (fissa, visibile da lg in su) ── */}
       <aside className="hidden lg:flex lg:w-64 lg:flex-col lg:border-r lg:bg-white dark:lg:bg-zinc-900">
         <Sidebar />

@@ -96,8 +96,12 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-zinc-50 to-zinc-100 px-4 dark:from-zinc-950 dark:to-zinc-900">
-      <Card className="w-full max-w-sm shadow-lg sm:max-w-md">
+    <div className="bg-mesh-login relative flex min-h-screen items-center justify-center overflow-hidden px-4">
+      {/* Blob decorativi — profondità visiva, zero impatto layout */}
+      <div className="pointer-events-none absolute -left-20 -top-20 h-80 w-80 rounded-full bg-primary/8 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-20 -right-20 h-80 w-80 rounded-full bg-primary/6 blur-3xl" />
+
+      <Card className="relative w-full max-w-sm shadow-lg sm:max-w-md">
         <CardHeader className="space-y-3 text-center">
           {/* Logo / Icona */}
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10">

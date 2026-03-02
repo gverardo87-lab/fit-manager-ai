@@ -170,6 +170,48 @@
   to   { transform: translateX(100%);  }
 }
 
+/* ── Gradient Mesh ── */
+
+/* 4-stop gradient che respira lentamente — usato dalla login page */
+@keyframes mesh-float {
+  0%, 100% { background-position: 0% 50%;   }
+  50%       { background-position: 100% 50%; }
+}
+
+/* Login: flowing teal gradient (toni quasi-bianchi con sfumature diverse) */
+.bg-mesh-login {
+  background: linear-gradient(-45deg,
+    oklch(0.970 0.025 170),
+    oklch(0.990 0.005 200),
+    oklch(0.975 0.020 160),
+    oklch(0.985 0.015 185)
+  );
+  background-size: 400% 400%;
+  animation: mesh-float 10s ease infinite;
+}
+.dark .bg-mesh-login {
+  background: linear-gradient(-45deg,
+    oklch(0.160 0.025 170),
+    oklch(0.140 0.008 200),
+    oklch(0.170 0.020 160),
+    oklch(0.150 0.020 185)
+  );
+  background-size: 400% 400%;
+  animation: mesh-float 10s ease infinite;
+}
+
+/* Dashboard layout: radial glow teal dall'angolo in alto a sinistra */
+.bg-mesh-app {
+  background-image:
+    radial-gradient(ellipse 70% 50% at 0% 0%, oklch(0.93 0.04 170 / 0.22) 0%, transparent 65%);
+  background-color: oklch(0.985 0.003 180);
+}
+.dark .bg-mesh-app {
+  background-image:
+    radial-gradient(ellipse 70% 50% at 0% 0%, oklch(0.28 0.05 170 / 0.30) 0%, transparent 65%);
+  background-color: oklch(0.15 0.01 200);
+}
+
 /* ── Workout Preview: Print/PDF ── */
 @media print {
   [data-print-hide] { display: none !important; }
