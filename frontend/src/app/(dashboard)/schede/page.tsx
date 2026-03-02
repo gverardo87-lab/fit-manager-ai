@@ -13,7 +13,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { loadFilters, saveFilters, isBackNavigation, getUrlParams, syncUrlParams } from "@/lib/url-state";
+import { loadFilters, saveFilters, getUrlParams, syncUrlParams } from "@/lib/url-state";
 import {
   Plus,
   ClipboardList,
@@ -100,15 +100,13 @@ export default function SchedePage() {
   const router = useRouter();
 
   const [filters, setFilters] = useState<WorkoutFilters>(() => {
-    if (isBackNavigation()) {
-      const saved = loadFilters("schede");
-      if (saved) {
-        const init: WorkoutFilters = {};
-        if (saved.obiettivo) init.obiettivo = saved.obiettivo as string;
-        if (saved.livello) init.livello = saved.livello as string;
-        if (saved.id_cliente) init.id_cliente = saved.id_cliente as number;
-        return init;
-      }
+    const saved = loadFilters("schede");
+    if (saved) {
+      const init: WorkoutFilters = {};
+      if (saved.obiettivo) init.obiettivo = saved.obiettivo as string;
+      if (saved.livello) init.livello = saved.livello as string;
+      if (saved.id_cliente) init.id_cliente = saved.id_cliente as number;
+      if (Object.keys(init).length > 0) return init;
     }
     const init: WorkoutFilters = {};
     const p = getUrlParams();

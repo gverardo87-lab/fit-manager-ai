@@ -28,6 +28,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import { getStoredTrainer, logout } from "@/lib/auth";
+import { clearPageState } from "@/lib/url-state";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -90,12 +91,21 @@ function NavItem({
   const isActive =
     item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
 
+  const handleClick = () => {
+    // Cancella filtri e scroll salvati per la pagina target →
+    // la pagina partirà da zero (fresh navigation).
+    // Su back-nav (browser back) questo onClick NON scatta →
+    // filtri e scroll vengono ripristinati da sessionStorage.
+    clearPageState(item.href);
+    onNavigate?.();
+  };
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <Link
           href={item.href}
-          onClick={onNavigate}
+          onClick={handleClick}
           className={cn(
             "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
             isActive

@@ -15,7 +15,7 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
-import { loadFilters, saveFilters, isBackNavigation, getUrlParams, syncUrlParams } from "@/lib/url-state";
+import { loadFilters, saveFilters, getUrlParams, syncUrlParams } from "@/lib/url-state";
 import {
   Plus,
   Users,
@@ -144,21 +144,19 @@ export default function ClientiPage() {
     }
   }, []);
 
-  // Filter state (back-nav = ripristina da sessionStorage, fresh = default)
+  // Filter state (sessionStorage → URL → default)
+  // Sidebar onClick cancella sessionStorage → fresh nav = default.
+  // Back-nav: sessionStorage intatto → filtri ripristinati.
   const [activeStati, setActiveStati] = useState<Set<string>>(() => {
-    if (isBackNavigation()) {
-      const saved = loadFilters("clienti");
-      if (saved?.stato) return new Set(saved.stato as string[]);
-    }
+    const saved = loadFilters("clienti");
+    if (saved?.stato) return new Set(saved.stato as string[]);
     const param = getUrlParams().get("stato");
     if (param) return new Set(param.split(","));
     return new Set(STATO_CHIPS.map((c) => c.key));
   });
   const [activeSituazioni, setActiveSituazioni] = useState<Set<string>>(() => {
-    if (isBackNavigation()) {
-      const saved = loadFilters("clienti");
-      if (saved?.situazione) return new Set(saved.situazione as string[]);
-    }
+    const saved = loadFilters("clienti");
+    if (saved?.situazione) return new Set(saved.situazione as string[]);
     const param = getUrlParams().get("situazione");
     if (param) return new Set(param.split(","));
     return new Set(SITUAZIONE_CHIPS.map((c) => c.key));

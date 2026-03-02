@@ -2,18 +2,27 @@
 /**
  * Utility per persistere lo stato dei filtri attraverso la navigazione.
  *
- * Problema: Next.js 14.1+ intercetta pushState/replaceState e potrebbe
- * normalizzare l'URL durante la back-navigation, perdendo i search params.
- * Né `useSearchParams()` né `window.location.search` sono affidabili al
- * momento del mount del componente dopo un browser-back.
- *
- * Soluzione: **sessionStorage come fonte primaria** per il restore dei filtri.
- * L'URL viene aggiornato per feedback visivo ma non è la fonte di verità.
+ * Strategia:
+ * - sessionStorage salva filtri e scroll per ogni pagina
+ * - La Sidebar cancella lo stato salvato onClick → navigazione fresca = default
+ * - Back-nav (browser back) NON passa dalla Sidebar → stato ancora presente → ripristinato
+ * - L'URL viene aggiornato per feedback visivo ma non è la fonte di verità
  *
  * Pattern per ogni pagina:
- *   INIT:  loadFilters("esercizi") ?? parseFromUrl()
+ *   INIT:  loadFilters("esercizi") ?? parseFromUrl() ?? default
  *   WRITE: saveFilters("esercizi", state) + syncUrlParams(pathname, params)
  */
+
+// ── Pagine con filtri (usato dalla Sidebar per sapere cosa cancellare) ──
+
+const FILTER_PAGE_KEYS: Record<string, string> = {
+  "/clienti": "clienti",
+  "/contratti": "contratti",
+  "/cassa": "cassa",
+  "/esercizi": "esercizi",
+  "/schede": "schede",
+  "/allenamenti": "allenamenti",
+};
 
 // ── SessionStorage (fonte primaria) ──
 
@@ -45,20 +54,21 @@ export function loadFilters(
   }
 }
 
-// ── Back-navigation flag ──
+// ── Clear state (chiamato dalla Sidebar onClick) ──
 
 /**
- * Ritorna true se la navigazione corrente è un back/forward (popstate).
- * Usato dalle pagine per decidere se ripristinare filtri da sessionStorage.
- * Il flag viene impostato dal layout.tsx nel popstate handler.
+ * Cancella filtri e scroll salvati per una pagina.
+ * Chiamato dalla Sidebar prima della navigazione → la pagina partirà da zero.
+ * Accetta l'href della Sidebar (es. "/esercizi").
  */
-export function isBackNavigation(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    return sessionStorage.getItem("nav:back") === "1";
-  } catch {
-    return false;
+export function clearPageState(href: string): void {
+  if (typeof window === "undefined") return;
+  const pageKey = FILTER_PAGE_KEYS[href];
+  if (pageKey) {
+    sessionStorage.removeItem(`filters:${pageKey}`);
   }
+  // Cancella anche lo scroll salvato per questa rotta
+  sessionStorage.removeItem(`scroll:${href}`);
 }
 
 // ── URL (feedback visivo) ──

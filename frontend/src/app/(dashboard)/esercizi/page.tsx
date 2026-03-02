@@ -17,7 +17,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { loadFilters, saveFilters, isBackNavigation, getUrlParams, syncUrlParams } from "@/lib/url-state";
+import { loadFilters, saveFilters, getUrlParams, syncUrlParams } from "@/lib/url-state";
 import {
   Plus,
   Dumbbell,
@@ -121,10 +121,9 @@ export default function EserciziPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
 
-  // ── Filter state (back-nav = ripristina da sessionStorage, fresh = default) ──
+  // ── Filter state (sessionStorage → URL → default) ──
   const _urlParams = getUrlParams();
-  const _backNav = isBackNavigation();
-  const _savedFilters = _backNav ? loadFilters("esercizi") : null;
+  const _savedFilters = loadFilters("esercizi");
 
   const [activeCategories, setActiveCategories] = useState<Set<string>>(() => {
     if (_savedFilters?.cat) return new Set(_savedFilters.cat as string[]);

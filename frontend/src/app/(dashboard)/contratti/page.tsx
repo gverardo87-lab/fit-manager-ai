@@ -34,7 +34,7 @@ import { ContractSheet } from "@/components/contracts/ContractSheet";
 import { DeleteContractDialog } from "@/components/contracts/DeleteContractDialog";
 import { useContracts } from "@/hooks/useContracts";
 import { formatCurrency } from "@/lib/format";
-import { loadFilters, saveFilters, isBackNavigation, getUrlParams, syncUrlParams } from "@/lib/url-state";
+import { loadFilters, saveFilters, getUrlParams, syncUrlParams } from "@/lib/url-state";
 import type { ContractListItem, ContractListResponse } from "@/types/api";
 
 // ── KPI Config (pattern CLIENTI_KPI) ──
@@ -171,21 +171,17 @@ export default function ContrattiPage() {
     }
   }, []);
 
-  // Filter state (back-nav = ripristina da sessionStorage, fresh = default)
+  // Filter state (sessionStorage → URL → default)
   const [activeStati, setActiveStati] = useState<Set<string>>(() => {
-    if (isBackNavigation()) {
-      const saved = loadFilters("contratti");
-      if (saved?.stato) return new Set(saved.stato as string[]);
-    }
+    const saved = loadFilters("contratti");
+    if (saved?.stato) return new Set(saved.stato as string[]);
     const param = getUrlParams().get("stato");
     if (param) return new Set(param.split(","));
     return new Set(STATO_CHIPS.map((c) => c.key));
   });
   const [activeSituazioni, setActiveSituazioni] = useState<Set<string>>(() => {
-    if (isBackNavigation()) {
-      const saved = loadFilters("contratti");
-      if (saved?.situazione) return new Set(saved.situazione as string[]);
-    }
+    const saved = loadFilters("contratti");
+    if (saved?.situazione) return new Set(saved.situazione as string[]);
     const param = getUrlParams().get("situazione");
     if (param) return new Set(param.split(","));
     return new Set(SITUAZIONE_CHIPS.map((c) => c.key));

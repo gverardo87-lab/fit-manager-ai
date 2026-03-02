@@ -13,7 +13,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { loadFilters, saveFilters, isBackNavigation, getUrlParams, syncUrlParams } from "@/lib/url-state";
+import { loadFilters, saveFilters, getUrlParams, syncUrlParams } from "@/lib/url-state";
 import {
   Plus,
   Landmark,
@@ -110,28 +110,22 @@ const chartConfig: ChartConfig = {
 export default function CassaPage() {
   const now = new Date();
 
-  // Filter state (back-nav = ripristina da sessionStorage, fresh = default)
+  // Filter state (sessionStorage → URL → default)
   const [mese, setMese] = useState(() => {
-    if (isBackNavigation()) {
-      const saved = loadFilters("cassa");
-      if (saved?.mese != null) return saved.mese as number;
-    }
+    const saved = loadFilters("cassa");
+    if (saved?.mese != null) return saved.mese as number;
     const m = getUrlParams().get("mese");
     return m ? parseInt(m, 10) : now.getMonth() + 1;
   });
   const [anno, setAnno] = useState(() => {
-    if (isBackNavigation()) {
-      const saved = loadFilters("cassa");
-      if (saved?.anno != null) return saved.anno as number;
-    }
+    const saved = loadFilters("cassa");
+    if (saved?.anno != null) return saved.anno as number;
     const a = getUrlParams().get("anno");
     return a ? parseInt(a, 10) : now.getFullYear();
   });
   const [activeTab, setActiveTab] = useState(() => {
-    if (isBackNavigation()) {
-      const saved = loadFilters("cassa");
-      if (saved?.tab) return saved.tab as string;
-    }
+    const saved = loadFilters("cassa");
+    if (saved?.tab) return saved.tab as string;
     return getUrlParams().get("tab") ?? "ledger";
   });
 

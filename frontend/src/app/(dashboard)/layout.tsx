@@ -8,6 +8,11 @@
  * Mobile (<lg): header con hamburger menu che apre la Sidebar in un Sheet.
  *
  * Questo layout NON appare nell'URL grazie al Route Group (dashboard).
+ *
+ * Scroll restoration: <main> è lo scroll container (h-screen constraint).
+ * Lo scroll viene salvato continuamente in sessionStorage e ripristinato
+ * al cambio pathname SE esiste un valore salvato (altrimenti scroll to top).
+ * La Sidebar cancella il valore salvato onClick → fresh nav = top.
  */
 
 import { useState, useRef, useEffect } from "react";
@@ -33,21 +38,10 @@ export default function DashboardLayout({
   const [mobileOpen, setMobileOpen] = useState(false);
   const mainRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
-  const isPopRef = useRef(false);
   const prevPathnameRef = useRef(pathname);
   const scrollTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  // Track back/forward navigation via popstate + set sessionStorage flag for pages
-  useEffect(() => {
-    const handler = () => {
-      isPopRef.current = true;
-      try { sessionStorage.setItem("nav:back", "1"); } catch { /* ignore */ }
-    };
-    window.addEventListener("popstate", handler);
-    return () => window.removeEventListener("popstate", handler);
-  }, []);
-
-  // Continuously save scroll position via scroll event (always up-to-date for back-nav)
+  // ── Hook 1: Continuously save scroll position via scroll event ──
   useEffect(() => {
     const main = mainRef.current;
     if (!main) return;
@@ -68,8 +62,10 @@ export default function DashboardLayout({
     };
   }, [pathname]);
 
-  // Restore scroll on back-nav, reset on forward-nav
-  // prevPathnameRef guard prevents React Strict Mode double-invocation from scrolling to 0
+  // ── Hook 2: Restore scroll from sessionStorage or reset to top ──
+  // Sidebar onClick clears saved scroll → fresh nav = top.
+  // Back-nav or detail→list nav: saved scroll still present → restored.
+  // prevPathnameRef guard prevents React Strict Mode double-invocation.
   useEffect(() => {
     const main = mainRef.current;
     if (!main) return;
@@ -82,22 +78,16 @@ export default function DashboardLayout({
     scrollTimersRef.current.forEach(clearTimeout);
     scrollTimersRef.current = [];
 
-    if (isPopRef.current) {
-      isPopRef.current = false;
-      // Back/forward navigation → restore saved position with retries
-      const saved = sessionStorage.getItem(`scroll:${pathname}`);
-      if (saved) {
-        const target = parseInt(saved, 10);
-        const tryRestore = () => { main.scrollTop = target; };
-        // Multiple retries at increasing intervals (waits for React Query async data)
-        [0, 50, 100, 250, 500, 1000, 2000].forEach(delay => {
-          scrollTimersRef.current.push(setTimeout(tryRestore, delay));
-        });
-      }
-      // Clear nav:back flag (pages have already read it in their useState init)
-      try { sessionStorage.removeItem("nav:back"); } catch { /* ignore */ }
+    const saved = sessionStorage.getItem(`scroll:${pathname}`);
+    if (saved) {
+      const target = parseInt(saved, 10);
+      const tryRestore = () => { main.scrollTop = target; };
+      // Multiple retries at increasing intervals (waits for React Query async data)
+      [0, 50, 100, 250, 500, 1000, 2000].forEach(delay => {
+        scrollTimersRef.current.push(setTimeout(tryRestore, delay));
+      });
     } else {
-      // Forward navigation → scroll to top
+      // No saved position (cleared by Sidebar or first visit) → top
       main.scrollTop = 0;
     }
   }, [pathname]);
@@ -105,16 +95,16 @@ export default function DashboardLayout({
   return (
     <AuthGuard>
     <CommandPalette />
-    <div className="flex min-h-screen bg-zinc-50 dark:bg-zinc-950">
+    <div className="flex h-screen bg-zinc-50 dark:bg-zinc-950">
       {/* ── Sidebar desktop (fissa, visibile da lg in su) ── */}
       <aside className="hidden lg:flex lg:w-64 lg:flex-col lg:border-r lg:bg-white dark:lg:bg-zinc-900">
         <Sidebar />
       </aside>
 
       {/* ── Contenuto principale ── */}
-      <div className="flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col overflow-hidden">
         {/* ── Header mobile (visibile sotto lg) ── */}
-        <header className="flex h-14 items-center gap-3 border-b bg-white px-4 lg:hidden dark:bg-zinc-900">
+        <header className="flex h-14 shrink-0 items-center gap-3 border-b bg-white px-4 lg:hidden dark:bg-zinc-900">
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon-sm">
