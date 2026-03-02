@@ -359,28 +359,39 @@ File chiave: `api/routers/movements.py` (_compute_saldo, _compute_saldo_before, 
 `frontend/src/app/(dashboard)/cassa/page.tsx` (SaldoHeroCard, ComposedChart),
 `frontend/src/components/movements/MovementsTable.tsx` (running balance column).
 
-### Navigation UX — Filtri Reset + Scroll Restoration + Cross-Link
+### Navigation UX — Filtri + Scroll + Cross-Link
 
-> **Filosofia: filtri sempre freschi.** Ogni navigazione parte dai default.
-> Deep-link URL (`?idCliente=X`, `?tab=forecast`) consumati one-shot.
-> URL per feedback visivo, non persistenza.
+> **Filosofia: Sidebar = fresh start, Back = ripristina.**
+> sessionStorage e' la fonte di verita'. L'URL e' solo feedback visivo.
+> La Sidebar cancella lo stato salvato onClick → pagina parte da zero.
+> Il browser back NON passa dalla Sidebar → stato intatto → ripristinato.
 
-**Filtri** — `lib/url-state.ts` utility (`getUrlParams`, `syncUrlParams`):
-- `getUrlParams()` → legge da `window.location.search` (deep-link / bookmark one-shot)
+**Architettura** — `lib/url-state.ts` (5 utility):
+- `saveFilters(pageKey, state)` → scrive in sessionStorage
+- `loadFilters(pageKey)` → legge da sessionStorage (null se vuoto)
+- `clearPageState(href)` → cancella `filters:` + `scroll:` per la pagina (chiamato da Sidebar onClick)
+- `getUrlParams()` → legge da `window.location.search` (fallback deep-link)
 - `syncUrlParams(pathname, params)` → scrive URL con `replaceState` (feedback visivo)
-- `saveFilters`/`loadFilters` disponibili ma NON usati (persistenza rimossa per evitare confusione)
+
+**Sidebar** (`Sidebar.tsx`): ogni `NavItem` chiama `clearPageState(item.href)` onClick prima della navigazione.
+Questo cancella filtri e scroll salvati → la pagina target parte da zero (default).
 
 **Pattern per ogni pagina con filtri** (6 pagine):
 ```typescript
-// 1. INIT: URL deep-link → default (NO sessionStorage)
+// 1. INIT: sessionStorage → URL → default
+// Sidebar ha cancellato sessionStorage → loadFilters ritorna null → default
+// Back-nav: sessionStorage intatto → loadFilters ritorna valori salvati → ripristinato
 const [filter, setFilter] = useState(() => {
+  const saved = loadFilters("pageKey");
+  if (saved?.field) return saved.field as Type;
   const param = getUrlParams().get("field");
   if (param) return parseParam(param);
   return defaultValue;
 });
 
-// 2. WRITE: ogni cambio → URL (solo feedback visivo)
+// 2. WRITE: ogni cambio → sessionStorage + URL
 useEffect(() => {
+  saveFilters("pageKey", { field: filter !== default ? filter : null });
   const params = new URLSearchParams();
   if (filter !== default) params.set("field", String(filter));
   syncUrlParams(window.location.pathname, params);
@@ -389,11 +400,12 @@ useEffect(() => {
 
 **Pagine**: esercizi (8 filtri), clienti (2), contratti (2), schede (3), cassa (3), allenamenti (2).
 
-**Scroll Restoration** (`layout.tsx`) — 3 hook:
-1. `popstate` → flag `isPopRef.current = true`
-2. Scroll event listener (debounced rAF) → salva `scroll:{pathname}` in sessionStorage continuamente
-3. Pathname change: se popstate → MutationObserver aspetta contenuto + height check + hard timeout 2s;
-   se forward → `scrollTop = 0`
+**Scroll Restoration** (`layout.tsx`) — 2 hook + constraint CSS:
+- **CSS**: `h-screen` sul wrapper esterno → `<main>` e' il vero scroll container (`overflow-y-auto`)
+- **Hook 1**: Scroll event listener (debounced rAF) → salva `scroll:{pathname}` in sessionStorage
+- **Hook 2**: Pathname change → se `scroll:{pathname}` presente → restore con retry [0-2000ms];
+  se assente (cancellato da Sidebar o prima visita) → `scrollTop = 0`
+- **Strict Mode guard**: `prevPathnameRef` impedisce double-invocation da React Strict Mode
 
 **Cross-link contestuali**: `?from=clienti-{id}` su contratti/[id] e schede/[id] → banner "Torna al profilo".
 `?from=dashboard` su contratti/[id] → banner "Torna alla dashboard". Back button condizionale.
@@ -404,6 +416,7 @@ Consumati al mount, URL pulito con `replaceState`.
 **Tab persistence**: `clienti/[id]` persiste tab attiva via `router.replace(url, { scroll: false })`.
 
 File chiave: `lib/url-state.ts` (utility), `layout.tsx` (scroll restoration),
+`components/layout/Sidebar.tsx` (clearPageState onClick),
 tutte le 6 pagine filtri (esercizi, clienti, contratti, schede, cassa, allenamenti).
 
 ---
@@ -566,8 +579,8 @@ Errori reali trovati e corretti. MAI ripeterli.
 | SQLAlchemy subquery cross-join | `select(func.sum(case(CashMovement.tipo...))).select_from(query.subquery())` — i riferimenti `CashMovement.*` non vengono adattati alle colonne del subquery → cross-join implicito con tabella originale → somma enorme | Usare `subq = query.subquery()` poi `subq.c.tipo`, `subq.c.importo` nelle espressioni. MAI `CashMovement.*` con `select_from(subquery)` |
 | `activate_batch.py` verify rollback asimmetrico | Verify per-DB: DB-A rollbacka 5, DB-B rollbacka 3 → delta silenzioso tra DB. Anche: verify PRIMA di fill_tempo → 43/50 rollbackati per campo auto-fillable | 3 safeguard: (1) pre-check sync (union), (2) fill_tempo_consigliato pre-verify, (3) rollback union (se fallisce su QUALSIASI DB → rollback su TUTTI) |
 | `populate_exercise_relations` chain IDs stale | Chain IDs puntano a esercizi disattivati (57/91 stale) → 21% copertura relazioni | Aggiornare chains ad OGNI batch activation. Riscrittura completa chains da 186→269 esercizi |
-| Filtri persistenti confondono utente | `loadFilters()` da sessionStorage ripristinava filtri anche su navigazione "fresca" (sidebar click) → l'utente non capiva perche' vedeva dati filtrati | Rimosso `loadFilters`/`saveFilters`. Filtri partono SEMPRE dai default. URL deep-link consumati one-shot via `getUrlParams()` |
-| Scroll restoration race condition | `useEffect` cleanup salvava scrollTop a pathname change (troppo tardi, gia' 0). Triple-retry (300ms) insufficiente per liste async React Query | Salvataggio continuo via `scroll` event listener (rAF). Restore via `MutationObserver` (aspetta DOM) + height check + hard timeout 2s |
+| Filtri persistenti confondono utente | `loadFilters()` ripristinava filtri su OGNI mount, anche navigazione fresca (sidebar). `popstate`+`nav:back` flag inaffidabile con Next.js App Router | **Sidebar `clearPageState()` onClick** cancella sessionStorage prima della navigazione. Back-nav non passa dalla Sidebar → stato intatto → ripristinato. Zero dipendenza da `popstate` |
+| Scroll restoration non funziona | `min-h-screen` su wrapper esterno → `<main>` cresce oltre viewport → scroll avviene su `window`, non su `<main>`. Listener e restore su `mainRef` senza effetto | `h-screen` + `overflow-hidden` su wrapper → `<main>` diventa il vero scroll container. Salvataggio continuo via scroll event (rAF). Restore con retry [0-2000ms]. Sidebar cancella `scroll:` onClick |
 | `useEffect([queryData])` sovrascrive form | Mutation inline (cambio obiettivo/livello) invalida query → refetch → useEffect riscrive stato locale con dati server vecchi → TUTTE le modifiche non salvate perse silenziosamente | Guard `isDirtyRef.current` (schede builder), `userHasEdited` state (impostazioni), `initializedEditId` ref (misurazioni). MAI useEffect incondizionato su dati React Query che alimentano form editabili |
 | `onClick={goBack}` con default param | `goBack(force = false)` usata come handler: React passa `MouseEvent` come primo arg → truthy → bypass guard | Sempre `onClick={() => goBack()}`. MAI passare funzione con default param direttamente a onClick |
 | `router.push()` senza guard dirty | `goBack()` fa navigazione client-side che non triggera `beforeunload` → dati persi senza avviso | `goBack(force = false)` con `window.confirm()` se isDirty. `force=true` solo da mutation `onSuccess` |
