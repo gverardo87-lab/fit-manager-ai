@@ -99,6 +99,8 @@ export default function MisurazionePage({
   // Flag: l'ID della misurazione gia' inizializzata nel form.
   // Previene sovrascrittura se React Query ri-fetcha i dati durante l'editing.
   const initializedEditId = useRef<number | null>(null);
+  // Distingue "dati caricati dal server" da "utente ha effettivamente editato"
+  const userHasEditedRef = useRef(false);
 
   // Initialize form from edit measurement (solo una volta per misurazione)
   useEffect(() => {
@@ -111,6 +113,7 @@ export default function MisurazionePage({
       }
       setValues(vals);
       initializedEditId.current = editMeasurement.id;
+      userHasEditedRef.current = false; // Reset: dati dal server, non editati
     }
   }, [editMeasurement]);
 
@@ -131,15 +134,18 @@ export default function MisurazionePage({
     (v) => v !== "" && v !== undefined
   ).length;
 
-  // Protezione dati: beforeunload se ci sono valori compilati
-  const isDirty = filledCount > 0 || note.trim().length > 0;
+  // Protezione dati: in create mode dirty = ha dati; in edit mode dirty = utente ha editato
+  const hasFormData = filledCount > 0 || note.trim().length > 0;
+  const isDirty = isEdit ? userHasEditedRef.current : hasFormData;
   useUnsavedChanges({ dirty: isDirty });
 
   const handleValueChange = (metricId: number, val: string) => {
+    userHasEditedRef.current = true;
     setValues((prev) => ({ ...prev, [metricId]: val }));
   };
 
-  const goBack = () => {
+  const goBack = (force = false) => {
+    if (!force && isDirty && !window.confirm("Hai modifiche non salvate. Vuoi davvero uscire?")) return;
     router.push(`/clienti/${clientId}/progressi`);
   };
 
@@ -163,10 +169,10 @@ export default function MisurazionePage({
     if (isEdit && editMeasurement) {
       updateMutation.mutate(
         { measurementId: editMeasurement.id, payload },
-        { onSuccess: goBack }
+        { onSuccess: () => goBack(true) }
       );
     } else {
-      createMutation.mutate(payload, { onSuccess: goBack });
+      createMutation.mutate(payload, { onSuccess: () => goBack(true) });
     }
   };
 
@@ -194,7 +200,7 @@ export default function MisurazionePage({
     <div className="mx-auto max-w-4xl space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={goBack}>
+        <Button variant="ghost" size="icon" onClick={() => goBack()}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1">
@@ -234,7 +240,7 @@ export default function MisurazionePage({
                 <Calendar
                   mode="single"
                   selected={date}
-                  onSelect={(d) => d && setDate(d)}
+                  onSelect={(d) => { if (d) { userHasEditedRef.current = true; setDate(d); } }}
                   disabled={{ after: new Date() }}
                   locale={it}
                 />
@@ -310,7 +316,7 @@ export default function MisurazionePage({
             id="measurement-note"
             placeholder="Appunti sulla sessione di misurazione..."
             value={note}
-            onChange={(e) => setNote(e.target.value)}
+            onChange={(e) => { userHasEditedRef.current = true; setNote(e.target.value); }}
             rows={4}
           />
         </CardContent>
@@ -324,7 +330,7 @@ export default function MisurazionePage({
             : `${filledCount} ${filledCount === 1 ? "valore compilato" : "valori compilati"}`}
         </p>
         <div className="flex gap-3">
-          <Button variant="outline" onClick={goBack}>
+          <Button variant="outline" onClick={() => goBack()}>
             Annulla
           </Button>
           <Button

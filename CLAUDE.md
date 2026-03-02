@@ -570,6 +570,9 @@ Errori reali trovati e corretti. MAI ripeterli.
 | `populate_exercise_relations` chain IDs stale | Chain IDs puntano a esercizi disattivati (57/91 stale) → 21% copertura relazioni | Aggiornare chains ad OGNI batch activation. Riscrittura completa chains da 186→269 esercizi |
 | Next.js URL state perso su back-nav | `useSearchParams()` e `window.location.search` inaffidabili al mount dopo popstate (Next.js 14.1+ intercetta pushState/replaceState) | sessionStorage come fonte primaria (`lib/url-state.ts`). URL solo per feedback visivo. Pattern: `loadFilters()` → `getUrlParams()` → default |
 | `useEffect([queryData])` sovrascrive form | Mutation inline (cambio obiettivo/livello) invalida query → refetch → useEffect riscrive stato locale con dati server vecchi → TUTTE le modifiche non salvate perse silenziosamente | Guard `isDirtyRef.current` (schede builder), `userHasEdited` state (impostazioni), `initializedEditId` ref (misurazioni). MAI useEffect incondizionato su dati React Query che alimentano form editabili |
+| `onClick={goBack}` con default param | `goBack(force = false)` usata come handler: React passa `MouseEvent` come primo arg → truthy → bypass guard | Sempre `onClick={() => goBack()}`. MAI passare funzione con default param direttamente a onClick |
+| `router.push()` senza guard dirty | `goBack()` fa navigazione client-side che non triggera `beforeunload` → dati persi senza avviso | `goBack(force = false)` con `window.confirm()` se isDirty. `force=true` solo da mutation `onSuccess` |
+| `isDirty` falso positivo in edit mode | `filledCount > 0` vero subito dopo caricamento dati server (non serve modifica utente) → confirm spurio su back | `userHasEditedRef`: ref settato `true` solo su interazione reale (input/note/date), reset a `false` dopo init dal server |
 
 ---
 
@@ -599,6 +602,12 @@ Errori reali trovati e corretti. MAI ripeterli.
 - **userHasEdited state** (impostazioni): flag booleano, settato true su onChange, resettato su save
 - **initializedEditId ref** (misurazioni): ref con ID gia' inizializzato, previene re-init su refetch
 
+**goBack guard** — pattern per pagine full-page con navigazione esplicita (misurazioni):
+- `goBack(force = false)`: se `!force && isDirty` → `window.confirm()`. `force=true` solo da mutation `onSuccess`
+- `userHasEditedRef`: distingue "dati caricati dal server" da "utente ha editato" in edit mode
+- ATTENZIONE: `onClick={goBack}` passa MouseEvent come `force` (truthy). Sempre `onClick={() => goBack()}`
+- `router.push()` e' navigazione client-side → non triggera `beforeunload` → serve guard esplicito
+
 **guardedOpenChange** — pattern per Sheet/Dialog:
 ```typescript
 const guardedOpenChange = useCallback((newOpen: boolean) => {
@@ -617,7 +626,7 @@ Save bypass: `dirtyRef.current = false` in `onSuccess` PRIMA di `onOpenChange(fa
 - Sheet riceve via `handleDirtyChange` → scrive in `dirtyRef`
 
 **Componenti protetti** (12 contesti di editing):
-- HIGH: schede builder (beforeunload + draft + isDirtyRef), misurazioni (beforeunload + initializedEditId), AnamnesiWizard (guardedOpenChange), ExerciseSheet (guardedOpenChange + onDirtyChange)
+- HIGH: schede builder (beforeunload + draft + isDirtyRef), misurazioni (beforeunload + initializedEditId + goBack guard + userHasEditedRef), AnamnesiWizard (guardedOpenChange), ExerciseSheet (guardedOpenChange + onDirtyChange)
 - MEDIUM: ClientSheet, ContractSheet, EventSheet, MovementSheet, GoalFormDialog (tutti: guardedOpenChange + onDirtyChange o dirtyRef)
 
 **Test**: 69 test Vitest in `frontend/src/__tests__/data-protection/` — draft API, guard patterns, edge cases.
