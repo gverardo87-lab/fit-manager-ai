@@ -11,7 +11,6 @@
 
 import { use, useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import {
   ArrowLeft,
   Save,
@@ -53,7 +52,7 @@ import {
   useUpdateWorkout,
   useUpdateWorkoutSessions,
 } from "@/hooks/useWorkouts";
-import { useUnsavedChanges, clearDraft } from "@/hooks/useUnsavedChanges";
+import { useUnsavedChanges, loadDraft, clearDraft } from "@/hooks/useUnsavedChanges";
 import { useClients } from "@/hooks/useClients";
 import { useExercises, useExerciseSafetyMap } from "@/hooks/useExercises";
 import { useLatestMeasurement } from "@/hooks/useMeasurements";
@@ -159,6 +158,20 @@ export default function SchedaDetailPage({
   const draftKey = isNaN(id) ? undefined : `scheda-builder-${id}`;
   useUnsavedChanges({ dirty: isDirty, draftKey, draftData: sessions });
 
+  // Navigazione guardata — protegge tutti i punti di uscita dal builder
+  const goBack = useCallback((force = false) => {
+    if (!force && isDirtyRef.current && !window.confirm("Hai modifiche non salvate. Vuoi davvero uscire?")) return;
+    const dest = returnClientId
+      ? `/clienti/${returnClientId}?tab=schede`
+      : returnToAllenamenti ? "/allenamenti" : "/schede";
+    router.push(dest);
+  }, [router, returnClientId, returnToAllenamenti]);
+
+  const guardedNavigate = useCallback((href: string) => {
+    if (isDirtyRef.current && !window.confirm("Hai modifiche non salvate. Vuoi davvero uscire?")) return;
+    router.push(href);
+  }, [router]);
+
   // Header inline editing
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -189,6 +202,26 @@ export default function SchedaDetailPage({
       );
     }
   }, [plan]);
+
+  // Draft recovery — recupera bozza da sessionStorage se presente (TTL 24h)
+  const draftRecoveredRef = useRef(false);
+  useEffect(() => {
+    if (plan && !isDirtyRef.current && !draftRecoveredRef.current && draftKey) {
+      draftRecoveredRef.current = true;
+      const saved = loadDraft<SessionCardData[]>(draftKey);
+      if (saved && saved.ts > 0) {
+        const ageMs = Date.now() - saved.ts;
+        if (ageMs < 24 * 60 * 60 * 1000) {
+          if (window.confirm("Sono state trovate modifiche non salvate. Vuoi recuperarle?")) {
+            setSessions(saved.data);
+            setIsDirty(true);
+            return;
+          }
+        }
+        clearDraft(draftKey);
+      }
+    }
+  }, [plan, draftKey]);
 
   // Client name
   const clientNome = plan?.client_nome && plan?.client_cognome
@@ -604,7 +637,7 @@ export default function SchedaDetailPage({
       {/* ── Header ── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" data-print-hide>
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => router.push(returnClientId ? `/clienti/${returnClientId}?tab=schede` : returnToAllenamenti ? "/allenamenti" : "/schede")}>
+          <Button variant="ghost" size="icon" onClick={() => goBack()}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
@@ -654,12 +687,12 @@ export default function SchedaDetailPage({
                 </SelectContent>
               </Select>
               {plan.id_cliente && clientNome && (
-                <Link
-                  href={`/clienti/${plan.id_cliente}`}
+                <button
+                  onClick={() => guardedNavigate(`/clienti/${plan.id_cliente}`)}
                   className="text-xs text-primary hover:underline"
                 >
                   Vai al profilo
-                </Link>
+                </button>
               )}
               <Select
                 value={plan.obiettivo}
@@ -724,23 +757,23 @@ export default function SchedaDetailPage({
       {returnClientId && (
         <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-2 flex items-center gap-2" data-print-hide>
           <ArrowLeft className="h-3.5 w-3.5 text-primary" />
-          <Link
-            href={`/clienti/${returnClientId}?tab=schede`}
+          <button
+            onClick={() => guardedNavigate(`/clienti/${returnClientId}?tab=schede`)}
             className="text-sm text-primary hover:underline"
           >
             Torna al profilo cliente
-          </Link>
+          </button>
         </div>
       )}
       {returnToAllenamenti && (
         <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-2 flex items-center gap-2" data-print-hide>
           <ArrowLeft className="h-3.5 w-3.5 text-primary" />
-          <Link
-            href="/allenamenti"
+          <button
+            onClick={() => guardedNavigate("/allenamenti")}
             className="text-sm text-primary hover:underline"
           >
             Torna al monitoraggio
-          </Link>
+          </button>
         </div>
       )}
 
@@ -851,12 +884,12 @@ export default function SchedaDetailPage({
                       </div>
                     ))}
                     {plan.id_cliente && (
-                      <Link
-                        href={`/clienti/${plan.id_cliente}`}
+                      <button
+                        onClick={() => guardedNavigate(`/clienti/${plan.id_cliente}`)}
                         className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1"
                       >
                         Vai al profilo di {safetyMap.client_nome.split(" ")[0]}
-                      </Link>
+                      </button>
                     )}
                   </CollapsibleContent>
                 </CardContent>
