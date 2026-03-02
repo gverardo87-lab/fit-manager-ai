@@ -11,6 +11,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import apiClient, { extractErrorMessage } from "@/lib/api-client";
+import { celebrateRatePaid, celebrateContractSaldato } from "@/lib/confetti";
 import type {
   Rate,
   RateCreate,
@@ -187,7 +188,7 @@ export function usePayRate() {
       );
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["contract"] });
       queryClient.invalidateQueries({ queryKey: ["contracts"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
@@ -196,6 +197,10 @@ export function usePayRate() {
       queryClient.invalidateQueries({ queryKey: ["aging-report"] });
       queryClient.invalidateQueries({ queryKey: ["cash-balance"] });
       toast.success("Pagamento registrato");
+      // Celebrazione: rata completamente saldata (non parziale)
+      if (data.stato === "SALDATA") {
+        celebrateRatePaid();
+      }
     },
     onError: (error) => {
       toast.error(extractErrorMessage(error, "Errore nel pagamento della rata"));
