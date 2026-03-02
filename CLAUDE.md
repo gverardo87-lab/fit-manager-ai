@@ -43,6 +43,16 @@ Palette colori: oklch color space in `globals.css`. Primary = teal (hue 170).
 - KPI typography: extrabold + tracking-tighter + tabular-nums per numeri
 - Card hover: `transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg`
 
+### Visual Upgrade Sprint — Micro-Interazioni (test_react)
+
+Upgrade puramente visivi senza nuove dipendenze pesanti. Zero framer-motion, tutto CSS + rAF.
+
+- **AnimatedNumber** (`components/ui/animated-number.tsx`): KPI contano da 0 al mount, animano su cambio con ease-out-cubic via `requestAnimationFrame`. Format: `"currency"` | `"number"`. Usato in Dashboard (6 KPI) e Cassa (SaldoHeroCard + 4 KPI mensili).
+- **Skeleton shimmer** (`components/ui/skeleton.tsx`): rimpiazza `animate-pulse` con sweep CSS (`@keyframes shimmer`, `translateX` via `::after` pseudo-element). Skeleton anatomicamente accurati in 4 pagine (clienti/contratti/esercizi/schede).
+- **Gradient mesh** (`globals.css`): `.bg-mesh-login` (animated gradient 4-stop, 400% background-size) sulla login. `.bg-mesh-app` (radial-gradient teal ellisse top-left) sul layout dashboard.
+- **Confetti** (`lib/confetti.ts`): `celebrateRatePaid()` (burst singolo, 70 particelle) e `celebrateContractSaldato()` (cannoni L+R, 150ms offset). Lazy dynamic import di `canvas-confetti` (3KB). Triggerato da `usePayRate` in `onSuccess` quando `data.stato === "SALDATA"`.
+- **MuscleMapPanel status-aware**: vedi sezione Workout Template Builder.
+
 ### Command Palette (Ctrl+K) — Feature Distintiva
 
 Elemento chiave di UX: ricerca fuzzy globale con 3 capacita' avanzate.
@@ -96,7 +106,14 @@ Editor strutturato per creare schede allenamento professionali. Layout split: ed
   - Visibile solo se: cliente assegnato + misurazione 1RM presente + carico compilato
 - `parseAvgReps()`: exported da SessionCard, parsa "8-12"→10, "5"→5, "30s"→0
 
-File chiave: `lib/workout-templates.ts` (template + `getSectionForCategory` + `getSmartDefaults`), `lib/derived-metrics.ts` (PATTERN_TO_1RM), `components/workouts/SessionCard.tsx` (3 sezioni DnD, volume, overflow menu), `components/workouts/SortableExerciseRow.tsx` (grid 8-col, % 1RM badge, espansione unificata), `components/workouts/ExerciseDetailPanel.tsx` (dettaglio inline).
+- **MuscleMapPanel** (`components/workouts/MuscleMapPanel.tsx`): pannello collassabile con silhouette anatomica live. Due modalità:
+  - **Status mode** (quando `livello` passato): usa `computeSmartAnalysis` internamente → colora muscoli per stato NSCA con 3 colori allineati a SmartAnalysisPanel: emerald=ottimale (intensity 1), amber=eccesso (intensity 2), red=deficit (intensity 3). Body map = rappresentazione spaziale delle barre di copertura.
+  - **Fallback teal**: aggrega `muscoli_primari`/`muscoli_secondari` dagli esercizi senza info di volume.
+  - Legenda a 4 voci in status mode: Ottimale / Eccesso / Deficit / Non allenato. Badge e bordo seguono stessa logica cromatica di SmartAnalysisPanel.
+  - `SMART_TO_SLUG_MAP` in `lib/muscle-map-utils.ts`: ponte IT→EN tra nomi italiani di `computeSmartAnalysis` e chiavi inglesi di `MUSCLE_SLUG_MAP` (es. `petto→chest`, `dorsali→back`).
+  - `MuscleMap.tsx` esteso: prop `muscoliTerziari?: string[]` (intensity 3), `colors?: string[]` (da tupla fissa a array generico per supportare 3+ intensità).
+
+File chiave: `lib/workout-templates.ts` (template + `getSectionForCategory` + `getSmartDefaults`), `lib/derived-metrics.ts` (PATTERN_TO_1RM), `lib/muscle-map-utils.ts` (`MUSCLE_SLUG_MAP`, `SMART_TO_SLUG_MAP`, `buildBodyData`), `components/workouts/SessionCard.tsx` (3 sezioni DnD, volume, overflow menu), `components/workouts/SortableExerciseRow.tsx` (grid 8-col, % 1RM badge, espansione unificata), `components/workouts/ExerciseDetailPanel.tsx` (dettaglio inline), `components/workouts/MuscleMapPanel.tsx` (silhouette 3-colori status-aware).
 
 ### Workout Monitoring — Pagina `/allenamenti`
 
