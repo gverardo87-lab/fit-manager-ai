@@ -53,6 +53,7 @@ import {
   useUpdateWorkout,
   useUpdateWorkoutSessions,
 } from "@/hooks/useWorkouts";
+import { useUnsavedChanges, clearDraft } from "@/hooks/useUnsavedChanges";
 import { useClients } from "@/hooks/useClients";
 import { useExercises, useExerciseSafetyMap } from "@/hooks/useExercises";
 import { useLatestMeasurement } from "@/hooks/useMeasurements";
@@ -153,6 +154,10 @@ export default function SchedaDetailPage({
   // Ref che riflette isDirty — usato nell'effect per non catturare closure stale
   const isDirtyRef = useRef(false);
   isDirtyRef.current = isDirty;
+
+  // Protezione dati: beforeunload + draft auto-save in sessionStorage
+  const draftKey = isNaN(id) ? undefined : `scheda-builder-${id}`;
+  useUnsavedChanges({ dirty: isDirty, draftKey, draftData: sessions });
 
   // Header inline editing
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -298,16 +303,7 @@ export default function SchedaDetailPage({
     return ids;
   }, [sessions]);
 
-  // Guardia modifiche non salvate (chiusura tab / refresh)
-  useEffect(() => {
-    const handler = (e: BeforeUnloadEvent) => {
-      if (isDirty) {
-        e.preventDefault();
-      }
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [isDirty]);
+  // (beforeunload gestito da useUnsavedChanges sopra)
 
   // Dati safety per export Excel
   const safetyExportData = useMemo(() => {
@@ -556,9 +552,9 @@ export default function SchedaDetailPage({
 
     updateSessions.mutate(
       { id: plan.id, sessions: sessionsInput },
-      { onSuccess: () => setIsDirty(false) },
+      { onSuccess: () => { setIsDirty(false); if (draftKey) clearDraft(draftKey); } },
     );
-  }, [plan, sessions, updateSessions]);
+  }, [plan, sessions, updateSessions, draftKey]);
 
   // ── Inline metadata editing ──
 

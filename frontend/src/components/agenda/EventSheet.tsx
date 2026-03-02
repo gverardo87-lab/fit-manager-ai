@@ -5,8 +5,10 @@
  * Sheet laterale per creare/modificare un evento.
  *
  * Pattern da ContractSheet: apre da destra, contiene il form,
- * si chiude su successo della mutation.
+ * si chiude su successo della mutation (con conferma se dirty).
  */
+
+import { useCallback, useRef } from "react";
 
 import {
   Sheet,
@@ -41,6 +43,17 @@ export function EventSheet({
 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
+  // Protezione chiusura accidentale
+  const dirtyRef = useRef(false);
+  const handleDirtyChange = useCallback((d: boolean) => { dirtyRef.current = d; }, []);
+  const guardedOpenChange = useCallback((newOpen: boolean) => {
+    if (!newOpen && dirtyRef.current) {
+      if (!window.confirm("Hai modifiche non salvate. Vuoi davvero uscire?")) return;
+    }
+    dirtyRef.current = false;
+    onOpenChange(newOpen);
+  }, [onOpenChange]);
+
   const handleSubmit = (values: EventSubmitPayload) => {
     if (isEdit) {
       updateMutation.mutate(
@@ -52,7 +65,7 @@ export function EventSheet({
           note: values.note,
           stato: values.stato,
         },
-        { onSuccess: () => onOpenChange(false) }
+        { onSuccess: () => { dirtyRef.current = false; onOpenChange(false); } }
       );
     } else {
       createMutation.mutate(
@@ -65,13 +78,13 @@ export function EventSheet({
           stato: values.stato,
           note: values.note,
         },
-        { onSuccess: () => onOpenChange(false) }
+        { onSuccess: () => { dirtyRef.current = false; onOpenChange(false); } }
       );
     }
   };
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={guardedOpenChange}>
       <SheetContent className="overflow-y-auto sm:max-w-lg">
         <SheetHeader>
           <SheetTitle>
@@ -87,6 +100,7 @@ export function EventSheet({
             onSubmit={handleSubmit}
             onDelete={isEdit ? onDeleteRequest : undefined}
             isPending={isPending}
+            onDirtyChange={handleDirtyChange}
           />
         </div>
       </SheetContent>

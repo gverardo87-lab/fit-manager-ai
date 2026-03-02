@@ -6,6 +6,8 @@
  * Pattern identico a ClientSheet.
  */
 
+import { useCallback, useRef } from "react";
+
 import {
   Sheet,
   SheetContent,
@@ -28,21 +30,32 @@ export function ExerciseSheet({ open, onOpenChange, exercise }: ExerciseSheetPro
   const updateMutation = useUpdateExercise();
   const isPending = createMutation.isPending || updateMutation.isPending;
 
+  // Protezione chiusura accidentale
+  const dirtyRef = useRef(false);
+  const handleDirtyChange = useCallback((d: boolean) => { dirtyRef.current = d; }, []);
+  const guardedOpenChange = useCallback((newOpen: boolean) => {
+    if (!newOpen && dirtyRef.current) {
+      if (!window.confirm("Hai modifiche non salvate. Vuoi davvero uscire?")) return;
+    }
+    dirtyRef.current = false;
+    onOpenChange(newOpen);
+  }, [onOpenChange]);
+
   const handleSubmit = (values: Record<string, unknown>) => {
     if (isEdit) {
       updateMutation.mutate(
         { id: exercise.id, ...values } as unknown as ExerciseUpdate & { id: number },
-        { onSuccess: () => onOpenChange(false) }
+        { onSuccess: () => { dirtyRef.current = false; onOpenChange(false); } }
       );
     } else {
       createMutation.mutate(values as unknown as ExerciseCreate, {
-        onSuccess: () => onOpenChange(false),
+        onSuccess: () => { dirtyRef.current = false; onOpenChange(false); },
       });
     }
   };
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={guardedOpenChange}>
       <SheetContent className="overflow-y-auto sm:max-w-lg">
         <SheetHeader>
           <SheetTitle>
@@ -55,6 +68,7 @@ export function ExerciseSheet({ open, onOpenChange, exercise }: ExerciseSheetPro
             exercise={exercise}
             onSubmit={handleSubmit}
             isPending={isPending}
+            onDirtyChange={handleDirtyChange}
           />
         </div>
       </SheetContent>

@@ -7,6 +7,7 @@
  * Campi organizzati in sezioni logiche (v2: biomeccanica, esecuzione, coaching).
  */
 
+import { useEffect } from "react";
 import { Loader2, Plus, X } from "lucide-react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -98,6 +99,7 @@ interface ExerciseFormProps {
   exercise?: Exercise | null;
   onSubmit: (values: Record<string, unknown>) => void;
   isPending: boolean;
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 // ════════════════════════════════════════════════════════════
@@ -116,7 +118,7 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
 // COMPONENT
 // ════════════════════════════════════════════════════════════
 
-export function ExerciseForm({ exercise, onSubmit, isPending }: ExerciseFormProps) {
+export function ExerciseForm({ exercise, onSubmit, isPending, onDirtyChange }: ExerciseFormProps) {
   const isEdit = !!exercise;
 
   const {
@@ -125,7 +127,7 @@ export function ExerciseForm({ exercise, onSubmit, isPending }: ExerciseFormProp
     setValue,
     watch,
     control,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<ExerciseFormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(exerciseSchema) as any,
@@ -165,6 +167,8 @@ export function ExerciseForm({ exercise, onSubmit, isPending }: ExerciseFormProp
         : [],
     },
   });
+
+  useEffect(() => { onDirtyChange?.(isDirty); }, [isDirty, onDirtyChange]);
 
   const muscoliPrimari = watch("muscoli_primari");
   const muscoliSecondari = watch("muscoli_secondari");

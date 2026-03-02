@@ -10,6 +10,7 @@
  * - Client → modalita' modifica (campi precompilati, testo "Modifica Cliente")
  */
 
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -59,9 +60,10 @@ interface ClientFormProps {
   client?: Client | null;
   onSubmit: (values: ClientFormValues) => void;
   isPending: boolean;
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
-export function ClientForm({ client, onSubmit, isPending }: ClientFormProps) {
+export function ClientForm({ client, onSubmit, isPending, onDirtyChange }: ClientFormProps) {
   const isEdit = !!client;
 
   const {
@@ -69,7 +71,7 @@ export function ClientForm({ client, onSubmit, isPending }: ClientFormProps) {
     handleSubmit,
     setValue,
     watch,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<ClientFormValues>({
     resolver: zodResolver(clientSchema),
     defaultValues: {
@@ -83,6 +85,8 @@ export function ClientForm({ client, onSubmit, isPending }: ClientFormProps) {
       note_interne: client?.note_interne ?? "",
     },
   });
+
+  useEffect(() => { onDirtyChange?.(isDirty); }, [isDirty, onDirtyChange]);
 
   const handleFormSubmit = (values: ClientFormValues) => {
     // Converti stringhe vuote in undefined per il backend

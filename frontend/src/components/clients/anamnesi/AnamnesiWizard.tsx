@@ -9,7 +9,7 @@
  * Pre-popolamento se anamnesi esistente (modifica).
  */
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   Bone,
   Stethoscope,
@@ -76,6 +76,7 @@ export function AnamnesiWizard({
 }: AnamnesiWizardProps) {
   const [step, setStep] = useState(0);
   const [data, setData] = useState<AnamnesiData>(() => existing ?? getEmptyAnamnesi());
+  const dirtyRef = useRef(false);
   const updateAnamnesi = useUpdateAnamnesi();
 
   // Sync state quando il dialog si apre (modifica o nuova compilazione)
@@ -83,12 +84,22 @@ export function AnamnesiWizard({
     if (open) {
       setData(existing ?? getEmptyAnamnesi());
       setStep(0);
+      dirtyRef.current = false;
     }
   }, [open, existing]);
 
   const handleChange = useCallback((updates: Partial<AnamnesiData>) => {
     setData((prev) => ({ ...prev, ...updates }));
+    dirtyRef.current = true;
   }, []);
+
+  // Protezione chiusura accidentale: conferma se ci sono modifiche non salvate
+  const guardedOpenChange = useCallback((newOpen: boolean) => {
+    if (!newOpen && dirtyRef.current) {
+      if (!window.confirm("Hai modifiche non salvate. Vuoi davvero uscire?")) return;
+    }
+    onOpenChange(newOpen);
+  }, [onOpenChange]);
 
   const handleSave = useCallback(() => {
     const now = new Date().toISOString().slice(0, 10);
@@ -109,7 +120,7 @@ export function AnamnesiWizard({
   const isLast = step === STEPS.length - 1;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={guardedOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Anamnesi Cliente</DialogTitle>

@@ -10,7 +10,7 @@
  * Usato sia in modalita' creazione che modifica (prop `goal` opzionale).
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -115,10 +115,12 @@ export function GoalFormDialog({
   const [dataScadenza, setDataScadenza] = useState<Date | undefined>();
   const [priorita, setPriorita] = useState<string>("3");
   const [note, setNote] = useState<string>("");
+  const dirtyRef = useRef(false);
 
   // ── Sync state on open/goal change ──
   useEffect(() => {
     if (!open) return;
+    dirtyRef.current = false;
 
     if (goal) {
       setMetricId(String(goal.id_metrica));
@@ -138,6 +140,14 @@ export function GoalFormDialog({
       setNote("");
     }
   }, [open, goal]);
+
+  // Protezione chiusura accidentale
+  const guardedOpenChange = useCallback((newOpen: boolean) => {
+    if (!newOpen && dirtyRef.current) {
+      if (!window.confirm("Hai modifiche non salvate. Vuoi davvero uscire?")) return;
+    }
+    onOpenChange(newOpen);
+  }, [onOpenChange]);
 
   // ── Metriche raggruppate per categoria ──
   const groupedMetrics = useMemo(() => {
@@ -214,7 +224,7 @@ export function GoalFormDialog({
   const canSubmit = !!metricId && !!dataInizio && !isPending;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={guardedOpenChange}>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -228,13 +238,13 @@ export function GoalFormDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <div className="space-y-4 py-2" onChangeCapture={() => { dirtyRef.current = true; }}>
           {/* Metrica */}
           <div className="space-y-1.5">
             <Label>Metrica</Label>
             <Select
               value={metricId}
-              onValueChange={setMetricId}
+              onValueChange={(v) => { setMetricId(v); dirtyRef.current = true; }}
               disabled={isEdit}
             >
               <SelectTrigger>
@@ -290,7 +300,7 @@ export function GoalFormDialog({
                   <button
                     key={opt.value}
                     type="button"
-                    onClick={() => setDirezione(opt.value)}
+                    onClick={() => { setDirezione(opt.value); dirtyRef.current = true; }}
                     className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
                       isActive
                         ? "border-teal-500 bg-teal-50 text-teal-700 dark:bg-teal-950/30 dark:text-teal-300"
@@ -370,7 +380,7 @@ export function GoalFormDialog({
           {/* Priorita' */}
           <div className="space-y-1.5">
             <Label>Priorita'</Label>
-            <Select value={priorita} onValueChange={setPriorita}>
+            <Select value={priorita} onValueChange={(v) => { setPriorita(v); dirtyRef.current = true; }}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -404,7 +414,7 @@ export function GoalFormDialog({
         <DialogFooter>
           <Button
             variant="outline"
-            onClick={() => onOpenChange(false)}
+            onClick={() => guardedOpenChange(false)}
             disabled={isPending}
           >
             Annulla

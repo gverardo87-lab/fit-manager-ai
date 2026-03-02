@@ -8,6 +8,7 @@
  * Validazione Zod + react-hook-form.
  */
 
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -60,17 +61,18 @@ export type MovementFormValues = z.infer<typeof movementSchema>;
 interface MovementFormProps {
   onSubmit: (values: MovementFormValues) => void;
   isPending: boolean;
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 // ── Component ──
 
-export function MovementForm({ onSubmit, isPending }: MovementFormProps) {
+export function MovementForm({ onSubmit, isPending, onDirtyChange }: MovementFormProps) {
   const {
     register,
     handleSubmit,
     setValue,
     watch,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<MovementFormValues>({
     resolver: zodResolver(movementSchema),
     defaultValues: {
@@ -82,6 +84,8 @@ export function MovementForm({ onSubmit, isPending }: MovementFormProps) {
       note: "",
     },
   });
+
+  useEffect(() => { onDirtyChange?.(isDirty); }, [isDirty, onDirtyChange]);
 
   const tipoValue = watch("tipo");
   const dataValue = watch("data_effettiva");

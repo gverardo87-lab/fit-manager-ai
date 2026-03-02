@@ -585,6 +585,47 @@ Errori reali trovati e corretti. MAI ripeterli.
 
 ---
 
+## Protezione Dati Non Salvati (Data Protection)
+
+> **Filosofia: mai perdere dati silenziosamente.** Ogni form con piu' di 2 campi
+> deve proteggere l'utente dalla perdita accidentale di modifiche non salvate.
+
+**Hook centralizzato**: `hooks/useUnsavedChanges.ts` — 2 livelli di difesa:
+1. **beforeunload** — avviso su chiusura tab / refresh / navigazione esterna (dirtyRef stale-closure-safe)
+2. **Draft sessionStorage** — auto-save bozza, recuperabile al rientro (`saveDraft`/`loadDraft`/`clearDraft`)
+
+**3 pattern anti-overwrite** (prevengono refetch server da sovrascrivere form editabili):
+- **isDirtyRef guard** (schede builder): `useEffect([plan])` bloccato se `isDirtyRef.current === true`
+- **userHasEdited state** (impostazioni): flag booleano, settato true su onChange, resettato su save
+- **initializedEditId ref** (misurazioni): ref con ID gia' inizializzato, previene re-init su refetch
+
+**guardedOpenChange** — pattern per Sheet/Dialog:
+```typescript
+const guardedOpenChange = useCallback((newOpen: boolean) => {
+  if (!newOpen && dirtyRef.current) {
+    if (!window.confirm("Hai modifiche non salvate. Vuoi davvero uscire?")) return;
+  }
+  dirtyRef.current = false;
+  onOpenChange(newOpen);
+}, [onOpenChange]);
+```
+Save bypass: `dirtyRef.current = false` in `onSuccess` PRIMA di `onOpenChange(false)`.
+
+**onDirtyChange callback** — per Form con react-hook-form dentro Sheet:
+- Form espone `onDirtyChange?: (dirty: boolean) => void` nelle props
+- `useEffect(() => { onDirtyChange?.(isDirty); }, [isDirty, onDirtyChange]);`
+- Sheet riceve via `handleDirtyChange` → scrive in `dirtyRef`
+
+**Componenti protetti** (12 contesti di editing):
+- HIGH: schede builder (beforeunload + draft + isDirtyRef), misurazioni (beforeunload + initializedEditId), AnamnesiWizard (guardedOpenChange), ExerciseSheet (guardedOpenChange + onDirtyChange)
+- MEDIUM: ClientSheet, ContractSheet, EventSheet, MovementSheet, GoalFormDialog (tutti: guardedOpenChange + onDirtyChange o dirtyRef)
+
+**Test**: 69 test Vitest in `frontend/src/__tests__/data-protection/` — draft API, guard patterns, edge cases.
+
+File chiave: `hooks/useUnsavedChanges.ts` (hook + draft API), `__tests__/data-protection/` (3 file test).
+
+---
+
 ## Workflow di Sviluppo
 
 Ogni feature segue 4 step in ordine. Il codice non passa al successivo finche' il precedente e' solido.
@@ -808,6 +849,7 @@ bash tools/scripts/restart-backend.sh prod                # Kill + restart 8000
 # ── Build + Test ──
 bash tools/scripts/check-all.sh                           # ruff + next build — OBBLIGATORIO prima di ogni commit
 cd frontend && npx next build                             # solo frontend (se serve)
+cd frontend && npm test                                   # 69 vitest (data protection)
 pytest tests/ -v                                          # 63 test
 
 # Test E2E (richiede server avviato)
@@ -849,7 +891,7 @@ sqlite3 data/crm_dev.db ".tables"
 - **tools/admin_scripts/**: ~2,800 LOC Python — 14 script (import, quality engine, taxonomy, seed, test)
 - **DB**: 29 tabelle SQLite, FK enforced, multi-tenant via trainer_id
 - **Esercizi**: 269 attivi (tassonomia completa, avviamento/mobilita photo-optional) + 790 archiviati (reinserimento graduale)
-- **Test**: 63 pytest + 67 E2E
+- **Test**: 63 pytest + 67 E2E + 69 vitest (data protection)
 - **Sicurezza**: JWT auth, bcrypt, Deep Relational IDOR, 3-layer route protection
 - **Cloud**: 0 dipendenze, 0 dati verso terzi
 

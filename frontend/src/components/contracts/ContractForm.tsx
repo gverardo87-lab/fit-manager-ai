@@ -11,6 +11,7 @@
  * - Metodo acconto: appare solo quando acconto > 0 (allineato al backend)
  */
 
+import { useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -84,12 +85,14 @@ interface ContractFormProps {
   contract?: Contract | null;
   onSubmit: (values: ContractSubmitPayload) => void;
   isPending: boolean;
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 export function ContractForm({
   contract,
   onSubmit,
   isPending,
+  onDirtyChange,
 }: ContractFormProps) {
   const isEdit = !!contract;
   const { data: clientsData } = useClients();
@@ -100,7 +103,7 @@ export function ContractForm({
     control,
     setValue,
     watch,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<ContractFormValues>({
     resolver: zodResolver(contractSchema),
     defaultValues: {
@@ -119,6 +122,8 @@ export function ContractForm({
       note: contract?.note ?? "",
     },
   });
+
+  useEffect(() => { onDirtyChange?.(isDirty); }, [isDirty, onDirtyChange]);
 
   const accontoValue = watch("acconto") ?? 0;
 

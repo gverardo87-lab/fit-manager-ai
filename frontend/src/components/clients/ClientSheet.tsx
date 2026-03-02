@@ -7,8 +7,10 @@
  * Si apre da destra con animazione. Contiene il ClientForm.
  * La chiusura avviene:
  * - Su successo della mutation (form invia, API risponde 2xx)
- * - Su click fuori dallo sheet o su X
+ * - Su click fuori dallo sheet o su X (con conferma se dirty)
  */
+
+import { useCallback, useRef } from "react";
 
 import {
   Sheet,
@@ -33,21 +35,32 @@ export function ClientSheet({ open, onOpenChange, client }: ClientSheetProps) {
 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
+  // Protezione chiusura accidentale
+  const dirtyRef = useRef(false);
+  const handleDirtyChange = useCallback((d: boolean) => { dirtyRef.current = d; }, []);
+  const guardedOpenChange = useCallback((newOpen: boolean) => {
+    if (!newOpen && dirtyRef.current) {
+      if (!window.confirm("Hai modifiche non salvate. Vuoi davvero uscire?")) return;
+    }
+    dirtyRef.current = false;
+    onOpenChange(newOpen);
+  }, [onOpenChange]);
+
   const handleSubmit = (values: ClientFormValues) => {
     if (isEdit) {
       updateMutation.mutate(
         { id: client.id, ...values } as ClientUpdate & { id: number },
-        { onSuccess: () => onOpenChange(false) }
+        { onSuccess: () => { dirtyRef.current = false; onOpenChange(false); } }
       );
     } else {
       createMutation.mutate(values, {
-        onSuccess: () => onOpenChange(false),
+        onSuccess: () => { dirtyRef.current = false; onOpenChange(false); },
       });
     }
   };
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={guardedOpenChange}>
       <SheetContent className="overflow-y-auto sm:max-w-lg">
         <SheetHeader>
           <SheetTitle>
@@ -60,6 +73,7 @@ export function ClientSheet({ open, onOpenChange, client }: ClientSheetProps) {
             client={client}
             onSubmit={handleSubmit}
             isPending={isPending}
+            onDirtyChange={handleDirtyChange}
           />
         </div>
       </SheetContent>

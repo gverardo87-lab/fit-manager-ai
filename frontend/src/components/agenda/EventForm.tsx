@@ -11,6 +11,7 @@
  * - Safety Rail: warning se il cliente ha crediti <= 0
  */
 
+import { useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -94,6 +95,7 @@ interface EventFormProps {
   onSubmit: (values: EventSubmitPayload) => void;
   onDelete?: () => void;
   isPending: boolean;
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 export function EventForm({
@@ -103,6 +105,7 @@ export function EventForm({
   onSubmit,
   onDelete,
   isPending,
+  onDirtyChange,
 }: EventFormProps) {
   const isEdit = !!event;
   const { data: clientsData } = useClients();
@@ -112,7 +115,7 @@ export function EventForm({
     handleSubmit,
     control,
     watch,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<EventFormValues>({
     resolver: zodResolver(eventSchema),
     defaultValues: {
@@ -135,6 +138,8 @@ export function EventForm({
       note: event?.note ?? "",
     },
   });
+
+  useEffect(() => { onDirtyChange?.(isDirty); }, [isDirty, onDirtyChange]);
 
   const categoria = watch("categoria");
   const idCliente = watch("id_cliente");

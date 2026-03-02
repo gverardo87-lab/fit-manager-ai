@@ -47,6 +47,7 @@ import {
 } from "@/hooks/useMeasurements";
 import type { Metric, Measurement, MeasurementValueInput, MetricCategory } from "@/types/api";
 import { METRIC_CATEGORY_LABELS } from "@/types/api";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 
 // ════════════════════════════════════════════════════════════
 // CATEGORY ICONS & COLORS
@@ -129,6 +130,10 @@ export default function MisurazionePage({
   const filledCount = Object.values(values).filter(
     (v) => v !== "" && v !== undefined
   ).length;
+
+  // Protezione dati: beforeunload se ci sono valori compilati
+  const isDirty = filledCount > 0 || note.trim().length > 0;
+  useUnsavedChanges({ dirty: isDirty });
 
   const handleValueChange = (metricId: number, val: string) => {
     setValues((prev) => ({ ...prev, [metricId]: val }));

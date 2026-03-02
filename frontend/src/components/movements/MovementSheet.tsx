@@ -3,9 +3,10 @@
 
 /**
  * Sheet per creazione nuovo movimento manuale.
- * Auto-chiusura su successo via onSuccess callback.
+ * Auto-chiusura su successo via onSuccess callback (con conferma se dirty).
  */
 
+import { useCallback, useRef } from "react";
 import { format } from "date-fns";
 
 import {
@@ -25,6 +26,17 @@ interface MovementSheetProps {
 export function MovementSheet({ open, onOpenChange }: MovementSheetProps) {
   const createMutation = useCreateMovement();
 
+  // Protezione chiusura accidentale
+  const dirtyRef = useRef(false);
+  const handleDirtyChange = useCallback((d: boolean) => { dirtyRef.current = d; }, []);
+  const guardedOpenChange = useCallback((newOpen: boolean) => {
+    if (!newOpen && dirtyRef.current) {
+      if (!window.confirm("Hai modifiche non salvate. Vuoi davvero uscire?")) return;
+    }
+    dirtyRef.current = false;
+    onOpenChange(newOpen);
+  }, [onOpenChange]);
+
   const handleSubmit = (values: MovementFormValues) => {
     createMutation.mutate(
       {
@@ -35,12 +47,12 @@ export function MovementSheet({ open, onOpenChange }: MovementSheetProps) {
         data_effettiva: format(values.data_effettiva, "yyyy-MM-dd"),
         note: values.note ?? null,
       },
-      { onSuccess: () => onOpenChange(false) }
+      { onSuccess: () => { dirtyRef.current = false; onOpenChange(false); } }
     );
   };
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={guardedOpenChange}>
       <SheetContent className="overflow-y-auto sm:max-w-lg">
         <SheetHeader>
           <SheetTitle>Nuovo Movimento</SheetTitle>
@@ -49,6 +61,7 @@ export function MovementSheet({ open, onOpenChange }: MovementSheetProps) {
           <MovementForm
             onSubmit={handleSubmit}
             isPending={createMutation.isPending}
+            onDirtyChange={handleDirtyChange}
           />
         </div>
       </SheetContent>
