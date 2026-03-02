@@ -13,7 +13,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { loadFilters, saveFilters, getUrlParams, syncUrlParams } from "@/lib/url-state";
+import { getUrlParams, syncUrlParams } from "@/lib/url-state";
 import {
   Plus,
   Landmark,
@@ -110,21 +110,16 @@ const chartConfig: ChartConfig = {
 export default function CassaPage() {
   const now = new Date();
 
-  // sessionStorage = fonte primaria (sopravvive a back-navigation)
-  const [_initFilters] = useState(() => loadFilters("cassa"));
-
+  // Filter state (URL = fallback per deep-link, default = mese corrente)
   const [mese, setMese] = useState(() => {
-    if (_initFilters?.mese != null) return _initFilters.mese as number;
     const m = getUrlParams().get("mese");
     return m ? parseInt(m, 10) : now.getMonth() + 1;
   });
   const [anno, setAnno] = useState(() => {
-    if (_initFilters?.anno != null) return _initFilters.anno as number;
     const a = getUrlParams().get("anno");
     return a ? parseInt(a, 10) : now.getFullYear();
   });
   const [activeTab, setActiveTab] = useState(() => {
-    if (_initFilters?.tab) return _initFilters.tab as string;
     return getUrlParams().get("tab") ?? "ledger";
   });
 
@@ -141,18 +136,10 @@ export default function CassaPage() {
   const { data: balance, isLoading: balanceLoading } = useCashBalance();
   const pendingCount = pendingData?.items.length ?? 0;
 
-  // ── Sync filtri → sessionStorage (primario) + URL (feedback visivo) ──
+  // ── Sync filtri → URL (feedback visivo) ──
   useEffect(() => {
     const currentMonth = now.getMonth() + 1;
     const currentYear = now.getFullYear();
-    const isDefault = mese === currentMonth && anno === currentYear && activeTab === "ledger";
-
-    saveFilters("cassa", {
-      mese: isDefault ? null : mese,
-      anno: isDefault ? null : anno,
-      tab: activeTab !== "ledger" ? activeTab : null,
-    });
-
     const params = new URLSearchParams();
     if (mese !== currentMonth || anno !== currentYear) {
       params.set("mese", String(mese));

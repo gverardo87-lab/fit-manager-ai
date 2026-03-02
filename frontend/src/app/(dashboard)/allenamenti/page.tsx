@@ -20,7 +20,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { loadFilters, saveFilters, getUrlParams, syncUrlParams } from "@/lib/url-state";
+import { getUrlParams, syncUrlParams } from "@/lib/url-state";
 import Link from "next/link";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
@@ -201,33 +201,19 @@ export default function AllenamentiPage() {
   const { data: workoutsData, isLoading: loadingWorkouts } = useWorkouts();
   const { data: clientsData } = useClients();
 
-  // sessionStorage = fonte primaria (sopravvive a back-navigation)
-  const [_initFilters] = useState(() => loadFilters("allenamenti"));
-
+  // Filter state (URL deep-link prioritario per idCliente, default = tutti)
   const [clientFilter, setClientFilter] = useState<string>(() => {
-    // URL idCliente ha priorita' (deep-link da profilo cliente)
     if (initialClientId) return initialClientId;
-    if (_initFilters?.idCliente) return _initFilters.idCliente as string;
     return "__all__";
   });
   const [statusFilter, setStatusFilter] = useState<"tutti" | ProgramStatus>(() => {
-    if (_initFilters?.status) {
-      const s = _initFilters.status as string;
-      if (["attivo", "da_attivare", "completato"].includes(s)) return s as ProgramStatus;
-      if (s === "tutti") return "tutti";
-    }
     const s = getUrlParams().get("status");
     if (s && ["attivo", "da_attivare", "completato"].includes(s)) return s as ProgramStatus;
     return "tutti";
   });
 
-  // ── Sync filtri → sessionStorage (primario) + URL (feedback visivo) ──
+  // ── Sync filtri → URL (feedback visivo) ──
   useEffect(() => {
-    saveFilters("allenamenti", {
-      idCliente: clientFilter !== "__all__" ? clientFilter : null,
-      status: statusFilter !== "tutti" ? statusFilter : null,
-    });
-
     const params = new URLSearchParams();
     if (clientFilter !== "__all__") params.set("idCliente", clientFilter);
     if (statusFilter !== "tutti") params.set("status", statusFilter);

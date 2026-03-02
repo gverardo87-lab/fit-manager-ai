@@ -15,7 +15,7 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
-import { loadFilters, saveFilters, getUrlParams, syncUrlParams } from "@/lib/url-state";
+import { getUrlParams, syncUrlParams } from "@/lib/url-state";
 import {
   Plus,
   Users,
@@ -144,17 +144,13 @@ export default function ClientiPage() {
     }
   }, []);
 
-  // Filter state (sessionStorage = primary, URL = fallback)
-  const [_initFilters] = useState(() => loadFilters("clienti"));
-
+  // Filter state (URL = fallback per deep-link, default = tutti)
   const [activeStati, setActiveStati] = useState<Set<string>>(() => {
-    if (_initFilters?.stato) return new Set(_initFilters.stato as string[]);
     const param = getUrlParams().get("stato");
     if (param) return new Set(param.split(","));
     return new Set(STATO_CHIPS.map((c) => c.key));
   });
   const [activeSituazioni, setActiveSituazioni] = useState<Set<string>>(() => {
-    if (_initFilters?.situazione) return new Set(_initFilters.situazione as string[]);
     const param = getUrlParams().get("situazione");
     if (param) return new Set(param.split(","));
     return new Set(SITUAZIONE_CHIPS.map((c) => c.key));
@@ -162,11 +158,10 @@ export default function ClientiPage() {
 
   const { data, isLoading, isError, refetch } = useClients();
 
-  // ── Persist filters → sessionStorage + URL ──
+  // ── Sync filtri → URL (feedback visivo) ──
   useEffect(() => {
     const statiArr = activeStati.size < STATO_CHIPS.length ? [...activeStati] : null;
     const sitArr = activeSituazioni.size < SITUAZIONE_CHIPS.length ? [...activeSituazioni] : null;
-    saveFilters("clienti", { stato: statiArr, situazione: sitArr });
     const params = new URLSearchParams();
     if (statiArr) params.set("stato", statiArr.join(","));
     if (sitArr) params.set("situazione", sitArr.join(","));

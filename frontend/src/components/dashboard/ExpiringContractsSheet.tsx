@@ -178,7 +178,7 @@ export function ExpiringContractsSheet({ open, onOpenChange }: ExpiringContracts
                     </div>
 
                     {/* CTA */}
-                    <Link href={`/contratti/${item.contract_id}`}>
+                    <Link href={`/contratti/${item.contract_id}?from=dashboard`}>
                       <Button
                         size="sm"
                         variant="outline"

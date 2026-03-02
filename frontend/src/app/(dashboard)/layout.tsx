@@ -44,25 +44,67 @@ export default function DashboardLayout({
     return () => window.removeEventListener("popstate", handler);
   }, []);
 
-  // Save/restore scroll position for <main> container
+  // Continuously save scroll position via scroll event (always up-to-date for back-nav)
   useEffect(() => {
     const main = mainRef.current;
     if (!main) return;
 
-    const timers: ReturnType<typeof setTimeout>[] = [];
+    let rafId: number | null = null;
+    const handleScroll = () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        sessionStorage.setItem(`scroll:${pathname}`, String(main.scrollTop));
+        rafId = null;
+      });
+    };
+
+    main.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      main.removeEventListener("scroll", handleScroll);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
+  }, [pathname]);
+
+  // Restore scroll on back-nav (MutationObserver waits for content), reset on forward-nav
+  useEffect(() => {
+    const main = mainRef.current;
+    if (!main) return;
+
+    let observer: MutationObserver | null = null;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const cleanup = () => {
+      if (observer) { observer.disconnect(); observer = null; }
+      if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
+    };
 
     if (isPopRef.current) {
       // Back/forward navigation → restore saved position
-      // Retry: content may still be loading (React Query cache hit is fast but async)
       const saved = sessionStorage.getItem(`scroll:${pathname}`);
       if (saved) {
         const target = parseInt(saved, 10);
-        const tryRestore = () => {
-          main.scrollTop = target;
+
+        const tryRestore = (): boolean => {
+          if (main.scrollHeight >= target + main.clientHeight * 0.5) {
+            main.scrollTop = target;
+            cleanup();
+            return true;
+          }
+          return false;
         };
-        requestAnimationFrame(tryRestore);
-        timers.push(setTimeout(tryRestore, 100));
-        timers.push(setTimeout(tryRestore, 300));
+
+        // Immediate attempt (React Query cache hit)
+        if (!tryRestore()) {
+          // Watch for DOM changes (async content loading)
+          observer = new MutationObserver(() => { tryRestore(); });
+          observer.observe(main, { childList: true, subtree: true });
+
+          // Hard timeout: force restore after 2s
+          timeoutId = setTimeout(() => {
+            main.scrollTop = target;
+            cleanup();
+          }, 2000);
+        }
       }
       isPopRef.current = false;
     } else {
@@ -70,11 +112,7 @@ export default function DashboardLayout({
       main.scrollTop = 0;
     }
 
-    return () => {
-      timers.forEach(clearTimeout);
-      // Save scroll before leaving this page
-      sessionStorage.setItem(`scroll:${pathname}`, String(main.scrollTop));
-    };
+    return cleanup;
   }, [pathname]);
 
   return (

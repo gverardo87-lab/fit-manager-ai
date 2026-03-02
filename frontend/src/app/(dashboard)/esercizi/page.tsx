@@ -17,7 +17,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { loadFilters, saveFilters, getUrlParams, syncUrlParams } from "@/lib/url-state";
+import { getUrlParams, syncUrlParams } from "@/lib/url-state";
 import {
   Plus,
   Dumbbell,
@@ -121,55 +121,40 @@ export default function EserciziPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
 
-  // ── Filter state (sessionStorage = primary, URL = fallback per link diretti) ──
-  // Legge una volta sola da sessionStorage per tutte le inizializzazioni
-  const [_initFilters] = useState(() => loadFilters("esercizi"));
+  // ── Filter state (URL = fallback per deep-link, default = tutti) ──
   const _urlParams = getUrlParams();
 
   const [activeCategories, setActiveCategories] = useState<Set<string>>(() => {
-    if (_initFilters?.cat) return new Set(_initFilters.cat as string[]);
     const urlCat = _urlParams.get("cat");
     if (urlCat) return new Set(urlCat.split(",").filter((c) => ALL_CATEGORIES.includes(c)));
     return new Set(ALL_CATEGORIES);
   });
   const [selectedPattern, setSelectedPattern] = useState<string | null>(
-    () => (_initFilters?.pattern as string) ?? _urlParams.get("pattern"),
+    () => _urlParams.get("pattern"),
   );
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(
-    () => (_initFilters?.muscle as string) ?? _urlParams.get("muscle"),
+    () => _urlParams.get("muscle"),
   );
   const [selectedEquipment, setSelectedEquipment] = useState<string | null>(
-    () => (_initFilters?.equipment as string) ?? _urlParams.get("equipment"),
+    () => _urlParams.get("equipment"),
   );
   const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(
-    () => (_initFilters?.difficulty as string) ?? _urlParams.get("difficulty"),
+    () => _urlParams.get("difficulty"),
   );
   const [selectedForceType, setSelectedForceType] = useState<string | null>(
-    () => (_initFilters?.force as string) ?? _urlParams.get("force"),
+    () => _urlParams.get("force"),
   );
   const [selectedLateral, setSelectedLateral] = useState<string | null>(
-    () => (_initFilters?.lateral as string) ?? _urlParams.get("lateral"),
+    () => _urlParams.get("lateral"),
   );
   const [showBiomechanics, setShowBiomechanics] = useState(false);
   const [search, setSearch] = useState(
-    () => (_initFilters?.q as string) ?? _urlParams.get("q") ?? "",
+    () => _urlParams.get("q") ?? "",
   );
 
-  // ── Persist filters → sessionStorage (primary) + URL (visual feedback) ──
+  // ── Sync filtri → URL (feedback visivo) ──
   useEffect(() => {
-    // SessionStorage: fonte di verità per restore su back-nav
     const catArr = activeCategories.size < ALL_CATEGORIES.length ? [...activeCategories] : null;
-    saveFilters("esercizi", {
-      cat: catArr,
-      pattern: selectedPattern,
-      muscle: selectedMuscle,
-      equipment: selectedEquipment,
-      difficulty: selectedDifficulty,
-      force: selectedForceType,
-      lateral: selectedLateral,
-      q: search || null,
-    });
-    // URL: feedback visivo nell'address bar
     const params = new URLSearchParams();
     if (catArr) params.set("cat", catArr.join(","));
     if (selectedPattern) params.set("pattern", selectedPattern);

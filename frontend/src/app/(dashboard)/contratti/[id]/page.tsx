@@ -64,6 +64,7 @@ export default function ContractDetailPage({
   const contractId = parseInt(id, 10);
   const router = useRouter();
   const returnClientId = from?.startsWith("clienti-") ? from.slice(8) : null;
+  const returnToDashboard = from === "dashboard";
 
   const { data: contract, isLoading } = useContract(contractId);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -89,7 +90,7 @@ export default function ContractDetailPage({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3">
           <Link
-            href={returnClientId ? `/clienti/${returnClientId}?tab=contratti` : "/contratti"}
+            href={returnClientId ? `/clienti/${returnClientId}?tab=contratti` : returnToDashboard ? "/" : "/contratti"}
             className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border bg-white shadow-sm transition-colors hover:bg-zinc-50 dark:bg-zinc-900 dark:hover:bg-zinc-800"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -160,6 +161,18 @@ export default function ContractDetailPage({
         </div>
       )}
 
+      {returnToDashboard && (
+        <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-2 flex items-center gap-2">
+          <ArrowLeft className="h-3.5 w-3.5 text-primary" />
+          <Link
+            href="/"
+            className="text-sm text-primary hover:underline"
+          >
+            Torna alla dashboard
+          </Link>
+        </div>
+      )}
+
       {/* ── Financial Hero KPI ── */}
       <ContractFinancialHero contract={contract} />
 
@@ -206,7 +219,7 @@ export default function ContractDetailPage({
         onOpenChange={setDeleteOpen}
         contract={contract}
         clientName={clientName}
-        onDeleted={() => router.push(returnClientId ? `/clienti/${returnClientId}?tab=contratti` : "/contratti")}
+        onDeleted={() => router.push(returnClientId ? `/clienti/${returnClientId}?tab=contratti` : returnToDashboard ? "/" : "/contratti")}
       />
     </div>
   );
