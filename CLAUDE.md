@@ -359,49 +359,47 @@ File chiave: `api/routers/movements.py` (_compute_saldo, _compute_saldo_before, 
 `frontend/src/app/(dashboard)/cassa/page.tsx` (SaldoHeroCard, ComposedChart),
 `frontend/src/components/movements/MovementsTable.tsx` (running balance column).
 
-### Navigation UX — Filtri + Scroll Persistenti
+### Navigation UX — Filtri Reset + Scroll Restoration + Cross-Link
 
-> **Filosofia: sessionStorage come fonte primaria.** L'URL e' feedback visivo, non fonte di verita'.
-> Next.js 14.1+ intercetta pushState/replaceState e puo' normalizzare l'URL durante back-navigation.
+> **Filosofia: filtri sempre freschi.** Ogni navigazione parte dai default.
+> Deep-link URL (`?idCliente=X`, `?tab=forecast`) consumati one-shot.
+> URL per feedback visivo, non persistenza.
 
-**Problema**: filtri e scroll si perdevano al back-navigation (browser back button) perche'
-ne' `useSearchParams()` ne' `window.location.search` sono affidabili al mount dopo un popstate
-in Next.js App Router.
-
-**Soluzione**: `lib/url-state.ts` — 4 utility centralizzate:
-- `saveFilters(pageKey, state)` → scrive in `sessionStorage` (sopravvive a qualsiasi navigazione)
-- `loadFilters(pageKey)` → legge da `sessionStorage` (fonte primaria al mount)
-- `getUrlParams()` → legge da `window.location.search` (fallback per link diretti/bookmark)
-- `syncUrlParams(pathname, params)` → scrive URL con `replaceState(window.history.state, ...)` (preserva stato Next.js)
+**Filtri** — `lib/url-state.ts` utility (`getUrlParams`, `syncUrlParams`):
+- `getUrlParams()` → legge da `window.location.search` (deep-link / bookmark one-shot)
+- `syncUrlParams(pathname, params)` → scrive URL con `replaceState` (feedback visivo)
+- `saveFilters`/`loadFilters` disponibili ma NON usati (persistenza rimossa per evitare confusione)
 
 **Pattern per ogni pagina con filtri** (6 pagine):
 ```typescript
-// 1. INIT: sessionStorage → URL → default
-const [_initFilters] = useState(() => loadFilters("pageKey"));
+// 1. INIT: URL deep-link → default (NO sessionStorage)
 const [filter, setFilter] = useState(() => {
-  if (_initFilters?.field) return _initFilters.field as Type;
   const param = getUrlParams().get("field");
   if (param) return parseParam(param);
   return defaultValue;
 });
 
-// 2. WRITE: ogni cambio → sessionStorage + URL
+// 2. WRITE: ogni cambio → URL (solo feedback visivo)
 useEffect(() => {
-  saveFilters("pageKey", { field: filter !== default ? filter : null });
   const params = new URLSearchParams();
   if (filter !== default) params.set("field", String(filter));
   syncUrlParams(window.location.pathname, params);
 }, [filter]);
 ```
 
-**Pagine convertite**: esercizi (8 filtri), clienti (2 filtri), contratti (2 filtri),
-schede (3 filtri), cassa (3 filtri), allenamenti (2 filtri).
+**Pagine**: esercizi (8 filtri), clienti (2), contratti (2), schede (3), cassa (3), allenamenti (2).
 
-**Scroll Restoration** (`layout.tsx`): popstate event listener + sessionStorage keyed by pathname.
-Retry con requestAnimationFrame + 100ms + 300ms (attesa async render React Query).
-Target: `<main ref={mainRef}>` (scroll container custom, non window).
+**Scroll Restoration** (`layout.tsx`) — 3 hook:
+1. `popstate` → flag `isPopRef.current = true`
+2. Scroll event listener (debounced rAF) → salva `scroll:{pathname}` in sessionStorage continuamente
+3. Pathname change: se popstate → MutationObserver aspetta contenuto + height check + hard timeout 2s;
+   se forward → `scrollTop = 0`
 
-**Cross-link contestuali**: `?from=clienti-{id}` su contratti/[id] e schede/[id] → banner "Torna al profilo" + back button condizionale.
+**Cross-link contestuali**: `?from=clienti-{id}` su contratti/[id] e schede/[id] → banner "Torna al profilo".
+`?from=dashboard` su contratti/[id] → banner "Torna alla dashboard". Back button condizionale.
+
+**Deep-link params**: `?newEvent=1&clientId=X` (agenda), `?new=1` (clienti/contratti), `?new=1&cliente=X` (contratti).
+Consumati al mount, URL pulito con `replaceState`.
 
 **Tab persistence**: `clienti/[id]` persiste tab attiva via `router.replace(url, { scroll: false })`.
 
@@ -568,7 +566,8 @@ Errori reali trovati e corretti. MAI ripeterli.
 | SQLAlchemy subquery cross-join | `select(func.sum(case(CashMovement.tipo...))).select_from(query.subquery())` — i riferimenti `CashMovement.*` non vengono adattati alle colonne del subquery → cross-join implicito con tabella originale → somma enorme | Usare `subq = query.subquery()` poi `subq.c.tipo`, `subq.c.importo` nelle espressioni. MAI `CashMovement.*` con `select_from(subquery)` |
 | `activate_batch.py` verify rollback asimmetrico | Verify per-DB: DB-A rollbacka 5, DB-B rollbacka 3 → delta silenzioso tra DB. Anche: verify PRIMA di fill_tempo → 43/50 rollbackati per campo auto-fillable | 3 safeguard: (1) pre-check sync (union), (2) fill_tempo_consigliato pre-verify, (3) rollback union (se fallisce su QUALSIASI DB → rollback su TUTTI) |
 | `populate_exercise_relations` chain IDs stale | Chain IDs puntano a esercizi disattivati (57/91 stale) → 21% copertura relazioni | Aggiornare chains ad OGNI batch activation. Riscrittura completa chains da 186→269 esercizi |
-| Next.js URL state perso su back-nav | `useSearchParams()` e `window.location.search` inaffidabili al mount dopo popstate (Next.js 14.1+ intercetta pushState/replaceState) | sessionStorage come fonte primaria (`lib/url-state.ts`). URL solo per feedback visivo. Pattern: `loadFilters()` → `getUrlParams()` → default |
+| Filtri persistenti confondono utente | `loadFilters()` da sessionStorage ripristinava filtri anche su navigazione "fresca" (sidebar click) → l'utente non capiva perche' vedeva dati filtrati | Rimosso `loadFilters`/`saveFilters`. Filtri partono SEMPRE dai default. URL deep-link consumati one-shot via `getUrlParams()` |
+| Scroll restoration race condition | `useEffect` cleanup salvava scrollTop a pathname change (troppo tardi, gia' 0). Triple-retry (300ms) insufficiente per liste async React Query | Salvataggio continuo via `scroll` event listener (rAF). Restore via `MutationObserver` (aspetta DOM) + height check + hard timeout 2s |
 | `useEffect([queryData])` sovrascrive form | Mutation inline (cambio obiettivo/livello) invalida query → refetch → useEffect riscrive stato locale con dati server vecchi → TUTTE le modifiche non salvate perse silenziosamente | Guard `isDirtyRef.current` (schede builder), `userHasEdited` state (impostazioni), `initializedEditId` ref (misurazioni). MAI useEffect incondizionato su dati React Query che alimentano form editabili |
 | `onClick={goBack}` con default param | `goBack(force = false)` usata come handler: React passa `MouseEvent` come primo arg → truthy → bypass guard | Sempre `onClick={() => goBack()}`. MAI passare funzione con default param direttamente a onClick |
 | `router.push()` senza guard dirty | `goBack()` fa navigazione client-side che non triggera `beforeunload` → dati persi senza avviso | `goBack(force = false)` con `window.confirm()` se isDirty. `force=true` solo da mutation `onSuccess` |

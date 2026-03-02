@@ -34,11 +34,14 @@ export default function DashboardLayout({
   const mainRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const isPopRef = useRef(false);
+  const prevPathnameRef = useRef(pathname);
+  const scrollTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  // Track back/forward navigation via popstate
+  // Track back/forward navigation via popstate + set sessionStorage flag for pages
   useEffect(() => {
     const handler = () => {
       isPopRef.current = true;
+      try { sessionStorage.setItem("nav:back", "1"); } catch { /* ignore */ }
     };
     window.addEventListener("popstate", handler);
     return () => window.removeEventListener("popstate", handler);
@@ -65,54 +68,38 @@ export default function DashboardLayout({
     };
   }, [pathname]);
 
-  // Restore scroll on back-nav (MutationObserver waits for content), reset on forward-nav
+  // Restore scroll on back-nav, reset on forward-nav
+  // prevPathnameRef guard prevents React Strict Mode double-invocation from scrolling to 0
   useEffect(() => {
     const main = mainRef.current;
     if (!main) return;
 
-    let observer: MutationObserver | null = null;
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    // Strict Mode guard: skip if we already processed this pathname
+    if (prevPathnameRef.current === pathname) return;
+    prevPathnameRef.current = pathname;
 
-    const cleanup = () => {
-      if (observer) { observer.disconnect(); observer = null; }
-      if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
-    };
+    // Clear any previous scroll timers
+    scrollTimersRef.current.forEach(clearTimeout);
+    scrollTimersRef.current = [];
 
     if (isPopRef.current) {
-      // Back/forward navigation → restore saved position
+      isPopRef.current = false;
+      // Back/forward navigation → restore saved position with retries
       const saved = sessionStorage.getItem(`scroll:${pathname}`);
       if (saved) {
         const target = parseInt(saved, 10);
-
-        const tryRestore = (): boolean => {
-          if (main.scrollHeight >= target + main.clientHeight * 0.5) {
-            main.scrollTop = target;
-            cleanup();
-            return true;
-          }
-          return false;
-        };
-
-        // Immediate attempt (React Query cache hit)
-        if (!tryRestore()) {
-          // Watch for DOM changes (async content loading)
-          observer = new MutationObserver(() => { tryRestore(); });
-          observer.observe(main, { childList: true, subtree: true });
-
-          // Hard timeout: force restore after 2s
-          timeoutId = setTimeout(() => {
-            main.scrollTop = target;
-            cleanup();
-          }, 2000);
-        }
+        const tryRestore = () => { main.scrollTop = target; };
+        // Multiple retries at increasing intervals (waits for React Query async data)
+        [0, 50, 100, 250, 500, 1000, 2000].forEach(delay => {
+          scrollTimersRef.current.push(setTimeout(tryRestore, delay));
+        });
       }
-      isPopRef.current = false;
+      // Clear nav:back flag (pages have already read it in their useState init)
+      try { sessionStorage.removeItem("nav:back"); } catch { /* ignore */ }
     } else {
       // Forward navigation → scroll to top
       main.scrollTop = 0;
     }
-
-    return cleanup;
   }, [pathname]);
 
   return (

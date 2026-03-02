@@ -13,7 +13,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getUrlParams, syncUrlParams } from "@/lib/url-state";
+import { loadFilters, saveFilters, isBackNavigation, getUrlParams, syncUrlParams } from "@/lib/url-state";
 import {
   Plus,
   ClipboardList,
@@ -100,6 +100,16 @@ export default function SchedePage() {
   const router = useRouter();
 
   const [filters, setFilters] = useState<WorkoutFilters>(() => {
+    if (isBackNavigation()) {
+      const saved = loadFilters("schede");
+      if (saved) {
+        const init: WorkoutFilters = {};
+        if (saved.obiettivo) init.obiettivo = saved.obiettivo as string;
+        if (saved.livello) init.livello = saved.livello as string;
+        if (saved.id_cliente) init.id_cliente = saved.id_cliente as number;
+        return init;
+      }
+    }
     const init: WorkoutFilters = {};
     const p = getUrlParams();
     const ob = p.get("obiettivo");
@@ -117,8 +127,13 @@ export default function SchedePage() {
   const { data: clientsData } = useClients();
   const clients = useMemo(() => clientsData?.items ?? [], [clientsData]);
 
-  // ── Sync filtri → URL (feedback visivo) ──
+  // ── Sync filtri → sessionStorage + URL (feedback visivo) ──
   useEffect(() => {
+    saveFilters("schede", {
+      obiettivo: filters.obiettivo ?? null,
+      livello: filters.livello ?? null,
+      id_cliente: filters.id_cliente ?? null,
+    });
     const params = new URLSearchParams();
     if (filters.obiettivo) params.set("obiettivo", filters.obiettivo);
     if (filters.livello) params.set("livello", filters.livello);

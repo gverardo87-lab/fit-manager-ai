@@ -20,7 +20,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getUrlParams, syncUrlParams } from "@/lib/url-state";
+import { loadFilters, saveFilters, isBackNavigation, getUrlParams, syncUrlParams } from "@/lib/url-state";
 import Link from "next/link";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
@@ -201,19 +201,31 @@ export default function AllenamentiPage() {
   const { data: workoutsData, isLoading: loadingWorkouts } = useWorkouts();
   const { data: clientsData } = useClients();
 
-  // Filter state (URL deep-link prioritario per idCliente, default = tutti)
+  // Filter state (back-nav = ripristina da sessionStorage, fresh = default)
   const [clientFilter, setClientFilter] = useState<string>(() => {
     if (initialClientId) return initialClientId;
+    if (isBackNavigation()) {
+      const saved = loadFilters("allenamenti");
+      if (saved?.clientFilter) return saved.clientFilter as string;
+    }
     return "__all__";
   });
   const [statusFilter, setStatusFilter] = useState<"tutti" | ProgramStatus>(() => {
+    if (isBackNavigation()) {
+      const saved = loadFilters("allenamenti");
+      if (saved?.statusFilter) return saved.statusFilter as "tutti" | ProgramStatus;
+    }
     const s = getUrlParams().get("status");
     if (s && ["attivo", "da_attivare", "completato"].includes(s)) return s as ProgramStatus;
     return "tutti";
   });
 
-  // ── Sync filtri → URL (feedback visivo) ──
+  // ── Sync filtri → sessionStorage + URL (feedback visivo) ──
   useEffect(() => {
+    saveFilters("allenamenti", {
+      clientFilter: clientFilter !== "__all__" ? clientFilter : null,
+      statusFilter: statusFilter !== "tutti" ? statusFilter : null,
+    });
     const params = new URLSearchParams();
     if (clientFilter !== "__all__") params.set("idCliente", clientFilter);
     if (statusFilter !== "tutti") params.set("status", statusFilter);

@@ -45,6 +45,22 @@ export function loadFilters(
   }
 }
 
+// ── Back-navigation flag ──
+
+/**
+ * Ritorna true se la navigazione corrente è un back/forward (popstate).
+ * Usato dalle pagine per decidere se ripristinare filtri da sessionStorage.
+ * Il flag viene impostato dal layout.tsx nel popstate handler.
+ */
+export function isBackNavigation(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return sessionStorage.getItem("nav:back") === "1";
+  } catch {
+    return false;
+  }
+}
+
 // ── URL (feedback visivo) ──
 
 /**
