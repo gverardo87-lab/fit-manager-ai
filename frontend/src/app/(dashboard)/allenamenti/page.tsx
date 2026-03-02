@@ -573,7 +573,7 @@ function ProgramCard({ plan }: { plan: WorkoutPlan }) {
               <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
               {status === "da_attivare" ? "Attiva programma" : "Modifica date"}
             </Button>
-            <Link href={`/schede/${plan.id}`}>
+            <Link href={`/schede/${plan.id}?from=allenamenti`}>
               <Button variant="ghost" size="sm" className="text-xs text-primary">
                 Vai alla Scheda →
               </Button>

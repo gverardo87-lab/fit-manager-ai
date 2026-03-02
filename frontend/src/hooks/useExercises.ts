@@ -53,6 +53,8 @@ export function useExercises(filters?: ExerciseFilters) {
       const { data } = await apiClient.get<ExerciseListResponse>("/exercises", { params });
       return data;
     },
+    // Catalogo esercizi: dati quasi-statici, 5 min di freshness
+    staleTime: 5 * 60 * 1000,
   });
 }
 
@@ -68,6 +70,7 @@ export function useExercise(id: number | null) {
       return data;
     },
     enabled: id !== null,
+    staleTime: 5 * 60 * 1000,
   });
 }
 
@@ -248,6 +251,7 @@ export function useExerciseRelations(exerciseId: number | null) {
       return data;
     },
     enabled: exerciseId !== null && exerciseId > 0,
+    staleTime: 5 * 60 * 1000,
   });
 }
 
@@ -266,5 +270,6 @@ export function useExerciseSafetyMap(clientId: number | null) {
       return data;
     },
     enabled: clientId !== null && clientId > 0,
+    staleTime: 5 * 60 * 1000,
   });
 }

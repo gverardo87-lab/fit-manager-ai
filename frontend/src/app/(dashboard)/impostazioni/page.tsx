@@ -343,21 +343,25 @@ function SaldoInizialeSection() {
 
   const [importo, setImporto] = useState("");
   const [dataInizio, setDataInizio] = useState("");
+  const [userHasEdited, setUserHasEdited] = useState(false);
 
-  // Sync state quando arrivano i dati dal server
+  // Sync server → local (solo al caricamento iniziale, non sovrascrive modifiche utente)
   useEffect(() => {
-    if (!saldoData) return;
+    if (!saldoData || userHasEdited) return;
     setImporto(String(saldoData.saldo_iniziale_cassa));
     setDataInizio(saldoData.data_saldo_iniziale ?? "");
-  }, [saldoData]);
+  }, [saldoData, userHasEdited]);
 
   const handleSave = () => {
     const parsed = parseFloat(importo);
     if (isNaN(parsed)) return;
-    updateSaldo.mutate({
-      saldo_iniziale_cassa: parsed,
-      data_saldo_iniziale: dataInizio || null,
-    });
+    updateSaldo.mutate(
+      {
+        saldo_iniziale_cassa: parsed,
+        data_saldo_iniziale: dataInizio || null,
+      },
+      { onSuccess: () => setUserHasEdited(false) },
+    );
   };
 
   const isDirty =
@@ -404,7 +408,7 @@ function SaldoInizialeSection() {
               step="0.01"
               placeholder="0.00"
               value={importo}
-              onChange={(e) => setImporto(e.target.value)}
+              onChange={(e) => { setImporto(e.target.value); setUserHasEdited(true); }}
             />
           </div>
 
@@ -417,7 +421,7 @@ function SaldoInizialeSection() {
                 id="data-saldo"
                 type="date"
                 value={dataInizio}
-                onChange={(e) => setDataInizio(e.target.value)}
+                onChange={(e) => { setDataInizio(e.target.value); setUserHasEdited(true); }}
                 className="pl-10"
               />
             </div>

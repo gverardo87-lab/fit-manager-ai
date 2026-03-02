@@ -49,6 +49,8 @@ interface SortableExerciseRowProps {
   exerciseData?: Exercise;
   /** ID scheda per deep-link ritorno */
   schedaId?: number;
+  /** Contesto provenienza scheda (es. "allenamenti") per catena navigazione */
+  parentFrom?: string | null;
   /** Mappa pattern_movimento → valore 1RM cliente (per badge % 1RM) */
   oneRMByPattern?: Record<string, number> | null;
   onUpdate: (updates: Partial<WorkoutExerciseRow>) => void;
@@ -184,6 +186,7 @@ export function SortableExerciseRow({
   safetyEntries,
   exerciseData,
   schedaId,
+  parentFrom,
   oneRMByPattern,
   onUpdate,
   onDelete,
@@ -314,6 +317,7 @@ export function SortableExerciseRow({
                 safety={safety}
                 safetyEntries={safetyEntries}
                 schedaId={schedaId}
+                parentFrom={parentFrom}
                 onQuickReplace={onQuickReplace}
               />
             )}

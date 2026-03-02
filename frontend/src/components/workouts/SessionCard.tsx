@@ -65,6 +65,8 @@ interface SessionCardProps {
   exerciseMap?: Map<number, Exercise>;
   /** ID scheda per deep-link ritorno dalla pagina esercizio */
   schedaId?: number;
+  /** Contesto provenienza scheda (es. "allenamenti") per catena navigazione */
+  parentFrom?: string | null;
   /** Mappa pattern_movimento → valore 1RM cliente (per badge % 1RM) */
   oneRMByPattern?: Record<string, number> | null;
   onUpdateSession: (sessionId: number, updates: Partial<SessionCardData>) => void;
@@ -126,6 +128,7 @@ export function SessionCard({
   safetyMap,
   exerciseMap,
   schedaId,
+  parentFrom,
   oneRMByPattern,
   onUpdateSession,
   onDeleteSession,
@@ -379,6 +382,7 @@ export function SessionCard({
                             safetyEntries={safetyMap}
                             exerciseData={exerciseMap?.get(exercise.id_esercizio)}
                             schedaId={schedaId}
+                            parentFrom={parentFrom}
                             oneRMByPattern={isPrincipale ? oneRMByPattern : undefined}
                             onUpdate={(updates) => onUpdateExercise(session.id, exercise.id, updates)}
                             onDelete={() => onDeleteExercise(session.id, exercise.id)}

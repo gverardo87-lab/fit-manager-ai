@@ -35,6 +35,8 @@ interface ExerciseDetailPanelProps {
   safety?: ExerciseSafetyEntry;
   safetyEntries?: Record<number, ExerciseSafetyEntry>;
   schedaId?: number;
+  /** Contesto di provenienza della scheda (es. "allenamenti") — propagato nel deep-link */
+  parentFrom?: string | null;
   onQuickReplace?: (newExerciseId: number) => void;
 }
 
@@ -103,6 +105,7 @@ export function ExerciseDetailPanel({
   safety,
   safetyEntries,
   schedaId,
+  parentFrom,
   onQuickReplace,
 }: ExerciseDetailPanelProps) {
   const { data: relations } = useExerciseRelations(exerciseId);
@@ -225,7 +228,7 @@ export function ExerciseDetailPanel({
       {/* Deep link */}
       <div className="pt-1">
         <Link
-          href={`/esercizi/${exerciseId}${schedaId ? `?from=scheda-${schedaId}` : ""}`}
+          href={`/esercizi/${exerciseId}${schedaId ? `?from=scheda-${schedaId}${parentFrom ? `&parentFrom=${parentFrom}` : ""}` : ""}`}
           className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
         >
           Vedi dettaglio completo

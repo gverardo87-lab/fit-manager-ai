@@ -12,7 +12,7 @@
  * Back button: torna alla pagina Progressi del cliente.
  */
 
-import { use, useEffect, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
@@ -95,9 +95,13 @@ export default function MisurazionePage({
   const [note, setNote] = useState("");
   const [values, setValues] = useState<Record<number, string>>({});
 
-  // Initialize form from edit measurement
+  // Flag: l'ID della misurazione gia' inizializzata nel form.
+  // Previene sovrascrittura se React Query ri-fetcha i dati durante l'editing.
+  const initializedEditId = useRef<number | null>(null);
+
+  // Initialize form from edit measurement (solo una volta per misurazione)
   useEffect(() => {
-    if (editMeasurement) {
+    if (editMeasurement && initializedEditId.current !== editMeasurement.id) {
       setDate(new Date(editMeasurement.data_misurazione));
       setNote(editMeasurement.note ?? "");
       const vals: Record<number, string> = {};
@@ -105,6 +109,7 @@ export default function MisurazionePage({
         vals[v.id_metrica] = String(v.valore);
       }
       setValues(vals);
+      initializedEditId.current = editMeasurement.id;
     }
   }, [editMeasurement]);
 

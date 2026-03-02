@@ -14,7 +14,7 @@
  * Ricerca testuale: nome + muscoli (italiano e inglese) + attrezzatura (italiano).
  */
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef, memo } from "react";
 import { Search, X, ChevronDown, SlidersHorizontal, ShieldAlert, AlertTriangle, Info } from "lucide-react";
 
 import {
@@ -104,7 +104,9 @@ export function ExerciseSelector({
   usedExerciseIds,
 }: ExerciseSelectorProps) {
   // ── Filter state ──
-  const [search, setSearch] = useState("");
+  const [rawSearch, setRawSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedPattern, setSelectedPattern] = useState<string | null>(null);
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
   const [selectedEquipment, setSelectedEquipment] = useState<string | null>(null);
@@ -115,6 +117,18 @@ export function ExerciseSelector({
   const [showFilters, setShowFilters] = useState(true);
   const [expandedSafetyId, setExpandedSafetyId] = useState<number | null>(null);
   const [expandedDetailId, setExpandedDetailId] = useState<number | null>(null);
+
+  // ── Debounce: input istantaneo, filtro ritardato 200ms ──
+  const handleSearchChange = useCallback((value: string) => {
+    setRawSearch(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setDebouncedSearch(value), 200);
+  }, []);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, []);
 
   const { data } = useExercises();
   const exercises = data?.items ?? [];
@@ -214,42 +228,44 @@ export function ExerciseSelector({
       .map((l) => ({ value: l, count: counts.get(l)! }));
   }, [sectionPool]);
 
-  // ── Filtering pipeline (6 dimensioni + search) ──
+  // ── Filtering pipeline (singolo pass — 6 dimensioni + search) ──
 
   const filtered = useMemo(() => {
-    let result = sectionPool;
+    const q = debouncedSearch.trim().toLowerCase();
 
-    // Chip filters
-    if (selectedPattern) result = result.filter((e) => e.pattern_movimento === selectedPattern);
-    if (selectedMuscle) result = result.filter((e) => e.muscoli_primari.includes(selectedMuscle));
-    if (selectedEquipment) result = result.filter((e) => e.attrezzatura === selectedEquipment);
-    if (selectedDifficulty) result = result.filter((e) => e.difficolta === selectedDifficulty);
-    if (selectedForceType) result = result.filter((e) => e.force_type === selectedForceType);
-    if (selectedLateral) result = result.filter((e) => e.lateral_pattern === selectedLateral);
+    // Singolo pass: tutte le condizioni valutate insieme (evita 6 allocazioni array)
+    const result = sectionPool.filter((e) => {
+      if (selectedPattern && e.pattern_movimento !== selectedPattern) return false;
+      if (selectedMuscle && !e.muscoli_primari.includes(selectedMuscle)) return false;
+      if (selectedEquipment && e.attrezzatura !== selectedEquipment) return false;
+      if (selectedDifficulty && e.difficolta !== selectedDifficulty) return false;
+      if (selectedForceType && e.force_type !== selectedForceType) return false;
+      if (selectedLateral && e.lateral_pattern !== selectedLateral) return false;
+      if (q) {
+        const matchesSearch =
+          e.nome.toLowerCase().includes(q) ||
+          e.categoria.toLowerCase().includes(q) ||
+          e.attrezzatura.toLowerCase().includes(q) ||
+          (EQUIPMENT_LABELS[e.attrezzatura] ?? "").toLowerCase().includes(q) ||
+          e.muscoli_primari.some((m) => m.toLowerCase().includes(q)) ||
+          e.muscoli_primari.some((m) => (MUSCLE_LABELS[m] ?? "").toLowerCase().includes(q));
+        if (!matchesSearch) return false;
+      }
+      return true;
+    });
 
     // Pattern hint ordering (dal template slot)
     if (patternHint && !selectedPattern) {
-      result = [
-        ...result.filter((e) => e.pattern_movimento === patternHint),
-        ...result.filter((e) => e.pattern_movimento !== patternHint),
-      ];
-    }
-
-    // Ricerca testuale (nome + muscoli IT/EN + attrezzatura IT + categoria)
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      result = result.filter((e) =>
-        e.nome.toLowerCase().includes(q) ||
-        e.categoria.toLowerCase().includes(q) ||
-        e.attrezzatura.toLowerCase().includes(q) ||
-        (EQUIPMENT_LABELS[e.attrezzatura] ?? "").toLowerCase().includes(q) ||
-        e.muscoli_primari.some((m) => m.toLowerCase().includes(q)) ||
-        e.muscoli_primari.some((m) => (MUSCLE_LABELS[m] ?? "").toLowerCase().includes(q)),
-      );
+      const hinted: Exercise[] = [];
+      const rest: Exercise[] = [];
+      for (const e of result) {
+        (e.pattern_movimento === patternHint ? hinted : rest).push(e);
+      }
+      return [...hinted, ...rest];
     }
 
     return result;
-  }, [sectionPool, search, patternHint, selectedPattern, selectedMuscle,
+  }, [sectionPool, debouncedSearch, patternHint, selectedPattern, selectedMuscle,
       selectedEquipment, selectedDifficulty, selectedForceType, selectedLateral]);
 
   // ── Handlers ──
@@ -261,7 +277,9 @@ export function ExerciseSelector({
   };
 
   const resetFilters = () => {
-    setSearch("");
+    setRawSearch("");
+    setDebouncedSearch("");
+    if (debounceRef.current) clearTimeout(debounceRef.current);
     setSelectedPattern(null);
     setSelectedMuscle(null);
     setSelectedEquipment(null);
@@ -273,6 +291,15 @@ export function ExerciseSelector({
     setExpandedDetailId(null);
   };
 
+  // ── Callback stabili per ExerciseRow memo ──
+  const handleToggleSafety = useCallback((id: number) => {
+    setExpandedSafetyId((prev) => prev === id ? null : id);
+  }, []);
+
+  const handleToggleDetail = useCallback((id: number) => {
+    setExpandedDetailId((prev) => prev === id ? null : id);
+  }, []);
+
   const sectionLabel = categoryFilter?.includes("avviamento")
     ? "Avviamento"
     : categoryFilter?.includes("stretching")
@@ -280,7 +307,7 @@ export function ExerciseSelector({
       : null;
 
   const hasActiveFilters = !!selectedPattern || !!selectedEquipment || !!selectedMuscle ||
-    !!selectedDifficulty || !!selectedForceType || !!selectedLateral || !!search;
+    !!selectedDifficulty || !!selectedForceType || !!selectedLateral || !!rawSearch;
 
   // Conteggio filtri chip attivi (esclusa ricerca testo)
   const activeFilterCount = [selectedPattern, selectedMuscle, selectedEquipment,
@@ -320,14 +347,14 @@ export function ExerciseSelector({
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Cerca per nome, muscolo, attrezzatura..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={rawSearch}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="pl-9"
               autoFocus
             />
-            {search && (
+            {rawSearch && (
               <button
-                onClick={() => setSearch("")}
+                onClick={() => handleSearchChange("")}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 <X className="h-4 w-4" />
@@ -534,9 +561,9 @@ export function ExerciseSelector({
                   safety={safetyMap?.[exercise.id]}
                   safetyEntries={safetyMap}
                   safetyExpanded={expandedSafetyId === exercise.id}
-                  onToggleSafety={(id) => setExpandedSafetyId(expandedSafetyId === id ? null : id)}
+                  onToggleSafety={handleToggleSafety}
                   detailExpanded={expandedDetailId === exercise.id}
-                  onToggleDetail={(id) => setExpandedDetailId(expandedDetailId === id ? null : id)}
+                  onToggleDetail={handleToggleDetail}
                   schedaId={schedaId}
                   isUsed={usedExerciseIds?.has(exercise.id)}
                   onSelect={handleSelect}
@@ -597,10 +624,10 @@ function FilterChipRow({
 }
 
 // ════════════════════════════════════════════════════════════
-// EXERCISE ROW (sub-component)
+// EXERCISE ROW (sub-component, memoizzato per performance)
 // ════════════════════════════════════════════════════════════
 
-function ExerciseRow({
+const ExerciseRow = memo(function ExerciseRow({
   exercise,
   safety,
   safetyEntries,
@@ -749,4 +776,4 @@ function ExerciseRow({
       )}
     </div>
   );
-}
+});

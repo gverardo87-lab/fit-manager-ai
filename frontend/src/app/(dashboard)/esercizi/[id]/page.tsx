@@ -685,10 +685,10 @@ export default function ExerciseDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ from?: string }>;
+  searchParams: Promise<{ from?: string; parentFrom?: string }>;
 }) {
   const { id } = use(params);
-  const { from } = use(searchParams);
+  const { from, parentFrom } = use(searchParams);
   const exerciseId = parseInt(id, 10);
   const returnSchedaId = from?.startsWith("scheda-") ? from.slice(7) : null;
   const { data: exercise, isLoading, isError, refetch } = useExercise(exerciseId);
@@ -739,7 +739,7 @@ export default function ExerciseDetailPage({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3">
           <Link
-            href={returnSchedaId ? `/schede/${returnSchedaId}` : "/esercizi"}
+            href={returnSchedaId ? `/schede/${returnSchedaId}${parentFrom ? `?from=${parentFrom}` : ""}` : "/esercizi"}
             className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border bg-white shadow-sm transition-colors hover:bg-zinc-50 dark:bg-zinc-900 dark:hover:bg-zinc-800"
           >
             <ArrowLeft className="h-4 w-4" />

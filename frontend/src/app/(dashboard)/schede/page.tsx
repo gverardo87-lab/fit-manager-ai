@@ -114,7 +114,7 @@ export default function SchedePage() {
     if (ob) init.obiettivo = ob;
     const lv = p.get("livello");
     if (lv) init.livello = lv;
-    const cl = p.get("cliente");
+    const cl = p.get("idCliente") ?? p.get("cliente");
     if (cl) init.id_cliente = Number(cl);
     return init;
   });
@@ -135,7 +135,7 @@ export default function SchedePage() {
     const params = new URLSearchParams();
     if (filters.obiettivo) params.set("obiettivo", filters.obiettivo);
     if (filters.livello) params.set("livello", filters.livello);
-    if (filters.id_cliente) params.set("cliente", String(filters.id_cliente));
+    if (filters.id_cliente) params.set("idCliente", String(filters.id_cliente));
     syncUrlParams(window.location.pathname, params);
   }, [filters]);
 

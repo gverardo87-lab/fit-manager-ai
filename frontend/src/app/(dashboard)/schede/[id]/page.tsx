@@ -9,7 +9,7 @@
  * Salvataggio via full-replace sessioni.
  */
 
-import { use, useState, useCallback, useEffect, useMemo } from "react";
+import { use, useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -109,6 +109,7 @@ export default function SchedaDetailPage({
   const { id: idStr } = use(params);
   const fromParam = useSearchParams().get("from");
   const returnClientId = fromParam?.startsWith("clienti-") ? fromParam.slice(8) : null;
+  const returnToAllenamenti = fromParam === "allenamenti";
   const id = parseInt(idStr, 10);
   const router = useRouter();
 
@@ -149,6 +150,10 @@ export default function SchedaDetailPage({
   const [sessions, setSessions] = useState<SessionCardData[]>([]);
   const [isDirty, setIsDirty] = useState(false);
 
+  // Ref che riflette isDirty — usato nell'effect per non catturare closure stale
+  const isDirtyRef = useRef(false);
+  isDirtyRef.current = isDirty;
+
   // Header inline editing
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -161,9 +166,11 @@ export default function SchedaDetailPage({
     sezione?: TemplateSection;
   } | null>(null);
 
-  // Sync server → local
+  // Sync server → local (protegge modifiche non salvate)
+  // Se isDirtyRef.current e' true, significa che l'utente ha modifiche locali
+  // non salvate: NON sovrascrivere con i dati server.
   useEffect(() => {
-    if (plan) {
+    if (plan && !isDirtyRef.current) {
       setSessions(
         plan.sessioni.map((s) => ({
           id: s.id,
@@ -175,7 +182,6 @@ export default function SchedaDetailPage({
           esercizi: [...s.esercizi],
         })),
       );
-      setIsDirty(false);
     }
   }, [plan]);
 
@@ -602,7 +608,7 @@ export default function SchedaDetailPage({
       {/* ── Header ── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" data-print-hide>
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => router.push(returnClientId ? `/clienti/${returnClientId}?tab=schede` : "/schede")}>
+          <Button variant="ghost" size="icon" onClick={() => router.push(returnClientId ? `/clienti/${returnClientId}?tab=schede` : returnToAllenamenti ? "/allenamenti" : "/schede")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
@@ -718,7 +724,7 @@ export default function SchedaDetailPage({
         </div>
       </div>
 
-      {/* ── Banner ritorno al cliente ── */}
+      {/* ── Banner ritorno al contesto di provenienza ── */}
       {returnClientId && (
         <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-2 flex items-center gap-2" data-print-hide>
           <ArrowLeft className="h-3.5 w-3.5 text-primary" />
@@ -727,6 +733,17 @@ export default function SchedaDetailPage({
             className="text-sm text-primary hover:underline"
           >
             Torna al profilo cliente
+          </Link>
+        </div>
+      )}
+      {returnToAllenamenti && (
+        <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-2 flex items-center gap-2" data-print-hide>
+          <ArrowLeft className="h-3.5 w-3.5 text-primary" />
+          <Link
+            href="/allenamenti"
+            className="text-sm text-primary hover:underline"
+          >
+            Torna al monitoraggio
           </Link>
         </div>
       )}
@@ -875,6 +892,7 @@ export default function SchedaDetailPage({
               safetyMap={safetyEntries}
               exerciseMap={exerciseMap}
               schedaId={id}
+              parentFrom={fromParam}
               oneRMByPattern={oneRMByPattern}
               onUpdateSession={handleUpdateSession}
               onDeleteSession={handleDeleteSession}
