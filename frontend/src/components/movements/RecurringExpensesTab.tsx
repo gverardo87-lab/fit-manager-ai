@@ -113,8 +113,29 @@ function estimateMonthly(expense: RecurringExpense): number {
 /** ISO string "YYYY-MM-DD" → Date locale */
 function isoToDate(iso: string | null | undefined): Date | undefined {
   if (!iso) return undefined;
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Date(y, m - 1, d);
+  const raw = iso.trim();
+  if (!raw) return undefined;
+
+  // Supporta sia date pure ("YYYY-MM-DD") sia datetime ISO.
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    const y = Number(match[1]);
+    const m = Number(match[2]);
+    const d = Number(match[3]);
+    const parsed = new Date(y, m - 1, d);
+    if (
+      Number.isNaN(parsed.getTime()) ||
+      parsed.getFullYear() !== y ||
+      parsed.getMonth() !== m - 1 ||
+      parsed.getDate() !== d
+    ) {
+      return undefined;
+    }
+    return parsed;
+  }
+
+  const fallback = new Date(raw);
+  return Number.isNaN(fallback.getTime()) ? undefined : fallback;
 }
 
 /** Date → ISO string "YYYY-MM-DD" */
@@ -636,7 +657,7 @@ function ExpenseEditDialog({
 function formatDate(iso: string | null): string {
   if (!iso) return "";
   const d = isoToDate(iso);
-  if (!d) return "";
+  if (!d || Number.isNaN(d.getTime())) return "";
   return format(d, "dd MMM yyyy", { locale: it });
 }
 
