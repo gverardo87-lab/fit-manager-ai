@@ -236,6 +236,24 @@ MEDICAL_CONDITIONS = [
      '["collo", "cervicale"]'),
     ("Lombalgia (dolore lombare)", "Lombalgia (low back pain)", "orthopedic",
      '["schiena", "lombare"]'),
+
+    # ── Condizioni aggiuntive (espansione copertura clinica) ──
+    ("Fibromialgia", "Fibromyalgia", "rheumatic",
+     '["muscolare", "articolare"]'),
+    ("Ipermobilita' articolare / EDS", "Joint hypermobility / EDS", "orthopedic",
+     '["articolazione", "legamento"]'),
+    ("Ipotiroidismo", "Hypothyroidism", "metabolic",
+     '["tiroide", "metabolismo"]'),
+    ("BPCO", "COPD", "respiratory",
+     '["polmonare", "respiratorio"]'),
+    ("Diabete Tipo 1", "Type 1 Diabetes", "metabolic",
+     '["diabete", "insulina"]'),
+    ("Neuropatia periferica", "Peripheral neuropathy", "neurological",
+     '["piede", "mano", "sensibilita"]'),
+    ("Artrosi spalla", "Shoulder osteoarthritis", "orthopedic",
+     '["spalla"]'),
+    ("Artrosi mani/polsi", "Hand/wrist osteoarthritis", "orthopedic",
+     '["mano", "polso"]'),
 ]
 
 

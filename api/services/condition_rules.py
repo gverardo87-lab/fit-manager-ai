@@ -65,6 +65,8 @@ ANAMNESI_KEYWORD_RULES: list[tuple[list[str], int]] = [
 
     # ── CAVIGLIA / PIEDE ──
     (["fascite plantare", "plantare"], 18),
+    (["instabilita caviglia", "distorsione caviglia", "caviglia instabile",
+      "lassita caviglia"], 19),
 
     # ── CARDIOVASCOLARE ──
     (["ipertensione", "pressione sanguigna"], 20),
@@ -87,6 +89,28 @@ ANAMNESI_KEYWORD_RULES: list[tuple[list[str], int]] = [
     # ── SPECIAL ──
     (["gravidanza"], 29),
     (["diastasi"], 30),
+
+    # ═══════════════════════════════════════════════════════
+    # CONDIZIONI AGGIUNTIVE (40-47)
+    # ═══════════════════════════════════════════════════════
+
+    # ── Reumatologiche ──
+    (["fibromialgia", "fibromialgica"], 40),
+
+    # ── Ortopediche aggiuntive ──
+    (["ipermobilita", "ehlers", "iper-lassita", "lassita articolare"], 41),
+    (["artrosi spalla", "artrosi gleno-omerale"], 46),
+    (["artrosi mani", "artrosi polso", "rizoartrosi"], 47),
+
+    # ── Metaboliche aggiuntive ──
+    (["ipotiroidismo", "tiroide", "levotiroxina", "eutirox"], 42),
+    (["diabete tipo 1", "diabete insulinodipendente"], 44),
+
+    # ── Respiratorie aggiuntive ──
+    (["bpco", "broncopneumopatia", "enfisema", "bronchite cronica"], 43),
+
+    # ── Neurologiche aggiuntive ──
+    (["neuropatia", "formicolio piedi", "perdita sensibilita"], 45),
 
     # ═══════════════════════════════════════════════════════
     # CONDIZIONI GENERICHE POST-TRAUMATICHE (31-37)
@@ -151,6 +175,40 @@ STRUCTURAL_FLAGS: dict[str, list[int]] = {
     "problemi_cardiovascolari": [20, 21],   # ipertensione + cardiopatia
     "problemi_respiratori": [28],           # asma da sforzo
 }
+
+
+# ═══════════════════════════════════════════════════════════════
+# REGOLE FARMACOLOGICHE → FLAG CLINICI
+# ═══════════════════════════════════════════════════════════════
+# Ogni entry: (keyword_list, flag_name, clinical_note)
+# Scansiona il campo `farmaci.dettaglio` dell'anamnesi.
+# Produce flag informativi, non condizioni: mostrati nel Safety Overview.
+
+MEDICATION_RULES: list[tuple[list[str], str, str]] = [
+    (["betabloccante", "atenololo", "bisoprololo", "metoprololo",
+      "propranololo", "carvedilolo", "nebivololo"],
+     "beta_blocker",
+     "FC a riposo non affidabile per monitorare intensita'. Usare RPE."),
+
+    (["anticoagulante", "warfarin", "coumadin", "eparina",
+      "eliquis", "xarelto", "pradaxa"],
+     "anticoagulant",
+     "Rischio emorragico aumentato. Evitare esercizi ad alto rischio caduta."),
+
+    (["cortisone", "prednisone", "desametasone", "corticosteroide",
+      "betametasone", "metilprednisolone"],
+     "corticosteroid",
+     "Uso prolungato indebolisce tendini. Cautela con carichi pesanti."),
+
+    (["insulina", "novorapid", "lantus", "humalog", "toujeo",
+      "fiasp", "levemir"],
+     "insulin",
+     "Rischio ipoglicemia durante esercizio. Zuccheri rapidi a portata."),
+
+    (["statina", "atorvastatina", "rosuvastatina", "simvastatina"],
+     "statin",
+     "Possibile mialgia da statine. Monitorare dolore muscolare post-esercizio."),
+]
 
 
 def _normalize_accents(text: str) -> str:

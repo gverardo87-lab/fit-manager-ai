@@ -24,6 +24,7 @@ import {
   Shield,
   ShieldAlert,
   AlertTriangle,
+  Info as InfoIcon,
   ChevronDown,
 } from "lucide-react";
 
@@ -811,9 +812,9 @@ export default function SchedaDetailPage({
     window.setTimeout(() => jumpToIssue(first), 20);
   }, [issueHasTarget, jumpToIssue]);
 
-  // Safety stats: conteggi avoid/caution sugli esercizi nella scheda corrente (straight + in blocchi)
+  // Safety stats: conteggi avoid/caution/modify sugli esercizi nella scheda corrente (straight + in blocchi)
   const safetyStats = useMemo(() => {
-    if (!safetyEntries) return { avoid: 0, caution: 0, total: 0 };
+    if (!safetyEntries) return { avoid: 0, caution: 0, modify: 0, total: 0 };
     const exerciseIds = new Set<number>();
     for (const s of sessions) {
       for (const e of s.esercizi) exerciseIds.add(e.id_esercizio);
@@ -823,12 +824,14 @@ export default function SchedaDetailPage({
     }
     let avoid = 0;
     let caution = 0;
+    let modify = 0;
     for (const [exId, entry] of Object.entries(safetyEntries)) {
       if (!exerciseIds.has(Number(exId))) continue;
       if (entry.severity === "avoid") avoid++;
-      else caution++;
+      else if (entry.severity === "caution") caution++;
+      else modify++;
     }
-    return { avoid, caution, total: avoid + caution };
+    return { avoid, caution, modify, total: avoid + caution + modify };
   }, [safetyEntries, sessions]);
 
   // Condizioni raggruppate per categoria + esercizi coinvolti (per pannello espanso)
@@ -857,8 +860,9 @@ export default function SchedaDetailPage({
           exercises.set(exId, { nome: exName, severity: cond.severita });
           condMap.set(cond.id, { ...cond, worstSeverity: cond.severita, exercises });
         } else {
-          if (cond.severita === "avoid" && existing.worstSeverity !== "avoid") {
-            existing.worstSeverity = "avoid";
+          const sevRank: Record<string, number> = { avoid: 2, caution: 1, modify: 0 };
+          if ((sevRank[cond.severita] ?? 0) > (sevRank[existing.worstSeverity] ?? 0)) {
+            existing.worstSeverity = cond.severita;
           }
           existing.exercises.set(exId, { nome: exName, severity: cond.severita });
         }
@@ -891,9 +895,9 @@ export default function SchedaDetailPage({
     const seen = new Map<number, SafetyConditionDetail>();
     for (const entry of Object.values(safetyEntries)) {
       for (const cond of entry.conditions) {
-        if (!seen.has(cond.id)) {
-          seen.set(cond.id, cond);
-        } else if (cond.severita === "avoid") {
+        const sevRank: Record<string, number> = { avoid: 2, caution: 1, modify: 0 };
+        const existing = seen.get(cond.id);
+        if (!existing || (sevRank[cond.severita] ?? 0) > (sevRank[existing.severita] ?? 0)) {
           seen.set(cond.id, cond); // worst severity wins
         }
       }
@@ -938,7 +942,10 @@ export default function SchedaDetailPage({
           condMap.set(cond.id, { nome: cond.nome, severita: cond.severita, esercizi: new Set([exName]) });
         } else {
           existing.esercizi.add(exName);
-          if (cond.severita === "avoid") existing.severita = "avoid";
+          const sevRank: Record<string, number> = { avoid: 2, caution: 1, modify: 0 };
+          if ((sevRank[cond.severita] ?? 0) > (sevRank[existing.severita] ?? 0)) {
+            existing.severita = cond.severita;
+          }
         }
       }
     }
@@ -947,7 +954,10 @@ export default function SchedaDetailPage({
       clientNome: safetyMap.client_nome,
       conditionNames: safetyMap.condition_names,
       rows: Array.from(condMap.values())
-        .sort((a, b) => (a.severita === "avoid" ? -1 : 1) - (b.severita === "avoid" ? -1 : 1))
+        .sort((a, b) => {
+          const order: Record<string, number> = { avoid: 0, caution: 1, modify: 2 };
+          return (order[a.severita] ?? 3) - (order[b.severita] ?? 3);
+        })
         .map((c) => ({ condizione: c.nome, severita: c.severita, esercizi: Array.from(c.esercizi) })),
     };
   }, [safetyMap, safetyEntries, sessions]);
@@ -1668,13 +1678,13 @@ export default function SchedaDetailPage({
           {/* Safety Overview Panel — dashboard clinica collapsibile */}
           {safetyMap && safetyMap.condition_count > 0 && (
             <Collapsible open={safetyExpanded} onOpenChange={setSafetyExpanded}>
-              <Card className={`border-l-4 ${safetyStats.avoid > 0 ? "border-l-red-500" : "border-l-amber-400"} transition-all duration-200`}>
+              <Card className={`border-l-4 ${safetyStats.avoid > 0 ? "border-l-red-500" : safetyStats.caution > 0 ? "border-l-amber-400" : "border-l-blue-400"} transition-all duration-200`}>
                 <CardContent className="p-4 space-y-3">
                   {/* Header — sempre visibile */}
                   <CollapsibleTrigger asChild>
                     <button className="flex items-center justify-between w-full text-left group">
                       <div className="flex items-center gap-2">
-                        <Shield className={`h-4.5 w-4.5 ${safetyStats.avoid > 0 ? "text-red-500" : "text-amber-500"}`} />
+                        <Shield className={`h-4.5 w-4.5 ${safetyStats.avoid > 0 ? "text-red-500" : safetyStats.caution > 0 ? "text-amber-500" : "text-blue-500"}`} />
                         <div>
                           <span className="text-sm font-semibold">Profilo Clinico</span>
                           <span className="text-sm text-muted-foreground"> — {safetyMap.client_nome}</span>
@@ -1685,7 +1695,7 @@ export default function SchedaDetailPage({
                   </CollapsibleTrigger>
 
                   {/* KPI mini-row */}
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-4 gap-2">
                     <div className="rounded-lg bg-muted/50 px-3 py-2 text-center">
                       <div className="text-lg font-extrabold tracking-tighter tabular-nums">{safetyMap.condition_count}</div>
                       <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Condizioni</div>
@@ -1697,6 +1707,10 @@ export default function SchedaDetailPage({
                     <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-center">
                       <div className="text-lg font-extrabold tracking-tighter tabular-nums text-amber-600 dark:text-amber-400">{safetyStats.caution}</div>
                       <div className="text-[10px] text-amber-600/70 dark:text-amber-400/70 uppercase tracking-wider">Cautela</div>
+                    </div>
+                    <div className="rounded-lg bg-blue-50 dark:bg-blue-950/30 px-3 py-2 text-center">
+                      <div className="text-lg font-extrabold tracking-tighter tabular-nums text-blue-600 dark:text-blue-400">{safetyStats.modify}</div>
+                      <div className="text-[10px] text-blue-600/70 dark:text-blue-400/70 uppercase tracking-wider">Adattare</div>
                     </div>
                   </div>
 
@@ -1723,6 +1737,25 @@ export default function SchedaDetailPage({
                           <span className="flex items-center gap-1 text-[9px] text-muted-foreground">
                             <span className="h-2 w-2 rounded-full bg-amber-500" /> Cautela
                           </span>
+                          <span className="flex items-center gap-1 text-[9px] text-muted-foreground">
+                            <span className="h-2 w-2 rounded-full bg-blue-500" /> Adattare
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    {/* Medication flags */}
+                    {safetyMap.medication_flags && safetyMap.medication_flags.length > 0 && (
+                      <div>
+                        <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                          Farmaci Rilevanti
+                        </div>
+                        <div className="space-y-1.5">
+                          {safetyMap.medication_flags.map((mf) => (
+                            <div key={mf.flag} className="flex items-start gap-2 text-xs">
+                              <InfoIcon className="h-3.5 w-3.5 shrink-0 mt-0.5 text-purple-500" />
+                              <p className="text-muted-foreground leading-relaxed">{mf.nota}</p>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     )}
@@ -1737,12 +1770,14 @@ export default function SchedaDetailPage({
                               <div className="flex items-center gap-2 text-xs">
                                 {cond.worstSeverity === "avoid" ? (
                                   <ShieldAlert className="h-3.5 w-3.5 shrink-0 text-red-500" />
-                                ) : (
+                                ) : cond.worstSeverity === "caution" ? (
                                   <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                                ) : (
+                                  <InfoIcon className="h-3.5 w-3.5 shrink-0 text-blue-500" />
                                 )}
                                 <span className="flex-1 font-medium">{cond.nome}</span>
-                                <span className={`text-[10px] font-medium ${cond.worstSeverity === "avoid" ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"}`}>
-                                  {cond.worstSeverity === "avoid" ? "Evitare" : "Cautela"}
+                                <span className={`text-[10px] font-medium ${cond.worstSeverity === "avoid" ? "text-red-600 dark:text-red-400" : cond.worstSeverity === "caution" ? "text-amber-600 dark:text-amber-400" : "text-blue-600 dark:text-blue-400"}`}>
+                                  {cond.worstSeverity === "avoid" ? "Evitare" : cond.worstSeverity === "caution" ? "Cautela" : "Adattare"}
                                 </span>
                               </div>
                               {/* Esercizi coinvolti */}
@@ -1754,7 +1789,9 @@ export default function SchedaDetailPage({
                                       className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] ${
                                         ex.severity === "avoid"
                                           ? "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400"
-                                          : "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
+                                          : ex.severity === "caution"
+                                            ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
+                                            : "bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400"
                                       }`}
                                     >
                                       {ex.nome}

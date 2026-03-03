@@ -849,10 +849,12 @@ const ExerciseRow = memo(function ExerciseRow({
                 className={`shrink-0 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none cursor-pointer transition-colors ${
                   safety.severity === "avoid"
                     ? "bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-950/50 dark:text-red-400 dark:hover:bg-red-950/70"
-                    : "bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:hover:bg-amber-950/70"
+                    : safety.severity === "caution"
+                      ? "bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:hover:bg-amber-950/70"
+                      : "bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-950/50 dark:text-blue-400 dark:hover:bg-blue-950/70"
                 }`}
               >
-                {safety.severity === "avoid" ? "Controindicato" : "Cautela"}
+                {safety.severity === "avoid" ? "Controindicato" : safety.severity === "caution" ? "Cautela" : "Adattare"}
                 <ChevronDown className={`h-2.5 w-2.5 transition-transform ${safetyExpanded ? "rotate-180" : ""}`} />
               </span>
             )}
@@ -889,15 +891,17 @@ const ExerciseRow = memo(function ExerciseRow({
             <div key={cond.id} className="flex items-start gap-2">
               {cond.severita === "avoid" ? (
                 <ShieldAlert className="h-3.5 w-3.5 shrink-0 mt-0.5 text-red-500" />
-              ) : (
+              ) : cond.severita === "caution" ? (
                 <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-500" />
+              ) : (
+                <Info className="h-3.5 w-3.5 shrink-0 mt-0.5 text-blue-500" />
               )}
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className={`text-[10px] font-semibold uppercase tracking-wider ${
-                    cond.severita === "avoid" ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"
+                    cond.severita === "avoid" ? "text-red-600 dark:text-red-400" : cond.severita === "caution" ? "text-amber-600 dark:text-amber-400" : "text-blue-600 dark:text-blue-400"
                   }`}>
-                    {cond.severita === "avoid" ? "Evitare" : "Cautela"}
+                    {cond.severita === "avoid" ? "Evitare" : cond.severita === "caution" ? "Cautela" : "Adattare"}
                   </span>
                   <span className="text-xs font-medium">{cond.nome}</span>
                 </div>

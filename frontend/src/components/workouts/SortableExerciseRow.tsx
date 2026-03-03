@@ -129,15 +129,15 @@ function SafetyPopover({
       .sort((a, b) => b.score - a.score);
   }, [relations, safetyEntries, sourceExercise, exerciseMap]);
 
-  const SafetyIcon = safety.severity === "avoid" ? ShieldAlert : AlertTriangle;
-  const dotColor = safety.severity === "avoid" ? "bg-red-500" : "bg-amber-500";
+  const SafetyIcon = safety.severity === "avoid" ? ShieldAlert : safety.severity === "caution" ? AlertTriangle : Info;
+  const dotColor = safety.severity === "avoid" ? "bg-red-500" : safety.severity === "caution" ? "bg-amber-500" : "bg-blue-500";
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <button
           onClick={(e) => e.stopPropagation()}
-          className={`shrink-0 ${safety.severity === "avoid" ? "text-red-500" : "text-amber-500"} hover:scale-110 transition-transform`}
+          className={`shrink-0 ${safety.severity === "avoid" ? "text-red-500" : safety.severity === "caution" ? "text-amber-500" : "text-blue-500"} hover:scale-110 transition-transform`}
         >
           <SafetyIcon className={iconSize} />
         </button>
@@ -159,8 +159,8 @@ function SafetyPopover({
           {safety.conditions.map((cond) => (
             <div key={cond.id}>
               <div className="flex items-center gap-1.5">
-                <span className={`text-[10px] font-semibold uppercase tracking-wider ${cond.severita === "avoid" ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"}`}>
-                  {cond.severita === "avoid" ? "Evitare" : "Cautela"}
+                <span className={`text-[10px] font-semibold uppercase tracking-wider ${cond.severita === "avoid" ? "text-red-600 dark:text-red-400" : cond.severita === "caution" ? "text-amber-600 dark:text-amber-400" : "text-blue-600 dark:text-blue-400"}`}>
+                  {cond.severita === "avoid" ? "Evitare" : cond.severita === "caution" ? "Cautela" : "Adattare"}
                 </span>
               </div>
               <p className="text-xs font-medium mt-0.5">{cond.nome}</p>

@@ -16,25 +16,28 @@ import type { ExtendedBodyPart, Slug } from "react-muscle-highlighter";
 import { BODY_TAG_SLUG_MAP, FRONT_SLUGS, BACK_SLUGS } from "@/lib/muscle-map-utils";
 import type { SafetyConditionDetail } from "@/types/api";
 
-// Colori rischio: intensity 1 = avoid (rosso), intensity 2 = caution (ambra)
-const COLORS_LIGHT = ["#dc2626", "#d97706"] as const; // red-600, amber-600
-const COLORS_DARK = ["#ef4444", "#f59e0b"] as const;  // red-500, amber-500
+// Colori rischio: intensity 1 = avoid (rosso), intensity 2 = caution (ambra), intensity 3 = modify (blu)
+const COLORS_LIGHT = ["#dc2626", "#d97706", "#2563eb"] as const; // red-600, amber-600, blue-600
+const COLORS_DARK = ["#ef4444", "#f59e0b", "#3b82f6"] as const;  // red-500, amber-500, blue-500
 
 interface RiskBodyMapProps {
   /** Tutte le condizioni uniche rilevate (con body_tags e severita) */
   conditions: SafetyConditionDetail[];
 }
 
+// Gerarchia severity per body map: avoid > modify > caution
+const _SEV_RANK: Record<string, number> = { avoid: 3, modify: 2, caution: 1 };
+
 /**
  * Costruisce body data per il risk map.
- * Avoid = intensity 1 (rosso), caution = intensity 2 (ambra).
- * Se un slug e' sia avoid che caution, avoid vince.
+ * Avoid = intensity 1 (rosso), caution = intensity 2 (ambra), modify = intensity 3 (blu).
+ * Se un slug ha piu' severity, la piu' grave vince (avoid > modify > caution).
  */
 function buildRiskData(
   conditions: SafetyConditionDetail[],
   sideFilter: Set<Slug>,
 ): ExtendedBodyPart[] {
-  const slugSeverity = new Map<Slug, "avoid" | "caution">();
+  const slugSeverity = new Map<Slug, string>();
 
   for (const cond of conditions) {
     for (const tag of cond.body_tags) {
@@ -43,8 +46,8 @@ function buildRiskData(
       for (const slug of slugs) {
         if (!sideFilter.has(slug)) continue;
         const current = slugSeverity.get(slug);
-        if (!current || (cond.severita === "avoid" && current !== "avoid")) {
-          slugSeverity.set(slug, cond.severita as "avoid" | "caution");
+        if (!current || (_SEV_RANK[cond.severita] ?? 0) > (_SEV_RANK[current] ?? 0)) {
+          slugSeverity.set(slug, cond.severita);
         }
       }
     }
@@ -52,7 +55,7 @@ function buildRiskData(
 
   return Array.from(slugSeverity.entries()).map(([slug, severity]) => ({
     slug,
-    intensity: severity === "avoid" ? 1 : 2,
+    intensity: severity === "avoid" ? 1 : severity === "caution" ? 2 : 3,
   }));
 }
 

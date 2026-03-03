@@ -66,6 +66,33 @@ PATTERN_FORCE: dict[str, str] = {
 FRONTAL_FIXES: list[tuple[int, str]] = [
     (225, "Adduzione al Cavo Basso — Cable Hip Adduction: piano frontale"),
     (222, "Adduzione con Elastico — Band Hip Adduction: piano frontale"),
+    (58,  "Alzate Laterali — Lateral Raise: abduzione pura, piano frontale"),
+    (59,  "Alzate Laterali Cavi — Cable Lateral Raise: abduzione pura, piano frontale"),
+    (360, "Elevazioni Laterali Alternata — Alternating Lateral Raise: piano frontale"),
+    (227, "Adduzione Laterale a Terra — Floor Hip Adduction: piano frontale"),
+]
+
+# Esercizi multi-planari (classificati erroneamente come sagittal)
+MULTI_PLANE_FIXES: list[tuple[int, str]] = [
+    (89,  "Face Pull Cavi — rotazione esterna + abduzione orizzontale: multi-planare"),
+    (153, "Face Pull Elastico — rotazione esterna + abduzione orizzontale: multi-planare"),
+]
+
+# Esercizi piano trasversale (classificati erroneamente come sagittal)
+TRANSVERSE_FIXES: list[tuple[int, str]] = [
+    (60,  "Alzate Posteriori — abduzione orizzontale: piano trasversale"),
+    (405, "Alzate Posteriori panca — abduzione orizzontale: piano trasversale"),
+]
+
+# ================================================================
+# FIX 4: CORE CONTRACTION TYPE — isometric vs dynamic
+# ================================================================
+# PATTERN_BIOMECHANICS classifica TUTTI i core come "isometric".
+# In realta' solo plank/hollow/isometrici sono veramente isometrici.
+# Crunch, leg raise, mountain climbers etc. sono dinamici.
+
+ISOMETRIC_CORE_KEYWORDS: list[str] = [
+    "plank", "plancia", "hollow", "isometrico", "isometrica",
 ]
 
 
@@ -154,6 +181,77 @@ def fix_db(db_path: str, dry_run: bool) -> None:
                 (eid,),
             )
 
+    # ── Fix 3b: Piano movimento -> multi (multi-planare) ──
+    print("\n  --- FIX 3b: Piano movimento -> multi ---")
+    for eid, reason in MULTI_PLANE_FIXES:
+        row = conn.execute(
+            "SELECT nome, piano_movimento FROM esercizi WHERE id = ? AND in_subset = 1",
+            (eid,),
+        ).fetchone()
+        if not row:
+            print(f"  SKIP id={eid}: non trovato nel subset")
+            continue
+        if row["piano_movimento"] == "multi":
+            print(f"  OK   id={eid} {row['nome']}: gia' multi")
+            continue
+        print(f"  FIX  id={eid} {row['nome']}: {row['piano_movimento']} -> multi")
+        print(f"       {reason}")
+        if not dry_run:
+            conn.execute(
+                "UPDATE esercizi SET piano_movimento = 'multi' WHERE id = ?",
+                (eid,),
+            )
+
+    # ── Fix 3c: Piano movimento -> transverse ──
+    print("\n  --- FIX 3c: Piano movimento -> transverse ---")
+    for eid, reason in TRANSVERSE_FIXES:
+        row = conn.execute(
+            "SELECT nome, piano_movimento FROM esercizi WHERE id = ? AND in_subset = 1",
+            (eid,),
+        ).fetchone()
+        if not row:
+            print(f"  SKIP id={eid}: non trovato nel subset")
+            continue
+        if row["piano_movimento"] == "transverse":
+            print(f"  OK   id={eid} {row['nome']}: gia' transverse")
+            continue
+        print(f"  FIX  id={eid} {row['nome']}: {row['piano_movimento']} -> transverse")
+        print(f"       {reason}")
+        if not dry_run:
+            conn.execute(
+                "UPDATE esercizi SET piano_movimento = 'transverse' WHERE id = ?",
+                (eid,),
+            )
+
+    # ── Fix 4: Core contraction type — isometric vs dynamic ──
+    print("\n  --- FIX 4: Core tipo_contrazione (isometric vs dynamic) ---")
+    core_exercises = conn.execute(
+        "SELECT id, nome, tipo_contrazione FROM esercizi "
+        "WHERE in_subset = 1 AND pattern_movimento = 'core' AND deleted_at IS NULL "
+        "ORDER BY nome"
+    ).fetchall()
+
+    core_kept = 0
+    core_fixed = 0
+    for row in core_exercises:
+        nome_lower = row["nome"].lower()
+        is_isometric = any(kw in nome_lower for kw in ISOMETRIC_CORE_KEYWORDS)
+        target = "isometric" if is_isometric else "dynamic"
+
+        if row["tipo_contrazione"] == target:
+            core_kept += 1
+            continue
+
+        print(f"  FIX  id={row['id']:4d} {row['nome']:45s} {row['tipo_contrazione']} -> {target}")
+        core_fixed += 1
+        if not dry_run:
+            conn.execute(
+                "UPDATE esercizi SET tipo_contrazione = ? WHERE id = ?",
+                (target, row["id"]),
+            )
+
+    print(f"  Core: {core_fixed} fixed, {core_kept} already correct")
+
     if not dry_run:
         conn.commit()
         print(f"\n  Commit eseguito su {db_name}")
@@ -195,6 +293,23 @@ def report_db(db_path: str) -> None:
         "WHERE in_subset = 1 AND deleted_at IS NULL GROUP BY piano_movimento ORDER BY cnt DESC"
     ).fetchall():
         print(f"    {row['piano_movimento']:12s} {row['cnt']}")
+
+    # Tipo contrazione distribution
+    print("\n  Tipo contrazione distribuzione:")
+    for row in conn.execute(
+        "SELECT tipo_contrazione, COUNT(*) as cnt FROM esercizi "
+        "WHERE in_subset = 1 AND deleted_at IS NULL GROUP BY tipo_contrazione ORDER BY cnt DESC"
+    ).fetchall():
+        print(f"    {row['tipo_contrazione']:12s} {row['cnt']}")
+
+    # Core contraction detail
+    print("\n  Core exercises per tipo_contrazione:")
+    for row in conn.execute(
+        "SELECT tipo_contrazione, COUNT(*) as cnt FROM esercizi "
+        "WHERE in_subset = 1 AND pattern_movimento = 'core' AND deleted_at IS NULL "
+        "GROUP BY tipo_contrazione ORDER BY cnt DESC"
+    ).fetchall():
+        print(f"    {row['tipo_contrazione']:12s} {row['cnt']}")
 
     # Cross-validation: muscle/pattern conflicts
     print("\n  Cross-validazione muscoli/pattern:")

@@ -1,12 +1,15 @@
 # tools/admin_scripts/test_safety_engine.py
 """
-Test Safety Engine v2 — 10 profili clinici realistici + edge cases.
+Test Safety Engine v3 — 10 profili clinici + Sprint 2 (nuove condizioni, farmaci, modify).
 
 Verifica:
   - extract_client_conditions() (keyword matching + structural flags)
+  - extract_medication_flags() (5 classi farmacologiche)
+  - Severity 3 livelli: avoid > caution > modify
+  - Copertura condizioni 1-47 (47 condizioni totali)
   - Prevenzione falsi positivi (obiettivi_specifici escluso)
   - Robustezza input (null, malformed, tipi errati)
-  - Coerenza interna ANAMNESI_KEYWORD_RULES
+  - Coerenza interna ANAMNESI_KEYWORD_RULES + MEDICATION_RULES
   - Limiti noti documentati (negazione, lateralita', cross-contamination)
 
 Uso:
@@ -23,9 +26,10 @@ from typing import Optional
 # IMPORT MODULI SOTTO TEST
 # ═══════════════════════════════════════════════════════════════
 
-from api.services.safety_engine import extract_client_conditions
+from api.services.safety_engine import extract_client_conditions, extract_medication_flags
 from api.services.condition_rules import (
     ANAMNESI_KEYWORD_RULES,
+    MEDICATION_RULES,
     STRUCTURAL_FLAGS,
     match_keywords,
 )
@@ -173,8 +177,8 @@ for idx, (keywords, cond_id) in enumerate(ANAMNESI_KEYWORD_RULES):
 if not dup_found:
     ok("Nessun duplicato keyword→condition_id")
 
-# 0.3 — Tutte le condizioni 1-39 raggiungibili via keyword O structural flag
-print("\n--- 0.3: Copertura condizioni 1-39 ---")
+# 0.3 — Tutte le condizioni 1-47 raggiungibili via keyword O structural flag
+print("\n--- 0.3: Copertura condizioni 1-47 ---")
 reachable_kw = set()
 for keywords, cond_id in ANAMNESI_KEYWORD_RULES:
     reachable_kw.add(cond_id)
@@ -183,10 +187,8 @@ for field, cond_ids in STRUCTURAL_FLAGS.items():
     reachable_flag.update(cond_ids)
 reachable_all = reachable_kw | reachable_flag
 
-# Condizione 19 (Instabilita' cronica caviglia) non ha keyword diretta — esiste?
-all_expected = set(range(1, 40))  # 1-39
-# Nota: id 19 non esiste nella nostra taxonomy (salto da 18 a 20)
-all_expected.discard(19)  # non esiste nel catalogo
+# Sprint 2: 47 condizioni totali (1-47), tutte raggiungibili
+all_expected = set(range(1, 48))  # 1-47
 
 unreachable = all_expected - reachable_all
 if unreachable:
@@ -1002,11 +1004,572 @@ if len(result) > len(expected_maximal):
 
 
 # ═══════════════════════════════════════════════════════════════
+# PARTE 8: SPRINT 2 — NUOVE CONDIZIONI 40-47
+# ═══════════════════════════════════════════════════════════════
+
+print("\n" + "=" * 70)
+print("PARTE 8: SPRINT 2 — NUOVE CONDIZIONI 40-47 + FIX 19")
+print("=" * 70)
+
+# 8.1 — Condizione 19: Instabilita' caviglia (ora raggiungibile)
+print("\n--- 8.1: Condizione 19 — Instabilita' caviglia ---")
+test_keyword("instabilita caviglia", "instabilita caviglia cronica dopo distorsione",
+    expected_ids={19, 34},  # 19 = instabilita caviglia, 34 = esiti caviglia (keyword "caviglia")
+)
+
+print("\n--- 8.1b: Distorsione caviglia → cond 19 ---")
+test_keyword("distorsione caviglia", "distorsione caviglia destra recidivante",
+    expected_ids={19, 34},  # 19 = distorsione caviglia, 34 = esiti caviglia
+)
+
+print("\n--- 8.1c: Caviglia instabile → cond 19 ---")
+test_keyword("caviglia instabile", "caviglia instabile lato sinistro",
+    expected_ids={19, 34},
+)
+
+# 8.2 — Condizione 40: Fibromialgia
+print("\n--- 8.2: Condizione 40 — Fibromialgia ---")
+test_keyword("fibromialgia", "fibromialgia diagnosticata 2023",
+    expected_ids={40},
+    not_expected_ids={39},  # "fibromialgia" non contiene "lombalgia" ne' "mal di schiena"
+)
+
+print("\n--- 8.2b: Fibromialgica → cond 40 ---")
+test_keyword("fibromialgica", "sindrome fibromialgica cronica",
+    expected_ids={40},
+)
+
+# 8.3 — Condizione 41: Ipermobilita' articolare / EDS
+print("\n--- 8.3: Condizione 41 — Ipermobilita' ---")
+test_keyword("ipermobilita", "ipermobilita articolare generalizzata",
+    expected_ids={41},
+)
+
+print("\n--- 8.3b: Ehlers-Danlos → cond 41 ---")
+test_keyword("ehlers-danlos", "sindrome di ehlers-danlos tipo ipermobile",
+    expected_ids={41},
+)
+
+print("\n--- 8.3c: Lassita' articolare → cond 41 ---")
+test_keyword("lassita articolare", "lassita articolare diffusa",
+    expected_ids={41},
+)
+
+# 8.4 — Condizione 42: Ipotiroidismo
+print("\n--- 8.4: Condizione 42 — Ipotiroidismo ---")
+test_keyword("ipotiroidismo", "ipotiroidismo subclinico",
+    expected_ids={42},
+)
+
+print("\n--- 8.4b: Eutirox → cond 42 (via farmaco) ---")
+anamnesi_eutirox = build_anamnesi(
+    farmaci=q(True, "Eutirox 75mcg al mattino"),
+)
+assert_conditions("eutirox keyword", anamnesi_eutirox, expected={42})
+
+print("\n--- 8.4c: Levotiroxina → cond 42 ---")
+anamnesi_levo = build_anamnesi(
+    farmaci=q(True, "Levotiroxina 100mcg"),
+)
+assert_conditions("levotiroxina keyword", anamnesi_levo, expected={42})
+
+print("\n--- 8.4d: Tiroide generico → cond 42 ---")
+test_keyword("tiroide", "problemi alla tiroide",
+    expected_ids={42},
+)
+
+# 8.5 — Condizione 43: BPCO
+print("\n--- 8.5: Condizione 43 — BPCO ---")
+test_keyword("bpco", "BPCO stadio II GOLD",
+    expected_ids={43},
+)
+
+print("\n--- 8.5b: Broncopneumopatia → cond 43 ---")
+test_keyword("broncopneumopatia", "broncopneumopatia cronica ostruttiva",
+    expected_ids={43},
+)
+
+print("\n--- 8.5c: Enfisema → cond 43 ---")
+test_keyword("enfisema", "enfisema polmonare",
+    expected_ids={43},
+)
+
+print("\n--- 8.5d: Bronchite cronica → cond 43 ---")
+test_keyword("bronchite cronica", "bronchite cronica da fumatore",
+    expected_ids={43},
+)
+
+# 8.6 — Condizione 44: Diabete Tipo 1
+print("\n--- 8.6: Condizione 44 — Diabete Tipo 1 ---")
+anamnesi_t1 = build_anamnesi(
+    patologie=q(True, "Diabete tipo 1 dall'eta' di 12 anni"),
+)
+result_t1 = assert_conditions("diabete tipo 1", anamnesi_t1,
+    expected={23, 44},  # 23 = diabete generico ("diabete"), 44 = diabete tipo 1
+)
+
+print("\n--- 8.6b: Diabete insulinodipendente → cond 44 ---")
+test_keyword("diabete insulinodipendente", "diabete insulinodipendente giovanile",
+    expected_ids={23, 44},  # 23 da "diabete", 44 da "diabete insulinodipendente"
+)
+
+# 8.7 — Condizione 45: Neuropatia periferica
+print("\n--- 8.7: Condizione 45 — Neuropatia periferica ---")
+test_keyword("neuropatia", "neuropatia periferica diabetica",
+    expected_ids={45},
+)
+
+print("\n--- 8.7b: Formicolio piedi → cond 45 ---")
+# NOTA: "piedi" NON contiene "piede" (substring esatto: 'piedi' ≠ 'piede')
+# quindi cond 34 (esiti piede) NON matcha. Solo cond 45 (neuropatia).
+test_keyword("formicolio piedi", "formicolio piedi e mani bilaterale",
+    expected_ids={45},
+    not_expected_ids={34},  # "piedi" ≠ "piede" → cond 34 non inclusa
+)
+
+print("\n--- 8.7c: Perdita sensibilita' → cond 45 ---")
+test_keyword("perdita sensibilita", "perdita sensibilita arti inferiori",
+    expected_ids={45},
+)
+
+# 8.8 — Condizione 46: Artrosi spalla
+print("\n--- 8.8: Condizione 46 — Artrosi spalla ---")
+test_keyword("artrosi spalla", "artrosi spalla destra",
+    expected_ids={46, 33},  # 46 = artrosi spalla, 33 = esiti spalla ("spalla")
+)
+
+print("\n--- 8.8b: Artrosi gleno-omerale → cond 46 ---")
+test_keyword("artrosi gleno-omerale", "artrosi gleno-omerale bilaterale",
+    expected_ids={46},
+)
+
+# 8.9 — Condizione 47: Artrosi mani/polsi
+print("\n--- 8.9: Condizione 47 — Artrosi mani/polsi ---")
+test_keyword("artrosi mani", "artrosi mani severe",
+    expected_ids={47},
+)
+
+print("\n--- 8.9b: Artrosi polso → cond 47 ---")
+test_keyword("artrosi polso", "artrosi polso destro",
+    expected_ids={47, 31},  # 47 = artrosi polso, 31 = esiti polso ("polso")
+)
+
+print("\n--- 8.9c: Rizoartrosi → cond 47 ---")
+test_keyword("rizoartrosi", "rizoartrosi pollice bilaterale",
+    expected_ids={47},
+)
+
+
+# ═══════════════════════════════════════════════════════════════
+# PARTE 9: SPRINT 2 — PROFILI CLINICI NUOVE CONDIZIONI
+# ═══════════════════════════════════════════════════════════════
+
+print("\n" + "=" * 70)
+print("PARTE 9: SPRINT 2 — PROFILI CLINICI NUOVE CONDIZIONI")
+print("=" * 70)
+
+# ──────────────────────────────────────────────────────────────
+# PROFILO 11: Carla Bianchi — Fibromialgia + ipotiroidismo
+# ──────────────────────────────────────────────────────────────
+
+print("\n--- Profilo 11: Carla Bianchi (fibromialgia + ipotiroidismo) ---")
+carla = build_anamnesi(
+    patologie=q(True, "Fibromialgia diagnosticata 2021, ipotiroidismo"),
+    farmaci=q(True, "Eutirox 100mcg, pregabalin 75mg"),
+    dolori_cronici=q(True, "Dolore muscolare diffuso, affaticamento cronico"),
+)
+assert_conditions(
+    "Carla Bianchi",
+    carla,
+    expected={
+        40,  # Fibromialgia ("fibromialgia")
+        42,  # Ipotiroidismo ("ipotiroidismo" + "eutirox" in farmaci.dettaglio)
+    },
+    not_expected={
+        39,  # Lombalgia — "dolore muscolare" ≠ "lombalgia"
+        25,  # Obesita' — NON menzionata
+    },
+)
+
+# ──────────────────────────────────────────────────────────────
+# PROFILO 12: Marco Rossi — BPCO + diabete tipo 1 + neuropatia
+# ──────────────────────────────────────────────────────────────
+
+print("\n--- Profilo 12: Marco Rossi (BPCO + diabete T1 + neuropatia) ---")
+marco = build_anamnesi(
+    patologie=q(True, "Diabete tipo 1 dal 2005, BPCO stadio II, neuropatia periferica"),
+    farmaci=q(True, "Insulina Novorapid + Lantus, broncodilatatore, pregabalin"),
+    problemi_respiratori=q(True, "Dispnea da sforzo moderato"),
+)
+assert_conditions(
+    "Marco Rossi",
+    marco,
+    expected={
+        23,  # Diabete generico ("diabete")
+        28,  # Asma (structural: problemi_respiratori.presente=true)
+        43,  # BPCO ("bpco")
+        44,  # Diabete Tipo 1 ("diabete tipo 1")
+        45,  # Neuropatia ("neuropatia")
+    },
+    not_expected={
+        40,  # Fibromialgia — non menzionata
+        42,  # Ipotiroidismo — non menzionato
+    },
+)
+
+# ──────────────────────────────────────────────────────────────
+# PROFILO 13: Giovanna Verdi — Ipermobilita' + artrosi mani + caviglia instabile
+# ──────────────────────────────────────────────────────────────
+
+print("\n--- Profilo 13: Giovanna Verdi (ipermobilita + artrosi mani + caviglia) ---")
+giovanna = build_anamnesi(
+    patologie=q(True, "Sindrome di Ehlers-Danlos tipo ipermobile, rizoartrosi bilaterale"),
+    infortuni_pregressi=q(True, "Distorsione caviglia sinistra recidivante (3 episodi)"),
+    dolori_cronici=q(True, "Dolore alle mani durante attivita' di presa"),
+)
+assert_conditions(
+    "Giovanna Verdi",
+    giovanna,
+    expected={
+        19,  # Instabilita' caviglia ("distorsione caviglia")
+        34,  # Esiti caviglia ("caviglia")
+        41,  # Ipermobilita' ("ehlers")
+        47,  # Artrosi mani ("rizoartrosi")
+    },
+    not_expected={
+        17,  # Tunnel carpale — rizoartrosi ≠ tunnel carpale
+        18,  # Fascite plantare — caviglia ≠ plantare
+    },
+)
+
+# ──────────────────────────────────────────────────────────────
+# PROFILO 14: Antonio Esposito — Artrosi spalla + impingement + cardiopatico
+# ──────────────────────────────────────────────────────────────
+
+print("\n--- Profilo 14: Antonio Esposito (artrosi spalla + cardiopatico) ---")
+antonio = build_anamnesi(
+    patologie=q(True, "Artrosi gleno-omerale spalla destra, ipertensione"),
+    dolori_cronici=q(True, "Dolore spalla in abduzione oltre 90 gradi"),
+    farmaci=q(True, "Bisoprololo 5mg, atorvastatina 20mg"),
+    problemi_cardiovascolari=q(True, "Ipertensione arteriosa controllata"),
+)
+assert_conditions(
+    "Antonio Esposito",
+    antonio,
+    expected={
+        20,  # Ipertensione (structural + keyword)
+        21,  # Cardiopatia (structural)
+        33,  # Esiti spalla ("spalla")
+        46,  # Artrosi spalla ("artrosi gleno-omerale")
+    },
+    not_expected={
+        6,   # Impingement spalla — artrosi ≠ impingement
+        9,   # Spalla congelata — artrosi ≠ congelata
+    },
+)
+
+
+# ═══════════════════════════════════════════════════════════════
+# PARTE 10: SPRINT 2 — MEDICATION FLAGS
+# ═══════════════════════════════════════════════════════════════
+
+print("\n" + "=" * 70)
+print("PARTE 10: SPRINT 2 — MEDICATION FLAGS (extract_medication_flags)")
+print("=" * 70)
+
+def assert_medication_flags(
+    label: str,
+    anamnesi: dict,
+    expected_flags: set[str],
+    not_expected_flags: Optional[set[str]] = None,
+):
+    """Testa extract_medication_flags e verifica flag prodotti."""
+    anamnesi_json = json.dumps(anamnesi)
+    flags = extract_medication_flags(anamnesi_json)
+    flag_names = {f.flag for f in flags}
+
+    missing = expected_flags - flag_names
+    if missing:
+        fail(f"{label}: flag mancanti {missing}")
+
+    if not_expected_flags:
+        false_positives = not_expected_flags & flag_names
+        if false_positives:
+            fail(f"{label}: flag falsi positivi {false_positives}")
+
+    if not missing and (not not_expected_flags or not (not_expected_flags & flag_names)):
+        ok(f"{label}: flag corretti {flag_names}")
+    else:
+        print(f"    Atteso:  {expected_flags}")
+        print(f"    Ottenuto: {flag_names}")
+
+    return flags
+
+# 10.0 — Coerenza MEDICATION_RULES
+print("\n--- 10.0: Coerenza MEDICATION_RULES ---")
+med_flags_seen = set()
+for keywords, flag_name, note in MEDICATION_RULES:
+    for kw in keywords:
+        if not kw or not kw.strip():
+            fail(f"Keyword vuota in MEDICATION_RULES per flag '{flag_name}'")
+    if not note:
+        fail(f"Nota clinica vuota per flag '{flag_name}'")
+    med_flags_seen.add(flag_name)
+expected_med_flags = {"beta_blocker", "anticoagulant", "corticosteroid", "insulin", "statin"}
+if med_flags_seen == expected_med_flags:
+    ok(f"MEDICATION_RULES copre {len(expected_med_flags)} classi: {sorted(expected_med_flags)}")
+else:
+    fail(f"MEDICATION_RULES mancanti: {expected_med_flags - med_flags_seen}")
+
+# 10.1 — Beta-bloccante
+print("\n--- 10.1: Beta-bloccante ---")
+assert_medication_flags("bisoprololo",
+    build_anamnesi(farmaci=q(True, "Bisoprololo 5mg mattina")),
+    expected_flags={"beta_blocker"},
+    not_expected_flags={"anticoagulant", "insulin"},
+)
+
+print("\n--- 10.1b: Carvedilolo → beta_blocker ---")
+assert_medication_flags("carvedilolo",
+    build_anamnesi(farmaci=q(True, "Carvedilolo 25mg")),
+    expected_flags={"beta_blocker"},
+)
+
+print("\n--- 10.1c: Betabloccante generico ---")
+assert_medication_flags("betabloccante generico",
+    build_anamnesi(farmaci=q(True, "Assume betabloccante")),
+    expected_flags={"beta_blocker"},
+)
+
+# 10.2 — Anticoagulante
+print("\n--- 10.2: Anticoagulante ---")
+assert_medication_flags("warfarin",
+    build_anamnesi(farmaci=q(True, "Warfarin 5mg, INR monitorato mensilmente")),
+    expected_flags={"anticoagulant"},
+)
+
+print("\n--- 10.2b: Xarelto → anticoagulant ---")
+assert_medication_flags("xarelto",
+    build_anamnesi(farmaci=q(True, "Xarelto 20mg dopo cena")),
+    expected_flags={"anticoagulant"},
+)
+
+# 10.3 — Corticosteroide
+print("\n--- 10.3: Corticosteroide ---")
+assert_medication_flags("prednisone",
+    build_anamnesi(farmaci=q(True, "Prednisone 10mg per artrite")),
+    expected_flags={"corticosteroid"},
+)
+
+print("\n--- 10.3b: Cortisone generico ---")
+assert_medication_flags("cortisone",
+    build_anamnesi(farmaci=q(True, "Cortisone infiltrazioni periodiche")),
+    expected_flags={"corticosteroid"},
+)
+
+# 10.4 — Insulina
+print("\n--- 10.4: Insulina ---")
+assert_medication_flags("novorapid + lantus",
+    build_anamnesi(farmaci=q(True, "Insulina Novorapid ai pasti + Lantus serale")),
+    expected_flags={"insulin"},
+)
+
+print("\n--- 10.4b: Insulina generica ---")
+assert_medication_flags("insulina generica",
+    build_anamnesi(farmaci=q(True, "Insulina 3 volte al giorno")),
+    expected_flags={"insulin"},
+)
+
+# 10.5 — Statina
+print("\n--- 10.5: Statina ---")
+assert_medication_flags("atorvastatina",
+    build_anamnesi(farmaci=q(True, "Atorvastatina 20mg serale")),
+    expected_flags={"statin"},
+)
+
+print("\n--- 10.5b: Rosuvastatina → statin ---")
+assert_medication_flags("rosuvastatina",
+    build_anamnesi(farmaci=q(True, "Rosuvastatina 10mg")),
+    expected_flags={"statin"},
+)
+
+# 10.6 — Multi-farmaco (piu' flag contemporanei)
+print("\n--- 10.6: Multi-farmaco (3 flag) ---")
+assert_medication_flags("multi-farmaco",
+    build_anamnesi(farmaci=q(True,
+        "Bisoprololo 5mg, Warfarin 5mg, Atorvastatina 20mg, Paracetamolo al bisogno"
+    )),
+    expected_flags={"beta_blocker", "anticoagulant", "statin"},
+    not_expected_flags={"insulin", "corticosteroid"},
+)
+
+# 10.7 — Tutti e 5 i flag contemporanei
+print("\n--- 10.7: Tutti i 5 flag farmacologici ---")
+assert_medication_flags("5 farmaci",
+    build_anamnesi(farmaci=q(True,
+        "Metoprololo 50mg, Eliquis 5mg, Prednisone 5mg, Insulina Humalog, Simvastatina 20mg"
+    )),
+    expected_flags={"beta_blocker", "anticoagulant", "corticosteroid", "insulin", "statin"},
+)
+
+# 10.8 — Farmaci non rilevanti → 0 flag
+print("\n--- 10.8: Farmaci non rilevanti → 0 flag ---")
+flags_generic = extract_medication_flags(json.dumps(
+    build_anamnesi(farmaci=q(True, "Paracetamolo, Vitamina D, Magnesio, Omega-3"))
+))
+if len(flags_generic) == 0:
+    ok("Farmaci generici → 0 flag")
+else:
+    fail(f"Farmaci generici → flag inattesi: {[f.flag for f in flags_generic]}")
+
+# 10.9 — Farmaci assenti (presente=false) → 0 flag
+print("\n--- 10.9: Farmaci non presenti → 0 flag ---")
+flags_none = extract_medication_flags(json.dumps(
+    build_anamnesi(farmaci=q(False))
+))
+if len(flags_none) == 0:
+    ok("Farmaci non presenti → 0 flag")
+else:
+    fail(f"Farmaci non presenti → {len(flags_none)} flag")
+
+# 10.10 — Anamnesi None → 0 flag
+print("\n--- 10.10: extract_medication_flags(None) → 0 flag ---")
+flags_null = extract_medication_flags(None)
+if len(flags_null) == 0:
+    ok("None → 0 flag")
+else:
+    fail(f"None → {len(flags_null)} flag")
+
+# 10.11 — Nota clinica presente e non vuota
+print("\n--- 10.11: Ogni flag ha nota clinica non vuota ---")
+test_flags = extract_medication_flags(json.dumps(
+    build_anamnesi(farmaci=q(True,
+        "Metoprololo, Warfarin, Cortisone, Insulina, Atorvastatina"
+    ))
+))
+all_have_nota = all(f.nota and len(f.nota) > 10 for f in test_flags)
+if all_have_nota and len(test_flags) == 5:
+    ok(f"Tutti i {len(test_flags)} flag hanno nota clinica valida")
+else:
+    fail(f"Flag senza nota: {[(f.flag, f.nota) for f in test_flags if not f.nota]}")
+
+
+# ═══════════════════════════════════════════════════════════════
+# PARTE 11: SPRINT 2 — SEVERITY MODIFY (3 LIVELLI)
+# ═══════════════════════════════════════════════════════════════
+
+print("\n" + "=" * 70)
+print("PARTE 11: SPRINT 2 — SEVERITY 3 LIVELLI (avoid > caution > modify)")
+print("=" * 70)
+
+# 11.1 — _SEVERITY_ORDER aggiornato con modify
+print("\n--- 11.1: _SEVERITY_ORDER include modify ---")
+from api.services.safety_engine import _SEVERITY_ORDER
+assert "modify" in _SEVERITY_ORDER, "modify non presente in _SEVERITY_ORDER"
+assert _SEVERITY_ORDER["modify"] < _SEVERITY_ORDER["caution"] < _SEVERITY_ORDER["avoid"]
+ok("_SEVERITY_ORDER: modify(0) < caution(1) < avoid(2)")
+
+# 11.2 — Gerarchia worst-case: avoid > caution > modify
+print("\n--- 11.2: Worst-case aggregation ---")
+# Se un esercizio ha modify da una condizione e caution da un'altra, vince caution
+for sev_a, sev_b, expected_winner in [
+    ("modify", "caution", "caution"),
+    ("modify", "avoid", "avoid"),
+    ("caution", "avoid", "avoid"),
+    ("modify", "modify", "modify"),
+    ("caution", "caution", "caution"),
+    ("avoid", "avoid", "avoid"),
+]:
+    winner = sev_a if _SEVERITY_ORDER.get(sev_a, 0) >= _SEVERITY_ORDER.get(sev_b, 0) else sev_b
+    if winner == expected_winner:
+        ok(f"worst({sev_a}, {sev_b}) = {expected_winner}")
+    else:
+        fail(f"worst({sev_a}, {sev_b}) = {winner} (atteso {expected_winner})")
+
+
+# ═══════════════════════════════════════════════════════════════
+# PARTE 12: SPRINT 2 — PROFILO INTEGRATO COMPLETO
+# ═══════════════════════════════════════════════════════════════
+
+print("\n" + "=" * 70)
+print("PARTE 12: SPRINT 2 — STRESS TEST INTEGRATO")
+print("=" * 70)
+
+# 12.1 — Profilo massimale con TUTTE le nuove condizioni 40-47
+print("\n--- 12.1: Paziente con tutte le condizioni nuove ---")
+sprint2_maximal = build_anamnesi(
+    patologie=q(True,
+        "Fibromialgia, ipotiroidismo, BPCO stadio II, diabete tipo 1, "
+        "neuropatia periferica, artrosi spalla destra, rizoartrosi bilaterale, "
+        "ipermobilita articolare generalizzata"
+    ),
+    infortuni_pregressi=q(True, "Distorsione caviglia sinistra recidivante"),
+    farmaci=q(True,
+        "Eutirox 100mcg, insulina Lantus, bisoprololo 2.5mg, "
+        "cortisone infiltrazioni spalla, atorvastatina 10mg"
+    ),
+    dolori_cronici=q(True, "Dolore muscolare diffuso, formicolio piedi"),
+)
+
+result_sprint2 = assert_conditions(
+    "Paziente Sprint 2 massimale",
+    sprint2_maximal,
+    expected={
+        19,  # Instabilita' caviglia ("distorsione caviglia")
+        34,  # Esiti caviglia ("caviglia")
+        33,  # Esiti spalla ("spalla")
+        40,  # Fibromialgia
+        41,  # Ipermobilita' ("ipermobilita")
+        42,  # Ipotiroidismo ("ipotiroidismo" + "eutirox")
+        43,  # BPCO ("bpco")
+        44,  # Diabete Tipo 1 ("diabete tipo 1")
+        45,  # Neuropatia ("neuropatia" + "formicolio piedi")
+        46,  # Artrosi spalla ("artrosi spalla")
+        47,  # Rizoartrosi ("rizoartrosi")
+        23,  # Diabete generico ("diabete" in "diabete tipo 1")
+    },
+)
+print(f"    CONDIZIONI RILEVATE: {len(result_sprint2)}")
+
+# 12.2 — Medication flags dallo stesso profilo
+print("\n--- 12.2: Medication flags profilo integrato ---")
+flags_sprint2 = extract_medication_flags(json.dumps(sprint2_maximal))
+flag_names_sprint2 = {f.flag for f in flags_sprint2}
+expected_flags_sprint2 = {"beta_blocker", "corticosteroid", "insulin", "statin"}
+missing_flags = expected_flags_sprint2 - flag_names_sprint2
+extra_flags = flag_names_sprint2 - expected_flags_sprint2
+
+if not missing_flags:
+    ok(f"Medication flags corretti: {sorted(flag_names_sprint2)}")
+else:
+    fail(f"Medication flags mancanti: {missing_flags}")
+if extra_flags:
+    warn(f"Medication flags extra (non attesi ma non pericolosi): {extra_flags}")
+
+# 12.3 — Verifica che "insulina" in farmaci non confonda condition_ids
+print("\n--- 12.3: Insulina in farmaci NON genera condizioni mediche ---")
+# extract_medication_flags scansiona farmaci.dettaglio → flag
+# extract_client_conditions scansiona farmaci.dettaglio → condition_ids
+# "insulina" e' keyword di ANAMNESI_KEYWORD_RULES? Verifichiamo
+_insulina_conditions = set()
+for keywords, cond_id in ANAMNESI_KEYWORD_RULES:
+    if match_keywords("insulina lantus", keywords):
+        _insulina_conditions.add(cond_id)
+# "insulina" matcha cond 44 (diabete tipo 1)? Verifichiamo le keyword di 44:
+# (["diabete tipo 1", "diabete insulinodipendente"], 44) — "insulina" NON e' in nessuna
+# Ma: "insulina" NON e' tra le keyword di cond 44 (ok, niente falso positivo)
+if 44 not in _insulina_conditions:
+    ok("'insulina' in farmaci NON triggera cond 44 (corretto: non e' keyword di cond 44)")
+else:
+    warn("'insulina' in farmaci triggera cond 44 — verificare se e' intenzionale")
+
+
+# ═══════════════════════════════════════════════════════════════
 # RIEPILOGO
 # ═══════════════════════════════════════════════════════════════
 
 print("\n" + "=" * 70)
-print("RIEPILOGO TEST SAFETY ENGINE v2")
+print("RIEPILOGO TEST SAFETY ENGINE v3")
 print("=" * 70)
 print(f"\n  PASS:     {passed}")
 print(f"  FAIL:     {failed}")

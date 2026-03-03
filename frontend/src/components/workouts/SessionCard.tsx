@@ -30,7 +30,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Plus, Trash2, Pencil, Flame, Dumbbell, Heart, ShieldAlert, AlertTriangle, Copy, StickyNote, MoreVertical, Layers, X } from "lucide-react";
+import { Plus, Trash2, Pencil, Flame, Dumbbell, Heart, ShieldAlert, AlertTriangle, Info, Copy, StickyNote, MoreVertical, Layers, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -268,11 +268,12 @@ export function SessionCard({
     return Math.round(total);
   }, [groupedExercises.principale]);
 
-  // Safety pills: contatori avoid/caution per questa sessione (straight + in blocchi)
+  // Safety pills: contatori avoid/caution/modify per questa sessione (straight + in blocchi)
   const sessionSafety = useMemo(() => {
-    if (!safetyMap) return { avoid: 0, caution: 0 };
+    if (!safetyMap) return { avoid: 0, caution: 0, modify: 0 };
     let avoid = 0;
     let caution = 0;
+    let modify = 0;
     const allExercises = [
       ...session.esercizi,
       ...session.blocchi.flatMap((b) => b.esercizi),
@@ -281,9 +282,10 @@ export function SessionCard({
       const entry = safetyMap[ex.id_esercizio];
       if (!entry) continue;
       if (entry.severity === "avoid") avoid++;
-      else caution++;
+      else if (entry.severity === "caution") caution++;
+      else modify++;
     }
-    return { avoid, caution };
+    return { avoid, caution, modify };
   }, [safetyMap, session.esercizi, session.blocchi]);
 
   const handleDragEnd = useCallback(
@@ -375,6 +377,12 @@ export function SessionCard({
             <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 dark:bg-amber-950/40 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
               <AlertTriangle className="h-3 w-3" />
               {sessionSafety.caution}
+            </span>
+          )}
+          {sessionSafety.modify > 0 && (
+            <span className="inline-flex items-center gap-0.5 rounded-full bg-blue-100 dark:bg-blue-950/40 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:text-blue-400">
+              <Info className="h-3 w-3" />
+              {sessionSafety.modify}
             </span>
           )}
         </div>

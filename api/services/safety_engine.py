@@ -22,19 +22,23 @@ from api.models.exercise import Exercise
 from api.models.medical_condition import ExerciseCondition, MedicalCondition
 from api.schemas.safety import (
     ExerciseSafetyEntry,
+    MedicationFlag,
     SafetyConditionDetail,
     SafetyMapResponse,
 )
 from api.services.condition_rules import (
     ANAMNESI_KEYWORD_RULES,
+    MEDICATION_RULES,
     STRUCTURAL_FLAGS,
     match_keywords,
 )
 
 logger = logging.getLogger(__name__)
 
-# Gerarchia severity: avoid > caution > modify
-_SEVERITY_ORDER = {"modify": 0, "caution": 1, "avoid": 2}
+# Gerarchia severity: avoid > modify > caution
+# "modify" prevale su "caution" perche' richiede azione specifica
+# (adattare ROM, grip, carico), mentre "caution" e' solo consapevolezza.
+_SEVERITY_ORDER = {"caution": 0, "modify": 1, "avoid": 2}
 
 # Campi AnamnesiData con struttura {presente: bool, dettaglio: str|null}
 _QUESTION_FIELDS = [
@@ -114,6 +118,41 @@ def extract_client_conditions(anamnesi_json: Optional[str]) -> set[int]:
     return condition_ids
 
 
+def extract_medication_flags(anamnesi_json: Optional[str]) -> list[MedicationFlag]:
+    """
+    Estrae flag farmacologici dall'anamnesi per informare il trainer.
+
+    Scansiona il campo `farmaci.dettaglio` con keyword matching.
+    Returns: lista di MedicationFlag (flag_name + nota clinica).
+    """
+    if not anamnesi_json:
+        return []
+
+    try:
+        anamnesi = json.loads(anamnesi_json)
+    except (json.JSONDecodeError, TypeError):
+        return []
+
+    if not isinstance(anamnesi, dict):
+        return []
+
+    # Estrai testo farmaci
+    farmaci_data = anamnesi.get("farmaci")
+    if not isinstance(farmaci_data, dict):
+        return []
+
+    dettaglio = farmaci_data.get("dettaglio")
+    if not dettaglio or not isinstance(dettaglio, str):
+        return []
+
+    flags: list[MedicationFlag] = []
+    for keywords, flag_name, clinical_note in MEDICATION_RULES:
+        if match_keywords(dettaglio, keywords):
+            flags.append(MedicationFlag(flag=flag_name, nota=clinical_note))
+
+    return flags
+
+
 def build_safety_map(
     session: Session,
     client_id: int,
@@ -135,6 +174,9 @@ def build_safety_map(
     # ── Estrai condizioni dal JSON anamnesi ──
     condition_ids = extract_client_conditions(client.anamnesi_json)
 
+    # ── Estrai flag farmacologici ──
+    medication_flags = extract_medication_flags(client.anamnesi_json)
+
     if not condition_ids:
         return SafetyMapResponse(
             client_id=client_id,
@@ -143,6 +185,7 @@ def build_safety_map(
             condition_count=0,
             condition_names=[],
             entries={},
+            medication_flags=medication_flags,
         )
 
     # ── Query: nomi condizioni per overview panel ──
@@ -196,7 +239,7 @@ def build_safety_map(
         else:
             entry = entries[ex_id]
             entry.conditions.append(detail)
-            # Worst-case severity: avoid > caution > modify
+            # Worst-case severity: avoid > modify > caution
             if _SEVERITY_ORDER.get(ec.severita, 0) > _SEVERITY_ORDER.get(entry.severity, 0):
                 entry.severity = ec.severita
 
@@ -207,4 +250,5 @@ def build_safety_map(
         condition_count=len(condition_ids),
         condition_names=condition_names,
         entries=entries,
+        medication_flags=medication_flags,
     )

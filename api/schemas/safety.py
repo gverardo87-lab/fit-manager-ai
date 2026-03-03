@@ -15,7 +15,7 @@ class SafetyConditionDetail(BaseModel):
     """Singola condizione medica rilevante per un esercizio."""
     id: int
     nome: str
-    severita: str           # avoid, caution
+    severita: str           # avoid, caution, modify
     nota: Optional[str] = None
     categoria: str          # orthopedic, cardiovascular, metabolic, neurological, respiratory, special
     body_tags: list[str] = []  # zone anatomiche (schiena, spalla, ginocchio...) per Risk Body Map
@@ -24,8 +24,14 @@ class SafetyConditionDetail(BaseModel):
 class ExerciseSafetyEntry(BaseModel):
     """Safety entry per un singolo esercizio."""
     exercise_id: int
-    severity: str           # avoid, caution (worst-case del cluster)
+    severity: str           # avoid, caution, modify (worst-case del cluster)
     conditions: list[SafetyConditionDetail]
+
+
+class MedicationFlag(BaseModel):
+    """Flag farmacologico rilevante per la programmazione dell'allenamento."""
+    flag: str               # beta_blocker, anticoagulant, corticosteroid, insulin, statin
+    nota: str               # nota clinica per il trainer
 
 
 class SafetyMapResponse(BaseModel):
@@ -36,3 +42,4 @@ class SafetyMapResponse(BaseModel):
     condition_count: int    # quante condizioni rilevate nell'anamnesi
     condition_names: list[str]  # nomi condizioni rilevate (per overview panel)
     entries: dict[int, ExerciseSafetyEntry]   # exercise_id → safety entry
+    medication_flags: list[MedicationFlag] = []  # flag farmacologici rilevati

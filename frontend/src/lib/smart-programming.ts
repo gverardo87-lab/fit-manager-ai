@@ -65,7 +65,7 @@ export interface ExerciseScore {
   exerciseName: string;
   totalScore: number;          // 0-100
   dimensions: ScoreDimension[];
-  safetySeverity: "avoid" | "caution" | null;
+  safetySeverity: "avoid" | "caution" | "modify" | null;
 }
 
 // ════════════════════════════════════════════════════════════
@@ -379,12 +379,13 @@ function activityToLevel(livello: string | null): FitnessLevel | null {
 
 type ScorerFn = (ex: Exercise, ctx: ScorerContext) => { score: number; reason: string };
 
-/** 1. Safety — safe=1.0, caution=0.5, avoid=0.1 (mai 0 → INFORM) */
+/** 1. Safety — safe=1.0, modify=0.7, caution=0.5, avoid=0.1 (mai 0 → INFORM) */
 function scoreSafety(ex: Exercise, ctx: ScorerContext): { score: number; reason: string } {
   if (!ctx.profile?.safetyMap) return { score: 0.5, reason: "Nessun dato safety" };
   const entry = ctx.profile.safetyMap[ex.id];
   if (!entry) return { score: 1.0, reason: "Nessuna controindicazione" };
   if (entry.severity === "avoid") return { score: 0.1, reason: `Da evitare: ${entry.conditions.map(c => c.nome).join(", ")}` };
+  if (entry.severity === "modify") return { score: 0.7, reason: `Adattare: ${entry.conditions.map(c => c.nome).join(", ")}` };
   return { score: 0.5, reason: `Cautela: ${entry.conditions.map(c => c.nome).join(", ")}` };
 }
 
@@ -1050,7 +1051,8 @@ function computeSafetyScore(
       const entry = safetyMap[ex.id_esercizio];
       if (!entry) safe++;
       else if (entry.severity === "avoid") { /* 0 */ }
-      else safe += 0.5; // caution o qualsiasi altra severity
+      else if (entry.severity === "modify") safe += 0.7;
+      else safe += 0.5; // caution
     }
   }
 

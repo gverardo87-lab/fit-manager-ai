@@ -29,6 +29,7 @@ import {
   CheckCircle2,
   ClipboardList,
   Dumbbell,
+  Info,
   Ruler,
   ShieldAlert,
   Target,
@@ -92,7 +93,7 @@ interface ZoneExerciseData {
 
 interface ZoneConditionData {
   nome: string;
-  severita: "avoid" | "caution";
+  severita: "avoid" | "caution" | "modify";
   nota: string | null;
 }
 
@@ -715,8 +716,10 @@ function ZoneDetailPanel({
               >
                 {c.severita === "avoid" ? (
                   <ShieldAlert className="h-3.5 w-3.5 shrink-0 text-red-500 mt-0.5" />
-                ) : (
+                ) : c.severita === "caution" ? (
                   <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-500 mt-0.5" />
+                ) : (
+                  <Info className="h-3.5 w-3.5 shrink-0 text-blue-500 mt-0.5" />
                 )}
                 <div className="min-w-0">
                   <span className="text-xs font-medium">{c.nome}</span>
