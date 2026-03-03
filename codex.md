@@ -109,6 +109,27 @@ Ogni consegna finale include:
 - Rischi residui (se presenti)
 - Prossime mosse consigliate
 
+## 9. Governance upgrade (nuovo)
+
+Per tenere traccia degli upgrade e migliorare la sinergia nel tempo:
+
+1. Spec pre-patch
+- usare `docs/upgrades/specs/PATCH_SPEC_TEMPLATE.md`
+
+2. Ledger unico
+- registrare ogni upgrade in `docs/upgrades/UPGRADE_LOG.md`
+
+3. Checklist operativa
+- usare `docs/upgrades/checklists/DOR_DOD_CHECKLIST.md` prima e dopo la patch
+
+4. Decisioni architetturali
+- quando serve, creare ADR in `docs/adr/` partendo da `docs/adr/ADR_TEMPLATE.md`
+
+Regola pratica:
+- patch piccola: spec breve + log
+- patch media/alta: spec completa + log + checklist
+- decisione strutturale: aggiungere ADR
+
 ---
 
 Obiettivo operativo: mantenere ritmo da startup con disciplina da team senior.
