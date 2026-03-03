@@ -3,13 +3,15 @@
 Il vecchio sync automatico e' stato rimosso. Ora le spese ricorrenti
 generano occorrenze "pending" e l'utente le conferma esplicitamente.
 
-10 test coprono:
+13 test coprono:
 - Pending endpoint (visibilita', filtraggio)
 - Confirm endpoint (creazione CashMovement, idempotenza)
 - Ancoraggio frequenze (data_inizio, cross-year)
 - Soft delete e re-apparizione
 - Stats read-only (zero auto-sync)
 """
+
+from datetime import date
 
 
 def _create_expense(client, auth_headers, **overrides):
@@ -262,3 +264,93 @@ def test_stats_no_auto_sync(client, auth_headers):
         if m.get("id_spesa_ricorrente") is not None
     ]
     assert len(spesa_movements) == 0
+
+
+def test_balance_separates_real_and_projected(client, auth_headers):
+    """Saldo reale non include movimenti futuri gia' confermati."""
+    today = date.today()
+    next_month = today.month + 1
+    next_year = today.year
+    if next_month > 12:
+        next_month = 1
+        next_year += 1
+
+    _create_expense(
+        client,
+        auth_headers,
+        nome="Spesa Futura",
+        importo=120.0,
+        giorno_scadenza=5,
+        data_inizio=f"{next_year:04d}-{next_month:02d}-01",
+    )
+
+    pending = _get_pending(client, auth_headers, next_year, next_month)
+    assert len(pending["items"]) == 1
+
+    _confirm(client, auth_headers, [
+        {
+            "id_spesa": pending["items"][0]["id_spesa"],
+            "mese_anno_key": pending["items"][0]["mese_anno_key"],
+        },
+    ])
+
+    br = client.get("/api/movements/balance", headers=auth_headers)
+    assert br.status_code == 200
+    data = br.json()
+
+    assert data["saldo_attuale"] == 0.0
+    assert data["saldo_previsto"] == -120.0
+    assert data["delta_movimenti_futuri"] == -120.0
+    assert data["totale_uscite_future_confermate"] == 120.0
+
+
+def test_delete_recurring_with_cleanup_removes_linked_movements(client, auth_headers):
+    """Delete spesa ricorrente con cleanup elimina anche movimenti ledger collegati."""
+    expense = _create_expense(
+        client,
+        auth_headers,
+        nome="Errore Inserimento",
+        importo=90.0,
+        giorno_scadenza=10,
+        data_inizio="2026-09-01",
+    )
+
+    pending = _get_pending(client, auth_headers, 2026, 9)
+    assert len(pending["items"]) == 1
+
+    _confirm(client, auth_headers, [
+        {
+            "id_spesa": pending["items"][0]["id_spesa"],
+            "mese_anno_key": pending["items"][0]["mese_anno_key"],
+        },
+    ])
+
+    before = client.get("/api/movements?anno=2026&mese=9", headers=auth_headers).json()
+    assert len([m for m in before["items"] if m.get("id_spesa_ricorrente") == expense["id"]]) == 1
+
+    dr = client.delete(
+        f"/api/recurring-expenses/{expense['id']}?delete_movements=true",
+        headers=auth_headers,
+    )
+    assert dr.status_code == 200
+    assert dr.json()["deleted_movements"] == 1
+
+    after = client.get("/api/movements?anno=2026&mese=9", headers=auth_headers).json()
+    assert len([m for m in after["items"] if m.get("id_spesa_ricorrente") == expense["id"]]) == 0
+
+
+def test_confirm_rejects_off_cycle_key(client, auth_headers):
+    """Conferma off-cycle su TRIMESTRALE viene ignorata (hardening key validation)."""
+    expense = _create_expense(
+        client,
+        auth_headers,
+        nome="Trimestre Guard",
+        importo=200.0,
+        frequenza="TRIMESTRALE",
+        data_inizio="2026-01-01",
+    )
+
+    result = _confirm(client, auth_headers, [
+        {"id_spesa": expense["id"], "mese_anno_key": "2026-02"},
+    ])
+    assert result["created"] == 0

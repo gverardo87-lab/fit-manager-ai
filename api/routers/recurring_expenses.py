@@ -20,6 +20,7 @@ from api.database import get_session
 from api.dependencies import get_current_trainer
 from api.models.trainer import Trainer
 from api.models.recurring_expense import RecurringExpense
+from api.models.movement import CashMovement
 from api.routers._audit import log_audit
 
 router = APIRouter(prefix="/recurring-expenses", tags=["recurring-expenses"])
@@ -99,6 +100,10 @@ class RecurringExpenseResponse(BaseModel):
     data_creazione: Optional[datetime] = None
     data_disattivazione: Optional[datetime] = None
 
+
+class RecurringExpenseDeleteResponse(BaseModel):
+    """Output delete spesa ricorrente con cleanup opzionale ledger."""
+    deleted_movements: int = 0
 
 # ════════════════════════════════════════════════════════════
 # GET: Lista spese ricorrenti
@@ -213,13 +218,17 @@ def update_recurring_expense(
 # DELETE: Elimina spesa ricorrente
 # ════════════════════════════════════════════════════════════
 
-@router.delete("/{expense_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{expense_id}", response_model=RecurringExpenseDeleteResponse)
 def delete_recurring_expense(
     expense_id: int,
+    delete_movements: bool = Query(
+        default=False,
+        description="Se true, elimina anche i movimenti ledger collegati alla spesa ricorrente",
+    ),
     trainer: Trainer = Depends(get_current_trainer),
     session: Session = Depends(get_session),
 ):
-    """Elimina una spesa ricorrente."""
+    """Elimina una spesa ricorrente con cleanup ledger opzionale."""
     expense = session.exec(
         select(RecurringExpense).where(
             RecurringExpense.id == expense_id,
@@ -234,7 +243,30 @@ def delete_recurring_expense(
             detail="Spesa ricorrente non trovata",
         )
 
-    expense.deleted_at = datetime.now(timezone.utc)
+    deleted_movements = 0
+    now = datetime.now(timezone.utc)
+
+    if delete_movements:
+        linked_movements = session.exec(
+            select(CashMovement).where(
+                CashMovement.trainer_id == trainer.id,
+                CashMovement.id_spesa_ricorrente == expense.id,
+                CashMovement.id_contratto == None,
+                CashMovement.deleted_at == None,
+            )
+        ).all()
+
+        for movement in linked_movements:
+            movement.deleted_at = now
+            session.add(movement)
+            log_audit(session, "movement", movement.id, "DELETE", trainer.id)
+
+        deleted_movements = len(linked_movements)
+
+    expense.deleted_at = now
     session.add(expense)
     log_audit(session, "recurring_expense", expense.id, "DELETE", trainer.id)
     session.commit()
+
+    return RecurringExpenseDeleteResponse(deleted_movements=deleted_movements)
+

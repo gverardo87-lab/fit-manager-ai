@@ -474,6 +474,11 @@ export interface RecurringExpense {
   data_disattivazione: string | null;
 }
 
+/** DELETE /api/recurring-expenses/{id} */
+export interface RecurringExpenseDeleteResponse {
+  deleted_movements: number;
+}
+
 // ════════════════════════════════════════════════════════════
 // PENDING EXPENSES (api/routers/movements.py — Conferma & Registra)
 // ════════════════════════════════════════════════════════════
@@ -509,13 +514,29 @@ export interface DashboardSummary {
   saldo_attuale: number;
 }
 
+export interface CashProtection {
+  stato: "OK" | "ATTENZIONE" | "CRITICO";
+  soglia_sicurezza: number;
+  margine_sicurezza: number;
+  copertura_giorni: number;
+  uscite_fisse_mensili_stimate: number;
+  burn_rate_variabile_mensile: number;
+  costo_operativo_mensile: number;
+}
+
 /** GET /api/movements/balance */
 export interface BalanceResponse {
   saldo_attuale: number;
+  saldo_previsto: number;
+  delta_movimenti_futuri: number;
   saldo_iniziale: number;
   totale_entrate_storico: number;
   totale_uscite_storico: number;
+  totale_entrate_future_confermate: number;
+  totale_uscite_future_confermate: number;
+  data_riferimento: string;
   data_saldo_iniziale: string | null;
+  protezione_cassa: CashProtection;
 }
 
 /** PUT /api/movements/saldo-iniziale */

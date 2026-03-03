@@ -9,6 +9,7 @@ Registro unico degli upgrade tecnici e UX.
 | UPG-2026-03-03-03 | 2026-03-03 | Workout Preview | Reliability + Testability | Estrazione KPI metrics in utility pura + test Vitest dedicati | Low | `codex_01` / `d8b7629` | done | Spec: `docs/upgrades/specs/UPG-2026-03-03-03-preview-metrics-hardening.md` |
 | UPG-2026-03-03-04 | 2026-03-03 | Workout Builder | UX + Navigability | Save issue center espandibile + jump rapido al primo punto da correggere | Low | `codex_01` / `7533f61` | done | Spec: `docs/upgrades/specs/UPG-2026-03-03-04-save-issue-center-navigation.md` |
 | UPG-2026-03-03-05 | 2026-03-03 | Process | Governance | Protocollo condiviso multi-agente + workboard centralizzato | Low | `codex_01` / _pending_ | in_progress | Spec: `docs/upgrades/specs/UPG-2026-03-03-05-multi-agent-alignment-protocol.md` |
+| UPG-2026-03-03-06 | 2026-03-03 | Cassa | Reliability + UX | Protezione cassa (saldo reale vs previsto) + hardening spese ricorrenti (cleanup ledger opzionale) | High | `codex_01` / _pending_ | in_progress | Spec: `docs/upgrades/specs/UPG-2026-03-03-06-cash-protection-and-recurring-hardening.md` |
 
 ## Uso rapido
 

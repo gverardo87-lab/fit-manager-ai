@@ -27,6 +27,9 @@ import {
   Clock,
   LineChart,
   Wallet,
+  ShieldCheck,
+  ShieldAlert,
+  ShieldX,
 } from "lucide-react";
 import {
   Bar,
@@ -63,7 +66,7 @@ import { SplitLedgerView } from "@/components/movements/SplitLedgerView";
 import { AgingReport } from "@/components/movements/AgingReport";
 import { ForecastTab } from "@/components/movements/ForecastTab";
 import { useMovements, useMovementStats, usePendingExpenses, useCashBalance } from "@/hooks/useMovements";
-import type { CashMovement } from "@/types/api";
+import type { CashMovement, CashProtection } from "@/types/api";
 import { formatCurrency } from "@/lib/format";
 import { AnimatedNumber } from "@/components/ui/animated-number";
 
@@ -110,19 +113,21 @@ const chartConfig: ChartConfig = {
 
 export default function CassaPage() {
   const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
 
   // Filter state (sessionStorage → URL → default)
   const [mese, setMese] = useState(() => {
     const saved = loadFilters("cassa");
     if (saved?.mese != null) return saved.mese as number;
     const m = getUrlParams().get("mese");
-    return m ? parseInt(m, 10) : now.getMonth() + 1;
+    return m ? parseInt(m, 10) : currentMonth;
   });
   const [anno, setAnno] = useState(() => {
     const saved = loadFilters("cassa");
     if (saved?.anno != null) return saved.anno as number;
     const a = getUrlParams().get("anno");
-    return a ? parseInt(a, 10) : now.getFullYear();
+    return a ? parseInt(a, 10) : currentYear;
   });
   const [activeTab, setActiveTab] = useState(() => {
     const saved = loadFilters("cassa");
@@ -145,8 +150,6 @@ export default function CassaPage() {
 
   // ── Sync filtri → sessionStorage + URL (feedback visivo) ──
   useEffect(() => {
-    const currentMonth = now.getMonth() + 1;
-    const currentYear = now.getFullYear();
     saveFilters("cassa", {
       mese: mese !== currentMonth ? mese : null,
       anno: anno !== currentYear ? anno : null,
@@ -159,7 +162,7 @@ export default function CassaPage() {
     }
     if (activeTab !== "ledger") params.set("tab", activeTab);
     syncUrlParams(window.location.pathname, params);
-  }, [mese, anno, activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mese, anno, activeTab, currentMonth, currentYear]);
 
   const handleDelete = (movement: CashMovement) => {
     setSelectedMovement(movement);
@@ -232,11 +235,15 @@ export default function CassaPage() {
       {balance && stats && (
         <SaldoHeroCard
           saldoAttuale={balance.saldo_attuale}
+          saldoPrevisto={balance.saldo_previsto}
+          deltaMovimentiFuturi={balance.delta_movimenti_futuri}
           saldoInizioMese={stats.saldo_inizio_mese}
           margineMese={stats.margine_netto}
           saldoFineMese={stats.saldo_fine_mese}
         />
       )}
+
+      {balance && <CashProtectionCard protection={balance.protezione_cassa} />}
 
       {/* ── Hero Section: 4 KPI ── */}
       {statsLoading && <KpiSkeleton />}
@@ -339,11 +346,15 @@ export default function CassaPage() {
 
 function SaldoHeroCard({
   saldoAttuale,
+  saldoPrevisto,
+  deltaMovimentiFuturi,
   saldoInizioMese,
   margineMese,
   saldoFineMese,
 }: {
   saldoAttuale: number;
+  saldoPrevisto: number;
+  deltaMovimentiFuturi: number;
   saldoInizioMese: number;
   margineMese: number;
   saldoFineMese: number;
@@ -401,11 +412,106 @@ function SaldoHeroCard({
           </div>
         </div>
       </div>
+
+      <div className="mt-4 rounded-lg border border-teal-200/70 bg-white/70 px-4 py-3 dark:border-teal-800/50 dark:bg-teal-950/20">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-[11px] font-semibold tracking-widest text-muted-foreground/70 uppercase">
+              Saldo Previsto
+            </p>
+            <AnimatedNumber
+              value={saldoPrevisto}
+              format="currency"
+              className="text-xl font-extrabold tracking-tighter tabular-nums text-teal-700 dark:text-teal-300 sm:text-2xl"
+            />
+          </div>
+          <p className={`text-sm font-medium tabular-nums ${
+            deltaMovimentiFuturi >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+          }`}>
+            {deltaMovimentiFuturi >= 0 ? "+" : ""}
+            {formatCurrency(deltaMovimentiFuturi)} da movimenti futuri registrati
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
 
 // ════════════════════════════════════════════════════════════
+function CashProtectionCard({ protection }: { protection: CashProtection }) {
+  const statusConfig = {
+    OK: {
+      label: "Protetta",
+      icon: ShieldCheck,
+      border: "border-l-emerald-500",
+      bg: "from-emerald-50/80 to-white dark:from-emerald-950/30 dark:to-zinc-900",
+      text: "text-emerald-700 dark:text-emerald-400",
+    },
+    ATTENZIONE: {
+      label: "Attenzione",
+      icon: ShieldAlert,
+      border: "border-l-amber-500",
+      bg: "from-amber-50/80 to-white dark:from-amber-950/30 dark:to-zinc-900",
+      text: "text-amber-700 dark:text-amber-400",
+    },
+    CRITICO: {
+      label: "Critica",
+      icon: ShieldX,
+      border: "border-l-red-500",
+      bg: "from-red-50/80 to-white dark:from-red-950/30 dark:to-zinc-900",
+      text: "text-red-700 dark:text-red-400",
+    },
+  } as const;
+
+  const cfg = statusConfig[protection.stato];
+  const Icon = cfg.icon;
+
+  return (
+    <div className={`rounded-xl border border-l-4 ${cfg.border} bg-gradient-to-br ${cfg.bg} p-4 shadow-sm`}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/80 dark:bg-zinc-900/70">
+            <Icon className={`h-4 w-4 ${cfg.text}`} />
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold tracking-widest text-muted-foreground/70 uppercase">
+              Protezione Cassa
+            </p>
+            <p className={`text-lg font-bold tracking-tight ${cfg.text}`}>{cfg.label}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 sm:flex sm:items-center sm:gap-8">
+          <div>
+            <p className="text-[10px] uppercase text-muted-foreground/70">Soglia 45gg</p>
+            <p className="text-sm font-bold tabular-nums">{formatCurrency(protection.soglia_sicurezza)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase text-muted-foreground/70">Margine</p>
+            <p
+              className={`text-sm font-bold tabular-nums ${
+                protection.margine_sicurezza >= 0
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : "text-red-600 dark:text-red-400"
+              }`}
+            >
+              {formatCurrency(protection.margine_sicurezza)}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase text-muted-foreground/70">Copertura</p>
+            <p className="text-sm font-bold tabular-nums">{protection.copertura_giorni.toFixed(1)} giorni</p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase text-muted-foreground/70">Costo mensile</p>
+            <p className="text-sm font-bold tabular-nums">{formatCurrency(protection.costo_operativo_mensile)}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // KPI Cards
 // ════════════════════════════════════════════════════════════
 

@@ -7,6 +7,7 @@ Aggiornare prima di iniziare e alla chiusura di ogni task.
 
 | Work ID | Owner | Branch | Scope | Locked files | Status | Started (UTC) | Updated (UTC) | Handoff / Notes |
 |---|---|---|---|---|---|---|---|---|
+| AGT-2026-03-03-06 | Codex | `codex_01` | Protezione Cassa + fix flusso spese fisse (reale vs previsto) | `api/routers/movements.py`, `api/routers/recurring_expenses.py`, `frontend/src/app/(dashboard)/cassa/page.tsx`, `frontend/src/components/movements/RecurringExpensesTab.tsx`, `frontend/src/hooks/useRecurringExpenses.ts`, `frontend/src/types/api.ts`, `tests/test_sync_recurring.py` | in_progress | 2026-03-03 08:16 | 2026-03-03 08:16 | Step 1 cashflow hardening: saldo reale/proiettato, cleanup spese fisse, UX conferma per data |
 
 ## Completed
 

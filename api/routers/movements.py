@@ -58,14 +58,38 @@ _signed_importo = case(
 )
 
 
-def _compute_saldo(session: Session, trainer: Trainer) -> float:
-    """Saldo cassa attuale = saldo_iniziale + SUM(signed movements)."""
-    q = select(func.coalesce(func.sum(_signed_importo), 0)).where(
+def _build_movement_filters(
+    trainer: Trainer,
+    *,
+    as_of: Optional[date] = None,
+) -> list:
+    """Filtri base movimenti per trainer con opzionale limite data."""
+    filters = [
         CashMovement.trainer_id == trainer.id,
         CashMovement.deleted_at == None,
-    )
+    ]
     if trainer.data_saldo_iniziale:
-        q = q.where(CashMovement.data_effettiva >= trainer.data_saldo_iniziale)
+        filters.append(CashMovement.data_effettiva >= trainer.data_saldo_iniziale)
+    if as_of is not None:
+        filters.append(CashMovement.data_effettiva <= as_of)
+    return filters
+
+
+def _compute_saldo(
+    session: Session,
+    trainer: Trainer,
+    *,
+    as_of: Optional[date] = None,
+) -> float:
+    """
+    Saldo cassa = saldo_iniziale + SUM(signed movements).
+
+    - as_of=None: include anche movimenti futuri (saldo proiettato)
+    - as_of=today: saldo reale disponibile a oggi
+    """
+    q = select(func.coalesce(func.sum(_signed_importo), 0)).where(
+        *_build_movement_filters(trainer, as_of=as_of)
+    )
     result = float(session.exec(q).one())
     return round(trainer.saldo_iniziale_cassa + result, 2)
 
@@ -87,12 +111,124 @@ def _compute_saldo_before(session: Session, trainer: Trainer, before_date: date)
 # GET: Saldo di cassa attuale
 # ════════════════════════════════════════════════════════════
 
+class CashProtectionResponse(BaseModel):
+    stato: str
+    soglia_sicurezza: float
+    margine_sicurezza: float
+    copertura_giorni: float
+    uscite_fisse_mensili_stimate: float
+    burn_rate_variabile_mensile: float
+    costo_operativo_mensile: float
+
+
 class BalanceResponse(BaseModel):
     saldo_attuale: float
+    saldo_previsto: float
+    delta_movimenti_futuri: float
     saldo_iniziale: float
     totale_entrate_storico: float
     totale_uscite_storico: float
+    totale_entrate_future_confermate: float
+    totale_uscite_future_confermate: float
+    data_riferimento: date
     data_saldo_iniziale: Optional[date]
+    protezione_cassa: CashProtectionResponse
+
+
+def _estimate_monthly_expense(expense: RecurringExpense) -> float:
+    """Stima mensile pesata della spesa ricorrente in base alla frequenza."""
+    freq = expense.frequenza or "MENSILE"
+    if freq == "SETTIMANALE":
+        return expense.importo * 4.33
+    if freq == "TRIMESTRALE":
+        return expense.importo / 3
+    if freq == "SEMESTRALE":
+        return expense.importo / 6
+    if freq == "ANNUALE":
+        return expense.importo / 12
+    return expense.importo
+
+
+def _compute_variable_burn_rate(session: Session, trainer: Trainer, today: date) -> float:
+    """Media uscite variabili/mese sugli ultimi 3 mesi chiusi."""
+    past_months = _prev_months(today.year, today.month, 3)
+    if not past_months:
+        return 0.0
+
+    totals: list[float] = []
+    for anno, mese in past_months:
+        month_total = session.exec(
+            select(func.coalesce(func.sum(CashMovement.importo), 0)).where(
+                CashMovement.trainer_id == trainer.id,
+                CashMovement.tipo == "USCITA",
+                CashMovement.id_spesa_ricorrente == None,
+                extract("year", CashMovement.data_effettiva) == anno,
+                extract("month", CashMovement.data_effettiva) == mese,
+                CashMovement.deleted_at == None,
+            )
+        ).one()
+        totals.append(float(month_total))
+
+    return round(sum(totals) / len(totals), 2) if totals else 0.0
+
+
+def _build_cash_protection(
+    session: Session,
+    trainer: Trainer,
+    *,
+    today: date,
+    saldo_attuale: float,
+) -> CashProtectionResponse:
+    """
+    Protezione Cassa:
+    - soglia_sicurezza: 45 giorni di costo operativo medio (fisse + burn variabile)
+    - margine_sicurezza: saldo reale - soglia
+    - copertura_giorni: autonomia stimata con saldo reale corrente
+    """
+    recurring = session.exec(
+        select(RecurringExpense).where(
+            RecurringExpense.trainer_id == trainer.id,
+            RecurringExpense.attiva == True,
+            RecurringExpense.deleted_at == None,
+        )
+    ).all()
+
+    uscite_fisse_stimate = round(sum(_estimate_monthly_expense(e) for e in recurring), 2)
+    burn_rate = _compute_variable_burn_rate(session, trainer, today)
+    costo_operativo_mensile = round(uscite_fisse_stimate + burn_rate, 2)
+
+    if costo_operativo_mensile <= 0:
+        return CashProtectionResponse(
+            stato="OK",
+            soglia_sicurezza=0.0,
+            margine_sicurezza=round(saldo_attuale, 2),
+            copertura_giorni=9999.0,
+            uscite_fisse_mensili_stimate=uscite_fisse_stimate,
+            burn_rate_variabile_mensile=burn_rate,
+            costo_operativo_mensile=costo_operativo_mensile,
+        )
+
+    soglia_sicurezza = round(costo_operativo_mensile * 1.5, 2)  # 45 giorni
+    margine_sicurezza = round(saldo_attuale - soglia_sicurezza, 2)
+    costo_giornaliero = costo_operativo_mensile / 30
+    copertura_giorni = round(saldo_attuale / costo_giornaliero, 1)
+
+    if saldo_attuale < 0 or copertura_giorni < 15:
+        stato = "CRITICO"
+    elif copertura_giorni < 45:
+        stato = "ATTENZIONE"
+    else:
+        stato = "OK"
+
+    return CashProtectionResponse(
+        stato=stato,
+        soglia_sicurezza=soglia_sicurezza,
+        margine_sicurezza=margine_sicurezza,
+        copertura_giorni=copertura_giorni,
+        uscite_fisse_mensili_stimate=uscite_fisse_stimate,
+        burn_rate_variabile_mensile=burn_rate,
+        costo_operativo_mensile=costo_operativo_mensile,
+    )
 
 
 @router.get("/balance", response_model=BalanceResponse)
@@ -101,35 +237,67 @@ def get_balance(
     session: Session = Depends(get_session),
 ):
     """Saldo di cassa attuale — computed on read."""
-    base_filter = [
+    today = date.today()
+
+    real_filters = _build_movement_filters(trainer, as_of=today)
+    future_filters = [
         CashMovement.trainer_id == trainer.id,
         CashMovement.deleted_at == None,
+        CashMovement.data_effettiva > today,
     ]
     if trainer.data_saldo_iniziale:
-        base_filter.append(CashMovement.data_effettiva >= trainer.data_saldo_iniziale)
+        future_filters.append(CashMovement.data_effettiva >= trainer.data_saldo_iniziale)
 
-    totale_entrate = float(session.exec(
+    totale_entrate_reali = float(session.exec(
         select(func.coalesce(func.sum(CashMovement.importo), 0)).where(
-            *base_filter,
+            *real_filters,
             CashMovement.tipo == "ENTRATA",
         )
     ).one())
 
-    totale_uscite = float(session.exec(
+    totale_uscite_reali = float(session.exec(
         select(func.coalesce(func.sum(CashMovement.importo), 0)).where(
-            *base_filter,
+            *real_filters,
             CashMovement.tipo == "USCITA",
         )
     ).one())
 
-    saldo_attuale = round(trainer.saldo_iniziale_cassa + totale_entrate - totale_uscite, 2)
+    totale_entrate_future = float(session.exec(
+        select(func.coalesce(func.sum(CashMovement.importo), 0)).where(
+            *future_filters,
+            CashMovement.tipo == "ENTRATA",
+        )
+    ).one())
+
+    totale_uscite_future = float(session.exec(
+        select(func.coalesce(func.sum(CashMovement.importo), 0)).where(
+            *future_filters,
+            CashMovement.tipo == "USCITA",
+        )
+    ).one())
+
+    saldo_attuale = _compute_saldo(session, trainer, as_of=today)
+    saldo_previsto = _compute_saldo(session, trainer)
+    delta_future = round(saldo_previsto - saldo_attuale, 2)
+    protezione = _build_cash_protection(
+        session,
+        trainer,
+        today=today,
+        saldo_attuale=saldo_attuale,
+    )
 
     return BalanceResponse(
         saldo_attuale=saldo_attuale,
+        saldo_previsto=saldo_previsto,
+        delta_movimenti_futuri=delta_future,
         saldo_iniziale=trainer.saldo_iniziale_cassa,
-        totale_entrate_storico=round(totale_entrate, 2),
-        totale_uscite_storico=round(totale_uscite, 2),
+        totale_entrate_storico=round(totale_entrate_reali, 2),
+        totale_uscite_storico=round(totale_uscite_reali, 2),
+        totale_entrate_future_confermate=round(totale_entrate_future, 2),
+        totale_uscite_future_confermate=round(totale_uscite_future, 2),
+        data_riferimento=today,
         data_saldo_iniziale=trainer.data_saldo_iniziale,
+        protezione_cassa=protezione,
     )
 
 
@@ -293,6 +461,7 @@ def get_pending_expenses(
                     mese_anno_key=mese_anno_key,
                 ))
 
+    pending_items.sort(key=lambda x: (x.data_prevista, x.nome.lower()))
     totale = sum(item.importo for item in pending_items)
 
     return PendingExpensesResponse(items=pending_items, totale_pending=round(totale, 2))
@@ -364,6 +533,16 @@ def confirm_expenses(
             item.mese_anno_key, expense.giorno_scadenza, start.month
         )
         if not data_effettiva:
+            continue
+
+        # Hardening: accetta solo chiavi coerenti con il ciclo reale della spesa.
+        expected_keys = {
+            key
+            for _, key in _get_occurrences_in_month(
+                expense, data_effettiva.year, data_effettiva.month
+            )
+        }
+        if item.mese_anno_key not in expected_keys:
             continue
 
         result = session.execute(
@@ -842,7 +1021,7 @@ def get_forecast(
     future_months = _next_months(current_anno, current_mese, mesi)
 
     # ── 1. Saldo iniziale: saldo di cassa reale (non piu' margine mese corrente) ──
-    saldo_iniziale = _compute_saldo(session, trainer)
+    saldo_iniziale = _compute_saldo(session, trainer, as_of=today)
 
     # ── 2. Entrate certe: rate PENDENTE/PARZIALE nei mesi futuri ──
     rates = session.exec(

@@ -11,6 +11,7 @@ Multi-tenancy: ogni query filtra per trainer_id dal JWT.
 
 from datetime import date, datetime, timedelta
 from fastapi import APIRouter, Depends
+from sqlalchemy import bindparam
 from sqlmodel import Session, select, func, text
 
 from api.database import get_session
@@ -120,7 +121,7 @@ def get_dashboard_summary(
     """), {"tid": trainer.id}).scalar() or 0
 
     # 6. Saldo di cassa attuale (computed on read)
-    saldo_attuale = _compute_saldo(session, trainer)
+    saldo_attuale = _compute_saldo(session, trainer, as_of=today)
 
     return DashboardSummary(
         active_clients=active_clients,
@@ -328,15 +329,18 @@ def get_expiring_contracts(
 
     # Step 2: batch fetch crediti usati (anti-N+1)
     contract_ids = [c.id for c, _ in contracts]
-    credit_rows = session.execute(text("""
+    credit_rows = session.execute(
+        text("""
         SELECT e.id_contratto, COUNT(*) as usati
         FROM agenda e
-        WHERE e.id_contratto IN ({})
+        WHERE e.id_contratto IN :contract_ids
           AND e.categoria = 'PT'
           AND e.stato != 'Cancellato'
           AND e.deleted_at IS NULL
         GROUP BY e.id_contratto
-    """.format(",".join(str(cid) for cid in contract_ids)))).fetchall()
+    """).bindparams(bindparam("contract_ids", expanding=True)),
+        {"contract_ids": contract_ids},
+    ).fetchall()
 
     credits_map = {row[0]: row[1] for row in credit_rows}
 
@@ -412,19 +416,22 @@ def get_inactive_clients(
 
     # Step 2: batch fetch ultimo evento per ciascuno (anti-N+1)
     client_ids = [row[0] for row in inactive_clients]
-    last_events = session.execute(text("""
+    last_events = session.execute(
+        text("""
         SELECT e.id_cliente, e.data_inizio, e.categoria
         FROM agenda e
         INNER JOIN (
             SELECT id_cliente, MAX(data_inizio) as max_data
             FROM agenda
-            WHERE id_cliente IN ({})
+            WHERE id_cliente IN :client_ids
               AND stato != 'Cancellato'
               AND deleted_at IS NULL
             GROUP BY id_cliente
         ) latest ON e.id_cliente = latest.id_cliente AND e.data_inizio = latest.max_data
         WHERE e.deleted_at IS NULL AND e.stato != 'Cancellato'
-    """.format(",".join(str(cid) for cid in client_ids)))).fetchall()
+    """).bindparams(bindparam("client_ids", expanding=True)),
+        {"client_ids": client_ids},
+    ).fetchall()
 
     last_event_map: dict[int, tuple] = {}
     for row in last_events:

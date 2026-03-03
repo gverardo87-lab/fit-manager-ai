@@ -202,19 +202,29 @@ function PendingExpensesBanner({ anno, mese }: { anno: number; mese: number }) {
   // mese_anno_key da solo non basta — piu' spese MENSILI nello stesso mese
   // hanno la stessa key "2026-02", il Set le collasserebbe in un unico elemento.
   const selKey = (i: PendingExpenseItem) => `${i.id_spesa}::${i.mese_anno_key}`;
+  const isDueByToday = (i: PendingExpenseItem) => {
+    const dt = isoToDate(i.data_prevista);
+    if (!dt) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    dt.setHours(0, 0, 0, 0);
+    return dt.getTime() <= today.getTime();
+  };
 
-  // Reset selezione quando cambia mese o dati
+  // Reset selezione quando cambia mese o dati:
+  // default prudente = solo voci scadute/odierne (non quelle future).
   useEffect(() => {
-    if (items.length > 0) {
-      setSelected(new Set(items.map(selKey)));
-    } else {
-      setSelected(new Set());
-    }
+    const dueItems = items.filter(isDueByToday);
+    setSelected(new Set(dueItems.map(selKey)));
   }, [items]);
 
   if (isLoading || items.length === 0) return null;
 
   const allSelected = selected.size === items.length;
+  const dueSelected =
+    selected.size > 0 &&
+    selected.size === items.filter(isDueByToday).length &&
+    selected.size !== items.length;
   const noneSelected = selected.size === 0;
   const totaleSelezionato = items
     .filter((i) => selected.has(selKey(i)))
@@ -228,13 +238,9 @@ function PendingExpensesBanner({ anno, mese }: { anno: number; mese: number }) {
     });
   };
 
-  const toggleAll = () => {
-    if (allSelected) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(items.map(selKey)));
-    }
-  };
+  const selectAll = () => setSelected(new Set(items.map(selKey)));
+  const selectDue = () => setSelected(new Set(items.filter(isDueByToday).map(selKey)));
+  const clearSelection = () => setSelected(new Set());
 
   const handleConfirm = () => {
     const toConfirm = items
@@ -264,10 +270,22 @@ function PendingExpensesBanner({ anno, mese }: { anno: number; mese: number }) {
         ))}
       </div>
 
+      {items.some((i) => !isDueByToday(i)) && (
+        <p className="mt-2 text-xs text-amber-700/90 dark:text-amber-300/90">
+          Le voci con data futura restano nel previsto: confermale solo quando diventano effettive.
+        </p>
+      )}
+
       <div className="mt-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={toggleAll}>
-            {allSelected ? "Deseleziona tutte" : "Seleziona tutte"}
+          <Button variant="ghost" size="sm" onClick={selectDue}>
+            {dueSelected ? "Scadute selezionate" : "Seleziona scadute"}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={selectAll}>
+            {allSelected ? "Tutte selezionate" : "Seleziona tutte"}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={clearSelection} disabled={noneSelected}>
+            Deseleziona
           </Button>
           <span className="text-sm text-muted-foreground">
             Totale selezionato: <span className="font-semibold">{formatCurrency(totaleSelezionato)}</span>
@@ -618,6 +636,7 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
 
   const [editTarget, setEditTarget] = useState<RecurringExpense | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<RecurringExpense | null>(null);
+  const [deleteAlsoMovements, setDeleteAlsoMovements] = useState(false);
 
   const handleToggle = (expense: RecurringExpense) => {
     updateMutation.mutate({ id: expense.id, attiva: !expense.attiva });
@@ -625,9 +644,18 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
 
   const handleConfirmDelete = () => {
     if (!deleteTarget) return;
-    deleteMutation.mutate(deleteTarget.id, {
-      onSuccess: () => setDeleteTarget(null),
-    });
+    deleteMutation.mutate(
+      {
+        id: deleteTarget.id,
+        deleteMovements: deleteAlsoMovements,
+      },
+      {
+        onSuccess: () => {
+          setDeleteTarget(null);
+          setDeleteAlsoMovements(false);
+        },
+      }
+    );
   };
 
   return (
@@ -711,7 +739,10 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => setDeleteTarget(expense)}
+                      onClick={() => {
+                        setDeleteTarget(expense);
+                        setDeleteAlsoMovements(false);
+                      }}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -731,7 +762,15 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
       />
 
       {/* Delete Confirm Dialog */}
-      <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+      <AlertDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteTarget(null);
+            setDeleteAlsoMovements(false);
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Eliminare questa spesa ricorrente?</AlertDialogTitle>
@@ -742,6 +781,21 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
               Questa azione non puo&apos; essere annullata.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="rounded-md border bg-amber-50/70 p-3 dark:border-amber-800/40 dark:bg-amber-950/20">
+            <div className="flex items-start gap-2">
+              <Checkbox
+                id="delete-linked-movements"
+                checked={deleteAlsoMovements}
+                onCheckedChange={(v) => setDeleteAlsoMovements(Boolean(v))}
+              />
+              <label
+                htmlFor="delete-linked-movements"
+                className="cursor-pointer text-sm leading-5 text-amber-900 dark:text-amber-200"
+              >
+                Elimina anche i movimenti gia&apos; registrati nel libro mastro per questa spesa.
+              </label>
+            </div>
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleteMutation.isPending}>Annulla</AlertDialogCancel>
             <AlertDialogAction

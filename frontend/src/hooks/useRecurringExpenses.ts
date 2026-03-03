@@ -17,6 +17,7 @@ import type {
   RecurringExpense,
   RecurringExpenseCreate,
   RecurringExpenseUpdate,
+  RecurringExpenseDeleteResponse,
   ListResponse,
 } from "@/types/api";
 
@@ -97,16 +98,37 @@ export function useDeleteRecurringExpense() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: number) => {
-      await apiClient.delete(`/recurring-expenses/${id}`);
+    mutationFn: async ({
+      id,
+      deleteMovements = false,
+    }: {
+      id: number;
+      deleteMovements?: boolean;
+    }) => {
+      const { data } = await apiClient.delete<RecurringExpenseDeleteResponse>(
+        `/recurring-expenses/${id}`,
+        {
+          params: { delete_movements: deleteMovements },
+        }
+      );
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["recurring-expenses"] });
       queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["pending-expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["movements"] });
+      queryClient.invalidateQueries({ queryKey: ["cash-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["aging-report"] });
       queryClient.invalidateQueries({ queryKey: ["forecast"] });
-      toast.success("Spesa ricorrente eliminata");
+      if (variables.deleteMovements && data.deleted_movements > 0) {
+        toast.success(
+          `Spesa ricorrente eliminata. Rimossi ${data.deleted_movements} movimenti dal libro mastro`
+        );
+      } else {
+        toast.success("Spesa ricorrente eliminata");
+      }
     },
     onError: (error) => {
       toast.error(extractErrorMessage(error, "Errore nell'eliminazione della spesa ricorrente"));
