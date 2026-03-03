@@ -98,3 +98,34 @@ def test_cash_audit_log_filters_by_flow_and_date(client, auth_headers):
     assert empty_future.json()["total"] == 0
     assert empty_future.json()["items"] == []
 
+
+def test_cash_audit_log_rejects_invalid_filters(client, auth_headers):
+    invalid_action = client.get(
+        "/api/movements/audit-log?action=MERGE",
+        headers=auth_headers,
+    )
+    assert invalid_action.status_code == 422
+    assert "action" in invalid_action.json()["detail"]
+
+    invalid_entity = client.get(
+        "/api/movements/audit-log?entity_type=invoice",
+        headers=auth_headers,
+    )
+    assert invalid_entity.status_code == 422
+    assert "entity_type" in invalid_entity.json()["detail"]
+
+    invalid_flow = client.get(
+        "/api/movements/audit-log?flow=CASH",
+        headers=auth_headers,
+    )
+    assert invalid_flow.status_code == 422
+    assert "flow" in invalid_flow.json()["detail"]
+
+
+def test_cash_audit_log_rejects_inverted_date_range(client, auth_headers):
+    response = client.get(
+        "/api/movements/audit-log?data_da=2026-04-01&data_a=2026-03-01",
+        headers=auth_headers,
+    )
+    assert response.status_code == 422
+    assert "data_da" in response.json()["detail"]

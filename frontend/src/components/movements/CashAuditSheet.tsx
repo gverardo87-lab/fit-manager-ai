@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ExternalLink,
   FileSearch,
@@ -29,7 +29,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { useCashAuditLog } from "@/hooks/useMovements";
+import { useCashAuditLogInfinite } from "@/hooks/useMovements";
 import type { CashAuditTimelineItem } from "@/types/api";
 
 interface CashAuditSheetProps {
@@ -40,6 +40,7 @@ interface CashAuditSheetProps {
 type ActionFilter = "ALL" | "CREATE" | "UPDATE" | "DELETE" | "RESTORE";
 type EntityFilter = "ALL" | "movement" | "recurring_expense" | "rate" | "contract";
 type FlowFilter = "ALL" | "ENTRATA" | "USCITA";
+const PAGE_SIZE = 60;
 
 function formatDateTime(iso: string): string {
   const d = new Date(iso);
@@ -130,15 +131,22 @@ export function CashAuditSheet({ open, onOpenChange }: CashAuditSheetProps) {
   const [entityType, setEntityType] = useState<EntityFilter>("ALL");
   const [flow, setFlow] = useState<FlowFilter>("ALL");
 
-  const { data, isLoading, isFetching, refetch } = useCashAuditLog(
+  const {
+    data,
+    isLoading,
+    isFetching,
+    isFetchingNextPage,
+    fetchNextPage,
+    hasNextPage,
+    refetch,
+  } = useCashAuditLogInfinite(
     {
       data_da: dataDa || undefined,
       data_a: dataA || undefined,
       action: action === "ALL" ? undefined : action,
       entity_type: entityType === "ALL" ? undefined : entityType,
       flow: flow === "ALL" ? undefined : flow,
-      limit: 120,
-      offset: 0,
+      pageSize: PAGE_SIZE,
     },
     open
   );
@@ -151,7 +159,15 @@ export function CashAuditSheet({ open, onOpenChange }: CashAuditSheetProps) {
     setFlow("ALL");
   };
 
-  const items = data?.items ?? [];
+  const items = useMemo(
+    () => data?.pages.flatMap((page) => page.items) ?? [],
+    [data]
+  );
+  const total = data?.pages[0]?.total ?? 0;
+  const isFirstPageLoading = isLoading && items.length === 0;
+  const hasMore = Boolean(hasNextPage);
+  const isLoadingMore = isFetchingNextPage;
+  const handleRefresh = () => refetch();
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -221,10 +237,10 @@ export function CashAuditSheet({ open, onOpenChange }: CashAuditSheetProps) {
 
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground">
-              {data ? `${data.total} eventi` : "-"}
+              {data ? `${items.length}/${total} eventi` : "-"}
             </span>
-            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => refetch()}>
-              {isFetching && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={handleRefresh}>
+              {isFetching && !isLoadingMore && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
               Aggiorna
             </Button>
           </div>
@@ -232,11 +248,11 @@ export function CashAuditSheet({ open, onOpenChange }: CashAuditSheetProps) {
 
         <ScrollArea className="min-h-0 flex-1 px-4 pb-4">
           <div className="space-y-3 pt-3">
-            {isLoading && Array.from({ length: 4 }).map((_, idx) => (
+            {isFirstPageLoading && Array.from({ length: 4 }).map((_, idx) => (
               <Skeleton key={idx} className="h-28 w-full rounded-lg" />
             ))}
 
-            {!isLoading && items.length === 0 && (
+            {!isFirstPageLoading && items.length === 0 && (
               <div className="rounded-lg border border-dashed p-6 text-center">
                 <p className="text-sm font-medium">Nessun evento trovato</p>
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -245,9 +261,21 @@ export function CashAuditSheet({ open, onOpenChange }: CashAuditSheetProps) {
               </div>
             )}
 
-            {!isLoading && items.map((item) => (
+            {!isFirstPageLoading && items.map((item) => (
               <AuditRow key={item.id} item={item} />
             ))}
+
+            {!isFirstPageLoading && hasMore && (
+              <Button
+                variant="outline"
+                className="w-full"
+                disabled={isLoadingMore}
+                onClick={() => fetchNextPage()}
+              >
+                {isLoadingMore && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Carica altri
+              </Button>
+            )}
           </div>
         </ScrollArea>
       </SheetContent>

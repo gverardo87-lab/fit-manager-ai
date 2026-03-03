@@ -223,6 +223,7 @@ def _build_audit_reason(
 
 CASH_AUDIT_ENTITY_TYPES = {"movement", "recurring_expense", "rate", "contract"}
 CASH_AUDIT_FLOW_VALUES = {"ENTRATA", "USCITA"}
+CASH_AUDIT_ACTION_VALUES = {"CREATE", "UPDATE", "DELETE", "RESTORE"}
 
 
 def _build_impact_preview(
@@ -866,27 +867,42 @@ def get_cash_audit_log(
     Non duplica il libro mastro: mostra eventi operativi (chi ha fatto cosa),
     con diff before/after e link rapido al contesto contabile.
     """
-    if entity_type and entity_type not in CASH_AUDIT_ENTITY_TYPES:
+    if data_da and data_a and data_da > data_a:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Intervallo date non valido: data_da deve essere <= data_a",
+        )
+
+    entity_type_filter = entity_type.lower() if entity_type else None
+    if entity_type_filter and entity_type_filter not in CASH_AUDIT_ENTITY_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="entity_type non valido",
         )
+
+    action_filter = action.upper() if action else None
+    if action_filter and action_filter not in CASH_AUDIT_ACTION_VALUES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="action non valida",
+        )
+
     flow_filter = flow.upper() if flow else None
     if flow_filter and flow_filter not in CASH_AUDIT_FLOW_VALUES:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="flow non valido",
         )
 
     filters = [AuditLog.trainer_id == trainer.id]
 
-    if entity_type:
-        filters.append(AuditLog.entity_type == entity_type)
+    if entity_type_filter:
+        filters.append(AuditLog.entity_type == entity_type_filter)
     else:
         filters.append(AuditLog.entity_type.in_(CASH_AUDIT_ENTITY_TYPES))
 
-    if action:
-        filters.append(AuditLog.action == action.upper())
+    if action_filter:
+        filters.append(AuditLog.action == action_filter)
 
     if data_da:
         start_dt = datetime.combine(data_da, datetime.min.time()).replace(tzinfo=timezone.utc)

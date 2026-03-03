@@ -11,7 +11,7 @@
  * Ogni mutation invalida ["movements"], ["dashboard"], e ["cash-balance"].
  */
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import apiClient, { extractErrorMessage } from "@/lib/api-client";
 import type {
@@ -49,6 +49,15 @@ interface UseCashAuditLogParams {
   flow?: "ENTRATA" | "USCITA";
   limit?: number;
   offset?: number;
+}
+
+interface UseCashAuditLogInfiniteParams {
+  data_da?: string;
+  data_a?: string;
+  action?: string;
+  entity_type?: string;
+  flow?: "ENTRATA" | "USCITA";
+  pageSize?: number;
 }
 
 export function useMovements({
@@ -221,6 +230,44 @@ export function useCashAuditLog(
         `/movements/audit-log?${params.toString()}`
       );
       return data;
+    },
+    enabled,
+  });
+}
+
+export function useCashAuditLogInfinite(
+  {
+    data_da,
+    data_a,
+    action,
+    entity_type,
+    flow,
+    pageSize = 60,
+  }: UseCashAuditLogInfiniteParams = {},
+  enabled: boolean = true
+) {
+  return useInfiniteQuery<CashAuditTimelineResponse>({
+    queryKey: ["cash-audit-log-infinite", { data_da, data_a, action, entity_type, flow, pageSize }],
+    queryFn: async ({ pageParam }) => {
+      const offset = typeof pageParam === "number" ? pageParam : 0;
+      const params = new URLSearchParams();
+      if (data_da) params.set("data_da", data_da);
+      if (data_a) params.set("data_a", data_a);
+      if (action) params.set("action", action);
+      if (entity_type) params.set("entity_type", entity_type);
+      if (flow) params.set("flow", flow);
+      params.set("limit", String(pageSize));
+      params.set("offset", String(offset));
+
+      const { data } = await apiClient.get<CashAuditTimelineResponse>(
+        `/movements/audit-log?${params.toString()}`
+      );
+      return data;
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      const loaded = allPages.reduce((sum, page) => sum + page.items.length, 0);
+      return loaded < lastPage.total ? loaded : undefined;
     },
     enabled,
   });
