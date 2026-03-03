@@ -987,9 +987,15 @@ export function computeMuscleCoverage(
         const group = normalizeMuscleGroup(m);
         setCounts[group] = (setCounts[group] ?? 0) + ex.serie * 1.0;
       }
+      // Credito secondario diluted: budget di 1.0 set-equivalente distribuito
+      // tra tutti i secondari, max 0.5 ciascuno. Evita che muscoli "hub"
+      // (core, spalle, dorsali, glutei) — listati come secondari su quasi ogni
+      // compound — accumulino credito irrealistico (30-45 set/sett).
+      const secLen = exercise.muscoli_secondari.length;
+      const secCredit = secLen > 0 ? Math.min(0.5, 1.0 / secLen) : 0;
       for (const m of exercise.muscoli_secondari) {
         const group = normalizeMuscleGroup(m);
-        setCounts[group] = (setCounts[group] ?? 0) + ex.serie * 0.65;
+        setCounts[group] = (setCounts[group] ?? 0) + ex.serie * secCredit;
       }
     }
   }
