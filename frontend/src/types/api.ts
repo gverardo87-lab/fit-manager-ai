@@ -494,6 +494,22 @@ export interface RecurringExpenseCloseResponse {
   storni_rimossi: number;
 }
 
+/** POST /api/recurring-expenses/{id}/close-preview */
+export interface RecurringExpenseClosePreviewResponse {
+  cutoff_key: string;
+  cutoff_data: string;
+  created_last_due_movement: boolean;
+  storni_creati_previsti: number;
+  storni_rimossi_previsti: number;
+  saldo_attuale_before: number;
+  saldo_attuale_after: number;
+  saldo_previsto_before: number;
+  saldo_previsto_after: number;
+  delta_saldo_attuale: number;
+  delta_saldo_previsto: number;
+  delta_netto: number;
+}
+
 // ════════════════════════════════════════════════════════════
 // PENDING EXPENSES (api/routers/movements.py — Conferma & Registra)
 // ════════════════════════════════════════════════════════════
@@ -569,6 +585,19 @@ export interface SaldoInizialeResponse {
 /** Response paginata movimenti con saldo fine periodo */
 export interface MovementsPaginatedResponse extends PaginatedResponse<CashMovement> {
   saldo_fine_periodo: number;
+}
+
+/** POST /api/movements/impact-preview/* */
+export interface ImpactPreviewResponse {
+  operation: string;
+  saldo_attuale_before: number;
+  saldo_attuale_after: number;
+  saldo_previsto_before: number;
+  saldo_previsto_after: number;
+  delta_saldo_attuale: number;
+  delta_saldo_previsto: number;
+  delta_netto: number;
+  details: Record<string, unknown>;
 }
 
 /** Rate scaduta per risoluzione inline dalla Dashboard */
@@ -897,7 +926,7 @@ export interface Exercise {
 export interface SafetyConditionDetail {
   id: number;
   nome: string;
-  severita: "avoid" | "caution";
+  severita: "avoid" | "caution" | "modify";
   nota: string | null;
   categoria: string;
   body_tags: string[];  // zone anatomiche per Risk Body Map
@@ -906,8 +935,14 @@ export interface SafetyConditionDetail {
 /** Safety entry per un singolo esercizio */
 export interface ExerciseSafetyEntry {
   exercise_id: number;
-  severity: "avoid" | "caution";
+  severity: "avoid" | "caution" | "modify";
   conditions: SafetyConditionDetail[];
+}
+
+/** Flag farmacologico rilevante per la programmazione */
+export interface MedicationFlag {
+  flag: string;   // beta_blocker, anticoagulant, corticosteroid, insulin, statin
+  nota: string;   // nota clinica per il trainer
 }
 
 /** GET /api/exercises/safety-map?client_id=X */
@@ -918,6 +953,7 @@ export interface SafetyMapResponse {
   condition_count: number;
   condition_names: string[];
   entries: Record<number, ExerciseSafetyEntry>;
+  medication_flags: MedicationFlag[];
 }
 
 /** POST /api/exercises */

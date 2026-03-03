@@ -72,13 +72,21 @@ import {
   useUpdateRecurringExpense,
   useDeleteRecurringExpense,
   useCloseRecurringExpense,
+  useCloseRecurringExpensePreview,
 } from "@/hooks/useRecurringExpenses";
 import {
   usePendingExpenses,
   useConfirmExpenses,
+  usePreviewConfirmExpenses,
 } from "@/hooks/useMovements";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { RecurringExpense, ExpenseFrequency, PendingExpenseItem } from "@/types/api";
+import type {
+  RecurringExpense,
+  ExpenseFrequency,
+  PendingExpenseItem,
+  ImpactPreviewResponse,
+  RecurringExpenseClosePreviewResponse,
+} from "@/types/api";
 import { EXPENSE_CATEGORIES, EXPENSE_FREQUENCIES } from "@/types/api";
 import { formatCurrency } from "@/lib/format";
 
@@ -223,7 +231,13 @@ export function RecurringExpensesTab({ anno, mese }: RecurringExpensesTabProps) 
 function PendingExpensesBanner({ anno, mese }: { anno: number; mese: number }) {
   const { data, isLoading } = usePendingExpenses(anno, mese);
   const confirmMutation = useConfirmExpenses();
+  const previewMutation = usePreviewConfirmExpenses();
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewData, setPreviewData] = useState<ImpactPreviewResponse | null>(null);
+  const [pendingConfirmItems, setPendingConfirmItems] = useState<
+    { id_spesa: number; mese_anno_key: string }[]
+  >([]);
 
   const items = useMemo(() => data?.items ?? [], [data]);
 
@@ -277,7 +291,24 @@ function PendingExpensesBanner({ anno, mese }: { anno: number; mese: number }) {
       .filter((i) => selected.has(selKey(i)))
       .map((i) => ({ id_spesa: i.id_spesa, mese_anno_key: i.mese_anno_key }));
     if (toConfirm.length === 0) return;
-    confirmMutation.mutate(toConfirm);
+    previewMutation.mutate(toConfirm, {
+      onSuccess: (preview) => {
+        setPendingConfirmItems(toConfirm);
+        setPreviewData(preview);
+        setPreviewOpen(true);
+      },
+    });
+  };
+
+  const handleConfirmWithPreview = () => {
+    if (pendingConfirmItems.length === 0) return;
+    confirmMutation.mutate(pendingConfirmItems, {
+      onSuccess: () => {
+        setPreviewOpen(false);
+        setPreviewData(null);
+        setPendingConfirmItems([]);
+      },
+    });
   };
 
   return (
@@ -324,9 +355,9 @@ function PendingExpensesBanner({ anno, mese }: { anno: number; mese: number }) {
         <Button
           size="sm"
           onClick={handleConfirm}
-          disabled={noneSelected || confirmMutation.isPending}
+          disabled={noneSelected || confirmMutation.isPending || previewMutation.isPending}
         >
-          {confirmMutation.isPending ? (
+          {confirmMutation.isPending || previewMutation.isPending ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
             <CheckCircle2 className="mr-2 h-4 w-4" />
@@ -334,6 +365,69 @@ function PendingExpensesBanner({ anno, mese }: { anno: number; mese: number }) {
           Conferma selezionate
         </Button>
       </div>
+
+      <AlertDialog
+        open={previewOpen}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen && confirmMutation.isPending) return;
+          setPreviewOpen(nextOpen);
+          if (!nextOpen) {
+            setPreviewData(null);
+            setPendingConfirmItems([]);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Conferma con anteprima impatto</AlertDialogTitle>
+            <AlertDialogDescription>
+              Verifica l&apos;effetto sul saldo prima di registrare le spese selezionate.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {previewData && (
+            <div className="space-y-2 rounded-md border bg-muted/30 p-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span>Saldo attuale</span>
+                <span className="font-semibold tabular-nums">
+                  {formatCurrency(previewData.saldo_attuale_before)} {"->"} {formatCurrency(previewData.saldo_attuale_after)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Saldo previsto</span>
+                <span className="font-semibold tabular-nums">
+                  {formatCurrency(previewData.saldo_previsto_before)} {"->"} {formatCurrency(previewData.saldo_previsto_after)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between border-t pt-2">
+                <span>Delta netto</span>
+                <span
+                  className={`font-bold tabular-nums ${
+                    previewData.delta_netto >= 0
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-red-600 dark:text-red-400"
+                  }`}
+                >
+                  {previewData.delta_netto >= 0 ? "+" : ""}
+                  {formatCurrency(previewData.delta_netto)}
+                </span>
+              </div>
+            </div>
+          )}
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={confirmMutation.isPending}>
+              Annulla
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmWithPreview}
+              disabled={confirmMutation.isPending || !previewData || pendingConfirmItems.length === 0}
+            >
+              {confirmMutation.isPending ? "Registrazione..." : "Conferma e registra"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -664,6 +758,7 @@ function formatDate(iso: string | null): string {
 function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
   const updateMutation = useUpdateRecurringExpense();
   const deleteMutation = useDeleteRecurringExpense();
+  const closePreviewMutation = useCloseRecurringExpensePreview();
   const closeMutation = useCloseRecurringExpense();
 
   const [editTarget, setEditTarget] = useState<RecurringExpense | null>(null);
@@ -672,14 +767,46 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
   const [closeMonthKey, setCloseMonthKey] = useState(currentYearMonthKey);
   const [stornoCutoffRequested, setStornoCutoffRequested] = useState(false);
   const [deleteAlsoMovements, setDeleteAlsoMovements] = useState(false);
+  const [closePreviewData, setClosePreviewData] = useState<RecurringExpenseClosePreviewResponse | null>(null);
 
   const handleToggle = (expense: RecurringExpense) => {
     updateMutation.mutate({ id: expense.id, attiva: !expense.attiva });
   };
 
+  const resetDeleteState = () => {
+    setDeleteTarget(null);
+    setDeleteActionMode("CHIUDI");
+    setCloseMonthKey(currentYearMonthKey());
+    setStornoCutoffRequested(false);
+    setDeleteAlsoMovements(false);
+    setClosePreviewData(null);
+  };
+
+  const handlePreviewClose = () => {
+    if (!deleteTarget || !closeMonthKey) return;
+    closePreviewMutation.mutate(
+      {
+        id: deleteTarget.id,
+        payload: {
+          effective_mese_anno_key: closeMonthKey,
+          last_occurrence_due: !stornoCutoffRequested,
+        },
+      },
+      {
+        onSuccess: (preview) => {
+          setClosePreviewData(preview);
+        },
+      }
+    );
+  };
+
   const handleConfirmDelete = () => {
     if (!deleteTarget) return;
     if (deleteActionMode === "CHIUDI") {
+      if (!closePreviewData) {
+        handlePreviewClose();
+        return;
+      }
       closeMutation.mutate(
         {
           id: deleteTarget.id,
@@ -691,11 +818,7 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
         },
         {
           onSuccess: () => {
-            setDeleteTarget(null);
-            setDeleteActionMode("CHIUDI");
-            setCloseMonthKey(currentYearMonthKey());
-            setStornoCutoffRequested(false);
-            setDeleteAlsoMovements(false);
+            resetDeleteState();
           },
         }
       );
@@ -709,17 +832,14 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
       },
       {
         onSuccess: () => {
-          setDeleteTarget(null);
-          setDeleteActionMode("CHIUDI");
-          setCloseMonthKey(currentYearMonthKey());
-          setStornoCutoffRequested(false);
-          setDeleteAlsoMovements(false);
+          resetDeleteState();
         },
       }
     );
   };
 
-  const isSubmittingAction = deleteMutation.isPending || closeMutation.isPending;
+  const isSubmittingAction =
+    deleteMutation.isPending || closeMutation.isPending || closePreviewMutation.isPending;
 
   return (
     <>
@@ -808,6 +928,7 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
                         setCloseMonthKey(currentYearMonthKey());
                         setStornoCutoffRequested(false);
                         setDeleteAlsoMovements(false);
+                        setClosePreviewData(null);
                       }}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -832,11 +953,7 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
         open={deleteTarget !== null}
         onOpenChange={(open) => {
           if (!open) {
-            setDeleteTarget(null);
-            setDeleteActionMode("CHIUDI");
-            setCloseMonthKey(currentYearMonthKey());
-            setStornoCutoffRequested(false);
-            setDeleteAlsoMovements(false);
+            resetDeleteState();
           }
         }}
       >
@@ -854,7 +971,10 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
               <Label className="text-xs">Azione</Label>
               <Select
                 value={deleteActionMode}
-                onValueChange={(v) => setDeleteActionMode(v as "CHIUDI" | "ELIMINA")}
+                onValueChange={(v) => {
+                  setDeleteActionMode(v as "CHIUDI" | "ELIMINA");
+                  setClosePreviewData(null);
+                }}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -881,14 +1001,20 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
                   <Input
                     type="month"
                     value={closeMonthKey}
-                    onChange={(e) => setCloseMonthKey(e.target.value)}
+                    onChange={(e) => {
+                      setCloseMonthKey(e.target.value);
+                      setClosePreviewData(null);
+                    }}
                   />
                 </div>
                 <div className="flex items-start gap-2">
                   <Checkbox
                     id="close-storno-cutoff"
                     checked={stornoCutoffRequested}
-                    onCheckedChange={(v) => setStornoCutoffRequested(Boolean(v))}
+                    onCheckedChange={(v) => {
+                      setStornoCutoffRequested(Boolean(v));
+                      setClosePreviewData(null);
+                    }}
                   />
                   <label
                     htmlFor="close-storno-cutoff"
@@ -897,6 +1023,42 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
                     Storna la scadenza del mese cutoff (non considerarla dovuta).
                   </label>
                 </div>
+
+                {closePreviewData && (
+                  <div className="space-y-2 rounded-md border border-emerald-200/80 bg-white/80 p-3 text-sm dark:border-emerald-800/60 dark:bg-zinc-900/60">
+                    <div className="flex items-center justify-between">
+                      <span>Saldo attuale</span>
+                      <span className="font-semibold tabular-nums">
+                        {formatCurrency(closePreviewData.saldo_attuale_before)} {"->"} {formatCurrency(closePreviewData.saldo_attuale_after)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Saldo previsto</span>
+                      <span className="font-semibold tabular-nums">
+                        {formatCurrency(closePreviewData.saldo_previsto_before)} {"->"} {formatCurrency(closePreviewData.saldo_previsto_after)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Storni previsti</span>
+                      <span className="font-semibold">
+                        +{closePreviewData.storni_creati_previsti} / -{closePreviewData.storni_rimossi_previsti}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between border-t pt-2">
+                      <span>Delta netto</span>
+                      <span
+                        className={`font-bold tabular-nums ${
+                          closePreviewData.delta_netto >= 0
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-red-600 dark:text-red-400"
+                        }`}
+                      >
+                        {closePreviewData.delta_netto >= 0 ? "+" : ""}
+                        {formatCurrency(closePreviewData.delta_netto)}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="space-y-3 rounded-md border bg-amber-50/70 p-3 dark:border-amber-800/40 dark:bg-amber-950/20">
@@ -922,7 +1084,10 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isSubmittingAction}>Annulla</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleConfirmDelete}
+              onClick={(e) => {
+                e.preventDefault();
+                handleConfirmDelete();
+              }}
               disabled={isSubmittingAction || (deleteActionMode === "CHIUDI" && !closeMonthKey)}
               className={
                 deleteActionMode === "CHIUDI"
@@ -931,7 +1096,15 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
               }
             >
               {isSubmittingAction && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {deleteActionMode === "CHIUDI" ? "Chiudi spesa" : "Elimina"}
+              {deleteActionMode === "CHIUDI"
+                ? closePreviewMutation.isPending
+                  ? "Calcolo impatto..."
+                  : closeMutation.isPending
+                    ? "Chiusura..."
+                    : closePreviewData
+                      ? "Conferma chiusura"
+                      : "Anteprima impatto"
+                : "Elimina"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

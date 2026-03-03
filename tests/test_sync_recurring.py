@@ -49,10 +49,35 @@ def _confirm(client, auth_headers, items):
     return r.json()
 
 
+def _preview_confirm(client, auth_headers, items):
+    """Helper: POST preview conferma spese."""
+    r = client.post(
+        "/api/movements/impact-preview/confirm-expenses",
+        json={"items": items},
+        headers=auth_headers,
+    )
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
 def _close_expense(client, auth_headers, expense_id, *, key, last_occurrence_due):
     """Helper: chiude spesa ricorrente con strategia cutoff."""
     r = client.post(
         f"/api/recurring-expenses/{expense_id}/close",
+        json={
+            "effective_mese_anno_key": key,
+            "last_occurrence_due": last_occurrence_due,
+        },
+        headers=auth_headers,
+    )
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def _preview_close_expense(client, auth_headers, expense_id, *, key, last_occurrence_due):
+    """Helper: anteprima chiusura spesa ricorrente."""
+    r = client.post(
+        f"/api/recurring-expenses/{expense_id}/close-preview",
         json={
             "effective_mese_anno_key": key,
             "last_occurrence_due": last_occurrence_due,
@@ -667,3 +692,83 @@ def test_close_rectify_is_idempotent_on_same_cutoff_strategy(client, auth_header
     )
     assert second["storni_creati"] == 0
     assert second["storni_rimossi"] == 0
+
+
+def test_preview_confirm_expenses_future_matches_balance_after_apply(client, auth_headers):
+    """Anteprima conferma spese future: delta solo sul previsto e coerenza post-apply."""
+    today = date.today()
+    next_month = today.month + 1
+    next_year = today.year
+    if next_month > 12:
+        next_month = 1
+        next_year += 1
+
+    _create_expense(
+        client,
+        auth_headers,
+        nome="Preview Conferma",
+        importo=110.0,
+        giorno_scadenza=5,
+        data_inizio=f"{next_year:04d}-{next_month:02d}-01",
+    )
+    pending = _get_pending(client, auth_headers, next_year, next_month)
+    item = {
+        "id_spesa": pending["items"][0]["id_spesa"],
+        "mese_anno_key": pending["items"][0]["mese_anno_key"],
+    }
+
+    preview = _preview_confirm(client, auth_headers, [item])
+    assert preview["operation"] == "CONFIRM_EXPENSES"
+    assert preview["delta_saldo_attuale"] == 0.0
+    assert preview["delta_saldo_previsto"] == -110.0
+    assert preview["delta_netto"] == -110.0
+
+    _confirm(client, auth_headers, [item])
+    balance = client.get("/api/movements/balance", headers=auth_headers).json()
+    assert balance["saldo_attuale"] == preview["saldo_attuale_after"]
+    assert balance["saldo_previsto"] == preview["saldo_previsto_after"]
+
+
+def test_preview_close_non_due_matches_effective_balance_after_apply(client, auth_headers):
+    """Anteprima chiusura non dovuta: storni previsti e saldi after devono combaciare con apply."""
+    expense = _create_expense(
+        client,
+        auth_headers,
+        nome="Preview Chiusura",
+        importo=140.0,
+        giorno_scadenza=8,
+        data_inizio="2026-01-01",
+    )
+
+    for month in (1, 2, 3):
+        pending = _get_pending(client, auth_headers, 2026, month)
+        _confirm(client, auth_headers, [{
+            "id_spesa": pending["items"][0]["id_spesa"],
+            "mese_anno_key": pending["items"][0]["mese_anno_key"],
+        }])
+
+    preview = _preview_close_expense(
+        client,
+        auth_headers,
+        expense["id"],
+        key="2026-03",
+        last_occurrence_due=False,
+    )
+    assert preview["storni_creati_previsti"] == 1
+    assert preview["storni_rimossi_previsti"] == 0
+    assert preview["delta_saldo_previsto"] == 140.0
+    assert preview["delta_netto"] == 140.0
+
+    applied = _close_expense(
+        client,
+        auth_headers,
+        expense["id"],
+        key="2026-03",
+        last_occurrence_due=False,
+    )
+    assert applied["storni_creati"] == preview["storni_creati_previsti"]
+    assert applied["storni_rimossi"] == preview["storni_rimossi_previsti"]
+
+    balance = client.get("/api/movements/balance", headers=auth_headers).json()
+    assert balance["saldo_attuale"] == preview["saldo_attuale_after"]
+    assert balance["saldo_previsto"] == preview["saldo_previsto_after"]

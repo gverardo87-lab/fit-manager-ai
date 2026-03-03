@@ -15,6 +15,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field, field_validator
+from sqlalchemy import case
 from sqlmodel import Session, select, func
 
 from api.database import get_session
@@ -113,6 +114,36 @@ def _resolve_occurrence_date(expense: RecurringExpense, key: str) -> Optional[da
         if occ_key == key:
             return occ_date
     return None
+
+
+_signed_importo = case(
+    (CashMovement.tipo == "ENTRATA", CashMovement.importo),
+    else_=-CashMovement.importo,
+)
+
+
+def _compute_saldo_for_preview(
+    session: Session,
+    trainer: Trainer,
+    *,
+    as_of: Optional[date] = None,
+) -> float:
+    """Saldo cassa cumulativo (stessa semantica di /movements/balance)."""
+    filters = [
+        CashMovement.trainer_id == trainer.id,
+        CashMovement.deleted_at == None,
+    ]
+    if trainer.data_saldo_iniziale:
+        filters.append(CashMovement.data_effettiva >= trainer.data_saldo_iniziale)
+    if as_of is not None:
+        filters.append(CashMovement.data_effettiva <= as_of)
+
+    result = float(
+        session.exec(
+            select(func.coalesce(func.sum(_signed_importo), 0)).where(*filters)
+        ).one()
+    )
+    return round(trainer.saldo_iniziale_cassa + result, 2)
 
 
 # ── Schemas ──
@@ -215,6 +246,22 @@ class RecurringExpenseCloseResponse(BaseModel):
     created_last_due_movement: bool
     storni_creati: int
     storni_rimossi: int = 0
+
+
+class RecurringExpenseClosePreviewResponse(BaseModel):
+    """Anteprima impatto contabile per chiusura/rettifica spesa ricorrente."""
+    cutoff_key: str
+    cutoff_data: date
+    created_last_due_movement: bool
+    storni_creati_previsti: int
+    storni_rimossi_previsti: int
+    saldo_attuale_before: float
+    saldo_attuale_after: float
+    saldo_previsto_before: float
+    saldo_previsto_after: float
+    delta_saldo_attuale: float
+    delta_saldo_previsto: float
+    delta_netto: float
 
 # ════════════════════════════════════════════════════════════
 # GET: Lista spese ricorrenti
@@ -323,6 +370,153 @@ def update_recurring_expense(
     session.refresh(expense)
 
     return RecurringExpenseResponse.model_validate(expense)
+
+
+def _estimate_close_deltas(
+    session: Session,
+    trainer: Trainer,
+    expense: RecurringExpense,
+    data: RecurringExpenseCloseRequest,
+) -> tuple[date, bool, int, int, list[tuple[date, float]]]:
+    """
+    Stima gli effetti di chiusura/rettifica senza scrivere su DB.
+
+    Ritorna:
+    - cutoff_occurrence_date
+    - created_last_due_movement
+    - storni_creati_previsti
+    - storni_rimossi_previsti
+    - deltas firmati [(data, signed_amount)]
+    """
+    cutoff_occurrence_date = _resolve_occurrence_date(expense, data.effective_mese_anno_key)
+    if not cutoff_occurrence_date:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Occorrenza cutoff non valida per questa spesa ricorrente",
+        )
+
+    cutoff_date = (
+        cutoff_occurrence_date
+        if data.last_occurrence_due
+        else cutoff_occurrence_date - timedelta(days=1)
+    )
+
+    deltas: list[tuple[date, float]] = []
+    created_last_due_movement = False
+
+    if data.last_occurrence_due:
+        already_present = session.exec(
+            select(CashMovement.id).where(
+                CashMovement.trainer_id == trainer.id,
+                CashMovement.id_spesa_ricorrente == expense.id,
+                CashMovement.mese_anno == data.effective_mese_anno_key,
+                CashMovement.deleted_at == None,
+            )
+        ).first()
+        if not already_present:
+            # Inserimento uscita di cutoff: effetto negativo.
+            deltas.append((cutoff_occurrence_date, -expense.importo))
+            created_last_due_movement = True
+
+    linked_expense_movements = session.exec(
+        select(CashMovement).where(
+            CashMovement.trainer_id == trainer.id,
+            CashMovement.id_spesa_ricorrente == expense.id,
+            CashMovement.id_contratto == None,
+            CashMovement.tipo == "USCITA",
+            CashMovement.deleted_at == None,
+        )
+    ).all()
+
+    storni_creati_previsti = 0
+    storni_rimossi_previsti = 0
+
+    for movement in linked_expense_movements:
+        should_be_storned = movement.data_effettiva > cutoff_date
+        storno_key = f"STORNO:{movement.id}"
+
+        active_storno = session.exec(
+            select(CashMovement).where(
+                CashMovement.trainer_id == trainer.id,
+                CashMovement.id_spesa_ricorrente == expense.id,
+                CashMovement.tipo == "ENTRATA",
+                CashMovement.mese_anno == storno_key,
+                CashMovement.deleted_at == None,
+            )
+        ).first()
+
+        if should_be_storned:
+            if active_storno:
+                continue
+            # Creazione/restore storno: effetto positivo.
+            deltas.append((movement.data_effettiva, movement.importo))
+            storni_creati_previsti += 1
+            continue
+
+        if active_storno:
+            # Rimozione storno attivo: effetto negativo.
+            deltas.append((movement.data_effettiva, -active_storno.importo))
+            storni_rimossi_previsti += 1
+
+    return (
+        cutoff_occurrence_date,
+        created_last_due_movement,
+        storni_creati_previsti,
+        storni_rimossi_previsti,
+        deltas,
+    )
+
+
+@router.post("/{expense_id}/close-preview", response_model=RecurringExpenseClosePreviewResponse)
+def preview_close_recurring_expense(
+    expense_id: int,
+    data: RecurringExpenseCloseRequest,
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """Anteprima impatto chiusura/rettifica spesa ricorrente."""
+    expense = session.exec(
+        select(RecurringExpense).where(
+            RecurringExpense.id == expense_id,
+            RecurringExpense.trainer_id == trainer.id,
+            RecurringExpense.deleted_at == None,
+        )
+    ).first()
+
+    if not expense:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Spesa ricorrente non trovata",
+        )
+
+    (
+        cutoff_occurrence_date,
+        created_last_due_movement,
+        storni_creati_previsti,
+        storni_rimossi_previsti,
+        deltas,
+    ) = _estimate_close_deltas(session, trainer, expense, data)
+
+    today = date.today()
+    saldo_attuale_before = _compute_saldo_for_preview(session, trainer, as_of=today)
+    saldo_previsto_before = _compute_saldo_for_preview(session, trainer, as_of=None)
+    delta_saldo_attuale = round(sum(amount for when, amount in deltas if when <= today), 2)
+    delta_saldo_previsto = round(sum(amount for _, amount in deltas), 2)
+
+    return RecurringExpenseClosePreviewResponse(
+        cutoff_key=data.effective_mese_anno_key,
+        cutoff_data=cutoff_occurrence_date,
+        created_last_due_movement=created_last_due_movement,
+        storni_creati_previsti=storni_creati_previsti,
+        storni_rimossi_previsti=storni_rimossi_previsti,
+        saldo_attuale_before=saldo_attuale_before,
+        saldo_attuale_after=round(saldo_attuale_before + delta_saldo_attuale, 2),
+        saldo_previsto_before=saldo_previsto_before,
+        saldo_previsto_after=round(saldo_previsto_before + delta_saldo_previsto, 2),
+        delta_saldo_attuale=delta_saldo_attuale,
+        delta_saldo_previsto=delta_saldo_previsto,
+        delta_netto=delta_saldo_previsto,
+    )
 
 
 # ════════════════════════════════════════════════════════════

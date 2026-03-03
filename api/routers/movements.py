@@ -135,6 +135,57 @@ class BalanceResponse(BaseModel):
     protezione_cassa: CashProtectionResponse
 
 
+class ImpactPreviewResponse(BaseModel):
+    """Anteprima impatto contabile prima della mutazione."""
+    operation: str
+    saldo_attuale_before: float
+    saldo_attuale_after: float
+    saldo_previsto_before: float
+    saldo_previsto_after: float
+    delta_saldo_attuale: float
+    delta_saldo_previsto: float
+    delta_netto: float
+    details: dict = Field(default_factory=dict)
+
+
+def _build_impact_preview(
+    session: Session,
+    trainer: Trainer,
+    *,
+    operation: str,
+    deltas: list[tuple[date, float]],
+    details: Optional[dict] = None,
+) -> ImpactPreviewResponse:
+    """
+    Costruisce anteprima "before/after" da un set di delta firmati per data.
+
+    `deltas`: lista di (data_effettiva, signed_amount) dove:
+    - ENTRATA -> +importo
+    - USCITA -> -importo
+    """
+    today = date.today()
+    saldo_attuale_before = _compute_saldo(session, trainer, as_of=today)
+    saldo_previsto_before = _compute_saldo(session, trainer)
+
+    delta_saldo_attuale = round(sum(amount for when, amount in deltas if when <= today), 2)
+    delta_saldo_previsto = round(sum(amount for _, amount in deltas), 2)
+
+    saldo_attuale_after = round(saldo_attuale_before + delta_saldo_attuale, 2)
+    saldo_previsto_after = round(saldo_previsto_before + delta_saldo_previsto, 2)
+
+    return ImpactPreviewResponse(
+        operation=operation,
+        saldo_attuale_before=saldo_attuale_before,
+        saldo_attuale_after=saldo_attuale_after,
+        saldo_previsto_before=saldo_previsto_before,
+        saldo_previsto_after=saldo_previsto_after,
+        delta_saldo_attuale=delta_saldo_attuale,
+        delta_saldo_previsto=delta_saldo_previsto,
+        delta_netto=delta_saldo_previsto,
+        details=details or {},
+    )
+
+
 def _estimate_monthly_expense(expense: RecurringExpense) -> float:
     """Stima mensile pesata della spesa ricorrente in base alla frequenza."""
     freq = expense.frequenza or "MENSILE"
@@ -490,6 +541,173 @@ class ConfirmExpensesResponse(BaseModel):
     totale: float
 
 
+def _resolve_confirmable_expense_items(
+    session: Session,
+    trainer: Trainer,
+    items: list[ConfirmExpenseItem],
+) -> list[tuple[RecurringExpense, date, str]]:
+    """
+    Risolve le righe confermabili senza side effects.
+
+    Ritorna tuple (expense, data_effettiva, mese_anno_key) per sole voci valide
+    e non gia' presenti nel ledger.
+    """
+    if not items:
+        return []
+
+    expense_ids = list({item.id_spesa for item in items})
+    expenses = session.exec(
+        select(RecurringExpense).where(
+            RecurringExpense.id.in_(expense_ids),
+            RecurringExpense.trainer_id == trainer.id,
+            RecurringExpense.attiva == True,
+            RecurringExpense.deleted_at == None,
+        )
+    ).all()
+    expense_map: dict[int, RecurringExpense] = {e.id: e for e in expenses}
+
+    request_pairs = {(item.id_spesa, item.mese_anno_key) for item in items}
+    existing_pairs: set[tuple[int, str]] = set()
+    if request_pairs:
+        request_expense_ids = list({p[0] for p in request_pairs})
+        request_keys = list({p[1] for p in request_pairs})
+        existing_rows = session.exec(
+            select(CashMovement.id_spesa_ricorrente, CashMovement.mese_anno).where(
+                CashMovement.trainer_id == trainer.id,
+                CashMovement.id_spesa_ricorrente.in_(request_expense_ids),
+                CashMovement.mese_anno.in_(request_keys),
+                CashMovement.deleted_at == None,
+            )
+        ).all()
+        existing_pairs = {(int(r[0]), str(r[1])) for r in existing_rows if r[0] is not None and r[1]}
+
+    resolved: list[tuple[RecurringExpense, date, str]] = []
+    seen_pairs: set[tuple[int, str]] = set()
+
+    for item in items:
+        expense = expense_map.get(item.id_spesa)
+        if not expense:
+            continue
+
+        pair = (expense.id, item.mese_anno_key)
+        if pair in seen_pairs:
+            continue
+        seen_pairs.add(pair)
+
+        if pair in existing_pairs:
+            continue
+
+        start = _get_start_date(expense)
+        data_effettiva = _date_from_mese_anno_key(
+            item.mese_anno_key, expense.giorno_scadenza, start.month
+        )
+        if not data_effettiva:
+            continue
+
+        expected_keys = {
+            key
+            for _, key in _get_occurrences_in_month(
+                expense, data_effettiva.year, data_effettiva.month
+            )
+        }
+        if item.mese_anno_key not in expected_keys:
+            continue
+
+        resolved.append((expense, data_effettiva, item.mese_anno_key))
+
+    return resolved
+
+
+@router.post("/impact-preview/manual-create", response_model=ImpactPreviewResponse)
+def preview_manual_create(
+    data: MovementManualCreate,
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """Anteprima impatto per creazione movimento manuale."""
+    signed_amount = data.importo if data.tipo == "ENTRATA" else -data.importo
+    return _build_impact_preview(
+        session,
+        trainer,
+        operation="MANUAL_CREATE",
+        deltas=[(data.data_effettiva, signed_amount)],
+        details={
+            "tipo": data.tipo,
+            "importo": round(data.importo, 2),
+            "data_effettiva": str(data.data_effettiva),
+            "categoria": data.categoria or "",
+        },
+    )
+
+
+@router.post("/impact-preview/delete/{movement_id}", response_model=ImpactPreviewResponse)
+def preview_manual_delete(
+    movement_id: int,
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """Anteprima impatto per eliminazione movimento manuale/spesa fissa."""
+    movement = session.exec(
+        select(CashMovement).where(
+            CashMovement.id == movement_id,
+            CashMovement.trainer_id == trainer.id,
+            CashMovement.deleted_at == None,
+        )
+    ).first()
+
+    if not movement:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Movimento non trovato",
+        )
+
+    if movement.id_contratto is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Impossibile eliminare un movimento di sistema (legato a un contratto)",
+        )
+
+    signed_current = movement.importo if movement.tipo == "ENTRATA" else -movement.importo
+    signed_after_delete = -signed_current
+
+    return _build_impact_preview(
+        session,
+        trainer,
+        operation="MANUAL_DELETE",
+        deltas=[(movement.data_effettiva, signed_after_delete)],
+        details={
+            "movement_id": movement.id,
+            "tipo": movement.tipo,
+            "importo": round(movement.importo, 2),
+            "data_effettiva": str(movement.data_effettiva),
+        },
+    )
+
+
+@router.post("/impact-preview/confirm-expenses", response_model=ImpactPreviewResponse)
+def preview_confirm_expenses(
+    data: ConfirmExpensesRequest,
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """Anteprima impatto per conferma spese ricorrenti selezionate."""
+    resolved = _resolve_confirmable_expense_items(session, trainer, data.items)
+    deltas = [(when, -expense.importo) for expense, when, _ in resolved]
+    totale_uscite = round(sum(expense.importo for expense, _, _ in resolved), 2)
+
+    return _build_impact_preview(
+        session,
+        trainer,
+        operation="CONFIRM_EXPENSES",
+        deltas=deltas,
+        details={
+            "items_richiesti": len(data.items),
+            "items_confermabili": len(resolved),
+            "totale_uscite": totale_uscite,
+        },
+    )
+
+
 @router.post("/confirm-expenses", response_model=ConfirmExpensesResponse)
 def confirm_expenses(
     data: ConfirmExpensesRequest,
@@ -506,45 +724,12 @@ def confirm_expenses(
     if not data.items:
         return ConfirmExpensesResponse(created=0, totale=0)
 
-    # Batch fetch spese del trainer (Bouncer)
-    expense_ids = list({item.id_spesa for item in data.items})
-    expenses = session.exec(
-        select(RecurringExpense).where(
-            RecurringExpense.id.in_(expense_ids),
-            RecurringExpense.trainer_id == trainer.id,
-            RecurringExpense.attiva == True,
-            RecurringExpense.deleted_at == None,
-        )
-    ).all()
-    expense_map: dict[int, RecurringExpense] = {e.id: e for e in expenses}
+    resolved_items = _resolve_confirmable_expense_items(session, trainer, data.items)
 
     created = 0
     totale = 0.0
 
-    for item in data.items:
-        expense = expense_map.get(item.id_spesa)
-        if not expense:
-            continue  # Silently skip: spesa non trovata o non del trainer
-
-        # Calcola data_effettiva dalla chiave (la key codifica il periodo)
-        # Per spese annuali, start_month e' necessario (la key "YYYY" non contiene il mese)
-        start = _get_start_date(expense)
-        data_effettiva = _date_from_mese_anno_key(
-            item.mese_anno_key, expense.giorno_scadenza, start.month
-        )
-        if not data_effettiva:
-            continue
-
-        # Hardening: accetta solo chiavi coerenti con il ciclo reale della spesa.
-        expected_keys = {
-            key
-            for _, key in _get_occurrences_in_month(
-                expense, data_effettiva.year, data_effettiva.month
-            )
-        }
-        if item.mese_anno_key not in expected_keys:
-            continue
-
+    for expense, data_effettiva, mese_anno_key in resolved_items:
         result = session.execute(
             text("""
                 INSERT INTO movimenti_cassa
@@ -569,7 +754,7 @@ def confirm_expenses(
                 "note": f"Spesa ricorrente: {expense.nome}",
                 "operatore": "CONFERMA_UTENTE",
                 "id_spesa": expense.id,
-                "mese_anno": item.mese_anno_key,
+                "mese_anno": mese_anno_key,
             },
         )
         if result.rowcount > 0:

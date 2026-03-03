@@ -20,6 +20,7 @@ import type {
   RecurringExpenseDeleteResponse,
   RecurringExpenseCloseRequest,
   RecurringExpenseCloseResponse,
+  RecurringExpenseClosePreviewResponse,
   ListResponse,
 } from "@/types/api";
 
@@ -139,6 +140,27 @@ export function useDeleteRecurringExpense() {
 }
 
 // ── Mutation: chiudi spesa ricorrente (storno selettivo) ──
+
+export function useCloseRecurringExpensePreview() {
+  return useMutation({
+    mutationFn: async ({
+      id,
+      payload,
+    }: {
+      id: number;
+      payload: RecurringExpenseCloseRequest;
+    }) => {
+      const { data } = await apiClient.post<RecurringExpenseClosePreviewResponse>(
+        `/recurring-expenses/${id}/close-preview`,
+        payload
+      );
+      return data;
+    },
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Errore nel calcolo anteprima chiusura"));
+    },
+  });
+}
 
 export function useCloseRecurringExpense() {
   const queryClient = useQueryClient();

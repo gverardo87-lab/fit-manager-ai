@@ -19,6 +19,7 @@ import type {
   MovementManualCreate,
   MovementStats,
   MovementsPaginatedResponse,
+  ImpactPreviewResponse,
   PendingExpensesResponse,
   ForecastResponse,
   BalanceResponse,
@@ -166,6 +167,21 @@ export function useCreateMovement() {
 
 // ── Mutation: elimina movimento (solo manuali) ──
 
+export function usePreviewCreateMovement() {
+  return useMutation({
+    mutationFn: async (payload: MovementManualCreate) => {
+      const { data } = await apiClient.post<ImpactPreviewResponse>(
+        "/movements/impact-preview/manual-create",
+        payload
+      );
+      return data;
+    },
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Errore nel calcolo anteprima movimento"));
+    },
+  });
+}
+
 export function useDeleteMovement() {
   const queryClient = useQueryClient();
 
@@ -188,6 +204,20 @@ export function useDeleteMovement() {
 }
 
 // ── Query: spese ricorrenti in attesa di conferma ──
+
+export function usePreviewDeleteMovement() {
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { data } = await apiClient.post<ImpactPreviewResponse>(
+        `/movements/impact-preview/delete/${id}`
+      );
+      return data;
+    },
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Errore nel calcolo anteprima eliminazione"));
+    },
+  });
+}
 
 export function usePendingExpenses(anno: number, mese: number) {
   return useQuery<PendingExpensesResponse>({
@@ -227,6 +257,21 @@ export function useConfirmExpenses() {
 }
 
 // ── Query: forecast proiezione finanziaria ──
+
+export function usePreviewConfirmExpenses() {
+  return useMutation({
+    mutationFn: async (items: { id_spesa: number; mese_anno_key: string }[]) => {
+      const { data } = await apiClient.post<ImpactPreviewResponse>(
+        "/movements/impact-preview/confirm-expenses",
+        { items }
+      );
+      return data;
+    },
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Errore nel calcolo anteprima spese"));
+    },
+  });
+}
 
 export function useForecast(mesi: number = 3) {
   return useQuery<ForecastResponse>({
