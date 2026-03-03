@@ -18,13 +18,15 @@ Caso tipico: dati sessione/blocco formalmente incompleti (es. blocco senza eserc
 
 Prima del salvataggio, il builder valida localmente i dati e mostra una lista issue breve e actionable.
 Il PT deve capire in meno di 5 secondi cosa correggere e dove.
+Principio guida: avvisare molto, bloccare pochissimo.
 
 ## Scope
 
 - In scope:
   - Validatore pre-save nel builder.
   - Issue list con severita e CTA contestuale.
-  - Blocco salvataggio solo su issue critiche.
+  - Blocco salvataggio solo su issue critiche estreme.
+  - Normalizzazione/sanificazione automatica dei campi non validi quando possibile.
   - Compatibilita con `Ctrl+S` e bottone `Salva`.
 - Out of scope:
   - Cambi schema backend.
@@ -46,13 +48,17 @@ Il PT deve capire in meno di 5 secondi cosa correggere e dove.
 ## Acceptance Criteria
 
 - Funzionale:
-  - Se esiste almeno un blocco senza esercizi, il salvataggio non parte.
-  - Se una sessione ha issue critiche, l'utente vede elenco issue con riferimento sessione/blocco.
+  - Se esiste almeno un blocco senza esercizi, il salvataggio procede e il blocco vuoto viene escluso con avviso.
+  - Se ci sono campi fuori range, il salvataggio procede con normalizzazione e avviso.
+  - Se una sessione/scheda viene salvata vuota, il salvataggio procede con avviso esplicito di bozza incompleta.
+  - Se viene inserito un carico elevato, il salvataggio procede con warning non bloccante.
+  - Se una sessione ha issue critiche estreme, l'utente vede elenco issue con riferimento sessione/blocco.
   - `Ctrl+S` rispetta la validazione esattamente come il bottone `Salva`.
 - UX:
   - Messaggio sintetico: cosa non va + azione consigliata.
   - CTA contestuale (es. "Aggiungi esercizio al blocco" o "Rimuovi blocco vuoto").
   - Nessun errore generico se il problema e gia noto lato client.
+  - Nessun blocco non necessario: l'utente puo salvare anche lavoro parziale.
 - Tecnico:
   - Nessun `any`.
   - Nessuna regressione su save di schede valide.
@@ -63,10 +69,13 @@ Il PT deve capire in meno di 5 secondi cosa correggere e dove.
 - Unit/Integration:
   - (se introdotta utility pura) test su `validateWorkoutSessions`.
 - Manual checks:
-  - Caso A: blocco con 0 esercizi -> save bloccato + issue visibile.
-  - Caso B: scheda valida -> save OK.
-  - Caso C: `Ctrl+S` su caso A/B -> comportamento identico al click su `Salva`.
-  - Caso D: risolvo issue e risalvo -> save OK.
+  - Caso A: blocco con 0 esercizi -> save consentito + warning + blocco escluso.
+  - Caso B: campi numerici fuori range -> save consentito + warning + valori normalizzati.
+  - Caso C: scheda/sessione vuota -> save consentito + warning bozza incompleta.
+  - Caso D: carico elevato (es. 180 kg) -> save consentito + warning.
+  - Caso E: scheda valida -> save OK senza warning.
+  - Caso F: `Ctrl+S` su caso A/B/C/D/E -> comportamento identico al click su `Salva`.
+  - Caso G: caso critico estremo (es. zero sessioni) -> save bloccato con messaggio chiaro.
 - Build/Lint gates:
   - `cd frontend && npx next build`
 

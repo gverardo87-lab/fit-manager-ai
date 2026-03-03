@@ -58,6 +58,7 @@ import { useUnsavedChanges, loadDraft, clearDraft } from "@/hooks/useUnsavedChan
 import { useClients } from "@/hooks/useClients";
 import { useExercises, useExerciseSafetyMap } from "@/hooks/useExercises";
 import { useLatestMeasurement } from "@/hooks/useMeasurements";
+import { toast } from "sonner";
 import { PATTERN_TO_1RM } from "@/lib/derived-metrics";
 import {
   OBIETTIVI_SCHEDA,
@@ -100,6 +101,227 @@ const CONDITION_CATEGORY_LABELS: Record<string, string> = {
 };
 
 const CATEGORY_ORDER = ["orthopedic", "cardiovascular", "metabolic", "neurological", "respiratory", "special"];
+
+type SaveIssueLevel = "warning" | "critical";
+
+interface SaveIssue {
+  level: SaveIssueLevel;
+  message: string;
+}
+
+const VALID_BLOCK_TYPES: Set<BlockType> = new Set([
+  "circuit",
+  "superset",
+  "tabata",
+  "amrap",
+  "emom",
+  "for_time",
+]);
+const HIGH_LOAD_WARNING_KG = 150;
+
+function trimOrNull(value: string | null | undefined, maxLength: number): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return trimmed.slice(0, maxLength);
+}
+
+function clampInt(value: number, min: number, max: number, fallback: number): number {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(value)));
+}
+
+function clampOptionalInt(value: number | null | undefined, min: number, max: number): number | null {
+  if (value == null || !Number.isFinite(value)) return null;
+  return Math.min(max, Math.max(min, Math.round(value)));
+}
+
+function clampOptionalFloat(value: number | null | undefined, min: number, max: number): number | null {
+  if (value == null || !Number.isFinite(value)) return null;
+  return Math.min(max, Math.max(min, value));
+}
+
+function sanitizeExerciseForSave(
+  ex: WorkoutExerciseRow,
+  ordine: number,
+  issues: SaveIssue[],
+  contextLabel: string,
+  exerciseMap: Map<number, Exercise>,
+  oneRMByPattern?: Record<string, number> | null,
+): WorkoutSessionInput["esercizi"][number] | null {
+  if (!ex.id_esercizio || !exerciseMap.has(ex.id_esercizio)) {
+    issues.push({
+      level: "warning",
+      message: `${contextLabel}: esercizio non valido rimosso dal salvataggio.`,
+    });
+    return null;
+  }
+
+  const serie = clampInt(ex.serie, 1, 10, 3);
+  const tempoRiposo = clampInt(ex.tempo_riposo_sec, 0, 300, 90);
+  const caricoKg = clampOptionalFloat(ex.carico_kg, 0, 500);
+  const ripRaw = (ex.ripetizioni ?? "").trim();
+  const ripetizioni = (ripRaw || "8-12").slice(0, 20);
+
+  if (!ripRaw) {
+    issues.push({
+      level: "warning",
+      message: `${contextLabel}: ripetizioni mancanti, applicato default 8-12.`,
+    });
+  }
+
+  if (caricoKg != null && caricoKg >= HIGH_LOAD_WARNING_KG) {
+    issues.push({
+      level: "warning",
+      message: `${contextLabel}: carico elevato (${caricoKg} kg), verifica sicurezza e progressione.`,
+    });
+  }
+
+  const exData = exerciseMap.get(ex.id_esercizio);
+  const pattern = exData?.pattern_movimento;
+  if (caricoKg != null && oneRMByPattern && pattern) {
+    const oneRM = oneRMByPattern[pattern];
+    if (oneRM && oneRM > 0) {
+      const percent = Math.round((caricoKg / oneRM) * 100);
+      if (percent > 105) {
+        issues.push({
+          level: "warning",
+          message: `${contextLabel}: carico ${percent}% 1RM, controlla che sia intenzionale.`,
+        });
+      }
+    }
+  }
+
+  return {
+    id_esercizio: ex.id_esercizio,
+    ordine,
+    serie,
+    ripetizioni,
+    tempo_riposo_sec: tempoRiposo,
+    tempo_esecuzione: trimOrNull(ex.tempo_esecuzione, 20),
+    carico_kg: caricoKg,
+    note: trimOrNull(ex.note, 500),
+  };
+}
+
+function prepareSessionsInputForSave(
+  sessions: SessionCardData[],
+  exerciseMap: Map<number, Exercise>,
+  oneRMByPattern?: Record<string, number> | null,
+): { sessionsInput: WorkoutSessionInput[]; issues: SaveIssue[]; criticalCount: number; warningCount: number } {
+  const issues: SaveIssue[] = [];
+  if (sessions.length === 0) {
+    issues.push({
+      level: "critical",
+      message: "Serve almeno una sessione per salvare la scheda.",
+    });
+    return { sessionsInput: [], issues, criticalCount: 1, warningCount: 0 };
+  }
+
+  const sessionsInput: WorkoutSessionInput[] = sessions.map((s, si) => {
+    const sessionLabel = `Sessione ${si + 1}`;
+
+    const nomeSessione = (s.nome_sessione ?? "").trim() || sessionLabel;
+    if ((s.nome_sessione ?? "").trim() === "") {
+      issues.push({
+        level: "warning",
+        message: `${sessionLabel}: nome mancante, applicato "${nomeSessione}".`,
+      });
+    }
+
+    const durataMinuti = clampInt(s.durata_minuti, 15, 180, 60);
+    if (durataMinuti !== s.durata_minuti) {
+      issues.push({
+        level: "warning",
+        message: `${sessionLabel}: durata fuori range, normalizzata a ${durataMinuti} min.`,
+      });
+    }
+
+    const esercizi = s.esercizi
+      .map((ex, idx) =>
+        sanitizeExerciseForSave(ex, idx + 1, issues, sessionLabel, exerciseMap, oneRMByPattern),
+      )
+      .filter((ex): ex is WorkoutSessionInput["esercizi"][number] => ex !== null);
+
+    const blocchi: NonNullable<WorkoutSessionInput["blocchi"]> = [];
+    for (const [bi, b] of s.blocchi.entries()) {
+      const blockLabel = (b.nome ?? "").trim() || `Blocco ${bi + 1}`;
+      const tipoBlocco = VALID_BLOCK_TYPES.has(b.tipo_blocco) ? b.tipo_blocco : "circuit";
+
+      if (tipoBlocco !== b.tipo_blocco) {
+        issues.push({
+          level: "warning",
+          message: `${sessionLabel}: tipo blocco non valido, convertito in "circuit".`,
+        });
+      }
+
+      const eserciziBlocco = b.esercizi
+        .map((ex, ei) =>
+          sanitizeExerciseForSave(
+            ex,
+            ei + 1,
+            issues,
+            `${sessionLabel} • ${blockLabel}`,
+            exerciseMap,
+            oneRMByPattern,
+          ),
+        )
+        .filter((ex): ex is WorkoutSessionInput["esercizi"][number] => ex !== null);
+
+      if (eserciziBlocco.length === 0) {
+        issues.push({
+          level: "warning",
+          message: `${sessionLabel}: ${blockLabel} non salvato perche vuoto.`,
+        });
+        continue;
+      }
+
+      blocchi.push({
+        tipo_blocco: tipoBlocco,
+        ordine: blocchi.length + 1,
+        nome: trimOrNull(b.nome, 100),
+        giri: clampInt(b.giri, 1, 20, 3),
+        durata_lavoro_sec: clampOptionalInt(b.durata_lavoro_sec, 5, 600),
+        durata_riposo_sec: clampOptionalInt(b.durata_riposo_sec, 0, 300),
+        durata_blocco_sec: clampOptionalInt(b.durata_blocco_sec, 60, 7200),
+        note: trimOrNull(b.note, 500),
+        esercizi: eserciziBlocco,
+      });
+    }
+
+    if (esercizi.length === 0 && blocchi.length === 0) {
+      issues.push({
+        level: "warning",
+        message: `${sessionLabel}: sessione salvata vuota (bozza parziale).`,
+      });
+    }
+
+    return {
+      nome_sessione: nomeSessione,
+      focus_muscolare: trimOrNull(s.focus_muscolare, 200),
+      durata_minuti: durataMinuti,
+      note: trimOrNull(s.note, 500),
+      esercizi,
+      blocchi,
+    };
+  });
+
+  const totalSavedExercises = sessionsInput.reduce((sum, session) => {
+    const straight = session.esercizi.length;
+    const inBlocks = (session.blocchi ?? []).reduce((acc, b) => acc + b.esercizi.length, 0);
+    return sum + straight + inBlocks;
+  }, 0);
+  if (totalSavedExercises === 0) {
+    issues.push({
+      level: "warning",
+      message: "Scheda salvata senza esercizi: bozza valida ma incompleta.",
+    });
+  }
+
+  const criticalCount = issues.filter((i) => i.level === "critical").length;
+  const warningCount = issues.filter((i) => i.level === "warning").length;
+  return { sessionsInput, issues, criticalCount, warningCount };
+}
 
 // ════════════════════════════════════════════════════════════
 // PAGE
@@ -154,6 +376,7 @@ export default function SchedaDetailPage({
   const [sessions, setSessions] = useState<SessionCardData[]>([]);
   const [isDirty, setIsDirty] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [saveIssues, setSaveIssues] = useState<SaveIssue[]>([]);
 
   // Ref che riflette isDirty — usato nell'effect per non catturare closure stale
   const isDirtyRef = useRef(false);
@@ -235,6 +458,12 @@ export default function SchedaDetailPage({
     }
   }, [plan, draftKey]);
 
+  // Dopo una nuova modifica, gli avvisi precedenti non sono piu affidabili.
+  useEffect(() => {
+    if (!isDirtyRef.current || saveIssues.length === 0) return;
+    setSaveIssues([]);
+  }, [sessions, saveIssues.length]);
+
   // Client name
   const clientNome = plan?.client_nome && plan?.client_cognome
     ? `${plan.client_nome} ${plan.client_cognome}`
@@ -260,6 +489,16 @@ export default function SchedaDetailPage({
       minute: "2-digit",
     });
   }, [lastSavedAt]);
+
+  const saveCriticalCount = useMemo(
+    () => saveIssues.filter((issue) => issue.level === "critical").length,
+    [saveIssues],
+  );
+  const saveWarningCount = useMemo(
+    () => saveIssues.filter((issue) => issue.level === "warning").length,
+    [saveIssues],
+  );
+  const visibleSaveIssues = useMemo(() => saveIssues.slice(0, 3), [saveIssues]);
 
   // Safety stats: conteggi avoid/caution sugli esercizi nella scheda corrente (straight + in blocchi)
   const safetyStats = useMemo(() => {
@@ -806,47 +1045,28 @@ export default function SchedaDetailPage({
   const handleSave = useCallback(() => {
     if (!plan) return;
 
-    const sessionsInput: WorkoutSessionInput[] = sessions.map((s) => ({
-      nome_sessione: s.nome_sessione,
-      focus_muscolare: s.focus_muscolare,
-      durata_minuti: s.durata_minuti,
-      note: s.note,
-      esercizi: s.esercizi.map((e, idx) => ({
-        id_esercizio: e.id_esercizio,
-        ordine: idx + 1,
-        serie: e.serie,
-        ripetizioni: e.ripetizioni,
-        tempo_riposo_sec: e.tempo_riposo_sec,
-        tempo_esecuzione: e.tempo_esecuzione,
-        carico_kg: e.carico_kg,
-        note: e.note,
-      })),
-      blocchi: s.blocchi.map((b, bi) => ({
-        tipo_blocco: b.tipo_blocco,
-        ordine: bi + 1,
-        nome: b.nome,
-        giri: b.giri,
-        durata_lavoro_sec: b.durata_lavoro_sec,
-        durata_riposo_sec: b.durata_riposo_sec,
-        durata_blocco_sec: b.durata_blocco_sec,
-        note: b.note,
-        esercizi: b.esercizi.map((e, ei) => ({
-          id_esercizio: e.id_esercizio,
-          ordine: ei + 1,
-          serie: e.serie,
-          ripetizioni: e.ripetizioni,
-          tempo_riposo_sec: e.tempo_riposo_sec,
-          tempo_esecuzione: e.tempo_esecuzione,
-          carico_kg: e.carico_kg,
-          note: e.note,
-        })),
-      })),
-    }));
+    const { sessionsInput, issues, criticalCount, warningCount } = prepareSessionsInputForSave(
+      sessions,
+      exerciseMap,
+      oneRMByPattern,
+    );
+    setSaveIssues(issues);
+    if (criticalCount > 0) {
+      return;
+    }
 
     updateSessions.mutate(
       { id: plan.id, sessions: sessionsInput },
       {
         onSuccess: (savedPlan) => {
+          if (warningCount > 0) {
+            const firstWarning = issues.find((issue) => issue.level === "warning")?.message;
+            toast.warning(
+              `Scheda salvata con ${warningCount} avvis${warningCount === 1 ? "o" : "i"}.${
+                firstWarning ? ` ${firstWarning}` : ""
+              }`,
+            );
+          }
           setIsDirty(false);
           if (draftKey) clearDraft(draftKey);
           const serverTs = savedPlan.updated_at ?? savedPlan.created_at;
@@ -857,7 +1077,7 @@ export default function SchedaDetailPage({
         },
       },
     );
-  }, [plan, sessions, updateSessions, draftKey]);
+  }, [plan, sessions, updateSessions, draftKey, exerciseMap, oneRMByPattern]);
 
   // Shortcut globale: Ctrl+S / Cmd+S salva le modifiche della scheda.
   useEffect(() => {
@@ -1304,6 +1524,39 @@ export default function SchedaDetailPage({
                 {updateSessions.isPending ? "Salvataggio..." : "Salva"}
               </Button>
             </div>
+            {saveIssues.length > 0 && (
+              <div
+                className={`mt-2 rounded-md border px-2 py-1.5 ${
+                  saveCriticalCount > 0
+                    ? "border-red-300 bg-red-50/80 dark:border-red-900 dark:bg-red-950/30"
+                    : "border-amber-300 bg-amber-50/80 dark:border-amber-900 dark:bg-amber-950/30"
+                }`}
+              >
+                <p
+                  className={`text-[11px] font-medium ${
+                    saveCriticalCount > 0
+                      ? "text-red-700 dark:text-red-300"
+                      : "text-amber-700 dark:text-amber-300"
+                  }`}
+                >
+                  {saveCriticalCount > 0
+                    ? `Salvataggio bloccato: ${saveCriticalCount} errore critico.`
+                    : `Salvataggio assistito: ${saveWarningCount} avviso/i non bloccante/i.`}
+                </p>
+                <ul className="mt-1 space-y-0.5">
+                  {visibleSaveIssues.map((issue, idx) => (
+                    <li key={`${issue.level}-${idx}`} className="text-[10px] text-muted-foreground">
+                      • {issue.message}
+                    </li>
+                  ))}
+                  {saveIssues.length > visibleSaveIssues.length && (
+                    <li className="text-[10px] text-muted-foreground">
+                      • +{saveIssues.length - visibleSaveIssues.length} altri avvisi
+                    </li>
+                  )}
+                </ul>
+              </div>
+            )}
           </div>
         </div>
       )}
