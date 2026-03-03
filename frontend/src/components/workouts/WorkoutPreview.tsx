@@ -389,24 +389,50 @@ function buildBlockMetrics(
   tipo: BlockCardData["tipo_blocco"],
 ): Array<{ label: string; value: string }> {
   const metrics: Array<{ label: string; value: string }> = [];
-  if (block.giri > 0) {
-    metrics.push({
-      label: tipo === "emom" ? "Minuti" : "Giri",
-      value: String(block.giri),
-    });
+  const push = (label: string, value: string | null | undefined) => {
+    if (!value) return;
+    metrics.push({ label, value });
+  };
+
+  const giriLabel = tipo === "emom" ? "Minuti" : "Giri";
+  const giriValue = block.giri > 0 ? String(block.giri) : null;
+  const lavoroValue = block.durata_lavoro_sec ? `${block.durata_lavoro_sec}s` : null;
+  const recuperoValue = block.durata_riposo_sec ? `${block.durata_riposo_sec}s` : null;
+  const durataValue = block.durata_blocco_sec
+    ? `${Math.round(block.durata_blocco_sec / 60)} min`
+    : null;
+
+  switch (tipo) {
+    case "tabata":
+      push("Lavoro", lavoroValue);
+      push("Recupero", recuperoValue);
+      push(giriLabel, giriValue);
+      push("Durata", durataValue);
+      break;
+    case "amrap":
+      push("Durata", durataValue);
+      push(giriLabel, giriValue);
+      push("Recupero", recuperoValue);
+      break;
+    case "for_time":
+      push("Durata", durataValue);
+      push(giriLabel, giriValue);
+      push("Recupero", recuperoValue);
+      break;
+    case "emom":
+      push(giriLabel, giriValue);
+      push("Lavoro", lavoroValue);
+      push("Recupero", recuperoValue);
+      push("Durata", durataValue);
+      break;
+    default:
+      push(giriLabel, giriValue);
+      push("Lavoro", lavoroValue);
+      push("Recupero", recuperoValue);
+      push("Durata", durataValue);
+      break;
   }
-  if (block.durata_lavoro_sec) {
-    metrics.push({ label: "Lavoro", value: `${block.durata_lavoro_sec}s` });
-  }
-  if (block.durata_riposo_sec) {
-    metrics.push({ label: "Recupero", value: `${block.durata_riposo_sec}s` });
-  }
-  if (block.durata_blocco_sec) {
-    metrics.push({
-      label: "Durata",
-      value: `${Math.round(block.durata_blocco_sec / 60)} min`,
-    });
-  }
+
   return metrics;
 }
 
@@ -450,15 +476,21 @@ function BlockPreview({ block }: { block: BlockCardData }) {
         </div>
         {metrics.length > 0 && (
           <div className="mt-1 grid grid-cols-2 gap-1 sm:grid-cols-4 print:mt-0.5 print:gap-0.5">
-            {metrics.map((metric) => (
+            {metrics.map((metric, idx) => (
               <div
                 key={`${block.id}-${metric.label}`}
-                className="rounded border border-black/10 bg-white/80 px-1.5 py-0.5 dark:border-white/15 dark:bg-black/15 print:border-zinc-300 print:bg-transparent"
+                className={`rounded border px-1.5 py-0.5 print:border-zinc-300 print:bg-transparent ${
+                  idx === 0
+                    ? "border-black/20 bg-white dark:border-white/20 dark:bg-black/20"
+                    : "border-black/10 bg-white/80 dark:border-white/15 dark:bg-black/15"
+                }`}
               >
                 <div className={`text-[8px] uppercase tracking-wide ${cfg.accentText} print:text-[7px]`}>
                   {metric.label}
                 </div>
-                <div className={`text-[11px] font-semibold tabular-nums ${cfg.headerText} print:text-[10px]`}>
+                <div className={`font-semibold tabular-nums ${cfg.headerText} ${
+                  idx === 0 ? "text-[12px] print:text-[11px]" : "text-[11px] print:text-[10px]"
+                }`}>
                   {metric.value}
                 </div>
               </div>
