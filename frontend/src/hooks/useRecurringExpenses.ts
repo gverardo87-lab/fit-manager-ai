@@ -18,6 +18,8 @@ import type {
   RecurringExpenseCreate,
   RecurringExpenseUpdate,
   RecurringExpenseDeleteResponse,
+  RecurringExpenseCloseRequest,
+  RecurringExpenseCloseResponse,
   ListResponse,
 } from "@/types/api";
 
@@ -132,6 +134,49 @@ export function useDeleteRecurringExpense() {
     },
     onError: (error) => {
       toast.error(extractErrorMessage(error, "Errore nell'eliminazione della spesa ricorrente"));
+    },
+  });
+}
+
+// ── Mutation: chiudi spesa ricorrente (storno selettivo) ──
+
+export function useCloseRecurringExpense() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      payload,
+    }: {
+      id: number;
+      payload: RecurringExpenseCloseRequest;
+    }) => {
+      const { data } = await apiClient.post<RecurringExpenseCloseResponse>(
+        `/recurring-expenses/${id}/close`,
+        payload
+      );
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["recurring-expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["pending-expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["movements"] });
+      queryClient.invalidateQueries({ queryKey: ["cash-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["aging-report"] });
+      queryClient.invalidateQueries({ queryKey: ["forecast"] });
+
+      if (data.storni_creati > 0) {
+        toast.success(
+          `Spesa chiusa. Creati ${data.storni_creati} storni per allineare il flusso cassa`
+        );
+      } else {
+        toast.success("Spesa chiusa correttamente");
+      }
+    },
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Errore nella chiusura della spesa ricorrente"));
     },
   });
 }

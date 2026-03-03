@@ -479,6 +479,20 @@ export interface RecurringExpenseDeleteResponse {
   deleted_movements: number;
 }
 
+/** POST /api/recurring-expenses/{id}/close */
+export interface RecurringExpenseCloseRequest {
+  effective_mese_anno_key: string;
+  last_occurrence_due: boolean;
+}
+
+/** POST /api/recurring-expenses/{id}/close */
+export interface RecurringExpenseCloseResponse {
+  cutoff_key: string;
+  cutoff_data: string;
+  created_last_due_movement: boolean;
+  storni_creati: number;
+}
+
 // ════════════════════════════════════════════════════════════
 // PENDING EXPENSES (api/routers/movements.py — Conferma & Registra)
 // ════════════════════════════════════════════════════════════

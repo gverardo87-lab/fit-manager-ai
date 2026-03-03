@@ -9,8 +9,9 @@ Queste spese contribuiscono al calcolo del Margine Netto Mensile
 nell'endpoint /movements/stats.
 """
 
+import calendar
 from typing import Optional
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field, field_validator
@@ -26,6 +27,92 @@ from api.routers._audit import log_audit
 router = APIRouter(prefix="/recurring-expenses", tags=["recurring-expenses"])
 
 VALID_FREQUENCIES = {"MENSILE", "SETTIMANALE", "TRIMESTRALE", "SEMESTRALE", "ANNUALE"}
+
+
+def _get_start_date(expense: RecurringExpense) -> date:
+    """Data di ancoraggio della spesa ricorrente."""
+    if expense.data_inizio:
+        return expense.data_inizio
+    if expense.data_creazione:
+        return expense.data_creazione.date()
+    return date.today()
+
+
+def _get_occurrences_in_month(expense: RecurringExpense, anno: int, mese: int) -> list[tuple[date, str]]:
+    """
+    Occorrenze della spesa in un mese specifico.
+
+    Ritorna lista di tuple (data_effettiva, mese_anno_key).
+    """
+    days_in_month = calendar.monthrange(anno, mese)[1]
+    freq = expense.frequenza or "MENSILE"
+    start = _get_start_date(expense)
+
+    last_day_of_month = date(anno, mese, days_in_month)
+    if start > last_day_of_month:
+        return []
+
+    if freq == "MENSILE":
+        giorno = min(expense.giorno_scadenza, days_in_month)
+        return [(date(anno, mese, giorno), f"{anno:04d}-{mese:02d}")]
+
+    if freq == "SETTIMANALE":
+        base = min(expense.giorno_scadenza, 7)
+        occurrences: list[tuple[date, str]] = []
+        day = base
+        week = 1
+        while day <= days_in_month:
+            key = f"{anno:04d}-{mese:02d}-W{week}"
+            occurrences.append((date(anno, mese, day), key))
+            day += 7
+            week += 1
+        return occurrences
+
+    abs_target = anno * 12 + mese
+    abs_start = start.year * 12 + start.month
+
+    if freq == "TRIMESTRALE":
+        if (abs_target - abs_start) % 3 != 0:
+            return []
+        giorno = min(expense.giorno_scadenza, days_in_month)
+        return [(date(anno, mese, giorno), f"{anno:04d}-{mese:02d}")]
+
+    if freq == "SEMESTRALE":
+        if (abs_target - abs_start) % 6 != 0:
+            return []
+        giorno = min(expense.giorno_scadenza, days_in_month)
+        return [(date(anno, mese, giorno), f"{anno:04d}-{mese:02d}")]
+
+    if freq == "ANNUALE":
+        if mese != start.month:
+            return []
+        giorno = min(expense.giorno_scadenza, days_in_month)
+        return [(date(anno, mese, giorno), f"{anno:04d}")]
+
+    giorno = min(expense.giorno_scadenza, days_in_month)
+    return [(date(anno, mese, giorno), f"{anno:04d}-{mese:02d}")]
+
+
+def _resolve_occurrence_date(expense: RecurringExpense, key: str) -> Optional[date]:
+    """
+    Risolve la data di un'occorrenza partendo dalla key periodo.
+
+    La key deve essere coerente con il ciclo reale della spesa.
+    """
+    parts = key.split("-")
+    try:
+        anno = int(parts[0])
+        if len(parts) == 1:
+            mese = _get_start_date(expense).month
+        else:
+            mese = int(parts[1])
+    except (ValueError, IndexError):
+        return None
+
+    for occ_date, occ_key in _get_occurrences_in_month(expense, anno, mese):
+        if occ_key == key:
+            return occ_date
+    return None
 
 
 # ── Schemas ──
@@ -104,6 +191,29 @@ class RecurringExpenseResponse(BaseModel):
 class RecurringExpenseDeleteResponse(BaseModel):
     """Output delete spesa ricorrente con cleanup opzionale ledger."""
     deleted_movements: int = 0
+
+
+class RecurringExpenseCloseRequest(BaseModel):
+    """Input chiusura spesa ricorrente con cutoff e strategia ultimo periodo."""
+    model_config = {"extra": "forbid"}
+
+    effective_mese_anno_key: str = Field(
+        min_length=4,
+        max_length=20,
+        description="Occorrenza cutoff (es. 2026-03, 2026-03-W2, 2026)",
+    )
+    last_occurrence_due: bool = Field(
+        default=True,
+        description="Se true l'occorrenza cutoff resta dovuta; se false viene stornata",
+    )
+
+
+class RecurringExpenseCloseResponse(BaseModel):
+    """Output chiusura spesa ricorrente con effetti contabili applicati."""
+    cutoff_key: str
+    cutoff_data: date
+    created_last_due_movement: bool
+    storni_creati: int
 
 # ════════════════════════════════════════════════════════════
 # GET: Lista spese ricorrenti
@@ -212,6 +322,156 @@ def update_recurring_expense(
     session.refresh(expense)
 
     return RecurringExpenseResponse.model_validate(expense)
+
+
+# ════════════════════════════════════════════════════════════
+# POST: Chiudi spesa ricorrente (con storno selettivo)
+# ════════════════════════════════════════════════════════════
+
+@router.post("/{expense_id}/close", response_model=RecurringExpenseCloseResponse)
+def close_recurring_expense(
+    expense_id: int,
+    data: RecurringExpenseCloseRequest,
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """
+    Chiude una spesa ricorrente preservando lo storico e applicando storni mirati.
+
+    Regole:
+    - Movimenti <= cutoff: mantenuti (storico reale)
+    - Movimenti > cutoff: stornati con ENTRATA speculare (mai hard-delete)
+    - Se `last_occurrence_due=true`, l'occorrenza cutoff viene assicurata nel ledger
+    """
+    expense = session.exec(
+        select(RecurringExpense).where(
+            RecurringExpense.id == expense_id,
+            RecurringExpense.trainer_id == trainer.id,
+            RecurringExpense.deleted_at == None,
+        )
+    ).first()
+
+    if not expense:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Spesa ricorrente non trovata",
+        )
+
+    if not expense.attiva:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Spesa ricorrente gia' disattivata",
+        )
+
+    cutoff_occurrence_date = _resolve_occurrence_date(expense, data.effective_mese_anno_key)
+    if not cutoff_occurrence_date:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Occorrenza cutoff non valida per questa spesa ricorrente",
+        )
+
+    cutoff_date = (
+        cutoff_occurrence_date
+        if data.last_occurrence_due
+        else cutoff_occurrence_date - timedelta(days=1)
+    )
+
+    created_last_due_movement = False
+
+    # Se il cutoff resta dovuto, garantisci la presenza del movimento di cutoff.
+    if data.last_occurrence_due:
+        already_present = session.exec(
+            select(CashMovement.id).where(
+                CashMovement.trainer_id == trainer.id,
+                CashMovement.id_spesa_ricorrente == expense.id,
+                CashMovement.mese_anno == data.effective_mese_anno_key,
+                CashMovement.deleted_at == None,
+            )
+        ).first()
+
+        if not already_present:
+            movement = CashMovement(
+                trainer_id=trainer.id,
+                data_effettiva=cutoff_occurrence_date,
+                tipo="USCITA",
+                categoria=expense.categoria or "SPESA_FISSA",
+                importo=expense.importo,
+                note=f"Spesa ricorrente (chiusura): {expense.nome}",
+                operatore="CONFERMA_CHIUSURA",
+                id_spesa_ricorrente=expense.id,
+                mese_anno=data.effective_mese_anno_key,
+            )
+            session.add(movement)
+            session.flush()
+            log_audit(session, "movement", movement.id, "CREATE", trainer.id)
+            created_last_due_movement = True
+
+    movements_to_reverse = session.exec(
+        select(CashMovement).where(
+            CashMovement.trainer_id == trainer.id,
+            CashMovement.id_spesa_ricorrente == expense.id,
+            CashMovement.id_contratto == None,
+            CashMovement.tipo == "USCITA",
+            CashMovement.data_effettiva > cutoff_date,
+            CashMovement.deleted_at == None,
+        )
+    ).all()
+
+    storni_creati = 0
+    for movement in movements_to_reverse:
+        storno_key = f"STORNO:{movement.id}"
+
+        storno_already_present = session.exec(
+            select(CashMovement.id).where(
+                CashMovement.trainer_id == trainer.id,
+                CashMovement.id_spesa_ricorrente == expense.id,
+                CashMovement.mese_anno == storno_key,
+                CashMovement.deleted_at == None,
+            )
+        ).first()
+        if storno_already_present:
+            continue
+
+        storno = CashMovement(
+            trainer_id=trainer.id,
+            data_effettiva=movement.data_effettiva,
+            tipo="ENTRATA",
+            categoria="STORNO_SPESA_FISSA",
+            importo=movement.importo,
+            note=f"Storno spesa ricorrente: {expense.nome} ({movement.mese_anno})",
+            operatore="STORNO_UTENTE",
+            id_spesa_ricorrente=expense.id,
+            mese_anno=storno_key,
+        )
+        session.add(storno)
+        session.flush()
+        log_audit(session, "movement", storno.id, "CREATE", trainer.id)
+        storni_creati += 1
+
+    old_disattivazione = expense.data_disattivazione
+    expense.attiva = False
+    expense.data_disattivazione = datetime.now(timezone.utc)
+    session.add(expense)
+    log_audit(session, "recurring_expense", expense.id, "UPDATE", trainer.id, {
+        "attiva": {"old": True, "new": False},
+        "data_disattivazione": {
+            "old": str(old_disattivazione) if old_disattivazione else None,
+            "new": str(expense.data_disattivazione),
+        },
+        "close_strategy": {
+            "effective_mese_anno_key": data.effective_mese_anno_key,
+            "last_occurrence_due": data.last_occurrence_due,
+            "cutoff_data": str(cutoff_occurrence_date),
+        },
+    })
+    session.commit()
+
+    return RecurringExpenseCloseResponse(
+        cutoff_key=data.effective_mese_anno_key,
+        cutoff_data=cutoff_occurrence_date,
+        created_last_due_movement=created_last_due_movement,
+        storni_creati=storni_creati,
+    )
 
 
 # ════════════════════════════════════════════════════════════

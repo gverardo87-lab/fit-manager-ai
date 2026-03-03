@@ -3,7 +3,7 @@
 Il vecchio sync automatico e' stato rimosso. Ora le spese ricorrenti
 generano occorrenze "pending" e l'utente le conferma esplicitamente.
 
-13 test coprono:
+15 test coprono:
 - Pending endpoint (visibilita', filtraggio)
 - Confirm endpoint (creazione CashMovement, idempotenza)
 - Ancoraggio frequenze (data_inizio, cross-year)
@@ -46,6 +46,20 @@ def _confirm(client, auth_headers, items):
         headers=auth_headers,
     )
     assert r.status_code == 200
+    return r.json()
+
+
+def _close_expense(client, auth_headers, expense_id, *, key, last_occurrence_due):
+    """Helper: chiude spesa ricorrente con strategia cutoff."""
+    r = client.post(
+        f"/api/recurring-expenses/{expense_id}/close",
+        json={
+            "effective_mese_anno_key": key,
+            "last_occurrence_due": last_occurrence_due,
+        },
+        headers=auth_headers,
+    )
+    assert r.status_code == 200, r.text
     return r.json()
 
 
@@ -354,3 +368,86 @@ def test_confirm_rejects_off_cycle_key(client, auth_headers):
         {"id_spesa": expense["id"], "mese_anno_key": "2026-02"},
     ])
     assert result["created"] == 0
+
+
+def test_close_recurring_keeps_last_due_and_preserves_history(client, auth_headers):
+    """Chiusura con ultima occorrenza dovuta: mantiene storico e registra cutoff."""
+    expense = _create_expense(
+        client,
+        auth_headers,
+        nome="Affitto Studio",
+        importo=500.0,
+        giorno_scadenza=8,
+        data_inizio="2026-01-01",
+    )
+
+    jan = _get_pending(client, auth_headers, 2026, 1)
+    feb = _get_pending(client, auth_headers, 2026, 2)
+    _confirm(client, auth_headers, [{
+        "id_spesa": jan["items"][0]["id_spesa"],
+        "mese_anno_key": jan["items"][0]["mese_anno_key"],
+    }])
+    _confirm(client, auth_headers, [{
+        "id_spesa": feb["items"][0]["id_spesa"],
+        "mese_anno_key": feb["items"][0]["mese_anno_key"],
+    }])
+
+    close = _close_expense(
+        client,
+        auth_headers,
+        expense["id"],
+        key="2026-03",
+        last_occurrence_due=True,
+    )
+    assert close["created_last_due_movement"] is True
+    assert close["storni_creati"] == 0
+
+    rec = client.get("/api/recurring-expenses", headers=auth_headers).json()["items"]
+    target = next(e for e in rec if e["id"] == expense["id"])
+    assert target["attiva"] is False
+
+    march_mov = client.get("/api/movements?anno=2026&mese=3", headers=auth_headers).json()["items"]
+    march_cutoff = [
+        m for m in march_mov
+        if m.get("id_spesa_ricorrente") == expense["id"]
+        and m.get("data_effettiva") == "2026-03-08"
+    ]
+    assert len(march_cutoff) == 1
+    assert march_cutoff[0]["tipo"] == "USCITA"
+
+    april_pending = _get_pending(client, auth_headers, 2026, 4)
+    assert len(april_pending["items"]) == 0
+
+
+def test_close_recurring_non_due_creates_storno_for_cutoff(client, auth_headers):
+    """Chiusura con ultima occorrenza NON dovuta: crea storno sul cutoff gia' registrato."""
+    expense = _create_expense(
+        client,
+        auth_headers,
+        nome="Piattaforma Gestionale",
+        importo=120.0,
+        giorno_scadenza=8,
+        data_inizio="2026-01-01",
+    )
+
+    for month in (1, 2, 3):
+        pending = _get_pending(client, auth_headers, 2026, month)
+        _confirm(client, auth_headers, [{
+            "id_spesa": pending["items"][0]["id_spesa"],
+            "mese_anno_key": pending["items"][0]["mese_anno_key"],
+        }])
+
+    close = _close_expense(
+        client,
+        auth_headers,
+        expense["id"],
+        key="2026-03",
+        last_occurrence_due=False,
+    )
+    assert close["created_last_due_movement"] is False
+    assert close["storni_creati"] == 1
+
+    march_mov = client.get("/api/movements?anno=2026&mese=3", headers=auth_headers).json()["items"]
+    expense_rows = [m for m in march_mov if m.get("id_spesa_ricorrente") == expense["id"]]
+    assert len([m for m in expense_rows if m["tipo"] == "USCITA"]) == 1
+    assert len([m for m in expense_rows if m["tipo"] == "ENTRATA"]) == 1

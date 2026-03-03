@@ -12,7 +12,7 @@
  * - Stima Mensile KPI pesata per frequenza
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import {
@@ -71,6 +71,7 @@ import {
   useCreateRecurringExpense,
   useUpdateRecurringExpense,
   useDeleteRecurringExpense,
+  useCloseRecurringExpense,
 } from "@/hooks/useRecurringExpenses";
 import {
   usePendingExpenses,
@@ -123,6 +124,13 @@ function dateToIso(d: Date | undefined): string | null {
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd}`;
+}
+
+function currentYearMonthKey(): string {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  return `${yyyy}-${mm}`;
 }
 
 // ── Props ──
@@ -196,7 +204,7 @@ function PendingExpensesBanner({ anno, mese }: { anno: number; mese: number }) {
   const confirmMutation = useConfirmExpenses();
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  const items = data?.items ?? [];
+  const items = useMemo(() => data?.items ?? [], [data]);
 
   // Chiave univoca per la selezione UI: id_spesa + mese_anno_key
   // mese_anno_key da solo non basta — piu' spese MENSILI nello stesso mese
@@ -215,6 +223,7 @@ function PendingExpensesBanner({ anno, mese }: { anno: number; mese: number }) {
   // default prudente = solo voci scadute/odierne (non quelle future).
   useEffect(() => {
     const dueItems = items.filter(isDueByToday);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelected(new Set(dueItems.map(selKey)));
   }, [items]);
 
@@ -500,6 +509,7 @@ function ExpenseEditDialog({
   // Sync state da props quando il dialog si apre
   useEffect(() => {
     if (expense && open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setNome(expense.nome);
       setImporto(String(expense.importo));
       setGiorno(String(expense.giorno_scadenza));
@@ -633,9 +643,13 @@ function formatDate(iso: string | null): string {
 function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
   const updateMutation = useUpdateRecurringExpense();
   const deleteMutation = useDeleteRecurringExpense();
+  const closeMutation = useCloseRecurringExpense();
 
   const [editTarget, setEditTarget] = useState<RecurringExpense | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<RecurringExpense | null>(null);
+  const [deleteActionMode, setDeleteActionMode] = useState<"CHIUDI" | "ELIMINA">("CHIUDI");
+  const [closeMonthKey, setCloseMonthKey] = useState(currentYearMonthKey);
+  const [lastOccurrenceDue, setLastOccurrenceDue] = useState(true);
   const [deleteAlsoMovements, setDeleteAlsoMovements] = useState(false);
 
   const handleToggle = (expense: RecurringExpense) => {
@@ -644,6 +658,28 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
 
   const handleConfirmDelete = () => {
     if (!deleteTarget) return;
+    if (deleteActionMode === "CHIUDI") {
+      closeMutation.mutate(
+        {
+          id: deleteTarget.id,
+          payload: {
+            effective_mese_anno_key: closeMonthKey,
+            last_occurrence_due: lastOccurrenceDue,
+          },
+        },
+        {
+          onSuccess: () => {
+            setDeleteTarget(null);
+            setDeleteActionMode("CHIUDI");
+            setCloseMonthKey(currentYearMonthKey());
+            setLastOccurrenceDue(true);
+            setDeleteAlsoMovements(false);
+          },
+        }
+      );
+      return;
+    }
+
     deleteMutation.mutate(
       {
         id: deleteTarget.id,
@@ -652,11 +688,16 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
       {
         onSuccess: () => {
           setDeleteTarget(null);
+          setDeleteActionMode("CHIUDI");
+          setCloseMonthKey(currentYearMonthKey());
+          setLastOccurrenceDue(true);
           setDeleteAlsoMovements(false);
         },
       }
     );
   };
+
+  const isSubmittingAction = deleteMutation.isPending || closeMutation.isPending;
 
   return (
     <>
@@ -741,6 +782,9 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
                       className="h-8 w-8 text-destructive hover:text-destructive"
                       onClick={() => {
                         setDeleteTarget(expense);
+                        setDeleteActionMode("CHIUDI");
+                        setCloseMonthKey(currentYearMonthKey());
+                        setLastOccurrenceDue(true);
                         setDeleteAlsoMovements(false);
                       }}
                     >
@@ -767,44 +811,101 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
         onOpenChange={(open) => {
           if (!open) {
             setDeleteTarget(null);
+            setDeleteActionMode("CHIUDI");
+            setCloseMonthKey(currentYearMonthKey());
+            setLastOccurrenceDue(true);
             setDeleteAlsoMovements(false);
           }
         }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Eliminare questa spesa ricorrente?</AlertDialogTitle>
+            <AlertDialogTitle>Gestione chiusura spesa ricorrente</AlertDialogTitle>
             <AlertDialogDescription>
-              Stai per eliminare{" "}
+              Stai gestendo{" "}
               <span className="font-semibold">{deleteTarget?.nome}</span>
               {" "}({deleteTarget ? formatCurrency(deleteTarget.importo) : ""}).
-              Questa azione non puo&apos; essere annullata.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="rounded-md border bg-amber-50/70 p-3 dark:border-amber-800/40 dark:bg-amber-950/20">
-            <div className="flex items-start gap-2">
-              <Checkbox
-                id="delete-linked-movements"
-                checked={deleteAlsoMovements}
-                onCheckedChange={(v) => setDeleteAlsoMovements(Boolean(v))}
-              />
-              <label
-                htmlFor="delete-linked-movements"
-                className="cursor-pointer text-sm leading-5 text-amber-900 dark:text-amber-200"
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Azione</Label>
+              <Select
+                value={deleteActionMode}
+                onValueChange={(v) => setDeleteActionMode(v as "CHIUDI" | "ELIMINA")}
               >
-                Elimina anche i movimenti gia&apos; registrati nel libro mastro per questa spesa.
-              </label>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CHIUDI">Chiudi con storno (consigliato)</SelectItem>
+                  <SelectItem value="ELIMINA">Elimina definitivamente</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+
+            {deleteActionMode === "CHIUDI" ? (
+              <div className="space-y-3 rounded-md border bg-emerald-50/70 p-3 dark:border-emerald-800/40 dark:bg-emerald-950/20">
+                <p className="text-sm text-emerald-900 dark:text-emerald-200">
+                  Mantiene lo storico reale e applica storno solo alle occorrenze oltre il cutoff.
+                </p>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Mese cutoff</Label>
+                  <Input
+                    type="month"
+                    value={closeMonthKey}
+                    onChange={(e) => setCloseMonthKey(e.target.value)}
+                  />
+                </div>
+                <div className="flex items-start gap-2">
+                  <Checkbox
+                    id="close-last-occurrence-due"
+                    checked={lastOccurrenceDue}
+                    onCheckedChange={(v) => setLastOccurrenceDue(Boolean(v))}
+                  />
+                  <label
+                    htmlFor="close-last-occurrence-due"
+                    className="cursor-pointer text-sm leading-5 text-emerald-900 dark:text-emerald-200"
+                  >
+                    Considera dovuta la scadenza del mese cutoff. Se disattivata, l&apos;ultima
+                    scadenza viene stornata.
+                  </label>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3 rounded-md border bg-amber-50/70 p-3 dark:border-amber-800/40 dark:bg-amber-950/20">
+                <p className="text-sm text-amber-900 dark:text-amber-200">
+                  Rimuove la configurazione della spesa. Usa questa opzione solo per errori evidenti.
+                </p>
+                <div className="flex items-start gap-2">
+                  <Checkbox
+                    id="delete-linked-movements"
+                    checked={deleteAlsoMovements}
+                    onCheckedChange={(v) => setDeleteAlsoMovements(Boolean(v))}
+                  />
+                  <label
+                    htmlFor="delete-linked-movements"
+                    className="cursor-pointer text-sm leading-5 text-amber-900 dark:text-amber-200"
+                  >
+                    Elimina anche i movimenti gia&apos; registrati nel libro mastro per questa spesa.
+                  </label>
+                </div>
+              </div>
+            )}
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteMutation.isPending}>Annulla</AlertDialogCancel>
+            <AlertDialogCancel disabled={isSubmittingAction}>Annulla</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDelete}
-              disabled={deleteMutation.isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isSubmittingAction || (deleteActionMode === "CHIUDI" && !closeMonthKey)}
+              className={
+                deleteActionMode === "CHIUDI"
+                  ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                  : "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              }
             >
-              {deleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Elimina
+              {isSubmittingAction && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {deleteActionMode === "CHIUDI" ? "Chiudi spesa" : "Elimina"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
