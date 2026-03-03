@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { getSectionForCategory, type TemplateSection } from "@/lib/workout-templates";
 import { parseAvgReps, type SessionCardData } from "./SessionCard";
 import { BLOCK_TYPE_LABELS, type WorkoutExerciseRow, type Exercise } from "@/types/api";
+import type { BlockCardData } from "./BlockCard";
 
 // ════════════════════════════════════════════════════════════
 // LABELS
@@ -152,6 +153,72 @@ export function WorkoutPreview({
 }
 
 // ════════════════════════════════════════════════════════════
+// BLOCK PREVIEW — Format-specific
+// ════════════════════════════════════════════════════════════
+
+function BlockPreview({ block }: { block: BlockCardData }) {
+  const tipo = block.tipo_blocco;
+  const showRip = tipo !== "tabata";
+  const showKg  = tipo === "superset" || tipo === "circuit" || tipo === "for_time";
+  const isSuperset = tipo === "superset";
+
+  return (
+    <div className="border-l-2 border-muted-foreground/30 pl-2 mb-1">
+      {/* Header blocco */}
+      <div className="flex items-center gap-1.5 flex-wrap text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-0.5">
+        <span>{BLOCK_TYPE_LABELS[tipo]}</span>
+        {block.giri > 0 && (
+          <span>× {block.giri} {tipo === "emom" ? "min" : "giri"}</span>
+        )}
+        {block.durata_lavoro_sec && <span>· {block.durata_lavoro_sec}s on</span>}
+        {block.durata_riposo_sec && <span>· {block.durata_riposo_sec}s off</span>}
+        {block.durata_blocco_sec && (
+          <span>· {Math.round(block.durata_blocco_sec / 60)} min</span>
+        )}
+        {block.nome && <span className="normal-case font-normal">— {block.nome}</span>}
+      </div>
+
+      {/* Header colonne (non per tabata) */}
+      {(showRip || showKg) && (
+        <div
+          className={`grid ${showKg ? "grid-cols-[16px_1fr_40px_40px]" : "grid-cols-[16px_1fr_40px]"} gap-1 text-[9px] text-muted-foreground/60 mb-0.5`}
+        >
+          <span />
+          <span>Esercizio</span>
+          {showRip && <span className="text-center">{tipo === "emom" ? "Rip/min" : "Rip"}</span>}
+          {showKg  && <span className="text-center">Kg</span>}
+        </div>
+      )}
+
+      {/* Esercizi */}
+      {block.esercizi.map((ex, idx) => (
+        <div
+          key={ex.id}
+          className={`grid ${showKg ? "grid-cols-[16px_1fr_40px_40px]" : showRip ? "grid-cols-[16px_1fr_40px]" : "grid-cols-[16px_1fr]"} items-center gap-1 text-[11px] py-0.5`}
+        >
+          {isSuperset ? (
+            <span className="text-[10px] font-bold text-violet-600 tabular-nums">A{idx + 1}</span>
+          ) : (
+            <span className="text-[10px] text-muted-foreground/60 tabular-nums">{idx + 1}.</span>
+          )}
+          <span className="font-medium truncate">{ex.esercizio_nome}</span>
+          {showRip && (
+            <span className="text-center tabular-nums text-muted-foreground">
+              {ex.ripetizioni || "—"}
+            </span>
+          )}
+          {showKg && (
+            <span className="text-center tabular-nums text-muted-foreground">
+              {ex.carico_kg ?? "—"}
+            </span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
 // SESSION SUB-COMPONENT
 // ════════════════════════════════════════════════════════════
 
@@ -252,30 +319,12 @@ function SessionPreview({
 
             {/* Blocchi strutturati — solo in principale */}
             {isPrincipale && session.blocchi.length > 0 && (
-              <div className="mt-1 space-y-1.5">
+              <div className="mt-1 space-y-0">
                 {session.blocchi
                   .slice()
                   .sort((a, b) => a.ordine - b.ordine)
                   .map((block) => (
-                    <div key={block.id} className="border-l-2 border-muted-foreground/30 pl-2">
-                      {/* Header blocco */}
-                      <div className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-0.5">
-                        <span>{BLOCK_TYPE_LABELS[block.tipo_blocco]}</span>
-                        {block.giri > 0 && <span>× {block.giri}</span>}
-                        {block.durata_lavoro_sec && <span>· {block.durata_lavoro_sec}s on</span>}
-                        {block.durata_riposo_sec && <span>· {block.durata_riposo_sec}s off</span>}
-                        {block.durata_blocco_sec && <span>· {Math.round(block.durata_blocco_sec / 60)}min</span>}
-                        {block.nome && <span className="normal-case">— {block.nome}</span>}
-                      </div>
-                      {/* Esercizi nel blocco */}
-                      {block.esercizi.map((ex, idx) => (
-                        <div key={ex.id} className="flex items-center gap-1 text-[11px] py-0.5">
-                          <span className="text-muted-foreground/60 tabular-nums w-4">{idx + 1}.</span>
-                          <span className="font-medium truncate">{ex.esercizio_nome}</span>
-                          {ex.note && <span className="ml-auto text-muted-foreground/60 text-[10px]">{ex.note}</span>}
-                        </div>
-                      ))}
-                    </div>
+                    <BlockPreview key={block.id} block={block} />
                   ))}
               </div>
             )}

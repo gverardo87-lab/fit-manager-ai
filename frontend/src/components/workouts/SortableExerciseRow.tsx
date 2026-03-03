@@ -29,12 +29,29 @@ import { Separator } from "@/components/ui/separator";
 
 import { useExerciseRelations } from "@/hooks/useExercises";
 import { ExerciseDetailPanel } from "./ExerciseDetailPanel";
-import type { WorkoutExerciseRow, ExerciseSafetyEntry, Exercise } from "@/types/api";
+import type { WorkoutExerciseRow, ExerciseSafetyEntry, Exercise, BlockType } from "@/types/api";
 
 const RELATION_LABELS: Record<string, string> = {
   regression: "Regressione",
   variation: "Variante",
   progression: "Progressione",
+};
+
+// ── Configurazione layout esercizi dentro blocchi strutturati ──
+// Ogni formato ha le colonne pertinenti: superset=rip+kg, tabata=solo nome, ecc.
+export const BLOCK_EXERCISE_CONFIG: Record<BlockType, {
+  gridCols: string;
+  showRip: boolean;
+  showKg: boolean;
+  positionStyle: "superset" | "numeric" | "none";
+  ripLabel: string;
+}> = {
+  superset: { gridCols: "grid-cols-[20px_20px_1fr_52px_52px_24px]", showRip: true,  showKg: true,  positionStyle: "superset", ripLabel: "Rip" },
+  circuit:  { gridCols: "grid-cols-[20px_20px_1fr_52px_52px_24px]", showRip: true,  showKg: true,  positionStyle: "numeric",  ripLabel: "Rip" },
+  tabata:   { gridCols: "grid-cols-[20px_14px_1fr_24px]",           showRip: false, showKg: false, positionStyle: "none",     ripLabel: "" },
+  amrap:    { gridCols: "grid-cols-[20px_20px_1fr_52px_24px]",      showRip: true,  showKg: false, positionStyle: "numeric",  ripLabel: "Rip" },
+  emom:     { gridCols: "grid-cols-[20px_20px_1fr_52px_24px]",      showRip: true,  showKg: false, positionStyle: "numeric",  ripLabel: "Rip/min" },
+  for_time: { gridCols: "grid-cols-[20px_20px_1fr_52px_52px_24px]", showRip: true,  showKg: true,  positionStyle: "numeric",  ripLabel: "Rip" },
 };
 
 interface SortableExerciseRowProps {
@@ -58,6 +75,10 @@ interface SortableExerciseRowProps {
   onReplace: () => void;
   /** Quick-replace: sostituisci con un altro esercizio (preserva serie/rip/riposo) */
   onQuickReplace?: (newExerciseId: number) => void;
+  /** Tipo blocco (quando usato dentro un BlockCard) */
+  blockType?: BlockType;
+  /** Posizione 0-based nel blocco per notazione A1/A2 o 1./2. */
+  blockPosition?: number;
 }
 
 function SafetyPopover({
@@ -179,6 +200,30 @@ function SafetyPopover({
   );
 }
 
+function PositionBadge({
+  style,
+  idx,
+}: {
+  style: "superset" | "numeric" | "none";
+  idx: number;
+}) {
+  if (style === "superset") {
+    return (
+      <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400 tabular-nums leading-none">
+        A{idx + 1}
+      </span>
+    );
+  }
+  if (style === "numeric") {
+    return (
+      <span className="text-[10px] text-muted-foreground/60 tabular-nums leading-none">
+        {idx + 1}.
+      </span>
+    );
+  }
+  return <span />;
+}
+
 export function SortableExerciseRow({
   exercise,
   compact = false,
@@ -192,6 +237,8 @@ export function SortableExerciseRow({
   onDelete,
   onReplace,
   onQuickReplace,
+  blockType,
+  blockPosition,
 }: SortableExerciseRowProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -229,6 +276,90 @@ export function SortableExerciseRow({
 
   // Indicatore contenuto secondario (nota o tempo compilati)
   const hasSecondaryContent = !!exercise.note || !!exercise.tempo_esecuzione;
+
+  // ── Layout blocco strutturato ──
+  if (blockType !== undefined) {
+    const cfg = BLOCK_EXERCISE_CONFIG[blockType];
+    return (
+      <div ref={setNodeRef} style={style}>
+        <div
+          className={`group/row grid ${cfg.gridCols} gap-1 items-center rounded-md px-1 py-1 hover:bg-muted/40 transition-colors ${safetyBg}`}
+        >
+          {/* Drag handle */}
+          <button
+            {...attributes}
+            {...listeners}
+            className="flex items-center justify-center cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground"
+          >
+            <GripVertical className="h-3.5 w-3.5" />
+          </button>
+
+          {/* Posizione: A1/A2, 1./2. o vuoto (tabata) */}
+          <PositionBadge style={cfg.positionStyle} idx={blockPosition ?? 0} />
+
+          {/* Nome + safety + dot indicator */}
+          <div className="flex items-center gap-1 min-w-0">
+            {safety && (
+              <SafetyPopover
+                safety={safety}
+                exerciseName={exercise.esercizio_nome}
+                exerciseId={exercise.id_esercizio}
+                iconSize="h-3 w-3"
+                safetyEntries={safetyEntries}
+                onQuickReplace={onQuickReplace}
+              />
+            )}
+            <button
+              onClick={onReplace}
+              className="text-left text-xs truncate hover:text-primary transition-colors"
+              title={`${exercise.esercizio_nome} — clicca per sostituire`}
+            >
+              {exercise.esercizio_nome}
+            </button>
+            {hasSecondaryContent && (
+              <span className="shrink-0 h-1.5 w-1.5 rounded-full bg-primary/60" />
+            )}
+          </div>
+
+          {/* Ripetizioni (assenti per tabata) */}
+          {cfg.showRip && (
+            <Input
+              value={exercise.ripetizioni}
+              onChange={(e) => onUpdate({ ripetizioni: e.target.value })}
+              className="h-6 text-center text-[11px] px-1"
+              placeholder="8-12"
+            />
+          )}
+
+          {/* Carico kg (superset, circuit, for_time) */}
+          {cfg.showKg && (
+            <Input
+              type="number"
+              value={exercise.carico_kg ?? ""}
+              onChange={(e) =>
+                onUpdate({ carico_kg: e.target.value ? parseFloat(e.target.value) : null })
+              }
+              min={0}
+              max={500}
+              step={0.5}
+              className="h-6 text-center text-[11px] px-1"
+              placeholder="—"
+            />
+          )}
+
+          {/* Delete */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5 text-muted-foreground/0 group-hover/row:text-muted-foreground/50 hover:!text-destructive transition-colors"
+            onClick={onDelete}
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (compact) {
     return (

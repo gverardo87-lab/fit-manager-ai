@@ -111,11 +111,17 @@ interface ExportData {
 function buildBlockLabel(block: BlockCardData): string {
   const parts = [BLOCK_TYPE_LABELS[block.tipo_blocco].toUpperCase()];
   if (block.nome) parts.push(`— ${block.nome}`);
-  if (block.giri > 0) parts.push(`× ${block.giri} giri`);
+  if (block.giri > 0) parts.push(`× ${block.giri} ${block.tipo_blocco === "emom" ? "min" : "giri"}`);
   if (block.durata_lavoro_sec) parts.push(`${block.durata_lavoro_sec}s lavoro`);
   if (block.durata_riposo_sec) parts.push(`Riposo ${block.durata_riposo_sec}s`);
   if (block.durata_blocco_sec) parts.push(`${Math.round(block.durata_blocco_sec / 60)} min`);
   return parts.join(" · ");
+}
+
+function getBlockPrefix(tipo: string, idx: number): string {
+  if (tipo === "superset") return `A${idx + 1}`;
+  if (tipo === "tabata") return "";
+  return `${idx + 1}.`;
 }
 
 function groupBySection(esercizi: WorkoutExerciseRow[]) {
@@ -720,22 +726,29 @@ export async function exportWorkoutExcel({
           blockHdr.getCell(1).alignment = { horizontal: "left", vertical: "middle" };
           blockHdr.height = 16;
 
-          // Esercizi del blocco
+          // Esercizi del blocco (colonne format-specific)
+          const blockShowRip = block.tipo_blocco !== "tabata";
+          const blockShowKg  = block.tipo_blocco === "superset" || block.tipo_blocco === "circuit" || block.tipo_blocco === "for_time";
+
           if (hasImages) {
             block.esercizi.forEach((ex, exIdx) => {
               const imgs = imageMap.get(ex.id_esercizio);
+              const hdrRowNum = ws.rowCount + 1; // header sarà la prossima riga aggiunta
               addExerciseCard(ws, wb, ex, exIdx, imgs);
+              // Sovrascrive il numero con il prefisso format-specific (A1/A2 o 1./2.)
+              const prefix = getBlockPrefix(block.tipo_blocco, exIdx);
+              if (prefix) {
+                ws.getRow(hdrRowNum).getCell(1).value = prefix;
+              }
             });
           } else {
             block.esercizi.forEach((ex, exIdx) => {
+              const prefix = getBlockPrefix(block.tipo_blocco, exIdx);
               const row = ws.addRow([
-                exIdx + 1,
-                `  • ${ex.esercizio_nome}`,
-                ex.serie,
-                ex.ripetizioni,
-                ex.carico_kg != null ? ex.carico_kg : "",
-                ex.tempo_riposo_sec,
-                ex.tempo_esecuzione ?? "",
+                prefix,
+                ex.esercizio_nome,
+                blockShowRip ? ex.ripetizioni : "",
+                blockShowKg  ? (ex.carico_kg != null ? ex.carico_kg : "") : "",
                 ex.note ?? "",
               ]);
 
@@ -745,13 +758,15 @@ export async function exportWorkoutExcel({
                 });
               }
 
+              const prefixFont = block.tipo_blocco === "superset"
+                ? { bold: true, size: 10, color: { argb: "4527A0" } }
+                : { size: 10, color: { argb: GRAY } };
+              row.getCell(1).font = prefixFont;
               row.getCell(1).alignment = { horizontal: "center" };
               row.getCell(2).alignment = { horizontal: "left" };
               row.getCell(3).alignment = { horizontal: "center" };
               row.getCell(4).alignment = { horizontal: "center" };
-              row.getCell(5).alignment = { horizontal: "center" };
-              row.getCell(6).alignment = { horizontal: "center" };
-              row.getCell(7).alignment = { horizontal: "center" };
+              row.getCell(5).alignment = { horizontal: "left" };
               row.font = { size: 10 };
             });
           }

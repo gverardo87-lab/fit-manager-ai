@@ -52,7 +52,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
-import { SortableExerciseRow } from "./SortableExerciseRow";
+import { SortableExerciseRow, BLOCK_EXERCISE_CONFIG } from "./SortableExerciseRow";
 import type { BlockType, SessionBlock, WorkoutExerciseRow, ExerciseSafetyEntry, Exercise } from "@/types/api";
 import { BLOCK_TYPE_LABELS } from "@/types/api";
 
@@ -242,6 +242,7 @@ export function BlockCard({
   const [isOpen, setIsOpen] = useState(true);
 
   const config = BLOCK_CONFIG[block.tipo_blocco];
+  const blockExCfg = BLOCK_EXERCISE_CONFIG[block.tipo_blocco];
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -457,38 +458,59 @@ export function BlockCard({
                 </p>
               </div>
             ) : (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-              >
-                <SortableContext
-                  items={block.esercizi.map((e) => e.id)}
-                  strategy={verticalListSortingStrategy}
+              <>
+                {/* Header colonne — solo per formati con dati per esercizio (non tabata) */}
+                {(blockExCfg.showRip || blockExCfg.showKg) && (
+                  <div className={`grid ${blockExCfg.gridCols} gap-1 items-center px-1 pb-0.5`}>
+                    <span />
+                    <span />
+                    <span className="text-[10px] text-muted-foreground">Esercizio</span>
+                    {blockExCfg.showRip && (
+                      <span className="text-[10px] text-muted-foreground text-center">
+                        {blockExCfg.ripLabel}
+                      </span>
+                    )}
+                    {blockExCfg.showKg && (
+                      <span className="text-[10px] text-muted-foreground text-center">Kg</span>
+                    )}
+                    <span />
+                  </div>
+                )}
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
                 >
-                  {block.esercizi.map((ex) => (
-                    <SortableExerciseRow
-                      key={ex.id}
-                      exercise={ex}
-                      compact={false}
-                      safety={safetyMap?.[ex.id_esercizio]}
-                      safetyEntries={safetyMap}
-                      exerciseData={exerciseMap?.get(ex.id_esercizio)}
-                      schedaId={schedaId}
-                      parentFrom={parentFrom}
-                      oneRMByPattern={oneRMByPattern}
-                      onUpdate={(updates) => onUpdateExerciseInBlock(block.id, ex.id, updates)}
-                      onDelete={() => onDeleteExerciseFromBlock(block.id, ex.id)}
-                      onReplace={() => onReplaceExerciseInBlock(block.id, ex.id)}
-                      onQuickReplace={
-                        onQuickReplaceInBlock
-                          ? (newId) => onQuickReplaceInBlock(block.id, ex.id, newId)
-                          : undefined
-                      }
-                    />
-                  ))}
-                </SortableContext>
-              </DndContext>
+                  <SortableContext
+                    items={block.esercizi.map((e) => e.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {block.esercizi.map((ex, idx) => (
+                      <SortableExerciseRow
+                        key={ex.id}
+                        exercise={ex}
+                        compact={false}
+                        blockType={block.tipo_blocco}
+                        blockPosition={idx}
+                        safety={safetyMap?.[ex.id_esercizio]}
+                        safetyEntries={safetyMap}
+                        exerciseData={exerciseMap?.get(ex.id_esercizio)}
+                        schedaId={schedaId}
+                        parentFrom={parentFrom}
+                        oneRMByPattern={oneRMByPattern}
+                        onUpdate={(updates) => onUpdateExerciseInBlock(block.id, ex.id, updates)}
+                        onDelete={() => onDeleteExerciseFromBlock(block.id, ex.id)}
+                        onReplace={() => onReplaceExerciseInBlock(block.id, ex.id)}
+                        onQuickReplace={
+                          onQuickReplaceInBlock
+                            ? (newId) => onQuickReplaceInBlock(block.id, ex.id, newId)
+                            : undefined
+                        }
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
+              </>
             )}
 
             {/* + Aggiungi esercizio al blocco */}
