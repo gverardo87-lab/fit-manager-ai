@@ -8,7 +8,7 @@
 - Area: Workout Builder (`/schede/[id]`)
 - Priority: medium
 - Target release: 2026-03-03 (`codex_01`)
-- Status: in_progress
+- Status: implemented
 
 ## Problem
 
@@ -82,3 +82,4 @@ Principio: informare rapidamente senza introdurre blocchi.
 ## Notes
 
 - Patch UX incrementale sul pre-save validator (UPG-2026-03-03-02).
+- Implementazione: commit `7533f61`.

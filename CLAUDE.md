@@ -690,6 +690,15 @@ Ogni feature segue 4 step in ordine. Il codice non passa al successivo finche' i
 
 ---
 
+### Coordinamento Multi-Agente AI (Codex + Claude Code)
+
+Quando piu agenti lavorano in parallelo, seguire SEMPRE il protocollo condiviso:
+
+1. `docs/ai-sync/MULTI_AGENT_SYNC.md` - regole operative comuni
+2. `docs/ai-sync/WORKBOARD.md` - claim task, lock file, handoff
+
+Regola di sicurezza: nessun agente modifica file gia in lock senza handoff esplicito o approvazione utente.
+
 ## Workflow Operativo per Claude Code
 
 > Regole imperative per l'agente AI. Seguile alla lettera.

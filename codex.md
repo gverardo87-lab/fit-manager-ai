@@ -9,7 +9,8 @@ Fonti di verita (ordine di priorita):
 2. `api/CLAUDE.md`
 3. `frontend/CLAUDE.md`
 4. `core/CLAUDE.md`
-5. `codex.md` (questo file)
+5. `docs/ai-sync/MULTI_AGENT_SYNC.md` (coordinamento multi-agente)
+6. `codex.md` (questo file)
 
 Se c'e conflitto, prevalgono i file `CLAUDE.md`.
 
@@ -129,6 +130,19 @@ Regola pratica:
 - patch piccola: spec breve + log
 - patch media/alta: spec completa + log + checklist
 - decisione strutturale: aggiungere ADR
+
+## 10. Coordinamento multi-agente
+
+Quando lavoriamo in parallelo con piu agenti AI (es. Codex + Claude Code), il protocollo operativo comune e:
+
+- `docs/ai-sync/MULTI_AGENT_SYNC.md` (regole e flusso)
+- `docs/ai-sync/WORKBOARD.md` (stato lavori e lock file)
+
+Regole obbligatorie:
+1. Claim task sul workboard prima di toccare codice.
+2. Dichiarare i file in lock (soft lock) prima dell'editing.
+3. Evitare editing concorrente sugli stessi file senza handoff esplicito.
+4. A fine task: aggiornare workboard, UPG log e rilasciare lock.
 
 ---
 
