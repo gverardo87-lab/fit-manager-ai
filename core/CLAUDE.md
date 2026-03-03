@@ -44,3 +44,4 @@ Usano sqlite3 raw + Pydantic v2. Il backend API usa SQLModel ORM.
 - **Zero import da api/** — i due layer sono indipendenti
 - Logger da error_handler.py, mai print()
 - Config centralizzata in config.py, mai path hardcoded
+- **Zero logica movimenti denaro in core/**: saldo, cassa, storni e ledger sono di esclusiva competenza `api/`

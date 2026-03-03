@@ -354,8 +354,10 @@ con bordo severity-colorato + badge. Riceve `measurements`, `sesso`, `dataNascit
 - `GET /movements/balance` → `BalanceResponse` (saldo_attuale, storico entrate/uscite)
 - `GET /movements/saldo-iniziale` + `PUT /movements/saldo-iniziale` → configurazione trainer
 - `GET /movements/stats` += `saldo_inizio_mese`, `saldo_fine_mese`, `chart_data[].saldo`
+- `GET /movements/stats` netta gli storni di spese fisse (`STORNO_SPESA_FISSA`) nei KPI e nel grafico giornaliero
 - `GET /movements` += `saldo_fine_periodo` (per running balance frontend)
 - `GET /movements/forecast` → saldo_iniziale ora usa `_compute_saldo()` (saldo reale)
+- `POST /recurring-expenses/{id}/close` idempotente/rettificabile: supporta cutoff retroattivo su spesa già disattivata (`storni_creati`, `storni_rimossi`)
 - `DashboardSummary` += `saldo_attuale`
 
 **Modello Trainer** (`api/models/trainer.py`):
@@ -584,6 +586,8 @@ Errori reali trovati e corretti. MAI ripeterli.
 | Invalidazione rate CRUD asimmetrica | `useCreateRate`/`useUpdateRate`/`useDeleteRate`/`useGeneratePaymentPlan` invalidavano 3 query, ma `usePayRate`/`useUnpayRate` ne invalidavano 6 → pagina Cassa stale dopo CRUD rate | Aggiunte `["movements"]`, `["movement-stats"]`, `["aging-report"]` a tutte le 4 mutation |
 | Movimenti: aging-report non invalidato | `useCreateMovement`/`useDeleteMovement`/`useConfirmExpenses` non invalidavano `["aging-report"]` → aging stale dopo operazioni ledger | Aggiunta invalidazione `["aging-report"]` a tutte e 3 le mutation |
 | Spese ricorrenti: invalidazione incompleta | Le 3 mutation invalidavano solo `["recurring-expenses"]` e `["movement-stats"]`. Mancavano dashboard, pending, forecast | Aggiunte `["dashboard"]`, `["pending-expenses"]`, `["forecast"]` |
+| Chiusura spesa fissa bloccata su record disattivato | L'endpoint `close` ritornava 400 "già disattivata", impedendo rettifica cutoff retroattiva | `close` reso idempotente: riconcilia storni anche su spese disattivate |
+| Storno contato come entrata operativa | KPI e grafico trattavano `STORNO_SPESA_FISSA` come entrata, generando mismatch sul cashflow mensile | In `movements/stats` lo storno viene nettato su uscite fisse e chart giornaliero |
 | Type sync `DashboardSummary.ledger_alerts` | Backend restituisce `ledger_alerts: int` ma interfaccia TypeScript non lo dichiarava → frontend vede `undefined` | Aggiunto `ledger_alerts: number` a `DashboardSummary` in `types/api.ts` |
 | Evento assegnabile a contratto di altro cliente | `create_event` validava ownership contratto (trainer) ma non `contract.id_cliente == data.id_cliente` → crediti scalati dal contratto sbagliato | Aggiunto Bouncer 2b: cross-validation cliente↔contratto in `agenda.py` |
 | Esercizi builtin modificabili via PUT | `delete_exercise` chiama `_guard_custom()` ma `update_exercise` no → trainer puo' corrompere esercizi builtin | Aggiunto `_guard_custom(exercise)` in `update_exercise` dopo il bouncer |

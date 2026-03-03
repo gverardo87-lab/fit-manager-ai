@@ -151,6 +151,14 @@ Nessun auto-sync — `GET /stats` e' pure read-only.
 **Endpoint**:
 - `GET /movements/pending-expenses?anno=X&mese=Y` — calcola occorrenze non confermate
 - `POST /movements/confirm-expenses` — crea CashMovement con `operatore="CONFERMA_UTENTE"`
+- `POST /recurring-expenses/{id}/close` — chiusura/rettifica con cutoff contabile
+
+**Regole chiusura/rettifica** (`/recurring-expenses/{id}/close`):
+- Endpoint idempotente: può essere richiamato anche su spesa già disattivata
+- Movimenti `> cutoff` devono avere storno attivo (`ENTRATA`, `categoria="STORNO_SPESA_FISSA"`)
+- Movimenti `<= cutoff` non devono avere storno attivo (storno soft-delete quando non più necessario)
+- Nessun hard-delete dello storico reale: solo storni e soft-delete
+- `GET /movements/stats` tratta `STORNO_SPESA_FISSA` come rettifica di uscita fissa, non come entrata operativa
 
 **Ancoraggio**: basato su `expense.data_inizio` (non `data_creazione`).
 Cross-year safe con mese assoluto: `abs_target = anno * 12 + mese`.
@@ -197,8 +205,9 @@ Il libro mastro (`movimenti_cassa`) e' sacro:
 - Movimenti con `id_contratto` o `id_spesa_ricorrente` → protetti da DELETE
 - Ogni pagamento rata → CashMovement ENTRATA (con nota cliente)
 - Ogni acconto contratto → CashMovement ENTRATA
-- Ogni spesa ricorrente → CashMovement USCITA (sync engine)
-- operatore: "API" (manuale), "CONFERMA_UTENTE" (spese confermate), "SISTEMA_RECURRING" (legacy)
+- Ogni spesa ricorrente confermata → CashMovement USCITA
+- Ogni rettifica chiusura → CashMovement ENTRATA con `categoria="STORNO_SPESA_FISSA"`
+- operatore: "API" (manuale), "CONFERMA_UTENTE", "CONFERMA_CHIUSURA", "STORNO_UTENTE", "SISTEMA_RECURRING" (legacy)
 
 ## Soft Delete
 
@@ -214,7 +223,7 @@ Tutte le tabelle business hanno `deleted_at: Optional[datetime]`.
 ## Audit Trail
 
 Tabella `audit_log` + helper `log_audit()` in `api/routers/_audit.py`.
-- Ogni CREATE/UPDATE/DELETE su entity business viene loggato
+- Ogni CREATE/UPDATE/DELETE/RESTORE su entity business viene loggato quando applicabile
 - Il campo `changes` contiene JSON diff campo-per-campo (solo UPDATE)
 - `log_audit()` NON fa commit — il chiamante committa atomicamente
 - `pay_rate` e `unpay_rate` generano 2 audit entries: rata + contratto
@@ -243,13 +252,13 @@ Pattern condiviso per endpoint inline resolution:
 
 Due famiglie di test:
 
-**pytest** (`tests/` — 63 test):
+**pytest** (`tests/`):
 - DB SQLite in-memory, isolamento totale (StaticPool)
 - `test_pay_rate.py` (12): pagamento atomico, overpayment, deep IDOR, storico pagamenti parziali
 - `test_unpay_rate.py` (4): revoca pagamento, decrements, soft delete movement
 - `test_rate_guards.py` (12): editing flessibile rate pagate, importo >= saldato, residuo su update, CashMovement date sync
 - `test_soft_delete_integrity.py` (5): delete blocked with rates, restrict, stats filtrate
-- `test_sync_recurring.py` (10): pending/confirm, idempotenza, data_inizio, trimestrale, semestrale cross-year, soft delete resync, stats read-only
+- `test_sync_recurring.py`: pending/confirm, chiusura/rettifica cutoff (anche su spesa disattivata), idempotenza, restore/rimozione storni, coerenza stats/grafico
 - `test_contract_integrity.py` (16): residual, chiuso guard, auto-close, delete guards + cascade
 - `test_aging_report.py` (4): bucket assignment, exclude saldate/chiusi, empty zeroes
 - Run: `pytest tests/ -v`

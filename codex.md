@@ -144,6 +144,27 @@ Regole obbligatorie:
 3. Evitare editing concorrente sugli stessi file senza handoff esplicito.
 4. A fine task: aggiornare workboard, UPG log e rilasciare lock.
 
+## 11. Tracciabilita' Contabile (Nuovo)
+
+Per qualunque modifica che tocca movimenti denaro (`movimenti_cassa`, saldo, forecast, spese ricorrenti):
+
+1. Semantica unica cross-layer
+- `saldo_attuale`, `saldo_previsto`, KPI mensili e grafici devono restare coerenti tra loro.
+- Uno storno spesa fissa (`categoria="STORNO_SPESA_FISSA"`) e' una rettifica di uscita, non un'entrata operativa.
+
+2. Rettifiche sempre possibili
+- La chiusura spesa ricorrente deve essere idempotente e rettificabile anche se la spesa e' gia' disattivata.
+- Le rettifiche non cancellano lo storico reale: usano storni attivi/disattivati con audit.
+
+3. Audit obbligatorio
+- Ogni effetto economico deve lasciare traccia in `audit_log` (CREATE/UPDATE/DELETE/RESTORE quando applicabile).
+- Vietato introdurre scorciatoie che aggiornano saldi o KPI senza movimento tracciabile.
+
+4. Quality gate minimo per patch contabili
+- Test mirati su scenario reale + regressione grafico/KPI.
+- Verifica esplicita di idempotenza (stessa azione ripetuta non genera duplicati).
+- Aggiornamento `docs/upgrades/UPGRADE_LOG.md` con commit e stato finale.
+
 ---
 
 Obiettivo operativo: mantenere ritmo da startup con disciplina da team senior.

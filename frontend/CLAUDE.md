@@ -79,7 +79,7 @@ Ogni mutation: `invalidateQueries` sulle key correlate + `toast.success/error`.
 ["contracts", { page, idCliente }]  // lista filtrata
 ["contract", contractId]             // dettaglio con rate
 ["movements", { anno, mese }]       // lista mensile
-["movement-stats", anno, mese]      // KPI mensili (entrate, uscite, margine)
+["movement-stats", { anno, mese }]  // KPI mensili (entrate, uscite, margine)
 ["aging-report"]                     // orizzonte finanziario (scadenze)
 ["dashboard", "summary"]             // KPI aggregati
 ["dashboard", "alerts"]              // warning proattivi (4 categorie)
@@ -100,6 +100,8 @@ Ogni mutation: `invalidateQueries` sulle key correlate + `toast.success/error`.
 Operazioni inverse (pay/unpay, create/delete) DEVONO invalidare le stesse query.
 Se `useUnpayRate` invalida `["movements"]`, allora `usePayRate` DEVE fare lo stesso.
 Ogni mutation che crea/modifica CashMovement deve invalidare: `["movements"]`, `["movement-stats"]`, `["aging-report"]`.
+Nel dominio spese ricorrenti, `useCloseRecurringExpense` deve invalidare anche:
+`["cash-balance"]`, `["forecast"]`, `["pending-expenses"]`, `["dashboard"]`.
 
 ### Type Synchronization
 `frontend/src/types/api.ts` e' il CONTRATTO tra frontend e backend.
@@ -174,6 +176,8 @@ Componente con 4 sotto-componenti inline:
 - **AddExpenseForm**: form creazione con Select categoria, frequenza (5 opzioni), DatePicker `data_inizio` ("Attiva dal")
 - **ExpenseEditDialog**: Dialog con useEffect state sync da props, 6 campi (+ data_inizio via DatePicker)
 - **ExpensesTable**: tabella con colonne Categoria, Frequenza, Giorno, Attiva dal, Stato + Edit/Toggle/Delete
+- **Chiusura/rettifica**: il flusso "Chiudi/rettifica con storno" deve funzionare anche su spesa già disattivata (rettifica cutoff), senza perdere storico reale
+- **Feedback rettifica**: toast basati su `storni_creati` e `storni_rimossi`
 - **KPI pesato**: "Stima Mensile Spese Fisse" con `estimateMonthly()` che pesa per frequenza
   (SETTIMANALE ×4.33, TRIMESTRALE /3, SEMESTRALE /6, ANNUALE /12)
 - Props: riceve `anno` e `mese` da `cassa/page.tsx`
