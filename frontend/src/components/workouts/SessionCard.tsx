@@ -327,7 +327,10 @@ export function SessionCard({
   }, [editName, session.id, session.nome_sessione, onUpdateSession]);
 
   return (
-    <Card className="transition-all duration-200 hover:shadow-md">
+    <Card
+      className="transition-all duration-200 hover:shadow-md"
+      data-workout-session-id={session.id}
+    >
       <CardHeader className="flex flex-row items-center gap-2 pb-2">
         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
           {session.numero_sessione}

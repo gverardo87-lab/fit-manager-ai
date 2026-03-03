@@ -38,6 +38,74 @@ import {
   LATERAL_PATTERN_LABELS,
 } from "@/components/exercises/exercise-constants";
 
+type RecentSection = "avviamento" | "principale" | "stretching";
+interface RecentExerciseItem {
+  id: number;
+  section: RecentSection;
+  ts: number;
+}
+
+const RECENT_STORAGE_KEY = "workout-builder-recent-exercises-v1";
+const RECENT_MAX_GLOBAL = 60;
+const RECENT_MAX_PER_SECTION = 12;
+
+function resolveRecentSection(categoryFilter?: string[]): RecentSection {
+  if (categoryFilter?.includes("avviamento")) return "avviamento";
+  if (categoryFilter?.some((c) => c === "stretching" || c === "mobilita")) return "stretching";
+  return "principale";
+}
+
+function loadRecentExercises(): RecentExerciseItem[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.sessionStorage.getItem(RECENT_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((item): item is RecentExerciseItem => {
+        return !!item &&
+          typeof item === "object" &&
+          typeof (item as RecentExerciseItem).id === "number" &&
+          typeof (item as RecentExerciseItem).section === "string" &&
+          typeof (item as RecentExerciseItem).ts === "number";
+      })
+      .slice(0, RECENT_MAX_GLOBAL);
+  } catch {
+    return [];
+  }
+}
+
+function saveRecentExercises(items: RecentExerciseItem[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(
+      RECENT_STORAGE_KEY,
+      JSON.stringify(items.slice(0, RECENT_MAX_GLOBAL)),
+    );
+  } catch {
+    // Best effort: se sessionStorage non e disponibile, il selector resta operativo.
+  }
+}
+
+function pushRecentExercise(exerciseId: number, section: RecentSection): RecentExerciseItem[] {
+  const now = Date.now();
+  const current = loadRecentExercises();
+  const next = [
+    { id: exerciseId, section, ts: now },
+    ...current.filter((item) => !(item.id === exerciseId && item.section === section)),
+  ].slice(0, RECENT_MAX_GLOBAL);
+  saveRecentExercises(next);
+  return next;
+}
+
+function clearRecentSection(section: RecentSection): RecentExerciseItem[] {
+  const current = loadRecentExercises();
+  const next = current.filter((item) => item.section !== section);
+  saveRecentExercises(next);
+  return next;
+}
+
 interface ExerciseSelectorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -117,6 +185,7 @@ export function ExerciseSelector({
   const [showFilters, setShowFilters] = useState(true);
   const [expandedSafetyId, setExpandedSafetyId] = useState<number | null>(null);
   const [expandedDetailId, setExpandedDetailId] = useState<number | null>(null);
+  const [recentStore, setRecentStore] = useState<RecentExerciseItem[]>([]);
 
   // ── Debounce: input istantaneo, filtro ritardato 200ms ──
   const handleSearchChange = useCallback((value: string) => {
@@ -132,6 +201,10 @@ export function ExerciseSelector({
 
   const { data } = useExercises();
   const exercises = data?.items ?? [];
+  const recentSection = useMemo(
+    () => resolveRecentSection(categoryFilter),
+    [categoryFilter],
+  );
 
   // Mappa id→Exercise per quick-select da relazioni
   const exerciseMap = useMemo(
@@ -157,6 +230,12 @@ export function ExerciseSelector({
     }
     return exercises;
   }, [exercises, categoryFilter]);
+
+  // Carica i recenti solo quando il dialog e aperto.
+  useEffect(() => {
+    if (!open) return;
+    setRecentStore(loadRecentExercises());
+  }, [open, recentSection]);
 
   // ── Available filter options (dynamic from current pool) ──
 
@@ -268,9 +347,28 @@ export function ExerciseSelector({
   }, [sectionPool, debouncedSearch, patternHint, selectedPattern, selectedMuscle,
       selectedEquipment, selectedDifficulty, selectedForceType, selectedLateral]);
 
+  const recentExercises = useMemo(() => {
+    const allowedIds = new Set(sectionPool.map((e) => e.id));
+    const ids = recentStore
+      .filter((item) => item.section === recentSection)
+      .sort((a, b) => b.ts - a.ts)
+      .map((item) => item.id);
+    const uniqueIds = Array.from(new Set(ids)).slice(0, RECENT_MAX_PER_SECTION);
+    return uniqueIds
+      .filter((id) => allowedIds.has(id))
+      .map((id) => exerciseMap.get(id))
+      .filter((ex): ex is Exercise => ex !== undefined);
+  }, [recentStore, recentSection, sectionPool, exerciseMap]);
+
+  const recentExerciseIds = useMemo(
+    () => new Set(recentExercises.map((e) => e.id)),
+    [recentExercises],
+  );
+
   // ── Handlers ──
 
   const handleSelect = (exercise: Exercise) => {
+    setRecentStore(pushRecentExercise(exercise.id, recentSection));
     onSelect(exercise);
     onOpenChange(false);
     resetFilters();
@@ -308,6 +406,16 @@ export function ExerciseSelector({
 
   const hasActiveFilters = !!selectedPattern || !!selectedEquipment || !!selectedMuscle ||
     !!selectedDifficulty || !!selectedForceType || !!selectedLateral || !!rawSearch;
+
+  const showRecent = recentExercises.length > 0 && !hasActiveFilters;
+  const visibleFiltered = useMemo(() => {
+    if (!showRecent) return filtered;
+    return filtered.filter((e) => !recentExerciseIds.has(e.id));
+  }, [filtered, showRecent, recentExerciseIds]);
+
+  const handleClearRecent = useCallback(() => {
+    setRecentStore(clearRecentSection(recentSection));
+  }, [recentSection]);
 
   // Conteggio filtri chip attivi (esclusa ricerca testo)
   const activeFilterCount = [selectedPattern, selectedMuscle, selectedEquipment,
@@ -540,7 +648,7 @@ export function ExerciseSelector({
 
         {/* Results */}
         <ScrollArea className="h-[45vh] min-h-[280px] px-2 pb-2">
-          {filtered.length === 0 ? (
+          {visibleFiltered.length === 0 && !showRecent ? (
             <div className="flex flex-col items-center justify-center py-12 gap-2">
               <p className="text-sm text-muted-foreground">Nessun esercizio trovato</p>
               {hasActiveFilters && (
@@ -553,24 +661,62 @@ export function ExerciseSelector({
               )}
             </div>
           ) : (
-            <div className="space-y-0.5">
-              {filtered.map((exercise) => (
-                <ExerciseRow
-                  key={exercise.id}
-                  exercise={exercise}
-                  safety={safetyMap?.[exercise.id]}
-                  safetyEntries={safetyMap}
-                  safetyExpanded={expandedSafetyId === exercise.id}
-                  onToggleSafety={handleToggleSafety}
-                  detailExpanded={expandedDetailId === exercise.id}
-                  onToggleDetail={handleToggleDetail}
-                  schedaId={schedaId}
-                  isUsed={usedExerciseIds?.has(exercise.id)}
-                  onSelect={handleSelect}
-                  onSelectById={handleSelectById}
-                  exerciseMap={exerciseMap}
-                />
-              ))}
+            <div className="space-y-2">
+              {showRecent && (
+                <div className="rounded-md border border-primary/20 bg-primary/5 px-2 py-1.5">
+                  <div className="mb-1 flex items-center justify-between px-1">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-primary">
+                      Recenti
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleClearRecent}
+                      className="text-[10px] text-muted-foreground hover:text-foreground"
+                    >
+                      Pulisci
+                    </button>
+                  </div>
+                  <div className="space-y-0.5">
+                    {recentExercises.map((exercise) => (
+                      <ExerciseRow
+                        key={`recent-${exercise.id}`}
+                        exercise={exercise}
+                        safety={safetyMap?.[exercise.id]}
+                        safetyEntries={safetyMap}
+                        safetyExpanded={expandedSafetyId === exercise.id}
+                        onToggleSafety={handleToggleSafety}
+                        detailExpanded={expandedDetailId === exercise.id}
+                        onToggleDetail={handleToggleDetail}
+                        schedaId={schedaId}
+                        isUsed={usedExerciseIds?.has(exercise.id)}
+                        onSelect={handleSelect}
+                        onSelectById={handleSelectById}
+                        exerciseMap={exerciseMap}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-0.5">
+                {visibleFiltered.map((exercise) => (
+                  <ExerciseRow
+                    key={exercise.id}
+                    exercise={exercise}
+                    safety={safetyMap?.[exercise.id]}
+                    safetyEntries={safetyMap}
+                    safetyExpanded={expandedSafetyId === exercise.id}
+                    onToggleSafety={handleToggleSafety}
+                    detailExpanded={expandedDetailId === exercise.id}
+                    onToggleDetail={handleToggleDetail}
+                    schedaId={schedaId}
+                    isUsed={usedExerciseIds?.has(exercise.id)}
+                    onSelect={handleSelect}
+                    onSelectById={handleSelectById}
+                    exerciseMap={exerciseMap}
+                  />
+                ))}
+              </div>
             </div>
           )}
         </ScrollArea>

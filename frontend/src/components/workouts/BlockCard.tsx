@@ -279,7 +279,10 @@ export function BlockCard({
   );
 
   return (
-    <Card className={`border-l-4 ${config.border} transition-all duration-200`}>
+    <Card
+      className={`border-l-4 ${config.border} transition-all duration-200`}
+      data-workout-block-id={block.id}
+    >
       <CardHeader className="pb-2 pt-3 px-4">
         {/* ── Block Header ── */}
         <div className="flex items-center gap-2">

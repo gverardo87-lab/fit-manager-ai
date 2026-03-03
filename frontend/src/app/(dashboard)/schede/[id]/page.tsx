@@ -17,6 +17,8 @@ import {
   Clock3,
   Plus,
   Pencil,
+  Undo2,
+  Redo2,
   Check,
   X,
   Shield,
@@ -107,6 +109,9 @@ type SaveIssueLevel = "warning" | "critical";
 interface SaveIssue {
   level: SaveIssueLevel;
   message: string;
+  sessionId?: number;
+  blockId?: number;
+  exerciseRowId?: number;
 }
 
 const VALID_BLOCK_TYPES: Set<BlockType> = new Set([
@@ -118,6 +123,49 @@ const VALID_BLOCK_TYPES: Set<BlockType> = new Set([
   "for_time",
 ]);
 const HIGH_LOAD_WARNING_KG = 150;
+const HISTORY_LIMIT = 60;
+const COALESCE_DELAY_MS = 700;
+
+const SESSION_COALESCE_FIELDS = new Set<keyof SessionCardData>([
+  "nome_sessione",
+  "focus_muscolare",
+  "durata_minuti",
+  "note",
+]);
+const EXERCISE_COALESCE_FIELDS = new Set<keyof WorkoutExerciseRow>([
+  "serie",
+  "ripetizioni",
+  "tempo_riposo_sec",
+  "tempo_esecuzione",
+  "carico_kg",
+  "note",
+]);
+const BLOCK_COALESCE_FIELDS = new Set<keyof BlockCardData>([
+  "nome",
+  "giri",
+  "durata_lavoro_sec",
+  "durata_riposo_sec",
+  "durata_blocco_sec",
+  "note",
+]);
+
+function cloneSessionsSnapshot(input: SessionCardData[]): SessionCardData[] {
+  if (typeof structuredClone === "function") {
+    return structuredClone(input);
+  }
+  return JSON.parse(JSON.stringify(input)) as SessionCardData[];
+}
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  return (
+    target.isContentEditable ||
+    tag === "INPUT" ||
+    tag === "TEXTAREA" ||
+    tag === "SELECT"
+  );
+}
 
 function trimOrNull(value: string | null | undefined, maxLength: number): string | null {
   if (!value) return null;
@@ -148,11 +196,13 @@ function sanitizeExerciseForSave(
   contextLabel: string,
   exerciseMap: Map<number, Exercise>,
   oneRMByPattern?: Record<string, number> | null,
+  location?: Pick<SaveIssue, "sessionId" | "blockId" | "exerciseRowId">,
 ): WorkoutSessionInput["esercizi"][number] | null {
   if (!ex.id_esercizio || !exerciseMap.has(ex.id_esercizio)) {
     issues.push({
       level: "warning",
       message: `${contextLabel}: esercizio non valido rimosso dal salvataggio.`,
+      ...location,
     });
     return null;
   }
@@ -167,6 +217,7 @@ function sanitizeExerciseForSave(
     issues.push({
       level: "warning",
       message: `${contextLabel}: ripetizioni mancanti, applicato default 8-12.`,
+      ...location,
     });
   }
 
@@ -174,6 +225,7 @@ function sanitizeExerciseForSave(
     issues.push({
       level: "warning",
       message: `${contextLabel}: carico elevato (${caricoKg} kg), verifica sicurezza e progressione.`,
+      ...location,
     });
   }
 
@@ -187,6 +239,7 @@ function sanitizeExerciseForSave(
         issues.push({
           level: "warning",
           message: `${contextLabel}: carico ${percent}% 1RM, controlla che sia intenzionale.`,
+          ...location,
         });
       }
     }
@@ -226,6 +279,7 @@ function prepareSessionsInputForSave(
       issues.push({
         level: "warning",
         message: `${sessionLabel}: nome mancante, applicato "${nomeSessione}".`,
+        sessionId: s.id,
       });
     }
 
@@ -234,12 +288,21 @@ function prepareSessionsInputForSave(
       issues.push({
         level: "warning",
         message: `${sessionLabel}: durata fuori range, normalizzata a ${durataMinuti} min.`,
+        sessionId: s.id,
       });
     }
 
     const esercizi = s.esercizi
       .map((ex, idx) =>
-        sanitizeExerciseForSave(ex, idx + 1, issues, sessionLabel, exerciseMap, oneRMByPattern),
+        sanitizeExerciseForSave(
+          ex,
+          idx + 1,
+          issues,
+          sessionLabel,
+          exerciseMap,
+          oneRMByPattern,
+          { sessionId: s.id, exerciseRowId: ex.id },
+        ),
       )
       .filter((ex): ex is WorkoutSessionInput["esercizi"][number] => ex !== null);
 
@@ -252,6 +315,8 @@ function prepareSessionsInputForSave(
         issues.push({
           level: "warning",
           message: `${sessionLabel}: tipo blocco non valido, convertito in "circuit".`,
+          sessionId: s.id,
+          blockId: b.id,
         });
       }
 
@@ -264,6 +329,7 @@ function prepareSessionsInputForSave(
             `${sessionLabel} • ${blockLabel}`,
             exerciseMap,
             oneRMByPattern,
+            { sessionId: s.id, blockId: b.id, exerciseRowId: ex.id },
           ),
         )
         .filter((ex): ex is WorkoutSessionInput["esercizi"][number] => ex !== null);
@@ -272,6 +338,8 @@ function prepareSessionsInputForSave(
         issues.push({
           level: "warning",
           message: `${sessionLabel}: ${blockLabel} non salvato perche vuoto.`,
+          sessionId: s.id,
+          blockId: b.id,
         });
         continue;
       }
@@ -293,6 +361,7 @@ function prepareSessionsInputForSave(
       issues.push({
         level: "warning",
         message: `${sessionLabel}: sessione salvata vuota (bozza parziale).`,
+        sessionId: s.id,
       });
     }
 
@@ -377,6 +446,15 @@ export default function SchedaDetailPage({
   const [isDirty, setIsDirty] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [saveIssues, setSaveIssues] = useState<SaveIssue[]>([]);
+  const [historyPast, setHistoryPast] = useState<SessionCardData[][]>([]);
+  const [historyFuture, setHistoryFuture] = useState<SessionCardData[][]>([]);
+  const highlightedNodeRef = useRef<HTMLElement | null>(null);
+  const highlightTimeoutRef = useRef<number | null>(null);
+  const sessionsRef = useRef<SessionCardData[]>([]);
+  const coalesceTimerRef = useRef<number | null>(null);
+  const coalesceKeyRef = useRef<string | null>(null);
+  const coalesceBaseRef = useRef<SessionCardData[] | null>(null);
+  sessionsRef.current = sessions;
 
   // Ref che riflette isDirty — usato nell'effect per non catturare closure stale
   const isDirtyRef = useRef(false);
@@ -413,6 +491,71 @@ export default function SchedaDetailPage({
     blockId?: number;  // se set: aggiunge/sostituisce esercizio in un blocco
   } | null>(null);
 
+  const clearCoalesceTimer = useCallback(() => {
+    if (coalesceTimerRef.current) {
+      window.clearTimeout(coalesceTimerRef.current);
+      coalesceTimerRef.current = null;
+    }
+  }, []);
+
+  const pushHistorySnapshot = useCallback((snapshot: SessionCardData[]) => {
+    setHistoryPast((past) => [
+      ...past.slice(-(HISTORY_LIMIT - 1)),
+      cloneSessionsSnapshot(snapshot),
+    ]);
+    setHistoryFuture([]);
+  }, []);
+
+  const flushCoalescedHistory = useCallback(() => {
+    clearCoalesceTimer();
+    if (!coalesceBaseRef.current) return;
+    pushHistorySnapshot(coalesceBaseRef.current);
+    coalesceBaseRef.current = null;
+    coalesceKeyRef.current = null;
+  }, [clearCoalesceTimer, pushHistorySnapshot]);
+
+  const scheduleCoalescedFlush = useCallback(() => {
+    clearCoalesceTimer();
+    coalesceTimerRef.current = window.setTimeout(() => {
+      flushCoalescedHistory();
+    }, COALESCE_DELAY_MS);
+  }, [clearCoalesceTimer, flushCoalescedHistory]);
+
+  const applySessionsChange = useCallback(
+    (
+      updater: (prev: SessionCardData[]) => SessionCardData[],
+      options?: { trackHistory?: boolean; markDirty?: boolean; coalesceKey?: string },
+    ) => {
+      const prev = sessionsRef.current;
+      const next = updater(prev);
+      if (next === prev) return;
+
+      if (options?.trackHistory !== false) {
+        const coalesceKey = options?.coalesceKey;
+        if (coalesceKey) {
+          if (coalesceKeyRef.current && coalesceKeyRef.current !== coalesceKey) {
+            flushCoalescedHistory();
+          }
+          if (!coalesceBaseRef.current) {
+            coalesceBaseRef.current = cloneSessionsSnapshot(prev);
+          }
+          coalesceKeyRef.current = coalesceKey;
+          scheduleCoalescedFlush();
+        } else {
+          flushCoalescedHistory();
+          pushHistorySnapshot(prev);
+        }
+      }
+
+      sessionsRef.current = next;
+      setSessions(next);
+      if (options?.markDirty !== false) {
+        setIsDirty(true);
+      }
+    },
+    [flushCoalescedHistory, pushHistorySnapshot, scheduleCoalescedFlush],
+  );
+
   // Sync server → local (protegge modifiche non salvate)
   useEffect(() => {
     if (plan && !isDirtyRef.current) {
@@ -428,6 +571,11 @@ export default function SchedaDetailPage({
           blocchi: (s.blocchi ?? []).map(serverBlockToCardData),
         })),
       );
+      clearCoalesceTimer();
+      coalesceBaseRef.current = null;
+      coalesceKeyRef.current = null;
+      setHistoryPast([]);
+      setHistoryFuture([]);
       const serverTs = plan.updated_at ?? plan.created_at;
       if (serverTs) {
         const parsed = new Date(serverTs);
@@ -436,7 +584,7 @@ export default function SchedaDetailPage({
         }
       }
     }
-  }, [plan]);
+  }, [plan, clearCoalesceTimer]);
 
   // Draft recovery — recupera bozza da sessionStorage se presente (TTL 24h)
   const draftRecoveredRef = useRef(false);
@@ -449,6 +597,11 @@ export default function SchedaDetailPage({
         if (ageMs < 24 * 60 * 60 * 1000) {
           if (window.confirm("Sono state trovate modifiche non salvate. Vuoi recuperarle?")) {
             setSessions(saved.data);
+            clearCoalesceTimer();
+            coalesceBaseRef.current = null;
+            coalesceKeyRef.current = null;
+            setHistoryPast([]);
+            setHistoryFuture([]);
             setIsDirty(true);
             return;
           }
@@ -456,13 +609,28 @@ export default function SchedaDetailPage({
         clearDraft(draftKey);
       }
     }
-  }, [plan, draftKey]);
+  }, [plan, draftKey, clearCoalesceTimer]);
 
   // Dopo una nuova modifica, gli avvisi precedenti non sono piu affidabili.
   useEffect(() => {
     if (!isDirtyRef.current || saveIssues.length === 0) return;
     setSaveIssues([]);
   }, [sessions, saveIssues.length]);
+
+  useEffect(() => {
+    return () => {
+      clearCoalesceTimer();
+      if (highlightTimeoutRef.current) {
+        window.clearTimeout(highlightTimeoutRef.current);
+      }
+      highlightedNodeRef.current?.classList.remove(
+        "ring-2",
+        "ring-primary",
+        "ring-offset-2",
+        "ring-offset-background",
+      );
+    };
+  }, [clearCoalesceTimer]);
 
   // Client name
   const clientNome = plan?.client_nome && plan?.client_cognome
@@ -499,6 +667,89 @@ export default function SchedaDetailPage({
     [saveIssues],
   );
   const visibleSaveIssues = useMemo(() => saveIssues.slice(0, 3), [saveIssues]);
+  const canUndo = historyPast.length > 0;
+  const canRedo = historyFuture.length > 0;
+
+  const handleUndo = useCallback(() => {
+    flushCoalescedHistory();
+    const current = sessionsRef.current;
+    setHistoryPast((past) => {
+      if (past.length === 0) return past;
+      const previous = past[past.length - 1];
+      const previousSnapshot = cloneSessionsSnapshot(previous);
+      setHistoryFuture((future) => [
+        cloneSessionsSnapshot(current),
+        ...future,
+      ].slice(0, HISTORY_LIMIT));
+      sessionsRef.current = previousSnapshot;
+      setSessions(previousSnapshot);
+      setIsDirty(true);
+      return past.slice(0, -1);
+    });
+  }, [flushCoalescedHistory]);
+
+  const handleRedo = useCallback(() => {
+    flushCoalescedHistory();
+    const current = sessionsRef.current;
+    setHistoryFuture((future) => {
+      if (future.length === 0) return future;
+      const next = future[0];
+      const nextSnapshot = cloneSessionsSnapshot(next);
+      setHistoryPast((past) => [
+        ...past.slice(-(HISTORY_LIMIT - 1)),
+        cloneSessionsSnapshot(current),
+      ]);
+      sessionsRef.current = nextSnapshot;
+      setSessions(nextSnapshot);
+      setIsDirty(true);
+      return future.slice(1);
+    });
+  }, [flushCoalescedHistory]);
+
+  const issueHasTarget = useCallback((issue: SaveIssue) => (
+    issue.sessionId != null || issue.blockId != null || issue.exerciseRowId != null
+  ), []);
+
+  const jumpToIssue = useCallback((issue: SaveIssue) => {
+    const selectorCandidates: string[] = [];
+    if (issue.exerciseRowId != null) {
+      selectorCandidates.push(`[data-workout-exercise-id="${issue.exerciseRowId}"]`);
+    }
+    if (issue.blockId != null) {
+      selectorCandidates.push(`[data-workout-block-id="${issue.blockId}"]`);
+    }
+    if (issue.sessionId != null) {
+      selectorCandidates.push(`[data-workout-session-id="${issue.sessionId}"]`);
+    }
+
+    let target: HTMLElement | null = null;
+    for (const selector of selectorCandidates) {
+      const found = document.querySelector(selector);
+      if (found instanceof HTMLElement) {
+        target = found;
+        break;
+      }
+    }
+
+    if (!target) return;
+
+    highlightedNodeRef.current?.classList.remove(
+      "ring-2",
+      "ring-primary",
+      "ring-offset-2",
+      "ring-offset-background",
+    );
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    target.classList.add("ring-2", "ring-primary", "ring-offset-2", "ring-offset-background");
+    highlightedNodeRef.current = target;
+
+    if (highlightTimeoutRef.current) {
+      window.clearTimeout(highlightTimeoutRef.current);
+    }
+    highlightTimeoutRef.current = window.setTimeout(() => {
+      target.classList.remove("ring-2", "ring-primary", "ring-offset-2", "ring-offset-background");
+    }, 1800);
+  }, []);
 
   // Safety stats: conteggi avoid/caution sugli esercizi nella scheda corrente (straight + in blocchi)
   const safetyStats = useMemo(() => {
@@ -644,23 +895,25 @@ export default function SchedaDetailPage({
   // ── Handlers sessioni ──
 
   const handleUpdateSession = useCallback((sessionId: number, updates: Partial<SessionCardData>) => {
-    setSessions((prev) =>
-      prev.map((s) => (s.id === sessionId ? { ...s, ...updates } : s)),
+    const fields = Object.keys(updates) as (keyof SessionCardData)[];
+    const coalesceField =
+      fields.length === 1 && SESSION_COALESCE_FIELDS.has(fields[0]) ? fields[0] : null;
+    applySessionsChange(
+      (prev) => prev.map((s) => (s.id === sessionId ? { ...s, ...updates } : s)),
+      { coalesceKey: coalesceField ? `session:${sessionId}:${coalesceField}` : undefined },
     );
-    setIsDirty(true);
-  }, []);
+  }, [applySessionsChange]);
 
   const handleDeleteSession = useCallback((sessionId: number) => {
-    setSessions((prev) => {
+    applySessionsChange((prev) => {
       const filtered = prev.filter((s) => s.id !== sessionId);
       return filtered.map((s, idx) => ({ ...s, numero_sessione: idx + 1 }));
     });
-    setIsDirty(true);
-  }, []);
+  }, [applySessionsChange]);
 
   const handleAddSession = useCallback(() => {
     const newId = -(Date.now());
-    setSessions((prev) => [
+    applySessionsChange((prev) => [
       ...prev,
       {
         id: newId,
@@ -673,15 +926,14 @@ export default function SchedaDetailPage({
         blocchi: [],
       },
     ]);
-    setIsDirty(true);
-  }, []);
+  }, [applySessionsChange]);
 
   const handleDuplicateSession = useCallback((sessionId: number) => {
     const source = sessions.find((s) => s.id === sessionId);
     if (!source) return;
     const now = Date.now();
     let tempId = now;
-    setSessions((prev) => [
+    applySessionsChange((prev) => [
       ...prev,
       {
         ...source,
@@ -703,8 +955,7 @@ export default function SchedaDetailPage({
         })),
       },
     ]);
-    setIsDirty(true);
-  }, [sessions]);
+  }, [sessions, applySessionsChange]);
 
   // ── Handlers esercizi ──
 
@@ -727,7 +978,7 @@ export default function SchedaDetailPage({
 
     const isBlockContext = selectorContext.blockId !== undefined;
 
-    setSessions((prev) =>
+    applySessionsChange((prev) =>
       prev.map((s) => {
         if (s.id !== selectorContext.sessionId) return s;
 
@@ -822,30 +1073,37 @@ export default function SchedaDetailPage({
       }),
     );
     setSelectorContext(null);
-    setIsDirty(true);
-  }, [selectorContext, plan?.obiettivo]);
+  }, [selectorContext, plan?.obiettivo, applySessionsChange]);
 
   const handleUpdateExercise = useCallback(
     (sessionId: number, exerciseId: number, updates: Partial<WorkoutExerciseRow>) => {
-      setSessions((prev) =>
-        prev.map((s) =>
-          s.id === sessionId
-            ? {
-                ...s,
-                esercizi: s.esercizi.map((e) =>
-                  e.id === exerciseId ? { ...e, ...updates } : e,
-                ),
-              }
-            : s,
-        ),
+      const fields = Object.keys(updates) as (keyof WorkoutExerciseRow)[];
+      const coalesceField =
+        fields.length === 1 && EXERCISE_COALESCE_FIELDS.has(fields[0]) ? fields[0] : null;
+      applySessionsChange(
+        (prev) =>
+          prev.map((s) =>
+            s.id === sessionId
+              ? {
+                  ...s,
+                  esercizi: s.esercizi.map((e) =>
+                    e.id === exerciseId ? { ...e, ...updates } : e,
+                  ),
+                }
+              : s,
+          ),
+        {
+          coalesceKey: coalesceField
+            ? `exercise:${sessionId}:${exerciseId}:${coalesceField}`
+            : undefined,
+        },
       );
-      setIsDirty(true);
     },
-    [],
+    [applySessionsChange],
   );
 
   const handleDeleteExercise = useCallback((sessionId: number, exerciseId: number) => {
-    setSessions((prev) =>
+    applySessionsChange((prev) =>
       prev.map((s) =>
         s.id === sessionId
           ? {
@@ -857,13 +1115,12 @@ export default function SchedaDetailPage({
           : s,
       ),
     );
-    setIsDirty(true);
-  }, []);
+  }, [applySessionsChange]);
 
   const handleQuickReplace = useCallback((sessionId: number, exerciseId: number, newExerciseId: number) => {
     const newEx = exerciseMap.get(newExerciseId);
     if (!newEx) return;
-    setSessions((prev) =>
+    applySessionsChange((prev) =>
       prev.map((s) => {
         if (s.id !== sessionId) return s;
         return {
@@ -882,43 +1139,44 @@ export default function SchedaDetailPage({
         };
       }),
     );
-    setIsDirty(true);
-  }, [exerciseMap]);
+  }, [exerciseMap, applySessionsChange]);
 
   // ── Block handlers ──
 
   const handleAddBlock = useCallback((sessionId: number, tipo: BlockType) => {
-    setSessions((prev) =>
+    applySessionsChange((prev) =>
       prev.map((s) => {
         if (s.id !== sessionId) return s;
         const newOrdine = s.blocchi.length + s.esercizi.length + 1;
         return { ...s, blocchi: [...s.blocchi, createBlockCardData(tipo, newOrdine)] };
       }),
     );
-    setIsDirty(true);
-  }, []);
+  }, [applySessionsChange]);
 
   const handleUpdateBlock = useCallback((sessionId: number, blockId: number, updates: Partial<BlockCardData>) => {
-    setSessions((prev) =>
-      prev.map((s) =>
-        s.id === sessionId
-          ? { ...s, blocchi: s.blocchi.map((b) => (b.id === blockId ? { ...b, ...updates } : b)) }
-          : s,
-      ),
+    const fields = Object.keys(updates) as (keyof BlockCardData)[];
+    const coalesceField =
+      fields.length === 1 && BLOCK_COALESCE_FIELDS.has(fields[0]) ? fields[0] : null;
+    applySessionsChange(
+      (prev) =>
+        prev.map((s) =>
+          s.id === sessionId
+            ? { ...s, blocchi: s.blocchi.map((b) => (b.id === blockId ? { ...b, ...updates } : b)) }
+            : s,
+        ),
+      { coalesceKey: coalesceField ? `block:${sessionId}:${blockId}:${coalesceField}` : undefined },
     );
-    setIsDirty(true);
-  }, []);
+  }, [applySessionsChange]);
 
   const handleDeleteBlock = useCallback((sessionId: number, blockId: number) => {
-    setSessions((prev) =>
+    applySessionsChange((prev) =>
       prev.map((s) =>
         s.id === sessionId
           ? { ...s, blocchi: s.blocchi.filter((b) => b.id !== blockId) }
           : s,
       ),
     );
-    setIsDirty(true);
-  }, []);
+  }, [applySessionsChange]);
 
   const handleAddExerciseToBlock = useCallback((sessionId: number, blockId: number) => {
     setSelectorContext({ sessionId, blockId });
@@ -927,27 +1185,35 @@ export default function SchedaDetailPage({
 
   const handleUpdateExerciseInBlock = useCallback(
     (sessionId: number, blockId: number, exerciseId: number, updates: Partial<WorkoutExerciseRow>) => {
-      setSessions((prev) =>
-        prev.map((s) =>
-          s.id === sessionId
-            ? {
-                ...s,
-                blocchi: s.blocchi.map((b) =>
-                  b.id === blockId
-                    ? { ...b, esercizi: b.esercizi.map((e) => (e.id === exerciseId ? { ...e, ...updates } : e)) }
-                    : b,
-                ),
-              }
-            : s,
-        ),
+      const fields = Object.keys(updates) as (keyof WorkoutExerciseRow)[];
+      const coalesceField =
+        fields.length === 1 && EXERCISE_COALESCE_FIELDS.has(fields[0]) ? fields[0] : null;
+      applySessionsChange(
+        (prev) =>
+          prev.map((s) =>
+            s.id === sessionId
+              ? {
+                  ...s,
+                  blocchi: s.blocchi.map((b) =>
+                    b.id === blockId
+                      ? { ...b, esercizi: b.esercizi.map((e) => (e.id === exerciseId ? { ...e, ...updates } : e)) }
+                      : b,
+                  ),
+                }
+              : s,
+          ),
+        {
+          coalesceKey: coalesceField
+            ? `block-exercise:${sessionId}:${blockId}:${exerciseId}:${coalesceField}`
+            : undefined,
+        },
       );
-      setIsDirty(true);
     },
-    [],
+    [applySessionsChange],
   );
 
   const handleDeleteExerciseFromBlock = useCallback((sessionId: number, blockId: number, exerciseId: number) => {
-    setSessions((prev) =>
+    applySessionsChange((prev) =>
       prev.map((s) =>
         s.id === sessionId
           ? {
@@ -961,8 +1227,7 @@ export default function SchedaDetailPage({
           : s,
       ),
     );
-    setIsDirty(true);
-  }, []);
+  }, [applySessionsChange]);
 
   const handleReplaceExerciseInBlock = useCallback((sessionId: number, blockId: number, exerciseId: number) => {
     setSelectorContext({ sessionId, blockId, exerciseId });
@@ -973,7 +1238,7 @@ export default function SchedaDetailPage({
     (sessionId: number, blockId: number, exerciseId: number, newExerciseId: number) => {
       const newEx = exerciseMap.get(newExerciseId);
       if (!newEx) return;
-      setSessions((prev) =>
+      applySessionsChange((prev) =>
         prev.map((s) =>
           s.id === sessionId
             ? {
@@ -994,13 +1259,12 @@ export default function SchedaDetailPage({
             : s,
         ),
       );
-      setIsDirty(true);
     },
-    [exerciseMap],
+    [exerciseMap, applySessionsChange],
   );
 
   const handleDuplicateBlock = useCallback((sessionId: number, blockId: number) => {
-    setSessions((prev) =>
+    applySessionsChange((prev) =>
       prev.map((s) => {
         if (s.id !== sessionId) return s;
         const source = s.blocchi.find((b) => b.id === blockId);
@@ -1019,11 +1283,10 @@ export default function SchedaDetailPage({
         return { ...s, blocchi: [...s.blocchi, dup] };
       }),
     );
-    setIsDirty(true);
-  }, []);
+  }, [applySessionsChange]);
 
   const handleClearSection = useCallback((sessionId: number, sezione: TemplateSection, what: "exercises" | "blocks" | "all") => {
-    setSessions((prev) =>
+    applySessionsChange((prev) =>
       prev.map((s) => {
         if (s.id !== sessionId) return s;
         const clearEx = what === "exercises" || what === "all";
@@ -1037,16 +1300,17 @@ export default function SchedaDetailPage({
         };
       }),
     );
-    setIsDirty(true);
-  }, []);
+  }, [applySessionsChange]);
 
   // ── Save ──
 
   const handleSave = useCallback(() => {
     if (!plan) return;
+    flushCoalescedHistory();
+    const currentSessions = sessionsRef.current;
 
     const { sessionsInput, issues, criticalCount, warningCount } = prepareSessionsInputForSave(
-      sessions,
+      currentSessions,
       exerciseMap,
       oneRMByPattern,
     );
@@ -1077,7 +1341,7 @@ export default function SchedaDetailPage({
         },
       },
     );
-  }, [plan, sessions, updateSessions, draftKey, exerciseMap, oneRMByPattern]);
+  }, [plan, updateSessions, draftKey, exerciseMap, oneRMByPattern, flushCoalescedHistory]);
 
   // Shortcut globale: Ctrl+S / Cmd+S salva le modifiche della scheda.
   useEffect(() => {
@@ -1091,6 +1355,31 @@ export default function SchedaDetailPage({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [handleSave, isDirty, updateSessions.isPending]);
+
+  // Shortcut globale: Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z o Ctrl/Cmd+Y redo.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      if (isEditableTarget(event.target)) return;
+
+      const key = event.key.toLowerCase();
+      if (key === "z") {
+        event.preventDefault();
+        if (event.shiftKey) {
+          if (canRedo) handleRedo();
+        } else if (canUndo) {
+          handleUndo();
+        }
+        return;
+      }
+      if (key === "y") {
+        event.preventDefault();
+        if (canRedo) handleRedo();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [canUndo, canRedo, handleUndo, handleRedo]);
 
   // ── Inline metadata editing ──
 
@@ -1242,6 +1531,26 @@ export default function SchedaDetailPage({
               Salvata alle {lastSavedLabel}
             </span>
           )}
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            onClick={handleUndo}
+            disabled={!canUndo}
+            title="Annulla (Ctrl/Cmd+Z)"
+          >
+            <Undo2 className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            onClick={handleRedo}
+            disabled={!canRedo}
+            title="Ripeti (Ctrl/Cmd+Shift+Z)"
+          >
+            <Redo2 className="h-4 w-4" />
+          </Button>
           <ExportButtons
             nome={plan.nome}
             obiettivo={plan.obiettivo}
@@ -1504,7 +1813,7 @@ export default function SchedaDetailPage({
       />
 
       {/* Save bar sticky: riduce frizione su schede lunghe (CTA sempre visibile). */}
-      {isDirty && (
+      {(isDirty || saveIssues.length > 0) && (
         <div
           className="fixed bottom-3 left-1/2 z-40 w-[calc(100%-1.5rem)] max-w-2xl -translate-x-1/2"
           data-print-hide
@@ -1513,16 +1822,60 @@ export default function SchedaDetailPage({
             <div className="flex items-center gap-2">
               <Clock3 className="h-4 w-4 text-primary shrink-0" />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">Modifiche non salvate</p>
-                <p className="text-[11px] text-muted-foreground truncate">
-                  Ctrl+S / Cmd+S per salvare
-                  {lastSavedLabel ? ` • Ultimo salvataggio alle ${lastSavedLabel}` : ""}
-                </p>
+                {isDirty ? (
+                  <>
+                    <p className="text-sm font-medium">Modifiche non salvate</p>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      Ctrl+S / Cmd+S per salvare
+                      {lastSavedLabel ? ` • Ultimo salvataggio alle ${lastSavedLabel}` : ""}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-medium">Salvataggio completato con avvisi</p>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      Clicca un avviso per andare direttamente al punto da rivedere
+                    </p>
+                  </>
+                )}
               </div>
-              <Button onClick={handleSave} disabled={updateSessions.isPending} className="h-8">
-                <Save className="mr-1.5 h-4 w-4" />
-                {updateSessions.isPending ? "Salvataggio..." : "Salva"}
-              </Button>
+              {isDirty ? (
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={handleUndo}
+                    disabled={!canUndo}
+                    title="Annulla"
+                  >
+                    <Undo2 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={handleRedo}
+                    disabled={!canRedo}
+                    title="Ripeti"
+                  >
+                    <Redo2 className="h-4 w-4" />
+                  </Button>
+                  <Button onClick={handleSave} disabled={updateSessions.isPending} className="h-8">
+                    <Save className="mr-1.5 h-4 w-4" />
+                    {updateSessions.isPending ? "Salvataggio..." : "Salva"}
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8"
+                  onClick={() => setSaveIssues([])}
+                >
+                  Chiudi
+                </Button>
+              )}
             </div>
             {saveIssues.length > 0 && (
               <div
@@ -1546,7 +1899,17 @@ export default function SchedaDetailPage({
                 <ul className="mt-1 space-y-0.5">
                   {visibleSaveIssues.map((issue, idx) => (
                     <li key={`${issue.level}-${idx}`} className="text-[10px] text-muted-foreground">
-                      • {issue.message}
+                      {issueHasTarget(issue) ? (
+                        <button
+                          type="button"
+                          onClick={() => jumpToIssue(issue)}
+                          className="text-left hover:text-foreground hover:underline"
+                        >
+                          • {issue.message}
+                        </button>
+                      ) : (
+                        <>• {issue.message}</>
+                      )}
                     </li>
                   ))}
                   {saveIssues.length > visibleSaveIssues.length && (

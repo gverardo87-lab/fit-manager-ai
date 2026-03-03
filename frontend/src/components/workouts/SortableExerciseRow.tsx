@@ -309,7 +309,7 @@ export function SortableExerciseRow({
   if (blockType !== undefined) {
     const cfg = BLOCK_EXERCISE_CONFIG[blockType];
     return (
-      <div ref={setNodeRef} style={style}>
+      <div ref={setNodeRef} style={style} data-workout-exercise-id={exercise.id}>
         <div
           className={`group/row grid ${cfg.gridCols} gap-1 items-center rounded-md px-1 py-1 hover:bg-muted/40 transition-colors ${safetyBg}`}
         >
@@ -393,7 +393,7 @@ export function SortableExerciseRow({
 
   if (compact) {
     return (
-      <div ref={setNodeRef} style={style}>
+      <div ref={setNodeRef} style={style} data-workout-exercise-id={exercise.id}>
         <div
           className={`group/row grid grid-cols-[20px_14px_1fr_44px_52px_24px] gap-1 items-center rounded-md px-1 py-1 hover:bg-muted/40 transition-colors ${safetyBg}`}
         >
@@ -501,7 +501,7 @@ export function SortableExerciseRow({
   // ── Layout principale (8 colonne) ──
 
   return (
-    <div ref={setNodeRef} style={style}>
+    <div ref={setNodeRef} style={style} data-workout-exercise-id={exercise.id}>
       <div
         className={`group/row grid grid-cols-[20px_14px_1fr_44px_52px_52px_44px_24px] gap-1 items-center rounded-md px-1 py-1 hover:bg-muted/40 transition-colors ${safetyBg}`}
       >
