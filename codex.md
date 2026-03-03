@@ -170,6 +170,14 @@ Per qualunque modifica che tocca movimenti denaro (`movimenti_cassa`, saldo, for
 - Verifica esplicita di idempotenza (stessa azione ripetuta non genera duplicati).
 - Aggiornamento `docs/upgrades/UPGRADE_LOG.md` con commit e stato finale.
 
+5. Deep-link audit affidabile
+- I link dal registro modifiche verso `/cassa` devono applicare stato interno (tab, filtri, focus) anche su stessa route, senza dipendere dal reload pagina.
+- Per i movimenti ledger usare `focus_movement` e, quando disponibile, range `da/a` sul giorno del movimento.
+- Distinguere link cross-page (es. `/contratti/...`) da link intra-page (`/cassa?...`) con gestione esplicita lato UI.
+
+Riferimenti UPG (cash-critical):
+- `UPG-2026-03-03-06`, `UPG-2026-03-03-07`, `UPG-2026-03-03-09`, `UPG-2026-03-03-10` in `docs/upgrades/UPGRADE_LOG.md`.
+
 ---
 
 Obiettivo operativo: mantenere ritmo da startup con disciplina da team senior.

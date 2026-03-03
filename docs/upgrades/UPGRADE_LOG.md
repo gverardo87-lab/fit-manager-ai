@@ -12,6 +12,8 @@ Registro unico degli upgrade tecnici e UX.
 | UPG-2026-03-03-06 | 2026-03-03 | Cassa | Reliability + UX | Protezione cassa (saldo reale vs previsto) + hardening spese ricorrenti (cleanup ledger opzionale) | High | `codex_01` / `54aa785, 9477fc0, 9735b29, 7739d8e` | done | Spec: `docs/upgrades/specs/UPG-2026-03-03-06-cash-protection-and-recurring-hardening.md` |
 | UPG-2026-03-03-07 | 2026-03-03 | Cassa | Accounting Integrity | Chiusura spese fisse rettificabile/idempotente + netting storni su KPI/grafico + regressioni dedicate | High | `codex_01` / `477b035` | done | Test: `tests/test_sync_recurring.py` + `tests/test_soft_delete_integrity.py` |
 | UPG-2026-03-03-08 | 2026-03-03 | Safety Engine | Clinical Accuracy | Riallineamento severita' clinica: 80 pattern rules (da 19), 0 condizioni morte (da 10), gerarchia avoid>modify>caution, QA 150 check | High | `codex_01` / `43e5010` | done | Script: `seed_qa_clinical.py` + `verify_qa_clinical.py`. Mapping: ~3600 (da ~1956), avoid 12%, modify 45%, caution 43% |
+| UPG-2026-03-03-09 | 2026-03-03 | Cassa | Auditability + UX | Registro modifiche cassa consultabile con filtri, timeline, diff before/after, correlation id e link contestuali | High | `codex_01` / `770b308, f927e8d` | done | Test: `tests/test_cash_audit_log.py` |
+| UPG-2026-03-03-10 | 2026-03-03 | Cassa | Navigability + Integrity | Deep-link audit verso cassa affidabile: focus movimento, range data, gestione same-route senza reload | High | `codex_01` / `76743bb, 42bd5bb` | done | Verifica: `venv\\Scripts\\python.exe -m pytest -q tests/test_cash_audit_log.py` + `npm --prefix frontend run lint -- src/components/movements/CashAuditSheet.tsx 'src/app/(dashboard)/cassa/page.tsx'` |
 
 ## Uso rapido
 

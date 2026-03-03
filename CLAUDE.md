@@ -400,6 +400,29 @@ File chiave: `api/routers/movements.py` (_compute_saldo, _compute_saldo_before, 
 `frontend/src/app/(dashboard)/cassa/page.tsx` (SaldoHeroCard, ComposedChart),
 `frontend/src/components/movements/MovementsTable.tsx` (running balance column).
 
+### Registro Modifiche Cassa — Audit Consultabile
+
+> **Filosofia: ledger e audit sono complementari.**
+> Il libro mastro mostra i movimenti economici, il registro audit mostra chi/come/perche sono cambiati.
+
+**Backend** (`api/routers/movements.py`):
+- `GET /movements/audit-log`: timeline audit paginata con filtri `data_da`, `data_a`, `action`, `entity_type`, `flow`.
+- Item arricchiti con `before/after`, `reason`, `correlation_id`, `flow_hint`, `link_href`, `link_label`.
+- Per `entity_type="movement"` il link include `focus_movement` e, se disponibile, range `da/a` sul giorno del movimento.
+
+**Frontend**:
+- `CashAuditSheet.tsx`: sheet consultabile con filtri combinabili (periodo, flusso, azione, entita), paginazione incrementale, detail diff.
+- `cassa/page.tsx`: callback di navigazione interna per deep-link `/cassa?...` (stessa route) che sincronizza `tab`, filtri ledger e `focus_movement`.
+- `MovementsTable.tsx`: scroll + highlight sulla riga target (`focusMovementId`) con consumo focus dopo animazione.
+
+**Regola critica**:
+- I link cross-page (`/contratti/...`) possono usare navigazione standard.
+- I link intra-page (`/cassa?...`) devono passare da gestione stato esplicita, altrimenti i parametri URL non garantiscono allineamento UI.
+
+Riferimenti UPG log:
+- `UPG-2026-03-03-09` (registro audit consultabile)
+- `UPG-2026-03-03-10` (deep-link audit same-route affidabile)
+
 ### Navigation UX — Filtri + Scroll + Cross-Link
 
 > **Filosofia: Sidebar = fresh start, Back = ripristina.**
