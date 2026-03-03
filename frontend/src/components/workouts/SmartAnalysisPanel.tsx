@@ -15,7 +15,7 @@
  */
 
 import { useMemo, useState } from "react";
-import { BarChart3, ChevronDown, AlertTriangle, CheckCircle2, Activity } from "lucide-react";
+import { BarChart3, ChevronDown, AlertTriangle } from "lucide-react";
 
 import {
   Collapsible,
@@ -29,7 +29,9 @@ import { Progress } from "@/components/ui/progress";
 
 import {
   computeSmartAnalysis,
+  computeSafetyBreakdown,
   type SmartAnalysis,
+  type SafetyBreakdown,
   type MuscleCoverage,
   type FitnessLevel,
 } from "@/lib/smart-programming";
@@ -126,11 +128,14 @@ export function SmartAnalysisPanel({
     );
   }, [sessions, exerciseMap, livello, sessioniPerSettimana, safetyMap]);
 
+  const safetyBreakdown = useMemo<SafetyBreakdown>(() =>
+    computeSafetyBreakdown(sessions, safetyMap),
+  [sessions, safetyMap]);
+
   if (!analysis) return null;
 
   // KPI riassuntivi
   const deficitCount = analysis.coverage.filter(c => c.status === "deficit").length;
-  const excessCount = analysis.coverage.filter(c => c.status === "excess").length;
   const optimalCount = analysis.coverage.filter(c => c.status === "optimal").length;
   const conflictCount = analysis.recoveryConflicts.length;
 
@@ -171,10 +176,30 @@ export function SmartAnalysisPanel({
               <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Deficit</div>
             </div>
             <div className="rounded-lg bg-muted/50 px-2 py-2 text-center">
-              <div className={`text-lg font-extrabold tracking-tighter tabular-nums ${analysis.safetyScore >= 80 ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
-                {analysis.safetyScore}%
-              </div>
-              <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Safety</div>
+              {safetyBreakdown.hasConditions ? (
+                <>
+                  <div className="text-sm font-extrabold tracking-tighter tabular-nums leading-6">
+                    {safetyBreakdown.avoid > 0 && (
+                      <span className="text-red-600 dark:text-red-400">{safetyBreakdown.avoid}A</span>
+                    )}
+                    {safetyBreakdown.avoid > 0 && safetyBreakdown.modify > 0 && (
+                      <span className="text-muted-foreground mx-0.5">/</span>
+                    )}
+                    {safetyBreakdown.modify > 0 && (
+                      <span className="text-amber-600 dark:text-amber-400">{safetyBreakdown.modify}M</span>
+                    )}
+                    {safetyBreakdown.avoid === 0 && safetyBreakdown.modify === 0 && (
+                      <span className="text-emerald-600 dark:text-emerald-400">OK</span>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Safety</div>
+                </>
+              ) : (
+                <>
+                  <div className="text-lg font-extrabold tracking-tighter tabular-nums text-muted-foreground">—</div>
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Safety</div>
+                </>
+              )}
             </div>
           </div>
 
@@ -253,19 +278,34 @@ export function SmartAnalysisPanel({
               </section>
             )}
 
-            {/* 5. Safety Score */}
-            {analysis.safetyScore < 100 && (
+            {/* 5. Safety Breakdown */}
+            {safetyBreakdown.hasConditions && (safetyBreakdown.avoid > 0 || safetyBreakdown.modify > 0 || safetyBreakdown.caution > 0) && (
               <section>
-                <div className="flex items-center gap-2">
-                  {analysis.safetyScore >= 80 ? (
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                  ) : (
-                    <Activity className="h-3.5 w-3.5 text-amber-500" />
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                  Compatibilita Clinica
+                </div>
+                <div className="space-y-1.5">
+                  {safetyBreakdown.avoid > 0 && (
+                    <div className="flex items-center gap-2 text-xs">
+                      <div className="h-2 w-2 rounded-full bg-red-500 shrink-0" />
+                      <span className="font-medium text-red-700 dark:text-red-400">{safetyBreakdown.avoid} da evitare</span>
+                      <span className="text-muted-foreground">— controindicati per il profilo</span>
+                    </div>
                   )}
-                  <span className="text-xs">
-                    <span className="font-medium">{analysis.safetyScore}%</span>
-                    <span className="text-muted-foreground"> degli esercizi sono compatibili con il profilo clinico</span>
-                  </span>
+                  {safetyBreakdown.modify > 0 && (
+                    <div className="flex items-center gap-2 text-xs">
+                      <div className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />
+                      <span className="font-medium text-amber-700 dark:text-amber-400">{safetyBreakdown.modify} da adattare</span>
+                      <span className="text-muted-foreground">— richiedono modifica ROM/carico</span>
+                    </div>
+                  )}
+                  {safetyBreakdown.caution > 0 && (
+                    <div className="flex items-center gap-2 text-xs">
+                      <div className="h-2 w-2 rounded-full bg-blue-500 shrink-0" />
+                      <span className="font-medium text-blue-700 dark:text-blue-400">{safetyBreakdown.caution} cautela</span>
+                      <span className="text-muted-foreground">— monitorare durante esecuzione</span>
+                    </div>
+                  )}
                 </div>
               </section>
             )}

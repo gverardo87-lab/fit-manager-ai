@@ -294,6 +294,58 @@ const SPLIT_PATTERNS: Record<number, Record<FitnessLevel, SplitPattern>> = {
 };
 
 // ════════════════════════════════════════════════════════════
+// CONSTANTS — Session Accessory Affinity (per split-aware accessories)
+// ════════════════════════════════════════════════════════════
+
+/** Muscoli per cui e' appropriato aggiungere accessori in base al tipo di sessione.
+ * Push non riceve polpacci/adduttori (gambe), Pull non riceve petto/tricipiti (push). */
+const SESSION_ACCESSORY_AFFINITY: Record<string, readonly string[]> = {
+  push:  ["tricipiti", "spalle", "petto"],
+  pull:  ["bicipiti", "trapezio", "avambracci", "dorsali"],
+  legs:  ["polpacci", "adduttori", "glutei", "femorali", "quadricipiti"],
+  upper: ["bicipiti", "tricipiti", "trapezio", "avambracci", "spalle"],
+  lower: ["polpacci", "adduttori", "glutei", "femorali"],
+  full:  ["polpacci", "bicipiti", "tricipiti", "adduttori", "avambracci",
+          "trapezio", "spalle", "core", "glutei", "femorali", "quadricipiti",
+          "petto", "dorsali"],
+};
+
+/** Deduce il tipo sessione dai pattern per determinare accessori coerenti */
+function inferSessionType(patterns: string[]): string {
+  const hasPush = patterns.some(p => p.startsWith("push"));
+  const hasPull = patterns.some(p => p.startsWith("pull"));
+  const hasLegs = patterns.some(p => p === "squat" || p === "hinge");
+
+  if (hasPush && !hasPull && !hasLegs) return "push";
+  if (hasPull && !hasPush && !hasLegs) return "pull";
+  if (hasLegs && !hasPush && !hasPull) return "legs";
+  if ((hasPush || hasPull) && !hasLegs) return "upper";
+  if (hasLegs && !hasPush && !hasPull) return "lower";
+  return "full"; // misto
+}
+
+/** Stima copertura muscolare dal piano pattern (prima dell'assegnazione esercizi).
+ * Usata per decidere dove piazzare accessori. Credit medio 0.8 (tra primario 1.0 e secondario 0.65). */
+function computeEstimatedCoverage(
+  splitSessions: Array<{ patterns: string[] }>,
+  obiettivo: string,
+): Map<string, number> {
+  const seriePerSlot = obiettivo === "forza" ? 4 : 3;
+  const AVG_CREDIT = 0.8;
+  const sets = new Map<string, number>();
+
+  for (const s of splitSessions) {
+    for (const pattern of s.patterns) {
+      for (const m of patternToMuscoli(pattern)) {
+        sets.set(m, (sets.get(m) ?? 0) + seriePerSlot * AVG_CREDIT);
+      }
+    }
+  }
+
+  return sets;
+}
+
+// ════════════════════════════════════════════════════════════
 // CONSTANTS — Difficulty Mapping
 // ════════════════════════════════════════════════════════════
 
@@ -327,7 +379,7 @@ interface ScorerConfig {
 const SCORER_CONFIGS: ScorerConfig[] = [
   { id: "safety",               label: "Sicurezza",                  weight: 0.15 },
   { id: "muscle_match",         label: "Match Muscolare",            weight: 0.14 },
-  { id: "pattern_match",        label: "Pattern Movimento",          weight: 0.10 },
+  { id: "pattern_match",        label: "Pattern Movimento",          weight: 0.13 },
   { id: "difficulty",           label: "Difficolta",                 weight: 0.10 },
   { id: "goal_alignment",       label: "Allineamento Obiettivo",     weight: 0.08 },
   { id: "strength_level",       label: "Livello Forza",              weight: 0.06 },
@@ -337,8 +389,8 @@ const SCORER_CONFIGS: ScorerConfig[] = [
   { id: "uniqueness",           label: "Unicita",                    weight: 0.05 },
   { id: "plane_variety",        label: "Varieta Piani",              weight: 0.04 },
   { id: "chain_variety",        label: "Varieta Catena Cinetica",    weight: 0.04 },
-  { id: "bilateral_balance",    label: "Equilibrio Bilaterale",      weight: 0.04 },
-  { id: "contraction_variety",  label: "Varieta Contrazione",        weight: 0.05 },
+  { id: "bilateral_balance",    label: "Equilibrio Bilaterale",      weight: 0.03 },
+  { id: "contraction_variety",  label: "Varieta Contrazione",        weight: 0.03 },
 ];
 
 // ════════════════════════════════════════════════════════════
@@ -743,28 +795,6 @@ export function generateSmartPlan(
       });
     }
 
-    // Accessori: 1-2 slot per muscoli non coperti dai pattern principali
-    const coveredMuscles = new Set(s.patterns.flatMap(p => patternToMuscoli(p)));
-    const ACCESSORY_PRIORITY = [
-      "polpacci", "bicipiti", "tricipiti", "adduttori",
-      "avambracci", "trapezio", "spalle", "core",
-    ];
-    const uncovered = ACCESSORY_PRIORITY.filter(m => !coveredMuscles.has(m));
-    const maxAccessories = livello === "beginner" ? 1
-      : livello === "intermedio" ? 2 : 3;
-    const accessoryTargets = uncovered.slice(0, maxAccessories);
-    for (const muscle of accessoryTargets) {
-      slots.push({
-        sezione: "principale",
-        pattern_hint: "accessory",
-        muscoli_target: [muscle],
-        label: `Accessorio ${capitalizeFirst(muscle)}`,
-        serie: 3,
-        ripetizioni: "10-15",
-        tempo_riposo_sec: 60,
-      });
-    }
-
     // Stretching: 2-3 slot mirati ai muscoli lavorati
     const stretchCount = livello === "avanzato" ? 3 : 2;
     const workedMuscles = new Set(s.patterns.flatMap(p => patternToMuscoli(p)));
@@ -782,8 +812,8 @@ export function generateSmartPlan(
       });
     }
 
-    // Durata stimata (minuti): avviamento + principali + accessori + stretching
-    const durataMinuti = warmupCount * 5 + s.patterns.length * 8 + accessoryTargets.length * 5 + stretchCount * 2;
+    // Durata stimata (minuti): avviamento + principali + stretching (accessori aggiunti in pass 2)
+    const durataMinuti = warmupCount * 5 + s.patterns.length * 8 + stretchCount * 2;
 
     return {
       nome_sessione: s.nome,
@@ -793,9 +823,49 @@ export function generateSmartPlan(
     };
   });
 
-  // Nome automatico
-  const splitName = sessioniPerSettimana <= 3 ? "Full Body" :
-    sessioniPerSettimana <= 4 ? "Upper/Lower" : "PPL";
+  // ── Pass 2: Accessori intelligenti basati su deficit globale + affinita' sessione ──
+  const estimatedSets = computeEstimatedCoverage(split.sessioni, obiettivo);
+  const target = getScaledVolumeTargets(livello, sessioniPerSettimana);
+  const maxAccessories = livello === "beginner" ? 2
+    : livello === "intermedio" ? 3 : 4;
+
+  for (let i = 0; i < sessioni.length; i++) {
+    const sessionPatterns = split.sessioni[i].patterns;
+    const sessionType = inferSessionType(sessionPatterns);
+    const affinity = SESSION_ACCESSORY_AFFINITY[sessionType] ?? SESSION_ACCESSORY_AFFINITY.full;
+
+    // Muscoli deficit che sono coerenti col focus della sessione
+    const candidates = affinity
+      .filter(m => (estimatedSets.get(m) ?? 0) < target.min)
+      .sort((a, b) => (estimatedSets.get(a) ?? 0) - (estimatedSets.get(b) ?? 0));
+
+    const accessoryTargets = candidates.slice(0, maxAccessories);
+
+    for (const muscle of accessoryTargets) {
+      sessioni[i].slots.push({
+        sezione: "principale",
+        pattern_hint: "accessory",
+        muscoli_target: [muscle],
+        label: `Accessorio ${capitalizeFirst(muscle)}`,
+        serie: 3,
+        ripetizioni: "10-15",
+        tempo_riposo_sec: 60,
+      });
+      // Aggiorna stima per le sessioni successive (evita duplicati cross-session)
+      estimatedSets.set(muscle, (estimatedSets.get(muscle) ?? 0) + 3);
+    }
+
+    sessioni[i].durata_minuti += accessoryTargets.length * 5;
+  }
+
+  // Nome automatico — dedotto dal contenuto, non dal numero sessioni
+  // Se le sessioni hanno pattern distinti (no overlap tranne core), e' PPL/compartmentalized
+  const isPPL = split.sessioni.length >= 3 && split.sessioni.every((s, i, arr) =>
+    arr.every((o, j) => i === j || s.patterns.every(p => !o.patterns.includes(p) || p === "core"))
+  );
+  const splitName = isPPL ? "PPL"
+    : sessioniPerSettimana <= 3 ? "Full Body"
+    : sessioniPerSettimana <= 4 ? "Upper/Lower" : "PPL";
 
   return {
     nome: `Smart ${splitName} — ${capitalizeFirst(obiettivo)}`,
@@ -919,7 +989,7 @@ export function computeMuscleCoverage(
       }
       for (const m of exercise.muscoli_secondari) {
         const group = normalizeMuscleGroup(m);
-        setCounts[group] = (setCounts[group] ?? 0) + ex.serie * 0.5;
+        setCounts[group] = (setCounts[group] ?? 0) + ex.serie * 0.65;
       }
     }
   }
@@ -1085,6 +1155,40 @@ function computeSafetyScore(
   }
 
   return total > 0 ? Math.round((safe / total) * 100) : 100;
+}
+
+export interface SafetyBreakdown {
+  avoid: number;
+  modify: number;
+  caution: number;
+  hasConditions: boolean;
+}
+
+/** Conta esercizi per severita' safety — usato dal SmartAnalysisPanel per display actionable */
+export function computeSafetyBreakdown(
+  sessions: Array<{ esercizi: Array<{ id_esercizio: number }> }>,
+  safetyMap: Record<number, ExerciseSafetyEntry> | null,
+): SafetyBreakdown {
+  if (!safetyMap) return { avoid: 0, modify: 0, caution: 0, hasConditions: false };
+
+  const hasConditions = Object.keys(safetyMap).length > 0
+    || Object.values(safetyMap).length > 0;
+  let avoid = 0, modify = 0, caution = 0;
+  const counted = new Set<number>();
+
+  for (const session of sessions) {
+    for (const ex of session.esercizi) {
+      if (counted.has(ex.id_esercizio)) continue;
+      counted.add(ex.id_esercizio);
+      const entry = safetyMap[ex.id_esercizio];
+      if (!entry) continue;
+      if (entry.severity === "avoid") avoid++;
+      else if (entry.severity === "modify") modify++;
+      else caution++;
+    }
+  }
+
+  return { avoid, modify, caution, hasConditions: hasConditions || avoid + modify + caution > 0 };
 }
 
 // ════════════════════════════════════════════════════════════
