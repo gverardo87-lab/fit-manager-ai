@@ -15,7 +15,8 @@ import { saveAs } from "file-saver";
 import { toast } from "sonner";
 import { getSectionForCategory, type TemplateSection } from "@/lib/workout-templates";
 import type { SessionCardData } from "@/components/workouts/SessionCard";
-import type { WorkoutExerciseRow } from "@/types/api";
+import type { BlockCardData } from "@/components/workouts/BlockCard";
+import { BLOCK_TYPE_LABELS, type WorkoutExerciseRow } from "@/types/api";
 
 // ── Colori ──
 
@@ -41,6 +42,17 @@ const SECTION_COLORS: Record<TemplateSection, { bg: string; label: string }> = {
 };
 
 const SECTION_ORDER: TemplateSection[] = ["avviamento", "principale", "stretching"];
+
+// ── Colori blocchi strutturati ──
+
+const BLOCK_TYPE_COLORS: Record<string, string> = {
+  circuit:  "EDE7F6", // violet chiaro
+  superset: "FFF8E1", // amber chiaro
+  tabata:   "FFEBEE", // red chiaro
+  amrap:    "E8F5E9", // emerald chiaro
+  emom:     "E0F2F1", // teal chiaro
+  for_time: "FFF3E0", // orange chiaro
+};
 
 // ── Immagini ──
 
@@ -95,6 +107,16 @@ interface ExportData {
 }
 
 // ── Helpers ──
+
+function buildBlockLabel(block: BlockCardData): string {
+  const parts = [BLOCK_TYPE_LABELS[block.tipo_blocco].toUpperCase()];
+  if (block.nome) parts.push(`— ${block.nome}`);
+  if (block.giri > 0) parts.push(`× ${block.giri} giri`);
+  if (block.durata_lavoro_sec) parts.push(`${block.durata_lavoro_sec}s lavoro`);
+  if (block.durata_riposo_sec) parts.push(`Riposo ${block.durata_riposo_sec}s`);
+  if (block.durata_blocco_sec) parts.push(`${Math.round(block.durata_blocco_sec / 60)} min`);
+  return parts.join(" · ");
+}
 
 function groupBySection(esercizi: WorkoutExerciseRow[]) {
   const groups: Record<TemplateSection, WorkoutExerciseRow[]> = {
@@ -599,10 +621,11 @@ export async function exportWorkoutExcel({
 
     for (const sectionKey of SECTION_ORDER) {
       const exercises = grouped[sectionKey];
-      if (exercises.length === 0) continue;
+      const isPrincipale = sectionKey === "principale";
+      const isPrincipaleWithBlocks = isPrincipale && session.blocchi.length > 0;
+      if (exercises.length === 0 && !isPrincipaleWithBlocks) continue;
 
       const config = SECTION_COLORS[sectionKey];
-      const isPrincipale = sectionKey === "principale";
 
       // Section header
       ws.addRow([]);
@@ -677,6 +700,62 @@ export async function exportWorkoutExcel({
         exercises.forEach((ex, idx) => {
           addCompactRow(ws, ex, idx, config.bg, hasImages);
         });
+      }
+
+      // ── Blocchi strutturati — solo nella sezione principale ──
+      if (isPrincipale && session.blocchi.length > 0) {
+        const sortedBlocks = [...session.blocchi].sort((a, b) => a.ordine - b.ordine);
+        for (const block of sortedBlocks) {
+          const blockColor = "FF" + (BLOCK_TYPE_COLORS[block.tipo_blocco] ?? GRAY_BG);
+
+          // Riga separatore blocco
+          ws.addRow([]);
+          const blockHdr = ws.addRow([buildBlockLabel(block)]);
+          const blockHdrNum = ws.rowCount;
+          ws.mergeCells(`A${blockHdrNum}:${mergeLetter}${blockHdrNum}`);
+          for (let c = 1; c <= 8; c++) {
+            blockHdr.getCell(c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: blockColor } };
+          }
+          blockHdr.getCell(1).font = { bold: true, size: 9, color: { argb: "004D40" } };
+          blockHdr.getCell(1).alignment = { horizontal: "left", vertical: "middle" };
+          blockHdr.height = 16;
+
+          // Esercizi del blocco
+          if (hasImages) {
+            block.esercizi.forEach((ex, exIdx) => {
+              const imgs = imageMap.get(ex.id_esercizio);
+              addExerciseCard(ws, wb, ex, exIdx, imgs);
+            });
+          } else {
+            block.esercizi.forEach((ex, exIdx) => {
+              const row = ws.addRow([
+                exIdx + 1,
+                `  • ${ex.esercizio_nome}`,
+                ex.serie,
+                ex.ripetizioni,
+                ex.carico_kg != null ? ex.carico_kg : "",
+                ex.tempo_riposo_sec,
+                ex.tempo_esecuzione ?? "",
+                ex.note ?? "",
+              ]);
+
+              if (exIdx % 2 === 0) {
+                row.eachCell((cell) => {
+                  cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: blockColor } };
+                });
+              }
+
+              row.getCell(1).alignment = { horizontal: "center" };
+              row.getCell(2).alignment = { horizontal: "left" };
+              row.getCell(3).alignment = { horizontal: "center" };
+              row.getCell(4).alignment = { horizontal: "center" };
+              row.getCell(5).alignment = { horizontal: "center" };
+              row.getCell(6).alignment = { horizontal: "center" };
+              row.getCell(7).alignment = { horizontal: "center" };
+              row.font = { size: 10 };
+            });
+          }
+        }
       }
     }
 

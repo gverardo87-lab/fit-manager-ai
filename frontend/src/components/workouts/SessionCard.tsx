@@ -4,10 +4,10 @@
 /**
  * Card per una singola sessione di allenamento dentro il builder.
  *
- * 3 sezioni visive — ora come panel cards (linguaggio "riquadri" coerente):
- * - Avviamento (warm-up)      → border amber
- * - Esercizio Principale      → border primary
- * - Stretching & Mobilita     → border cyan
+ * 3 sezioni visive come separatori leggeri (label + linea h-px colorata, zero box):
+ * - Avviamento (warm-up)      → linea amber
+ * - Esercizio Principale      → linea primary
+ * - Stretching & Mobilita     → linea cyan
  *
  * Ogni sezione ha drag & drop indipendente, + button, e "Svuota" button.
  * Blocchi strutturati (circuit, tabata…) si inseriscono nella sezione principale.
@@ -102,32 +102,28 @@ const SECTION_CONFIG: Record<TemplateSection, {
   icon: React.ReactNode;
   addLabel: string;
   color: string;
-  panelBorder: string;
-  panelBg: string;
+  dividerBg: string;
 }> = {
   avviamento: {
     label: "Avviamento",
     icon: <Flame className="h-3.5 w-3.5" />,
     addLabel: "Aggiungi Avviamento",
     color: "text-amber-600 dark:text-amber-400",
-    panelBorder: "border-amber-200 dark:border-amber-800",
-    panelBg: "bg-amber-50/50 dark:bg-amber-950/20",
+    dividerBg: "bg-amber-200 dark:bg-amber-700",
   },
   principale: {
     label: "Esercizio Principale",
     icon: <Dumbbell className="h-3.5 w-3.5" />,
     addLabel: "Aggiungi Esercizio",
     color: "text-primary",
-    panelBorder: "border-primary/25",
-    panelBg: "bg-primary/5",
+    dividerBg: "bg-primary/20",
   },
   stretching: {
     label: "Stretching & Mobilita",
     icon: <Heart className="h-3.5 w-3.5" />,
     addLabel: "Aggiungi Stretching",
     color: "text-cyan-600 dark:text-cyan-400",
-    panelBorder: "border-cyan-200 dark:border-cyan-800",
-    panelBg: "bg-cyan-50/50 dark:bg-cyan-950/20",
+    dividerBg: "bg-cyan-200 dark:bg-cyan-700",
   },
 };
 
@@ -431,41 +427,37 @@ export function SessionCard({
             const hasContent = exercises.length > 0 || hasBlocks;
 
             return (
-              <div
-                key={sectionKey}
-                className={`rounded-lg border ${config.panelBorder} overflow-hidden`}
-              >
-                {/* ── Section header con sfondo tematico ── */}
-                <div className={`flex items-center gap-2 px-3 py-1.5 ${config.panelBg}`}>
-                  <span className={config.color}>{config.icon}</span>
-                  <span className={`text-[11px] font-semibold uppercase tracking-wider ${config.color}`}>
-                    {config.label}
+              <div key={sectionKey}>
+                {/* ── Section separator: label + linea colorata ── */}
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className={`flex items-center gap-1 ${config.color} text-[11px] font-semibold uppercase tracking-wider shrink-0`}>
+                    {config.icon} {config.label}
                   </span>
                   {hasContent && (
                     <span className="text-[10px] text-muted-foreground">
                       ({exercises.length + (hasBlocks ? session.blocchi.length : 0)})
                     </span>
                   )}
-                  <div className="ml-auto flex items-center gap-1.5">
-                    {/* Volume badge — solo principale */}
-                    {isPrincipale && sessionVolume != null && (
-                      <span className="text-[10px] font-semibold text-muted-foreground tabular-nums">
-                        Vol: {sessionVolume.toLocaleString("it-IT")} kg
-                      </span>
-                    )}
-                    {/* Svuota button */}
-                    <ClearSectionButton
-                      sessionId={session.id}
-                      sezione={sectionKey}
-                      hasExercises={exercises.length > 0}
-                      hasBlocks={hasBlocks}
-                      onClear={onClearSection}
-                    />
-                  </div>
+                  {/* Linea divisoria orizzontale */}
+                  <div className={`flex-1 h-px ${config.dividerBg}`} />
+                  {/* Volume badge — solo principale */}
+                  {isPrincipale && sessionVolume != null && (
+                    <span className="text-[10px] font-semibold text-muted-foreground tabular-nums">
+                      Vol: {sessionVolume.toLocaleString("it-IT")} kg
+                    </span>
+                  )}
+                  {/* Svuota button */}
+                  <ClearSectionButton
+                    sessionId={session.id}
+                    sezione={sectionKey}
+                    hasExercises={exercises.length > 0}
+                    hasBlocks={hasBlocks}
+                    onClear={onClearSection}
+                  />
                 </div>
 
-                {/* ── Section body ── */}
-                <div className="px-3 py-2">
+                {/* ── Section body — no box wrapper ── */}
+                <div className="pl-1">
                   {/* Exercise rows */}
                   {exercises.length > 0 && (
                     <>

@@ -13,7 +13,7 @@ import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { getSectionForCategory, type TemplateSection } from "@/lib/workout-templates";
 import { parseAvgReps, type SessionCardData } from "./SessionCard";
-import type { WorkoutExerciseRow, Exercise } from "@/types/api";
+import { BLOCK_TYPE_LABELS, type WorkoutExerciseRow, type Exercise } from "@/types/api";
 
 // ════════════════════════════════════════════════════════════
 // LABELS
@@ -185,70 +185,105 @@ function SessionPreview({
 
       {SECTION_ORDER.map((sectionKey) => {
         const exercises = grouped[sectionKey];
-        if (exercises.length === 0) return null;
-        const config = SECTION_PREVIEW_CONFIG[sectionKey];
         const isPrincipale = sectionKey === "principale";
+        const hasBlocks = isPrincipale && session.blocchi.length > 0;
+        if (exercises.length === 0 && !hasBlocks) return null;
+        const config = SECTION_PREVIEW_CONFIG[sectionKey];
 
         return (
           <div key={sectionKey} className="mb-2">
             <p className={`text-[10px] font-semibold uppercase tracking-wider mb-1 ${config.color}`}>
               {config.label}
             </p>
-            <table className="w-full text-xs border-collapse">
-              {isPrincipale && (
-                <thead>
-                  <tr className="border-b text-muted-foreground">
-                    <th className="py-1 text-left font-medium w-8">#</th>
-                    <th className="py-1 text-left font-medium">Esercizio</th>
-                    <th className="py-1 text-center font-medium w-12">Serie</th>
-                    <th className="py-1 text-center font-medium w-14">Rip</th>
-                    <th className="py-1 text-center font-medium w-12">Kg</th>
-                    <th className="py-1 text-center font-medium w-14">Riposo</th>
-                    <th className="py-1 text-left font-medium w-28">Note</th>
-                  </tr>
-                </thead>
-              )}
-              <tbody>
-                {exercises.map((ex, idx) => {
-                  return (
-                    <tr key={ex.id} className="border-b border-dashed last:border-0">
-                      <td className="py-1 text-muted-foreground">{idx + 1}</td>
-                      <td className="py-1 font-medium">
-                        {ex.esercizio_nome}
-                        {ex.tempo_esecuzione && (
-                          <span className="ml-1 text-[10px] text-muted-foreground font-normal">
-                            ({ex.tempo_esecuzione})
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-1 text-center tabular-nums">{ex.serie}</td>
-                      <td className="py-1 text-center tabular-nums">{ex.ripetizioni}</td>
-                      {isPrincipale && (
-                        <>
-                          <td className="py-1 text-center tabular-nums">
-                            {ex.carico_kg != null ? ex.carico_kg : "—"}
-                          </td>
-                          <td className="py-1 text-center tabular-nums">{ex.tempo_riposo_sec}s</td>
-                          <td className="py-1 text-muted-foreground truncate max-w-[120px]">
-                            {ex.note ?? "—"}
-                          </td>
-                        </>
-                      )}
-                      {!isPrincipale && (
-                        <td colSpan={2} className="py-1 text-muted-foreground truncate max-w-[120px]">
-                          {ex.note ?? ""}
-                        </td>
-                      )}
+
+            {/* Esercizi straight */}
+            {exercises.length > 0 && (
+              <table className="w-full text-xs border-collapse">
+                {isPrincipale && (
+                  <thead>
+                    <tr className="border-b text-muted-foreground">
+                      <th className="py-1 text-left font-medium w-8">#</th>
+                      <th className="py-1 text-left font-medium">Esercizio</th>
+                      <th className="py-1 text-center font-medium w-12">Serie</th>
+                      <th className="py-1 text-center font-medium w-14">Rip</th>
+                      <th className="py-1 text-center font-medium w-12">Kg</th>
+                      <th className="py-1 text-center font-medium w-14">Riposo</th>
+                      <th className="py-1 text-left font-medium w-28">Note</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  </thead>
+                )}
+                <tbody>
+                  {exercises.map((ex, idx) => {
+                    return (
+                      <tr key={ex.id} className="border-b border-dashed last:border-0">
+                        <td className="py-1 text-muted-foreground">{idx + 1}</td>
+                        <td className="py-1 font-medium">
+                          {ex.esercizio_nome}
+                          {ex.tempo_esecuzione && (
+                            <span className="ml-1 text-[10px] text-muted-foreground font-normal">
+                              ({ex.tempo_esecuzione})
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-1 text-center tabular-nums">{ex.serie}</td>
+                        <td className="py-1 text-center tabular-nums">{ex.ripetizioni}</td>
+                        {isPrincipale && (
+                          <>
+                            <td className="py-1 text-center tabular-nums">
+                              {ex.carico_kg != null ? ex.carico_kg : "—"}
+                            </td>
+                            <td className="py-1 text-center tabular-nums">{ex.tempo_riposo_sec}s</td>
+                            <td className="py-1 text-muted-foreground truncate max-w-[120px]">
+                              {ex.note ?? "—"}
+                            </td>
+                          </>
+                        )}
+                        {!isPrincipale && (
+                          <td colSpan={2} className="py-1 text-muted-foreground truncate max-w-[120px]">
+                            {ex.note ?? ""}
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+
+            {/* Blocchi strutturati — solo in principale */}
+            {isPrincipale && session.blocchi.length > 0 && (
+              <div className="mt-1 space-y-1.5">
+                {session.blocchi
+                  .slice()
+                  .sort((a, b) => a.ordine - b.ordine)
+                  .map((block) => (
+                    <div key={block.id} className="border-l-2 border-muted-foreground/30 pl-2">
+                      {/* Header blocco */}
+                      <div className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-0.5">
+                        <span>{BLOCK_TYPE_LABELS[block.tipo_blocco]}</span>
+                        {block.giri > 0 && <span>× {block.giri}</span>}
+                        {block.durata_lavoro_sec && <span>· {block.durata_lavoro_sec}s on</span>}
+                        {block.durata_riposo_sec && <span>· {block.durata_riposo_sec}s off</span>}
+                        {block.durata_blocco_sec && <span>· {Math.round(block.durata_blocco_sec / 60)}min</span>}
+                        {block.nome && <span className="normal-case">— {block.nome}</span>}
+                      </div>
+                      {/* Esercizi nel blocco */}
+                      {block.esercizi.map((ex, idx) => (
+                        <div key={ex.id} className="flex items-center gap-1 text-[11px] py-0.5">
+                          <span className="text-muted-foreground/60 tabular-nums w-4">{idx + 1}.</span>
+                          <span className="font-medium truncate">{ex.esercizio_nome}</span>
+                          {ex.note && <span className="ml-auto text-muted-foreground/60 text-[10px]">{ex.note}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+              </div>
+            )}
           </div>
         );
       })}
 
-      {session.esercizi.length === 0 && (
+      {session.esercizi.length === 0 && session.blocchi.length === 0 && (
         <p className="py-4 text-center text-xs text-muted-foreground italic">
           Nessun esercizio
         </p>
