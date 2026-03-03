@@ -37,7 +37,7 @@ const GRAY_BG = "F5F5F5";
 
 const SECTION_COLORS: Record<TemplateSection, { bg: string; label: string }> = {
   avviamento: { bg: AMBER_LIGHT, label: "AVVIAMENTO" },
-  principale: { bg: LIGHT_TEAL, label: "ESERCIZIO PRINCIPALE" },
+  principale: { bg: LIGHT_TEAL, label: "BLOCCO SERIE X RIPETIZIONI" },
   stretching: { bg: CYAN_LIGHT, label: "STRETCHING & MOBILITA" },
 };
 

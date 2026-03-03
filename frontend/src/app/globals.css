@@ -214,6 +214,7 @@
 
 /* ── Workout Preview: Print/PDF ── */
 @media print {
+  @page { size: A4; margin: 10mm; }
   [data-print-hide] { display: none !important; }
   .workout-preview {
     display: block !important;
@@ -222,12 +223,19 @@
     color: black !important;
     border: none !important;
     padding: 0 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
   .workout-preview-container {
     display: block !important;
     position: static !important;
   }
-  .workout-session { page-break-inside: avoid; }
+  .workout-preview * { box-shadow: none !important; }
+  .workout-session {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    margin-bottom: 0.35rem;
+  }
   .measurement-table tr { page-break-inside: avoid; }
   body { background: white !important; }
   nav, header, aside { display: none !important; }

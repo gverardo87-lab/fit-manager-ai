@@ -6,7 +6,7 @@
  *
  * 3 sezioni visive come separatori leggeri (label + linea h-px colorata, zero box):
  * - Avviamento (warm-up)      → linea amber
- * - Esercizio Principale      → linea primary
+ * - Blocco Serie x Ripetizioni → linea primary
  * - Stretching & Mobilita     → linea cyan
  *
  * Ogni sezione ha drag & drop indipendente, + button, e "Svuota" button.
@@ -112,7 +112,7 @@ const SECTION_CONFIG: Record<TemplateSection, {
     dividerBg: "bg-amber-200 dark:bg-amber-700",
   },
   principale: {
-    label: "Esercizio Principale",
+    label: "Blocco Serie x Ripetizioni",
     icon: <Dumbbell className="h-3.5 w-3.5" />,
     addLabel: "Aggiungi Esercizio",
     color: "text-primary",

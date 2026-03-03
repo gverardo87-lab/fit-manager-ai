@@ -53,7 +53,7 @@ export interface WorkoutTemplate {
 /** Sezione labels per UI */
 export const SECTION_LABELS: Record<TemplateSection, string> = {
   avviamento: "Avviamento",
-  principale: "Esercizio Principale",
+  principale: "Blocco Serie x Ripetizioni",
   stretching: "Stretching & Mobilita",
 };
 
