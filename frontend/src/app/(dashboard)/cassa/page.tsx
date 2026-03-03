@@ -91,6 +91,14 @@ const MESI = [
 ] as const;
 
 type LedgerMovementFilter = "ALL" | "ENTRATA" | "USCITA";
+type CassaTabKey = "ledger" | "recurring" | "split" | "aging" | "forecast";
+const CASSA_TAB_SET: ReadonlySet<CassaTabKey> = new Set([
+  "ledger",
+  "recurring",
+  "split",
+  "aging",
+  "forecast",
+]);
 
 function isValidIsoDate(v: string | null): v is string {
   if (!v) return false;
@@ -101,6 +109,16 @@ function parsePositiveInt(v: string | null): number | null {
   if (!v) return null;
   const parsed = Number.parseInt(v, 10);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function parseLedgerTipo(v: string | null): LedgerMovementFilter {
+  if (v === "ENTRATA" || v === "USCITA") return v;
+  return "ALL";
+}
+
+function parseCassaTab(v: string | null): CassaTabKey {
+  if (v && CASSA_TAB_SET.has(v as CassaTabKey)) return v as CassaTabKey;
+  return "ledger";
 }
 
 function getYearRange(): number[] {
@@ -208,6 +226,32 @@ export default function CassaPage() {
   const pendingCount = pendingData?.items.length ?? 0;
   const handleFocusConsumed = useCallback(() => {
     setFocusedMovementId(null);
+  }, []);
+  const handleNavigateInCashFromAudit = useCallback((href: string) => {
+    let url: URL;
+    try {
+      url = new URL(href, window.location.origin);
+    } catch {
+      return;
+    }
+
+    if (url.pathname !== "/cassa") return;
+
+    const nextTab = parseCassaTab(url.searchParams.get("tab"));
+    setActiveTab(nextTab);
+
+    if (nextTab === "ledger") {
+      const nextDa = url.searchParams.get("da");
+      const nextA = url.searchParams.get("a");
+      setLedgerTipo(parseLedgerTipo(url.searchParams.get("tipo")));
+      setLedgerDataDa(isValidIsoDate(nextDa) ? nextDa : "");
+      setLedgerDataA(isValidIsoDate(nextA) ? nextA : "");
+      setFocusedMovementId(parsePositiveInt(url.searchParams.get("focus_movement")));
+    } else {
+      setFocusedMovementId(null);
+    }
+
+    setAuditSheetOpen(false);
   }, []);
 
   // ── Sync filtri → sessionStorage + URL (feedback visivo) ──
@@ -447,7 +491,11 @@ export default function CassaPage() {
         onOpenChange={setDeleteOpen}
         movement={selectedMovement}
       />
-      <CashAuditSheet open={auditSheetOpen} onOpenChange={setAuditSheetOpen} />
+      <CashAuditSheet
+        open={auditSheetOpen}
+        onOpenChange={setAuditSheetOpen}
+        onNavigateInCash={handleNavigateInCashFromAudit}
+      />
     </div>
   );
 }

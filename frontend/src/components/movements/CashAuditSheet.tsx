@@ -35,12 +35,24 @@ import type { CashAuditTimelineItem } from "@/types/api";
 interface CashAuditSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onNavigateInCash?: (href: string) => void;
 }
 
 type ActionFilter = "ALL" | "CREATE" | "UPDATE" | "DELETE" | "RESTORE";
 type EntityFilter = "ALL" | "movement" | "recurring_expense" | "rate" | "contract";
 type FlowFilter = "ALL" | "ENTRATA" | "USCITA";
 const PAGE_SIZE = 60;
+
+const CASH_PATH = "/cassa";
+
+function isCashInternalHref(href: string): boolean {
+  try {
+    const url = new URL(href, "https://fitmanager.local");
+    return url.pathname === CASH_PATH;
+  } catch {
+    return false;
+  }
+}
 
 function formatDateTime(iso: string): string {
   const d = new Date(iso);
@@ -69,9 +81,19 @@ function ActionBadge({ action }: { action: string }) {
   return <Badge variant="outline">{action}</Badge>;
 }
 
-function AuditRow({ item }: { item: CashAuditTimelineItem }) {
+function AuditRow({
+  item,
+  onNavigateInCash,
+}: {
+  item: CashAuditTimelineItem;
+  onNavigateInCash?: (href: string) => void;
+}) {
   const fields = Object.keys(item.before || {});
   const hasDiff = fields.length > 0;
+  const linkHref = item.link_href ?? "";
+  const isInternalCashLink = Boolean(
+    item.link_href && onNavigateInCash && isCashInternalHref(item.link_href)
+  );
 
   return (
     <div className="rounded-lg border p-3">
@@ -113,7 +135,14 @@ function AuditRow({ item }: { item: CashAuditTimelineItem }) {
       {item.link_href && item.link_label && (
         <div className="mt-3">
           <Button asChild variant="outline" size="sm" className="gap-1.5">
-            <Link href={item.link_href}>
+            <Link
+              href={linkHref}
+              onClick={(event) => {
+                if (!isInternalCashLink) return;
+                event.preventDefault();
+                onNavigateInCash?.(linkHref);
+              }}
+            >
               <ExternalLink className="h-3.5 w-3.5" />
               {item.link_label}
             </Link>
@@ -124,7 +153,11 @@ function AuditRow({ item }: { item: CashAuditTimelineItem }) {
   );
 }
 
-export function CashAuditSheet({ open, onOpenChange }: CashAuditSheetProps) {
+export function CashAuditSheet({
+  open,
+  onOpenChange,
+  onNavigateInCash,
+}: CashAuditSheetProps) {
   const [dataDa, setDataDa] = useState("");
   const [dataA, setDataA] = useState("");
   const [action, setAction] = useState<ActionFilter>("ALL");
@@ -262,7 +295,11 @@ export function CashAuditSheet({ open, onOpenChange }: CashAuditSheetProps) {
             )}
 
             {!isFirstPageLoading && items.map((item) => (
-              <AuditRow key={item.id} item={item} />
+              <AuditRow
+                key={item.id}
+                item={item}
+                onNavigateInCash={onNavigateInCash}
+              />
             ))}
 
             {!isFirstPageLoading && hasMore && (
