@@ -105,14 +105,24 @@ const CONDITION_CATEGORY_LABELS: Record<string, string> = {
 const CATEGORY_ORDER = ["orthopedic", "cardiovascular", "metabolic", "neurological", "respiratory", "special"];
 
 type SaveIssueLevel = "warning" | "critical";
+type SaveIssueCategory = "draft" | "normalization" | "safety" | "integrity";
 
 interface SaveIssue {
   level: SaveIssueLevel;
+  category: SaveIssueCategory;
   message: string;
   sessionId?: number;
+  sessionNumber?: number;
   blockId?: number;
   exerciseRowId?: number;
 }
+
+const SAVE_ISSUE_CATEGORY_LABELS: Record<SaveIssueCategory, string> = {
+  draft: "Bozza",
+  normalization: "Normalizzazione",
+  safety: "Sicurezza",
+  integrity: "Integrita",
+};
 
 const VALID_BLOCK_TYPES: Set<BlockType> = new Set([
   "circuit",
@@ -196,11 +206,12 @@ function sanitizeExerciseForSave(
   contextLabel: string,
   exerciseMap: Map<number, Exercise>,
   oneRMByPattern?: Record<string, number> | null,
-  location?: Pick<SaveIssue, "sessionId" | "blockId" | "exerciseRowId">,
+  location?: Pick<SaveIssue, "sessionId" | "sessionNumber" | "blockId" | "exerciseRowId">,
 ): WorkoutSessionInput["esercizi"][number] | null {
   if (!ex.id_esercizio || !exerciseMap.has(ex.id_esercizio)) {
     issues.push({
       level: "warning",
+      category: "integrity",
       message: `${contextLabel}: esercizio non valido rimosso dal salvataggio.`,
       ...location,
     });
@@ -216,6 +227,7 @@ function sanitizeExerciseForSave(
   if (!ripRaw) {
     issues.push({
       level: "warning",
+      category: "normalization",
       message: `${contextLabel}: ripetizioni mancanti, applicato default 8-12.`,
       ...location,
     });
@@ -224,6 +236,7 @@ function sanitizeExerciseForSave(
   if (caricoKg != null && caricoKg >= HIGH_LOAD_WARNING_KG) {
     issues.push({
       level: "warning",
+      category: "safety",
       message: `${contextLabel}: carico elevato (${caricoKg} kg), verifica sicurezza e progressione.`,
       ...location,
     });
@@ -238,6 +251,7 @@ function sanitizeExerciseForSave(
       if (percent > 105) {
         issues.push({
           level: "warning",
+          category: "safety",
           message: `${contextLabel}: carico ${percent}% 1RM, controlla che sia intenzionale.`,
           ...location,
         });
@@ -266,6 +280,7 @@ function prepareSessionsInputForSave(
   if (sessions.length === 0) {
     issues.push({
       level: "critical",
+      category: "integrity",
       message: "Serve almeno una sessione per salvare la scheda.",
     });
     return { sessionsInput: [], issues, criticalCount: 1, warningCount: 0 };
@@ -273,13 +288,16 @@ function prepareSessionsInputForSave(
 
   const sessionsInput: WorkoutSessionInput[] = sessions.map((s, si) => {
     const sessionLabel = `Sessione ${si + 1}`;
+    const sessionNumber = s.numero_sessione > 0 ? s.numero_sessione : si + 1;
 
     const nomeSessione = (s.nome_sessione ?? "").trim() || sessionLabel;
     if ((s.nome_sessione ?? "").trim() === "") {
       issues.push({
         level: "warning",
+        category: "normalization",
         message: `${sessionLabel}: nome mancante, applicato "${nomeSessione}".`,
         sessionId: s.id,
+        sessionNumber,
       });
     }
 
@@ -287,8 +305,10 @@ function prepareSessionsInputForSave(
     if (durataMinuti !== s.durata_minuti) {
       issues.push({
         level: "warning",
+        category: "normalization",
         message: `${sessionLabel}: durata fuori range, normalizzata a ${durataMinuti} min.`,
         sessionId: s.id,
+        sessionNumber,
       });
     }
 
@@ -301,7 +321,7 @@ function prepareSessionsInputForSave(
           sessionLabel,
           exerciseMap,
           oneRMByPattern,
-          { sessionId: s.id, exerciseRowId: ex.id },
+          { sessionId: s.id, sessionNumber, exerciseRowId: ex.id },
         ),
       )
       .filter((ex): ex is WorkoutSessionInput["esercizi"][number] => ex !== null);
@@ -314,8 +334,10 @@ function prepareSessionsInputForSave(
       if (tipoBlocco !== b.tipo_blocco) {
         issues.push({
           level: "warning",
+          category: "integrity",
           message: `${sessionLabel}: tipo blocco non valido, convertito in "circuit".`,
           sessionId: s.id,
+          sessionNumber,
           blockId: b.id,
         });
       }
@@ -329,7 +351,7 @@ function prepareSessionsInputForSave(
             `${sessionLabel} • ${blockLabel}`,
             exerciseMap,
             oneRMByPattern,
-            { sessionId: s.id, blockId: b.id, exerciseRowId: ex.id },
+            { sessionId: s.id, sessionNumber, blockId: b.id, exerciseRowId: ex.id },
           ),
         )
         .filter((ex): ex is WorkoutSessionInput["esercizi"][number] => ex !== null);
@@ -337,8 +359,10 @@ function prepareSessionsInputForSave(
       if (eserciziBlocco.length === 0) {
         issues.push({
           level: "warning",
+          category: "draft",
           message: `${sessionLabel}: ${blockLabel} non salvato perche vuoto.`,
           sessionId: s.id,
+          sessionNumber,
           blockId: b.id,
         });
         continue;
@@ -360,8 +384,10 @@ function prepareSessionsInputForSave(
     if (esercizi.length === 0 && blocchi.length === 0) {
       issues.push({
         level: "warning",
+        category: "draft",
         message: `${sessionLabel}: sessione salvata vuota (bozza parziale).`,
         sessionId: s.id,
+        sessionNumber,
       });
     }
 
@@ -383,6 +409,7 @@ function prepareSessionsInputForSave(
   if (totalSavedExercises === 0) {
     issues.push({
       level: "warning",
+      category: "draft",
       message: "Scheda salvata senza esercizi: bozza valida ma incompleta.",
     });
   }
@@ -446,6 +473,7 @@ export default function SchedaDetailPage({
   const [isDirty, setIsDirty] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [saveIssues, setSaveIssues] = useState<SaveIssue[]>([]);
+  const [saveIssuesExpanded, setSaveIssuesExpanded] = useState(false);
   const [historyPast, setHistoryPast] = useState<SessionCardData[][]>([]);
   const [historyFuture, setHistoryFuture] = useState<SessionCardData[][]>([]);
   const highlightedNodeRef = useRef<HTMLElement | null>(null);
@@ -615,6 +643,7 @@ export default function SchedaDetailPage({
   useEffect(() => {
     if (!isDirtyRef.current || saveIssues.length === 0) return;
     setSaveIssues([]);
+    setSaveIssuesExpanded(false);
   }, [sessions, saveIssues.length]);
 
   useEffect(() => {
@@ -666,7 +695,22 @@ export default function SchedaDetailPage({
     () => saveIssues.filter((issue) => issue.level === "warning").length,
     [saveIssues],
   );
-  const visibleSaveIssues = useMemo(() => saveIssues.slice(0, 3), [saveIssues]);
+  const visibleSaveIssues = useMemo(
+    () => (saveIssuesExpanded ? saveIssues : saveIssues.slice(0, 3)),
+    [saveIssues, saveIssuesExpanded],
+  );
+  const hiddenSaveIssuesCount = useMemo(
+    () => Math.max(0, saveIssues.length - 3),
+    [saveIssues.length],
+  );
+  const saveIssueCategoryCounts = useMemo(() => {
+    const counts: Partial<Record<SaveIssueCategory, number>> = {};
+    for (const issue of saveIssues) {
+      counts[issue.category] = (counts[issue.category] ?? 0) + 1;
+    }
+    return (Object.entries(counts) as Array<[SaveIssueCategory, number]>)
+      .sort((a, b) => b[1] - a[1]);
+  }, [saveIssues]);
   const canUndo = historyPast.length > 0;
   const canRedo = historyFuture.length > 0;
 
@@ -707,8 +751,15 @@ export default function SchedaDetailPage({
   }, [flushCoalescedHistory]);
 
   const issueHasTarget = useCallback((issue: SaveIssue) => (
-    issue.sessionId != null || issue.blockId != null || issue.exerciseRowId != null
+    issue.sessionId != null ||
+    issue.sessionNumber != null ||
+    issue.blockId != null ||
+    issue.exerciseRowId != null
   ), []);
+  const firstNavigableIssue = useMemo(
+    () => saveIssues.find(issueHasTarget),
+    [saveIssues, issueHasTarget],
+  );
 
   const jumpToIssue = useCallback((issue: SaveIssue) => {
     const selectorCandidates: string[] = [];
@@ -720,6 +771,9 @@ export default function SchedaDetailPage({
     }
     if (issue.sessionId != null) {
       selectorCandidates.push(`[data-workout-session-id="${issue.sessionId}"]`);
+    }
+    if (issue.sessionNumber != null) {
+      selectorCandidates.push(`[data-workout-session-number="${issue.sessionNumber}"]`);
     }
 
     let target: HTMLElement | null = null;
@@ -750,6 +804,12 @@ export default function SchedaDetailPage({
       target.classList.remove("ring-2", "ring-primary", "ring-offset-2", "ring-offset-background");
     }, 1800);
   }, []);
+  const focusFirstIssue = useCallback((issues: SaveIssue[]) => {
+    const first = issues.find(issueHasTarget);
+    if (!first) return;
+    setSaveIssuesExpanded(true);
+    window.setTimeout(() => jumpToIssue(first), 20);
+  }, [issueHasTarget, jumpToIssue]);
 
   // Safety stats: conteggi avoid/caution sugli esercizi nella scheda corrente (straight + in blocchi)
   const safetyStats = useMemo(() => {
@@ -1315,6 +1375,7 @@ export default function SchedaDetailPage({
       oneRMByPattern,
     );
     setSaveIssues(issues);
+    setSaveIssuesExpanded(criticalCount > 0);
     if (criticalCount > 0) {
       return;
     }
@@ -1329,6 +1390,12 @@ export default function SchedaDetailPage({
               `Scheda salvata con ${warningCount} avvis${warningCount === 1 ? "o" : "i"}.${
                 firstWarning ? ` ${firstWarning}` : ""
               }`,
+              {
+                action: {
+                  label: "Rivedi avvisi",
+                  onClick: () => focusFirstIssue(issues),
+                },
+              },
             );
           }
           setIsDirty(false);
@@ -1341,7 +1408,7 @@ export default function SchedaDetailPage({
         },
       },
     );
-  }, [plan, updateSessions, draftKey, exerciseMap, oneRMByPattern, flushCoalescedHistory]);
+  }, [plan, updateSessions, draftKey, exerciseMap, oneRMByPattern, flushCoalescedHistory, focusFirstIssue]);
 
   // Shortcut globale: Ctrl+S / Cmd+S salva le modifiche della scheda.
   useEffect(() => {
@@ -1871,7 +1938,10 @@ export default function SchedaDetailPage({
                   variant="ghost"
                   size="sm"
                   className="h-8"
-                  onClick={() => setSaveIssues([])}
+                  onClick={() => {
+                    setSaveIssues([]);
+                    setSaveIssuesExpanded(false);
+                  }}
                 >
                   Chiudi
                 </Button>
@@ -1896,6 +1966,18 @@ export default function SchedaDetailPage({
                     ? `Salvataggio bloccato: ${saveCriticalCount} errore critico.`
                     : `Salvataggio assistito: ${saveWarningCount} avviso/i non bloccante/i.`}
                 </p>
+                {saveIssueCategoryCounts.length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {saveIssueCategoryCounts.map(([category, count]) => (
+                      <span
+                        key={category}
+                        className="inline-flex items-center rounded border border-current/20 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                      >
+                        {SAVE_ISSUE_CATEGORY_LABELS[category]}: {count}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <ul className="mt-1 space-y-0.5">
                   {visibleSaveIssues.map((issue, idx) => (
                     <li key={`${issue.level}-${idx}`} className="text-[10px] text-muted-foreground">
@@ -1912,12 +1994,30 @@ export default function SchedaDetailPage({
                       )}
                     </li>
                   ))}
-                  {saveIssues.length > visibleSaveIssues.length && (
+                  {!saveIssuesExpanded && hiddenSaveIssuesCount > 0 && (
                     <li className="text-[10px] text-muted-foreground">
-                      • +{saveIssues.length - visibleSaveIssues.length} altri avvisi
+                      • +{hiddenSaveIssuesCount} altri avvisi
                     </li>
                   )}
                 </ul>
+                {saveIssues.length > 3 && (
+                  <button
+                    type="button"
+                    onClick={() => setSaveIssuesExpanded((prev) => !prev)}
+                    className="mt-1 text-[10px] font-medium text-primary hover:underline"
+                  >
+                    {saveIssuesExpanded ? "Mostra meno avvisi" : `Mostra tutti gli avvisi (${saveIssues.length})`}
+                  </button>
+                )}
+                {firstNavigableIssue && (
+                  <button
+                    type="button"
+                    onClick={() => jumpToIssue(firstNavigableIssue)}
+                    className="mt-1 block text-[10px] font-medium text-primary hover:underline"
+                  >
+                    Vai al primo punto da rivedere
+                  </button>
+                )}
               </div>
             )}
           </div>
