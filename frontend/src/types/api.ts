@@ -600,6 +600,29 @@ export interface ImpactPreviewResponse {
   details: Record<string, unknown>;
 }
 
+/** GET /api/movements/audit-log */
+export interface CashAuditTimelineItem {
+  id: number;
+  created_at: string; // ISO datetime
+  entity_type: string;
+  entity_id: number;
+  action: string;
+  flow_hint: "ENTRATA" | "USCITA" | null;
+  reason: string | null;
+  correlation_id: string | null;
+  before: Record<string, unknown>;
+  after: Record<string, unknown>;
+  details: Record<string, unknown>;
+  link_href: string | null;
+  link_label: string | null;
+}
+
+/** GET /api/movements/audit-log */
+export interface CashAuditTimelineResponse {
+  items: CashAuditTimelineItem[];
+  total: number;
+}
+
 /** Rate scaduta per risoluzione inline dalla Dashboard */
 export interface OverdueRateItem {
   rate_id: number;

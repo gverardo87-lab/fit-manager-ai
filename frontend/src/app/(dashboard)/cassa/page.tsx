@@ -27,6 +27,7 @@ import {
   Clock,
   LineChart,
   Wallet,
+  FileSearch,
   ShieldCheck,
   ShieldAlert,
   ShieldX,
@@ -66,6 +67,7 @@ import { RecurringExpensesTab } from "@/components/movements/RecurringExpensesTa
 import { SplitLedgerView } from "@/components/movements/SplitLedgerView";
 import { AgingReport } from "@/components/movements/AgingReport";
 import { ForecastTab } from "@/components/movements/ForecastTab";
+import { CashAuditSheet } from "@/components/movements/CashAuditSheet";
 import { useMovements, useMovementStats, usePendingExpenses, useCashBalance } from "@/hooks/useMovements";
 import type { CashMovement, CashProtection } from "@/types/api";
 import { formatCurrency } from "@/lib/format";
@@ -168,6 +170,7 @@ export default function CassaPage() {
   });
 
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [auditSheetOpen, setAuditSheetOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [selectedMovement, setSelectedMovement] =
     useState<CashMovement | null>(null);
@@ -284,6 +287,15 @@ export default function CassaPage() {
               ))}
             </SelectContent>
           </Select>
+
+          <Button
+            variant="outline"
+            onClick={() => setAuditSheetOpen(true)}
+            className="gap-1.5"
+          >
+            <FileSearch className="h-4 w-4" />
+            <span className="hidden sm:inline">Registro Modifiche</span>
+          </Button>
 
           <Button onClick={() => setSheetOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white">
             <Plus className="h-4 w-4 sm:mr-2" />
@@ -413,6 +425,7 @@ export default function CassaPage() {
         onOpenChange={setDeleteOpen}
         movement={selectedMovement}
       />
+      <CashAuditSheet open={auditSheetOpen} onOpenChange={setAuditSheetOpen} />
     </div>
   );
 }

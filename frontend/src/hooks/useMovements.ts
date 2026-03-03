@@ -20,6 +20,7 @@ import type {
   MovementStats,
   MovementsPaginatedResponse,
   ImpactPreviewResponse,
+  CashAuditTimelineResponse,
   PendingExpensesResponse,
   ForecastResponse,
   BalanceResponse,
@@ -38,6 +39,16 @@ interface UseMovementsParams {
   id_cliente?: number;
   page?: number;
   pageSize?: number;
+}
+
+interface UseCashAuditLogParams {
+  data_da?: string;
+  data_a?: string;
+  action?: string;
+  entity_type?: string;
+  flow?: "ENTRATA" | "USCITA";
+  limit?: number;
+  offset?: number;
 }
 
 export function useMovements({
@@ -179,6 +190,39 @@ export function usePreviewCreateMovement() {
     onError: (error) => {
       toast.error(extractErrorMessage(error, "Errore nel calcolo anteprima movimento"));
     },
+  });
+}
+
+export function useCashAuditLog(
+  {
+    data_da,
+    data_a,
+    action,
+    entity_type,
+    flow,
+    limit = 80,
+    offset = 0,
+  }: UseCashAuditLogParams = {},
+  enabled: boolean = true
+) {
+  return useQuery<CashAuditTimelineResponse>({
+    queryKey: ["cash-audit-log", { data_da, data_a, action, entity_type, flow, limit, offset }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (data_da) params.set("data_da", data_da);
+      if (data_a) params.set("data_a", data_a);
+      if (action) params.set("action", action);
+      if (entity_type) params.set("entity_type", entity_type);
+      if (flow) params.set("flow", flow);
+      params.set("limit", String(limit));
+      params.set("offset", String(offset));
+
+      const { data } = await apiClient.get<CashAuditTimelineResponse>(
+        `/movements/audit-log?${params.toString()}`
+      );
+      return data;
+    },
+    enabled,
   });
 }
 

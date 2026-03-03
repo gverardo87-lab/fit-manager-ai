@@ -22,20 +22,22 @@ Spese Ricorrenti — Paradigma "Conferma & Registra":
 """
 
 import calendar
+import json
 import logging
 from collections import defaultdict
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
-from sqlalchemy import extract, case
+from sqlalchemy import extract, case, or_
 from sqlmodel import Session, select, func, text
 
 from api.database import get_session
 from api.dependencies import get_current_trainer
 from api.models.trainer import Trainer
 from api.models.movement import CashMovement
+from api.models.audit_log import AuditLog
 from api.models.rate import Rate
 from api.models.contract import Contract
 from api.models.recurring_expense import RecurringExpense
@@ -146,6 +148,81 @@ class ImpactPreviewResponse(BaseModel):
     delta_saldo_previsto: float
     delta_netto: float
     details: dict = Field(default_factory=dict)
+
+
+class CashAuditTimelineItem(BaseModel):
+    id: int
+    created_at: datetime
+    entity_type: str
+    entity_id: int
+    action: str
+    flow_hint: Optional[str] = None
+    reason: Optional[str] = None
+    correlation_id: Optional[str] = None
+    before: dict = Field(default_factory=dict)
+    after: dict = Field(default_factory=dict)
+    details: dict = Field(default_factory=dict)
+    link_href: Optional[str] = None
+    link_label: Optional[str] = None
+
+
+class CashAuditTimelineResponse(BaseModel):
+    items: list[CashAuditTimelineItem]
+    total: int
+
+
+def _parse_audit_changes(raw: Optional[str]) -> dict:
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except (TypeError, json.JSONDecodeError):
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _extract_before_after(changes: dict) -> tuple[dict, dict]:
+    before: dict = {}
+    after: dict = {}
+    for field, payload in changes.items():
+        if (
+            isinstance(payload, dict)
+            and "old" in payload
+            and "new" in payload
+        ):
+            before[field] = payload.get("old")
+            after[field] = payload.get("new")
+    return before, after
+
+
+def _build_audit_reason(
+    entity_type: str,
+    action: str,
+    changes: dict,
+    movement_note: Optional[str],
+) -> Optional[str]:
+    if movement_note:
+        return movement_note
+    close_strategy = changes.get("close_strategy")
+    if isinstance(close_strategy, dict):
+        cutoff = close_strategy.get("effective_mese_anno_key") or close_strategy.get("cutoff_data")
+        due = close_strategy.get("last_occurrence_due")
+        if due is True:
+            return f"Rettifica cutoff {cutoff}: occorrenza dovuta"
+        if due is False:
+            return f"Rettifica cutoff {cutoff}: occorrenza stornata"
+        return f"Rettifica cutoff {cutoff}"
+    if entity_type == "movement" and action == "DELETE":
+        return "Eliminazione movimento dal libro mastro"
+    if entity_type == "movement" and action == "CREATE":
+        return "Registrazione movimento nel libro mastro"
+    if entity_type == "recurring_expense" and action == "DELETE":
+        return "Eliminazione configurazione spesa fissa"
+    return None
+
+
+CASH_AUDIT_ENTITY_TYPES = {"movement", "recurring_expense", "rate", "contract"}
+CASH_AUDIT_FLOW_VALUES = {"ENTRATA", "USCITA"}
 
 
 def _build_impact_preview(
@@ -769,6 +846,179 @@ def confirm_expenses(
         )
 
     return ConfirmExpensesResponse(created=created, totale=round(totale, 2))
+
+
+@router.get("/audit-log", response_model=CashAuditTimelineResponse)
+def get_cash_audit_log(
+    data_da: Optional[date] = Query(default=None, description="Data inizio filtro (YYYY-MM-DD)"),
+    data_a: Optional[date] = Query(default=None, description="Data fine filtro (YYYY-MM-DD)"),
+    action: Optional[str] = Query(default=None, description="Filtro azione (es. CREATE, UPDATE, DELETE, RESTORE)"),
+    entity_type: Optional[str] = Query(default=None, description="Filtro entita' (movement, recurring_expense, rate, contract)"),
+    flow: Optional[str] = Query(default=None, description="Filtro flusso contabile (ENTRATA o USCITA)"),
+    limit: int = Query(default=80, ge=1, le=300),
+    offset: int = Query(default=0, ge=0),
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """
+    Timeline audit consultabile per la sola area cassa.
+
+    Non duplica il libro mastro: mostra eventi operativi (chi ha fatto cosa),
+    con diff before/after e link rapido al contesto contabile.
+    """
+    if entity_type and entity_type not in CASH_AUDIT_ENTITY_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="entity_type non valido",
+        )
+    flow_filter = flow.upper() if flow else None
+    if flow_filter and flow_filter not in CASH_AUDIT_FLOW_VALUES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="flow non valido",
+        )
+
+    filters = [AuditLog.trainer_id == trainer.id]
+
+    if entity_type:
+        filters.append(AuditLog.entity_type == entity_type)
+    else:
+        filters.append(AuditLog.entity_type.in_(CASH_AUDIT_ENTITY_TYPES))
+
+    if action:
+        filters.append(AuditLog.action == action.upper())
+
+    if data_da:
+        start_dt = datetime.combine(data_da, datetime.min.time()).replace(tzinfo=timezone.utc)
+        filters.append(AuditLog.created_at >= start_dt)
+    if data_a:
+        end_dt = datetime.combine(data_a + timedelta(days=1), datetime.min.time()).replace(tzinfo=timezone.utc)
+        filters.append(AuditLog.created_at < end_dt)
+
+    if flow_filter:
+        movement_ids_for_flow = select(CashMovement.id).where(
+            CashMovement.trainer_id == trainer.id,
+            CashMovement.tipo == flow_filter,
+        )
+        if flow_filter == "USCITA":
+            filters.append(or_(
+                (AuditLog.entity_type == "movement") & (AuditLog.entity_id.in_(movement_ids_for_flow)),
+                AuditLog.entity_type == "recurring_expense",
+            ))
+        else:
+            filters.append(or_(
+                (AuditLog.entity_type == "movement") & (AuditLog.entity_id.in_(movement_ids_for_flow)),
+                AuditLog.entity_type == "rate",
+                AuditLog.entity_type == "contract",
+            ))
+
+    base_query = select(AuditLog).where(*filters)
+    total = int(session.exec(select(func.count()).select_from(base_query.subquery())).one())
+    rows = session.exec(
+        base_query.order_by(AuditLog.created_at.desc(), AuditLog.id.desc()).offset(offset).limit(limit)
+    ).all()
+
+    movement_ids = [r.entity_id for r in rows if r.entity_type == "movement"]
+    rate_ids = [r.entity_id for r in rows if r.entity_type == "rate"]
+
+    movement_map: dict[int, dict] = {}
+    if movement_ids:
+        movement_rows = session.exec(
+            select(
+                CashMovement.id,
+                CashMovement.tipo,
+                CashMovement.note,
+                CashMovement.id_contratto,
+            ).where(
+                CashMovement.trainer_id == trainer.id,
+                CashMovement.id.in_(movement_ids),
+            )
+        ).all()
+        for row in movement_rows:
+            movement_map[int(row[0])] = {
+                "tipo": row[1],
+                "note": row[2],
+                "id_contratto": row[3],
+            }
+
+    rate_contract_map: dict[int, int] = {}
+    if rate_ids:
+        rate_rows = session.exec(
+            select(Rate.id, Rate.id_contratto).join(
+                Contract,
+                Contract.id == Rate.id_contratto,
+            ).where(
+                Rate.id.in_(rate_ids),
+                Contract.trainer_id == trainer.id,
+            )
+        ).all()
+        rate_contract_map = {int(r[0]): int(r[1]) for r in rate_rows}
+
+    items: list[CashAuditTimelineItem] = []
+    for entry in rows:
+        changes = _parse_audit_changes(entry.changes)
+        before, after = _extract_before_after(changes)
+        movement_ref = movement_map.get(entry.entity_id)
+
+        flow_hint: Optional[str] = None
+        if entry.entity_type == "movement":
+            flow_hint = movement_ref.get("tipo") if movement_ref else None
+        elif entry.entity_type == "recurring_expense":
+            flow_hint = "USCITA"
+        elif entry.entity_type in {"rate", "contract"}:
+            flow_hint = "ENTRATA"
+
+        link_href: Optional[str] = None
+        link_label: Optional[str] = None
+        if entry.entity_type == "movement":
+            link_href = "/cassa?tab=ledger"
+            link_label = f"Apri movimento #{entry.entity_id} nel libro mastro"
+        elif entry.entity_type == "recurring_expense":
+            link_href = "/cassa?tab=recurring"
+            link_label = f"Apri spesa fissa #{entry.entity_id}"
+        elif entry.entity_type == "contract":
+            link_href = f"/contratti/{entry.entity_id}"
+            link_label = f"Apri contratto #{entry.entity_id}"
+        elif entry.entity_type == "rate":
+            contract_id = rate_contract_map.get(entry.entity_id)
+            if contract_id:
+                link_href = f"/contratti/{contract_id}"
+                link_label = f"Apri rata #{entry.entity_id} (contratto #{contract_id})"
+            else:
+                link_href = "/contratti"
+                link_label = f"Apri rate (focus #{entry.entity_id})"
+
+        reason = _build_audit_reason(
+            entry.entity_type,
+            entry.action,
+            changes,
+            movement_ref.get("note") if movement_ref else None,
+        )
+        correlation_id = (
+            changes.get("correlation_id")
+            if isinstance(changes.get("correlation_id"), str)
+            else f"{entry.entity_type}:{entry.entity_id}"
+        )
+
+        items.append(
+            CashAuditTimelineItem(
+                id=int(entry.id),
+                created_at=entry.created_at or datetime.now(timezone.utc),
+                entity_type=entry.entity_type,
+                entity_id=entry.entity_id,
+                action=entry.action,
+                flow_hint=flow_hint,
+                reason=reason,
+                correlation_id=correlation_id,
+                before=before,
+                after=after,
+                details=changes,
+                link_href=link_href,
+                link_label=link_label,
+            )
+        )
+
+    return CashAuditTimelineResponse(items=items, total=total)
 
 
 def _date_from_mese_anno_key(
