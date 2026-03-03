@@ -75,6 +75,11 @@ Se cambia logica backend:
 Se cambia logica frontend critica:
 - test frontend pertinenti (se presenti)
 
+Se cambia pipeline safety/condizioni (`condition_rules.py`, `populate_conditions.py`):
+- `python -m tools.admin_scripts.populate_conditions --db both`
+- `python -m tools.admin_scripts.verify_qa_clinical --lotto all` (150 check, 0 FAIL atteso)
+- Severita' clinica: avoid > modify > caution (MAI invertire modify/caution)
+
 ## 6. Formato richieste consigliato
 
 Per lavorare veloce e bene, usa questo template:

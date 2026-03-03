@@ -222,6 +222,8 @@ Pipeline idempotente, dual-DB (`--db dev|prod|both`), script in `tools/admin_scr
 | `backfill_exercise_fields.py` | note_sicurezza + force/lateral (per reinserimento batch) | gemma2:9b |
 | `verify_exercise_quality.py` | Audit qualita' (per validazione pre-attivazione) | Zero Ollama |
 | `activate_batch.py` | Orchestratore foto-first: audit, deactivate, select, enrich, activate, verify | gemma2:9b |
+| `seed_qa_clinical.py` | 30 clienti QA × 6 lotti clinici per verifica safety mapping | Zero Ollama |
+| `verify_qa_clinical.py` | 150 check clinici: severita' attesa per condizione × pattern | Zero Ollama |
 
 **Reinserimento futuro**: `activate_batch.py --db both` — coverage-driven selection, enrichment Ollama, quality gate con rollback automatico.
 Mai attivare esercizi con campi critici mancanti o senza foto.
@@ -239,10 +241,10 @@ Approccio ML: subset perfetto (~97 esercizi, 100% foto) → pipeline completa �
 |---------|------|--------|-------------|
 | `muscoli` | Catalogo | 53 | Muscoli anatomici NSCA/ACSM (15 gruppi, 3 regioni) |
 | `articolazioni` | Catalogo | 15 | Articolazioni principali (5 tipi, 3 regioni) |
-| `condizioni_mediche` | Catalogo | 39 | Condizioni rilevanti (5 categorie, body_tags JSON) |
+| `condizioni_mediche` | Catalogo | 47 | Condizioni rilevanti (5 categorie, body_tags JSON) |
 | `esercizi_muscoli` | Junction M:N | ~1271 | Esercizio↔muscolo con ruolo (primary/secondary/stabilizer) + attivazione % |
 | `esercizi_articolazioni` | Junction M:N | ~299 | Esercizio↔articolazione con ruolo (agonist/stabilizer) + ROM gradi |
-| `esercizi_condizioni` | Junction M:N | ~474 | Esercizio↔condizione con severita' (avoid/caution/modify) + nota |
+| `esercizi_condizioni` | Junction M:N | ~3600 | Esercizio↔condizione con severita' (avoid/modify/caution) + nota |
 
 Colonne su `esercizi`: `in_subset` (flag sviluppo), `catena_cinetica` (open/closed),
 `piano_movimento` (sagittal/frontal/transverse/multi), `tipo_contrazione` (concentric/eccentric/isometric/dynamic).
@@ -254,7 +256,8 @@ L'API filtra `Exercise.in_subset == True` — rimuovere per riattivare catalogo 
 **Modelli API**: `muscle.py` (Muscle + ExerciseMuscle), `joint.py` (Joint + ExerciseJoint),
 `medical_condition.py` (MedicalCondition + ExerciseCondition).
 
-**Script**: `seed_taxonomy.py` (cataloghi hardcoded), `populate_taxonomy.py` (mapping deterministico).
+**Script**: `seed_taxonomy.py` (cataloghi hardcoded), `populate_taxonomy.py` (mapping deterministico),
+`populate_conditions.py` (mapping condizioni mediche, 80 pattern rules).
 
 **Frontend**: hero esercizio mostra muscoli anatomici raggruppati, articolazioni con ruolo,
 classificazione biomeccanica (catena, piano, contrazione). Fallback gruppi generici per esercizi fuori subset.
@@ -271,31 +274,49 @@ una safety map per-esercizio. Zero Ollama, zero latenza percepita.
 - `extract_client_conditions(anamnesi_json)` → `set[condition_id]` (2 livelli: flag strutturali + keyword matching)
 - `build_safety_map(session, client_id, trainer_id)` → `SafetyMapResponse` (bouncer + anti-N+1: 3 query)
 - `condition_rules.py`: regole deterministiche (`ANAMNESI_KEYWORD_RULES`, `STRUCTURAL_FLAGS`, `match_keywords`)
-- 39 condizioni mediche (30 specifiche + 9 generiche: 7 post-traumatiche per zona + cervicalgia + lombalgia)
+- 47 condizioni mediche (30 specifiche + 9 generiche + 8 aggiuntive) — 0 condizioni morte (tutte raggiungibili)
 - `match_keywords()` accent-insensitive: normalizza `a'` == `a` == Unicode accent (italiano)
 - `obiettivi_specifici` ESCLUSO dal keyword scanning (previene falsi positivi da goal text)
 - Endpoint: `GET /exercises/safety-map?client_id=N` (JWT auth + trainer bouncer)
 - Response: `SafetyMapResponse` con `entries: dict[exercise_id, ExerciseSafetyEntry]`, `condition_names`, `condition_count`
-- Severita' per esercizio: worst-case aggregation (`_SEVERITY_ORDER`: avoid > caution > modify)
+- Severita' per esercizio: worst-case aggregation (`_SEVERITY_ORDER`: **avoid > modify > caution**)
+  - "modify" prevale su "caution" perche' richiede azione specifica (adattare ROM, grip, carico)
+  - "caution" e' solo consapevolezza generica
 - `SafetyConditionDetail` include `categoria` (orthopedic, cardiovascular, metabolic, neurological, respiratory, special)
+
+**Pipeline Mapping** (`tools/admin_scripts/populate_conditions.py`):
+- 80 `PATTERN_CONDITION_RULES`: regole pattern_movimento × condizione → severita' clinica specifica
+  - Organizzate per zona: spalla (14), ginocchio (5), anca (4), colonna (11), caviglia (4),
+    polso/gomito (7), cardiovascolare (4), metabolico (5), neurologico (6), respiratorio (2),
+    reumatologico (3), special (15 — gravidanza, diastasi, fibromialgia, ipotiroidismo, diabete T1)
+- **Override logic**: pattern rules sovrascrivono keyword severity, MAI degradano da avoid
+- ~3,600 mapping totali: avoid ~12%, modify ~45%, caution ~43%
+
+**QA Clinica** (`tools/admin_scripts/`):
+- `seed_qa_clinical.py`: 30 clienti × 6 lotti clinici (ortopedico, cardio, metabolico, neuro, combo, edge)
+- `verify_qa_clinical.py`: 150 check clinici (0 FAIL, 0 WARN atteso)
 
 **Frontend** — 4 livelli di visualizzazione (dal macro al micro):
 
-1. **Safety Overview Panel** (`schede/[id]/page.tsx`): Card collapsibile con KPI (condizioni/evitare/cautela),
+1. **Safety Overview Panel** (`schede/[id]/page.tsx`): Card collapsibile con KPI (condizioni/evitare/adattare/cautela),
    badge condizioni, e dettaglio espanso raggruppato per categoria. Sostituisce il vecchio banner ambra.
-2. **Session Pills** (`SessionCard.tsx`): contatori avoid/caution nel CardHeader di ogni sessione.
+2. **Session Pills** (`SessionCard.tsx`): contatori avoid/modify/caution nel CardHeader di ogni sessione.
 3. **Exercise Popover** (`SortableExerciseRow.tsx`): click su icona safety → Popover ricco (w-72) con
    condizioni dettagliate (severita + nome + nota) + **alternative sicure con "Sostituisci"** (quick-swap).
 4. **Selector Detail** (`ExerciseSelector.tsx`): badge safety cliccabile → pannello espandibile inline
    con dettaglio condizioni per ogni esercizio nel dialog di selezione.
 5. **Exercise Detail Panel** (inline nel builder + selector): icona Info → pannello riassuntivo con
    muscoli, classificazione, setup, note sicurezza, relazioni actionable (progressioni/regressioni con "Sostituisci").
+6. **RiskBodyMap** (`components/workouts/RiskBodyMap.tsx`): silhouette anatomica colorata per severity
+   (avoid→rosso, modify→blu, caution→ambra). `_SEV_RANK`: avoid(3) > modify(2) > caution(1).
 
 **Hook**: `useExerciseSafetyMap(clientId)` in `hooks/useWorkouts.ts` — React Query con `enabled: !!clientId`.
 
 File chiave: `api/services/safety_engine.py` (engine), `api/services/condition_rules.py` (regole),
+`tools/admin_scripts/populate_conditions.py` (pipeline mapping con 80 pattern rules),
 `components/workouts/SortableExerciseRow.tsx` (SafetyPopover + Info panel), `components/workouts/ExerciseDetailPanel.tsx` (dettaglio inline riusabile),
-`components/workouts/ExerciseSelector.tsx` (selettore con dettaglio), `schede/[id]/page.tsx` (Overview Panel + quick-replace handler).
+`components/workouts/ExerciseSelector.tsx` (selettore con dettaglio), `components/workouts/RiskBodyMap.tsx` (body map severity-aware),
+`schede/[id]/page.tsx` (Overview Panel + quick-replace handler).
 
 ### Analisi Clinica — Motore Chinesiologico Client-Side
 
@@ -941,7 +962,7 @@ sqlite3 data/crm_dev.db ".tables"
 - **api/**: ~4,900 LOC Python — 17 modelli ORM, 10 router, 1 schema module
 - **frontend/**: ~15,000 LOC TypeScript — ~70 componenti, 11 hook modules, 16 pagine
 - **core/**: ~10,300 LOC Python — moduli AI (RAG, exercise archive) in attesa di API endpoints
-- **tools/admin_scripts/**: ~2,800 LOC Python — 14 script (import, quality engine, taxonomy, seed, test)
+- **tools/admin_scripts/**: ~3,200 LOC Python — 16 script (import, quality engine, taxonomy, seed, test, QA clinica)
 - **DB**: 29 tabelle SQLite, FK enforced, multi-tenant via trainer_id
 - **Esercizi**: 269 attivi (tassonomia completa, avviamento/mobilita photo-optional) + 790 archiviati (reinserimento graduale)
 - **Test**: 63 pytest + 67 E2E + 69 vitest (data protection)

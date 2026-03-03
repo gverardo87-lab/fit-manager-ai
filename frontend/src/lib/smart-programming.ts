@@ -150,12 +150,25 @@ export type FitnessLevel = "beginner" | "intermedio" | "avanzato";
 // CONSTANTS — Volume Targets (NSCA)
 // ════════════════════════════════════════════════════════════
 
-/** Set/muscolo/settimana target per livello (Krieger 2010, Schoenfeld 2017) */
-const VOLUME_TARGETS: Record<FitnessLevel, { min: number; max: number }> = {
+/** Set/muscolo/settimana target base per livello (Krieger 2010, Schoenfeld 2017).
+ * Baseline assume 3-4 sessioni/settimana. Usare getScaledVolumeTargets() per
+ * adattare alla configurazione reale del piano. */
+const BASE_VOLUME_TARGETS: Record<FitnessLevel, { min: number; max: number }> = {
   beginner:   { min: 10, max: 12 },
   intermedio: { min: 14, max: 18 },
   avanzato:   { min: 18, max: 25 },
 };
+
+/** Scala target volume in base alle sessioni/settimana.
+ * NSCA baseline assume 3-4 sessioni. Meno sessioni → target raggiungibili piu' bassi. */
+function getScaledVolumeTargets(
+  livello: FitnessLevel, sessioniPerSettimana: number,
+): { min: number; max: number } {
+  const base = BASE_VOLUME_TARGETS[livello];
+  const SCALE: Record<number, number> = { 2: 0.6, 3: 0.8, 4: 1.0, 5: 1.1, 6: 1.2 };
+  const factor = SCALE[Math.max(2, Math.min(6, sessioniPerSettimana))] ?? 1.0;
+  return { min: Math.round(base.min * factor), max: Math.round(base.max * factor) };
+}
 
 /** Set totali/settimana per livello */
 const TOTAL_VOLUME_TARGETS: Record<FitnessLevel, { min: number; max: number }> = {
@@ -286,9 +299,17 @@ const SPLIT_PATTERNS: Record<number, Record<FitnessLevel, SplitPattern>> = {
 
 const DIFFICULTY_ORDER = ["principiante", "intermedio", "avanzato"] as const;
 
+/** Mappa difficolta' EN (DB) → IT (engine). Accetta entrambe le lingue. */
+function normalizeDifficulty(d: string): string {
+  const map: Record<string, string> = {
+    beginner: "principiante", intermediate: "intermedio", advanced: "avanzato",
+  };
+  return map[d.toLowerCase()] ?? d.toLowerCase();
+}
+
 function difficultyDistance(a: string, b: string): number {
-  const idxA = DIFFICULTY_ORDER.indexOf(a as typeof DIFFICULTY_ORDER[number]);
-  const idxB = DIFFICULTY_ORDER.indexOf(b as typeof DIFFICULTY_ORDER[number]);
+  const idxA = DIFFICULTY_ORDER.indexOf(normalizeDifficulty(a) as typeof DIFFICULTY_ORDER[number]);
+  const idxB = DIFFICULTY_ORDER.indexOf(normalizeDifficulty(b) as typeof DIFFICULTY_ORDER[number]);
   if (idxA < 0 || idxB < 0) return 2;
   return Math.abs(idxA - idxB);
 }
@@ -305,16 +326,16 @@ interface ScorerConfig {
 
 const SCORER_CONFIGS: ScorerConfig[] = [
   { id: "safety",               label: "Sicurezza",                  weight: 0.15 },
-  { id: "muscle_match",         label: "Match Muscolare",            weight: 0.12 },
+  { id: "muscle_match",         label: "Match Muscolare",            weight: 0.14 },
   { id: "pattern_match",        label: "Pattern Movimento",          weight: 0.10 },
   { id: "difficulty",           label: "Difficolta",                 weight: 0.10 },
   { id: "goal_alignment",       label: "Allineamento Obiettivo",     weight: 0.08 },
   { id: "strength_level",       label: "Livello Forza",              weight: 0.06 },
   { id: "recovery_fit",         label: "Compatibilita Recupero",     weight: 0.06 },
   { id: "compound_priority",    label: "Priorita Compound",          weight: 0.05 },
-  { id: "equipment_variety",    label: "Varieta Attrezzatura",       weight: 0.05 },
+  { id: "equipment_variety",    label: "Varieta Attrezzatura",       weight: 0.04 },
   { id: "uniqueness",           label: "Unicita",                    weight: 0.05 },
-  { id: "plane_variety",        label: "Varieta Piani",              weight: 0.05 },
+  { id: "plane_variety",        label: "Varieta Piani",              weight: 0.04 },
   { id: "chain_variety",        label: "Varieta Catena Cinetica",    weight: 0.04 },
   { id: "bilateral_balance",    label: "Equilibrio Bilaterale",      weight: 0.04 },
   { id: "contraction_variety",  label: "Varieta Contrazione",        weight: 0.05 },
@@ -393,9 +414,9 @@ function scoreSafety(ex: Exercise, ctx: ScorerContext): { score: number; reason:
 function scoreMuscleMatch(ex: Exercise, ctx: ScorerContext): { score: number; reason: string } {
   const target = ctx.slot.muscoli_target;
   if (target.length === 0) return { score: 0.5, reason: "Nessun target muscolare" };
-  const targetSet = new Set(target.map(m => m.toLowerCase()));
-  const priSet = new Set(ex.muscoli_primari.map(m => m.toLowerCase()));
-  const secSet = new Set(ex.muscoli_secondari.map(m => m.toLowerCase()));
+  const targetSet = new Set(target.map(m => normalizeMuscleGroup(m.toLowerCase())));
+  const priSet = new Set(ex.muscoli_primari.map(m => normalizeMuscleGroup(m.toLowerCase())));
+  const secSet = new Set(ex.muscoli_secondari.map(m => normalizeMuscleGroup(m.toLowerCase())));
   // Coverage: quanti muscoli target sono tra i primari dell'esercizio
   let priHits = 0;
   for (const t of targetSet) if (priSet.has(t)) priHits++;
@@ -724,9 +745,13 @@ export function generateSmartPlan(
 
     // Accessori: 1-2 slot per muscoli non coperti dai pattern principali
     const coveredMuscles = new Set(s.patterns.flatMap(p => patternToMuscoli(p)));
-    const ACCESSORY_PRIORITY = ["polpacci", "bicipiti", "tricipiti", "adduttori", "avambracci", "trapezio"];
+    const ACCESSORY_PRIORITY = [
+      "polpacci", "bicipiti", "tricipiti", "adduttori",
+      "avambracci", "trapezio", "spalle", "core",
+    ];
     const uncovered = ACCESSORY_PRIORITY.filter(m => !coveredMuscles.has(m));
-    const maxAccessories = livello === "beginner" ? 1 : 2;
+    const maxAccessories = livello === "beginner" ? 1
+      : livello === "intermedio" ? 2 : 3;
     const accessoryTargets = uncovered.slice(0, maxAccessories);
     for (const muscle of accessoryTargets) {
       slots.push({
@@ -876,6 +901,7 @@ export function computeMuscleCoverage(
   sessions: Array<{ esercizi: Array<{ id_esercizio: number; serie: number }> }>,
   exerciseMap: Map<number, Exercise>,
   livello: FitnessLevel,
+  sessioniPerSettimana?: number,
 ): MuscleCoverage[] {
   const setCounts: Record<string, number> = {};
 
@@ -898,7 +924,9 @@ export function computeMuscleCoverage(
     }
   }
 
-  const target = VOLUME_TARGETS[livello];
+  const target = sessioniPerSettimana
+    ? getScaledVolumeTargets(livello, sessioniPerSettimana)
+    : BASE_VOLUME_TARGETS[livello];
 
   return MUSCLE_GROUPS.map(group => {
     const sets = Math.round((setCounts[group] ?? 0) * 10) / 10;
@@ -1078,7 +1106,7 @@ export function computeSmartAnalysis(
   safetyMap: Record<number, ExerciseSafetyEntry> | null,
 ): SmartAnalysis {
   return {
-    coverage: computeMuscleCoverage(sessions, exerciseMap, livello),
+    coverage: computeMuscleCoverage(sessions, exerciseMap, livello, sessioniPerSettimana),
     volume: computeVolumeAnalysis(sessions, exerciseMap, livello),
     biomechanics: analyzeBiomechanics(sessions, exerciseMap),
     recoveryConflicts: analyzeRecovery(sessions, sessioniPerSettimana, exerciseMap),
@@ -1092,12 +1120,12 @@ export function computeSmartAnalysis(
 
 function patternToMuscoli(pattern: string): string[] {
   const map: Record<string, string[]> = {
-    squat: ["quadricipiti", "glutei"],
-    hinge: ["femorali", "glutei", "dorsali"],
+    squat: ["quadricipiti", "glutei", "femorali", "core"],
+    hinge: ["femorali", "glutei", "dorsali", "core"],
     push_h: ["petto", "tricipiti", "spalle"],
-    push_v: ["spalle", "tricipiti"],
+    push_v: ["spalle", "tricipiti", "petto"],
     pull_h: ["dorsali", "bicipiti", "trapezio"],
-    pull_v: ["dorsali", "bicipiti"],
+    pull_v: ["dorsali", "bicipiti", "trapezio"],
     core: ["core"],
     rotation: ["core", "spalle"],
     carry: ["core", "avambracci", "trapezio"],

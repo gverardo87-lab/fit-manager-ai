@@ -13,6 +13,7 @@ Aggiornare prima di iniziare e alla chiusura di ogni task.
 
 | Work ID | Owner | Branch | Scope | Commit | Checks | Closed (UTC) | Notes |
 |---|---|---|---|---|---|---|---|
+| AGT-2026-03-03-08 | Claude Code | `codex_01` | Riallineamento Safety Engine — 80 pattern rules, 0 condizioni morte, severity avoid>modify>caution | `43e5010` | check-all.sh green, verify_qa_clinical 150 PASS 0 FAIL | 2026-03-03 | populate_conditions.py + safety_engine.py + RiskBodyMap.tsx + seed/verify QA |
 
 ## Quick rules
 

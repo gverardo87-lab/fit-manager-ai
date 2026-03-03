@@ -11,6 +11,7 @@ Registro unico degli upgrade tecnici e UX.
 | UPG-2026-03-03-05 | 2026-03-03 | Process | Governance | Protocollo condiviso multi-agente + workboard centralizzato | Low | `codex_01` / _pending_ | in_progress | Spec: `docs/upgrades/specs/UPG-2026-03-03-05-multi-agent-alignment-protocol.md` |
 | UPG-2026-03-03-06 | 2026-03-03 | Cassa | Reliability + UX | Protezione cassa (saldo reale vs previsto) + hardening spese ricorrenti (cleanup ledger opzionale) | High | `codex_01` / `54aa785, 9477fc0, 9735b29, 7739d8e` | done | Spec: `docs/upgrades/specs/UPG-2026-03-03-06-cash-protection-and-recurring-hardening.md` |
 | UPG-2026-03-03-07 | 2026-03-03 | Cassa | Accounting Integrity | Chiusura spese fisse rettificabile/idempotente + netting storni su KPI/grafico + regressioni dedicate | High | `codex_01` / `477b035` | done | Test: `tests/test_sync_recurring.py` + `tests/test_soft_delete_integrity.py` |
+| UPG-2026-03-03-08 | 2026-03-03 | Safety Engine | Clinical Accuracy | Riallineamento severita' clinica: 80 pattern rules (da 19), 0 condizioni morte (da 10), gerarchia avoid>modify>caution, QA 150 check | High | `codex_01` / `43e5010` | done | Script: `seed_qa_clinical.py` + `verify_qa_clinical.py`. Mapping: ~3600 (da ~1956), avoid 12%, modify 45%, caution 43% |
 
 ## Uso rapido
 
