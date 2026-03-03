@@ -54,6 +54,16 @@ const BLOCK_TYPE_COLORS: Record<string, string> = {
   for_time: "FFF3E0", // orange chiaro
 };
 
+// Colori header card blocchi (versione scura per testo bianco)
+const BLOCK_TYPE_HEADER_COLORS: Record<string, string> = {
+  circuit:  "6A1B9A", // Material Purple 800
+  superset: "F57F17", // Material Amber 800
+  tabata:   "B71C1C", // Material Red 900
+  amrap:    "1B5E20", // Material Green 900
+  emom:     "004D40", // Material Teal 900
+  for_time: "BF360C", // Material Deep Orange 900
+};
+
 // ── Immagini ──
 
 const IMAGE_ROW_HEIGHT = 55;
@@ -458,6 +468,110 @@ function addExerciseCard(
 }
 
 // ════════════════════════════════════════════════════════════
+// CARD-BLOCK: Esercizio dentro un Blocco Strutturato (con immagini)
+// Layout format-specific: no Serie/Riposo (sono parametri del blocco),
+// solo Rip (±Kg per superset/circuit/for_time). Tabata = solo nome.
+// ════════════════════════════════════════════════════════════
+
+function addBlockExerciseCard(
+  ws: ExcelJS.Worksheet,
+  wb: ExcelJS.Workbook,
+  ex: WorkoutExerciseRow,
+  prefix: string,
+  tipo: string,
+  imgs: ExerciseImagePair | undefined,
+) {
+  const ml = MERGE_CARD;
+  const showRip = tipo !== "tabata";
+  const showKg  = tipo === "superset" || tipo === "circuit" || tipo === "for_time";
+  const ripLabel = tipo === "emom" ? "Rip/min" : "Rip";
+  const headerBg = BLOCK_TYPE_HEADER_COLORS[tipo] ?? TEAL;
+  const dataBg   = "FF" + (BLOCK_TYPE_COLORS[tipo] ?? GRAY_BG);
+
+  // ── Row 1: Header band (colore specifico del tipo di blocco) ──
+  const headerRow = ws.addRow([prefix, ex.esercizio_nome]);
+  const headerRowNum = ws.rowCount;
+  ws.mergeCells(`B${headerRowNum}:${ml}${headerRowNum}`);
+  headerRow.getCell(1).font = { bold: true, size: 11, color: { argb: WHITE } };
+  headerRow.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: headerBg } };
+  headerRow.getCell(1).alignment = { horizontal: "center", vertical: "middle" };
+  headerRow.getCell(2).font = { bold: true, size: 12, color: { argb: WHITE } };
+  headerRow.getCell(2).fill = { type: "pattern", pattern: "solid", fgColor: { argb: headerBg } };
+  headerRow.getCell(2).alignment = { horizontal: "left", vertical: "middle" };
+  for (let c = 3; c <= 8; c++) {
+    headerRow.getCell(c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: headerBg } };
+  }
+  headerRow.height = 22;
+
+  // ── Row 2: Dati esercizio (Rip ± Kg condizionale) ──
+  const dataRow = ws.addRow([
+    "", "", "",
+    showRip ? ripLabel : "",
+    showRip ? ex.ripetizioni : "",
+    showKg ? "Kg" : "",
+    showKg ? (ex.carico_kg != null ? `${ex.carico_kg}` : "—") : "",
+    ex.note ?? "",
+  ]);
+  const dataRowNum = ws.rowCount;
+
+  // ── Row 3: Spacer (per altezza immagini — 2 righe = ~110px per IMAGE_SIZE 150×100) ──
+  const spacerRow = ws.addRow(["", "", "", "", "", "", "", ""]);
+  const spacerRowNum = ws.rowCount;
+
+  // Merge nota H su entrambe le righe dati
+  ws.mergeCells(`H${dataRowNum}:H${spacerRowNum}`);
+
+  // Altezze
+  ws.getRow(dataRowNum).height = IMAGE_ROW_HEIGHT;
+  ws.getRow(spacerRowNum).height = IMAGE_ROW_HEIGHT;
+
+  // Sfondo area dati con colore del tipo blocco
+  for (let r = dataRowNum; r <= spacerRowNum; r++) {
+    for (let c = 1; c <= 8; c++) {
+      ws.getRow(r).getCell(c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: dataBg } };
+    }
+  }
+
+  // Stile label (D, F)
+  if (showRip) {
+    ws.getRow(dataRowNum).getCell(4).font = { size: 9, color: { argb: GRAY } };
+    ws.getRow(dataRowNum).getCell(4).alignment = { horizontal: "right", vertical: "middle" };
+    ws.getRow(dataRowNum).getCell(5).font = { bold: true, size: 11 };
+    ws.getRow(dataRowNum).getCell(5).alignment = { horizontal: "left", vertical: "middle" };
+  }
+  if (showKg) {
+    ws.getRow(dataRowNum).getCell(6).font = { size: 9, color: { argb: GRAY } };
+    ws.getRow(dataRowNum).getCell(6).alignment = { horizontal: "right", vertical: "middle" };
+    ws.getRow(dataRowNum).getCell(7).font = { bold: true, size: 11 };
+    ws.getRow(dataRowNum).getCell(7).alignment = { horizontal: "left", vertical: "middle" };
+  }
+  ws.getRow(dataRowNum).getCell(8).font = { size: 9, color: { argb: GRAY } };
+  ws.getRow(dataRowNum).getCell(8).alignment = { horizontal: "left", vertical: "top", wrapText: true };
+
+  // ── Immagini ──
+  if (imgs) {
+    if (imgs.start) {
+      const imgId = wb.addImage({ buffer: imgs.start, extension: "jpeg" });
+      ws.addImage(imgId, {
+        tl: { col: 1.05, row: dataRowNum - 1 + 0.05 },
+        ext: IMAGE_SIZE,
+      });
+    }
+    if (imgs.end) {
+      const imgId = wb.addImage({ buffer: imgs.end, extension: "jpeg" });
+      ws.addImage(imgId, {
+        tl: { col: 2.05, row: dataRowNum - 1 + 0.05 },
+        ext: IMAGE_SIZE,
+      });
+    }
+  }
+
+  // ── Separatore ──
+  const sepRow = ws.addRow([]);
+  sepRow.height = CARD_SEPARATOR_HEIGHT;
+}
+
+// ════════════════════════════════════════════════════════════
 // RIGHE COMPATTE: Avviamento / Stretching
 // ════════════════════════════════════════════════════════════
 
@@ -733,13 +847,8 @@ export async function exportWorkoutExcel({
           if (hasImages) {
             block.esercizi.forEach((ex, exIdx) => {
               const imgs = imageMap.get(ex.id_esercizio);
-              const hdrRowNum = ws.rowCount + 1; // header sarà la prossima riga aggiunta
-              addExerciseCard(ws, wb, ex, exIdx, imgs);
-              // Sovrascrive il numero con il prefisso format-specific (A1/A2 o 1./2.)
               const prefix = getBlockPrefix(block.tipo_blocco, exIdx);
-              if (prefix) {
-                ws.getRow(hdrRowNum).getCell(1).value = prefix;
-              }
+              addBlockExerciseCard(ws, wb, ex, prefix, block.tipo_blocco, imgs);
             });
           } else {
             block.esercizi.forEach((ex, exIdx) => {

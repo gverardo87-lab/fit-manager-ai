@@ -156,32 +156,69 @@ export function WorkoutPreview({
 // BLOCK PREVIEW — Format-specific
 // ════════════════════════════════════════════════════════════
 
+// Configurazione visiva per tipo di blocco — colori distinti dai classici esercizi
+const BLOCK_TYPE_PREVIEW_CONFIG: Record<string, {
+  border: string;
+  headerBg: string;
+  headerText: string;
+  accentText: string;
+}> = {
+  circuit:  { border: "border-violet-400", headerBg: "bg-violet-50 dark:bg-violet-950/40",  headerText: "text-violet-800 dark:text-violet-200",  accentText: "text-violet-600 dark:text-violet-400"  },
+  superset: { border: "border-amber-400",  headerBg: "bg-amber-50 dark:bg-amber-950/40",    headerText: "text-amber-800 dark:text-amber-200",    accentText: "text-amber-600 dark:text-amber-400"    },
+  tabata:   { border: "border-red-400",    headerBg: "bg-red-50 dark:bg-red-950/40",        headerText: "text-red-800 dark:text-red-200",        accentText: "text-red-600 dark:text-red-400"        },
+  amrap:    { border: "border-emerald-400",headerBg: "bg-emerald-50 dark:bg-emerald-950/40",headerText: "text-emerald-800 dark:text-emerald-200",accentText: "text-emerald-600 dark:text-emerald-400" },
+  emom:     { border: "border-teal-400",   headerBg: "bg-teal-50 dark:bg-teal-950/40",      headerText: "text-teal-800 dark:text-teal-200",      accentText: "text-teal-600 dark:text-teal-400"      },
+  for_time: { border: "border-orange-400", headerBg: "bg-orange-50 dark:bg-orange-950/40",  headerText: "text-orange-800 dark:text-orange-200",  accentText: "text-orange-600 dark:text-orange-400"  },
+};
+
+const BLOCK_TYPE_PREVIEW_FALLBACK = {
+  border: "border-primary/40",
+  headerBg: "bg-primary/5",
+  headerText: "text-primary",
+  accentText: "text-primary",
+};
+
 function BlockPreview({ block }: { block: BlockCardData }) {
   const tipo = block.tipo_blocco;
+  const cfg = BLOCK_TYPE_PREVIEW_CONFIG[tipo] ?? BLOCK_TYPE_PREVIEW_FALLBACK;
   const showRip = tipo !== "tabata";
   const showKg  = tipo === "superset" || tipo === "circuit" || tipo === "for_time";
   const isSuperset = tipo === "superset";
 
   return (
-    <div className="border-l-2 border-muted-foreground/30 pl-2 mb-1">
-      {/* Header blocco */}
-      <div className="flex items-center gap-1.5 flex-wrap text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-0.5">
-        <span>{BLOCK_TYPE_LABELS[tipo]}</span>
-        {block.giri > 0 && (
-          <span>× {block.giri} {tipo === "emom" ? "min" : "giri"}</span>
-        )}
-        {block.durata_lavoro_sec && <span>· {block.durata_lavoro_sec}s on</span>}
-        {block.durata_riposo_sec && <span>· {block.durata_riposo_sec}s off</span>}
-        {block.durata_blocco_sec && (
-          <span>· {Math.round(block.durata_blocco_sec / 60)} min</span>
-        )}
-        {block.nome && <span className="normal-case font-normal">— {block.nome}</span>}
+    <div className={`border-l-4 ${cfg.border} pl-3 mb-2 rounded-r`}>
+      {/* Header blocco — sfondo colorato specifico del tipo */}
+      <div className={`${cfg.headerBg} rounded px-2 py-1 mb-1`}>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className={`text-[10px] font-bold uppercase tracking-wider ${cfg.headerText}`}>
+            {BLOCK_TYPE_LABELS[tipo]}
+          </span>
+          {block.giri > 0 && (
+            <span className={`text-[10px] font-medium ${cfg.headerText}`}>
+              × {block.giri} {tipo === "emom" ? "min" : "giri"}
+            </span>
+          )}
+          {block.durata_lavoro_sec && (
+            <span className={`text-[10px] ${cfg.headerText}`}>{block.durata_lavoro_sec}s on</span>
+          )}
+          {block.durata_riposo_sec && (
+            <span className={`text-[10px] ${cfg.headerText}`}>{block.durata_riposo_sec}s off</span>
+          )}
+          {block.durata_blocco_sec && (
+            <span className={`text-[10px] ${cfg.headerText}`}>
+              {Math.round(block.durata_blocco_sec / 60)} min
+            </span>
+          )}
+          {block.nome && (
+            <span className={`text-[10px] font-normal ${cfg.accentText}`}>— {block.nome}</span>
+          )}
+        </div>
       </div>
 
       {/* Header colonne (non per tabata) */}
       {(showRip || showKg) && (
         <div
-          className={`grid ${showKg ? "grid-cols-[16px_1fr_40px_40px]" : "grid-cols-[16px_1fr_40px]"} gap-1 text-[9px] text-muted-foreground/60 mb-0.5`}
+          className={`grid ${showKg ? "grid-cols-[16px_1fr_40px_40px]" : "grid-cols-[16px_1fr_40px]"} gap-1 text-[9px] text-muted-foreground/60 mb-0.5 px-1`}
         >
           <span />
           <span>Esercizio</span>
@@ -194,10 +231,12 @@ function BlockPreview({ block }: { block: BlockCardData }) {
       {block.esercizi.map((ex, idx) => (
         <div
           key={ex.id}
-          className={`grid ${showKg ? "grid-cols-[16px_1fr_40px_40px]" : showRip ? "grid-cols-[16px_1fr_40px]" : "grid-cols-[16px_1fr]"} items-center gap-1 text-[11px] py-0.5`}
+          className={`grid ${showKg ? "grid-cols-[16px_1fr_40px_40px]" : showRip ? "grid-cols-[16px_1fr_40px]" : "grid-cols-[16px_1fr]"} items-center gap-1 text-[11px] py-0.5 px-1`}
         >
           {isSuperset ? (
-            <span className="text-[10px] font-bold text-violet-600 tabular-nums">A{idx + 1}</span>
+            <span className={`text-[10px] font-bold tabular-nums ${cfg.accentText}`}>A{idx + 1}</span>
+          ) : tipo === "tabata" ? (
+            <span className={`text-[10px] ${cfg.accentText}`}>•</span>
           ) : (
             <span className="text-[10px] text-muted-foreground/60 tabular-nums">{idx + 1}.</span>
           )}
