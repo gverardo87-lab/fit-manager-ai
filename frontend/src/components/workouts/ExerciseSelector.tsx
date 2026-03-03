@@ -568,6 +568,7 @@ export function ExerciseSelector({
                   isUsed={usedExerciseIds?.has(exercise.id)}
                   onSelect={handleSelect}
                   onSelectById={handleSelectById}
+                  exerciseMap={exerciseMap}
                 />
               ))}
             </div>
@@ -639,6 +640,7 @@ const ExerciseRow = memo(function ExerciseRow({
   isUsed,
   onSelect,
   onSelectById,
+  exerciseMap,
 }: {
   exercise: Exercise;
   safety?: ExerciseSafetyEntry;
@@ -651,6 +653,7 @@ const ExerciseRow = memo(function ExerciseRow({
   isUsed?: boolean;
   onSelect: (e: Exercise) => void;
   onSelectById?: (exerciseId: number) => void;
+  exerciseMap: Map<number, Exercise>;
 }) {
   // Muscoli in italiano
   const muscleLabel = exercise.muscoli_primari
@@ -769,6 +772,7 @@ const ExerciseRow = memo(function ExerciseRow({
             exerciseId={exercise.id}
             safety={safety}
             safetyEntries={safetyEntries}
+            exerciseMap={exerciseMap}
             schedaId={schedaId}
             onQuickReplace={onSelectById}
           />

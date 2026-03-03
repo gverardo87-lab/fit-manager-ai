@@ -28,6 +28,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 
 import { useExerciseRelations } from "@/hooks/useExercises";
+import { getReplacementReason, getReplacementScore } from "@/lib/exercise-replacement";
 import { ExerciseDetailPanel } from "./ExerciseDetailPanel";
 import type { WorkoutExerciseRow, ExerciseSafetyEntry, Exercise, BlockType } from "@/types/api";
 
@@ -64,6 +65,8 @@ interface SortableExerciseRowProps {
   safetyEntries?: Record<number, ExerciseSafetyEntry>;
   /** Dati esercizio completi dal exerciseMap (per pannello inline) */
   exerciseData?: Exercise;
+  /** Mappa esercizi per reason context-aware nelle alternative */
+  exerciseMap?: Map<number, Exercise>;
   /** ID scheda per deep-link ritorno */
   schedaId?: number;
   /** Contesto provenienza scheda (es. "allenamenti") per catena navigazione */
@@ -87,6 +90,8 @@ function SafetyPopover({
   exerciseId,
   iconSize,
   safetyEntries,
+  sourceExercise,
+  exerciseMap,
   onQuickReplace,
 }: {
   safety: ExerciseSafetyEntry;
@@ -94,6 +99,8 @@ function SafetyPopover({
   exerciseId: number;
   iconSize: string;
   safetyEntries?: Record<number, ExerciseSafetyEntry>;
+  sourceExercise?: Exercise;
+  exerciseMap?: Map<number, Exercise>;
   onQuickReplace?: (newExerciseId: number) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -106,13 +113,21 @@ function SafetyPopover({
         const entry = safetyEntries[rel.related_exercise_id];
         return !entry || entry.severity !== "avoid";
       })
-      .map((rel) => ({
-        id: rel.related_exercise_id,
-        nome: rel.related_exercise_nome,
-        tipo: rel.tipo_relazione,
-        hasCaution: !!safetyEntries[rel.related_exercise_id],
-      }));
-  }, [relations, safetyEntries]);
+      .map((rel) => {
+        const entry = safetyEntries[rel.related_exercise_id];
+        const hasCaution = entry?.severity === "caution";
+        const candidate = exerciseMap?.get(rel.related_exercise_id);
+        return {
+          id: rel.related_exercise_id,
+          nome: rel.related_exercise_nome,
+          tipo: rel.tipo_relazione,
+          hasCaution,
+          score: getReplacementScore(sourceExercise, candidate, rel.tipo_relazione, hasCaution),
+          reason: getReplacementReason(sourceExercise, candidate, rel.tipo_relazione, hasCaution),
+        };
+      })
+      .sort((a, b) => b.score - a.score);
+  }, [relations, safetyEntries, sourceExercise, exerciseMap]);
 
   const SafetyIcon = safety.severity === "avoid" ? ShieldAlert : AlertTriangle;
   const dotColor = safety.severity === "avoid" ? "bg-red-500" : "bg-amber-500";
@@ -170,10 +185,22 @@ function SafetyPopover({
                 {safeAlternatives.map((alt) => (
                   <div key={`${alt.id}-${alt.tipo}`} className="flex items-center gap-1.5 text-[11px]">
                     <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-500" />
-                    <span className="flex-1 truncate">{alt.nome}</span>
-                    <span className="text-[9px] text-muted-foreground shrink-0">
-                      {RELATION_LABELS[alt.tipo] ?? alt.tipo}
-                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="truncate">{alt.nome}</span>
+                        <span className="text-[9px] text-muted-foreground shrink-0">
+                          {RELATION_LABELS[alt.tipo] ?? alt.tipo}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground truncate">
+                        {alt.reason}
+                      </p>
+                    </div>
+                    {alt.hasCaution && (
+                      <span className="text-[9px] text-amber-600 dark:text-amber-400 shrink-0">
+                        Cautela
+                      </span>
+                    )}
                     {onQuickReplace && (
                       <Button
                         variant="ghost"
@@ -230,6 +257,7 @@ export function SortableExerciseRow({
   safety,
   safetyEntries,
   exerciseData,
+  exerciseMap,
   schedaId,
   parentFrom,
   oneRMByPattern,
@@ -306,6 +334,8 @@ export function SortableExerciseRow({
                 exerciseId={exercise.id_esercizio}
                 iconSize="h-3 w-3"
                 safetyEntries={safetyEntries}
+                sourceExercise={exerciseData}
+                exerciseMap={exerciseMap}
                 onQuickReplace={onQuickReplace}
               />
             )}
@@ -387,7 +417,16 @@ export function SortableExerciseRow({
           {/* Nome esercizio + safety icon + dot indicator */}
           <div className="flex items-center gap-1 min-w-0">
             {safety && (
-              <SafetyPopover safety={safety} exerciseName={exercise.esercizio_nome} exerciseId={exercise.id_esercizio} iconSize="h-3 w-3" safetyEntries={safetyEntries} onQuickReplace={onQuickReplace} />
+              <SafetyPopover
+                safety={safety}
+                exerciseName={exercise.esercizio_nome}
+                exerciseId={exercise.id_esercizio}
+                iconSize="h-3 w-3"
+                safetyEntries={safetyEntries}
+                sourceExercise={exerciseData}
+                exerciseMap={exerciseMap}
+                onQuickReplace={onQuickReplace}
+              />
             )}
             <button
               onClick={onReplace}
@@ -447,6 +486,7 @@ export function SortableExerciseRow({
                 exerciseId={exercise.id_esercizio}
                 safety={safety}
                 safetyEntries={safetyEntries}
+                exerciseMap={exerciseMap}
                 schedaId={schedaId}
                 parentFrom={parentFrom}
                 onQuickReplace={onQuickReplace}
@@ -485,7 +525,16 @@ export function SortableExerciseRow({
         {/* Nome esercizio + safety icon + dot indicator */}
         <div className="flex items-center gap-1 min-w-0">
           {safety && (
-            <SafetyPopover safety={safety} exerciseName={exercise.esercizio_nome} exerciseId={exercise.id_esercizio} iconSize="h-3 w-3" safetyEntries={safetyEntries} onQuickReplace={onQuickReplace} />
+            <SafetyPopover
+              safety={safety}
+              exerciseName={exercise.esercizio_nome}
+              exerciseId={exercise.id_esercizio}
+              iconSize="h-3 w-3"
+              safetyEntries={safetyEntries}
+              sourceExercise={exerciseData}
+              exerciseMap={exerciseMap}
+              onQuickReplace={onQuickReplace}
+            />
           )}
           <button
             onClick={onReplace}
@@ -580,14 +629,15 @@ export function SortableExerciseRow({
           </div>
           {/* Detail panel */}
           {exerciseData && (
-            <ExerciseDetailPanel
-              exercise={exerciseData}
-              exerciseId={exercise.id_esercizio}
-              safety={safety}
-              safetyEntries={safetyEntries}
-              schedaId={schedaId}
-              onQuickReplace={onQuickReplace}
-            />
+              <ExerciseDetailPanel
+                exercise={exerciseData}
+                exerciseId={exercise.id_esercizio}
+                safety={safety}
+                safetyEntries={safetyEntries}
+                exerciseMap={exerciseMap}
+                schedaId={schedaId}
+                onQuickReplace={onQuickReplace}
+              />
           )}
         </div>
       )}

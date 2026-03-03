@@ -14,6 +14,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   Save,
+  Clock3,
   Plus,
   Pencil,
   Check,
@@ -152,6 +153,7 @@ export default function SchedaDetailPage({
   // Local state per editing
   const [sessions, setSessions] = useState<SessionCardData[]>([]);
   const [isDirty, setIsDirty] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 
   // Ref che riflette isDirty — usato nell'effect per non catturare closure stale
   const isDirtyRef = useRef(false);
@@ -203,6 +205,13 @@ export default function SchedaDetailPage({
           blocchi: (s.blocchi ?? []).map(serverBlockToCardData),
         })),
       );
+      const serverTs = plan.updated_at ?? plan.created_at;
+      if (serverTs) {
+        const parsed = new Date(serverTs);
+        if (!Number.isNaN(parsed.getTime())) {
+          setLastSavedAt(parsed);
+        }
+      }
     }
   }, [plan]);
 
@@ -243,6 +252,14 @@ export default function SchedaDetailPage({
     }
     return total > 0 ? Math.round(total) : null;
   }, [sessions]);
+
+  const lastSavedLabel = useMemo(() => {
+    if (!lastSavedAt) return null;
+    return lastSavedAt.toLocaleTimeString("it-IT", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }, [lastSavedAt]);
 
   // Safety stats: conteggi avoid/caution sugli esercizi nella scheda corrente (straight + in blocchi)
   const safetyStats = useMemo(() => {
@@ -828,9 +845,32 @@ export default function SchedaDetailPage({
 
     updateSessions.mutate(
       { id: plan.id, sessions: sessionsInput },
-      { onSuccess: () => { setIsDirty(false); if (draftKey) clearDraft(draftKey); } },
+      {
+        onSuccess: (savedPlan) => {
+          setIsDirty(false);
+          if (draftKey) clearDraft(draftKey);
+          const serverTs = savedPlan.updated_at ?? savedPlan.created_at;
+          const parsed = serverTs ? new Date(serverTs) : new Date();
+          if (!Number.isNaN(parsed.getTime())) {
+            setLastSavedAt(parsed);
+          }
+        },
+      },
     );
   }, [plan, sessions, updateSessions, draftKey]);
+
+  // Shortcut globale: Ctrl+S / Cmd+S salva le modifiche della scheda.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      if (event.key.toLowerCase() !== "s") return;
+      event.preventDefault();
+      if (!isDirty || updateSessions.isPending) return;
+      handleSave();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [handleSave, isDirty, updateSessions.isPending]);
 
   // ── Inline metadata editing ──
 
@@ -977,6 +1017,11 @@ export default function SchedaDetailPage({
         </div>
 
         <div className="flex items-center gap-2">
+          {!isDirty && lastSavedLabel && (
+            <span className="hidden sm:inline text-xs text-muted-foreground">
+              Salvata alle {lastSavedLabel}
+            </span>
+          )}
           <ExportButtons
             nome={plan.nome}
             obiettivo={plan.obiettivo}
@@ -1237,6 +1282,31 @@ export default function SchedaDetailPage({
         schedaId={id}
         usedExerciseIds={usedExerciseIds}
       />
+
+      {/* Save bar sticky: riduce frizione su schede lunghe (CTA sempre visibile). */}
+      {isDirty && (
+        <div
+          className="fixed bottom-3 left-1/2 z-40 w-[calc(100%-1.5rem)] max-w-2xl -translate-x-1/2"
+          data-print-hide
+        >
+          <div className="rounded-xl border bg-background/95 px-3 py-2 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/80">
+            <div className="flex items-center gap-2">
+              <Clock3 className="h-4 w-4 text-primary shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">Modifiche non salvate</p>
+                <p className="text-[11px] text-muted-foreground truncate">
+                  Ctrl+S / Cmd+S per salvare
+                  {lastSavedLabel ? ` • Ultimo salvataggio alle ${lastSavedLabel}` : ""}
+                </p>
+              </div>
+              <Button onClick={handleSave} disabled={updateSessions.isPending} className="h-8">
+                <Save className="mr-1.5 h-4 w-4" />
+                {updateSessions.isPending ? "Salvataggio..." : "Salva"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -14,6 +14,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowUp, ArrowDown, Shuffle, ArrowRight, RefreshCw } from "lucide-react";
 import { getMediaUrl } from "@/lib/media";
+import { getReplacementReason, getReplacementScore } from "@/lib/exercise-replacement";
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -34,6 +35,7 @@ interface ExerciseDetailPanelProps {
   exerciseId: number;
   safety?: ExerciseSafetyEntry;
   safetyEntries?: Record<number, ExerciseSafetyEntry>;
+  exerciseMap?: Map<number, Exercise>;
   schedaId?: number;
   /** Contesto di provenienza della scheda (es. "allenamenti") — propagato nel deep-link */
   parentFrom?: string | null;
@@ -104,21 +106,68 @@ export function ExerciseDetailPanel({
   exerciseId,
   safety,
   safetyEntries,
+  exerciseMap,
   schedaId,
   parentFrom,
   onQuickReplace,
 }: ExerciseDetailPanelProps) {
   const { data: relations } = useExerciseRelations(exerciseId);
 
-  // Filtra alternative: non-avoid per safety
+  // Relazioni ordinate per coerenza con il contesto attuale (con spiegazione breve)
   const groupedRelations = useMemo(() => {
     if (!relations) return { progressions: [], regressions: [], variations: [] };
-    return {
-      progressions: relations.filter((r) => r.tipo_relazione === "progression"),
-      regressions: relations.filter((r) => r.tipo_relazione === "regression"),
-      variations: relations.filter((r) => r.tipo_relazione === "variation"),
+    const grouped = {
+      progressions: [] as Array<{
+        id: number;
+        related_exercise_id: number;
+        related_exercise_nome: string;
+        tipo_relazione: string;
+        score: number;
+        reason: string;
+        isAvoid: boolean;
+      }>,
+      regressions: [] as Array<{
+        id: number;
+        related_exercise_id: number;
+        related_exercise_nome: string;
+        tipo_relazione: string;
+        score: number;
+        reason: string;
+        isAvoid: boolean;
+      }>,
+      variations: [] as Array<{
+        id: number;
+        related_exercise_id: number;
+        related_exercise_nome: string;
+        tipo_relazione: string;
+        score: number;
+        reason: string;
+        isAvoid: boolean;
+      }>,
     };
-  }, [relations]);
+
+    for (const rel of relations) {
+      const relatedExercise = exerciseMap?.get(rel.related_exercise_id);
+      const relSafety = safetyEntries?.[rel.related_exercise_id];
+      const isAvoid = relSafety?.severity === "avoid";
+      const hasCaution = relSafety?.severity === "caution";
+      const enriched = {
+        ...rel,
+        score: getReplacementScore(exercise, relatedExercise, rel.tipo_relazione, hasCaution),
+        reason: getReplacementReason(exercise, relatedExercise, rel.tipo_relazione, hasCaution),
+        isAvoid,
+      };
+      if (rel.tipo_relazione === "progression") grouped.progressions.push(enriched);
+      else if (rel.tipo_relazione === "regression") grouped.regressions.push(enriched);
+      else grouped.variations.push(enriched);
+    }
+
+    grouped.progressions.sort((a, b) => b.score - a.score);
+    grouped.regressions.sort((a, b) => b.score - a.score);
+    grouped.variations.sort((a, b) => b.score - a.score);
+
+    return grouped;
+  }, [relations, exerciseMap, safetyEntries, exercise]);
 
   const hasRelations = relations && relations.length > 0;
 
@@ -190,20 +239,25 @@ export function ExerciseDetailPanel({
               return items.map((rel) => {
                 const Icon = RELATION_ICONS[rel.tipo_relazione] || Shuffle;
                 const color = RELATION_COLORS[rel.tipo_relazione] || "text-muted-foreground";
-                const relSafety = safetyEntries?.[rel.related_exercise_id];
-                const isAvoid = relSafety?.severity === "avoid";
 
                 return (
                   <div key={rel.id} className="flex items-center gap-1.5 text-[11px]">
                     <Icon className={`h-3 w-3 shrink-0 ${color}`} />
-                    <span className="flex-1 truncate">{rel.related_exercise_nome}</span>
-                    <span className="text-[9px] text-muted-foreground shrink-0">
-                      {RELATION_TYPE_LABELS[rel.tipo_relazione] ?? rel.tipo_relazione}
-                    </span>
-                    {isAvoid && (
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="truncate">{rel.related_exercise_nome}</span>
+                        <span className="text-[9px] text-muted-foreground shrink-0">
+                          {RELATION_TYPE_LABELS[rel.tipo_relazione] ?? rel.tipo_relazione}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground truncate">
+                        {rel.reason}
+                      </p>
+                    </div>
+                    {rel.isAvoid && (
                       <span className="text-[9px] text-red-500 shrink-0">Evitare</span>
                     )}
-                    {onQuickReplace && !isAvoid && (
+                    {onQuickReplace && !rel.isAvoid && (
                       <Button
                         variant="ghost"
                         size="sm"

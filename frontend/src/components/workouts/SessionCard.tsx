@@ -493,6 +493,7 @@ export function SessionCard({
                               safety={safetyMap?.[exercise.id_esercizio]}
                               safetyEntries={safetyMap}
                               exerciseData={exerciseMap?.get(exercise.id_esercizio)}
+                              exerciseMap={exerciseMap}
                               schedaId={schedaId}
                               parentFrom={parentFrom}
                               oneRMByPattern={isPrincipale ? oneRMByPattern : undefined}
