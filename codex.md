@@ -80,6 +80,12 @@ Se cambia pipeline safety/condizioni (`condition_rules.py`, `populate_conditions
 - `python -m tools.admin_scripts.verify_qa_clinical --lotto all` (150 check, 0 FAIL atteso)
 - Severita' clinica: avoid > modify > caution (MAI invertire modify/caution)
 
+Se cambia motore smart programming (`smart-programming.ts`):
+- Verificare pesi scorer sommano a 1.00 (14 dimensioni)
+- Generare scheda Smart 3gg intermedio + 4gg beginner → controllare coverage muscolare, naming split, accessori coerenti con sessione
+- `computeMuscleCoverage`: credito secondario diluted (budget 1.0/N secondari, max 0.5) — MAI flat credit che gonfia muscoli hub
+- Accessory system: pass 2 con affinita' sessione (Push→push muscles, Pull→pull muscles, Legs→lower muscles)
+
 ## 6. Formato richieste consigliato
 
 Per lavorare veloce e bene, usa questo template:

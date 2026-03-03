@@ -163,20 +163,30 @@ File chiave: `lib/workout-monitoring.ts` (utility), `app/(dashboard)/allenamenti
 
 **Architettura a 3 layer** (pattern `clinical-analysis.ts`, `derived-metrics.ts`):
 
-1. **Core Engine** (`lib/smart-programming.ts`, ~1150 LOC):
+1. **Core Engine** (`lib/smart-programming.ts`, ~1250 LOC):
    - **ClientProfile**: profilo aggregato (tutto nullable per graceful degradation)
-   - **14 Scorer composabili**: safety (0.15), muscle_match (0.12), pattern_match (0.10),
+   - **14 Scorer composabili**: safety (0.15), muscle_match (0.14), pattern_match (0.13),
      difficulty (0.10), goal_alignment (0.08), strength_level (0.06), recovery_fit (0.06),
-     compound_priority (0.05), equipment_variety (0.05), uniqueness (0.05),
-     plane_variety (0.05), chain_variety (0.04), bilateral_balance (0.04), contraction_variety (0.05)
+     compound_priority (0.05), equipment_variety (0.04), uniqueness (0.05),
+     plane_variety (0.04), chain_variety (0.04), bilateral_balance (0.03), contraction_variety (0.03)
    - **`scoreExercisesForSlot()`**: orchestra tutti i scorer, ritorna ExerciseScore[] ordinati
-   - **`generateSmartPlan()`**: genera struttura da sessioni/settimana (2-6) × livello (3) + **slot accessori dinamici** per muscoli scoperti
+   - **`generateSmartPlan()`**: genera struttura da sessioni/settimana (2-6) × livello (3).
+     **2-pass**: pass 1 genera pattern + warmup + stretching, pass 2 aggiunge accessori intelligenti
+     basati su deficit globale + affinita' sessione (`SESSION_ACCESSORY_AFFINITY`)
    - **`fillSmartPlan()`**: assegna esercizi ottimali a ogni slot via scoring 14D
    - **`assessFitnessLevel()`**: combina strength ratios NSCA + livello attivita anamnesi
-   - **`computeSmartAnalysis()`**: orchestratore analisi (coverage + volume + biomeccanics + recovery + safety)
+   - **`computeSmartAnalysis()`**: orchestratore analisi (coverage + volume + biomechanics + recovery + safety)
+   - **`computeSafetyBreakdown()`**: conteggio avoid/modify/caution per display actionable
    - **SPLIT_PATTERNS bilanciati**: Upper alterna push/pull (2+2), Lower alterna squat/hinge, `rotation` in 3-day C
-   - **scoreMuscleMatch v2**: coverage ratio (intersection/target.length) invece di Jaccard
+   - **Naming split auto-detect**: PPL rilevato da pattern content (no overlap tra sessioni tranne core)
+   - **scoreMuscleMatch v2**: coverage ratio + normalizzazione EN→IT via `normalizeMuscleGroup()`
+   - **normalizeDifficulty()**: bridge EN→IT per `difficultyDistance()` (beginner→principiante)
    - **Senza client**: dim. safety/strength/bilateral → neutral (0.5). Funziona anche senza dati client.
+   - **Accessory system 2-pass**: `computeEstimatedCoverage()` stima copertura pattern globale,
+     `inferSessionType()` deduce push/pull/legs/upper/lower/full, accessori per affinita'
+     (Push→tricipiti/spalle, Pull→bicipiti/trapezio, Legs→polpacci/adduttori). maxAcc: beginner 2, intermedio 3, avanzato 4
+   - **Credito secondario diluted**: budget 1.0 / N secondari, max 0.5 ciascuno.
+     Evita overcounting muscoli "hub" (core, spalle, dorsali, glutei)
 
 2. **Hook** (`hooks/useSmartProgramming.ts`, ~60 LOC):
    - Aggrega 5 hook esistenti: useClient + useExerciseSafetyMap + useLatestMeasurement + useClientMeasurements + useClientGoals
@@ -187,15 +197,16 @@ File chiave: `lib/workout-monitoring.ts` (utility), `app/(dashboard)/allenamenti
    - **Card "Scheda Smart"** in TemplateSelector — pannello teal con configurazione inline:
      3 Select (sessioni/sett 2-6, obiettivo, livello auto/manuale) + bottone "Genera" teal.
      Badge dinamici: safety-aware, N obiettivi, bilaterale. Funziona anche senza cliente.
-   - **SmartAnalysisPanel** nel builder (`components/workouts/SmartAnalysisPanel.tsx`, ~270 LOC) —
+   - **SmartAnalysisPanel** nel builder (`components/workouts/SmartAnalysisPanel.tsx`, ~290 LOC) —
      Collapsible card (pattern Safety Overview Panel) con 5 sezioni:
-     1. Copertura Muscolare — barre colorate per 13 gruppi muscolari vs target NSCA per livello
+     1. Copertura Muscolare — barre colorate per 13 gruppi muscolari vs target NSCA scalati per sessioni/sett
      2. Volume Totale — set/settimana vs target con Progress bar
      3. Varieta Biomeccanica — distribuzione piani/catene/contrazioni
      4. Conflitti Recupero — overlap muscolare tra sessioni consecutive
-     5. Score Sicurezza — % esercizi compatibili con profilo clinico
+     5. Compatibilita Clinica — conteggio avoid (rosso) / modify (ambra) / caution (blu), no % fuorviante
 
-**Volume targets NSCA** (set/muscolo/settimana): beginner 10-12, intermedio 14-18, avanzato 18-25.
+**Volume targets NSCA** (set/muscolo/settimana base): beginner 10-12, intermedio 14-18, avanzato 18-25.
+Scalati per sessioni/sett via `getScaledVolumeTargets()`: fattore 0.6 (2gg) → 0.8 (3gg) → 1.0 (4gg) → 1.2 (6gg).
 
 File chiave: `lib/smart-programming.ts` (engine), `hooks/useSmartProgramming.ts` (aggregatore),
 `components/workouts/SmartAnalysisPanel.tsx` (pannello), `components/workouts/TemplateSelector.tsx` (card Smart).
