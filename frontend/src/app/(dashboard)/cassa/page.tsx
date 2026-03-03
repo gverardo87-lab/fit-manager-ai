@@ -42,6 +42,7 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -86,6 +87,13 @@ const MESI = [
   { value: "11", label: "Novembre" },
   { value: "12", label: "Dicembre" },
 ] as const;
+
+type LedgerMovementFilter = "ALL" | "ENTRATA" | "USCITA";
+
+function isValidIsoDate(v: string | null): v is string {
+  if (!v) return false;
+  return /^\d{4}-\d{2}-\d{2}$/.test(v);
+}
 
 function getYearRange(): number[] {
   const current = new Date().getFullYear();
@@ -134,14 +142,47 @@ export default function CassaPage() {
     if (saved?.tab) return saved.tab as string;
     return getUrlParams().get("tab") ?? "ledger";
   });
+  const [ledgerTipo, setLedgerTipo] = useState<LedgerMovementFilter>(() => {
+    const saved = loadFilters("cassa");
+    const fromSaved = saved?.ledger_tipo;
+    if (fromSaved === "ENTRATA" || fromSaved === "USCITA" || fromSaved === "ALL") {
+      return fromSaved;
+    }
+    const fromUrl = getUrlParams().get("tipo");
+    if (fromUrl === "ENTRATA" || fromUrl === "USCITA") return fromUrl;
+    return "ALL";
+  });
+  const [ledgerDataDa, setLedgerDataDa] = useState(() => {
+    const saved = loadFilters("cassa");
+    const fromSaved = typeof saved?.ledger_da === "string" ? saved.ledger_da : null;
+    if (isValidIsoDate(fromSaved)) return fromSaved;
+    const fromUrl = getUrlParams().get("da");
+    return isValidIsoDate(fromUrl) ? fromUrl : "";
+  });
+  const [ledgerDataA, setLedgerDataA] = useState(() => {
+    const saved = loadFilters("cassa");
+    const fromSaved = typeof saved?.ledger_a === "string" ? saved.ledger_a : null;
+    if (isValidIsoDate(fromSaved)) return fromSaved;
+    const fromUrl = getUrlParams().get("a");
+    return isValidIsoDate(fromUrl) ? fromUrl : "";
+  });
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [selectedMovement, setSelectedMovement] =
     useState<CashMovement | null>(null);
 
+  const hasLedgerDateRange = Boolean(ledgerDataDa || ledgerDataA);
+  const hasLedgerAdvancedFilters = ledgerTipo !== "ALL" || hasLedgerDateRange;
+
   const { data: movementsData, isLoading: movementsLoading, isError, refetch } =
-    useMovements({ anno, mese });
+    useMovements({
+      anno,
+      mese,
+      tipo: ledgerTipo === "ALL" ? undefined : ledgerTipo,
+      data_da: ledgerDataDa || undefined,
+      data_a: ledgerDataA || undefined,
+    });
   const { data: stats, isLoading: statsLoading } =
     useMovementStats(anno, mese);
   const { data: pendingData } = usePendingExpenses(anno, mese);
@@ -154,6 +195,9 @@ export default function CassaPage() {
       mese: mese !== currentMonth ? mese : null,
       anno: anno !== currentYear ? anno : null,
       tab: activeTab !== "ledger" ? activeTab : null,
+      ledger_tipo: ledgerTipo !== "ALL" ? ledgerTipo : null,
+      ledger_da: ledgerDataDa || null,
+      ledger_a: ledgerDataA || null,
     });
     const params = new URLSearchParams();
     if (mese !== currentMonth || anno !== currentYear) {
@@ -161,15 +205,35 @@ export default function CassaPage() {
       params.set("anno", String(anno));
     }
     if (activeTab !== "ledger") params.set("tab", activeTab);
+    if (ledgerTipo !== "ALL") params.set("tipo", ledgerTipo);
+    if (ledgerDataDa) params.set("da", ledgerDataDa);
+    if (ledgerDataA) params.set("a", ledgerDataA);
     syncUrlParams(window.location.pathname, params);
-  }, [mese, anno, activeTab, currentMonth, currentYear]);
+  }, [
+    mese,
+    anno,
+    activeTab,
+    ledgerTipo,
+    ledgerDataDa,
+    ledgerDataA,
+    currentMonth,
+    currentYear,
+  ]);
 
   const handleDelete = (movement: CashMovement) => {
     setSelectedMovement(movement);
     setDeleteOpen(true);
   };
+  const handleResetLedgerFilters = () => {
+    setLedgerTipo("ALL");
+    setLedgerDataDa("");
+    setLedgerDataA("");
+  };
 
   const meseLabel = MESI.find((m) => m.value === String(mese))?.label ?? "";
+  const periodLabel = hasLedgerDateRange
+    ? `${ledgerDataDa || "inizio"} -> ${ledgerDataA || "oggi"}`
+    : `${meseLabel} ${anno}`;
 
   return (
     <div className="space-y-6">
@@ -182,7 +246,7 @@ export default function CassaPage() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Cassa</h1>
             <p className="text-sm text-muted-foreground">
-              {meseLabel} {anno}
+              {periodLabel}
               {movementsData && ` — ${movementsData.total} movimenti`}
             </p>
           </div>
@@ -285,6 +349,17 @@ export default function CassaPage() {
         </TabsList>
 
         <TabsContent value="ledger" className="mt-4">
+          <LedgerFiltersBar
+            tipo={ledgerTipo}
+            dataDa={ledgerDataDa}
+            dataA={ledgerDataA}
+            onTipoChange={setLedgerTipo}
+            onDataDaChange={setLedgerDataDa}
+            onDataAChange={setLedgerDataA}
+            onReset={handleResetLedgerFilters}
+            hasAdvancedFilters={hasLedgerAdvancedFilters}
+          />
+
           {isError && (
             <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-6 text-center">
               <p className="text-destructive">
@@ -307,7 +382,9 @@ export default function CassaPage() {
             <MovementsTable
               movements={movementsData.items}
               onDelete={handleDelete}
-              saldoFinePeriodo={movementsData.saldo_fine_periodo}
+              saldoFinePeriodo={
+                ledgerTipo === "ALL" ? movementsData.saldo_fine_periodo : undefined
+              }
             />
           )}
         </TabsContent>
@@ -343,6 +420,80 @@ export default function CassaPage() {
 // ════════════════════════════════════════════════════════════
 // Saldo Hero Card
 // ════════════════════════════════════════════════════════════
+
+function LedgerFiltersBar({
+  tipo,
+  dataDa,
+  dataA,
+  onTipoChange,
+  onDataDaChange,
+  onDataAChange,
+  onReset,
+  hasAdvancedFilters,
+}: {
+  tipo: LedgerMovementFilter;
+  dataDa: string;
+  dataA: string;
+  onTipoChange: (v: LedgerMovementFilter) => void;
+  onDataDaChange: (v: string) => void;
+  onDataAChange: (v: string) => void;
+  onReset: () => void;
+  hasAdvancedFilters: boolean;
+}) {
+  return (
+    <div className="mb-4 rounded-lg border bg-muted/20 p-3">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end">
+        <div className="w-full md:w-[180px]">
+          <p className="mb-1 text-xs font-medium text-muted-foreground">Tipo</p>
+          <Select value={tipo} onValueChange={(v) => onTipoChange(v as LedgerMovementFilter)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Tutti i movimenti</SelectItem>
+              <SelectItem value="ENTRATA">Solo entrate</SelectItem>
+              <SelectItem value="USCITA">Solo uscite</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="w-full md:w-[180px]">
+          <p className="mb-1 text-xs font-medium text-muted-foreground">Data da</p>
+          <Input
+            type="date"
+            value={dataDa}
+            onChange={(e) => onDataDaChange(e.target.value)}
+          />
+        </div>
+
+        <div className="w-full md:w-[180px]">
+          <p className="mb-1 text-xs font-medium text-muted-foreground">Data a</p>
+          <Input
+            type="date"
+            value={dataA}
+            onChange={(e) => onDataAChange(e.target.value)}
+          />
+        </div>
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="md:ml-auto"
+          onClick={onReset}
+          disabled={!hasAdvancedFilters}
+        >
+          Reset filtri
+        </Button>
+      </div>
+
+      {tipo !== "ALL" && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Saldo per riga nascosto con filtro tipo attivo (entrate/uscite).
+        </p>
+      )}
+    </div>
+  );
+}
 
 function SaldoHeroCard({
   saldoAttuale,
