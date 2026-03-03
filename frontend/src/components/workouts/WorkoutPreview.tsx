@@ -14,6 +14,7 @@ import type { LucideIcon } from "lucide-react";
 import { Activity, Clock3, Dumbbell, Flame, Gauge, Hourglass, Repeat2, StretchHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getSectionForCategory, type TemplateSection } from "@/lib/workout-templates";
+import { buildBlockMetrics } from "@/lib/workout-preview-block-metrics";
 import { parseAvgReps, type SessionCardData } from "./SessionCard";
 import { BLOCK_TYPE_LABELS, type WorkoutExerciseRow, type Exercise } from "@/types/api";
 import type { BlockCardData } from "./BlockCard";
@@ -382,58 +383,6 @@ function SectionExerciseCard({
       )}
     </div>
   );
-}
-
-function buildBlockMetrics(
-  block: BlockCardData,
-  tipo: BlockCardData["tipo_blocco"],
-): Array<{ label: string; value: string }> {
-  const metrics: Array<{ label: string; value: string }> = [];
-  const push = (label: string, value: string | null | undefined) => {
-    if (!value) return;
-    metrics.push({ label, value });
-  };
-
-  const giriLabel = tipo === "emom" ? "Minuti" : "Giri";
-  const giriValue = block.giri > 0 ? String(block.giri) : null;
-  const lavoroValue = block.durata_lavoro_sec ? `${block.durata_lavoro_sec}s` : null;
-  const recuperoValue = block.durata_riposo_sec ? `${block.durata_riposo_sec}s` : null;
-  const durataValue = block.durata_blocco_sec
-    ? `${Math.round(block.durata_blocco_sec / 60)} min`
-    : null;
-
-  switch (tipo) {
-    case "tabata":
-      push("Lavoro", lavoroValue);
-      push("Recupero", recuperoValue);
-      push(giriLabel, giriValue);
-      push("Durata", durataValue);
-      break;
-    case "amrap":
-      push("Durata", durataValue);
-      push(giriLabel, giriValue);
-      push("Recupero", recuperoValue);
-      break;
-    case "for_time":
-      push("Durata", durataValue);
-      push(giriLabel, giriValue);
-      push("Recupero", recuperoValue);
-      break;
-    case "emom":
-      push(giriLabel, giriValue);
-      push("Lavoro", lavoroValue);
-      push("Recupero", recuperoValue);
-      push("Durata", durataValue);
-      break;
-    default:
-      push(giriLabel, giriValue);
-      push("Lavoro", lavoroValue);
-      push("Recupero", recuperoValue);
-      push("Durata", durataValue);
-      break;
-  }
-
-  return metrics;
 }
 
 function BlockPreview({ block }: { block: BlockCardData }) {

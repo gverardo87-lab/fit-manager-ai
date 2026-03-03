@@ -7,7 +7,8 @@
 - Owner: gvera + codex
 - Area: Workout Builder (`/schede/[id]`)
 - Priority: high
-- Target release: prossimo sprint
+- Target release: 2026-03-03 (`codex_01`)
+- Status: implemented
 
 ## Problem
 
@@ -94,3 +95,4 @@ Principio guida: avvisare molto, bloccare pochissimo.
 ## Notes
 
 - Collegato a feedback reale: errore update sessioni percepito come generico/non actionable.
+- Implementazione principale: `62e364e` (`page.tsx` + warning assistivi pre-save).
