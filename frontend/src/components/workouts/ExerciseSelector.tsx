@@ -212,12 +212,6 @@ export function ExerciseSelector({
     [exercises],
   );
 
-  // Seleziona un esercizio da relazione (cercandolo nella mappa)
-  const handleSelectById = useCallback((exerciseId: number) => {
-    const ex = exerciseMap.get(exerciseId);
-    if (ex) handleSelect(ex);
-  }, [exerciseMap]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // E' la sezione "principale"? (mostra set completo di filtri)
   const isPrincipale = !categoryFilter || categoryFilter.length === 0 ||
     categoryFilter.some((c) => ["compound", "isolation", "bodyweight", "cardio"].includes(c));
@@ -367,14 +361,7 @@ export function ExerciseSelector({
 
   // ── Handlers ──
 
-  const handleSelect = (exercise: Exercise) => {
-    setRecentStore(pushRecentExercise(exercise.id, recentSection));
-    onSelect(exercise);
-    onOpenChange(false);
-    resetFilters();
-  };
-
-  const resetFilters = () => {
+  const resetFilters = useCallback(() => {
     setRawSearch("");
     setDebouncedSearch("");
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -387,7 +374,20 @@ export function ExerciseSelector({
     setShowBiomechanics(false);
     setExpandedSafetyId(null);
     setExpandedDetailId(null);
-  };
+  }, []);
+
+  const handleSelect = useCallback((exercise: Exercise) => {
+    setRecentStore(pushRecentExercise(exercise.id, recentSection));
+    onSelect(exercise);
+    onOpenChange(false);
+    resetFilters();
+  }, [recentSection, onSelect, onOpenChange, resetFilters]);
+
+  // Seleziona un esercizio da relazione (cercandolo nella mappa)
+  const handleSelectById = useCallback((exerciseId: number) => {
+    const ex = exerciseMap.get(exerciseId);
+    if (ex) handleSelect(ex);
+  }, [exerciseMap, handleSelect]);
 
   // ── Callback stabili per ExerciseRow memo ──
   const handleToggleSafety = useCallback((id: number) => {

@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash tools/scripts/check-all.sh)"
+    ]
+  }
+}
