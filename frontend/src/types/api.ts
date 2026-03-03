@@ -491,6 +491,7 @@ export interface RecurringExpenseCloseResponse {
   cutoff_data: string;
   created_last_due_movement: boolean;
   storni_creati: number;
+  storni_rimossi: number;
 }
 
 // ════════════════════════════════════════════════════════════

@@ -860,7 +860,7 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="CHIUDI">Chiudi con storno (consigliato)</SelectItem>
+                  <SelectItem value="CHIUDI">Chiudi/rettifica con storno (consigliato)</SelectItem>
                   <SelectItem value="ELIMINA">Elimina definitivamente</SelectItem>
                 </SelectContent>
               </Select>
@@ -871,6 +871,11 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
                 <p className="text-sm text-emerald-900 dark:text-emerald-200">
                   Mantiene lo storico reale e applica storno solo alle occorrenze oltre il cutoff.
                 </p>
+                {deleteTarget && !deleteTarget.attiva && (
+                  <p className="text-xs text-emerald-900/90 dark:text-emerald-200/90">
+                    La spesa e&apos; gia&apos; disattivata: puoi usare questo pannello per rettificare il cutoff.
+                  </p>
+                )}
                 <div className="space-y-1.5">
                   <Label className="text-xs">Mese cutoff</Label>
                   <Input

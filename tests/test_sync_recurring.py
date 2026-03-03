@@ -401,6 +401,7 @@ def test_close_recurring_keeps_last_due_and_preserves_history(client, auth_heade
     )
     assert close["created_last_due_movement"] is True
     assert close["storni_creati"] == 0
+    assert close["storni_rimossi"] == 0
 
     rec = client.get("/api/recurring-expenses", headers=auth_headers).json()["items"]
     target = next(e for e in rec if e["id"] == expense["id"])
@@ -446,8 +447,223 @@ def test_close_recurring_non_due_creates_storno_for_cutoff(client, auth_headers)
     )
     assert close["created_last_due_movement"] is False
     assert close["storni_creati"] == 1
+    assert close["storni_rimossi"] == 0
 
     march_mov = client.get("/api/movements?anno=2026&mese=3", headers=auth_headers).json()["items"]
     expense_rows = [m for m in march_mov if m.get("id_spesa_ricorrente") == expense["id"]]
     assert len([m for m in expense_rows if m["tipo"] == "USCITA"]) == 1
     assert len([m for m in expense_rows if m["tipo"] == "ENTRATA"]) == 1
+
+
+def test_close_non_due_updates_stats_chart_and_reinsert_is_consistent(client, auth_headers):
+    """
+    Regressione cashflow:
+    - Chiusura NON dovuta a marzo deve azzerare l'uscita fissa netta del mese
+    - Il grafico giornaliero deve riflettere lo storno (nessuna uscita residua sul giorno cutoff)
+    - Reinserendo la spesa nel mese, stats/grafico devono mostrare solo la nuova uscita netta
+    """
+    expense = _create_expense(
+        client,
+        auth_headers,
+        nome="Affitto Sala",
+        importo=120.0,
+        giorno_scadenza=8,
+        data_inizio="2026-01-01",
+    )
+
+    # Conferma gennaio, febbraio, marzo
+    for month in (1, 2, 3):
+        pending = _get_pending(client, auth_headers, 2026, month)
+        _confirm(client, auth_headers, [{
+            "id_spesa": pending["items"][0]["id_spesa"],
+            "mese_anno_key": pending["items"][0]["mese_anno_key"],
+        }])
+
+    _close_expense(
+        client,
+        auth_headers,
+        expense["id"],
+        key="2026-03",
+        last_occurrence_due=False,
+    )
+
+    stats_after_close = client.get(
+        "/api/movements/stats?anno=2026&mese=3",
+        headers=auth_headers,
+    ).json()
+    assert stats_after_close["totale_entrate"] == 0.0
+    assert stats_after_close["totale_uscite_fisse"] == 0.0
+    assert stats_after_close["saldo_fine_mese"] == stats_after_close["saldo_inizio_mese"]
+    day8_after_close = next(d for d in stats_after_close["chart_data"] if d["giorno"] == 8)
+    assert day8_after_close["entrate"] == 0.0
+    assert day8_after_close["uscite"] == 0.0
+
+    reinserted = _create_expense(
+        client,
+        auth_headers,
+        nome="Affitto Sala",
+        importo=120.0,
+        giorno_scadenza=8,
+        data_inizio="2026-03-01",
+    )
+    pending_march = _get_pending(client, auth_headers, 2026, 3)
+    march_item = next(i for i in pending_march["items"] if i["id_spesa"] == reinserted["id"])
+    _confirm(client, auth_headers, [{
+        "id_spesa": march_item["id_spesa"],
+        "mese_anno_key": march_item["mese_anno_key"],
+    }])
+
+    stats_after_reinsert = client.get(
+        "/api/movements/stats?anno=2026&mese=3",
+        headers=auth_headers,
+    ).json()
+    assert stats_after_reinsert["totale_entrate"] == 0.0
+    assert stats_after_reinsert["totale_uscite_fisse"] == 120.0
+    assert round(
+        stats_after_reinsert["saldo_inizio_mese"] - stats_after_reinsert["saldo_fine_mese"],
+        2,
+    ) == 120.0
+    day8_after_reinsert = next(d for d in stats_after_reinsert["chart_data"] if d["giorno"] == 8)
+    assert day8_after_reinsert["entrate"] == 0.0
+    assert day8_after_reinsert["uscite"] == 120.0
+
+
+def test_close_allows_rectify_on_inactive_and_storno_older_cutoff(client, auth_headers):
+    """
+    Chiusura ripetuta su spesa gia' disattivata:
+    - primo passaggio: cutoff marzo non dovuto -> storna marzo
+    - rettifica successiva: cutoff febbraio non dovuto -> aggiunge storno febbraio
+    """
+    expense = _create_expense(
+        client,
+        auth_headers,
+        nome="Affitto Sala Rettifica",
+        importo=130.0,
+        giorno_scadenza=5,
+        data_inizio="2026-02-01",
+    )
+
+    for month in (2, 3):
+        pending = _get_pending(client, auth_headers, 2026, month)
+        _confirm(client, auth_headers, [{
+            "id_spesa": pending["items"][0]["id_spesa"],
+            "mese_anno_key": pending["items"][0]["mese_anno_key"],
+        }])
+
+    close_march = _close_expense(
+        client,
+        auth_headers,
+        expense["id"],
+        key="2026-03",
+        last_occurrence_due=False,
+    )
+    assert close_march["storni_creati"] == 1
+    assert close_march["storni_rimossi"] == 0
+
+    rectify_feb = _close_expense(
+        client,
+        auth_headers,
+        expense["id"],
+        key="2026-02",
+        last_occurrence_due=False,
+    )
+    assert rectify_feb["storni_creati"] == 1
+    assert rectify_feb["storni_rimossi"] == 0
+
+    feb_stats = client.get("/api/movements/stats?anno=2026&mese=2", headers=auth_headers).json()
+    mar_stats = client.get("/api/movements/stats?anno=2026&mese=3", headers=auth_headers).json()
+    assert feb_stats["totale_uscite_fisse"] == 0.0
+    assert mar_stats["totale_uscite_fisse"] == 0.0
+
+    feb_day5 = next(d for d in feb_stats["chart_data"] if d["giorno"] == 5)
+    mar_day5 = next(d for d in mar_stats["chart_data"] if d["giorno"] == 5)
+    assert feb_day5["uscite"] == 0.0
+    assert mar_day5["uscite"] == 0.0
+
+
+def test_close_rectify_can_restore_due_cutoff_by_removing_storno(client, auth_headers):
+    """
+    Rettifica inversa:
+    - prima cutoff non dovuto (crea storno)
+    - poi stesso cutoff dovuto (rimuove storno) senza riaprire la spesa
+    """
+    expense = _create_expense(
+        client,
+        auth_headers,
+        nome="Ripristino Dovuta",
+        importo=95.0,
+        giorno_scadenza=7,
+        data_inizio="2026-01-01",
+    )
+
+    for month in (1, 2):
+        pending = _get_pending(client, auth_headers, 2026, month)
+        _confirm(client, auth_headers, [{
+            "id_spesa": pending["items"][0]["id_spesa"],
+            "mese_anno_key": pending["items"][0]["mese_anno_key"],
+        }])
+
+    non_due = _close_expense(
+        client,
+        auth_headers,
+        expense["id"],
+        key="2026-02",
+        last_occurrence_due=False,
+    )
+    assert non_due["storni_creati"] == 1
+    assert non_due["storni_rimossi"] == 0
+
+    due_again = _close_expense(
+        client,
+        auth_headers,
+        expense["id"],
+        key="2026-02",
+        last_occurrence_due=True,
+    )
+    assert due_again["storni_creati"] == 0
+    assert due_again["storni_rimossi"] == 1
+
+    feb_stats = client.get("/api/movements/stats?anno=2026&mese=2", headers=auth_headers).json()
+    assert feb_stats["totale_uscite_fisse"] == 95.0
+    feb_day7 = next(d for d in feb_stats["chart_data"] if d["giorno"] == 7)
+    assert feb_day7["entrate"] == 0.0
+    assert feb_day7["uscite"] == 95.0
+
+
+def test_close_rectify_is_idempotent_on_same_cutoff_strategy(client, auth_headers):
+    """Ripetere la stessa strategia di cutoff non deve produrre ulteriori movimenti."""
+    expense = _create_expense(
+        client,
+        auth_headers,
+        nome="Idempotenza Rettifica",
+        importo=80.0,
+        giorno_scadenza=4,
+        data_inizio="2026-02-01",
+    )
+
+    for month in (2, 3):
+        pending = _get_pending(client, auth_headers, 2026, month)
+        _confirm(client, auth_headers, [{
+            "id_spesa": pending["items"][0]["id_spesa"],
+            "mese_anno_key": pending["items"][0]["mese_anno_key"],
+        }])
+
+    first = _close_expense(
+        client,
+        auth_headers,
+        expense["id"],
+        key="2026-03",
+        last_occurrence_due=False,
+    )
+    assert first["storni_creati"] == 1
+    assert first["storni_rimossi"] == 0
+
+    second = _close_expense(
+        client,
+        auth_headers,
+        expense["id"],
+        key="2026-03",
+        last_occurrence_due=False,
+    )
+    assert second["storni_creati"] == 0
+    assert second["storni_rimossi"] == 0

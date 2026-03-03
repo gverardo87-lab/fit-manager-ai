@@ -167,12 +167,20 @@ export function useCloseRecurringExpense() {
       queryClient.invalidateQueries({ queryKey: ["aging-report"] });
       queryClient.invalidateQueries({ queryKey: ["forecast"] });
 
-      if (data.storni_creati > 0) {
+      if (data.storni_creati > 0 && data.storni_rimossi > 0) {
+        toast.success(
+          `Spesa rettificata. Creati ${data.storni_creati} storni e rimossi ${data.storni_rimossi} storni`
+        );
+      } else if (data.storni_creati > 0) {
         toast.success(
           `Spesa chiusa. Creati ${data.storni_creati} storni per allineare il flusso cassa`
         );
+      } else if (data.storni_rimossi > 0) {
+        toast.success(
+          `Spesa rettificata. Rimossi ${data.storni_rimossi} storni non piu' necessari`
+        );
       } else {
-        toast.success("Spesa chiusa correttamente");
+        toast.success("Spesa chiusa/rettificata correttamente");
       }
     },
     onError: (error) => {

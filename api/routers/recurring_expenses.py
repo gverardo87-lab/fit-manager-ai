@@ -214,6 +214,7 @@ class RecurringExpenseCloseResponse(BaseModel):
     cutoff_data: date
     created_last_due_movement: bool
     storni_creati: int
+    storni_rimossi: int = 0
 
 # ════════════════════════════════════════════════════════════
 # GET: Lista spese ricorrenti
@@ -336,12 +337,14 @@ def close_recurring_expense(
     session: Session = Depends(get_session),
 ):
     """
-    Chiude una spesa ricorrente preservando lo storico e applicando storni mirati.
+    Chiude o rettifica una spesa ricorrente preservando lo storico reale.
 
     Regole:
-    - Movimenti <= cutoff: mantenuti (storico reale)
-    - Movimenti > cutoff: stornati con ENTRATA speculare (mai hard-delete)
+    - Movimenti > cutoff: devono essere stornati (ENTRATA speculare)
+    - Movimenti <= cutoff: NON devono avere storno attivo
     - Se `last_occurrence_due=true`, l'occorrenza cutoff viene assicurata nel ledger
+    - Endpoint idempotente: puo' essere richiamato anche su spesa gia' disattivata
+      per rettificare il cutoff senza errori bloccanti.
     """
     expense = session.exec(
         select(RecurringExpense).where(
@@ -355,12 +358,6 @@ def close_recurring_expense(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Spesa ricorrente non trovata",
-        )
-
-    if not expense.attiva:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Spesa ricorrente gia' disattivata",
         )
 
     cutoff_occurrence_date = _resolve_occurrence_date(expense, data.effective_mese_anno_key)
@@ -406,64 +403,109 @@ def close_recurring_expense(
             log_audit(session, "movement", movement.id, "CREATE", trainer.id)
             created_last_due_movement = True
 
-    movements_to_reverse = session.exec(
+    linked_expense_movements = session.exec(
         select(CashMovement).where(
             CashMovement.trainer_id == trainer.id,
             CashMovement.id_spesa_ricorrente == expense.id,
             CashMovement.id_contratto == None,
             CashMovement.tipo == "USCITA",
-            CashMovement.data_effettiva > cutoff_date,
             CashMovement.deleted_at == None,
         )
     ).all()
 
     storni_creati = 0
-    for movement in movements_to_reverse:
+    storni_rimossi = 0
+    now = datetime.now(timezone.utc)
+
+    for movement in linked_expense_movements:
+        should_be_storned = movement.data_effettiva > cutoff_date
         storno_key = f"STORNO:{movement.id}"
 
-        storno_already_present = session.exec(
-            select(CashMovement.id).where(
+        active_storno = session.exec(
+            select(CashMovement).where(
                 CashMovement.trainer_id == trainer.id,
                 CashMovement.id_spesa_ricorrente == expense.id,
+                CashMovement.tipo == "ENTRATA",
                 CashMovement.mese_anno == storno_key,
                 CashMovement.deleted_at == None,
             )
         ).first()
-        if storno_already_present:
+
+        if should_be_storned:
+            if active_storno:
+                continue
+
+            deleted_storno = session.exec(
+                select(CashMovement).where(
+                    CashMovement.trainer_id == trainer.id,
+                    CashMovement.id_spesa_ricorrente == expense.id,
+                    CashMovement.tipo == "ENTRATA",
+                    CashMovement.mese_anno == storno_key,
+                    CashMovement.deleted_at != None,
+                )
+            ).first()
+
+            if deleted_storno:
+                old_deleted_at = deleted_storno.deleted_at
+                deleted_storno.deleted_at = None
+                deleted_storno.data_effettiva = movement.data_effettiva
+                deleted_storno.importo = movement.importo
+                deleted_storno.categoria = "STORNO_SPESA_FISSA"
+                deleted_storno.note = f"Storno spesa ricorrente: {expense.nome} ({movement.mese_anno})"
+                deleted_storno.operatore = "STORNO_UTENTE"
+                session.add(deleted_storno)
+                log_audit(session, "movement", deleted_storno.id, "RESTORE", trainer.id, {
+                    "deleted_at": {"old": str(old_deleted_at), "new": None},
+                })
+                storni_creati += 1
+                continue
+
+            storno = CashMovement(
+                trainer_id=trainer.id,
+                data_effettiva=movement.data_effettiva,
+                tipo="ENTRATA",
+                categoria="STORNO_SPESA_FISSA",
+                importo=movement.importo,
+                note=f"Storno spesa ricorrente: {expense.nome} ({movement.mese_anno})",
+                operatore="STORNO_UTENTE",
+                id_spesa_ricorrente=expense.id,
+                mese_anno=storno_key,
+            )
+            session.add(storno)
+            session.flush()
+            log_audit(session, "movement", storno.id, "CREATE", trainer.id)
+            storni_creati += 1
             continue
 
-        storno = CashMovement(
-            trainer_id=trainer.id,
-            data_effettiva=movement.data_effettiva,
-            tipo="ENTRATA",
-            categoria="STORNO_SPESA_FISSA",
-            importo=movement.importo,
-            note=f"Storno spesa ricorrente: {expense.nome} ({movement.mese_anno})",
-            operatore="STORNO_UTENTE",
-            id_spesa_ricorrente=expense.id,
-            mese_anno=storno_key,
-        )
-        session.add(storno)
-        session.flush()
-        log_audit(session, "movement", storno.id, "CREATE", trainer.id)
-        storni_creati += 1
+        if active_storno:
+            active_storno.deleted_at = now
+            session.add(active_storno)
+            log_audit(session, "movement", active_storno.id, "DELETE", trainer.id)
+            storni_rimossi += 1
 
+    was_active = expense.attiva
     old_disattivazione = expense.data_disattivazione
     expense.attiva = False
-    expense.data_disattivazione = datetime.now(timezone.utc)
+    if was_active:
+        expense.data_disattivazione = now
     session.add(expense)
-    log_audit(session, "recurring_expense", expense.id, "UPDATE", trainer.id, {
-        "attiva": {"old": True, "new": False},
-        "data_disattivazione": {
-            "old": str(old_disattivazione) if old_disattivazione else None,
-            "new": str(expense.data_disattivazione),
-        },
+    changes = {
         "close_strategy": {
             "effective_mese_anno_key": data.effective_mese_anno_key,
             "last_occurrence_due": data.last_occurrence_due,
             "cutoff_data": str(cutoff_occurrence_date),
+            "storni_creati": storni_creati,
+            "storni_rimossi": storni_rimossi,
         },
-    })
+    }
+    if was_active:
+        changes["attiva"] = {"old": True, "new": False}
+    if old_disattivazione != expense.data_disattivazione:
+        changes["data_disattivazione"] = {
+            "old": str(old_disattivazione) if old_disattivazione else None,
+            "new": str(expense.data_disattivazione) if expense.data_disattivazione else None,
+        }
+    log_audit(session, "recurring_expense", expense.id, "UPDATE", trainer.id, changes)
     session.commit()
 
     return RecurringExpenseCloseResponse(
@@ -471,6 +513,7 @@ def close_recurring_expense(
         cutoff_data=cutoff_occurrence_date,
         created_last_due_movement=created_last_due_movement,
         storni_creati=storni_creati,
+        storni_rimossi=storni_rimossi,
     )
 
 

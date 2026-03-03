@@ -736,11 +736,11 @@ def get_movement_stats(
     Statistiche finanziarie del mese — Single Source of Truth.
 
     Pure read-only: zero side effects. TUTTE le cifre derivano
-    da CashMovement gia' confermati dall'utente:
-    - entrate: tipo=ENTRATA
-    - uscite variabili: tipo=USCITA AND id_spesa_ricorrente IS NULL
-    - uscite fisse: tipo=USCITA AND id_spesa_ricorrente IS NOT NULL
-    - margine netto: entrate - uscite_variabili - uscite_fisse
+    da CashMovement gia' confermati dall'utente.
+
+    Nota contabile:
+    - `STORNO_SPESA_FISSA` non e' una vera entrata operativa.
+      Viene trattato come rettifica delle uscite fisse.
     """
     # Tutti i movimenti del mese (single query, escludi eliminati)
     movements = session.exec(
@@ -753,15 +753,31 @@ def get_movement_stats(
     ).all()
 
     # Single Source of Truth: tutto da CashMovement
-    totale_entrate = sum(m.importo for m in movements if m.tipo == "ENTRATA")
+    storno_fisse = sum(
+        m.importo
+        for m in movements
+        if m.tipo == "ENTRATA"
+        and m.id_spesa_ricorrente is not None
+        and m.categoria == "STORNO_SPESA_FISSA"
+    )
+    totale_entrate = sum(
+        m.importo
+        for m in movements
+        if m.tipo == "ENTRATA"
+        and not (
+            m.id_spesa_ricorrente is not None
+            and m.categoria == "STORNO_SPESA_FISSA"
+        )
+    )
     totale_uscite_variabili = sum(
         m.importo for m in movements
         if m.tipo == "USCITA" and m.id_spesa_ricorrente is None
     )
-    totale_uscite_fisse = sum(
+    totale_uscite_fisse_lorde = sum(
         m.importo for m in movements
         if m.tipo == "USCITA" and m.id_spesa_ricorrente is not None
     )
+    totale_uscite_fisse = round(totale_uscite_fisse_lorde - storno_fisse, 2)
 
     margine_netto = totale_entrate - totale_uscite_variabili - totale_uscite_fisse
 
@@ -777,10 +793,24 @@ def get_movement_stats(
 
     for m in movements:
         day = m.data_effettiva.day
-        if m.tipo == "ENTRATA":
+        is_storno_fissa = (
+            m.tipo == "ENTRATA"
+            and m.id_spesa_ricorrente is not None
+            and m.categoria == "STORNO_SPESA_FISSA"
+        )
+        if is_storno_fissa:
+            # Lo storno riduce le uscite del giorno, non e' entrata operativa.
+            uscite_per_giorno[day] -= m.importo
+        elif m.tipo == "ENTRATA":
             entrate_per_giorno[day] += m.importo
         else:
             uscite_per_giorno[day] += m.importo
+
+    # Normalizzazione: evita uscite negative nel grafico.
+    for day, u in list(uscite_per_giorno.items()):
+        if u < 0:
+            entrate_per_giorno[day] += abs(u)
+            uscite_per_giorno[day] = 0.0
 
     running = saldo_inizio_mese
     chart_data = []
