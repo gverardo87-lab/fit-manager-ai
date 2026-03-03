@@ -743,6 +743,47 @@ export default function SchedaDetailPage({
     [exerciseMap],
   );
 
+  const handleDuplicateBlock = useCallback((sessionId: number, blockId: number) => {
+    setSessions((prev) =>
+      prev.map((s) => {
+        if (s.id !== sessionId) return s;
+        const source = s.blocchi.find((b) => b.id === blockId);
+        if (!source) return s;
+        const newId = -(Date.now());
+        const dup: BlockCardData = {
+          ...source,
+          id: newId,
+          nome: source.nome ? `${source.nome} (copia)` : null,
+          ordine: Math.max(...s.blocchi.map((b) => b.ordine), 0) + 1,
+          esercizi: source.esercizi.map((e, i) => ({
+            ...e,
+            id: -(Date.now() + i + 1),
+          })),
+        };
+        return { ...s, blocchi: [...s.blocchi, dup] };
+      }),
+    );
+    setIsDirty(true);
+  }, []);
+
+  const handleClearSection = useCallback((sessionId: number, sezione: TemplateSection, what: "exercises" | "blocks" | "all") => {
+    setSessions((prev) =>
+      prev.map((s) => {
+        if (s.id !== sessionId) return s;
+        const clearEx = what === "exercises" || what === "all";
+        const clearBl = (what === "blocks" || what === "all") && sezione === "principale";
+        return {
+          ...s,
+          esercizi: clearEx
+            ? s.esercizi.filter((e) => getSectionForCategory(e.esercizio_categoria) !== sezione)
+            : s.esercizi,
+          blocchi: clearBl ? [] : s.blocchi,
+        };
+      }),
+    );
+    setIsDirty(true);
+  }, []);
+
   // ── Save ──
 
   const handleSave = useCallback(() => {
@@ -1146,11 +1187,13 @@ export default function SchedaDetailPage({
               onAddBlock={handleAddBlock}
               onUpdateBlock={handleUpdateBlock}
               onDeleteBlock={handleDeleteBlock}
+              onDuplicateBlock={handleDuplicateBlock}
               onAddExerciseToBlock={handleAddExerciseToBlock}
               onUpdateExerciseInBlock={handleUpdateExerciseInBlock}
               onDeleteExerciseFromBlock={handleDeleteExerciseFromBlock}
               onReplaceExerciseInBlock={handleReplaceExerciseInBlock}
               onQuickReplaceInBlock={handleQuickReplaceInBlock}
+              onClearSection={handleClearSection}
             />
           ))}
 

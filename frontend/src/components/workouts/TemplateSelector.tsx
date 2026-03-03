@@ -12,7 +12,7 @@
 
 import { useCallback, useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Zap, TrendingUp, Flame, FileText, User, Brain, Sparkles } from "lucide-react";
+import { Zap, TrendingUp, Flame, FileText, User, Brain, Sparkles, Layers } from "lucide-react";
 
 import {
   Dialog,
@@ -297,6 +297,46 @@ export function TemplateSelector({ open, onOpenChange, clientId }: TemplateSelec
     );
   }, [createWorkout, selectedClientId, onOpenChange, router, exercises]);
 
+  /** Scheda vuota con 1 blocco circuit pre-impostato in Principale */
+  const handleBlankSheetHybrid = useCallback(() => {
+    createWorkout.mutate(
+      {
+        nome: "Nuova Scheda",
+        obiettivo: "generale",
+        livello: "intermedio",
+        sessioni_per_settimana: 3,
+        durata_settimane: 4,
+        id_cliente: selectedClientId,
+        sessioni: [
+          {
+            nome_sessione: "Sessione 1",
+            durata_minuti: 60,
+            esercizi: [],
+            blocchi: [
+              {
+                tipo_blocco: "circuit",
+                ordine: 1,
+                nome: null,
+                giri: 3,
+                durata_lavoro_sec: null,
+                durata_riposo_sec: 15,
+                durata_blocco_sec: null,
+                note: null,
+                esercizi: [],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        onSuccess: (plan) => {
+          onOpenChange(false);
+          router.push(`/schede/${plan.id}`);
+        },
+      },
+    );
+  }, [createWorkout, selectedClientId, onOpenChange, router]);
+
   // ── Handler: Scheda Smart (generazione automatica 14 dimensioni) ──
   const handleSmartTemplate = useCallback(() => {
     if (exercises.length === 0) return;
@@ -524,20 +564,36 @@ export function TemplateSelector({ open, onOpenChange, clientId }: TemplateSelec
           ))}
         </div>
 
-        {/* Scheda vuota */}
-        <button
-          onClick={handleBlankSheet}
-          disabled={createWorkout.isPending || isLoading}
-          className="mt-2 flex items-center gap-3 rounded-xl border border-dashed p-4 text-left transition-colors hover:bg-muted/50 disabled:opacity-50"
-        >
-          <FileText className="h-6 w-6 text-muted-foreground" />
-          <div>
-            <h3 className="font-semibold text-sm">Scheda Vuota</h3>
-            <p className="text-xs text-muted-foreground">
-              Parti da zero e costruisci la tua scheda personalizzata.
-            </p>
-          </div>
-        </button>
+        {/* Scheda vuota — 2 opzioni: Standard o Con blocchi */}
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <button
+            onClick={handleBlankSheet}
+            disabled={createWorkout.isPending || isLoading}
+            className="flex items-start gap-3 rounded-xl border border-dashed p-4 text-left transition-colors hover:bg-muted/50 disabled:opacity-50"
+          >
+            <FileText className="h-5 w-5 mt-0.5 text-muted-foreground shrink-0" />
+            <div>
+              <h3 className="font-semibold text-sm">Standard</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Esercizi per sezione: avviamento, principale, stretching.
+              </p>
+            </div>
+          </button>
+
+          <button
+            onClick={handleBlankSheetHybrid}
+            disabled={createWorkout.isPending || isLoading}
+            className="flex items-start gap-3 rounded-xl border border-dashed p-4 text-left transition-colors hover:bg-muted/50 disabled:opacity-50"
+          >
+            <Layers className="h-5 w-5 mt-0.5 text-muted-foreground shrink-0" />
+            <div>
+              <h3 className="font-semibold text-sm">Con blocchi</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Parte con un circuito in Principale, pronto da riempire.
+              </p>
+            </div>
+          </button>
+        </div>
       </DialogContent>
     </Dialog>
   );

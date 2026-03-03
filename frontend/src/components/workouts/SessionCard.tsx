@@ -4,13 +4,13 @@
 /**
  * Card per una singola sessione di allenamento dentro il builder.
  *
- * 3 sezioni visive:
- * - Avviamento (warm-up)
- * - Esercizio Principale (strength)
- * - Stretching & Mobilita (cooldown)
+ * 3 sezioni visive — ora come panel cards (linguaggio "riquadri" coerente):
+ * - Avviamento (warm-up)      → border amber
+ * - Esercizio Principale      → border primary
+ * - Stretching & Mobilita     → border cyan
  *
- * Ogni sezione ha drag & drop indipendente e + button dedicato.
- * La sezione viene determinata da esercizio_categoria.
+ * Ogni sezione ha drag & drop indipendente, + button, e "Svuota" button.
+ * Blocchi strutturati (circuit, tabata…) si inseriscono nella sezione principale.
  * Azioni sessione in overflow menu (⋮) per header compatto.
  */
 
@@ -30,7 +30,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Plus, Trash2, Pencil, Flame, Dumbbell, Heart, ShieldAlert, AlertTriangle, Copy, StickyNote, MoreVertical, Layers } from "lucide-react";
+import { Plus, Trash2, Pencil, Flame, Dumbbell, Heart, ShieldAlert, AlertTriangle, Copy, StickyNote, MoreVertical, Layers, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -85,11 +85,14 @@ interface SessionCardProps {
   onAddBlock?: (sessionId: number, tipo: BlockType) => void;
   onUpdateBlock?: (sessionId: number, blockId: number, updates: Partial<BlockCardData>) => void;
   onDeleteBlock?: (sessionId: number, blockId: number) => void;
+  onDuplicateBlock?: (sessionId: number, blockId: number) => void;
   onAddExerciseToBlock?: (sessionId: number, blockId: number) => void;
   onUpdateExerciseInBlock?: (sessionId: number, blockId: number, exerciseId: number, updates: Partial<WorkoutExerciseRow>) => void;
   onDeleteExerciseFromBlock?: (sessionId: number, blockId: number, exerciseId: number) => void;
   onReplaceExerciseInBlock?: (sessionId: number, blockId: number, exerciseId: number) => void;
   onQuickReplaceInBlock?: (sessionId: number, blockId: number, exerciseId: number, newExerciseId: number) => void;
+  /** Svuota una sezione (esercizi, blocchi, o entrambi) */
+  onClearSection?: (sessionId: number, sezione: TemplateSection, what: "exercises" | "blocks" | "all") => void;
 }
 
 // ── Sezione config ──
@@ -99,32 +102,105 @@ const SECTION_CONFIG: Record<TemplateSection, {
   icon: React.ReactNode;
   addLabel: string;
   color: string;
-  borderColor: string;
+  panelBorder: string;
+  panelBg: string;
 }> = {
   avviamento: {
     label: "Avviamento",
     icon: <Flame className="h-3.5 w-3.5" />,
     addLabel: "Aggiungi Avviamento",
     color: "text-amber-600 dark:text-amber-400",
-    borderColor: "border-l-amber-400",
+    panelBorder: "border-amber-200 dark:border-amber-800",
+    panelBg: "bg-amber-50/50 dark:bg-amber-950/20",
   },
   principale: {
     label: "Esercizio Principale",
     icon: <Dumbbell className="h-3.5 w-3.5" />,
     addLabel: "Aggiungi Esercizio",
     color: "text-primary",
-    borderColor: "border-l-primary",
+    panelBorder: "border-primary/25",
+    panelBg: "bg-primary/5",
   },
   stretching: {
     label: "Stretching & Mobilita",
     icon: <Heart className="h-3.5 w-3.5" />,
     addLabel: "Aggiungi Stretching",
     color: "text-cyan-600 dark:text-cyan-400",
-    borderColor: "border-l-cyan-400",
+    panelBorder: "border-cyan-200 dark:border-cyan-800",
+    panelBg: "bg-cyan-50/50 dark:bg-cyan-950/20",
   },
 };
 
 const SECTION_ORDER: TemplateSection[] = ["avviamento", "principale", "stretching"];
+
+// ── ClearSectionButton — bottone "Svuota" per ogni sezione ──
+
+function ClearSectionButton({
+  sessionId,
+  sezione,
+  hasExercises,
+  hasBlocks,
+  onClear,
+}: {
+  sessionId: number;
+  sezione: TemplateSection;
+  hasExercises: boolean;
+  hasBlocks: boolean;
+  onClear?: (sessionId: number, sezione: TemplateSection, what: "exercises" | "blocks" | "all") => void;
+}) {
+  if (!onClear) return null;
+  if (!hasExercises && !hasBlocks) return null;
+
+  const btnClass = "h-5 w-5 text-muted-foreground/40 hover:text-destructive transition-colors";
+
+  // Principale con entrambi → DropdownMenu
+  if (sezione === "principale" && hasExercises && hasBlocks) {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className={btnClass}>
+            <X className="h-3 w-3" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="text-xs">
+          <DropdownMenuItem
+            className="text-xs"
+            onClick={() => onClear(sessionId, sezione, "exercises")}
+          >
+            Svuota esercizi
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="text-xs"
+            onClick={() => onClear(sessionId, sezione, "blocks")}
+          >
+            Svuota blocchi
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            className="text-xs text-destructive focus:text-destructive"
+            onClick={() => onClear(sessionId, sezione, "all")}
+          >
+            Svuota tutto
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
+  // Caso semplice → singolo X
+  const what = sezione === "principale" && hasBlocks && !hasExercises ? "blocks" : "exercises";
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className={btnClass}
+      onClick={() => onClear(sessionId, sezione, what)}
+      title={`Svuota ${sezione}`}
+    >
+      <X className="h-3 w-3" />
+    </Button>
+  );
+}
 
 /** Parsa range ripetizioni → media. "8-12" → 10, "5" → 5, "30s" → 0. */
 export function parseAvgReps(reps: string): number {
@@ -153,11 +229,13 @@ export function SessionCard({
   onAddBlock,
   onUpdateBlock,
   onDeleteBlock,
+  onDuplicateBlock,
   onAddExerciseToBlock,
   onUpdateExerciseInBlock,
   onDeleteExerciseFromBlock,
   onReplaceExerciseInBlock,
   onQuickReplaceInBlock,
+  onClearSection,
 }: SessionCardProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState(session.nome_sessione);
@@ -349,134 +427,154 @@ export function SessionCard({
             const config = SECTION_CONFIG[sectionKey];
             const exercises = groupedExercises[sectionKey];
             const isPrincipale = sectionKey === "principale";
+            const hasBlocks = isPrincipale && session.blocchi.length > 0;
+            const hasContent = exercises.length > 0 || hasBlocks;
 
             return (
-              <div key={sectionKey} className={`border-l-2 ${config.borderColor} pl-3`}>
-                {/* Section header */}
-                <div className={`flex items-center gap-1.5 mb-1 ${config.color}`}>
-                  {config.icon}
-                  <span className="text-[11px] font-semibold uppercase tracking-wider">
+              <div
+                key={sectionKey}
+                className={`rounded-lg border ${config.panelBorder} overflow-hidden`}
+              >
+                {/* ── Section header con sfondo tematico ── */}
+                <div className={`flex items-center gap-2 px-3 py-1.5 ${config.panelBg}`}>
+                  <span className={config.color}>{config.icon}</span>
+                  <span className={`text-[11px] font-semibold uppercase tracking-wider ${config.color}`}>
                     {config.label}
                   </span>
-                  {exercises.length > 0 && (
-                    <span className="text-[10px] text-muted-foreground ml-1">
-                      ({exercises.length})
+                  {hasContent && (
+                    <span className="text-[10px] text-muted-foreground">
+                      ({exercises.length + (hasBlocks ? session.blocchi.length : 0)})
                     </span>
                   )}
-                  {isPrincipale && sessionVolume != null && (
-                    <span className="text-[10px] font-semibold text-muted-foreground ml-auto tabular-nums">
-                      Vol: {sessionVolume.toLocaleString("it-IT")} kg
-                    </span>
-                  )}
+                  <div className="ml-auto flex items-center gap-1.5">
+                    {/* Volume badge — solo principale */}
+                    {isPrincipale && sessionVolume != null && (
+                      <span className="text-[10px] font-semibold text-muted-foreground tabular-nums">
+                        Vol: {sessionVolume.toLocaleString("it-IT")} kg
+                      </span>
+                    )}
+                    {/* Svuota button */}
+                    <ClearSectionButton
+                      sessionId={session.id}
+                      sezione={sectionKey}
+                      hasExercises={exercises.length > 0}
+                      hasBlocks={hasBlocks}
+                      onClear={onClearSection}
+                    />
+                  </div>
                 </div>
 
-                {/* Exercise rows */}
-                {exercises.length > 0 && (
-                  <>
-                    {/* Column header — allineato ai nuovi grid */}
-                    <div className={`grid ${isPrincipale
-                      ? "grid-cols-[20px_14px_1fr_44px_52px_52px_44px_24px]"
-                      : "grid-cols-[20px_14px_1fr_44px_52px_24px]"
-                    } gap-1 px-1 pb-0.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider`}>
-                      <span />
-                      <span />
-                      <span>Esercizio</span>
-                      <span className="text-center">Serie</span>
-                      <span className="text-center">Rip</span>
-                      {isPrincipale && (
-                        <>
-                          <span className="text-center">Kg</span>
-                          <span className="text-center">Riposo</span>
-                        </>
-                      )}
-                      <span />
-                    </div>
+                {/* ── Section body ── */}
+                <div className="px-3 py-2">
+                  {/* Exercise rows */}
+                  {exercises.length > 0 && (
+                    <>
+                      {/* Column header — allineato ai nuovi grid */}
+                      <div className={`grid ${isPrincipale
+                        ? "grid-cols-[20px_14px_1fr_44px_52px_52px_44px_24px]"
+                        : "grid-cols-[20px_14px_1fr_44px_52px_24px]"
+                      } gap-1 px-1 pb-0.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider`}>
+                        <span />
+                        <span />
+                        <span>Esercizio</span>
+                        <span className="text-center">Serie</span>
+                        <span className="text-center">Rip</span>
+                        {isPrincipale && (
+                          <>
+                            <span className="text-center">Kg</span>
+                            <span className="text-center">Riposo</span>
+                          </>
+                        )}
+                        <span />
+                      </div>
 
-                    <SortableContext
-                      items={exercises.map((e) => e.id)}
-                      strategy={verticalListSortingStrategy}
-                    >
-                      <div className="space-y-0.5">
-                        {exercises.map((exercise) => (
-                          <SortableExerciseRow
-                            key={exercise.id}
-                            exercise={exercise}
-                            compact={!isPrincipale}
-                            safety={safetyMap?.[exercise.id_esercizio]}
-                            safetyEntries={safetyMap}
-                            exerciseData={exerciseMap?.get(exercise.id_esercizio)}
+                      <SortableContext
+                        items={exercises.map((e) => e.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        <div className="space-y-0.5">
+                          {exercises.map((exercise) => (
+                            <SortableExerciseRow
+                              key={exercise.id}
+                              exercise={exercise}
+                              compact={!isPrincipale}
+                              safety={safetyMap?.[exercise.id_esercizio]}
+                              safetyEntries={safetyMap}
+                              exerciseData={exerciseMap?.get(exercise.id_esercizio)}
+                              schedaId={schedaId}
+                              parentFrom={parentFrom}
+                              oneRMByPattern={isPrincipale ? oneRMByPattern : undefined}
+                              onUpdate={(updates) => onUpdateExercise(session.id, exercise.id, updates)}
+                              onDelete={() => onDeleteExercise(session.id, exercise.id)}
+                              onReplace={() => onReplaceExercise(session.id, exercise.id)}
+                              onQuickReplace={onQuickReplace ? (newId) => onQuickReplace(session.id, exercise.id, newId) : undefined}
+                            />
+                          ))}
+                        </div>
+                      </SortableContext>
+                    </>
+                  )}
+
+                  {/* Add button */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-1 w-full text-xs text-muted-foreground hover:text-primary h-7"
+                    onClick={() => onAddExercise(session.id, sectionKey)}
+                  >
+                    <Plus className="mr-1 h-3 w-3" />
+                    {config.addLabel}
+                  </Button>
+
+                  {/* ── Blocchi strutturati — solo nella sezione principale ── */}
+                  {isPrincipale && session.blocchi.length > 0 && (
+                    <div className="mt-2 space-y-2">
+                      {session.blocchi
+                        .slice()
+                        .sort((a, b) => a.ordine - b.ordine)
+                        .map((block) => (
+                          <BlockCard
+                            key={block.id}
+                            block={block}
+                            sessionId={session.id}
+                            safetyMap={safetyMap}
+                            exerciseMap={exerciseMap}
                             schedaId={schedaId}
                             parentFrom={parentFrom}
-                            oneRMByPattern={isPrincipale ? oneRMByPattern : undefined}
-                            onUpdate={(updates) => onUpdateExercise(session.id, exercise.id, updates)}
-                            onDelete={() => onDeleteExercise(session.id, exercise.id)}
-                            onReplace={() => onReplaceExercise(session.id, exercise.id)}
-                            onQuickReplace={onQuickReplace ? (newId) => onQuickReplace(session.id, exercise.id, newId) : undefined}
+                            oneRMByPattern={oneRMByPattern}
+                            onUpdateBlock={(blockId, updates) => onUpdateBlock?.(session.id, blockId, updates)}
+                            onDeleteBlock={(blockId) => onDeleteBlock?.(session.id, blockId)}
+                            onDuplicateBlock={onDuplicateBlock ? (blockId) => onDuplicateBlock(session.id, blockId) : undefined}
+                            onAddExerciseToBlock={(blockId) => onAddExerciseToBlock?.(session.id, blockId)}
+                            onUpdateExerciseInBlock={(blockId, exId, updates) => onUpdateExerciseInBlock?.(session.id, blockId, exId, updates)}
+                            onDeleteExerciseFromBlock={(blockId, exId) => onDeleteExerciseFromBlock?.(session.id, blockId, exId)}
+                            onReplaceExerciseInBlock={(blockId, exId) => onReplaceExerciseInBlock?.(session.id, blockId, exId)}
+                            onQuickReplaceInBlock={onQuickReplaceInBlock
+                              ? (blockId, exId, newId) => onQuickReplaceInBlock(session.id, blockId, exId, newId)
+                              : undefined}
                           />
                         ))}
-                      </div>
-                    </SortableContext>
-                  </>
-                )}
+                    </div>
+                  )}
 
-                {/* Add button */}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="mt-1 w-full text-xs text-muted-foreground hover:text-primary h-7"
-                  onClick={() => onAddExercise(session.id, sectionKey)}
-                >
-                  <Plus className="mr-1 h-3 w-3" />
-                  {config.addLabel}
-                </Button>
-
-                {/* ── Blocchi strutturati — solo nella sezione principale ── */}
-                {isPrincipale && session.blocchi.length > 0 && (
-                  <div className="mt-2 space-y-2">
-                    {session.blocchi
-                      .slice()
-                      .sort((a, b) => a.ordine - b.ordine)
-                      .map((block) => (
-                        <BlockCard
-                          key={block.id}
-                          block={block}
-                          sessionId={session.id}
-                          safetyMap={safetyMap}
-                          exerciseMap={exerciseMap}
-                          schedaId={schedaId}
-                          parentFrom={parentFrom}
-                          oneRMByPattern={oneRMByPattern}
-                          onUpdateBlock={(blockId, updates) => onUpdateBlock?.(session.id, blockId, updates)}
-                          onDeleteBlock={(blockId) => onDeleteBlock?.(session.id, blockId)}
-                          onAddExerciseToBlock={(blockId) => onAddExerciseToBlock?.(session.id, blockId)}
-                          onUpdateExerciseInBlock={(blockId, exId, updates) => onUpdateExerciseInBlock?.(session.id, blockId, exId, updates)}
-                          onDeleteExerciseFromBlock={(blockId, exId) => onDeleteExerciseFromBlock?.(session.id, blockId, exId)}
-                          onReplaceExerciseInBlock={(blockId, exId) => onReplaceExerciseInBlock?.(session.id, blockId, exId)}
-                          onQuickReplaceInBlock={onQuickReplaceInBlock
-                            ? (blockId, exId, newId) => onQuickReplaceInBlock(session.id, blockId, exId, newId)
-                            : undefined}
-                        />
+                  {/* ── Aggiungi Blocco — solo nella sezione principale ── */}
+                  {isPrincipale && onAddBlock && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {(["circuit", "superset", "tabata", "amrap", "emom", "for_time"] as BlockType[]).map((tipo) => (
+                        <Button
+                          key={tipo}
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-[10px] text-muted-foreground hover:text-violet-600 dark:hover:text-violet-400"
+                          onClick={() => onAddBlock(session.id, tipo)}
+                        >
+                          <Layers className="mr-1 h-3 w-3" />
+                          + {tipo.toUpperCase()}
+                        </Button>
                       ))}
-                  </div>
-                )}
-
-                {/* ── Aggiungi Blocco — solo nella sezione principale ── */}
-                {isPrincipale && onAddBlock && (
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {(["circuit", "superset", "tabata", "amrap", "emom"] as BlockType[]).map((tipo) => (
-                      <Button
-                        key={tipo}
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 px-2 text-[10px] text-muted-foreground hover:text-violet-600 dark:hover:text-violet-400"
-                        onClick={() => onAddBlock(session.id, tipo)}
-                      >
-                        <Layers className="mr-1 h-3 w-3" />
-                        + {tipo.toUpperCase()}
-                      </Button>
-                    ))}
-                  </div>
-                )}
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}

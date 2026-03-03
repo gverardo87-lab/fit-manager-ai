@@ -35,7 +35,7 @@ import {
 } from "@dnd-kit/sortable";
 import {
   Zap, RotateCcw, Timer, Trophy, Clock, Flame,
-  Plus, Trash2, ChevronDown, GripVertical, StickyNote,
+  Plus, Trash2, ChevronDown, GripVertical, StickyNote, Copy,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -80,6 +80,7 @@ interface BlockCardProps {
   oneRMByPattern?: Record<string, number> | null;
   onUpdateBlock: (blockId: number, updates: Partial<BlockCardData>) => void;
   onDeleteBlock: (blockId: number) => void;
+  onDuplicateBlock?: (blockId: number) => void;
   onAddExerciseToBlock: (blockId: number) => void;
   onUpdateExerciseInBlock: (blockId: number, exerciseId: number, updates: Partial<WorkoutExerciseRow>) => void;
   onDeleteExerciseFromBlock: (blockId: number, exerciseId: number) => void;
@@ -230,6 +231,7 @@ export function BlockCard({
   oneRMByPattern,
   onUpdateBlock,
   onDeleteBlock,
+  onDuplicateBlock,
   onAddExerciseToBlock,
   onUpdateExerciseInBlock,
   onDeleteExerciseFromBlock,
@@ -320,9 +322,21 @@ export function BlockCard({
               size="icon"
               className="h-6 w-6 text-muted-foreground/50 hover:text-muted-foreground"
               onClick={() => setShowNotes(!showNotes)}
+              title="Note blocco"
             >
               <StickyNote className="h-3.5 w-3.5" />
             </Button>
+            {onDuplicateBlock && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-muted-foreground/50 hover:text-primary"
+                onClick={() => onDuplicateBlock(block.id)}
+                title="Duplica blocco"
+              >
+                <Copy className="h-3.5 w-3.5" />
+              </Button>
+            )}
             <Collapsible open={isOpen} onOpenChange={setIsOpen}>
               <CollapsibleTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground/50">
