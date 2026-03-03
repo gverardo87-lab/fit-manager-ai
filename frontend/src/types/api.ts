@@ -983,7 +983,34 @@ export interface WorkoutExerciseRow {
   note: string | null;
 }
 
-/** Sessione di allenamento — output con esercizi nested */
+// Tipo blocco — allineato a VALID_BLOCK_TYPES in api/schemas/workout.py
+export const BLOCK_TYPES = ["circuit", "superset", "tabata", "amrap", "emom", "for_time"] as const;
+export type BlockType = (typeof BLOCK_TYPES)[number];
+
+export const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
+  circuit:  "Circuito",
+  superset: "Superset",
+  tabata:   "Tabata",
+  amrap:    "AMRAP",
+  emom:     "EMOM",
+  for_time: "For Time",
+};
+
+/** Blocco strutturato — circuit, tabata, AMRAP, EMOM, superset */
+export interface SessionBlock {
+  id: number;
+  tipo_blocco: BlockType;
+  ordine: number;
+  nome: string | null;
+  giri: number;
+  durata_lavoro_sec: number | null;
+  durata_riposo_sec: number | null;
+  durata_blocco_sec: number | null;
+  note: string | null;
+  esercizi: WorkoutExerciseRow[];
+}
+
+/** Sessione di allenamento — output con esercizi straight + blocchi nested */
 export interface WorkoutSession {
   id: number;
   numero_sessione: number;
@@ -992,6 +1019,7 @@ export interface WorkoutSession {
   durata_minuti: number;
   note: string | null;
   esercizi: WorkoutExerciseRow[];
+  blocchi: SessionBlock[];
 }
 
 /** Scheda allenamento — output completo */
@@ -1033,6 +1061,19 @@ export interface WorkoutExerciseInput {
   note?: string | null;
 }
 
+/** Blocco input per creazione/modifica scheda */
+export interface SessionBlockInput {
+  tipo_blocco: BlockType;
+  ordine: number;
+  nome?: string | null;
+  giri?: number;
+  durata_lavoro_sec?: number | null;
+  durata_riposo_sec?: number | null;
+  durata_blocco_sec?: number | null;
+  note?: string | null;
+  esercizi: WorkoutExerciseInput[];
+}
+
 /** Sessione input per creazione/modifica scheda */
 export interface WorkoutSessionInput {
   nome_sessione: string;
@@ -1040,6 +1081,7 @@ export interface WorkoutSessionInput {
   durata_minuti?: number;
   note?: string | null;
   esercizi: WorkoutExerciseInput[];
+  blocchi?: SessionBlockInput[];
 }
 
 /** POST /api/workouts */

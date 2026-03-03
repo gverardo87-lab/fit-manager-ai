@@ -44,6 +44,7 @@ import {
 } from "@/components/ui/select";
 
 import { SessionCard, parseAvgReps, type SessionCardData } from "@/components/workouts/SessionCard";
+import { createBlockCardData, serverBlockToCardData, type BlockCardData } from "@/components/workouts/BlockCard";
 import { ExerciseSelector } from "@/components/workouts/ExerciseSelector";
 import { WorkoutPreview } from "@/components/workouts/WorkoutPreview";
 import { ExportButtons } from "@/components/workouts/ExportButtons";
@@ -64,6 +65,7 @@ import {
   type WorkoutSessionInput,
   type Exercise,
   type SafetyConditionDetail,
+  type BlockType,
 } from "@/types/api";
 import {
   SECTION_CATEGORIES,
@@ -183,11 +185,10 @@ export default function SchedaDetailPage({
     sessionId: number;
     exerciseId?: number;
     sezione?: TemplateSection;
+    blockId?: number;  // se set: aggiunge/sostituisce esercizio in un blocco
   } | null>(null);
 
   // Sync server → local (protegge modifiche non salvate)
-  // Se isDirtyRef.current e' true, significa che l'utente ha modifiche locali
-  // non salvate: NON sovrascrivere con i dati server.
   useEffect(() => {
     if (plan && !isDirtyRef.current) {
       setSessions(
@@ -199,6 +200,7 @@ export default function SchedaDetailPage({
           durata_minuti: s.durata_minuti,
           note: s.note,
           esercizi: [...s.esercizi],
+          blocchi: (s.blocchi ?? []).map(serverBlockToCardData),
         })),
       );
     }
@@ -242,10 +244,16 @@ export default function SchedaDetailPage({
     return total > 0 ? Math.round(total) : null;
   }, [sessions]);
 
-  // Safety stats: conteggi avoid/caution sugli esercizi nella scheda corrente
+  // Safety stats: conteggi avoid/caution sugli esercizi nella scheda corrente (straight + in blocchi)
   const safetyStats = useMemo(() => {
     if (!safetyEntries) return { avoid: 0, caution: 0, total: 0 };
-    const exerciseIds = new Set(sessions.flatMap((s) => s.esercizi.map((e) => e.id_esercizio)));
+    const exerciseIds = new Set<number>();
+    for (const s of sessions) {
+      for (const e of s.esercizi) exerciseIds.add(e.id_esercizio);
+      for (const b of s.blocchi) {
+        for (const e of b.esercizi) exerciseIds.add(e.id_esercizio);
+      }
+    }
     let avoid = 0;
     let caution = 0;
     for (const [exId, entry] of Object.entries(safetyEntries)) {
@@ -330,8 +338,9 @@ export default function SchedaDetailPage({
   const usedExerciseIds = useMemo(() => {
     const ids = new Set<number>();
     for (const s of sessions) {
-      for (const e of s.esercizi) {
-        ids.add(e.id_esercizio);
+      for (const e of s.esercizi) ids.add(e.id_esercizio);
+      for (const b of s.blocchi) {
+        for (const e of b.esercizi) ids.add(e.id_esercizio);
       }
     }
     return ids;
@@ -394,7 +403,7 @@ export default function SchedaDetailPage({
   }, []);
 
   const handleAddSession = useCallback(() => {
-    const newId = -(Date.now()); // ID temporaneo negativo
+    const newId = -(Date.now());
     setSessions((prev) => [
       ...prev,
       {
@@ -405,6 +414,7 @@ export default function SchedaDetailPage({
         durata_minuti: 60,
         note: null,
         esercizi: [],
+        blocchi: [],
       },
     ]);
     setIsDirty(true);
@@ -414,17 +424,26 @@ export default function SchedaDetailPage({
     const source = sessions.find((s) => s.id === sessionId);
     if (!source) return;
     const now = Date.now();
+    let tempId = now;
     setSessions((prev) => [
       ...prev,
       {
         ...source,
-        id: -now,
+        id: -(tempId++),
         numero_sessione: prev.length + 1,
         nome_sessione: `${source.nome_sessione} (copia)`,
         esercizi: source.esercizi.map((e, idx) => ({
           ...e,
-          id: -(now + idx + 1),
+          id: -(tempId + idx),
           ordine: idx + 1,
+        })),
+        blocchi: source.blocchi.map((b, bi) => ({
+          ...b,
+          id: -(tempId + source.esercizi.length + bi + 1),
+          esercizi: b.esercizi.map((e, ei) => ({
+            ...e,
+            id: -(tempId + source.esercizi.length + bi * 100 + ei + 100),
+          })),
         })),
       },
     ]);
@@ -450,12 +469,60 @@ export default function SchedaDetailPage({
   const handleExerciseSelected = useCallback((exercise: Exercise) => {
     if (!selectorContext) return;
 
+    const isBlockContext = selectorContext.blockId !== undefined;
+
     setSessions((prev) =>
       prev.map((s) => {
         if (s.id !== selectorContext.sessionId) return s;
 
+        // ── Aggiunta/sostituzione in un BLOCCO ──
+        if (isBlockContext) {
+          const blockId = selectorContext.blockId!;
+          return {
+            ...s,
+            blocchi: s.blocchi.map((b) => {
+              if (b.id !== blockId) return b;
+              if (selectorContext.exerciseId) {
+                // Replace in block
+                return {
+                  ...b,
+                  esercizi: b.esercizi.map((e) =>
+                    e.id === selectorContext.exerciseId
+                      ? { ...e, id_esercizio: exercise.id, esercizio_nome: exercise.nome, esercizio_categoria: exercise.categoria, esercizio_attrezzatura: exercise.attrezzatura }
+                      : e,
+                  ),
+                };
+              } else {
+                // Add to block — defaults per esercizi in blocco (serie=1, rip=12-15, riposo=0)
+                const newId = -(Date.now());
+                return {
+                  ...b,
+                  esercizi: [
+                    ...b.esercizi,
+                    {
+                      id: newId,
+                      id_esercizio: exercise.id,
+                      esercizio_nome: exercise.nome,
+                      esercizio_categoria: exercise.categoria,
+                      esercizio_attrezzatura: exercise.attrezzatura,
+                      ordine: b.esercizi.length + 1,
+                      serie: 1,  // in blocco: il blocco gestisce i giri
+                      ripetizioni: "12-15",
+                      tempo_riposo_sec: 0,  // riposo gestito dal blocco
+                      tempo_esecuzione: null,
+                      carico_kg: null,
+                      note: null,
+                    },
+                  ],
+                };
+              }
+            }),
+          };
+        }
+
+        // ── Aggiunta/sostituzione STRAIGHT (non in blocco) ──
         if (selectorContext.exerciseId) {
-          // Replace
+          // Replace straight exercise
           return {
             ...s,
             esercizi: s.esercizi.map((e) =>
@@ -471,7 +538,7 @@ export default function SchedaDetailPage({
             ),
           };
         } else {
-          // Add new — smart defaults basati su obiettivo + esercizio
+          // Add new straight exercise
           const newId = -(Date.now());
           const section = getSectionForCategory(exercise.categoria);
           const defaults = getSmartDefaults(exercise, plan?.obiettivo ?? "generale", section);
@@ -500,7 +567,7 @@ export default function SchedaDetailPage({
     );
     setSelectorContext(null);
     setIsDirty(true);
-  }, [selectorContext]);
+  }, [selectorContext, plan?.obiettivo]);
 
   const handleUpdateExercise = useCallback(
     (sessionId: number, exerciseId: number, updates: Partial<WorkoutExerciseRow>) => {
@@ -562,6 +629,120 @@ export default function SchedaDetailPage({
     setIsDirty(true);
   }, [exerciseMap]);
 
+  // ── Block handlers ──
+
+  const handleAddBlock = useCallback((sessionId: number, tipo: BlockType) => {
+    setSessions((prev) =>
+      prev.map((s) => {
+        if (s.id !== sessionId) return s;
+        const newOrdine = s.blocchi.length + s.esercizi.length + 1;
+        return { ...s, blocchi: [...s.blocchi, createBlockCardData(tipo, newOrdine)] };
+      }),
+    );
+    setIsDirty(true);
+  }, []);
+
+  const handleUpdateBlock = useCallback((sessionId: number, blockId: number, updates: Partial<BlockCardData>) => {
+    setSessions((prev) =>
+      prev.map((s) =>
+        s.id === sessionId
+          ? { ...s, blocchi: s.blocchi.map((b) => (b.id === blockId ? { ...b, ...updates } : b)) }
+          : s,
+      ),
+    );
+    setIsDirty(true);
+  }, []);
+
+  const handleDeleteBlock = useCallback((sessionId: number, blockId: number) => {
+    setSessions((prev) =>
+      prev.map((s) =>
+        s.id === sessionId
+          ? { ...s, blocchi: s.blocchi.filter((b) => b.id !== blockId) }
+          : s,
+      ),
+    );
+    setIsDirty(true);
+  }, []);
+
+  const handleAddExerciseToBlock = useCallback((sessionId: number, blockId: number) => {
+    setSelectorContext({ sessionId, blockId });
+    setSelectorOpen(true);
+  }, []);
+
+  const handleUpdateExerciseInBlock = useCallback(
+    (sessionId: number, blockId: number, exerciseId: number, updates: Partial<WorkoutExerciseRow>) => {
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.id === sessionId
+            ? {
+                ...s,
+                blocchi: s.blocchi.map((b) =>
+                  b.id === blockId
+                    ? { ...b, esercizi: b.esercizi.map((e) => (e.id === exerciseId ? { ...e, ...updates } : e)) }
+                    : b,
+                ),
+              }
+            : s,
+        ),
+      );
+      setIsDirty(true);
+    },
+    [],
+  );
+
+  const handleDeleteExerciseFromBlock = useCallback((sessionId: number, blockId: number, exerciseId: number) => {
+    setSessions((prev) =>
+      prev.map((s) =>
+        s.id === sessionId
+          ? {
+              ...s,
+              blocchi: s.blocchi.map((b) =>
+                b.id === blockId
+                  ? { ...b, esercizi: b.esercizi.filter((e) => e.id !== exerciseId).map((e, i) => ({ ...e, ordine: i + 1 })) }
+                  : b,
+              ),
+            }
+          : s,
+      ),
+    );
+    setIsDirty(true);
+  }, []);
+
+  const handleReplaceExerciseInBlock = useCallback((sessionId: number, blockId: number, exerciseId: number) => {
+    setSelectorContext({ sessionId, blockId, exerciseId });
+    setSelectorOpen(true);
+  }, []);
+
+  const handleQuickReplaceInBlock = useCallback(
+    (sessionId: number, blockId: number, exerciseId: number, newExerciseId: number) => {
+      const newEx = exerciseMap.get(newExerciseId);
+      if (!newEx) return;
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.id === sessionId
+            ? {
+                ...s,
+                blocchi: s.blocchi.map((b) =>
+                  b.id === blockId
+                    ? {
+                        ...b,
+                        esercizi: b.esercizi.map((e) =>
+                          e.id === exerciseId
+                            ? { ...e, id_esercizio: newEx.id, esercizio_nome: newEx.nome, esercizio_categoria: newEx.categoria, esercizio_attrezzatura: newEx.attrezzatura }
+                            : e,
+                        ),
+                      }
+                    : b,
+                ),
+              }
+            : s,
+        ),
+      );
+      setIsDirty(true);
+    },
+    [exerciseMap],
+  );
+
   // ── Save ──
 
   const handleSave = useCallback(() => {
@@ -572,15 +753,35 @@ export default function SchedaDetailPage({
       focus_muscolare: s.focus_muscolare,
       durata_minuti: s.durata_minuti,
       note: s.note,
-      esercizi: s.esercizi.map((e) => ({
+      esercizi: s.esercizi.map((e, idx) => ({
         id_esercizio: e.id_esercizio,
-        ordine: e.ordine,
+        ordine: idx + 1,
         serie: e.serie,
         ripetizioni: e.ripetizioni,
         tempo_riposo_sec: e.tempo_riposo_sec,
         tempo_esecuzione: e.tempo_esecuzione,
         carico_kg: e.carico_kg,
         note: e.note,
+      })),
+      blocchi: s.blocchi.map((b, bi) => ({
+        tipo_blocco: b.tipo_blocco,
+        ordine: bi + 1,
+        nome: b.nome,
+        giri: b.giri,
+        durata_lavoro_sec: b.durata_lavoro_sec,
+        durata_riposo_sec: b.durata_riposo_sec,
+        durata_blocco_sec: b.durata_blocco_sec,
+        note: b.note,
+        esercizi: b.esercizi.map((e, ei) => ({
+          id_esercizio: e.id_esercizio,
+          ordine: ei + 1,
+          serie: e.serie,
+          ripetizioni: e.ripetizioni,
+          tempo_riposo_sec: e.tempo_riposo_sec,
+          tempo_esecuzione: e.tempo_esecuzione,
+          carico_kg: e.carico_kg,
+          note: e.note,
+        })),
       })),
     }));
 
@@ -942,6 +1143,14 @@ export default function SchedaDetailPage({
               onDeleteExercise={handleDeleteExercise}
               onReplaceExercise={handleReplaceExercise}
               onQuickReplace={handleQuickReplace}
+              onAddBlock={handleAddBlock}
+              onUpdateBlock={handleUpdateBlock}
+              onDeleteBlock={handleDeleteBlock}
+              onAddExerciseToBlock={handleAddExerciseToBlock}
+              onUpdateExerciseInBlock={handleUpdateExerciseInBlock}
+              onDeleteExerciseFromBlock={handleDeleteExerciseFromBlock}
+              onReplaceExerciseInBlock={handleReplaceExerciseInBlock}
+              onQuickReplaceInBlock={handleQuickReplaceInBlock}
             />
           ))}
 

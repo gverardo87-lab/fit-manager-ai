@@ -30,7 +30,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Plus, Trash2, Pencil, Flame, Dumbbell, Heart, ShieldAlert, AlertTriangle, Copy, StickyNote, MoreVertical } from "lucide-react";
+import { Plus, Trash2, Pencil, Flame, Dumbbell, Heart, ShieldAlert, AlertTriangle, Copy, StickyNote, MoreVertical, Layers } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,8 +44,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import { SortableExerciseRow } from "./SortableExerciseRow";
+import { BlockCard, type BlockCardData } from "./BlockCard";
 import { getSectionForCategory, type TemplateSection } from "@/lib/workout-templates";
-import type { WorkoutExerciseRow, ExerciseSafetyEntry, Exercise } from "@/types/api";
+import type { WorkoutExerciseRow, ExerciseSafetyEntry, Exercise, BlockType } from "@/types/api";
 
 export interface SessionCardData {
   id: number;
@@ -55,6 +56,8 @@ export interface SessionCardData {
   durata_minuti: number;
   note: string | null;
   esercizi: WorkoutExerciseRow[];
+  /** Blocchi strutturati (circuit, tabata, AMRAP, EMOM, superset) — nella sezione principale */
+  blocchi: BlockCardData[];
 }
 
 interface SessionCardProps {
@@ -78,6 +81,15 @@ interface SessionCardProps {
   onReplaceExercise: (sessionId: number, exerciseId: number) => void;
   /** Quick-replace: sostituisci esercizio preservando serie/rip/riposo */
   onQuickReplace?: (sessionId: number, exerciseId: number, newExerciseId: number) => void;
+  // ── Block handlers ──
+  onAddBlock?: (sessionId: number, tipo: BlockType) => void;
+  onUpdateBlock?: (sessionId: number, blockId: number, updates: Partial<BlockCardData>) => void;
+  onDeleteBlock?: (sessionId: number, blockId: number) => void;
+  onAddExerciseToBlock?: (sessionId: number, blockId: number) => void;
+  onUpdateExerciseInBlock?: (sessionId: number, blockId: number, exerciseId: number, updates: Partial<WorkoutExerciseRow>) => void;
+  onDeleteExerciseFromBlock?: (sessionId: number, blockId: number, exerciseId: number) => void;
+  onReplaceExerciseInBlock?: (sessionId: number, blockId: number, exerciseId: number) => void;
+  onQuickReplaceInBlock?: (sessionId: number, blockId: number, exerciseId: number, newExerciseId: number) => void;
 }
 
 // ── Sezione config ──
@@ -138,6 +150,14 @@ export function SessionCard({
   onDeleteExercise,
   onReplaceExercise,
   onQuickReplace,
+  onAddBlock,
+  onUpdateBlock,
+  onDeleteBlock,
+  onAddExerciseToBlock,
+  onUpdateExerciseInBlock,
+  onDeleteExerciseFromBlock,
+  onReplaceExerciseInBlock,
+  onQuickReplaceInBlock,
 }: SessionCardProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState(session.nome_sessione);
@@ -174,19 +194,23 @@ export function SessionCard({
     return Math.round(total);
   }, [groupedExercises.principale]);
 
-  // Safety pills: contatori avoid/caution per questa sessione
+  // Safety pills: contatori avoid/caution per questa sessione (straight + in blocchi)
   const sessionSafety = useMemo(() => {
     if (!safetyMap) return { avoid: 0, caution: 0 };
     let avoid = 0;
     let caution = 0;
-    for (const ex of session.esercizi) {
+    const allExercises = [
+      ...session.esercizi,
+      ...session.blocchi.flatMap((b) => b.esercizi),
+    ];
+    for (const ex of allExercises) {
       const entry = safetyMap[ex.id_esercizio];
       if (!entry) continue;
       if (entry.severity === "avoid") avoid++;
       else caution++;
     }
     return { avoid, caution };
-  }, [safetyMap, session.esercizi]);
+  }, [safetyMap, session.esercizi, session.blocchi]);
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
@@ -405,6 +429,54 @@ export function SessionCard({
                   <Plus className="mr-1 h-3 w-3" />
                   {config.addLabel}
                 </Button>
+
+                {/* ── Blocchi strutturati — solo nella sezione principale ── */}
+                {isPrincipale && session.blocchi.length > 0 && (
+                  <div className="mt-2 space-y-2">
+                    {session.blocchi
+                      .slice()
+                      .sort((a, b) => a.ordine - b.ordine)
+                      .map((block) => (
+                        <BlockCard
+                          key={block.id}
+                          block={block}
+                          sessionId={session.id}
+                          safetyMap={safetyMap}
+                          exerciseMap={exerciseMap}
+                          schedaId={schedaId}
+                          parentFrom={parentFrom}
+                          oneRMByPattern={oneRMByPattern}
+                          onUpdateBlock={(blockId, updates) => onUpdateBlock?.(session.id, blockId, updates)}
+                          onDeleteBlock={(blockId) => onDeleteBlock?.(session.id, blockId)}
+                          onAddExerciseToBlock={(blockId) => onAddExerciseToBlock?.(session.id, blockId)}
+                          onUpdateExerciseInBlock={(blockId, exId, updates) => onUpdateExerciseInBlock?.(session.id, blockId, exId, updates)}
+                          onDeleteExerciseFromBlock={(blockId, exId) => onDeleteExerciseFromBlock?.(session.id, blockId, exId)}
+                          onReplaceExerciseInBlock={(blockId, exId) => onReplaceExerciseInBlock?.(session.id, blockId, exId)}
+                          onQuickReplaceInBlock={onQuickReplaceInBlock
+                            ? (blockId, exId, newId) => onQuickReplaceInBlock(session.id, blockId, exId, newId)
+                            : undefined}
+                        />
+                      ))}
+                  </div>
+                )}
+
+                {/* ── Aggiungi Blocco — solo nella sezione principale ── */}
+                {isPrincipale && onAddBlock && (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {(["circuit", "superset", "tabata", "amrap", "emom"] as BlockType[]).map((tipo) => (
+                      <Button
+                        key={tipo}
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-[10px] text-muted-foreground hover:text-violet-600 dark:hover:text-violet-400"
+                        onClick={() => onAddBlock(session.id, tipo)}
+                      >
+                        <Layers className="mr-1 h-3 w-3" />
+                        + {tipo.toUpperCase()}
+                      </Button>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}

@@ -1,17 +1,18 @@
 # api/models/workout.py
 """
-Modelli Workout Plan — 3 tabelle gerarchiche per schede allenamento.
+Modelli Workout Plan — gerarchia per schede allenamento.
 
 Gerarchia:
   WorkoutPlan (schede_allenamento) — scheda madre
     └── WorkoutSession (sessioni_scheda) — sessioni / "giorni"
-          └── WorkoutExercise (esercizi_sessione) — esercizi dentro una sessione
+          ├── SessionBlock (blocchi_sessione) — blocchi esercizi (circuit, tabata, AMRAP…)
+          │     └── WorkoutExercise (esercizi_sessione, id_blocco set)
+          └── WorkoutExercise (esercizi_sessione, id_blocco NULL) — esercizi "straight"
 
 Multi-tenancy:
 - WorkoutPlan.trainer_id: FK diretta verso trainers
-- WorkoutSession, WorkoutExercise: nessun trainer_id diretto
+- WorkoutSession, SessionBlock, WorkoutExercise: nessun trainer_id diretto
   Deep IDOR: WorkoutExercise → WorkoutSession → WorkoutPlan.trainer_id
-  Stessa strategia di Rate → Contract.trainer_id.
 
 Soft delete: solo WorkoutPlan ha deleted_at (a cascata logica).
 """
@@ -55,14 +56,43 @@ class WorkoutSession(SQLModel, table=True):
     note: Optional[str] = None
 
 
+class SessionBlock(SQLModel, table=True):
+    """Blocco esercizi strutturato — circuit, superset, tabata, AMRAP, EMOM."""
+    __tablename__ = "blocchi_sessione"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    id_sessione: int = Field(foreign_key="sessioni_scheda.id", index=True)
+    # Tipo: circuit | superset | tabata | amrap | emom | for_time
+    tipo_blocco: str = Field(default="circuit")
+    # Ordine del blocco nella sessione (relativo agli esercizi straight e agli altri blocchi)
+    ordine: int
+    # Nome descrittivo opzionale (es. "Finisher HIIT")
+    nome: Optional[str] = None
+    # Giri/round (circuit: 3, tabata: 8)
+    giri: int = Field(default=3)
+    # Durata lavoro per stazione in secondi (Tabata: 20, EMOM: 60)
+    durata_lavoro_sec: Optional[int] = None
+    # Durata riposo tra stazioni in secondi (Tabata: 10, Circuit: 15)
+    durata_riposo_sec: Optional[int] = None
+    # Durata totale blocco in secondi (AMRAP: 720=12min, EMOM: 1200=20min)
+    durata_blocco_sec: Optional[int] = None
+    note: Optional[str] = None
+
+
 class WorkoutExercise(SQLModel, table=True):
-    """Esercizio dentro una sessione — nipote di WorkoutPlan."""
+    """Esercizio dentro una sessione o dentro un blocco."""
     __tablename__ = "esercizi_sessione"
 
     id: Optional[int] = Field(default=None, primary_key=True)
     id_sessione: int = Field(foreign_key="sessioni_scheda.id", index=True)
+    # Se NULL → esercizio "straight" nella sessione
+    # Se set → esercizio dentro un blocco (blocchi_sessione)
+    id_blocco: Optional[int] = Field(default=None, foreign_key="blocchi_sessione.id")
     id_esercizio: int = Field(foreign_key="esercizi.id")
+    # ordine: posizione nella sessione (esercizi straight) o nel blocco (esercizi in blocco)
     ordine: int
+    # posizione_nel_blocco: ordine dentro il blocco (None per esercizi straight)
+    posizione_nel_blocco: Optional[int] = None
     serie: int = Field(default=3)
     ripetizioni: str = Field(default="8-12")
     tempo_riposo_sec: int = Field(default=90)

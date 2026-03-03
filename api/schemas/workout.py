@@ -3,10 +3,18 @@
 Pydantic schemas per le schede allenamento (workout plans).
 
 Gerarchia nested:
-  WorkoutPlanCreate → WorkoutSessionInput → WorkoutExerciseInput
+  WorkoutPlanCreate → WorkoutSessionInput → SessionBlockInput / WorkoutExerciseInput
 
 Output enriched con JOIN (nome esercizio, categoria, nome cliente).
 Mass Assignment Prevention: trainer_id da JWT, mai dal body.
+
+Formati blocco supportati:
+  circuit   — N esercizi in circuito, X giri, riposo tra stazioni
+  superset  — 2 esercizi abbinati, X serie, mini-riposo tra esercizi
+  tabata    — 8 round 20s lavoro / 10s riposo
+  amrap     — As Many Rounds As Possible in N minuti
+  emom      — Every Minute On the Minute, N minuti
+  for_time  — Completare X giri il prima possibile
 """
 
 from typing import List, Optional
@@ -20,6 +28,7 @@ from pydantic import BaseModel, Field, field_validator
 
 VALID_OBIETTIVI = {"forza", "ipertrofia", "resistenza", "dimagrimento", "generale"}
 VALID_LIVELLI = {"beginner", "intermedio", "avanzato"}
+VALID_BLOCK_TYPES = {"circuit", "superset", "tabata", "amrap", "emom", "for_time"}
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -27,17 +36,39 @@ VALID_LIVELLI = {"beginner", "intermedio", "avanzato"}
 # ═══════════════════════════════════════════════════════════════
 
 class WorkoutExerciseInput(BaseModel):
-    """Esercizio dentro una sessione — input."""
+    """Esercizio dentro una sessione (straight) o dentro un blocco — input."""
     model_config = {"extra": "forbid"}
 
     id_esercizio: int = Field(gt=0)
-    ordine: int = Field(ge=1, le=20)
+    ordine: int = Field(ge=1, le=50)
     serie: int = Field(ge=1, le=10, default=3)
     ripetizioni: str = Field(min_length=1, max_length=20, default="8-12")
     tempo_riposo_sec: int = Field(ge=0, le=300, default=90)
     tempo_esecuzione: Optional[str] = Field(None, max_length=20)
     carico_kg: Optional[float] = Field(None, ge=0, le=500)
     note: Optional[str] = Field(None, max_length=500)
+
+
+class SessionBlockInput(BaseModel):
+    """Blocco strutturato di esercizi (circuit, tabata, AMRAP, EMOM, superset) — input."""
+    model_config = {"extra": "forbid"}
+
+    tipo_blocco: str = Field(default="circuit")
+    ordine: int = Field(ge=1, le=50)
+    nome: Optional[str] = Field(None, max_length=100)
+    giri: int = Field(ge=1, le=20, default=3)
+    durata_lavoro_sec: Optional[int] = Field(None, ge=5, le=600)
+    durata_riposo_sec: Optional[int] = Field(None, ge=0, le=300)
+    durata_blocco_sec: Optional[int] = Field(None, ge=60, le=7200)
+    note: Optional[str] = Field(None, max_length=500)
+    esercizi: List[WorkoutExerciseInput] = Field(min_length=1)
+
+    @field_validator("tipo_blocco")
+    @classmethod
+    def validate_tipo_blocco(cls, v: str) -> str:
+        if v not in VALID_BLOCK_TYPES:
+            raise ValueError(f"Tipo blocco invalido. Validi: {sorted(VALID_BLOCK_TYPES)}")
+        return v
 
 
 class WorkoutSessionInput(BaseModel):
@@ -48,7 +79,10 @@ class WorkoutSessionInput(BaseModel):
     focus_muscolare: Optional[str] = Field(None, max_length=200)
     durata_minuti: int = Field(ge=15, le=180, default=60)
     note: Optional[str] = Field(None, max_length=500)
-    esercizi: List[WorkoutExerciseInput] = Field(min_length=1)
+    # Esercizi "straight" (non in blocco)
+    esercizi: List[WorkoutExerciseInput] = Field(default_factory=list)
+    # Blocchi strutturati (circuit, tabata, AMRAP, EMOM, superset)
+    blocchi: List[SessionBlockInput] = Field(default_factory=list)
 
 
 class WorkoutPlanCreate(BaseModel):
@@ -113,7 +147,7 @@ class WorkoutPlanUpdate(BaseModel):
 # ═══════════════════════════════════════════════════════════════
 
 class WorkoutExerciseResponse(BaseModel):
-    """Esercizio in sessione — output enriched con JOIN."""
+    """Esercizio in sessione o in blocco — output enriched con JOIN."""
     model_config = {"from_attributes": True}
 
     id: int
@@ -130,8 +164,24 @@ class WorkoutExerciseResponse(BaseModel):
     note: Optional[str] = None
 
 
+class SessionBlockResponse(BaseModel):
+    """Blocco strutturato — output con esercizi nested."""
+    model_config = {"from_attributes": True}
+
+    id: int
+    tipo_blocco: str
+    ordine: int
+    nome: Optional[str] = None
+    giri: int
+    durata_lavoro_sec: Optional[int] = None
+    durata_riposo_sec: Optional[int] = None
+    durata_blocco_sec: Optional[int] = None
+    note: Optional[str] = None
+    esercizi: List[WorkoutExerciseResponse] = []
+
+
 class WorkoutSessionResponse(BaseModel):
-    """Sessione — output con esercizi nested."""
+    """Sessione — output con esercizi straight + blocchi nested."""
     model_config = {"from_attributes": True}
 
     id: int
@@ -140,11 +190,14 @@ class WorkoutSessionResponse(BaseModel):
     focus_muscolare: Optional[str] = None
     durata_minuti: int
     note: Optional[str] = None
+    # Esercizi "straight" (id_blocco = NULL)
     esercizi: List[WorkoutExerciseResponse] = []
+    # Blocchi strutturati (circuit, tabata, ecc.)
+    blocchi: List[SessionBlockResponse] = []
 
 
 class WorkoutPlanResponse(BaseModel):
-    """Scheda allenamento — output completo con sessioni + esercizi."""
+    """Scheda allenamento — output completo con sessioni + esercizi + blocchi."""
     model_config = {"from_attributes": True}
 
     id: int
