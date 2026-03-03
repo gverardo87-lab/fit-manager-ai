@@ -471,7 +471,9 @@ function BlockPreview({ block }: { block: BlockCardData }) {
             </span>
           )}
           {block.nome && (
-            <span className={`text-[10px] font-normal ${cfg.accentText}`}>— {block.nome}</span>
+            <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-medium ${cfg.accentText} bg-white/60 dark:bg-black/20`}>
+              {block.nome}
+            </span>
           )}
         </div>
         {metrics.length > 0 && (
@@ -481,21 +483,25 @@ function BlockPreview({ block }: { block: BlockCardData }) {
                 key={`${block.id}-${metric.label}`}
                 className={`rounded border px-1.5 py-0.5 print:border-zinc-300 print:bg-transparent ${
                   idx === 0
-                    ? "border-black/20 bg-white dark:border-white/20 dark:bg-black/20"
+                    ? "border-black/25 bg-white dark:border-white/25 dark:bg-black/25 ring-1 ring-black/10 dark:ring-white/10"
                     : "border-black/10 bg-white/80 dark:border-white/15 dark:bg-black/15"
                 }`}
               >
                 <div className={`text-[8px] uppercase tracking-wide ${cfg.accentText} print:text-[7px]`}>
                   {metric.label}
+                  {idx === 0 && <span className="ml-1 font-bold">P</span>}
                 </div>
                 <div className={`font-semibold tabular-nums ${cfg.headerText} ${
-                  idx === 0 ? "text-[12px] print:text-[11px]" : "text-[11px] print:text-[10px]"
+                  idx === 0 ? "text-[13px] print:text-[11px] tracking-tight" : "text-[11px] print:text-[10px]"
                 }`}>
                   {metric.value}
                 </div>
               </div>
             ))}
           </div>
+        )}
+        {metrics.length === 0 && (
+          <p className={`mt-1 text-[9px] ${cfg.accentText}`}>Parametri blocco non impostati</p>
         )}
         <p className={`mt-0.5 text-[9px] ${cfg.accentText} print:hidden`}>{cfg.flowHint}</p>
       </div>
