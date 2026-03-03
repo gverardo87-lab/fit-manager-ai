@@ -945,6 +945,7 @@ def get_cash_audit_log(
                 CashMovement.tipo,
                 CashMovement.note,
                 CashMovement.id_contratto,
+                CashMovement.data_effettiva,
             ).where(
                 CashMovement.trainer_id == trainer.id,
                 CashMovement.id.in_(movement_ids),
@@ -955,6 +956,7 @@ def get_cash_audit_log(
                 "tipo": row[1],
                 "note": row[2],
                 "id_contratto": row[3],
+                "data_effettiva": row[4],
             }
 
     rate_contract_map: dict[int, int] = {}
@@ -987,7 +989,12 @@ def get_cash_audit_log(
         link_href: Optional[str] = None
         link_label: Optional[str] = None
         if entry.entity_type == "movement":
-            link_href = "/cassa?tab=ledger"
+            movement_date = movement_ref.get("data_effettiva") if movement_ref else None
+            if movement_date:
+                day = movement_date.isoformat()
+                link_href = f"/cassa?tab=ledger&da={day}&a={day}&focus_movement={entry.entity_id}"
+            else:
+                link_href = f"/cassa?tab=ledger&focus_movement={entry.entity_id}"
             link_label = f"Apri movimento #{entry.entity_id} nel libro mastro"
         elif entry.entity_type == "recurring_expense":
             link_href = "/cassa?tab=recurring"

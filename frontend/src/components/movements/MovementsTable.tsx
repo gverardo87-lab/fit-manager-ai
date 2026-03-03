@@ -12,7 +12,7 @@
  * - Elimina disabilitato su movimenti protetti (Ledger Integrity)
  */
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import {
@@ -56,14 +56,19 @@ interface MovementsTableProps {
   movements: CashMovement[];
   onDelete: (movement: CashMovement) => void;
   saldoFinePeriodo?: number;
+  focusMovementId?: number | null;
+  onFocusConsumed?: () => void;
 }
 
 export function MovementsTable({
   movements,
   onDelete,
   saldoFinePeriodo,
+  focusMovementId,
+  onFocusConsumed,
 }: MovementsTableProps) {
   const [search, setSearch] = useState("");
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return movements;
@@ -101,8 +106,22 @@ export function MovementsTable({
     return map;
   }, [filtered]);
 
+  useEffect(() => {
+    if (!focusMovementId) return;
+    const root = containerRef.current;
+    if (!root) return;
+    const row = root.querySelector<HTMLElement>(`[data-movement-id="${focusMovementId}"]`);
+    if (!row) return;
+
+    row.scrollIntoView({ behavior: "smooth", block: "center" });
+    const timeoutId = window.setTimeout(() => {
+      onFocusConsumed?.();
+    }, 1200);
+    return () => window.clearTimeout(timeoutId);
+  }, [focusMovementId, grouped, onFocusConsumed]);
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" ref={containerRef}>
       {/* ── Barra ricerca ── */}
       <div className="flex items-center gap-3">
         <div className="relative max-w-md flex-1">
@@ -154,7 +173,14 @@ export function MovementsTable({
             </TableHeader>
             <TableBody>
               {[...grouped.entries()].map(([dateKey, items]) => (
-                <DateGroup key={dateKey} dateKey={dateKey} items={items} onDelete={onDelete} balanceMap={balanceMap} />
+                <DateGroup
+                  key={dateKey}
+                  dateKey={dateKey}
+                  items={items}
+                  onDelete={onDelete}
+                  balanceMap={balanceMap}
+                  focusMovementId={focusMovementId}
+                />
               ))}
             </TableBody>
           </Table>
@@ -171,11 +197,13 @@ function DateGroup({
   items,
   onDelete,
   balanceMap,
+  focusMovementId,
 }: {
   dateKey: string;
   items: CashMovement[];
   onDelete: (m: CashMovement) => void;
   balanceMap: Map<number, number> | null;
+  focusMovementId?: number | null;
 }) {
   return (
     <>
@@ -187,7 +215,14 @@ function DateGroup({
         </TableCell>
       </TableRow>
       {items.map((movement, idx) => (
-        <MovementRow key={movement.id} movement={movement} onDelete={onDelete} striped={idx % 2 !== 0} balance={balanceMap?.get(movement.id)} />
+        <MovementRow
+          key={movement.id}
+          movement={movement}
+          onDelete={onDelete}
+          striped={idx % 2 !== 0}
+          balance={balanceMap?.get(movement.id)}
+          isFocused={focusMovementId === movement.id}
+        />
       ))}
     </>
   );
@@ -200,11 +235,13 @@ function MovementRow({
   onDelete,
   striped,
   balance,
+  isFocused,
 }: {
   movement: CashMovement;
   onDelete: (m: CashMovement) => void;
   striped: boolean;
   balance?: number;
+  isFocused?: boolean;
 }) {
   const isEntrata = movement.tipo === "ENTRATA";
   const isContract = movement.id_contratto !== null;
@@ -216,7 +253,12 @@ function MovementRow({
     : "Spesa fissa generata automaticamente — non eliminabile";
 
   return (
-    <TableRow className={`transition-colors hover:bg-muted/50 ${striped ? "bg-muted/20" : ""}`}>
+    <TableRow
+      data-movement-id={movement.id}
+      className={`transition-colors hover:bg-muted/50 ${striped ? "bg-muted/20" : ""} ${
+        isFocused ? "bg-amber-50/80 ring-2 ring-amber-300 dark:bg-amber-950/20 dark:ring-amber-700" : ""
+      }`}
+    >
       {/* ── Data ── */}
       <TableCell className="whitespace-nowrap text-sm">
         {format(parseISO(movement.data_effettiva), "dd MMM yyyy", {

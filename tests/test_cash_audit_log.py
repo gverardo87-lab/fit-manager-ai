@@ -47,7 +47,7 @@ def test_cash_audit_log_tracks_movement_create_and_delete(client, auth_headers):
     assert created is not None
     assert created["flow_hint"] == "ENTRATA"
     assert created["reason"] == "Incasso test audit"
-    assert created["link_href"] == "/cassa?tab=ledger"
+    assert created["link_href"] == f"/cassa?tab=ledger&da=2026-03-10&a=2026-03-10&focus_movement={movement['id']}"
 
     delete_response = client.delete(f"/api/movements/{movement['id']}", headers=auth_headers)
     assert delete_response.status_code == 204

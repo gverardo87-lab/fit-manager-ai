@@ -12,7 +12,7 @@
  * 5. Tabs: "Libro Mastro" (tabella movimenti) + "Spese Fisse" (ricorrenti)
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { loadFilters, saveFilters, getUrlParams, syncUrlParams } from "@/lib/url-state";
 import {
   Plus,
@@ -97,6 +97,12 @@ function isValidIsoDate(v: string | null): v is string {
   return /^\d{4}-\d{2}-\d{2}$/.test(v);
 }
 
+function parsePositiveInt(v: string | null): number | null {
+  if (!v) return null;
+  const parsed = Number.parseInt(v, 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
 function getYearRange(): number[] {
   const current = new Date().getFullYear();
   return Array.from({ length: 5 }, (_, i) => current - 2 + i);
@@ -125,6 +131,8 @@ export default function CassaPage() {
   const now = new Date();
   const currentMonth = now.getMonth() + 1;
   const currentYear = now.getFullYear();
+  const deepLinkFocusId = parsePositiveInt(getUrlParams().get("focus_movement"));
+  const hasFocusDeepLink = deepLinkFocusId !== null;
 
   // Filter state (sessionStorage → URL → default)
   const [mese, setMese] = useState(() => {
@@ -140,9 +148,11 @@ export default function CassaPage() {
     return a ? parseInt(a, 10) : currentYear;
   });
   const [activeTab, setActiveTab] = useState(() => {
+    const fromUrl = getUrlParams().get("tab");
+    if (hasFocusDeepLink) return fromUrl ?? "ledger";
     const saved = loadFilters("cassa");
     if (saved?.tab) return saved.tab as string;
-    return getUrlParams().get("tab") ?? "ledger";
+    return fromUrl ?? "ledger";
   });
   const [ledgerTipo, setLedgerTipo] = useState<LedgerMovementFilter>(() => {
     const saved = loadFilters("cassa");
@@ -155,18 +165,23 @@ export default function CassaPage() {
     return "ALL";
   });
   const [ledgerDataDa, setLedgerDataDa] = useState(() => {
+    const fromUrl = getUrlParams().get("da");
+    if (hasFocusDeepLink && isValidIsoDate(fromUrl)) return fromUrl;
     const saved = loadFilters("cassa");
     const fromSaved = typeof saved?.ledger_da === "string" ? saved.ledger_da : null;
     if (isValidIsoDate(fromSaved)) return fromSaved;
-    const fromUrl = getUrlParams().get("da");
     return isValidIsoDate(fromUrl) ? fromUrl : "";
   });
   const [ledgerDataA, setLedgerDataA] = useState(() => {
+    const fromUrl = getUrlParams().get("a");
+    if (hasFocusDeepLink && isValidIsoDate(fromUrl)) return fromUrl;
     const saved = loadFilters("cassa");
     const fromSaved = typeof saved?.ledger_a === "string" ? saved.ledger_a : null;
     if (isValidIsoDate(fromSaved)) return fromSaved;
-    const fromUrl = getUrlParams().get("a");
     return isValidIsoDate(fromUrl) ? fromUrl : "";
+  });
+  const [focusedMovementId, setFocusedMovementId] = useState<number | null>(() => {
+    return deepLinkFocusId;
   });
 
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -191,6 +206,9 @@ export default function CassaPage() {
   const { data: pendingData } = usePendingExpenses(anno, mese);
   const { data: balance, isLoading: balanceLoading } = useCashBalance();
   const pendingCount = pendingData?.items.length ?? 0;
+  const handleFocusConsumed = useCallback(() => {
+    setFocusedMovementId(null);
+  }, []);
 
   // ── Sync filtri → sessionStorage + URL (feedback visivo) ──
   useEffect(() => {
@@ -211,6 +229,7 @@ export default function CassaPage() {
     if (ledgerTipo !== "ALL") params.set("tipo", ledgerTipo);
     if (ledgerDataDa) params.set("da", ledgerDataDa);
     if (ledgerDataA) params.set("a", ledgerDataA);
+    if (focusedMovementId) params.set("focus_movement", String(focusedMovementId));
     syncUrlParams(window.location.pathname, params);
   }, [
     mese,
@@ -219,6 +238,7 @@ export default function CassaPage() {
     ledgerTipo,
     ledgerDataDa,
     ledgerDataA,
+    focusedMovementId,
     currentMonth,
     currentYear,
   ]);
@@ -394,6 +414,8 @@ export default function CassaPage() {
             <MovementsTable
               movements={movementsData.items}
               onDelete={handleDelete}
+              focusMovementId={focusedMovementId}
+              onFocusConsumed={handleFocusConsumed}
               saldoFinePeriodo={
                 ledgerTipo === "ALL" ? movementsData.saldo_fine_periodo : undefined
               }
