@@ -670,7 +670,7 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
   const [deleteTarget, setDeleteTarget] = useState<RecurringExpense | null>(null);
   const [deleteActionMode, setDeleteActionMode] = useState<"CHIUDI" | "ELIMINA">("CHIUDI");
   const [closeMonthKey, setCloseMonthKey] = useState(currentYearMonthKey);
-  const [lastOccurrenceDue, setLastOccurrenceDue] = useState(true);
+  const [stornoCutoffRequested, setStornoCutoffRequested] = useState(false);
   const [deleteAlsoMovements, setDeleteAlsoMovements] = useState(false);
 
   const handleToggle = (expense: RecurringExpense) => {
@@ -685,7 +685,8 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
           id: deleteTarget.id,
           payload: {
             effective_mese_anno_key: closeMonthKey,
-            last_occurrence_due: lastOccurrenceDue,
+            // UX semantics: checkbox ON = chiedi storno (ultima scadenza NON dovuta)
+            last_occurrence_due: !stornoCutoffRequested,
           },
         },
         {
@@ -693,7 +694,7 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
             setDeleteTarget(null);
             setDeleteActionMode("CHIUDI");
             setCloseMonthKey(currentYearMonthKey());
-            setLastOccurrenceDue(true);
+            setStornoCutoffRequested(false);
             setDeleteAlsoMovements(false);
           },
         }
@@ -711,7 +712,7 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
           setDeleteTarget(null);
           setDeleteActionMode("CHIUDI");
           setCloseMonthKey(currentYearMonthKey());
-          setLastOccurrenceDue(true);
+          setStornoCutoffRequested(false);
           setDeleteAlsoMovements(false);
         },
       }
@@ -805,7 +806,7 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
                         setDeleteTarget(expense);
                         setDeleteActionMode("CHIUDI");
                         setCloseMonthKey(currentYearMonthKey());
-                        setLastOccurrenceDue(true);
+                        setStornoCutoffRequested(false);
                         setDeleteAlsoMovements(false);
                       }}
                     >
@@ -834,7 +835,7 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
             setDeleteTarget(null);
             setDeleteActionMode("CHIUDI");
             setCloseMonthKey(currentYearMonthKey());
-            setLastOccurrenceDue(true);
+            setStornoCutoffRequested(false);
             setDeleteAlsoMovements(false);
           }
         }}
@@ -880,16 +881,15 @@ function ExpensesTable({ expenses }: { expenses: RecurringExpense[] }) {
                 </div>
                 <div className="flex items-start gap-2">
                   <Checkbox
-                    id="close-last-occurrence-due"
-                    checked={lastOccurrenceDue}
-                    onCheckedChange={(v) => setLastOccurrenceDue(Boolean(v))}
+                    id="close-storno-cutoff"
+                    checked={stornoCutoffRequested}
+                    onCheckedChange={(v) => setStornoCutoffRequested(Boolean(v))}
                   />
                   <label
-                    htmlFor="close-last-occurrence-due"
+                    htmlFor="close-storno-cutoff"
                     className="cursor-pointer text-sm leading-5 text-emerald-900 dark:text-emerald-200"
                   >
-                    Considera dovuta la scadenza del mese cutoff. Se disattivata, l&apos;ultima
-                    scadenza viene stornata.
+                    Storna la scadenza del mese cutoff (non considerarla dovuta).
                   </label>
                 </div>
               </div>
