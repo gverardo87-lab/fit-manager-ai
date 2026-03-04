@@ -353,7 +353,7 @@ function buildHtml(data: ClinicalPdfExportData, imageMap: Map<number, ExerciseIm
   <style>
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; font-family: Arial, sans-serif; color: #1f2937; background: #f3f4f6; }
-    .page { width: 210mm; min-height: 297mm; margin: 0 auto 8mm; background: #fff; padding: 10mm; page-break-after: always; position: relative; }
+    .page { width: 210mm; min-height: 297mm; margin: 0 auto 8mm; background: #fff; padding: 10mm; page-break-after: always; break-after: page; position: relative; }
     .page:last-child { page-break-after: auto; }
     .brand { color: #00796b; font-size: 24px; font-weight: 700; text-align: center; margin-top: 30mm; }
     .cover h1 { text-align: center; margin: 10mm 0 2mm; color: #004d40; font-size: 24px; }
@@ -361,17 +361,17 @@ function buildHtml(data: ClinicalPdfExportData, imageMap: Map<number, ExerciseIm
     .cover-grid { max-width: 120mm; margin: 0 auto; padding: 0; list-style: none; }
     .cover-grid li { display: flex; justify-content: space-between; padding: 3mm 0; border-bottom: 1px solid #e5e7eb; gap: 8mm; }
     .cover-grid span { color: #6b7280; }
-    .cover-logo { display: block; max-width: 52mm; max-height: 22mm; margin: 10mm auto 0; object-fit: contain; }
+    .cover-logo { display: block; max-width: 78mm; max-height: 33mm; margin: 10mm auto 0; object-fit: contain; }
     h2 { margin: 0 0 2mm; color: #00695c; font-size: 18px; }
     .muted { color: #6b7280; font-size: 12px; margin: 0 0 4mm; }
     .session-head p { margin: 0; color: #6b7280; font-size: 12px; }
     .session-title { margin: 4mm 0 2mm; padding: 2.2mm 3mm; background: #eef2f7; border-left: 3px solid #009688; display: flex; justify-content: space-between; gap: 8px; font-size: 12px; }
-    .session-section { margin-top: 3mm; }
-    .session-section h3 { margin: 0 0 2mm; padding: 1.8mm 2.4mm; font-size: 11px; letter-spacing: 0.5px; color: #0f766e; }
+    .session-section { margin-top: 3mm; break-inside: auto; page-break-inside: auto; }
+    .session-section h3 { margin: 0 0 2mm; padding: 1.8mm 2.4mm; font-size: 11px; letter-spacing: 0.5px; color: #0f766e; break-after: avoid-page; page-break-after: avoid; }
     .section-avviamento h3 { background: #fff8e1; }
     .section-principale h3 { background: #e0f2f1; }
     .section-stretching h3 { background: #e0f7fa; }
-    .exercise-card { border: 1px solid #d1d5db; margin-bottom: 2mm; break-inside: avoid; }
+    .exercise-card { border: 1px solid #d1d5db; margin-bottom: 2mm; break-inside: avoid; page-break-inside: avoid; }
     .exercise-head { background: #009688; color: #fff; display: flex; align-items: center; gap: 8px; padding: 1.6mm 2.4mm; }
     .exercise-head h4 { margin: 0; font-size: 12px; line-height: 1.2; }
     .exercise-idx { display: inline-flex; min-width: 20px; justify-content: center; font-weight: 700; }
@@ -387,7 +387,7 @@ function buildHtml(data: ClinicalPdfExportData, imageMap: Map<number, ExerciseIm
     .metrics strong { font-size: 12px; }
     .metrics .metric-full { grid-column: 1 / -1; }
     .metrics .notes strong { font-size: 11px; font-weight: 600; }
-    .block-card { border: 1px solid #d1d5db; margin: 2mm 0; break-inside: avoid; }
+    .block-card { border: 1px solid #d1d5db; margin: 2mm 0; break-inside: auto; page-break-inside: auto; }
     .block-card header { background: #eef2ff; padding: 1.6mm 2.4mm; display: flex; justify-content: space-between; gap: 8px; }
     .block-card header strong { font-size: 11px; color: #312e81; }
     .block-card header span { font-size: 10px; color: #6b7280; }
@@ -395,16 +395,38 @@ function buildHtml(data: ClinicalPdfExportData, imageMap: Map<number, ExerciseIm
     .block-photo-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .block-photo-wrap span { display: none; font-size: 9px; color: #9ca3af; }
     .block-photo-wrap.empty span { display: block; }
-    table { width: 100%; border-collapse: collapse; }
+    table { width: 100%; border-collapse: collapse; break-inside: auto; page-break-inside: auto; }
     th, td { border: 1px solid #e5e7eb; padding: 1.4mm 1.8mm; font-size: 10px; vertical-align: top; }
     th { background: #f3f4f6; text-align: left; }
     .tc { text-align: center; }
+    tr { break-inside: avoid; page-break-inside: avoid; }
+    .compact-table, .safety-table { break-inside: auto; page-break-inside: auto; }
+    .compact-table thead, .safety-table thead, .block-card thead { display: table-header-group; }
     .compact-table tbody tr:nth-child(even) td { background: #f9fafb; }
     .safety-table tbody tr:nth-child(even) td { background: #fef2f2; }
     .sev-avoid { color: #b91c1c; font-weight: 700; }
     .sev-caution { color: #b45309; font-weight: 700; }
-    footer { position: absolute; left: 10mm; right: 10mm; bottom: 6mm; display: flex; justify-content: flex-end; font-size: 10px; color: #9ca3af; }
-    @page { size: A4; margin: 10mm; }
+    footer { margin-top: 4mm; display: flex; justify-content: flex-end; font-size: 10px; color: #9ca3af; }
+    @page { size: A4; margin: 0; }
+    @media print {
+      * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      html, body { background: #fff !important; }
+      .page {
+        width: 210mm;
+        min-height: auto;
+        margin: 0;
+        box-shadow: none !important;
+        page-break-after: always;
+        break-after: page;
+      }
+      .page:last-child { page-break-after: auto; break-after: auto; }
+      .session-section { break-inside: auto !important; page-break-inside: auto !important; }
+      .exercise-card { break-inside: avoid-page; page-break-inside: avoid; }
+      .block-card { break-inside: auto !important; page-break-inside: auto !important; }
+      .block-card header { break-after: avoid-page; page-break-after: avoid; }
+      .block-card table { break-inside: auto; page-break-inside: auto; }
+      .block-card tr { break-inside: avoid; page-break-inside: avoid; }
+    }
     @media screen {
       .page { box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12); }
     }
