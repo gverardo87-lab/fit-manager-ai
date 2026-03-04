@@ -375,14 +375,14 @@ function buildHtml(data: ClinicalPdfExportData, imageMap: Map<number, ExerciseIm
     .exercise-head { background: #009688; color: #fff; display: flex; align-items: center; gap: 8px; padding: 1.6mm 2.4mm; }
     .exercise-head h4 { margin: 0; font-size: 12px; line-height: 1.2; }
     .exercise-idx { display: inline-flex; min-width: 20px; justify-content: center; font-weight: 700; }
-    .exercise-body { display: grid; grid-template-columns: 68mm 1fr; gap: 2.2mm; padding: 2.2mm; background: #f9fafb; }
+    .exercise-body { display: grid; grid-template-columns: 68mm 1fr; gap: 1.8mm; padding: 1.8mm; background: #f9fafb; }
     .photos { display: grid; grid-template-columns: 1fr 1fr; gap: 2mm; align-items: stretch; }
-    .photo-wrap { border: 1px solid #d1d5db; min-height: 28mm; display: flex; align-items: center; justify-content: center; background: #fff; overflow: hidden; position: relative; }
+    .photo-wrap { border: 1px solid #d1d5db; min-height: 24mm; display: flex; align-items: center; justify-content: center; background: #fff; overflow: hidden; position: relative; }
     .photo-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .photo-ph { display: none; color: #9ca3af; font-size: 10px; padding: 4px; text-align: center; }
     .photo-wrap.empty .photo-ph { display: block; }
-    .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 1.8mm; }
-    .metrics > div { border: 1px solid #d1d5db; background: #fff; padding: 1.4mm 2mm; }
+    .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 1.4mm; }
+    .metrics > div { border: 1px solid #d1d5db; background: #fff; padding: 1.1mm 1.6mm; }
     .metrics span { display: block; font-size: 10px; color: #6b7280; margin-bottom: 0.8mm; }
     .metrics strong { font-size: 12px; }
     .metrics .metric-full { grid-column: 1 / -1; }
@@ -391,12 +391,12 @@ function buildHtml(data: ClinicalPdfExportData, imageMap: Map<number, ExerciseIm
     .block-card header { background: #eef2ff; padding: 1.6mm 2.4mm; display: flex; justify-content: space-between; gap: 8px; }
     .block-card header strong { font-size: 11px; color: #312e81; }
     .block-card header span { font-size: 10px; color: #6b7280; }
-    .block-photo-wrap { width: 24mm; min-height: 16mm; border: 1px solid #d1d5db; background: #fff; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    .block-photo-wrap { width: 20mm; min-height: 13mm; border: 1px solid #d1d5db; background: #fff; overflow: hidden; display: flex; align-items: center; justify-content: center; }
     .block-photo-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .block-photo-wrap span { display: none; font-size: 9px; color: #9ca3af; }
     .block-photo-wrap.empty span { display: block; }
     table { width: 100%; border-collapse: collapse; break-inside: auto; page-break-inside: auto; }
-    th, td { border: 1px solid #e5e7eb; padding: 1.4mm 1.8mm; font-size: 10px; vertical-align: top; }
+    th, td { border: 1px solid #e5e7eb; padding: 1.1mm 1.4mm; font-size: 10px; vertical-align: top; }
     th { background: #f3f4f6; text-align: left; }
     .tc { text-align: center; }
     tr { break-inside: avoid; page-break-inside: avoid; }
