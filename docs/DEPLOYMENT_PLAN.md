@@ -147,15 +147,15 @@ SVILUPPATORE                              APPLICAZIONE
 |------|------|--------|-----------|--------|
 | 1a | License core backend (`api/services/license.py`) | 1 giorno | Alta | **DONE** — S1.1 |
 | 1b | License middleware (enforcement HTTP) | mezzo giorno | Alta | **DONE** — S1.2 |
-| 1c | License Generation CLI (`generate_license.py`) | mezzo giorno | Alta | TODO — S1.5 |
-| 2 | JWT secret auto-generation al primo avvio | 2-3 ore | Alta | TODO — S1.3 |
-| 3 | Health endpoint con stato licenza | 2-3 ore | Alta | TODO — S1.4 |
-| 4 | Frontend license UX (pagina scadenza) | mezzo giorno | Alta | TODO — S1.6 |
-| 5 | Setup Wizard primo avvio | 1 giorno | Alta | TODO — S2.1 |
-| 6 | Next.js standalone output mode | 2-3 ore | Alta | TODO — S3.1 |
-| 7 | PyInstaller spec per backend | 1 giorno | Alta | TODO — S3.2 |
-| 8 | Launcher script (.bat -> avvia tutto) | 2-3 ore | Alta | TODO — S3.3 |
-| 9 | Inno Setup installer | 1 giorno | Media | TODO — S3.3 |
+| 1c | License Generation CLI (`generate_license.py`) | mezzo giorno | Alta | **DONE** — S1.5 |
+| 2 | JWT secret auto-generation al primo avvio | 2-3 ore | Alta | **DONE** — S1.3 |
+| 3 | Health endpoint con stato licenza | 2-3 ore | Alta | **DONE** — S1.4 |
+| 4 | Frontend license UX (pagina scadenza) | mezzo giorno | Alta | **DONE** — S1.6 |
+| 5 | Setup Wizard primo avvio | 1 giorno | Alta | **DONE** — S2.1 |
+| 6 | Next.js standalone output mode | 2-3 ore | Alta | **DONE** — S3.1 |
+| 7 | PyInstaller spec per backend | 1 giorno | Alta | **DONE** — S3.2 |
+| 8 | Launcher script (.bat -> avvia tutto) | 2-3 ore | Alta | **DONE** — S3.3 |
+| 9 | Inno Setup installer | 1 giorno | Media | **DONE** — S3.3 |
 | 10 | Auto-updater | 2-3 giorni | Bassa (v2) | — |
 
 Tracking dettagliato: `docs/upgrades/specs/UPG-2026-03-04-06-launch-market-readiness-roadmap.md`
@@ -168,11 +168,11 @@ Queste modifiche al codice devono essere fatte durante lo sviluppo normale,
 PRIMA di eseguire il piano di distribuzione:
 
 1. ~~**License middleware**~~: controlla licenza su ogni API request — **DONE** (S1.1 + S1.2)
-2. **License Generation CLI**: script per generare keypair + firmare token — TODO (S1.5)
-3. **JWT_SECRET auto-generation**: genera e salva al primo avvio — TODO (S1.3)
-4. **Health check robusto**: endpoint /health con status licenza + DB + versione — TODO (S1.4)
-5. **Pagina "Licenza Scaduta"**: UI dedicata con contatto supporto — TODO (S1.6)
-6. **Setup Wizard**: pagina primo avvio (crea trainer senza seed script) — TODO (S2.1)
+2. ~~**License Generation CLI**~~: script per generare keypair + firmare token — **DONE** (S1.5)
+3. ~~**JWT_SECRET auto-generation**~~: genera e salva al primo avvio — **DONE** (S1.3)
+4. ~~**Health check robusto**~~: endpoint /health con status licenza + DB + versione — **DONE** (S1.4)
+5. ~~**Pagina "Licenza Scaduta"**~~: UI dedicata con contatto supporto — **DONE** (S1.6)
+6. ~~**Setup Wizard**~~: pagina primo avvio (crea trainer senza seed script) — **DONE** (S2.1)
 7. **Path relativi**: tutti i path relativi alla cartella installazione — GIA' FATTO (CLAUDE.md enforced)
 8. **Escludere dipendenze AI pesanti**: torch/transformers non necessari per Phase 1 — GIA' FATTO (import condizionali)
 

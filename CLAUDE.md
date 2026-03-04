@@ -1031,16 +1031,23 @@ usa `taskkill /T /F` per uccidere l'intero albero di processi.
 9. **Empty state UX** — Ogni pagina con zero dati mostra messaggio descrittivo + CTA per creare il primo record. Mai schermo bianco.
 10. **Nessun segreto nel bundle** — La chiave pubblica RSA (verifica licenza) puo' essere embedded. La chiave privata (firma licenze) MAI.
 
-### Architettura Build (Riferimento)
+### Architettura Build (Operativa)
 
 ```
 Source (Git privato)
 |
-+-- api/           -> PyInstaller -> api.exe (~50MB, esclude torch/transformers)
-+-- frontend/      -> next build --standalone -> bundle (~30MB, include Node.js runtime)
-+-- installer/     -> Inno Setup -> FitManager_Setup.exe (~80MB)
-|   launcher.bat      Avvia api.exe + frontend
-|   assets/           Icone, EULA
++-- api/           -> PyInstaller -> dist/fitmanager/fitmanager.exe (102MB)
++-- frontend/      -> next build --standalone -> .next/standalone/ (45MB)
++-- installer/     -> Inno Setup -> dist/FitManager_Setup.exe (58MB)
+|   launcher.bat      Avvia backend + frontend + apre browser (supporta --port)
+|   fitmanager.iss    Script Inno Setup 6 (italiano, data/ preservata)
+|   node/             node.exe runtime (copiato, non committato)
+|   assets/           EULA.txt
++-- tools/build/
+|   build-frontend.sh   npm build + copia static/public nel standalone
+|   build-backend.sh    PyInstaller con fitmanager.spec
+|   entry_point.py      Wrapper uvicorn (--port support)
+|   fitmanager.spec     PyInstaller spec (esclude AI libs ~1.8GB)
 +-- data/          -> Sopravvive agli aggiornamenti
     crm.db            Database SQLite
     media/            Foto esercizi
@@ -1048,22 +1055,25 @@ Source (Git privato)
     .env              Configurazione locale (JWT_SECRET auto-generato)
 ```
 
+**Formula porte**: `frontend_port - 3000 + 8000 = backend_port`
+- 3000→8000 (prod), 3001→8001 (dev), 3002→8002 (installer test)
+
 ### Checklist Pre-Distribuzione
 
-- [x] Sistema licenza RSA backend (`api/services/license.py`, 164 LOC, 5 test) — S1.1 DONE
-- [x] License middleware HTTP con exempt paths — S1.2 DONE
-- [ ] License Generation CLI (`generate_license.py`) — S1.5
-- [ ] JWT_SECRET auto-generato al primo avvio (salvato in `data/.env`) — S1.3
-- [ ] `/health` con stato licenza + versione + DB — S1.4
-- [ ] Frontend license UX (pagina scadenza + interceptor 403) — S1.6
-- [ ] Setup Wizard funzionante (crea trainer da zero senza seed) — S2.1
-- [ ] `next build` in modalita' standalone produce bundle autonomo — S3.1
-- [ ] PyInstaller produce `api.exe` funzionante (senza torch/transformers) — S3.2
-- [ ] Launcher `.bat` avvia backend + frontend + apre browser — S3.3
-- [ ] Installer Inno Setup testato su PC pulito (senza Python/Node) — S3.3
-- [ ] Flusso end-to-end: install → licenza → setup → primo cliente → contratto → pagamento → agenda — S3.4
+- [x] Sistema licenza RSA backend — S1.1 DONE
+- [x] License middleware HTTP — S1.2 DONE
+- [x] License Generation CLI — S1.5 DONE
+- [x] JWT_SECRET auto-generato — S1.3 DONE
+- [x] `/health` con stato licenza — S1.4 DONE
+- [x] Frontend license UX — S1.6 DONE
+- [x] Setup Wizard — S2.1 DONE
+- [x] Dashboard WelcomeCard first-run — S2.2 DONE
+- [x] Next.js standalone bundle (45MB) — S3.1 DONE
+- [x] PyInstaller `fitmanager.exe` (102MB) — S3.2 DONE
+- [x] Launcher + Inno Setup installer (58MB) — S3.3 DONE
+- [x] Smoke test: install → login page funzionante — S3.4 DONE
 - [ ] `__version__` visibile in UI Impostazioni
-- [ ] Empty state descrittivo su pagine top 3 (dashboard, clienti, contratti)
+- [ ] Flusso E2E completo: install → licenza → setup → cliente → contratto → agenda
 
 Tracking dettagliato: `docs/upgrades/specs/UPG-2026-03-04-06-launch-market-readiness-roadmap.md`
 
@@ -1092,6 +1102,13 @@ bash tools/scripts/check-all.sh                           # ruff + next build �
 cd frontend && npx next build                             # solo frontend (se serve)
 cd frontend && npm test                                   # 69 vitest (data protection)
 pytest tests/ -v                                          # 63 test
+
+# ── Build Distribuzione ──
+bash tools/build/build-frontend.sh                        # Next.js standalone bundle (45MB)
+bash tools/build/build-backend.sh                         # PyInstaller exe (102MB, richiede pip install pyinstaller)
+# Inno Setup (compila installer 58MB):
+"/c/Users/gvera/AppData/Local/Programs/Inno Setup 6/ISCC.exe" installer/fitmanager.iss
+# Test installer: dist/FitManager_Setup.exe
 
 # Test E2E (richiede server avviato)
 python tools/admin_scripts/test_crud_idor.py

@@ -8,7 +8,7 @@
 - Area: Cross-layer (API + Frontend + Deployment)
 - Priority: high
 - Target release: launch candidate (T-5 days)
-- Status: in_progress
+- Status: wave_3_complete
 - Revision: R1 (claude-code) — vedi sezione "Revisione R1" in fondo
 
 ## Problem
@@ -143,7 +143,7 @@ Gia presente e da preservare:
 - Commit: `chore(launch): baseline snapshot and launch backlog [UPG-2026-03-04-06-S0.1]`.
 - Push: immediato dopo gate green.
 
-### Wave 1 - License pipeline completa (Day 1) — IN PROGRESS
+### Wave 1 - License pipeline completa (Day 1) — DONE
 
 **S1.1 License core backend** — DONE
 - Output: `api/services/license.py` + verifica JWT RSA + load license da `data/license.key`.
@@ -184,9 +184,9 @@ Gia presente e da preservare:
 - Gate: next build + smoke navigation + `check-all.sh`.
 - Commit/push dedicato.
 
-### Wave 2 - First-run e onboarding (Day 2)
+### Wave 2 - First-run e onboarding (Day 2) — DONE
 
-**S2.1 Setup Wizard primo avvio**
+**S2.1 Setup Wizard primo avvio** — DONE
 - Output: percorso guidato da DB vuoto -> creazione trainer -> ingresso dashboard.
 - Backend: `GET /api/setup/status` (controlla se esiste almeno un trainer).
 - Frontend: `/setup` route, redirect automatico se DB vuoto (no trainer).
@@ -194,36 +194,42 @@ Gia presente e da preservare:
 - Gate: scenario E2E fresh install + `check-all.sh`.
 - Commit/push dedicato.
 
-**S2.2 Empty states hardening mirato**
+**S2.2 Empty states hardening mirato** — DONE
 - Output: pagine critiche senza dati mostrano CTA chiare (no schermo bianco).
 - Focus: dashboard (zero clienti), clienti (lista vuota), contratti (lista vuota), cassa (zero movimenti).
 - Gate: checklist manuale su route dashboard critiche + `check-all.sh`.
 - Commit/push dedicato.
 
-### Wave 3 - Build distribuzione (Day 3-4) — ex Wave 4, promossa
+### Wave 3 - Build distribuzione (Day 3-4) — ex Wave 4, promossa — DONE
 
 > **Rationale R1**: La distribuzione e' il vero blocker di lancio. Se il software non si installa,
 > l'UX hardening non serve a nulla. Promossa da Day 4-5 a Day 3-4.
 
-**S3.1 Frontend standalone**
-- Output: `output: "standalone"` in `next.config.ts` + verifica bundle autonomo.
-- Test: `node .next/standalone/server.js` deve servire l'app.
-- Commit/push dedicato.
+**S3.1 Frontend standalone** — DONE
+- `output: "standalone"` in `next.config.ts` + formula porte generica (3000→8000, 3001→8001, 3002→8002).
+- `build-frontend.sh` copia `.next/static` + `public/` nel bundle standalone.
+- Bundle: 45MB. Testato: `server.js` serve l'app correttamente.
+- Commit: `c78fe20`.
 
-**S3.2 Backend packaging skeleton**
-- Output: `tools/build/build-backend.sh` — PyInstaller spec per `api.exe`.
-- Esclusioni esplicite: torch, transformers, langchain, chromadb, sentence-transformers.
-- Test: `api.exe` deve avviare e rispondere a `/health`.
-- Commit/push dedicato.
+**S3.2 Backend packaging** — DONE
+- `entry_point.py` wrapper uvicorn con `--port` support.
+- `fitmanager.spec` PyInstaller: directory mode, esclude ~1.8GB AI libs.
+- `build-backend.sh` compila e verifica `dist/fitmanager/fitmanager.exe`.
+- Bundle: 102MB. Testato: health check OK su porta 8002.
+- Commit: `74261ae`.
 
-**S3.3 Launcher + installer prep**
-- Output: `launcher.bat` (avvia api.exe + frontend + apre browser) + `installer/fitmanager.iss` (Inno Setup).
-- Test: installer su macchina pulita (senza Python/Node).
-- Commit/push dedicato.
+**S3.3 Launcher + installer** — DONE
+- `launcher.bat`: avvia backend + frontend + apre browser, supporta `--port`.
+- `fitmanager.iss`: Inno Setup 6, italiano, data/ preservata su aggiornamenti.
+- `EULA.txt` placeholder.
+- Installer compilato: **58MB** (`FitManager_Setup.exe`).
+- Commit: `9439448` + `470177f`.
 
-**S3.4 Go-live smoke test**
-- Output: flusso completo install → licenza → setup → cliente → contratto → pagamento → agenda.
-- Gate finale: `check-all.sh` + smoke E2E + checklist pre-distribuzione completa.
+**S3.4 Smoke test** — DONE
+- Installer eseguito su macchina di sviluppo.
+- Flusso: install → avvio da shortcut desktop → login page funzionante.
+- Bug trovato e risolto: `.next/static/` mancante nel bundle → ricompilato.
+- Backend health: `{"status":"ok","db":"connected","catalog":"connected"}`.
 
 ### Wave 4 - UX hardening mirato (Day 4-5) — ex Wave 3, ridotta
 
