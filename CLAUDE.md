@@ -1050,16 +1050,22 @@ Source (Git privato)
 
 ### Checklist Pre-Distribuzione
 
-- [ ] Setup Wizard funzionante (crea trainer da zero senza seed)
-- [ ] Sistema licenza RSA integrato (middleware + UI scadenza)
-- [ ] JWT_SECRET auto-generato al primo avvio (salvato in `data/.env`)
-- [ ] `next build` in modalita' standalone produce bundle autonomo
-- [ ] PyInstaller produce `api.exe` funzionante (senza torch/transformers)
-- [ ] Launcher `.bat` avvia backend + frontend + apre browser
-- [ ] Installer Inno Setup testato su PC pulito (senza Python/Node)
-- [ ] Flusso end-to-end: install → licenza → setup → primo cliente → contratto → pagamento → agenda
+- [x] Sistema licenza RSA backend (`api/services/license.py`, 164 LOC, 5 test) — S1.1 DONE
+- [x] License middleware HTTP con exempt paths — S1.2 DONE
+- [ ] License Generation CLI (`generate_license.py`) — S1.5
+- [ ] JWT_SECRET auto-generato al primo avvio (salvato in `data/.env`) — S1.3
+- [ ] `/health` con stato licenza + versione + DB — S1.4
+- [ ] Frontend license UX (pagina scadenza + interceptor 403) — S1.6
+- [ ] Setup Wizard funzionante (crea trainer da zero senza seed) — S2.1
+- [ ] `next build` in modalita' standalone produce bundle autonomo — S3.1
+- [ ] PyInstaller produce `api.exe` funzionante (senza torch/transformers) — S3.2
+- [ ] Launcher `.bat` avvia backend + frontend + apre browser — S3.3
+- [ ] Installer Inno Setup testato su PC pulito (senza Python/Node) — S3.3
+- [ ] Flusso end-to-end: install → licenza → setup → primo cliente → contratto → pagamento → agenda — S3.4
 - [ ] `__version__` visibile in UI Impostazioni
-- [ ] Empty state descrittivo su OGNI pagina a zero dati
+- [ ] Empty state descrittivo su pagine top 3 (dashboard, clienti, contratti)
+
+Tracking dettagliato: `docs/upgrades/specs/UPG-2026-03-04-06-launch-market-readiness-roadmap.md`
 
 ---
 

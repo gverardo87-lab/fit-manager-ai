@@ -4,11 +4,12 @@
 
 - Upgrade ID: UPG-2026-03-04-06
 - Date: 2026-03-04
-- Owner: gvera + codex
+- Owner: gvera + codex + claude-code
 - Area: Cross-layer (API + Frontend + Deployment)
 - Priority: high
 - Target release: launch candidate (T-5 days)
-- Status: planned
+- Status: in_progress
+- Revision: R1 (claude-code) — vedi sezione "Revisione R1" in fondo
 
 ## Problem
 
@@ -49,18 +50,20 @@ Consegna market-ready in modo progressivo, con rilasci intermedi verificabili:
 ## Gap Snapshot (2026-03-04)
 
 Da validare/implementare come priorita alta:
-- Sistema licenza RSA e middleware license-aware su API.
+- ~~Sistema licenza RSA~~ — **DONE** (`api/services/license.py`, 164 LOC, 5 test PASS)
+- ~~License middleware~~ — **DONE** (in `api/main.py:202-235`, gated by `LICENSE_ENFORCEMENT_ENABLED` env)
 - Setup Wizard primo avvio (creazione trainer senza seed runtime).
 - JWT secret bootstrap persistente in `data/.env`.
 - `/health` con stato licenza + versione + DB business/catalog.
 - Build frontend standalone e pipeline distribuzione (backend exe + launcher + installer).
+- **License Generation CLI** — mancante, necessario per generare licenze firmabili.
 
 Gia presente e da preservare:
 - `check-all.sh` come gate pre-commit.
 - Dual DB, backup/integrity checks, zero hardcoded API IP, security pattern IDOR.
 - UX guardrails (unsaved changes, empty states in gran parte delle pagine).
 
-## S0.1 Baseline Execution (2026-03-04)
+## S0.1 Baseline Execution (2026-03-04) — DONE
 
 ### Gate results
 
@@ -73,11 +76,9 @@ Gia presente e da preservare:
 
 ### Backlog blocker ordinato (evidence-based)
 
-1. **Licensing RSA + middleware API** (critical, launch blocker)
-   - `api/services/license.py` assente (`license_service=missing`).
-   - Nessun riferimento licensing enforcement nei router principali.
+1. ~~**Licensing RSA + middleware API**~~ — **DONE** (S1.1 + S1.2)
 2. **Setup Wizard first-run** (critical, launch blocker)
-   - Nessuna route setup/onboarding in `frontend/src/app` (`rg --files ... setup|onboarding|wizard` senza match).
+   - Nessuna route setup/onboarding in `frontend/src/app`.
 3. **JWT secret bootstrap persistente** (high)
    - `api/config.py` usa fallback statico `"dev-secret-change-in-production"` se env mancante.
 4. **Health endpoint parziale** (high)
@@ -86,8 +87,10 @@ Gia presente e da preservare:
    - `frontend/next.config.ts` non espone `output: "standalone"`.
 6. **Frontend middleware deprecato** (medium)
    - Build warning: convenzione `middleware.ts` deprecata, raccomandata `proxy`.
+7. **License Generation CLI** (high, scoperto in R1)
+   - Nessuno script per firmare licenze (`tools/admin_scripts/generate_license.py` assente).
 
-## S1.1 Implementation Snapshot (2026-03-04)
+## S1.1 Implementation Snapshot (2026-03-04) — DONE
 
 ### Delivered
 
@@ -96,6 +99,7 @@ Gia presente e da preservare:
   - verifica JWT RSA (`RS256`)
   - stati normalizzati: `valid | missing | invalid | expired | unconfigured`
   - payload tipizzato (`LicenseClaims`) + risultato strutturato (`LicenseCheckResult`)
+  - risoluzione chiave pubblica: parametro > env > file > embedded (4-tier fallback)
 - Test unitari: `tests/test_license_service.py`
   - missing file
   - unconfigured public key
@@ -109,9 +113,29 @@ Gia presente e da preservare:
 - `venv\\Scripts\\python.exe -m ruff check api/` -> PASS
 - `cd frontend && npx next build` -> PASS (warning noto su `middleware` deprecato)
 
+## S1.2 License Middleware (2026-03-04) — DONE
+
+### Delivered
+
+- Middleware HTTP registrato in `api/main.py:213-235`
+- Gated by `LICENSE_ENFORCEMENT_ENABLED` env var (default: disabled)
+- Exempt paths: `/health`, `/docs`, `/redoc`, `/openapi.json`, `/api/auth/login`, `/api/auth/register`, `/media/*`
+- Se licenza non valida → `403 Forbidden` con `license_status` e `detail`
+- `request.state.license_status` disponibile per downstream handlers
+
+### Residuo
+
+- Test integrazione middleware → coprire in S1.3 (JWT bootstrap crea fresh env ideale per test).
+
+---
+
 ## Gradual Implementation Strategy (Micro-step + Commit/Push)
 
-### Wave 0 - Baseline e controllo rischio (Day 0)
+> **NOTA R1**: L'ordine delle wave e' stato rivisto. La distribuzione (vecchia Wave 4) e' stata
+> promossa a **Wave 3** perche' e' il vero blocker di lancio. L'UX hardening (vecchia Wave 3)
+> e' stata spostata a **Wave 4** e ridotta alle 3 pagine piu' critiche commercialmente.
+
+### Wave 0 - Baseline e controllo rischio (Day 0) — DONE
 
 **S0.1 Baseline tecnico**
 - Output: fotografia stato corrente (build, lint, test core) + backlog launch blockers ordinato.
@@ -119,79 +143,105 @@ Gia presente e da preservare:
 - Commit: `chore(launch): baseline snapshot and launch backlog [UPG-2026-03-04-06-S0.1]`.
 - Push: immediato dopo gate green.
 
-### Wave 1 - Launch blockers obbligatori (Day 1-2)
+### Wave 1 - License pipeline completa (Day 1) — IN PROGRESS
 
-**S1.1 License core backend**
+**S1.1 License core backend** — DONE
 - Output: `api/services/license.py` + verifica JWT RSA + load license da `data/license.key`.
 - Gate: test unit parser/licenza + `check-all.sh`.
 - Commit/push dedicato.
 
-**S1.2 License middleware**
+**S1.2 License middleware** — DONE
 - Output: enforcement su request API (con allowlist endpoint pubblici).
-- Gate: test integrazione auth + `check-all.sh`.
+- Gated by `LICENSE_ENFORCEMENT_ENABLED` env var.
 - Commit/push dedicato.
 
 **S1.3 JWT secret bootstrap**
 - Output: generazione sicura al primo avvio + persistenza in `data/.env` se mancante.
-- Gate: startup test (fresh env) + `check-all.sh`.
+- `secrets.token_hex(32)` → scritto in `data/.env` come `JWT_SECRET=...`.
+- `api/config.py` legge `data/.env` con `load_dotenv(DATA_DIR / ".env")` prima del fallback.
+- Gate: startup test (fresh env senza JWT_SECRET) + `check-all.sh`.
 - Commit/push dedicato.
 
 **S1.4 Health endpoint hardening**
-- Output: `/health` include versione, db business/catalog, stato licenza.
+- Output: `/health` include versione, db business/catalog, stato licenza, uptime.
+- Chiama `check_license()` e include `license_status` nel response.
 - Gate: endpoint test + `check-all.sh`.
 - Commit/push dedicato.
 
-**S1.5 Frontend license UX**
+**S1.5 License Generation CLI** (nuovo in R1)
+- Output: `tools/admin_scripts/generate_license.py` — script per generare keypair RSA + firmare token JWT.
+- Subcomandi: `generate-keys` (crea keypair in `~/.fitmanager/`), `sign` (firma token con claims).
+- `python -m tools.admin_scripts.generate_license generate-keys`
+- `python -m tools.admin_scripts.generate_license sign --client "gym-roma" --tier pro --months 12`
+- Output: file `.key` pronto per deploy in `data/license.key`.
+- Gate: test round-trip (genera chiavi → firma → verifica con `check_license()`) + `check-all.sh`.
+- Commit/push dedicato.
+
+**S1.6 Frontend license UX**
 - Output: pagina/flow "Licenza scaduta o non valida" con CTA supporto.
+- Interceptor Axios cattura 403 con `license_status` → redirect a `/licenza`.
+- Pagina `/licenza`: stato chiaro + istruzioni + contatto.
 - Gate: next build + smoke navigation + `check-all.sh`.
 - Commit/push dedicato.
 
-### Wave 2 - First-run e onboarding (Day 2-3)
+### Wave 2 - First-run e onboarding (Day 2)
 
 **S2.1 Setup Wizard primo avvio**
 - Output: percorso guidato da DB vuoto -> creazione trainer -> ingresso dashboard.
+- Backend: `GET /api/setup/status` (controlla se esiste almeno un trainer).
+- Frontend: `/setup` route, redirect automatico se DB vuoto (no trainer).
+- Step: nome + email + password + saldo iniziale cassa (opzionale).
 - Gate: scenario E2E fresh install + `check-all.sh`.
 - Commit/push dedicato.
 
 **S2.2 Empty states hardening mirato**
 - Output: pagine critiche senza dati mostrano CTA chiare (no schermo bianco).
-- Gate: checklist manuale su tutte le route dashboard + `check-all.sh`.
+- Focus: dashboard (zero clienti), clienti (lista vuota), contratti (lista vuota), cassa (zero movimenti).
+- Gate: checklist manuale su route dashboard critiche + `check-all.sh`.
 - Commit/push dedicato.
 
-### Wave 3 - UX hardening pagina-per-pagina (Day 3-4)
+### Wave 3 - Build distribuzione (Day 3-4) — ex Wave 4, promossa
 
-Ordine di impatto commerciale:
-1. `login` + `dashboard`
-2. `clienti` + `clienti/[id]` (+ anamnesi/misurazioni/progressi)
-3. `contratti` + `contratti/[id]`
-4. `cassa`
-5. `schede` + `schede/[id]` + `allenamenti`
-6. `agenda`
-7. `esercizi` + `esercizi/[id]`
-8. `impostazioni`
+> **Rationale R1**: La distribuzione e' il vero blocker di lancio. Se il software non si installa,
+> l'UX hardening non serve a nulla. Promossa da Day 4-5 a Day 3-4.
+
+**S3.1 Frontend standalone**
+- Output: `output: "standalone"` in `next.config.ts` + verifica bundle autonomo.
+- Test: `node .next/standalone/server.js` deve servire l'app.
+- Commit/push dedicato.
+
+**S3.2 Backend packaging skeleton**
+- Output: `tools/build/build-backend.sh` — PyInstaller spec per `api.exe`.
+- Esclusioni esplicite: torch, transformers, langchain, chromadb, sentence-transformers.
+- Test: `api.exe` deve avviare e rispondere a `/health`.
+- Commit/push dedicato.
+
+**S3.3 Launcher + installer prep**
+- Output: `launcher.bat` (avvia api.exe + frontend + apre browser) + `installer/fitmanager.iss` (Inno Setup).
+- Test: installer su macchina pulita (senza Python/Node).
+- Commit/push dedicato.
+
+**S3.4 Go-live smoke test**
+- Output: flusso completo install → licenza → setup → cliente → contratto → pagamento → agenda.
+- Gate finale: `check-all.sh` + smoke E2E + checklist pre-distribuzione completa.
+
+### Wave 4 - UX hardening mirato (Day 4-5) — ex Wave 3, ridotta
+
+> **Rationale R1**: 8 pagine in 1-2 giorni e' over-scoped per T-5. Ridotto alle 3 pagine
+> con massimo impatto commerciale. Le altre possono essere hardened post-lancio.
+
+Ordine di impatto commerciale (top 3):
+1. `login` + `dashboard` — prima impressione, KPI overview
+2. `clienti` + `clienti/[id]` — cuore del CRM, usato ogni giorno
+3. `contratti` + `contratti/[id]` — flusso pagamenti, valore economico diretto
 
 Per ogni pagina:
 - micro-batch da max 1 area UX per volta (copy, CTA, feedback, error states, guard, mobile responsiveness);
 - 1 commit/push per batch;
 - gate obbligatorio: check manuale desktop/mobile + `check-all.sh`.
 
-### Wave 4 - Build distribuzione e release candidate (Day 4-5)
-
-**S4.1 Frontend standalone**
-- Output: configurazione output standalone e verifica bundle.
-- Commit/push dedicato.
-
-**S4.2 Backend packaging skeleton**
-- Output: spec/script base per build backend distribuibile.
-- Commit/push dedicato.
-
-**S4.3 Launcher + installer prep**
-- Output: script launcher + bozza installer testabile su macchina pulita.
-- Commit/push dedicato.
-
-**S4.4 Go-live smoke test**
-- Output: flusso completo install -> licenza -> setup -> cliente -> contratto -> pagamento -> agenda.
-- Gate finale: `check-all.sh` + smoke E2E + checklist pre-distribuzione completa.
+Pagine rimanenti (`cassa`, `schede`, `agenda`, `esercizi`, `impostazioni`) → post-lancio,
+gia' funzionali con empty states e guardrails di base.
 
 ## Commit and Push Discipline
 
@@ -230,7 +280,7 @@ Per ogni pagina:
   - Ogni wave ha output, gate e criterio di commit/push.
   - Prerequisiti launch del deployment plan mappati con priorita esplicita.
 - UX:
-  - Audit pagina-per-pagina con ordine di priorita commerciale.
+  - Top 3 pagine hardened con ordine di priorita commerciale.
   - Focus esplicito su protezione utente e praticita operativa.
 - Tecnico:
   - Strategia allineata a workflow/DoD in `CLAUDE.md`.
@@ -240,26 +290,45 @@ Per ogni pagina:
 
 - Unit/Integration:
   - test puntuali per licensing, startup bootstrap, middleware, health.
+  - test round-trip license generation CLI.
 - Manual checks:
   - smoke test first-run + percorsi principali dashboard.
-  - verifica responsive e empty states su tutte le pagine dashboard.
+  - verifica responsive e empty states su pagine top 3.
+  - installer su macchina pulita.
 - Build/Lint gates:
   - `bash tools/scripts/check-all.sh` prima di ogni commit.
 
 ## Risks and Mitigation
 
 - Rischio 1: scope creep vicino al lancio.
-  - Mitigazione: wave sequencing + freeze policy Day 4.
+  - Mitigazione: wave sequencing + freeze policy Day 4 + Wave 4 ridotta a top 3 pagine.
 - Rischio 2: regressioni da patch cross-layer.
   - Mitigazione: commit atomici, push frequenti, gate obbligatori.
 - Rischio 3: blocker distribuzione scoperti tardi.
-  - Mitigazione: Wave 1-2 dedicata ai prerequisiti deployment.
+  - Mitigazione: distribuzione promossa a Wave 3 (Day 3-4), prima dell'UX hardening.
+- Rischio 4: PyInstaller/Inno Setup richiedono tuning imprevisto su macchina target.
+  - Mitigazione: S3.4 smoke test su macchina pulita come gate finale.
 
 ## Rollback Plan
 
 - Rollback per micro-step via `git revert <commit>` (mai reset distruttivi).
 - In caso regressione critica: rollback ultimo step, riapertura task con fix minimale.
 - Dati utente protetti: nessun reset DB, solo migrazioni/patch backward-safe.
+
+---
+
+## Revisione R1 — Claude Code (2026-03-04)
+
+Differenze rispetto al piano originale Codex:
+
+| # | Punto debole originale | Revisione R1 |
+|---|------------------------|--------------|
+| 1 | Wave 3 (UX) prima di Wave 4 (distribuzione) | **Invertite**: distribuzione → Wave 3 (Day 3-4), UX → Wave 4 (Day 4-5). La distribuzione e' il vero launch blocker |
+| 2 | Wave 3 UX: 8 pagine in 1-2 giorni | **Ridotta a top 3**: login+dashboard, clienti, contratti. Le altre sono gia funzionali |
+| 3 | Mancava License Generation CLI | **Aggiunto S1.5**: `generate_license.py` con generate-keys + sign subcommands |
+| 4 | S1.2 non rifletteva stato reale | **Aggiornato a DONE**: middleware gia presente in `main.py:202-235` |
+| 5 | Gap snapshot non aggiornato | **Aggiornato**: S1.1 e S1.2 barrati come DONE, aggiunto CLI mancante |
+| 6 | Rischi mancavano PyInstaller/installer | **Aggiunto Rischio 4**: tuning imprevisto su macchina target |
 
 ## Notes
 

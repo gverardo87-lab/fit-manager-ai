@@ -18,8 +18,9 @@ import sqlite3
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.responses import JSONResponse
 from starlette.staticfiles import StaticFiles
 from sqlmodel import Session, text
 
@@ -28,6 +29,7 @@ from api.database import get_catalog_session, get_session
 from api.config import API_PREFIX, CATALOG_DATABASE_URL, DATA_DIR
 from api.database import create_catalog_tables, create_db_and_tables, engine
 from api.seed_exercises import seed_builtin_exercises
+from api.services.license import check_license
 from api.auth.router import router as auth_router
 from api.routers.clients import router as clients_router
 from api.routers.agenda import router as agenda_router
@@ -49,6 +51,16 @@ logger = logging.getLogger("fitmanager.api")
 
 BACKUP_DIR = DATA_DIR / "backups"
 MAX_AUTO_BACKUPS = 5  # solo gli ultimi 5 backup automatici
+
+LICENSE_EXEMPT_PATHS = {
+    "/health",
+    "/docs",
+    "/redoc",
+    "/openapi.json",
+    f"{API_PREFIX}/auth/login",
+    f"{API_PREFIX}/auth/register",
+}
+LICENSE_EXEMPT_PREFIXES = ("/media/",)
 
 
 def _auto_backup_on_startup(database_url: str) -> None:
@@ -185,6 +197,42 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def _is_license_enforcement_enabled() -> bool:
+    value = os.getenv("LICENSE_ENFORCEMENT_ENABLED", "false").strip().lower()
+    return value in {"1", "true", "yes", "on"}
+
+
+def _is_license_exempt_path(path: str) -> bool:
+    if path in LICENSE_EXEMPT_PATHS:
+        return True
+    return any(path.startswith(prefix) for prefix in LICENSE_EXEMPT_PREFIXES)
+
+
+@app.middleware("http")
+async def license_middleware(request: Request, call_next):
+    """Middleware licenza (gated): enforcement opzionale via env."""
+    if not _is_license_enforcement_enabled():
+        return await call_next(request)
+
+    path = request.url.path
+    if _is_license_exempt_path(path):
+        return await call_next(request)
+
+    result = check_license()
+    request.state.license_status = result.status
+
+    if result.is_valid:
+        return await call_next(request)
+
+    return JSONResponse(
+        status_code=status.HTTP_403_FORBIDDEN,
+        content={
+            "detail": result.message,
+            "license_status": result.status,
+        },
+    )
 
 # Static files: serve media (immagini/video esercizi)
 _media_dir = Path(os.path.dirname(__file__)).parent / "data" / "media"
