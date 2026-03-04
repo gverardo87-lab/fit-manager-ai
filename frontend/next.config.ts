@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Standalone output: produce .next/standalone/ con server.js autonomo.
+  // Per distribuzione (installer) non serve Node.js di sistema — solo node.exe bundled.
+  output: "standalone",
+
   // Permette di avviare una seconda istanza dev con cache separata:
   // NEXT_DIST_DIR=.next-dev npm run dev -- -p 3001
   distDir: process.env.NEXT_DIST_DIR || ".next",
@@ -14,12 +18,11 @@ const nextConfig: NextConfig = {
   },
 
   // Proxy /media/* al backend — rende i fetch same-origin (evita CORS su StaticFiles).
-  // Necessario per l'export Excel che usa fetch() per scaricare immagini esercizi.
-  // Dual-env: PORT 3001 (next dev -p 3001) → backend 8001; PORT 3000 (next start) → backend 8000.
-  // process.env.PORT è impostato da Next.js in base alla flag -p (disponibile a startup time).
+  // Mapping generico: porta frontend - 3000 + 8000 = porta backend.
+  // 3000→8000 (prod), 3001→8001 (dev), 3002→8002 (installer test).
   rewrites: async () => {
     const port = parseInt(process.env.PORT ?? "3000");
-    const backendPort = port >= 3001 ? 8001 : 8000;
+    const backendPort = port - 3000 + 8000;
     const backendBase = process.env.NEXT_PUBLIC_API_URL ?? `http://localhost:${backendPort}`;
     return [
       {

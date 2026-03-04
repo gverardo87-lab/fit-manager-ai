@@ -41,7 +41,9 @@ export const TOKEN_COOKIE = "fitmanager_token";
 function getApiBaseUrl(): string {
   if (typeof window !== "undefined") {
     const { hostname, port } = window.location;
-    const apiPort = port === "3001" ? "8001" : "8000";
+    // Mapping generico: 3000→8000, 3001→8001, 3002→8002, ecc.
+    const frontPort = parseInt(port) || 3000;
+    const apiPort = frontPort - 3000 + 8000;
     return `http://${hostname}:${apiPort}/api`;
   }
   return `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api`;

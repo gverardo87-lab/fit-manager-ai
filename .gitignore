@@ -9,6 +9,7 @@ __pycache__/
 # Distribution / packaging
 .Python
 build/
+!tools/build/
 develop-eggs/
 dist/
 downloads/
@@ -30,6 +31,7 @@ MANIFEST
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
 *.spec
+!tools/build/*.spec
 
 # Installer logs
 pip-log.txt
@@ -135,6 +137,9 @@ data/*.db-shm
 data/*.db-wal
 data/backups/
 data/media/
+data/license.key
+data/license_public.pem
+data/license_private.pem
 
 # Script temporanei e report generati
 tools/admin_scripts/_temp_*
