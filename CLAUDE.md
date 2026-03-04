@@ -65,7 +65,7 @@ Elemento chiave di UX: ricerca fuzzy globale con 3 capacita' avanzate.
 Implementazione: `cmdk` v1.1.1 + shadcn Command. Custom Dialog (non CommandDialog) per split layout.
 Dati lazy-loaded via React Query (`enabled: open`). Zero prop drilling — custom event per apertura da sidebar.
 
-File: `frontend/src/components/layout/CommandPalette.tsx` (~975 LOC).
+File: `frontend/src/components/layout/CommandPalette.tsx` (~1170 LOC).
 
 ### Assistant CRM Deterministico V0.5 — NLP nella Command Palette
 
@@ -107,9 +107,16 @@ api/routers/assistant.py (feature flag ASSISTANT_V1_ENABLED)
 tutta la business logic (bouncer, IDOR, audit, atomic commit).
 
 **Frontend** (`CommandPalette.tsx`):
-- `assistantMode = searchValue.startsWith(">")` → `shouldFilter={false}` su cmdk
+- `assistantMode` come stato separato (non derivato da `>`). Digitando `>` si entra, Backspace su vuoto si esce
+- Layout **full-width** in assistant mode (preview panel destro nascosto → tutta la larghezza)
+- **Header teal** con indicatore stato + spinner loading + hint "← torna"
+- **Discovery section** nella ricerca normale: gruppo "Assistente" con 3 esempi cliccabili
+- **Suggestion chips** context-aware sotto l'input (adattati alla pagina cliente corrente)
+- **AssistantResultCard**: card prominente con bordo colorato (verde/ambra/rosso per confidenza),
+  icona intent, preview, entita' key/value, bottone CTA "Conferma ↵"
+- **Enter-to-commit** via capture-phase keydown handler (bypassa cmdk)
+- **Shimmer bar** durante il parsing (animate-pulse)
 - Debounce 300ms → POST /assistant/parse
-- Preview panel tipo `"assistant"`: confidence bar (emerald/amber/red), entita' estratte, ambiguita'
 - Commit su Enter → POST /assistant/commit → toast + invalidation dinamica da backend + navigazione
 
 **Invalidation**: `CommitResponse.invalidate` contiene React Query keys dal backend →
