@@ -936,7 +936,7 @@ bash tools/scripts/activate-exercises.sh --dry-run  # Solo audit, zero modifiche
 1. **Migrazioni**: `bash tools/scripts/migrate-all.sh` — MAI `alembic upgrade head` da solo
 2. **Kill backend**: `bash tools/scripts/kill-port.sh <porta>` — MAI `Ctrl+C` senza verificare
 3. **crm.db sacro**: dati reali di Chiara. MAI toccare con seed/reset
-4. **crm_dev.db libero**: dati di test (50 clienti). Seed/reset quando vuoi
+4. **crm_dev.db libero**: dati di test (30 clienti, 4 mesi). Seed/reset quando vuoi
 5. **Frontend dev**: `npm run dev` → porta 3001 automatica, API a 8001 automatica
 6. **Frontend prod**: `npm run build && npm run prod` → porta 3000, API a 8000
 
@@ -1048,7 +1048,7 @@ python -m tools.admin_scripts.build_catalog --dry-run     # Solo conteggi
 
 # ── Reset & Seed (FERMA il server API prima!) ──
 python tools/admin_scripts/reset_production.py            # DB pulito con solo Chiara
-python -m tools.admin_scripts.seed_dev                    # 50 clienti su crm_dev.db
+python -m tools.admin_scripts.seed_dev                    # 30 clienti × 4 mesi su crm_dev.db
 # Credenziali prod: chiarabassani96@gmail.com / chiarabassani
 # Credenziali dev:  chiarabassani96@gmail.com / Fitness2026!
 

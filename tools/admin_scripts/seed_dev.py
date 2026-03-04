@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """
-Seed Dev — Popola crm_dev.db con dati di test realistici.
+Seed Dev — Popola crm_dev.db con dati di test realistici (4 mesi, 30 clienti).
 
 Setta DATABASE_URL a crm_dev.db PRIMA di importare i moduli,
 cosi' il seed NON tocca mai crm.db (dati reali di Chiara).
+
+Delega a seed_dev_complete.py: 30 clienti con contratti, rate, anamnesi,
+misurazioni, obiettivi, schede allenamento, eventi e log.
 
 Uso: python -m tools.admin_scripts.seed_dev
 """
@@ -23,15 +26,12 @@ print(f"crm.db (produzione) NON viene toccato.\n")
 
 # ── Import e esecuzione ──
 sys.path.insert(0, str(PROJECT_ROOT))
-from tools.admin_scripts.seed_realistic import reset_database_safe, seed_realistic  # noqa: E402
+from tools.admin_scripts.seed_dev_complete import (  # noqa: E402
+    reset_database,
+    _copy_exercises_from_prod,
+    seed_complete,
+)
 
-print("[1/2] Reset database dev...")
-engine = reset_database_safe()
-print()
-
-print("[2/2] Seed dati realistici...")
-seed_realistic(engine)
-print()
-
-print("=== DEV DB PRONTO ===")
-print("Avvia con: DATABASE_URL=sqlite:///data/crm_dev.db uvicorn api.main:app --reload --port 8001")
+engine = reset_database()
+_copy_exercises_from_prod()  # Copia esercizi PRIMA di aprire session SQLAlchemy
+seed_complete(engine)
