@@ -1,11 +1,12 @@
 # api/seed_exercises.py
 """
-Seed 174 esercizi builtin nel database.
+Seed esercizi builtin nel database.
 
 Chiamato al startup dell'API (lifespan). Se la tabella esercizi contiene
 gia' record builtin, il seed viene skippato (idempotente).
 
-Legge da data/exercises/seed_exercises.json (generato da tools/export_exercises_seed.py).
+Legge da data/exercises/seed_exercises.json — export completo dal DB prod
+con tutti i campi (classificazione, biomeccanica, tassonomia, in_subset).
 """
 
 import json
@@ -57,13 +58,29 @@ def seed_builtin_exercises(session: Session) -> int:
             rep_range_ipertrofia=ex.get("rep_range_ipertrofia"),
             rep_range_resistenza=ex.get("rep_range_resistenza"),
             ore_recupero=ex.get("ore_recupero", 48),
-            istruzioni=json.dumps(ex["istruzioni"], ensure_ascii=False) if ex.get("istruzioni") else None,
             controindicazioni=json.dumps(ex.get("controindicazioni", []), ensure_ascii=False),
             is_builtin=True,
+            # Campi v2: tassonomia e biomeccanica
+            in_subset=ex.get("in_subset", False),
+            catena_cinetica=ex.get("catena_cinetica"),
+            piano_movimento=ex.get("piano_movimento"),
+            tipo_contrazione=ex.get("tipo_contrazione"),
+            note_sicurezza=ex.get("note_sicurezza"),
+            tempo_consigliato=ex.get("tempo_consigliato"),
+            force_type=ex.get("force_type"),
+            lateral_pattern=ex.get("lateral_pattern"),
+            descrizione_anatomica=ex.get("descrizione_anatomica"),
+            descrizione_biomeccanica=ex.get("descrizione_biomeccanica"),
+            setup=ex.get("setup"),
+            esecuzione=ex.get("esecuzione"),
+            respirazione=ex.get("respirazione"),
+            coaching_cues=json.dumps(ex["coaching_cues"], ensure_ascii=False) if ex.get("coaching_cues") else None,
+            errori_comuni=json.dumps(ex["errori_comuni"], ensure_ascii=False) if ex.get("errori_comuni") else None,
         )
         session.add(exercise)
 
     session.commit()
     inserted = len(exercises_data)
-    logger.info(f"Seed esercizi: inseriti {inserted} esercizi builtin")
+    active = sum(1 for ex in exercises_data if ex.get("in_subset"))
+    logger.info(f"Seed esercizi: inseriti {inserted} builtin ({active} attivi)")
     return inserted
