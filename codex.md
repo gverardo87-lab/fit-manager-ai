@@ -192,6 +192,30 @@ Per qualunque modifica che tocca movimenti denaro (`movimenti_cassa`, saldo, for
 Riferimenti UPG (cash-critical):
 - `UPG-2026-03-03-06`, `UPG-2026-03-03-07`, `UPG-2026-03-03-09`, `UPG-2026-03-03-10` in `docs/upgrades/UPGRADE_LOG.md`.
 
+## 12. Export Schede Cliniche (Nuovo)
+
+Per modifiche su export schede (`frontend/src/lib/export-workout-pdf.ts`, `ExportButtons.tsx`, preview):
+
+1. Doppio formato da preservare
+- `Anteprima` (window print della preview live)
+- `Scarica Clinico` (file HTML locale ottimizzato per PDF)
+
+2. Branding stabile
+- logo cliente persistito per trainer (`fitmanager.workout.logo.{trainerId}`)
+- logo coerente tra preview e export clinico
+
+3. Print fidelity prima di tutto
+- colori in stampa coerenti (`print-color-adjust`)
+- page-break A4 senza spazi bianchi anomali
+- blocchi strutturati (superset/emom/tabata/...) leggibili anche su split pagina
+
+4. Ottimizzazione costo stampa
+- preferire compattazioni moderate (10-15%) su media/padding
+- non comprimere oltre il punto di perdita leggibilita
+
+Riferimenti UPG (workout export):
+- `UPG-2026-03-04-02`, `UPG-2026-03-04-03` in `docs/upgrades/UPGRADE_LOG.md`.
+
 ---
 
 Obiettivo operativo: mantenere ritmo da startup con disciplina da team senior.

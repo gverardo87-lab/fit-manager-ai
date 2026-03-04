@@ -33,3 +33,9 @@ Esempio:
 - `done`
 - `rolled_back`
 - `superseded`
+
+## Ultimo allineamento (2026-03-04)
+
+- `UPG-2026-03-04-01`: dual-DB + backup v2.0 bank-grade.
+- `UPG-2026-03-04-02`: export clinico schede (HTML locale -> PDF) con logo e foto embedded.
+- `UPG-2026-03-04-03`: hardening stampa (color fidelity, impaginazione, compattazione densita).
