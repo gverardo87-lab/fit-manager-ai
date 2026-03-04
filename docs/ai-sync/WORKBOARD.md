@@ -7,7 +7,7 @@ Aggiornare prima di iniziare e alla chiusura di ogni task.
 
 | Work ID | Owner | Branch | Scope | Locked files | Status | Started (UTC) | Updated (UTC) | Handoff / Notes |
 |---|---|---|---|---|---|---|---|---|
-| _(nessun task attivo)_ | — | — | — | — | — | — | — | — |
+| AGT-2026-03-04-06 | Codex | `codex_01` | UPG-2026-03-04-06 S0.1 baseline tecnico + backlog launch blockers | `docs/upgrades/specs/UPG-2026-03-04-06-launch-market-readiness-roadmap.md`, `docs/upgrades/UPGRADE_LOG.md`, `docs/ai-sync/WORKBOARD.md` | in_progress | 2026-03-04 16:45 | 2026-03-04 16:45 | Step corrente: esecuzione check-all + formalizzazione backlog ordinato |
 
 ## Completed
 
