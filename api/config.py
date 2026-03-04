@@ -7,11 +7,17 @@ DATABASE_URL e' l'unica riga da cambiare per passare a PostgreSQL.
 """
 
 import os
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
 # Paths (prima di load_dotenv per poter caricare data/.env)
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+# PyInstaller frozen: exe e' in {app}/backend/fitmanager.exe → parent.parent = {app}/
+# Source tree: config.py e' in {project}/api/config.py → parents[1] = {project}/
+if getattr(sys, "frozen", False):
+    PROJECT_ROOT = Path(sys.executable).resolve().parent.parent
+else:
+    PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = PROJECT_ROOT / "data"
 
 # Carica .env dal progetto (sviluppo) + data/.env (produzione/bootstrap)
