@@ -1,0 +1,53 @@
+CONTRATTO DI LICENZA D'USO — FitManager AI Studio
+
+Versione 1.0 — Marzo 2026
+
+════════════════════════════════════════════════════════════════
+
+1. CONCESSIONE DI LICENZA
+
+Il presente software ("FitManager AI Studio") e' concesso in licenza d'uso,
+NON venduto. L'acquisto di una licenza conferisce il diritto di installare
+e utilizzare il software su UN (1) computer per la durata specificata nella
+licenza attivata.
+
+2. RESTRIZIONI
+
+L'utente NON puo':
+- Copiare, distribuire o sublicenziare il software a terzi
+- Decompilare, disassemblare o tentare di estrarre il codice sorgente
+- Rimuovere o alterare avvisi di copyright o di licenza
+- Utilizzare il software per scopi illegali
+
+3. PROPRIETA' INTELLETTUALE
+
+Tutti i diritti di proprieta' intellettuale sul software restano
+dell'autore. La licenza non trasferisce alcun diritto di proprieta'.
+
+4. PRIVACY E DATI
+
+Il software opera INTERAMENTE in locale sul computer dell'utente.
+NESSUN dato personale o di clienti viene trasmesso a server esterni.
+I dati sono salvati nella cartella "data/" dell'installazione.
+
+5. GARANZIA LIMITATA
+
+Il software e' fornito "cosi' com'e'" senza garanzie di alcun tipo.
+L'autore non sara' responsabile per danni diretti o indiretti derivanti
+dall'uso del software.
+
+6. LICENZA E SCADENZA
+
+La licenza e' valida per il periodo specificato nell'attivazione.
+Alla scadenza, il software continuera' a funzionare in modalita' limitata
+fino al rinnovo della licenza.
+
+7. LEGGE APPLICABILE
+
+Il presente contratto e' regolato dalla legge italiana.
+Per qualsiasi controversia sara' competente il Foro di Trieste.
+
+════════════════════════════════════════════════════════════════
+
+Accettando questa licenza, l'utente dichiara di aver letto e compreso
+tutti i termini sopra indicati.
