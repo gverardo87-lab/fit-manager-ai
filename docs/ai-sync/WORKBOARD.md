@@ -7,7 +7,7 @@ Aggiornare prima di iniziare e alla chiusura di ogni task.
 
 | Work ID | Owner | Branch | Scope | Locked files | Status | Started (UTC) | Updated (UTC) | Handoff / Notes |
 |---|---|---|---|---|---|---|---|---|
-| AGT-2026-03-04-06 | Codex | `codex_01` | UPG-2026-03-04-06 S0.1 baseline tecnico + backlog launch blockers | `docs/upgrades/specs/UPG-2026-03-04-06-launch-market-readiness-roadmap.md`, `docs/upgrades/UPGRADE_LOG.md`, `docs/ai-sync/WORKBOARD.md` | in_progress | 2026-03-04 16:45 | 2026-03-04 16:45 | Step corrente: esecuzione check-all + formalizzazione backlog ordinato |
+| AGT-2026-03-04-06 | Codex | `codex_01` | UPG-2026-03-04-06 S1.1 licensing core backend + test | `api/services/license.py`, `tests/test_license_service.py`, `docs/upgrades/specs/UPG-2026-03-04-06-launch-market-readiness-roadmap.md`, `docs/upgrades/UPGRADE_LOG.md`, `docs/ai-sync/WORKBOARD.md` | in_progress | 2026-03-04 16:45 | 2026-03-04 16:53 | S0.1 chiuso (commit/push). S1.1 implementato e validato, pronto commit intermedio |
 
 ## Completed
 

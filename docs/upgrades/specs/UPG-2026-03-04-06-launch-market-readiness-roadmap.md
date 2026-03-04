@@ -87,6 +87,28 @@ Gia presente e da preservare:
 6. **Frontend middleware deprecato** (medium)
    - Build warning: convenzione `middleware.ts` deprecata, raccomandata `proxy`.
 
+## S1.1 Implementation Snapshot (2026-03-04)
+
+### Delivered
+
+- Nuovo modulo backend: `api/services/license.py`
+  - lettura `data/license.key`
+  - verifica JWT RSA (`RS256`)
+  - stati normalizzati: `valid | missing | invalid | expired | unconfigured`
+  - payload tipizzato (`LicenseClaims`) + risultato strutturato (`LicenseCheckResult`)
+- Test unitari: `tests/test_license_service.py`
+  - missing file
+  - unconfigured public key
+  - valid license
+  - expired license
+  - invalid signature
+
+### Validation
+
+- `venv\\Scripts\\python.exe -m pytest -q tests/test_license_service.py` -> PASS (5/5)
+- `venv\\Scripts\\python.exe -m ruff check api/` -> PASS
+- `cd frontend && npx next build` -> PASS (warning noto su `middleware` deprecato)
+
 ## Gradual Implementation Strategy (Micro-step + Commit/Push)
 
 ### Wave 0 - Baseline e controllo rischio (Day 0)
