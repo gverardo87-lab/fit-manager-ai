@@ -10,6 +10,7 @@
  */
 
 import { useMemo } from "react";
+import Image from "next/image";
 import type { LucideIcon } from "lucide-react";
 import { Activity, Clock3, Dumbbell, Flame, Gauge, Hourglass, Repeat2, StretchHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -107,6 +108,7 @@ interface WorkoutPreviewProps {
   obiettivo: string;
   livello: string;
   clientNome?: string;
+  logoDataUrl?: string | null;
   durata_settimane: number;
   sessioni_per_settimana: number;
   sessioni: SessionCardData[];
@@ -119,6 +121,7 @@ export function WorkoutPreview({
   obiettivo,
   livello,
   clientNome,
+  logoDataUrl,
   durata_settimane,
   sessioni_per_settimana,
   sessioni,
@@ -140,30 +143,45 @@ export function WorkoutPreview({
   return (
     <div className="workout-preview bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 rounded-lg border p-6 space-y-6 print:space-y-3">
       {/* ── Header ── */}
-      <div className="border-l-4 border-primary pl-4">
-        <h2 className="text-xl font-bold tracking-tight">{nome}</h2>
-        {clientNome && (
-          <p className="text-sm text-muted-foreground mt-0.5">{clientNome}</p>
-        )}
-        <div className="flex flex-wrap gap-2 mt-2">
-          <Badge variant="outline" className="text-xs">
-            {OBIETTIVO_LABELS[obiettivo] ?? obiettivo}
-          </Badge>
-          <Badge variant="outline" className="text-xs">
-            {LIVELLO_LABELS[livello] ?? livello}
-          </Badge>
-          <Badge variant="outline" className="text-xs">
-            {sessioni_per_settimana}x / settimana
-          </Badge>
-          <Badge variant="outline" className="text-xs">
-            {durata_settimane} settimane
-          </Badge>
-          {totalVolume != null && (
-            <Badge variant="outline" className="text-xs tabular-nums">
-              Vol. totale: {totalVolume.toLocaleString("it-IT")} kg
-            </Badge>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1 border-l-4 border-primary pl-4">
+          <h2 className="text-xl font-bold tracking-tight">{nome}</h2>
+          {clientNome && (
+            <p className="text-sm text-muted-foreground mt-0.5">{clientNome}</p>
           )}
+          <div className="flex flex-wrap gap-2 mt-2">
+            <Badge variant="outline" className="text-xs">
+              {OBIETTIVO_LABELS[obiettivo] ?? obiettivo}
+            </Badge>
+            <Badge variant="outline" className="text-xs">
+              {LIVELLO_LABELS[livello] ?? livello}
+            </Badge>
+            <Badge variant="outline" className="text-xs">
+              {sessioni_per_settimana}x / settimana
+            </Badge>
+            <Badge variant="outline" className="text-xs">
+              {durata_settimane} settimane
+            </Badge>
+            {totalVolume != null && (
+              <Badge variant="outline" className="text-xs tabular-nums">
+                Vol. totale: {totalVolume.toLocaleString("it-IT")} kg
+              </Badge>
+            )}
+          </div>
         </div>
+
+        {logoDataUrl && (
+          <div className="shrink-0 rounded-md border border-zinc-200 bg-white p-2 print:border-zinc-300">
+            <Image
+              src={logoDataUrl}
+              alt="Logo cliente"
+              width={180}
+              height={72}
+              unoptimized
+              className="h-14 w-auto max-w-[150px] object-contain print:h-12"
+            />
+          </div>
+        )}
       </div>
 
       {/* ── Sessioni ── */}

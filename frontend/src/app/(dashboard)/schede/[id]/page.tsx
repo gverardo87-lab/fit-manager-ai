@@ -63,6 +63,7 @@ import { useExercises, useExerciseSafetyMap } from "@/hooks/useExercises";
 import { useLatestMeasurement } from "@/hooks/useMeasurements";
 import { toast } from "sonner";
 import { PATTERN_TO_1RM } from "@/lib/derived-metrics";
+import { getStoredTrainer } from "@/lib/auth";
 import {
   OBIETTIVI_SCHEDA,
   LIVELLI_SCHEDA,
@@ -104,6 +105,7 @@ const CONDITION_CATEGORY_LABELS: Record<string, string> = {
 };
 
 const CATEGORY_ORDER = ["orthopedic", "cardiovascular", "metabolic", "neurological", "respiratory", "special"];
+const WORKOUT_LOGO_STORAGE_PREFIX = "fitmanager.workout.logo";
 
 type SaveIssueLevel = "warning" | "critical";
 type SaveIssueCategory = "draft" | "normalization" | "safety" | "integrity";
@@ -492,6 +494,27 @@ export default function SchedaDetailPage({
   // Protezione dati: beforeunload + draft auto-save in sessionStorage
   const draftKey = isNaN(id) ? undefined : `scheda-builder-${id}`;
   useUnsavedChanges({ dirty: isDirty, draftKey, draftData: sessions });
+
+  // Branding export PDF: logo trainer salvato in localStorage
+  const logoStorageKey = useMemo(() => {
+    const trainer = getStoredTrainer();
+    return `${WORKOUT_LOGO_STORAGE_PREFIX}.${trainer?.id ?? "anonymous"}`;
+  }, []);
+  const [exportLogoDataUrl, setExportLogoDataUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem(logoStorageKey);
+    setExportLogoDataUrl(saved);
+  }, [logoStorageKey]);
+
+  const handleLogoChange = useCallback((value: string | null) => {
+    setExportLogoDataUrl(value);
+    if (value) {
+      window.localStorage.setItem(logoStorageKey, value);
+    } else {
+      window.localStorage.removeItem(logoStorageKey);
+    }
+  }, [logoStorageKey]);
 
   // Navigazione guardata — protegge tutti i punti di uscita dal builder
   const goBack = useCallback((force = false) => {
@@ -919,7 +942,7 @@ export default function SchedaDetailPage({
 
   // (beforeunload gestito da useUnsavedChanges sopra)
 
-  // Dati safety per export Excel
+  // Dati safety per PDF clinico
   const safetyExportData = useMemo(() => {
     if (!safetyMap || !safetyEntries || safetyMap.condition_count === 0) return undefined;
 
@@ -1637,6 +1660,8 @@ export default function SchedaDetailPage({
             sessioni_per_settimana={plan.sessioni_per_settimana}
             sessioni={sessions}
             safety={safetyExportData}
+            logoDataUrl={exportLogoDataUrl}
+            onLogoChange={handleLogoChange}
           />
           {isDirty && (
             <Button onClick={handleSave} disabled={updateSessions.isPending}>
@@ -1895,6 +1920,7 @@ export default function SchedaDetailPage({
             durata_settimane={plan.durata_settimane}
             sessioni_per_settimana={plan.sessioni_per_settimana}
             sessioni={sessions}
+            logoDataUrl={exportLogoDataUrl}
             note={plan.note}
             exerciseMap={exerciseMap}
           />
