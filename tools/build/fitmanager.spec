@@ -51,7 +51,7 @@ a = Analysis(
         'pydantic',
         'pydantic.json_schema',
         'pydantic_core',
-        'pydantic_settings',
+        # 'pydantic_settings',  # non usato direttamente
 
         # ── Auth ──
         'jose',
@@ -100,7 +100,7 @@ a = Analysis(
         'api.database',
         'api.auth',
         'api.auth.router',
-        'api.auth.security',
+        # 'api.auth.security',  # non esiste come modulo separato
         'api.models',
         'api.schemas',
         'api.routers',
