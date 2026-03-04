@@ -7,7 +7,7 @@ POST /auth/login     -> verifica credenziali, ritorna JWT
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import Session, select
+from sqlmodel import Session, select, func as sa_func
 
 from api.database import get_session
 from api.models.trainer import Trainer
@@ -15,6 +15,18 @@ from api.auth.schemas import TrainerRegister, TrainerLogin, TokenResponse
 from api.auth.service import hash_password, verify_password, create_access_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+@router.get("/setup-status")
+def setup_status(session: Session = Depends(get_session)):
+    """
+    Controlla se esiste almeno un trainer nel DB.
+
+    Usato dal Setup Wizard per decidere se mostrare il primo avvio.
+    Endpoint pubblico (no JWT), in allowlist license middleware.
+    """
+    count = session.exec(select(sa_func.count(Trainer.id))).one()
+    return {"needs_setup": count == 0}
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
@@ -27,7 +39,6 @@ def register(data: TrainerRegister, session: Session = Depends(get_session)):
     3. Salva nel DB
     4. Ritorna JWT token (il trainer e' gia' loggato)
     """
-    from sqlalchemy import func as sa_func
     existing = session.exec(
         select(Trainer).where(sa_func.lower(Trainer.email) == data.email)
     ).first()

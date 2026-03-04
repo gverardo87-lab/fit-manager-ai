@@ -12,7 +12,7 @@
  * - Errori dal backend (401, 403) mostrati inline
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -21,6 +21,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Loader2, Dumbbell } from "lucide-react";
 import { AxiosError } from "axios";
 
+import apiClient from "@/lib/api-client";
 import { login } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,6 +64,16 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
+
+  // Se non esiste nessun trainer, redirect al Setup Wizard
+  useEffect(() => {
+    apiClient
+      .get<{ needs_setup: boolean }>("/auth/setup-status")
+      .then(({ data }) => {
+        if (data.needs_setup) router.replace("/setup");
+      })
+      .catch(() => {});
+  }, [router]);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),

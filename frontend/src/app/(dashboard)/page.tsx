@@ -36,6 +36,8 @@ import {
   CreditCard,
   Bell,
   Wallet,
+  Sparkles,
+  Rocket,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -156,22 +158,29 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── Hero KPI ── */}
-      {isLoading && <KpiSkeleton />}
-      {summary && stats && <KpiCards summary={summary} stats={stats} />}
+      {/* ── First-run welcome (zero clienti) ── */}
+      {!isLoading && summary && summary.active_clients === 0 ? (
+        <WelcomeCard />
+      ) : (
+        <>
+          {/* ── Hero KPI ── */}
+          {isLoading && <KpiSkeleton />}
+          {summary && stats && <KpiCards summary={summary} stats={stats} />}
 
-      {/* ── Alert Panel ── */}
-      <AlertPanel alerts={alerts} isLoading={!alerts} alertActions={alertActions} />
+          {/* ── Alert Panel ── */}
+          <AlertPanel alerts={alerts} isLoading={!alerts} alertActions={alertActions} />
 
-      {/* ── Tre colonne: Aging + Agenda + Todo ── */}
-      <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
-        <FinancialHealth aging={aging} isLoading={!aging} />
-        <TodayAgenda events={todayEvents} isLoading={!eventsData} />
-        <TodoCard />
-      </div>
+          {/* ── Tre colonne: Aging + Agenda + Todo ── */}
+          <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
+            <FinancialHealth aging={aging} isLoading={!aging} />
+            <TodayAgenda events={todayEvents} isLoading={!eventsData} />
+            <TodoCard />
+          </div>
 
-      {/* ── Azioni Rapide ── */}
-      <QuickActions />
+          {/* ── Azioni Rapide ── */}
+          <QuickActions />
+        </>
+      )}
 
       {/* ── Sheet risoluzione inline ── */}
       <GhostEventsSheet open={ghostSheetOpen} onOpenChange={setGhostSheetOpen} />
@@ -783,6 +792,96 @@ function QuickActions() {
             </Link>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// Welcome Card (first-run)
+// ════════════════════════════════════════════════════════════
+
+const FIRST_STEPS = [
+  {
+    label: "Aggiungi il primo cliente",
+    description: "Inserisci nome, contatti e anamnesi",
+    icon: UserPlus,
+    href: "/clienti?new=1",
+    gradient: "from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-zinc-900",
+    iconColor: "text-blue-600 dark:text-blue-400",
+    border: "border-blue-200 dark:border-blue-800/50",
+  },
+  {
+    label: "Crea un contratto",
+    description: "Pacchetto, prezzo e piano rate",
+    icon: FileText,
+    href: "/contratti?new=1",
+    gradient: "from-emerald-50 to-emerald-100/50 dark:from-emerald-950/30 dark:to-zinc-900",
+    iconColor: "text-emerald-600 dark:text-emerald-400",
+    border: "border-emerald-200 dark:border-emerald-800/50",
+  },
+  {
+    label: "Pianifica un appuntamento",
+    description: "Agenda con drag & drop",
+    icon: Calendar,
+    href: "/agenda",
+    gradient: "from-amber-50 to-amber-100/50 dark:from-amber-950/30 dark:to-zinc-900",
+    iconColor: "text-amber-600 dark:text-amber-400",
+    border: "border-amber-200 dark:border-amber-800/50",
+  },
+  {
+    label: "Esplora gli esercizi",
+    description: "269 esercizi con tassonomia scientifica",
+    icon: Rocket,
+    href: "/esercizi",
+    gradient: "from-violet-50 to-violet-100/50 dark:from-violet-950/30 dark:to-zinc-900",
+    iconColor: "text-violet-600 dark:text-violet-400",
+    border: "border-violet-200 dark:border-violet-800/50",
+  },
+] as const;
+
+function WelcomeCard() {
+  return (
+    <div className="space-y-6">
+      {/* Hero welcome */}
+      <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-background to-primary/10 p-6 sm:p-8">
+        <div className="pointer-events-none absolute -right-12 -top-12 h-48 w-48 rounded-full bg-primary/5 blur-3xl" />
+        <div className="relative flex flex-col items-center text-center sm:items-start sm:text-left">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10">
+            <Sparkles className="h-7 w-7 text-primary" />
+          </div>
+          <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
+            Benvenuto in ProFit AI Studio
+          </h2>
+          <p className="mt-2 max-w-lg text-sm text-muted-foreground">
+            Il tuo gestionale fitness e' pronto. Inizia aggiungendo il primo cliente
+            per sbloccare tutte le funzionalita': contratti, agenda, schede allenamento,
+            analisi cliniche e molto altro.
+          </p>
+        </div>
+      </div>
+
+      {/* First steps grid */}
+      <div>
+        <p className="mb-3 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          Primi passi
+        </p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {FIRST_STEPS.map((step) => {
+            const Icon = step.icon;
+            return (
+              <Link key={step.label} href={step.href}>
+                <div className={`group flex flex-col gap-2 rounded-xl border ${step.border} bg-gradient-to-br ${step.gradient} p-4 transition-all hover:shadow-md hover:-translate-y-0.5`}>
+                  <div className="flex items-center gap-3">
+                    <Icon className={`h-5 w-5 ${step.iconColor}`} />
+                    <span className="text-sm font-medium">{step.label}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{step.description}</p>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

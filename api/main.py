@@ -59,6 +59,7 @@ LICENSE_EXEMPT_PATHS = {
     "/openapi.json",
     f"{API_PREFIX}/auth/login",
     f"{API_PREFIX}/auth/register",
+    f"{API_PREFIX}/auth/setup-status",
 }
 LICENSE_EXEMPT_PREFIXES = ("/media/",)
 
