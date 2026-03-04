@@ -18,7 +18,7 @@ import sqlite3
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi import Depends, FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 from starlette.staticfiles import StaticFiles
@@ -263,13 +263,32 @@ def health_check(
     session: Session = Depends(get_session),
     catalog_session: Session = Depends(get_catalog_session),
 ):
-    """Endpoint di salute — verifica connettivita' business DB + catalog DB."""
+    """Endpoint di salute — verifica DB + catalog + licenza + versione."""
+    from api import __version__
+
+    db_ok = False
+    catalog_ok = False
     try:
         session.exec(text("SELECT 1")).one()
-        catalog_session.exec(text("SELECT 1")).one()
-        return {"status": "ok", "version": "1.0.0", "db": "connected", "catalog": "connected"}
+        db_ok = True
     except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Database non raggiungibile",
-        )
+        pass
+    try:
+        catalog_session.exec(text("SELECT 1")).one()
+        catalog_ok = True
+    except Exception:
+        pass
+
+    license_result = check_license()
+
+    healthy = db_ok and catalog_ok
+    return JSONResponse(
+        status_code=200 if healthy else 503,
+        content={
+            "status": "ok" if healthy else "degraded",
+            "version": __version__,
+            "db": "connected" if db_ok else "disconnected",
+            "catalog": "connected" if catalog_ok else "disconnected",
+            "license_status": license_result.status,
+        },
+    )

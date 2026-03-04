@@ -19,7 +19,7 @@ import type { NextRequest } from "next/server";
 const TOKEN_COOKIE = "fitmanager_token";
 
 // Rotte pubbliche — accessibili senza autenticazione
-const PUBLIC_ROUTES = ["/login", "/register"];
+const PUBLIC_ROUTES = ["/login", "/register", "/licenza"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

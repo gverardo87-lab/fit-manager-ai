@@ -10,11 +10,13 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
-
-# Paths
+# Paths (prima di load_dotenv per poter caricare data/.env)
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = PROJECT_ROOT / "data"
+
+# Carica .env dal progetto (sviluppo) + data/.env (produzione/bootstrap)
+load_dotenv()  # .env nella root del progetto
+load_dotenv(DATA_DIR / ".env", override=False)  # data/.env come fallback
 
 # Database — Phase 1: SQLite. Phase 2: cambia solo questa riga.
 # SQLite:     "sqlite:///data/crm.db"
@@ -55,15 +57,33 @@ CATALOG_DATABASE_URL: str = os.getenv(
     f"sqlite:///{DATA_DIR / 'catalog.db'}",
 )
 
-# JWT Authentication
-JWT_SECRET: str = os.getenv("JWT_SECRET", "")
-if not JWT_SECRET:
+# JWT Authentication — bootstrap automatico al primo avvio
+def _resolve_jwt_secret() -> str:
+    """Risolve JWT_SECRET: env > data/.env > auto-genera e persiste."""
     import logging
-    logging.getLogger("fitmanager.config").critical(
-        "JWT_SECRET NON CONFIGURATO — token firmati con chiave di sviluppo. "
-        "Impostare JWT_SECRET come variabile d'ambiente per la produzione!"
+    import secrets
+    _logger = logging.getLogger("fitmanager.config")
+
+    secret = os.getenv("JWT_SECRET", "").strip()
+    if secret:
+        return secret
+
+    # Auto-genera e persiste in data/.env
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    env_file = DATA_DIR / ".env"
+    secret = secrets.token_hex(32)
+
+    # Appendi senza sovrascrivere altre variabili gia' presenti
+    with open(env_file, "a", encoding="utf-8") as f:
+        f.write(f"\nJWT_SECRET={secret}\n")
+
+    _logger.info(
+        "JWT_SECRET generato automaticamente e salvato in %s", env_file
     )
-    JWT_SECRET = "dev-secret-change-in-production"
+    return secret
+
+
+JWT_SECRET: str = _resolve_jwt_secret()
 JWT_ALGORITHM: str = "HS256"
 JWT_EXPIRE_MINUTES: int = int(os.getenv("JWT_EXPIRE_MINUTES", "480"))  # 8 ore
 

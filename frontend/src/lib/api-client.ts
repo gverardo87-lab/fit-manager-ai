@@ -72,7 +72,7 @@ apiClient.interceptors.request.use(
 );
 
 // ════════════════════════════════════════════════════════════
-// RESPONSE INTERCEPTOR — Redirect su 401
+// RESPONSE INTERCEPTOR — Redirect su 401 / 403 license
 // ════════════════════════════════════════════════════════════
 
 apiClient.interceptors.response.use(
@@ -93,6 +93,19 @@ apiClient.interceptors.response.use(
         window.location.href = "/login";
       }
     }
+
+    // Licenza non valida/scaduta — redirect a /licenza
+    if (error.response?.status === 403) {
+      const licenseStatus = error.response?.data?.license_status;
+      if (
+        licenseStatus &&
+        typeof window !== "undefined" &&
+        !window.location.pathname.startsWith("/licenza")
+      ) {
+        window.location.href = `/licenza?status=${licenseStatus}`;
+      }
+    }
+
     return Promise.reject(error);
   }
 );
