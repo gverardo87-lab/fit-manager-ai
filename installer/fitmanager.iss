@@ -73,7 +73,7 @@ Name: "{group}\FitManager AI Studio"; Filename: "{app}\launcher.bat"; WorkingDir
 Name: "{autodesktop}\FitManager AI Studio"; Filename: "{app}\launcher.bat"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Tasks]
-Name: "desktopicon"; Description: "Crea icona sul Desktop"; GroupDescription: "Icone aggiuntive:"; Flags: checked
+Name: "desktopicon"; Description: "Crea icona sul Desktop"; GroupDescription: "Icone aggiuntive:"
 
 [Run]
 ; Apri l'app dopo l'installazione

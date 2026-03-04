@@ -141,6 +141,9 @@ data/license.key
 data/license_public.pem
 data/license_private.pem
 
+# Installer binaries (non committare, troppo pesanti)
+installer/node/
+
 # Script temporanei e report generati
 tools/admin_scripts/_temp_*
 tools/admin_scripts/reports/
