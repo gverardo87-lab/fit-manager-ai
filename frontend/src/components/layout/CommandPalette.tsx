@@ -13,7 +13,7 @@
  * Zero prop drilling — custom event per apertura da sidebar.
  */
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -34,6 +34,8 @@ import {
   Activity,
   Scale,
   HeartPulse,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -58,6 +60,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import apiClient from "@/lib/api-client";
 import { formatCurrency } from "@/lib/format";
+import { useParseAssistant, useCommitAssistant } from "@/hooks/useAssistant";
 import type {
   ClientEnriched,
   ClientEnrichedListResponse,
@@ -65,6 +68,8 @@ import type {
   ExerciseListResponse,
   DashboardSummary,
   MovementStats,
+  AssistantParseResponse,
+  ParsedOperation,
 } from "@/types/api";
 
 // ════════════════════════════════════════════════════════════
@@ -366,7 +371,109 @@ type PreviewData =
   | { type: "client"; data: ClientEnriched }
   | { type: "exercise"; data: Exercise }
   | { type: "kpi" }
+  | { type: "assistant"; data: AssistantParseResponse }
   | null;
+
+// ════════════════════════════════════════════════════════════
+// PREVIEW: Assistant
+// ════════════════════════════════════════════════════════════
+
+const INTENT_LABELS: Record<string, { label: string; icon: string }> = {
+  "agenda.create_event": { label: "Evento", icon: "calendar" },
+  "movement.create_manual": { label: "Movimento", icon: "wallet" },
+  "measurement.create": { label: "Misurazione", icon: "scale" },
+};
+
+function AssistantPreview({ result }: { result: AssistantParseResponse }) {
+  if (!result.success || result.operations.length === 0) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center text-center">
+        <Sparkles className="mb-3 h-8 w-8 text-muted-foreground/30" />
+        <p className="text-xs text-muted-foreground/70">{result.message}</p>
+      </div>
+    );
+  }
+
+  const op = result.operations[0];
+  const intentInfo = INTENT_LABELS[op.intent] ?? { label: op.intent, icon: "sparkles" };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Sparkles className="h-4 w-4 text-primary" />
+        <p className="text-xs font-semibold text-primary">Assistente</p>
+      </div>
+
+      <Separator />
+
+      {/* Operation */}
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+          {intentInfo.label}
+        </p>
+        <p className="mt-1 text-sm font-medium">{op.preview_label}</p>
+      </div>
+
+      {/* Confidence */}
+      <div className="flex items-center gap-2">
+        <div className="h-1.5 flex-1 rounded-full bg-muted">
+          <div
+            className={`h-full rounded-full transition-all ${
+              op.confidence >= 0.7
+                ? "bg-emerald-500"
+                : op.confidence >= 0.4
+                  ? "bg-amber-500"
+                  : "bg-red-500"
+            }`}
+            style={{ width: `${Math.round(op.confidence * 100)}%` }}
+          />
+        </div>
+        <span className="text-[10px] tabular-nums text-muted-foreground">
+          {Math.round(op.confidence * 100)}%
+        </span>
+      </div>
+
+      {/* Entities */}
+      {result.entities.length > 0 && (
+        <>
+          <Separator />
+          <div className="space-y-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+              Dati Estratti
+            </p>
+            {result.entities.map((e, i) => (
+              <div key={i} className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">{e.label.split(":")[0]}</span>
+                <span className="font-medium">{e.label.split(":").slice(1).join(":").trim()}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Ambiguities */}
+      {result.ambiguities.length > 0 && (
+        <>
+          <Separator />
+          <div className="rounded-lg bg-amber-50 p-2.5 text-xs text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+            <AlertTriangle className="mb-1 inline h-3.5 w-3.5" />{" "}
+            {result.ambiguities[0].message}
+          </div>
+        </>
+      )}
+
+      {/* CTA */}
+      {op.confidence >= 0.4 && result.ambiguities.length === 0 && (
+        <>
+          <Separator />
+          <p className="text-center text-[10px] text-muted-foreground">
+            Premi <kbd className="rounded border bg-muted px-1.5 py-0.5 text-[10px] font-medium">Invio</kbd> per confermare
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
 
 // ════════════════════════════════════════════════════════════
 // COMPONENTE PRINCIPALE
@@ -375,8 +482,17 @@ type PreviewData =
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState("");
+  const [searchValue, setSearchValue] = useState("");
+  const [parseResult, setParseResult] = useState<AssistantParseResponse | null>(null);
+  const parseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
   const pathname = usePathname();
+
+  // ── Assistant mode ──
+  const assistantMode = searchValue.startsWith(">");
+  const assistantText = assistantMode ? searchValue.slice(1).trim() : "";
+  const parseMutation = useParseAssistant();
+  const commitMutation = useCommitAssistant();
 
   // ── Keyboard shortcut: Ctrl+K ──
   useEffect(() => {
@@ -397,10 +513,53 @@ export function CommandPalette() {
     return () => window.removeEventListener("open-command-palette", handler);
   }, []);
 
-  // Reset highlighted on close
+  // Reset state on close
   useEffect(() => {
-    if (!open) setHighlighted("");
+    if (!open) {
+      setHighlighted("");
+      setSearchValue("");
+      setParseResult(null);
+    }
   }, [open]);
+
+  // ── Debounced parse in assistant mode ──
+  useEffect(() => {
+    if (parseTimerRef.current) clearTimeout(parseTimerRef.current);
+
+    if (!assistantMode || assistantText.length < 3) {
+      setParseResult(null);
+      return;
+    }
+
+    parseTimerRef.current = setTimeout(() => {
+      parseMutation.mutate(
+        { text: assistantText },
+        { onSuccess: (data) => setParseResult(data) },
+      );
+    }, 300);
+
+    return () => {
+      if (parseTimerRef.current) clearTimeout(parseTimerRef.current);
+    };
+  }, [assistantText, assistantMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Commit handler ──
+  const handleCommit = useCallback(
+    (op: ParsedOperation) => {
+      commitMutation.mutate(
+        { intent: op.intent, payload: op.payload },
+        {
+          onSuccess: (data) => {
+            setOpen(false);
+            if (data.navigate_to) {
+              router.push(data.navigate_to);
+            }
+          },
+        },
+      );
+    },
+    [commitMutation, router],
+  );
 
   // ── Lazy data: clienti ──
   const { data: clientsData } = useQuery<ClientEnrichedListResponse>({
@@ -464,8 +623,9 @@ export function CommandPalette() {
     [exercises],
   );
 
-  // ── Resolve preview from highlighted value ──
+  // ── Resolve preview from highlighted value or assistant mode ──
   const preview = useMemo((): PreviewData => {
+    if (assistantMode && parseResult) return { type: "assistant", data: parseResult };
     if (!highlighted) return null;
     const client = clientMap.get(highlighted);
     if (client) return { type: "client", data: client };
@@ -473,7 +633,7 @@ export function CommandPalette() {
     if (exercise) return { type: "exercise", data: exercise };
     if (highlighted.startsWith("kpi-")) return { type: "kpi" };
     return null;
-  }, [highlighted, clientMap, exerciseMap]);
+  }, [highlighted, clientMap, exerciseMap, assistantMode, parseResult]);
 
   // ── Navigate + close ──
   const navigate = useCallback(
@@ -504,13 +664,99 @@ export function CommandPalette() {
         <Command
           value={highlighted}
           onValueChange={setHighlighted}
+          shouldFilter={!assistantMode}
           className="[&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group]]:px-2 [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-2.5"
         >
           <div className="flex">
             {/* ══ LEFT: Search + Results ══ */}
             <div className="flex min-w-0 flex-1 flex-col">
-              <CommandInput placeholder="Cerca clienti, esercizi, pagine..." />
+              <div className="relative">
+                <CommandInput
+                  placeholder={assistantMode
+                    ? "es. Marco domani alle 18 PT..."
+                    : "Cerca clienti, esercizi, pagine..."}
+                  value={searchValue}
+                  onValueChange={setSearchValue}
+                />
+                {assistantMode && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    {parseMutation.isPending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                    ) : (
+                      <Badge variant="secondary" className="text-[9px] font-medium">
+                        <Sparkles className="mr-1 h-2.5 w-2.5" />
+                        Assistente
+                      </Badge>
+                    )}
+                  </div>
+                )}
+              </div>
               <CommandList className="max-h-[400px]">
+                {/* ── Assistant mode: parsed results ── */}
+                {assistantMode ? (
+                  <>
+                    {!parseResult && assistantText.length < 3 && (
+                      <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                        Scrivi un comando in italiano...
+                        <p className="mt-2 text-xs text-muted-foreground/60">
+                          &quot;Marco domani alle 18 PT&quot; &middot; &quot;spesa affitto 800 euro&quot; &middot; &quot;Marco peso 82&quot;
+                        </p>
+                      </div>
+                    )}
+                    {parseResult?.success && parseResult.operations.length > 0 && (
+                      <CommandGroup heading="Operazioni Riconosciute">
+                        {parseResult.operations.map((op, i) => (
+                          <CommandItem
+                            key={`assistant-op-${i}`}
+                            value={`assistant-op-${i}`}
+                            onSelect={() => handleCommit(op)}
+                            disabled={commitMutation.isPending}
+                          >
+                            <Sparkles className="mr-2 h-4 w-4 text-primary" />
+                            <span className="flex-1">{op.preview_label}</span>
+                            <Badge
+                              variant={op.confidence >= 0.7 ? "default" : "secondary"}
+                              className="text-[10px]"
+                            >
+                              {Math.round(op.confidence * 100)}%
+                            </Badge>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    )}
+                    {parseResult && !parseResult.success && (
+                      <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                        {parseResult.message}
+                      </div>
+                    )}
+                    {parseResult?.ambiguities.map((amb, i) => (
+                      <CommandGroup key={`amb-${i}`} heading={amb.message}>
+                        {amb.candidates.map((c) => (
+                          <CommandItem
+                            key={`amb-${i}-${c.value}`}
+                            value={`amb-${i}-${c.value}`}
+                            onSelect={() => {
+                              // Risolvi ambiguita': ripeti parse con nome esatto
+                              const resolved = c.label;
+                              const newText = `>${searchValue.slice(1).replace(
+                                new RegExp(amb.candidates[0]?.raw ?? "", "i"),
+                                resolved,
+                              )}`;
+                              setSearchValue(newText);
+                            }}
+                          >
+                            <User className="mr-2 h-4 w-4 text-muted-foreground" />
+                            <span className="flex-1">{c.label}</span>
+                            <span className="text-[10px] tabular-nums text-muted-foreground">
+                              {Math.round(c.confidence * 100)}%
+                            </span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    ))}
+                  </>
+                ) : (
+                <>
                 <CommandEmpty>Nessun risultato.</CommandEmpty>
 
                 {/* ── Contestuale: azioni per il cliente corrente ── */}
@@ -692,6 +938,8 @@ export function CommandPalette() {
                     </CommandItem>
                   ))}
                 </CommandGroup>
+                </>
+                )}
               </CommandList>
             </div>
 
@@ -706,11 +954,17 @@ export function CommandPalette() {
               {preview?.type === "kpi" && (
                 <KpiPreview summary={summary} stats={stats} />
               )}
+              {preview?.type === "assistant" && (
+                <AssistantPreview result={preview.data} />
+              )}
               {!preview && (
                 <div className="flex h-full flex-col items-center justify-center text-center">
                   <Dumbbell className="mb-3 h-8 w-8 text-muted-foreground/30" />
                   <p className="text-xs text-muted-foreground/50">
                     Seleziona un elemento per vedere l&apos;anteprima
+                  </p>
+                  <p className="mt-2 text-[10px] text-muted-foreground/40">
+                    Digita <span className="font-mono font-bold">&gt;</span> per l&apos;assistente
                   </p>
                   <kbd className="mt-3 rounded border bg-muted px-2 py-1 text-[10px] font-medium text-muted-foreground">
                     Ctrl K

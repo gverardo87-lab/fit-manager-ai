@@ -1416,3 +1416,62 @@ export interface GoalListResponse {
   raggiunti: number;
 }
 
+// ════════════════════════════════════════════════════════════
+// ASSISTANT (api/schemas/assistant.py)
+// ════════════════════════════════════════════════════════════
+
+/** Entita' risolta dal parser */
+export interface ResolvedEntity {
+  type: string;
+  raw: string;
+  value: string | number;
+  label: string;
+  confidence: number;
+}
+
+/** Ambiguita' — piu' candidati possibili */
+export interface AmbiguityItem {
+  field: string;
+  candidates: ResolvedEntity[];
+  message: string;
+}
+
+/** Singola operazione riconosciuta */
+export interface ParsedOperation {
+  intent: string;
+  payload: Record<string, unknown>;
+  preview_label: string;
+  confidence: number;
+}
+
+/** POST /api/assistant/parse — request */
+export interface AssistantParseRequest {
+  text: string;
+}
+
+/** POST /api/assistant/parse — response */
+export interface AssistantParseResponse {
+  success: boolean;
+  operations: ParsedOperation[];
+  ambiguities: AmbiguityItem[];
+  entities: ResolvedEntity[];
+  message: string;
+  raw_text: string;
+}
+
+/** POST /api/assistant/commit — request */
+export interface AssistantCommitRequest {
+  intent: string;
+  payload: Record<string, unknown>;
+}
+
+/** POST /api/assistant/commit — response */
+export interface AssistantCommitResponse {
+  success: boolean;
+  message: string;
+  created_id: number | null;
+  entity_type: string;
+  invalidate: string[];
+  navigate_to: string | null;
+}
+

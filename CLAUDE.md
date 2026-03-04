@@ -65,7 +65,66 @@ Elemento chiave di UX: ricerca fuzzy globale con 3 capacita' avanzate.
 Implementazione: `cmdk` v1.1.1 + shadcn Command. Custom Dialog (non CommandDialog) per split layout.
 Dati lazy-loaded via React Query (`enabled: open`). Zero prop drilling — custom event per apertura da sidebar.
 
-File: `frontend/src/components/layout/CommandPalette.tsx` (~700 LOC).
+File: `frontend/src/components/layout/CommandPalette.tsx` (~975 LOC).
+
+### Assistant CRM Deterministico V0.5 — NLP nella Command Palette
+
+> **Filosofia: PARSE + PREVIEW + CONFIRM.** Mai eseguire operazioni senza conferma esplicita.
+> Parser deterministico (regex + fuzzy match), zero Ollama, zero latenza percepita.
+
+Digitando `>` nella Command Palette si attiva l'**assistant mode**: testo in italiano naturale
+viene parsato dal backend e trasformato in operazioni strutturate con preview prima della conferma.
+
+**3 Intent Pilota:**
+1. **agenda.create_event** — "Marco Rossi domani alle 18 PT"
+2. **movement.create_manual** — "spesa affitto 800 euro bonifico"
+3. **measurement.create** — "Marco peso 82 massa grassa 18"
+
+**Architettura (two-phase flow):**
+```
+CommandPalette (prefisso ">", debounce 300ms)
+  |  POST /assistant/parse   (read-only preview)
+  |  POST /assistant/commit  (write su conferma utente)
+  v
+api/routers/assistant.py (feature flag ASSISTANT_V1_ENABLED)
+  → orchestrator.py: normalize → classify → extract → resolve → build_payload → score
+  → commit_dispatcher.py: chiama funzioni dominio direttamente (zero HTTP)
+      → agenda.create_event()
+      → movements.create_manual_movement()
+      → measurements.create_measurement()
+```
+
+**Backend — 6 moduli parser** (`api/services/assistant_parser/`):
+- **normalizer.py**: lowercase, accenti italiani, numeri IT→float (`1.200,50`→`1200.50`), abbreviazioni giorni
+- **intent_classifier.py**: regex weighted triggers per 3 intent, score 0-1
+- **entity_extractor.py**: 10 tipi entita' (date relative/assolute, orari, importi, nomi persona, metriche con catalog ID, categorie, metodi pagamento, tipi movimento)
+- **entity_resolver.py**: fuzzy client matching con `difflib.SequenceMatcher` (stdlib). Soglie: `>=0.90` auto, `0.70-0.89` ambiguo, `<0.50` reject
+- **confidence.py**: score composito 4 fattori (intent 0.35, entities 0.30, slots 0.20, validation 0.15)
+- **orchestrator.py**: pipeline completa, 3 payload builder (event, movement, measurement)
+
+**Commit Dispatcher**: chiama funzioni router **direttamente** (non via HTTP).
+`Depends()` e' solo un default FastAPI — passando trainer/session esplicitamente, riusa
+tutta la business logic (bouncer, IDOR, audit, atomic commit).
+
+**Frontend** (`CommandPalette.tsx`):
+- `assistantMode = searchValue.startsWith(">")` → `shouldFilter={false}` su cmdk
+- Debounce 300ms → POST /assistant/parse
+- Preview panel tipo `"assistant"`: confidence bar (emerald/amber/red), entita' estratte, ambiguita'
+- Commit su Enter → POST /assistant/commit → toast + invalidation dinamica da backend + navigazione
+
+**Invalidation**: `CommitResponse.invalidate` contiene React Query keys dal backend →
+`useCommitAssistant` invalida dinamicamente (stesse chiavi degli hook dominio esistenti).
+
+**Feature flag**: `ASSISTANT_V1_ENABLED=false` (default) → entrambi endpoint ritornano 404.
+
+**Metric ID mapping** (hardcoded, allineato a catalog.db):
+peso=1, massa_grassa=3, vita=9, fianchi=10, fc_riposo=11, sistolica=12, diastolica=13.
+
+Riferimenti spec (Codex): `docs/upgrades/specs/UPG-2026-03-04-04-assistant-parser-v1-*.md` (6 file).
+
+File chiave: `api/services/assistant_parser/` (6 moduli), `api/routers/assistant.py` (2 endpoint),
+`api/schemas/assistant.py` (6 schema Pydantic), `frontend/src/hooks/useAssistant.ts` (2 hook),
+`frontend/src/components/layout/CommandPalette.tsx` (assistant mode + preview).
 
 ### Workout Template Builder — Schede Allenamento
 
@@ -1062,7 +1121,7 @@ sqlite3 data/catalog.db ".tables"
 
 ## Metriche Progetto
 
-- **api/**: ~4,900 LOC Python — 17 modelli ORM, 10 router, 1 schema module
+- **api/**: ~5,800 LOC Python — 17 modelli ORM, 11 router, 2 schema modules, 1 parser service (6 moduli)
 - **frontend/**: ~15,000 LOC TypeScript — ~70 componenti, 11 hook modules, 16 pagine
 - **core/**: ~10,300 LOC Python — moduli AI (RAG, exercise archive) in attesa di API endpoints
 - **tools/admin_scripts/**: ~3,200 LOC Python — 16 script (import, quality engine, taxonomy, seed, test, QA clinica)
