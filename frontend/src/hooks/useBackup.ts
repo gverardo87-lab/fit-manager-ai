@@ -17,6 +17,7 @@ import type {
   BackupInfo,
   BackupCreateResponse,
   BackupRestoreResponse,
+  BackupVerifyResponse,
 } from "@/types/api";
 
 // ── Query: lista backup ──
@@ -75,6 +76,31 @@ export function useRestoreBackup() {
     onError: (error) => {
       toast.error(
         extractErrorMessage(error, "Errore nel ripristino del backup")
+      );
+    },
+  });
+}
+
+// ── Mutation: verifica integrita' backup ──
+
+export function useVerifyBackup() {
+  return useMutation({
+    mutationFn: async (filename: string) => {
+      const { data } = await apiClient.post<BackupVerifyResponse>(
+        `/backup/verify/${filename}`
+      );
+      return data;
+    },
+    onSuccess: (res) => {
+      if (res.valid) {
+        toast.success(`Backup verificato: integro e checksum corretto`);
+      } else {
+        toast.error(`Backup non valido: ${res.detail}`);
+      }
+    },
+    onError: (error) => {
+      toast.error(
+        extractErrorMessage(error, "Errore nella verifica del backup")
       );
     },
   });

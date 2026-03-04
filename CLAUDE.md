@@ -506,17 +506,65 @@ frontend/          Next.js 16 + React 19 + TypeScript
        |
        | REST API (JSON over HTTP, JWT auth)
        v
-api/               FastAPI + SQLModel ORM
-  models/          11 modelli ORM (SQLAlchemy table=True)
+api/               FastAPI + SQLModel ORM — Dual Engine
+  models/          17 modelli ORM (SQLAlchemy table=True)
   routers/         11 router con Bouncer Pattern + Deep IDOR
   schemas/         Pydantic v2 (input/output validation)
+  services/        Safety Engine, Goal Engine
        |
        v
-SQLite             data/crm.db — 23 tabelle, FK enforced
+SQLite (Dual-DB)
+  data/crm.db      Business DB — 22 tabelle dati trainer (clienti, contratti, workout...)
+  data/catalog.db  Catalog DB — 7 tabelle tassonomia scientifica (muscoli, articolazioni, condizioni, metriche)
        |
 core/              Moduli AI (dormant, non esposti via API — prossima fase)
   exercise_archive, knowledge_chain, card_parser, ...
 ```
+
+### Dual-Database Architecture
+
+> **Filosofia: dati business (sensibili) e catalogo scientifico (reference) separati.**
+> Il trainer backuppa/ripristina solo i SUOI dati. Il catalogo e' shippato pre-costruito.
+
+| Database | Engine | Tabelle | Contenuto | Backup |
+|----------|--------|---------|-----------|--------|
+| `crm.db` / `crm_dev.db` | `engine` | 22 | Clienti, contratti, rate, eventi, movimenti, workout, misurazioni, obiettivi, esercizi, audit | Automatico al startup (prod) + manuale |
+| `catalog.db` | `catalog_engine` | 7 | Muscoli (53), articolazioni (15), condizioni mediche (47), metriche (22), 3 junction tables | Shippato pre-costruito, rebuild via `build_catalog.py` |
+
+**Session dependency**:
+- `get_session()` → business DB (la maggior parte degli endpoint)
+- `get_catalog_session()` → catalog DB (tassonomia, metriche, safety engine)
+- Endpoint dual: ricevono ENTRAMBE le session (es. `get_exercise`, `get_safety_map`, misurazioni, obiettivi)
+
+**Startup sequence** (`api/main.py`):
+1. Auto-backup business DB (solo prod, max 5 auto-backup)
+2. `create_db_and_tables()` — business tables
+3. `create_catalog_tables()` — fallback se catalog.db assente
+4. Seed esercizi builtin
+5. `PRAGMA integrity_check` su entrambi i DB
+
+**WAL mode**: entrambi i DB usano `PRAGMA journal_mode=WAL` + `foreign_keys=ON` + `busy_timeout=5000` (via event listener).
+
+File chiave: `api/database.py` (dual engine), `api/config.py` (CATALOG_DATABASE_URL), `tools/admin_scripts/build_catalog.py` (costruisce catalog.db da DB sorgente).
+
+### Backup & Data Protection (v2.0)
+
+**Backup atomico**: `sqlite3.backup()` + `PRAGMA integrity_check` + SHA-256 checksum (sidecar `.sha256`).
+
+**7 endpoint** (`api/routers/backup.py`):
+- `POST /backup/create` — backup manuale con integrity + checksum
+- `GET /backup/list` — lista con checksum da sidecar
+- `GET /backup/download/{f}` — download con path traversal protection
+- `POST /backup/restore` — upload con magic bytes + integrity pre-check + safety backup + `sqlite3.backup()` page-level restore
+- `GET /backup/export` — JSON v2.0 con 17 entita' business in ordine FK-safe
+- `POST /backup/verify/{f}` — verifica SHA-256 + integrity_check
+- `POST /backup/pre-update` — backup pre-aggiornamento app
+
+**Export v2.0** (17 entita'): clienti → contratti → rate → eventi → movimenti → spese_ricorrenti → schede → sessioni → blocchi → esercizi_sessione → log_allenamenti → misurazioni → valori → obiettivi → todos → esercizi_custom → media_custom → audit_log.
+
+**Retention**: max 30 backup manuali (auto-cleanup). Safety backup (pre_restore, pre_update) preservati.
+
+**Auto-backup**: al startup prod, `auto_{timestamp}.sqlite` in `data/backups/`, max 5.
 
 ### Separazione dei layer (Il Muro)
 
@@ -663,6 +711,10 @@ Errori reali trovati e corretti. MAI ripeterli.
 | `onClick={goBack}` con default param | `goBack(force = false)` usata come handler: React passa `MouseEvent` come primo arg → truthy → bypass guard | Sempre `onClick={() => goBack()}`. MAI passare funzione con default param direttamente a onClick |
 | `router.push()` senza guard dirty | `goBack()` fa navigazione client-side che non triggera `beforeunload` → dati persi senza avviso | `goBack(force = false)` con `window.confirm()` se isDirty. `force=true` solo da mutation `onSuccess` |
 | `isDirty` falso positivo in edit mode | `filledCount > 0` vero subito dopo caricamento dati server (non serve modifica utente) → confirm spurio su back | `userHasEditedRef`: ref settato `true` solo su interazione reale (input/note/date), reset a `false` dopo init dal server |
+| `DETACH DATABASE` con transazione aperta | INSERT impliciti creano transazione; `DETACH` fallisce con "database src is locked" | `catalog.commit()` PRIMA di `DETACH` in `build_catalog.py` |
+| Cross-DB subquery in dual-DB | `select(Exercise.id)` come subquery per filtrare `ExerciseCondition` fallisce (tabelle in DB diversi) | Fetch IDs dal business engine, poi passa lista di IDs al catalog engine. Mai subquery cross-engine |
+| Catalog FK cross-DB su `id_esercizio` | Junction tables (esercizi_muscoli/articolazioni/condizioni) hanno FK a `esercizi.id` che non esiste in catalog.db | DDL catalog SENZA FK su `id_esercizio` (referenza cross-DB, validazione application-level). FK intra-catalog enforced |
+| Restore DB non funziona con WAL mode | `shutil.copy2` / `write_bytes` sovrascrive solo `.db` ma `-wal` e `-shm` contengono write recenti → WAL replay annulla il restore. Su Windows, file lock impedisce overwrite con connessioni attive | `sqlite3.backup()` page-level copy INTO il DB live (bypassa file lock, gestisce WAL). `engine.dispose()` DOPO il backup forza nuove connessioni. MAI file-level overwrite su DB SQLite con WAL attivo |
 
 ---
 
@@ -975,8 +1027,15 @@ bash tools/scripts/migrate-all.sh                         # applica a ENTRAMBI i
 # MAI usare `alembic upgrade head` da solo!
 
 # ── Backup ──
-# POST /api/backup/create     (richiede JWT)
-# GET  /api/backup/export     (JSON dati trainer)
+# POST /api/backup/create     (richiede JWT — atomico + SHA-256 + integrity)
+# POST /api/backup/verify/{f}  (verifica checksum + integrity)
+# POST /api/backup/pre-update  (backup pre-aggiornamento)
+# GET  /api/backup/export     (JSON v2.0: 17 entita' trainer)
+
+# ── Catalog DB ──
+python -m tools.admin_scripts.build_catalog               # Costruisce catalog.db da crm.db
+python -m tools.admin_scripts.build_catalog --source crm_dev  # Da crm_dev.db
+python -m tools.admin_scripts.build_catalog --dry-run     # Solo conteggi
 
 # ── Reset & Seed (FERMA il server API prima!) ──
 python tools/admin_scripts/reset_production.py            # DB pulito con solo Chiara
@@ -987,6 +1046,7 @@ python -m tools.admin_scripts.seed_dev                    # 50 clienti su crm_de
 # ── Database ──
 sqlite3 data/crm.db ".tables"
 sqlite3 data/crm_dev.db ".tables"
+sqlite3 data/catalog.db ".tables"
 ```
 
 ---
@@ -997,7 +1057,7 @@ sqlite3 data/crm_dev.db ".tables"
 - **frontend/**: ~15,000 LOC TypeScript — ~70 componenti, 11 hook modules, 16 pagine
 - **core/**: ~10,300 LOC Python — moduli AI (RAG, exercise archive) in attesa di API endpoints
 - **tools/admin_scripts/**: ~3,200 LOC Python — 16 script (import, quality engine, taxonomy, seed, test, QA clinica)
-- **DB**: 29 tabelle SQLite, FK enforced, multi-tenant via trainer_id
+- **DB**: Dual-DB SQLite (22 business + 7 catalog), WAL mode, FK enforced, multi-tenant via trainer_id
 - **Esercizi**: 269 attivi (tassonomia completa, avviamento/mobilita photo-optional) + 790 archiviati (reinserimento graduale)
 - **Test**: 63 pytest + 67 E2E + 69 vitest (data protection)
 - **Sicurezza**: JWT auth, bcrypt, Deep Relational IDOR, 3-layer route protection

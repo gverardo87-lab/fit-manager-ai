@@ -155,16 +155,18 @@ def extract_medication_flags(anamnesi_json: Optional[str]) -> list[MedicationFla
 
 def build_safety_map(
     session: Session,
+    catalog_session: Session,
     client_id: int,
     trainer_id: int,
 ) -> SafetyMapResponse:
     """
     Costruisce la safety map per un cliente specifico.
 
+    Dual session: business (Client, Exercise) + catalog (MedicalCondition, ExerciseCondition).
     Bouncer: client.trainer_id == trainer_id → 404.
-    Anti-N+1: 3 query (client, conditions, exercise-conditions).
+    Anti-N+1: 4 query (client, active_ids, conditions, exercise-conditions).
     """
-    # ── Bouncer ──
+    # ── Bouncer (business session) ──
     client = session.get(Client, client_id)
     if not client or client.trainer_id != trainer_id or client.deleted_at is not None:
         raise HTTPException(404, "Cliente non trovato")
@@ -188,27 +190,29 @@ def build_safety_map(
             medication_flags=medication_flags,
         )
 
-    # ── Query: nomi condizioni per overview panel ──
+    # ── Query: nomi condizioni per overview panel (catalog) ──
     cond_stmt = select(MedicalCondition).where(MedicalCondition.id.in_(condition_ids))
-    conditions_list = session.exec(cond_stmt).all()
+    conditions_list = catalog_session.exec(cond_stmt).all()
     condition_names = sorted([c.nome for c in conditions_list])
 
-    # ── Query: exercise-condition mappings per condizioni rilevanti ──
-    # Solo esercizi attivi (in_subset=True)
-    active_ids_stmt = select(Exercise.id).where(
-        Exercise.in_subset == True,
-        Exercise.deleted_at == None,
-    )
+    # ── Query: ID esercizi attivi (business — cross-DB split) ──
+    active_ids = session.exec(
+        select(Exercise.id).where(
+            Exercise.in_subset == True,  # noqa: E712
+            Exercise.deleted_at == None,  # noqa: E711
+        )
+    ).all()
 
+    # ── Query: exercise-condition mappings (catalog) ──
     stmt = (
         select(ExerciseCondition, MedicalCondition)
         .join(MedicalCondition, ExerciseCondition.id_condizione == MedicalCondition.id)
         .where(
             ExerciseCondition.id_condizione.in_(condition_ids),
-            ExerciseCondition.id_esercizio.in_(active_ids_stmt),
+            ExerciseCondition.id_esercizio.in_(active_ids),
         )
     )
-    rows = session.exec(stmt).all()
+    rows = catalog_session.exec(stmt).all()
 
     # ── Aggregazione per exercise_id ──
     entries: dict[int, ExerciseSafetyEntry] = {}

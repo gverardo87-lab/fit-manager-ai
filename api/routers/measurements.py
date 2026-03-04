@@ -20,7 +20,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 
-from api.database import get_session
+from api.database import get_catalog_session, get_session
 from api.dependencies import get_current_trainer
 from api.models.trainer import Trainer
 from api.models.client import Client
@@ -112,11 +112,11 @@ def _build_measurement_response(
 
 @router.get("/metrics", response_model=List[MetricResponse])
 def list_metrics(
-    session: Session = Depends(get_session),
+    catalog_session: Session = Depends(get_catalog_session),
     trainer: Trainer = Depends(get_current_trainer),
 ):
     """Catalogo metriche standard — raggruppabili per categoria lato frontend."""
-    metrics = session.exec(
+    metrics = catalog_session.exec(
         select(Metric).order_by(Metric.categoria, Metric.ordinamento)
     ).all()
     return metrics
@@ -133,6 +133,7 @@ def list_metrics(
 def list_measurements(
     client_id: int,
     session: Session = Depends(get_session),
+    catalog_session: Session = Depends(get_catalog_session),
     trainer: Trainer = Depends(get_current_trainer),
 ):
     """Lista sessioni di misurazione per cliente — anti-N+1 con batch fetch."""
@@ -163,8 +164,8 @@ def list_measurements(
     for v in values:
         values_by_measurement.setdefault(v.id_misurazione, []).append(v)
 
-    # Metric map per enrichment
-    metric_map = _load_metric_map(session)
+    # Metric map per enrichment (catalog)
+    metric_map = _load_metric_map(catalog_session)
 
     items = [
         _build_measurement_response(m, values_by_measurement.get(m.id, []), metric_map)
@@ -181,6 +182,7 @@ def list_measurements(
 def get_latest_measurement(
     client_id: int,
     session: Session = Depends(get_session),
+    catalog_session: Session = Depends(get_catalog_session),
     trainer: Trainer = Depends(get_current_trainer),
 ):
     """Ultima sessione di misurazione per un cliente — per KPI/preview."""
@@ -206,7 +208,7 @@ def get_latest_measurement(
         )
     ).all()
 
-    metric_map = _load_metric_map(session)
+    metric_map = _load_metric_map(catalog_session)
     return _build_measurement_response(measurement, values, metric_map)
 
 
@@ -219,6 +221,7 @@ def create_measurement(
     client_id: int,
     data: MeasurementCreate,
     session: Session = Depends(get_session),
+    catalog_session: Session = Depends(get_catalog_session),
     trainer: Trainer = Depends(get_current_trainer),
 ):
     """Crea sessione di misurazione + valori batch. Atomica."""
@@ -233,8 +236,8 @@ def create_measurement(
     if parsed_date > date.today():
         raise HTTPException(status_code=422, detail="Data futura non ammessa")
 
-    # Valida metric IDs
-    metric_map = _load_metric_map(session)
+    # Valida metric IDs (catalog)
+    metric_map = _load_metric_map(catalog_session)
     valid_metric_ids = set(metric_map.keys())
     for v in data.valori:
         if v.id_metrica not in valid_metric_ids:
@@ -265,7 +268,7 @@ def create_measurement(
         values.append(value)
 
     # Auto-check obiettivi (prima del commit — atomico)
-    completed_goals = sync_goal_completion(session, client_id, trainer.id)
+    completed_goals = sync_goal_completion(session, catalog_session, client_id, trainer.id)
 
     session.commit()
     session.refresh(measurement)
@@ -286,6 +289,7 @@ def update_measurement(
     measurement_id: int,
     data: MeasurementUpdate,
     session: Session = Depends(get_session),
+    catalog_session: Session = Depends(get_catalog_session),
     trainer: Trainer = Depends(get_current_trainer),
 ):
     """Aggiorna sessione di misurazione. Full-replace valori se forniti."""
@@ -313,8 +317,8 @@ def update_measurement(
     if data.note is not None:
         measurement.note = data.note
 
-    # Full-replace valori (se forniti)
-    metric_map = _load_metric_map(session)
+    # Full-replace valori (se forniti — catalog)
+    metric_map = _load_metric_map(catalog_session)
     if data.valori is not None:
         valid_metric_ids = set(metric_map.keys())
         for v in data.valori:
@@ -351,7 +355,7 @@ def update_measurement(
         ).all()
 
     # Auto-check obiettivi (prima del commit — atomico)
-    completed_goals = sync_goal_completion(session, client_id, trainer.id)
+    completed_goals = sync_goal_completion(session, catalog_session, client_id, trainer.id)
 
     session.commit()
     session.refresh(measurement)

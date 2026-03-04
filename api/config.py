@@ -47,6 +47,14 @@ def _resolve_database_url() -> str:
 
 DATABASE_URL: str = _resolve_database_url()
 
+# Catalog Database — tassonomia scientifica (muscoli, articolazioni, condizioni, metriche)
+# Shared tra prod e dev (stessi dati di riferimento), sempre in data/catalog.db.
+# Se CATALOG_DATABASE_URL e' settato esplicitamente, ha priorita'.
+CATALOG_DATABASE_URL: str = os.getenv(
+    "CATALOG_DATABASE_URL",
+    f"sqlite:///{DATA_DIR / 'catalog.db'}",
+)
+
 # JWT Authentication
 JWT_SECRET: str = os.getenv("JWT_SECRET", "")
 if not JWT_SECRET:

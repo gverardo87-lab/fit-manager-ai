@@ -22,7 +22,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
 from sqlmodel import Session, select, func, or_
 
 from api.dependencies import get_current_trainer
-from api.database import get_session
+from api.database import get_catalog_session, get_session
 from api.models.exercise import Exercise
 from api.models.exercise_media import ExerciseMedia
 from api.models.exercise_relation import ExerciseRelation
@@ -111,8 +111,8 @@ def _get_media(session: Session, exercise_id: int) -> list[ExerciseMedia]:
     ).all())
 
 
-def _get_taxonomy_muscles(session: Session, exercise_id: int) -> list[TaxonomyMuscleResponse]:
-    rows = session.exec(
+def _get_taxonomy_muscles(catalog_session: Session, exercise_id: int) -> list[TaxonomyMuscleResponse]:
+    rows = catalog_session.exec(
         select(ExerciseMuscle, Muscle)
         .join(Muscle, ExerciseMuscle.id_muscolo == Muscle.id)
         .where(ExerciseMuscle.id_esercizio == exercise_id)
@@ -126,8 +126,8 @@ def _get_taxonomy_muscles(session: Session, exercise_id: int) -> list[TaxonomyMu
     ]
 
 
-def _get_taxonomy_joints(session: Session, exercise_id: int) -> list[TaxonomyJointResponse]:
-    rows = session.exec(
+def _get_taxonomy_joints(catalog_session: Session, exercise_id: int) -> list[TaxonomyJointResponse]:
+    rows = catalog_session.exec(
         select(ExerciseJoint, Joint)
         .join(Joint, ExerciseJoint.id_articolazione == Joint.id)
         .where(ExerciseJoint.id_esercizio == exercise_id)
@@ -141,8 +141,8 @@ def _get_taxonomy_joints(session: Session, exercise_id: int) -> list[TaxonomyJoi
     ]
 
 
-def _get_taxonomy_conditions(session: Session, exercise_id: int) -> list[TaxonomyConditionResponse]:
-    rows = session.exec(
+def _get_taxonomy_conditions(catalog_session: Session, exercise_id: int) -> list[TaxonomyConditionResponse]:
+    rows = catalog_session.exec(
         select(ExerciseCondition, MedicalCondition)
         .join(MedicalCondition, ExerciseCondition.id_condizione == MedicalCondition.id)
         .where(ExerciseCondition.id_esercizio == exercise_id)
@@ -293,6 +293,7 @@ def get_safety_map(
     client_id: int = Query(..., description="ID cliente per cui calcolare la safety map"),
     trainer: Trainer = Depends(get_current_trainer),
     session: Session = Depends(get_session),
+    catalog_session: Session = Depends(get_catalog_session),
 ):
     """Mappa sicurezza esercizi per un cliente specifico.
 
@@ -301,7 +302,7 @@ def get_safety_map(
     """
     from api.services.safety_engine import build_safety_map
 
-    return build_safety_map(session, client_id, trainer.id)
+    return build_safety_map(session, catalog_session, client_id, trainer.id)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -372,14 +373,15 @@ def get_exercise(
     exercise_id: int,
     trainer: Trainer = Depends(get_current_trainer),
     session: Session = Depends(get_session),
+    catalog_session: Session = Depends(get_catalog_session),
 ):
     """Singolo esercizio per ID — enriched con media, relazioni e tassonomia."""
     exercise = _bouncer_exercise(session, exercise_id, trainer.id)
     media = _get_media(session, exercise_id)
     relazioni = _get_relazioni(session, exercise_id)
-    muscoli = _get_taxonomy_muscles(session, exercise_id)
-    joints = _get_taxonomy_joints(session, exercise_id)
-    conditions = _get_taxonomy_conditions(session, exercise_id)
+    muscoli = _get_taxonomy_muscles(catalog_session, exercise_id)
+    joints = _get_taxonomy_joints(catalog_session, exercise_id)
+    conditions = _get_taxonomy_conditions(catalog_session, exercise_id)
     return _to_response(exercise, media=media, relazioni=relazioni,
                         muscoli_dettaglio=muscoli, articolazioni=joints,
                         condizioni=conditions)

@@ -7,7 +7,7 @@ Aggiornare prima di iniziare e alla chiusura di ogni task.
 
 | Work ID | Owner | Branch | Scope | Locked files | Status | Started (UTC) | Updated (UTC) | Handoff / Notes |
 |---|---|---|---|---|---|---|---|---|
-| AGT-2026-03-03-06 | Codex | `codex_01` | Protezione Cassa + fix flusso spese fisse (reale vs previsto) | `api/routers/movements.py`, `api/routers/recurring_expenses.py`, `frontend/src/app/(dashboard)/cassa/page.tsx`, `frontend/src/components/movements/RecurringExpensesTab.tsx`, `frontend/src/hooks/useRecurringExpenses.ts`, `frontend/src/types/api.ts`, `tests/test_sync_recurring.py` | in_progress | 2026-03-03 08:16 | 2026-03-03 08:16 | Step 1 cashflow hardening: saldo reale/proiettato, cleanup spese fisse, UX conferma per data |
+| _(nessun task attivo)_ | — | — | — | — | — | — | — | — |
 
 ## Completed
 
@@ -15,6 +15,8 @@ Aggiornare prima di iniziare e alla chiusura di ogni task.
 |---|---|---|---|---|---|---|---|
 | AGT-2026-03-03-08 | Claude Code | `codex_01` | Riallineamento Safety Engine — 80 pattern rules, 0 condizioni morte, severity avoid>modify>caution | `43e5010` | check-all.sh green, verify_qa_clinical 150 PASS 0 FAIL | 2026-03-03 | populate_conditions.py + safety_engine.py + RiskBodyMap.tsx + seed/verify QA |
 | AGT-2026-03-03-11 | Claude Code | `codex_01` | Smart Programming Engine tuning 3 round: language mismatch, accessori 2-pass affinita', credito diluted, safety actionable, naming PPL | `97ab0a1, 82bf14f, 77e9961` | check-all.sh green | 2026-03-03 | smart-programming.ts + SmartAnalysisPanel.tsx |
+| AGT-2026-03-03-06 | Codex | `codex_01` | Protezione Cassa + fix flusso spese fisse (reale vs previsto) | `54aa785, 9477fc0, 9735b29, 7739d8e` | check-all.sh green | 2026-03-03 | UPG-2026-03-03-06 + UPG-2026-03-03-07 |
+| AGT-2026-03-04-01 | Claude Code | `codex_01` | Dual-DB architecture + Backup v2.0 bank-grade (5 pilastri) + restore fix WAL | _pending_ | check-all.sh green, test dev+prod PASS | 2026-03-04 | 14 file: database.py, config.py, backup.py, exercises.py, safety_engine.py, measurements.py, goals.py, main.py, types/api.ts, useBackup.ts, impostazioni/page.tsx |
 
 ## Quick rules
 

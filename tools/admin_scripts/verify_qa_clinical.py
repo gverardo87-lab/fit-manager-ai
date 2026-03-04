@@ -39,7 +39,7 @@ from api.services.condition_rules import (  # noqa: E402
     match_keywords,
 )
 from api.services.safety_engine import (  # noqa: E402
-    build_safety_map,
+    build_safety_map,  # signature: (session, catalog_session, client_id, trainer_id)
     extract_client_conditions,
 )
 from tools.admin_scripts.seed_qa_clinical import (  # noqa: E402
@@ -150,7 +150,7 @@ def verify_safety_map(session, client_id, client_idx, trainer_id, verbose=False)
     if not expected_conds:
         # No conditions → should have 0 entries
         try:
-            safety_map = build_safety_map(session, client_id, trainer_id)
+            safety_map = build_safety_map(session, session, client_id, trainer_id)
             n_entries = len(safety_map.entries)
             if n_entries == 0:
                 return "PASS", "safety_map: 0 entries (no conditions)"
@@ -160,7 +160,7 @@ def verify_safety_map(session, client_id, client_idx, trainer_id, verbose=False)
             return "FAIL", f"safety_map error: {e}"
 
     try:
-        safety_map = build_safety_map(session, client_id, trainer_id)
+        safety_map = build_safety_map(session, session, client_id, trainer_id)
     except Exception as e:
         return "FAIL", f"safety_map error: {e}"
 

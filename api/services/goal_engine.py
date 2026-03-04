@@ -35,6 +35,7 @@ def _is_goal_reached(goal: ClientGoal, current_value: float) -> bool:
 
 def sync_goal_completion(
     session: Session,
+    catalog_session: Session,
     client_id: int,
     trainer_id: int,
 ) -> list[dict]:
@@ -42,12 +43,14 @@ def sync_goal_completion(
     Controlla obiettivi corporei attivi vs misurazioni piu' recenti.
     Auto-completa quelli che raggiungono il target.
 
+    Dual session: business (Goals, Measurements) + catalog (Metric nomi).
+
     Returns: lista di {id, nome_metrica, valore_target, valore_raggiunto}
              per toast/notification nella response.
 
     NON committa — il caller committa atomicamente.
     """
-    # 1. Fetch obiettivi attivi corporei
+    # 1. Fetch obiettivi attivi corporei (business)
     active_goals = session.exec(
         select(ClientGoal).where(
             ClientGoal.id_cliente == client_id,
@@ -61,7 +64,7 @@ def sync_goal_completion(
     if not active_goals:
         return []
 
-    # 2. Fetch sessione piu' recente (anti-N+1)
+    # 2. Fetch sessione piu' recente (business, anti-N+1)
     latest_session = session.exec(
         select(ClientMeasurement)
         .where(
@@ -76,7 +79,7 @@ def sync_goal_completion(
     if not latest_session:
         return []
 
-    # 3. Valori dalla sessione piu' recente
+    # 3. Valori dalla sessione piu' recente (business)
     values = session.exec(
         select(MeasurementValue).where(
             MeasurementValue.id_misurazione == latest_session.id
@@ -84,9 +87,9 @@ def sync_goal_completion(
     ).all()
     value_map = {v.id_metrica: v.valore for v in values}
 
-    # 4. Catalogo metriche per enrichment response
+    # 4. Catalogo metriche per enrichment response (catalog)
     metric_ids = {g.id_metrica for g in active_goals}
-    metrics = session.exec(
+    metrics = catalog_session.exec(
         select(Metric).where(Metric.id.in_(metric_ids))
     ).all()
     metric_map = {m.id: m for m in metrics}

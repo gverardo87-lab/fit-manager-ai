@@ -24,6 +24,8 @@ import {
   Wallet,
   CalendarIcon,
   Save,
+  ShieldCheck,
+  CheckCircle2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -60,6 +62,7 @@ import {
   useBackups,
   useCreateBackup,
   useRestoreBackup,
+  useVerifyBackup,
   downloadBackup,
   exportTrainerData,
 } from "@/hooks/useBackup";
@@ -85,6 +88,7 @@ export default function ImpostazioniPage() {
   const { data: backups, isLoading, isError, refetch } = useBackups();
   const createBackup = useCreateBackup();
   const restoreBackup = useRestoreBackup();
+  const verifyBackup = useVerifyBackup();
 
   // ── Handlers ──
 
@@ -229,6 +233,7 @@ export default function ImpostazioniPage() {
                   <TableHead>File</TableHead>
                   <TableHead className="hidden sm:table-cell">Dimensione</TableHead>
                   <TableHead className="hidden sm:table-cell">Data</TableHead>
+                  <TableHead className="hidden md:table-cell">Checksum</TableHead>
                   <TableHead className="text-right">Azioni</TableHead>
                 </TableRow>
               </TableHeader>
@@ -240,15 +245,34 @@ export default function ImpostazioniPage() {
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">{formatBytes(backup.size_bytes)}</TableCell>
                     <TableCell className="hidden sm:table-cell">{formatDateTime(backup.created_at)}</TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      {backup.checksum ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-mono text-emerald-600 dark:text-emerald-400">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          {backup.checksum.slice(0, 12)}...
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => verifyBackup.mutate(backup.filename)}
+                          disabled={verifyBackup.isPending}
+                          title="Verifica integrita'"
+                        >
+                          <ShieldCheck className="h-4 w-4" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => downloadBackup(backup.filename)}
+                          title="Scarica"
                         >
-                          <Download className="h-4 w-4 sm:mr-1" />
-                          <span className="hidden sm:inline">Scarica</span>
+                          <Download className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -257,9 +281,9 @@ export default function ImpostazioniPage() {
                             handleRestoreFromList(backup.filename)
                           }
                           disabled={restoreBackup.isPending}
+                          title="Ripristina"
                         >
-                          <RefreshCw className="h-4 w-4 sm:mr-1" />
-                          <span className="hidden sm:inline">Ripristina</span>
+                          <RefreshCw className="h-4 w-4" />
                         </Button>
                       </div>
                     </TableCell>
@@ -292,8 +316,9 @@ export default function ImpostazioniPage() {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            L&apos;export include: clienti, contratti, rate, eventi, movimenti e
-            spese ricorrenti. I record eliminati non vengono inclusi.
+            L&apos;export include tutti i tuoi dati: clienti, contratti, rate, eventi, movimenti,
+            spese ricorrenti, schede allenamento, misurazioni, obiettivi e audit log.
+            I record eliminati non vengono inclusi.
           </p>
         </CardContent>
       </Card>

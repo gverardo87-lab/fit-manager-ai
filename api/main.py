@@ -14,6 +14,7 @@ Migrazioni schema gestite da Alembic: `alembic upgrade head`
 
 import logging
 import os
+import sqlite3
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -22,10 +23,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.staticfiles import StaticFiles
 from sqlmodel import Session, text
 
-from api.database import get_session
+from api.database import get_catalog_session, get_session
 
-from api.config import API_PREFIX
-from api.database import create_db_and_tables, engine
+from api.config import API_PREFIX, CATALOG_DATABASE_URL, DATA_DIR
+from api.database import create_catalog_tables, create_db_and_tables, engine
 from api.seed_exercises import seed_builtin_exercises
 from api.auth.router import router as auth_router
 from api.routers.clients import router as clients_router
@@ -45,29 +46,120 @@ from api.routers.workout_logs import router as workout_logs_router
 
 logger = logging.getLogger("fitmanager.api")
 
+BACKUP_DIR = DATA_DIR / "backups"
+MAX_AUTO_BACKUPS = 5  # solo gli ultimi 5 backup automatici
+
+
+def _auto_backup_on_startup(database_url: str) -> None:
+    """
+    Backup automatico del DB business al startup (solo prod).
+
+    Usa sqlite3.backup() per copia atomica. Mantiene max 5 backup auto.
+    Non blocca se fallisce (best-effort, log error).
+    """
+    db_path = database_url.replace("sqlite:///", "")
+    if not Path(db_path).exists():
+        return
+
+    try:
+        BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+        from datetime import datetime, timezone
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        dest = BACKUP_DIR / f"auto_{timestamp}.sqlite"
+
+        source = sqlite3.connect(db_path)
+        backup = sqlite3.connect(str(dest))
+        try:
+            source.backup(backup)
+        finally:
+            backup.close()
+            source.close()
+
+        size = dest.stat().st_size
+        logger.info(f"Auto-backup: {dest.name} ({size:,} bytes)")
+
+        # Retention: solo ultimi MAX_AUTO_BACKUPS
+        auto_files = sorted(
+            BACKUP_DIR.glob("auto_*.sqlite"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        for old in auto_files[MAX_AUTO_BACKUPS:]:
+            old.unlink(missing_ok=True)
+            old.with_suffix(".sha256").unlink(missing_ok=True)
+    except Exception as e:
+        logger.error(f"Auto-backup fallito (non bloccante): {e}")
+
+
+def _integrity_check_on_startup(business_url: str, catalog_url: str) -> None:
+    """
+    PRAGMA integrity_check su entrambi i DB al startup.
+
+    Se fallisce, log CRITICAL ma NON blocca (l'app parte comunque).
+    L'operatore deve intervenire con restore.
+    """
+    for label, url in [("business", business_url), ("catalog", catalog_url)]:
+        if not url.startswith("sqlite"):
+            continue
+        db_path = url.replace("sqlite:///", "")
+        if not Path(db_path).exists():
+            continue
+        try:
+            conn = sqlite3.connect(db_path)
+            result = conn.execute("PRAGMA integrity_check").fetchone()
+            conn.close()
+            if result and result[0] == "ok":
+                logger.info(f"  {label} DB integrity: OK")
+            else:
+                logger.critical(f"  {label} DB integrity: FALLITO — {result}")
+        except Exception as e:
+            logger.critical(f"  {label} DB integrity check error: {e}")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
     Lifecycle dell'app.
 
-    - Crea tabelle SQLModel (CREATE IF NOT EXISTS) — primo avvio
-    - Migrazioni gestite da Alembic: `alembic upgrade head`
+    Startup sequence:
+    1. Auto-backup (solo prod, non dev — protegge dati reali)
+    2. Crea tabelle business (CREATE IF NOT EXISTS)
+    3. Inizializza catalog DB
+    4. Seed esercizi builtin
+    5. Integrity check
     """
     from api.config import DATABASE_URL
     db_label = "DEV (crm_dev.db)" if "crm_dev" in DATABASE_URL else "PROD (crm.db)"
+    is_dev = "crm_dev" in DATABASE_URL
     logger.info(f"API startup: database {db_label}")
     # Maschera credenziali per PostgreSQL (user:pass@host)
     safe_url = DATABASE_URL
     if "@" in DATABASE_URL:
         safe_url = DATABASE_URL.split("@", 1)[0].rsplit(":", 1)[0] + ":***@" + DATABASE_URL.split("@", 1)[1]
     logger.info(f"  DATABASE_URL = {safe_url}")
+
+    # ── 1. Auto-backup (solo prod) ──
+    if not is_dev and DATABASE_URL.startswith("sqlite"):
+        _auto_backup_on_startup(DATABASE_URL)
+
+    # ── 2. Business tables ──
     create_db_and_tables()
 
-    # Seed esercizi builtin (idempotente)
+    # ── 3. Catalog DB ──
+    catalog_path = CATALOG_DATABASE_URL.replace("sqlite:///", "")
+    if not Path(catalog_path).exists():
+        logger.warning("catalog.db non trovato — creo tabelle vuote. "
+                       "Eseguire: python -m tools.admin_scripts.build_catalog")
+    create_catalog_tables()
+    logger.info(f"  CATALOG_DB = {catalog_path}")
+
+    # ── 4. Seed esercizi builtin (idempotente) ──
     from sqlmodel import Session as SyncSession
     with SyncSession(engine) as session:
         seed_builtin_exercises(session)
+
+    # ── 5. Integrity check ──
+    _integrity_check_on_startup(DATABASE_URL, CATALOG_DATABASE_URL)
 
     logger.info("API pronta")
     yield
@@ -117,11 +209,15 @@ app.include_router(workout_logs_router, prefix=API_PREFIX)
 
 
 @app.get("/health")
-def health_check(session: Session = Depends(get_session)):
-    """Endpoint di salute — verifica connettivita' DB."""
+def health_check(
+    session: Session = Depends(get_session),
+    catalog_session: Session = Depends(get_catalog_session),
+):
+    """Endpoint di salute — verifica connettivita' business DB + catalog DB."""
     try:
         session.exec(text("SELECT 1")).one()
-        return {"status": "ok", "version": "1.0.0", "db": "connected"}
+        catalog_session.exec(text("SELECT 1")).one()
+        return {"status": "ok", "version": "1.0.0", "db": "connected", "catalog": "connected"}
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

@@ -21,7 +21,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 
-from api.database import get_session
+from api.database import get_catalog_session, get_session
 from api.dependencies import get_current_trainer
 from api.models.trainer import Trainer
 from api.models.client import Client
@@ -289,6 +289,7 @@ def _build_goal_response(
 def list_goals(
     client_id: int,
     session: Session = Depends(get_session),
+    catalog_session: Session = Depends(get_catalog_session),
     trainer: Trainer = Depends(get_current_trainer),
 ):
     """Lista obiettivi per cliente — enriched con progresso da misurazioni."""
@@ -305,8 +306,8 @@ def list_goals(
     if not goals:
         return GoalListResponse(items=[], total=0, attivi=0, raggiunti=0)
 
-    # Batch enrichment (anti-N+1)
-    metric_map = _load_metric_map(session)
+    # Batch enrichment (anti-N+1) — metriche dal catalog
+    metric_map = _load_metric_map(catalog_session)
     latest_values = _get_latest_values(session, client_id, trainer.id)
 
     # Fetch storico metriche per rate of change (anti-N+1: 2 query batch)
@@ -338,13 +339,14 @@ def create_goal(
     client_id: int,
     data: GoalCreate,
     session: Session = Depends(get_session),
+    catalog_session: Session = Depends(get_catalog_session),
     trainer: Trainer = Depends(get_current_trainer),
 ):
     """Crea obiettivo — auto-cattura baseline dalla misurazione piu' recente."""
     _bouncer_client(session, client_id, trainer.id)
 
-    # Verifica che la metrica esista
-    metric = session.get(Metric, data.id_metrica)
+    # Verifica che la metrica esista (catalog)
+    metric = catalog_session.get(Metric, data.id_metrica)
     if not metric:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -409,7 +411,7 @@ def create_goal(
     session.commit()
     session.refresh(goal)
 
-    metric_map = _load_metric_map(session)
+    metric_map = _load_metric_map(catalog_session)
     return _build_goal_response(goal, metric_map, latest_values)
 
 
@@ -422,6 +424,7 @@ def update_goal(
     goal_id: int,
     data: GoalUpdate,
     session: Session = Depends(get_session),
+    catalog_session: Session = Depends(get_catalog_session),
     trainer: Trainer = Depends(get_current_trainer),
 ):
     """Aggiorna obiettivo (partial update). Setta completed_at su cambio stato."""
@@ -458,7 +461,7 @@ def update_goal(
     session.commit()
     session.refresh(goal)
 
-    metric_map = _load_metric_map(session)
+    metric_map = _load_metric_map(catalog_session)
     latest_values = _get_latest_values(session, client_id, trainer.id)
     return _build_goal_response(goal, metric_map, latest_values)
 

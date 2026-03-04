@@ -80,6 +80,14 @@ Se cambia pipeline safety/condizioni (`condition_rules.py`, `populate_conditions
 - `python -m tools.admin_scripts.verify_qa_clinical --lotto all` (150 check, 0 FAIL atteso)
 - Severita' clinica: avoid > modify > caution (MAI invertire modify/caution)
 
+Se cambia backup o architettura DB (`backup.py`, `database.py`, `config.py`):
+- Test manuale: backup → modifica dato → restore → ricarica pagina → modifica sparita
+- Verify endpoint: `POST /backup/verify/{filename}` → `valid: true`
+- Export: `GET /backup/export` → verificare tutte le 17 entita' presenti
+- Health: `GET /health` → entrambi i DB connessi
+- MAI `shutil.copy2` o `write_bytes` su DB SQLite con WAL mode — usare `sqlite3.backup()`
+- Dopo restore: `engine.dispose()` per forzare nuove connessioni
+
 Se cambia motore smart programming (`smart-programming.ts`):
 - Verificare pesi scorer sommano a 1.00 (14 dimensioni)
 - Generare scheda Smart 3gg intermedio + 4gg beginner → controllare coverage muscolare, naming split, accessori coerenti con sessione
