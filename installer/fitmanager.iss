@@ -2,7 +2,7 @@
 ; FitManager AI Studio — Inno Setup Script
 ; ══════════════════════════════════════════════════════════════
 ;
-; Produce: FitManager_Setup.exe (~80 MB)
+; Produce: FitManager_Setup.exe (~95 MB)
 ; Requisiti: Inno Setup 6+ (winget install JRSoftware.InnoSetup)
 ;
 ; Compilazione:
@@ -55,9 +55,17 @@ Source: "launcher.bat"; DestDir: "{app}"; Flags: ignoreversion
 ; Seed esercizi (prima installazione)
 Source: "..\data\exercises\seed_exercises.json"; DestDir: "{app}\data\exercises"; Flags: ignoreversion
 
-; Chiave pubblica licenza (verifica JWT)
-; NOTA: generata e copiata durante il build
-; Source: "assets\license_public.pem"; DestDir: "{app}\data"; Flags: ignoreversion
+; Catalog DB (tassonomia scientifica — muscoli, articolazioni, condizioni, metriche)
+Source: "..\data\catalog.db"; DestDir: "{app}\data"; Flags: ignoreversion
+
+; Chiave pubblica licenza (verifica firma JWT RSA)
+Source: "assets\license_public.pem"; DestDir: "{app}\data"; Flags: ignoreversion
+
+; Licenza pre-attivata (JWT firmato RSA)
+Source: "assets\license.key"; DestDir: "{app}\data"; Flags: ignoreversion
+
+; Foto esercizi attivi (staging da build-media.sh, ~36MB)
+Source: "..\dist\media\exercises\*"; DestDir: "{app}\data\media\exercises"; Flags: ignoreversion recursesubdirs
 
 ; EULA
 Source: "assets\EULA.txt"; DestDir: "{app}"; Flags: ignoreversion
@@ -67,6 +75,7 @@ Source: "assets\EULA.txt"; DestDir: "{app}"; Flags: ignoreversion
 Name: "{app}\data"; Flags: uninsneveruninstall
 Name: "{app}\data\backups"; Flags: uninsneveruninstall
 Name: "{app}\data\media"; Flags: uninsneveruninstall
+Name: "{app}\data\media\exercises"; Flags: uninsneveruninstall
 
 [Icons]
 Name: "{group}\FitManager AI Studio"; Filename: "{app}\launcher.bat"; WorkingDir: "{app}"

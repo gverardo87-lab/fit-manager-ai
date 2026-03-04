@@ -41,6 +41,9 @@ echo.
 REM ── Crea cartella data se non esiste ──
 if not exist "%INSTALL_DIR%data" mkdir "%INSTALL_DIR%data"
 
+REM ── Variabili ambiente produzione ──
+set LICENSE_ENFORCEMENT_ENABLED=true
+
 REM ── Avvia Backend (in background) ──
 echo  [1/3] Avvio backend API...
 start /B "" "%INSTALL_DIR%backend\fitmanager.exe" --port %BACKEND_PORT%
