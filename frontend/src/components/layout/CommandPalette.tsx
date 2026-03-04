@@ -4,10 +4,11 @@
 /**
  * Command Palette avanzata — Ctrl+K per aprire.
  *
- * 3 feature distintive:
+ * 4 feature distintive:
  * 1. Preview Panel: pannello dati a destra con info live dell'elemento selezionato
  * 2. Risposte KPI: digiti "entrate" e vedi il numero senza navigare
  * 3. Azioni Contestuali: la palette sa dove sei e suggerisce azioni rilevanti
+ * 4. Assistente AI: digita ">" per comandi in italiano naturale (parse + preview + commit)
  *
  * Dati lazy-loaded via React Query (enabled: open).
  * Zero prop drilling — custom event per apertura da sidebar.
@@ -69,6 +70,7 @@ import type {
   DashboardSummary,
   MovementStats,
   AssistantParseResponse,
+  AmbiguityItem,
   ParsedOperation,
 } from "@/types/api";
 
@@ -96,6 +98,20 @@ const ACTIONS = [
   { id: "action-new-client", label: "Nuovo Cliente", icon: UserPlus, href: "/clienti?new=1" },
   { id: "action-new-contract", label: "Nuovo Contratto", icon: FilePlus, href: "/contratti?new=1" },
   { id: "action-new-session", label: "Nuova Sessione", icon: CalendarPlus, href: "/agenda?newEvent=1" },
+] as const;
+
+// ── Assistant ──
+
+const INTENT_CONFIG: Record<string, { label: string; icon: React.ElementType; color: string; bg: string }> = {
+  "agenda.create_event": { label: "Nuovo Evento", icon: Calendar, color: "text-violet-600 dark:text-violet-400", bg: "bg-violet-100 dark:bg-violet-900/30" },
+  "movement.create_manual": { label: "Movimento di Cassa", icon: Wallet, color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-100 dark:bg-emerald-900/30" },
+  "measurement.create": { label: "Nuova Misurazione", icon: Scale, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-100 dark:bg-blue-900/30" },
+};
+
+const ASSISTANT_EXAMPLES = [
+  { label: "Evento", example: "Marco domani alle 18 PT", icon: Calendar },
+  { label: "Pagamento", example: "spesa affitto 800 euro", icon: Wallet },
+  { label: "Misura", example: "Marco peso 82 massa grassa 18", icon: Scale },
 ] as const;
 
 // ════════════════════════════════════════════════════════════
@@ -364,112 +380,113 @@ function KpiRow({
 }
 
 // ════════════════════════════════════════════════════════════
-// TIPO PREVIEW
+// TIPO PREVIEW (solo search mode)
 // ════════════════════════════════════════════════════════════
 
 type PreviewData =
   | { type: "client"; data: ClientEnriched }
   | { type: "exercise"; data: Exercise }
   | { type: "kpi" }
-  | { type: "assistant"; data: AssistantParseResponse }
   | null;
 
 // ════════════════════════════════════════════════════════════
-// PREVIEW: Assistant
+// ASSISTANT: Result Card (full-width, prominent)
 // ════════════════════════════════════════════════════════════
 
-const INTENT_LABELS: Record<string, { label: string; icon: string }> = {
-  "agenda.create_event": { label: "Evento", icon: "calendar" },
-  "movement.create_manual": { label: "Movimento", icon: "wallet" },
-  "measurement.create": { label: "Misurazione", icon: "scale" },
-};
+function AssistantResultCard({
+  operation,
+  entities,
+  ambiguities,
+  onCommit,
+  isCommitting,
+}: {
+  operation: ParsedOperation;
+  entities: { label: string }[];
+  ambiguities: AmbiguityItem[];
+  onCommit: () => void;
+  isCommitting: boolean;
+}) {
+  const config = INTENT_CONFIG[operation.intent] ?? {
+    label: operation.intent,
+    icon: Sparkles,
+    color: "text-primary",
+    bg: "bg-primary/10",
+  };
+  const Icon = config.icon;
+  const ready = operation.confidence >= 0.4 && ambiguities.length === 0;
 
-function AssistantPreview({ result }: { result: AssistantParseResponse }) {
-  if (!result.success || result.operations.length === 0) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center text-center">
-        <Sparkles className="mb-3 h-8 w-8 text-muted-foreground/30" />
-        <p className="text-xs text-muted-foreground/70">{result.message}</p>
-      </div>
-    );
-  }
-
-  const op = result.operations[0];
-  const intentInfo = INTENT_LABELS[op.intent] ?? { label: op.intent, icon: "sparkles" };
+  const borderColor = operation.confidence >= 0.7
+    ? "border-emerald-200 dark:border-emerald-800"
+    : operation.confidence >= 0.4
+      ? "border-amber-200 dark:border-amber-800"
+      : "border-red-200 dark:border-red-800";
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <Sparkles className="h-4 w-4 text-primary" />
-        <p className="text-xs font-semibold text-primary">Assistente</p>
-      </div>
-
-      <Separator />
-
-      {/* Operation */}
-      <div>
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-          {intentInfo.label}
-        </p>
-        <p className="mt-1 text-sm font-medium">{op.preview_label}</p>
-      </div>
-
-      {/* Confidence */}
-      <div className="flex items-center gap-2">
-        <div className="h-1.5 flex-1 rounded-full bg-muted">
-          <div
-            className={`h-full rounded-full transition-all ${
-              op.confidence >= 0.7
-                ? "bg-emerald-500"
-                : op.confidence >= 0.4
-                  ? "bg-amber-500"
-                  : "bg-red-500"
-            }`}
-            style={{ width: `${Math.round(op.confidence * 100)}%` }}
-          />
+    <div className={`rounded-xl border-2 ${borderColor} overflow-hidden`}>
+      {/* Header */}
+      <div className={`flex items-center gap-3 px-4 py-3 ${config.bg}`}>
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-background shadow-sm">
+          <Icon className={`h-4.5 w-4.5 ${config.color}`} />
         </div>
-        <span className="text-[10px] tabular-nums text-muted-foreground">
-          {Math.round(op.confidence * 100)}%
-        </span>
+        <div className="min-w-0 flex-1">
+          <p className={`text-xs font-semibold ${config.color}`}>{config.label}</p>
+          <p className="truncate text-sm font-medium">{operation.preview_label}</p>
+        </div>
+        {/* Confidence dot */}
+        <div className={`h-2.5 w-2.5 rounded-full ${
+          operation.confidence >= 0.7
+            ? "bg-emerald-500"
+            : operation.confidence >= 0.4
+              ? "bg-amber-500"
+              : "bg-red-500"
+        }`} />
       </div>
 
       {/* Entities */}
-      {result.entities.length > 0 && (
-        <>
-          <Separator />
-          <div className="space-y-1.5">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-              Dati Estratti
-            </p>
-            {result.entities.map((e, i) => (
-              <div key={i} className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">{e.label.split(":")[0]}</span>
-                <span className="font-medium">{e.label.split(":").slice(1).join(":").trim()}</span>
+      {entities.length > 0 && (
+        <div className="space-y-0.5 px-4 py-2.5">
+          {entities.map((e, i) => {
+            const [key, ...rest] = e.label.split(":");
+            const val = rest.join(":").trim();
+            return (
+              <div key={i} className="flex items-center justify-between py-1 text-xs">
+                <span className="text-muted-foreground">{key}</span>
+                <span className="font-medium">{val}</span>
               </div>
-            ))}
-          </div>
-        </>
+            );
+          })}
+        </div>
       )}
 
       {/* Ambiguities */}
-      {result.ambiguities.length > 0 && (
-        <>
-          <Separator />
-          <div className="rounded-lg bg-amber-50 p-2.5 text-xs text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
-            <AlertTriangle className="mb-1 inline h-3.5 w-3.5" />{" "}
-            {result.ambiguities[0].message}
-          </div>
-        </>
+      {ambiguities.length > 0 && (
+        <div className="mx-4 mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+          <AlertTriangle className="mr-1.5 inline h-3 w-3" />
+          {ambiguities[0].message}
+        </div>
       )}
 
       {/* CTA */}
-      {op.confidence >= 0.4 && result.ambiguities.length === 0 && (
-        <>
-          <Separator />
-          <p className="text-center text-[10px] text-muted-foreground">
-            Premi <kbd className="rounded border bg-muted px-1.5 py-0.5 text-[10px] font-medium">Invio</kbd> per confermare
-          </p>
-        </>
+      {ready && (
+        <div className="border-t bg-muted/30 px-4 py-2.5">
+          <button
+            type="button"
+            onClick={onCommit}
+            disabled={isCommitting}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+          >
+            {isCommitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <>
+                Conferma
+                <kbd className="rounded border border-primary-foreground/20 bg-primary-foreground/10 px-1.5 py-0.5 text-[10px]">
+                  ↵
+                </kbd>
+              </>
+            )}
+          </button>
+        </div>
       )}
     </div>
   );
@@ -483,16 +500,18 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState("");
   const [searchValue, setSearchValue] = useState("");
+  const [assistantMode, setAssistantMode] = useState(false);
   const [parseResult, setParseResult] = useState<AssistantParseResponse | null>(null);
   const parseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
   const pathname = usePathname();
 
-  // ── Assistant mode ──
-  const assistantMode = searchValue.startsWith(">");
-  const assistantText = assistantMode ? searchValue.slice(1).trim() : "";
+  // ── Assistant mutations ──
   const parseMutation = useParseAssistant();
   const commitMutation = useCommitAssistant();
+
+  // ── Derived ──
+  const assistantText = assistantMode ? searchValue.trim() : "";
 
   // ── Keyboard shortcut: Ctrl+K ──
   useEffect(() => {
@@ -513,14 +532,56 @@ export function CommandPalette() {
     return () => window.removeEventListener("open-command-palette", handler);
   }, []);
 
-  // Reset state on close
+  // ── Reset state on close ──
   useEffect(() => {
     if (!open) {
       setHighlighted("");
       setSearchValue("");
+      setAssistantMode(false);
       setParseResult(null);
     }
   }, [open]);
+
+  // ── Search input handler — detects ">" to enter assistant mode ──
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      if (!assistantMode) {
+        if (value === ">") {
+          setAssistantMode(true);
+          setSearchValue("");
+          return;
+        }
+        if (value.startsWith(">")) {
+          setAssistantMode(true);
+          setSearchValue(value.slice(1).trimStart());
+          return;
+        }
+      }
+      setSearchValue(value);
+    },
+    [assistantMode],
+  );
+
+  // ── Enter assistant mode from suggestion chip ──
+  const enterAssistant = useCallback((text: string) => {
+    setAssistantMode(true);
+    setSearchValue(text);
+  }, []);
+
+  // ── Backspace on empty input exits assistant mode ──
+  useEffect(() => {
+    if (!open || !assistantMode) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Backspace" && searchValue === "") {
+        setAssistantMode(false);
+        setParseResult(null);
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [open, assistantMode, searchValue]);
 
   // ── Debounced parse in assistant mode ──
   useEffect(() => {
@@ -542,6 +603,27 @@ export function CommandPalette() {
       if (parseTimerRef.current) clearTimeout(parseTimerRef.current);
     };
   }, [assistantText, assistantMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Enter to commit in assistant mode ──
+  useEffect(() => {
+    if (!open || !assistantMode || !parseResult?.success) return;
+
+    const op = parseResult.operations[0];
+    if (!op || op.confidence < 0.4 || parseResult.ambiguities.length > 0) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+        if (!commitMutation.isPending) {
+          e.preventDefault();
+          e.stopPropagation();
+          handleCommit(op);
+        }
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown, true);
+    return () => document.removeEventListener("keydown", handleKeyDown, true);
+  }, [open, assistantMode, parseResult, commitMutation.isPending]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Commit handler ──
   const handleCommit = useCallback(
@@ -623,9 +705,9 @@ export function CommandPalette() {
     [exercises],
   );
 
-  // ── Resolve preview from highlighted value or assistant mode ──
+  // ── Resolve preview (search mode only) ──
   const preview = useMemo((): PreviewData => {
-    if (assistantMode && parseResult) return { type: "assistant", data: parseResult };
+    if (assistantMode) return null;
     if (!highlighted) return null;
     const client = clientMap.get(highlighted);
     if (client) return { type: "client", data: client };
@@ -633,7 +715,7 @@ export function CommandPalette() {
     if (exercise) return { type: "exercise", data: exercise };
     if (highlighted.startsWith("kpi-")) return { type: "kpi" };
     return null;
-  }, [highlighted, clientMap, exerciseMap, assistantMode, parseResult]);
+  }, [highlighted, clientMap, exerciseMap, assistantMode]);
 
   // ── Navigate + close ──
   const navigate = useCallback(
@@ -651,6 +733,18 @@ export function CommandPalette() {
     return clients.find((c) => c.id === Number(match[1])) ?? null;
   }, [pathname, clients]);
 
+  // ── Context-aware assistant suggestions ──
+  const contextSuggestions = useMemo(() => {
+    if (contextClient) {
+      return [
+        { label: "Evento", example: `${contextClient.nome} domani alle 18 PT`, icon: Calendar },
+        { label: "Misura", example: `${contextClient.nome} peso 80`, icon: Scale },
+        { label: "Spesa", example: "spesa palestra 200 euro pos", icon: Wallet },
+      ];
+    }
+    return [...ASSISTANT_EXAMPLES];
+  }, [contextClient]);
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogHeader className="sr-only">
@@ -658,7 +752,7 @@ export function CommandPalette() {
         <DialogDescription>Cerca clienti, esercizi, pagine...</DialogDescription>
       </DialogHeader>
       <DialogContent
-        className="max-w-3xl gap-0 overflow-hidden p-0"
+        className={`gap-0 overflow-hidden p-0 ${assistantMode ? "max-w-2xl" : "max-w-3xl"}`}
         showCloseButton={false}
       >
         <Command
@@ -670,93 +764,171 @@ export function CommandPalette() {
           <div className="flex">
             {/* ══ LEFT: Search + Results ══ */}
             <div className="flex min-w-0 flex-1 flex-col">
-              <div className="relative">
-                <CommandInput
-                  placeholder={assistantMode
-                    ? "es. Marco domani alle 18 PT..."
-                    : "Cerca clienti, esercizi, pagine..."}
-                  value={searchValue}
-                  onValueChange={setSearchValue}
-                />
-                {assistantMode && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    {parseMutation.isPending ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                    ) : (
-                      <Badge variant="secondary" className="text-[9px] font-medium">
-                        <Sparkles className="mr-1 h-2.5 w-2.5" />
-                        Assistente
-                      </Badge>
-                    )}
+              {/* ── Assistant header bar ── */}
+              {assistantMode && (
+                <div className="flex items-center gap-2 border-b border-primary/10 bg-primary/5 px-4 py-2.5">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10">
+                    <Sparkles className="h-3.5 w-3.5 text-primary" />
                   </div>
-                )}
-              </div>
+                  <span className="text-xs font-semibold text-primary">Assistente</span>
+                  <span className="hidden text-xs text-muted-foreground sm:inline">
+                    — scrivi un comando in italiano
+                  </span>
+                  <div className="ml-auto flex items-center gap-2">
+                    {parseMutation.isPending && (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-primary/60" />
+                    )}
+                    <kbd className="rounded border px-1.5 py-0.5 text-[9px] text-muted-foreground/60">
+                      ← torna
+                    </kbd>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Input ── */}
+              <CommandInput
+                placeholder={
+                  assistantMode
+                    ? "Es: Marco domani alle 18 PT..."
+                    : "Cerca clienti, esercizi, pagine..."
+                }
+                value={searchValue}
+                onValueChange={handleSearchChange}
+              />
+
+              {/* ── Shimmer loading bar ── */}
+              {assistantMode && parseMutation.isPending && (
+                <div className="h-0.5 w-full animate-pulse bg-primary/40" />
+              )}
+
+              {/* ── Suggestion chips (assistant mode, before typing) ── */}
+              {assistantMode && searchValue.length < 3 && !parseResult && (
+                <div className="flex flex-wrap items-center gap-1.5 border-b px-4 py-2">
+                  <span className="text-[10px] font-medium text-muted-foreground/50">
+                    Prova:
+                  </span>
+                  {contextSuggestions.map((s) => (
+                    <button
+                      key={s.example}
+                      type="button"
+                      onClick={() => setSearchValue(s.example)}
+                      className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] text-muted-foreground transition-all hover:border-primary/30 hover:bg-primary/5 hover:text-primary"
+                    >
+                      <s.icon className="h-3 w-3" />
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               <CommandList className="max-h-[400px]">
-                {/* ── Assistant mode: parsed results ── */}
+                {/* ══════ ASSISTANT MODE ══════ */}
                 {assistantMode ? (
                   <>
+                    {/* Guide: no text yet */}
                     {!parseResult && assistantText.length < 3 && (
-                      <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                        Scrivi un comando in italiano...
-                        <p className="mt-2 text-xs text-muted-foreground/60">
-                          &quot;Marco domani alle 18 PT&quot; &middot; &quot;spesa affitto 800 euro&quot; &middot; &quot;Marco peso 82&quot;
+                      <div className="px-6 py-6">
+                        <div className="mb-4 text-center">
+                          <Sparkles className="mx-auto mb-2 h-8 w-8 text-primary/20" />
+                          <p className="text-sm font-medium text-foreground/70">
+                            Cosa vuoi fare?
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground/60">
+                            Scrivi un comando o scegli un esempio
+                          </p>
+                        </div>
+                        <div className="space-y-1.5">
+                          {contextSuggestions.map((s) => (
+                            <button
+                              key={s.example}
+                              type="button"
+                              onClick={() => setSearchValue(s.example)}
+                              className="flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-all hover:border-primary/20 hover:bg-primary/5"
+                            >
+                              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                                <s.icon className="h-4 w-4 text-primary" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-medium">{s.label}</p>
+                                <p className="truncate text-[11px] text-muted-foreground">
+                                  &ldquo;{s.example}&rdquo;
+                                </p>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Parsing... */}
+                    {assistantText.length >= 3 && !parseResult && parseMutation.isPending && (
+                      <div className="flex items-center justify-center gap-2 px-4 py-10">
+                        <Loader2 className="h-5 w-5 animate-spin text-primary/40" />
+                        <span className="text-sm text-muted-foreground">Analizzo...</span>
+                      </div>
+                    )}
+
+                    {/* Result card */}
+                    {parseResult?.success && parseResult.operations.length > 0 && (
+                      <div className="p-3">
+                        <AssistantResultCard
+                          operation={parseResult.operations[0]}
+                          entities={parseResult.entities}
+                          ambiguities={parseResult.ambiguities}
+                          onCommit={() => handleCommit(parseResult.operations[0])}
+                          isCommitting={commitMutation.isPending}
+                        />
+                      </div>
+                    )}
+
+                    {/* Parse failure */}
+                    {parseResult && !parseResult.success && (
+                      <div className="px-6 py-8 text-center">
+                        <p className="text-sm text-muted-foreground">
+                          {parseResult.message}
+                        </p>
+                        <p className="mt-2 text-xs text-muted-foreground/50">
+                          Prova: &ldquo;Marco domani alle 18 PT&rdquo;
                         </p>
                       </div>
                     )}
-                    {parseResult?.success && parseResult.operations.length > 0 && (
-                      <CommandGroup heading="Operazioni Riconosciute">
-                        {parseResult.operations.map((op, i) => (
-                          <CommandItem
-                            key={`assistant-op-${i}`}
-                            value={`assistant-op-${i}`}
-                            onSelect={() => handleCommit(op)}
-                            disabled={commitMutation.isPending}
-                          >
-                            <Sparkles className="mr-2 h-4 w-4 text-primary" />
-                            <span className="flex-1">{op.preview_label}</span>
-                            <Badge
-                              variant={op.confidence >= 0.7 ? "default" : "secondary"}
-                              className="text-[10px]"
-                            >
-                              {Math.round(op.confidence * 100)}%
-                            </Badge>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    )}
-                    {parseResult && !parseResult.success && (
-                      <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-                        {parseResult.message}
-                      </div>
-                    )}
+
+                    {/* Ambiguity resolution */}
                     {parseResult?.ambiguities.map((amb, i) => (
-                      <CommandGroup key={`amb-${i}`} heading={amb.message}>
-                        {amb.candidates.map((c) => (
-                          <CommandItem
-                            key={`amb-${i}-${c.value}`}
-                            value={`amb-${i}-${c.value}`}
-                            onSelect={() => {
-                              // Risolvi ambiguita': ripeti parse con nome esatto
-                              const resolved = c.label;
-                              const newText = `>${searchValue.slice(1).replace(
-                                new RegExp(amb.candidates[0]?.raw ?? "", "i"),
-                                resolved,
-                              )}`;
-                              setSearchValue(newText);
-                            }}
-                          >
-                            <User className="mr-2 h-4 w-4 text-muted-foreground" />
-                            <span className="flex-1">{c.label}</span>
-                            <span className="text-[10px] tabular-nums text-muted-foreground">
-                              {Math.round(c.confidence * 100)}%
-                            </span>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
+                      <div key={`amb-${i}`} className="border-t px-4 py-3">
+                        <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                          <AlertTriangle className="h-3 w-3" />
+                          {amb.message}
+                        </p>
+                        <div className="space-y-1">
+                          {amb.candidates.map((c) => (
+                            <button
+                              key={c.value}
+                              type="button"
+                              onClick={() => {
+                                const resolved = c.label;
+                                const newText = searchValue.replace(
+                                  new RegExp(amb.candidates[0]?.raw ?? "", "i"),
+                                  resolved,
+                                );
+                                setSearchValue(newText);
+                              }}
+                              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs transition-colors hover:bg-muted"
+                            >
+                              <User className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span className="flex-1 text-left font-medium">{c.label}</span>
+                              <span className="text-[10px] tabular-nums text-muted-foreground">
+                                {Math.round(c.confidence * 100)}%
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     ))}
                   </>
                 ) : (
                 <>
+                {/* ══════ SEARCH MODE ══════ */}
                 <CommandEmpty>Nessun risultato.</CommandEmpty>
 
                 {/* ── Contestuale: azioni per il cliente corrente ── */}
@@ -938,40 +1110,61 @@ export function CommandPalette() {
                     </CommandItem>
                   ))}
                 </CommandGroup>
+
+                <CommandSeparator />
+
+                {/* ── Assistente: discovery section ── */}
+                <CommandGroup heading="Assistente">
+                  {ASSISTANT_EXAMPLES.map((s) => (
+                    <CommandItem
+                      key={`assistant-${s.label}`}
+                      value={`assistant-${s.label} ${s.example} assistente comando`}
+                      onSelect={() => enterAssistant(s.example)}
+                    >
+                      <Sparkles className="mr-2 h-4 w-4 text-primary/50" />
+                      <span className="flex-1">
+                        {s.label}:
+                        <span className="ml-1.5 text-muted-foreground">
+                          &ldquo;{s.example}&rdquo;
+                        </span>
+                      </span>
+                      <CommandShortcut>&gt;</CommandShortcut>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
                 </>
                 )}
               </CommandList>
             </div>
 
-            {/* ══ RIGHT: Preview Panel (solo desktop) ══ */}
-            <div className="hidden w-72 border-l bg-muted/30 p-4 md:block">
-              {preview?.type === "client" && (
-                <ClientPreview client={preview.data} />
-              )}
-              {preview?.type === "exercise" && (
-                <ExercisePreview exercise={preview.data} />
-              )}
-              {preview?.type === "kpi" && (
-                <KpiPreview summary={summary} stats={stats} />
-              )}
-              {preview?.type === "assistant" && (
-                <AssistantPreview result={preview.data} />
-              )}
-              {!preview && (
-                <div className="flex h-full flex-col items-center justify-center text-center">
-                  <Dumbbell className="mb-3 h-8 w-8 text-muted-foreground/30" />
-                  <p className="text-xs text-muted-foreground/50">
-                    Seleziona un elemento per vedere l&apos;anteprima
-                  </p>
-                  <p className="mt-2 text-[10px] text-muted-foreground/40">
-                    Digita <span className="font-mono font-bold">&gt;</span> per l&apos;assistente
-                  </p>
-                  <kbd className="mt-3 rounded border bg-muted px-2 py-1 text-[10px] font-medium text-muted-foreground">
-                    Ctrl K
-                  </kbd>
-                </div>
-              )}
-            </div>
+            {/* ══ RIGHT: Preview Panel (search mode only) ══ */}
+            {!assistantMode && (
+              <div className="hidden w-72 border-l bg-muted/30 p-4 md:block">
+                {preview?.type === "client" && (
+                  <ClientPreview client={preview.data} />
+                )}
+                {preview?.type === "exercise" && (
+                  <ExercisePreview exercise={preview.data} />
+                )}
+                {preview?.type === "kpi" && (
+                  <KpiPreview summary={summary} stats={stats} />
+                )}
+                {!preview && (
+                  <div className="flex h-full flex-col items-center justify-center text-center">
+                    <Dumbbell className="mb-3 h-8 w-8 text-muted-foreground/30" />
+                    <p className="text-xs text-muted-foreground/50">
+                      Seleziona un elemento per vedere l&apos;anteprima
+                    </p>
+                    <p className="mt-3 text-[10px] text-muted-foreground/40">
+                      Digita <span className="rounded border bg-muted px-1.5 py-0.5 font-mono font-bold">&gt;</span> per l&apos;assistente
+                    </p>
+                    <kbd className="mt-3 rounded border bg-muted px-2 py-1 text-[10px] font-medium text-muted-foreground">
+                      Ctrl K
+                    </kbd>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </Command>
       </DialogContent>
