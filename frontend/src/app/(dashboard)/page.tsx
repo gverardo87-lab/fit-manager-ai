@@ -12,7 +12,7 @@
  * Dati da hook operativi + /dashboard/alerts.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Users,
@@ -32,6 +32,7 @@ import {
   Bell,
   Sparkles,
   Rocket,
+  Loader2,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -39,13 +40,24 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useDashboard, useDashboardAlerts } from "@/hooks/useDashboard";
-import { useEvents, type EventHydrated } from "@/hooks/useAgenda";
+import { useEvents, useUpdateEvent, type EventHydrated } from "@/hooks/useAgenda";
 import { AnimatedNumber } from "@/components/ui/animated-number";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { GhostEventsSheet } from "@/components/dashboard/GhostEventsSheet";
 import { ExpiringContractsSheet } from "@/components/dashboard/ExpiringContractsSheet";
 import { InactiveClientsSheet } from "@/components/dashboard/InactiveClientsSheet";
 import { TodoCard } from "@/components/dashboard/TodoCard";
-import type { DashboardSummary, DashboardAlerts } from "@/types/api";
+import {
+  EVENT_STATUSES,
+  type DashboardSummary,
+  type DashboardAlerts,
+} from "@/types/api";
 
 // ── Date helpers ──
 
@@ -838,6 +850,22 @@ function AgendaLivePanel({ events, isLoading }: { events: EventHydrated[]; isLoa
 }
 
 function TodayAgenda({ events, isLoading }: { events: EventHydrated[]; isLoading: boolean }) {
+  const updateEvent = useUpdateEvent();
+  const [updatingEventId, setUpdatingEventId] = useState<number | null>(null);
+
+  const handleStatusChange = useCallback((event: EventHydrated, nextStatus: string) => {
+    if (event.stato === nextStatus) return;
+    setUpdatingEventId(event.id);
+    updateEvent.mutate(
+      { id: event.id, stato: nextStatus },
+      {
+        onSettled: () => {
+          setUpdatingEventId((current) => (current === event.id ? null : current));
+        },
+      },
+    );
+  }, [updateEvent]);
+
   if (isLoading) {
     return (
       <div className="rounded-xl border p-5 space-y-4">
@@ -932,11 +960,53 @@ function TodayAgenda({ events, isLoading }: { events: EventHydrated[]; isLoading
                     ) : (
                       <p className="mt-1 text-xs text-muted-foreground/60">Nessuna nota</p>
                     )}
+                    <div className="mt-2 md:hidden">
+                      <Select
+                        value={event.stato}
+                        onValueChange={(value) => handleStatusChange(event, value)}
+                        disabled={updatingEventId === event.id}
+                      >
+                        <SelectTrigger className="h-8 w-full text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {EVENT_STATUSES.map((status) => (
+                            <SelectItem key={status} value={status} className="text-xs">
+                              {status}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
 
-                  <Badge variant="outline" className="hidden shrink-0 px-2.5 py-1 text-xs font-semibold md:inline-flex">
-                    {event.categoria}
-                  </Badge>
+                  <div className="hidden shrink-0 md:flex md:flex-col md:items-end md:gap-2">
+                    <Badge variant="outline" className="px-2.5 py-1 text-xs font-semibold">
+                      {event.categoria}
+                    </Badge>
+                    <Select
+                      value={event.stato}
+                      onValueChange={(value) => handleStatusChange(event, value)}
+                      disabled={updatingEventId === event.id}
+                    >
+                      <SelectTrigger className="h-8 w-[140px] text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {EVENT_STATUSES.map((status) => (
+                          <SelectItem key={status} value={status} className="text-xs">
+                            {status}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {updatingEventId === event.id && (
+                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Aggiorno...
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}
