@@ -154,12 +154,20 @@ export function SpotlightTour({ tour, open, onComplete, onDismiss, onNavigate }:
     setTooltipPos(computeTooltipPosition(rect, step.placement, isMobileNow));
   }, [step]);
 
-  // ── Trova target con retry ──
+  // ── Naviga + trova target con retry ──
+  // Unico punto dove avviene la navigazione: garantisce che ogni step
+  // navighi alla pagina giusta indipendentemente da come ci si arriva
+  // (goNext, goBack, keyboard, skip automatico).
 
   useEffect(() => {
     if (!open || !step) {
       setVisible(false);
       return;
+    }
+
+    // Naviga se lo step lo richiede (no-op se gia' sulla pagina giusta)
+    if (step.navigateTo && onNavigate) {
+      onNavigate(step.navigateTo);
     }
 
     let attempts = 0;
@@ -179,7 +187,7 @@ export function SpotlightTour({ tour, open, onComplete, onDismiss, onNavigate }:
       if (attempts < maxAttempts) {
         retryTimerRef.current = setTimeout(tryFind, 200);
       } else {
-        // Target non trovato dopo 2s — skip step
+        // Target non trovato — skip step
         if (!isLastStep) {
           setCurrentStep((prev) => prev + 1);
         } else {
@@ -193,7 +201,7 @@ export function SpotlightTour({ tour, open, onComplete, onDismiss, onNavigate }:
     return () => {
       if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
     };
-  }, [open, step, isLastStep, onComplete, updatePosition]);
+  }, [open, step, isLastStep, onComplete, updatePosition, onNavigate]);
 
   // ── Resize / scroll reposition ──
 
@@ -223,23 +231,15 @@ export function SpotlightTour({ tour, open, onComplete, onDismiss, onNavigate }:
     if (isLastStep) {
       onComplete();
     } else {
-      const nextStep = activeSteps[currentStep + 1];
-      if (nextStep?.navigateTo && onNavigate) {
-        onNavigate(nextStep.navigateTo);
-      }
       setCurrentStep((prev) => prev + 1);
     }
-  }, [isLastStep, onComplete, activeSteps, currentStep, onNavigate]);
+  }, [isLastStep, onComplete]);
 
   const goBack = useCallback(() => {
     if (currentStep > 0) {
-      const prevStep = activeSteps[currentStep - 1];
-      if (prevStep?.navigateTo && onNavigate) {
-        onNavigate(prevStep.navigateTo);
-      }
       setCurrentStep((prev) => prev - 1);
     }
-  }, [currentStep, activeSteps, onNavigate]);
+  }, [currentStep]);
 
   // ── Keyboard ──
 
@@ -274,13 +274,7 @@ export function SpotlightTour({ tour, open, onComplete, onDismiss, onNavigate }:
     if (open) {
       setCurrentStep(0);
       setVisible(false);
-      // Se il primo step richiede navigazione, triggera subito
-      const firstStep = activeSteps[0];
-      if (firstStep?.navigateTo && onNavigate) {
-        onNavigate(firstStep.navigateTo);
-      }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   // ── Render ──

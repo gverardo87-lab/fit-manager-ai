@@ -29,9 +29,10 @@ export const TOUR_SCOPRI_FITMANAGER: TourDefinition = {
   id: "scopri-fitmanager",
   title: "Scopri FitManager",
   steps: [
-    // 1. Dashboard
+    // 1. Dashboard — navigazione automatica (serve se lanciato da /guida)
     {
       target: "dashboard-header",
+      navigateTo: "/",
       title: "La tua Dashboard",
       description:
         "La panoramica operativa della giornata: KPI, appuntamenti in scadenza, alert e azioni rapide. Aprila ogni mattina per partire allineato.",
