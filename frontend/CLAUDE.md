@@ -2,6 +2,18 @@
 
 Next.js 16 + React 19 + TypeScript 5 + shadcn/ui + Tailwind CSS 4.
 
+## Coordinamento parallelo layer (Codex + Claude Code)
+
+Prima di editare file in `frontend/`:
+1. Claim task su `docs/ai-sync/WORKBOARD.md`.
+2. Compila `Locked files` con path reali in `frontend/`.
+3. Se un file e gia lockato da altro agente, fermati e usa handoff.
+
+A fine task:
+1. Aggiorna `WORKBOARD.md` (commit, check, note).
+2. Sincronizza `docs/upgrades/*` quando cambia comportamento o governance.
+3. Rilascia lock file.
+
 ## Architettura
 
 ```

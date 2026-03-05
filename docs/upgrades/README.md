@@ -62,3 +62,4 @@ Esempio:
 - `UPG-2026-03-05-18`: hardening dashboard mobile overflow/clipping (KPI/alert/agenda/todo) con width constraints e wrapping/truncate sicuro.
 - `UPG-2026-03-05-19`: dashboard piu' viva con barra "Focus operativo" + animazioni leggere a comparsa (no nuove dipendenze, rollback via flag locale).
 - `UPG-2026-03-05-20`: prima pagina guida in-app (`/guida`) con roadmap Wave 1-4 + shortcut aree CRM, integrata in sidebar e command palette.
+- `UPG-2026-03-05-21`: hardening governance per sviluppo parallelo Codex + Claude Code (priority sync, protocollo lock/handoff, workboard contract, allineamento CLAUDE layer).

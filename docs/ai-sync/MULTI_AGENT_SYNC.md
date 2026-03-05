@@ -1,86 +1,85 @@
 # Multi-Agent Sync Protocol
 
-Protocollo unico di coordinamento quando lavoriamo con piu agenti AI in parallelo
+Protocollo operativo unico per sviluppo parallelo con piu agenti AI
 (es. Codex + Claude Code) sulla stessa codebase.
 
 ## 1. Scopo
 
-- evitare conflitti e regressioni da editing concorrente
-- mantenere handoff tracciabile tra agenti
-- tenere allineati sviluppo, test e documentazione
+- prevenire conflitti da editing concorrente
+- mantenere handoff tracciabile e riusabile
+- garantire allineamento tra codice, test e documentazione
 
-## 2. Fonti comuni obbligatorie
+## 2. Priorita regole
 
-Prima di iniziare una task ogni agente deve leggere:
+Ordine di riferimento obbligatorio:
+1. `AGENTS.md`
+2. `CLAUDE.md` (root + layer)
+3. `codex.md`
+4. questo file
+5. `docs/ai-sync/WORKBOARD.md`
 
-1. `CLAUDE.md` (root)
-2. `codex.md`
-3. questo file (`docs/ai-sync/MULTI_AGENT_SYNC.md`)
-4. `docs/ai-sync/WORKBOARD.md`
+In caso di conflitto, prevale la regola con priorita piu alta e piu restrittiva su safety/qualita.
 
-## 3. Regole operative (mandatory)
+## 3. Contratto Workboard
 
-1. Claim task nel workboard prima di editare.
-2. Dichiarare `Locked files` nel workboard prima di toccarli.
-3. Nessun editing sugli stessi file gia lockati da altro agente senza handoff esplicito.
-4. Un agente per task: evitare patch parallele sullo stesso Work ID.
-5. A fine task aggiornare sempre:
-   - `docs/ai-sync/WORKBOARD.md`
-   - `docs/upgrades/UPGRADE_LOG.md` (se rilevante)
-   - eventuale spec in `docs/upgrades/specs/`
+Ogni task deve avere un `Work ID` unico (`AGT-YYYY-MM-DD-XX`) in `WORKBOARD.md`.
+
+Campi minimi richiesti in `Active`:
+- `Work ID`
+- `Owner` (`Codex` o `Claude Code`)
+- `Branch`
+- `Scope`
+- `Status` (`in_progress`, `blocked`, `review`)
+- `Locked files`
+- `Started (UTC)`
+- `Handoff / Notes`
+
+Campi minimi richiesti in `Completed`:
+- `Commit`
+- `Checks`
+- `Closed (UTC)`
+- `Notes` con rischi residui o next step
 
 ## 4. Workflow standard
 
-## 4.1 Start
+### 4.1 Start
 
 1. Verifica branch attivo e `git status`.
-2. Crea/usa un `Work ID` (es. `AGT-2026-03-03-01`).
-3. Aggiungi riga in `WORKBOARD.md` con:
-   - owner (Codex/Claude)
-   - scope breve
-   - file lockati
-   - stato `in_progress`
+2. Crea/riusa `Work ID`.
+3. Aggiungi riga in `Active` con lock file iniziali prima del primo edit.
 
-## 4.2 During
+### 4.2 During
 
-1. Mantieni i lock aggiornati quando cambi file target.
-2. Se la scope cambia, aggiorna la riga del workboard.
-3. Se serve sub-handoff, usa il campo `Handoff / Notes`.
+1. Aggiorna `Locked files` appena cambia lo scope reale.
+2. Aggiorna stato (`in_progress` -> `review` o `blocked`) senza ritardi.
+3. Se serve passaggio tra agenti, compila `Handoff / Notes` prima del trasferimento.
 
-## 4.3 End
+### 4.3 End
 
-1. Esegui i check minimi richiesti dalla task.
-2. Aggiorna workboard con:
-   - stato `done`
-   - commit hash
-   - test eseguiti
-   - rischi residui
-3. Rilascia i lock (campo `Locked files` vuoto o `-`).
+1. Esegui i check rilevanti per la scope.
+2. Sposta la riga in `Completed` con commit e verifiche.
+3. Rilascia lock (in `Active` non deve restare alcun file bloccato per quel Work ID).
+4. Sincronizza `docs/upgrades/*` quando la patch cambia comportamento o governance.
 
-## 5. Stato task consentiti
+## 5. Lock policy
 
-- `planned`
-- `in_progress`
-- `blocked`
-- `review`
-- `done`
+- Lock granularita path file (es. `frontend/src/app/(dashboard)/guida/page.tsx`).
+- Nessun edit su file lockato da altro owner senza handoff esplicito.
+- Lock condiviso consentito solo su file docs di coordinamento (`WORKBOARD.md`, `UPGRADE_LOG.md`) e con update atomico.
 
-## 6. Policy conflitti
+## 6. Handoff packet minimo
 
-Se un agente trova file lockati su cui deve intervenire:
+Ogni handoff tra agenti deve includere:
+- stato attuale della task
+- file modificati e file ancora lockati
+- check eseguiti con esito
+- rischi aperti e prossima micro-azione consigliata
 
+## 7. Gestione blocchi
+
+Se un agente deve intervenire su file lockato:
 1. fermarsi
-2. aggiornare workboard con stato `blocked`
+2. impostare stato `blocked` su workboard
 3. chiedere riallineamento (handoff o decisione utente)
 
-Regola: meglio una pausa di coordinamento che una merge conflict con regressioni.
-
-## 7. Criterio di qualita handoff
-
-Un handoff e valido solo se include:
-
-- cosa e stato fatto
-- file toccati
-- test eseguiti
-- cosa resta da fare
-- eventuali rischi aperti
+Regola: meglio pausa di coordinamento che regressioni da merge conflict.

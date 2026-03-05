@@ -2,6 +2,18 @@
 
 FastAPI + SQLModel + SQLite (PostgreSQL-ready). Multi-tenant via JWT.
 
+## Coordinamento parallelo layer (Codex + Claude Code)
+
+Prima di editare file in `api/`:
+1. Claim task su `docs/ai-sync/WORKBOARD.md`.
+2. Compila `Locked files` con path reali in `api/`.
+3. Se un file e gia lockato da altro agente, fermati e usa handoff.
+
+A fine task:
+1. Aggiorna `WORKBOARD.md` (commit, check, note).
+2. Sincronizza `docs/upgrades/*` quando cambia comportamento o governance.
+3. Rilascia lock file.
+
 ## Architettura
 
 ```

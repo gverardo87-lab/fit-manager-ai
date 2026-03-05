@@ -5,14 +5,14 @@ Questo file definisce il metodo operativo tra te e Codex per sviluppare con stan
 ## 1. Gerarchia delle regole
 
 Fonti di verita (ordine di priorita):
-1. `CLAUDE.md` (root)
-2. `api/CLAUDE.md`
-3. `frontend/CLAUDE.md`
-4. `core/CLAUDE.md`
-5. `docs/ai-sync/MULTI_AGENT_SYNC.md` (coordinamento multi-agente)
-6. `codex.md` (questo file)
+1. `AGENTS.md` (root)
+2. `CLAUDE.md` (root)
+3. `api/CLAUDE.md`, `frontend/CLAUDE.md`, `core/CLAUDE.md`
+4. `codex.md` (questo file)
+5. `docs/ai-sync/MULTI_AGENT_SYNC.md`
+6. `docs/ai-sync/WORKBOARD.md`
 
-Se c'e conflitto, prevalgono i file `CLAUDE.md`.
+Se c'e conflitto, prevale la fonte con priorita piu alta e la regola piu restrittiva su safety/qualita.
 
 ## 2. Obiettivo del metodo
 
@@ -152,18 +152,25 @@ Regola pratica:
 - patch media/alta: spec completa + log + checklist
 - decisione strutturale: aggiungere ADR
 
-## 10. Coordinamento multi-agente
+## 10. Coordinamento multi-agente (Codex + Claude Code)
 
-Quando lavoriamo in parallelo con piu agenti AI (es. Codex + Claude Code), il protocollo operativo comune e:
+Quando lavoriamo in parallelo, il protocollo operativo comune e:
 
-- `docs/ai-sync/MULTI_AGENT_SYNC.md` (regole e flusso)
-- `docs/ai-sync/WORKBOARD.md` (stato lavori e lock file)
+- `docs/ai-sync/MULTI_AGENT_SYNC.md` (regole operative)
+- `docs/ai-sync/WORKBOARD.md` (claim task, lock file, handoff)
 
 Regole obbligatorie:
-1. Claim task sul workboard prima di toccare codice.
-2. Dichiarare i file in lock (soft lock) prima dell'editing.
-3. Evitare editing concorrente sugli stessi file senza handoff esplicito.
-4. A fine task: aggiornare workboard, UPG log e rilasciare lock.
+1. Claim task su `WORKBOARD.md` prima di editare qualsiasi file.
+2. Dichiarare e mantenere aggiornato il campo `Locked files` durante tutta la lavorazione.
+3. Un solo owner per Work ID; niente patch parallele sullo stesso scope senza handoff scritto.
+4. Se un file e gia lockato: fermarsi, marcare `blocked` e riallineare prima di procedere.
+5. A fine task: aggiornare `WORKBOARD.md`, sincronizzare `docs/upgrades/*` quando richiesto e rilasciare lock.
+
+Pacchetto handoff minimo (sempre):
+- cosa e stato fatto e cosa manca
+- file toccati
+- check eseguiti e risultato
+- rischi/decisioni aperte
 
 ## 11. Tracciabilita' Contabile (Nuovo)
 

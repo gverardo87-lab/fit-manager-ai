@@ -5,13 +5,16 @@ Aggiornare prima di iniziare e alla chiusura di ogni task.
 
 ## Active
 
-_Nessun task attivo. Prossimo step: review Wave 2 e pianificazione Wave 3 interattiva (UPG-2026-03-05-17)._
+| Work ID | Owner | Branch | Scope | Status | Locked files | Started (UTC) | Handoff / Notes |
+|---|---|---|---|---|---|---|---|
+| - | - | - | - | - | - | - | Nessun task attivo |
 
 ## Completed
 
 | Work ID | Owner | Branch | Scope | Commit | Checks | Closed (UTC) | Notes |
 |---|---|---|---|---|---|---|---|
-| AGT-2026-03-05-20 | Codex | `codex_02` | Guide in-app foundation: creata pagina `/(dashboard)/guida` come hub roadmap Wave 1-4 + percorsi rapidi CRM, con voce dedicata in `Sidebar` e `CommandPalette` | `_pending_` | `npm --prefix frontend run lint -- "src/app/(dashboard)/guida/page.tsx" "src/components/layout/Sidebar.tsx"` (ok); lint su `CommandPalette.tsx` bloccato da 2 errori legacy `react-hooks/set-state-in-effect` (righe 540, 593) | 2026-03-05 | Base pronta per iterazioni Wave 3: onboarding interattivo e collegamento assistente->guida contestuale |
+| AGT-2026-03-05-21 | Codex | `codex_02` | Allineamento governance parallelo Codex + Claude Code: aggiornati `CLAUDE.md` root/layer, `codex.md`, `docs/ai-sync/MULTI_AGENT_SYNC.md` e schema `WORKBOARD.md` per lock/handoff consistenti | `_pending_` | review manuale coerenza cross-doc + `rg -n "Coordinamento parallelo layer|Locked files|Work ID|Priorita regole"` su file governance | 2026-03-05 | Protocollo ora uniforme tra agenti: priorita AGENTS->CLAUDE->codex, workboard contract esplicito, lifecycle operativo start/during/end e policy `blocked` formalizzata |
+| AGT-2026-03-05-20 | Codex | `codex_02` | Guide in-app foundation: creata pagina `/(dashboard)/guida` come hub roadmap Wave 1-4 + percorsi rapidi CRM, con voce dedicata in `Sidebar` e `CommandPalette` | `435b533` | `npm --prefix frontend run lint -- "src/app/(dashboard)/guida/page.tsx" "src/components/layout/Sidebar.tsx"` (ok); lint su `CommandPalette.tsx` bloccato da 2 errori legacy `react-hooks/set-state-in-effect` (righe 540, 593) | 2026-03-05 | Base pronta per iterazioni Wave 3: onboarding interattivo e collegamento assistente->guida contestuale |
 | AGT-2026-03-05-16 | Codex | `codex_02` | Wave 2 guida illustrata: creati 8 flow visuali in `docs/guides/illustrated/` con step/callout mapping e set responsive desktop-tablet-mobile, asset manifest in `docs/guides/assets/illustrated/`, e link dai capitoli Wave 1 ai flow illustrati | `7145988` | check struttura flow + check standard callout + check collegamenti chapter->illustrated + sync `UPGRADE_LOG`/`README`/`WORKBOARD` | 2026-03-05 | Layer illustrato pronto per produzione screenshot annotati e iterazione Wave 3 (interattiva + assistant linking) |
 | AGT-2026-03-05-19 | Codex | `codex_02` | Dashboard microstep 2: barra "Focus operativo" con CTA contestuale + reveal animation leggera (KPI, board, righe agenda, quick actions) con supporto `motion-reduce` e rollback via `DASHBOARD_MICROSTEP2_ENABLED` | `_pending_` | `npm --prefix frontend run lint -- "src/app/(dashboard)/page.tsx" "src/components/dashboard/TodoCard.tsx"` | 2026-03-05 | Dashboard piu' viva ma pragmatica: motion non invasivo, nessuna nuova dipendenza, decision cues immediati |
 | AGT-2026-03-05-15 | Codex | `codex_02` | Wave 1 guida: creazione `docs/guides/` con indice + 12 capitoli route-mapped (setup/login/dashboard/agenda/clienti/contratti/cassa/esercizi/schede/allenamenti/impostazioni/command palette + FAQ), struttura uniforme con passi/errori/recovery/quick actions | `9dd5676` | check copertura route via `rg` + check struttura capitoli + sync `UPGRADE_LOG`/`README`/`WORKBOARD` | 2026-03-05 | Foundation pronta per review utente; Wave 2 potra' concentrarsi su layer illustrato senza rifare l'architettura contenuti |
@@ -41,6 +44,6 @@ _Nessun task attivo. Prossimo step: review Wave 2 e pianificazione Wave 3 intera
 
 ## Quick rules
 
-1. `Locked files` deve riflettere i file realmente in editing.
-2. Se la task si blocca, usare stato `blocked` + nota chiara.
-3. Alla chiusura, spostare la riga da `Active` a `Completed`.
+1. In `Active`, ogni task deve avere `Locked files` aggiornato ai file reali in editing.
+2. Se la task si blocca, usare stato `blocked` e spiegare il motivo in `Handoff / Notes`.
+3. A chiusura task, spostare la riga da `Active` a `Completed` con commit e check.
