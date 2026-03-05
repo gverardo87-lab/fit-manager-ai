@@ -28,7 +28,7 @@ from api.database import get_catalog_session, get_session
 
 from api.config import API_PREFIX, CATALOG_DATABASE_URL, DATA_DIR
 from api.database import create_catalog_tables, create_db_and_tables, engine
-from api.seed_exercises import seed_builtin_exercises
+from api.seed_exercises import seed_builtin_exercises, seed_exercise_relations
 from api.services.license import check_license
 from api.auth.router import router as auth_router
 from api.routers.clients import router as clients_router
@@ -167,10 +167,11 @@ async def lifespan(app: FastAPI):
     create_catalog_tables()
     logger.info(f"  CATALOG_DB = {catalog_path}")
 
-    # ── 4. Seed esercizi builtin (idempotente) ──
+    # ── 4. Seed esercizi builtin + relazioni (idempotente) ──
     from sqlmodel import Session as SyncSession
     with SyncSession(engine) as session:
         seed_builtin_exercises(session)
+        seed_exercise_relations(session)
 
     # ── 5. Integrity check ──
     _integrity_check_on_startup(DATABASE_URL, CATALOG_DATABASE_URL)
@@ -236,7 +237,8 @@ async def license_middleware(request: Request, call_next):
     )
 
 # Static files: serve media (immagini/video esercizi)
-_media_dir = Path(os.path.dirname(__file__)).parent / "data" / "media"
+# Usa DATA_DIR da config.py (gestisce PyInstaller frozen correttamente)
+_media_dir = DATA_DIR / "media"
 _media_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/media", StaticFiles(directory=str(_media_dir)), name="media")
 

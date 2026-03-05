@@ -11,15 +11,15 @@ con tutti i campi (classificazione, biomeccanica, tassonomia, in_subset).
 
 import json
 import logging
-from pathlib import Path
 
 from sqlmodel import Session, select, func
 
+from api.config import DATA_DIR
 from api.models.exercise import Exercise
 
 logger = logging.getLogger("fitmanager.api")
 
-SEED_FILE = Path(__file__).resolve().parents[1] / "data" / "exercises" / "seed_exercises.json"
+SEED_FILE = DATA_DIR / "exercises" / "seed_exercises.json"
 
 
 def seed_builtin_exercises(session: Session) -> int:
@@ -84,3 +84,42 @@ def seed_builtin_exercises(session: Session) -> int:
     active = sum(1 for ex in exercises_data if ex.get("in_subset"))
     logger.info(f"Seed esercizi: inseriti {inserted} builtin ({active} attivi)")
     return inserted
+
+
+RELATIONS_SEED_FILE = DATA_DIR / "exercises" / "seed_exercise_relations.json"
+
+
+def seed_exercise_relations(session: Session) -> int:
+    """Inserisce relazioni (progressioni/regressioni/varianti) se la tabella e' vuota.
+
+    Returns:
+        Numero di relazioni inserite (0 se gia' seedate).
+    """
+    from api.models.exercise_relation import ExerciseRelation
+
+    count = session.exec(
+        select(func.count(ExerciseRelation.id))
+    ).one()
+
+    if count > 0:
+        logger.info(f"Seed relazioni: gia' presenti {count}, skip")
+        return 0
+
+    if not RELATIONS_SEED_FILE.exists():
+        logger.warning(f"Seed relazioni: file non trovato {RELATIONS_SEED_FILE}")
+        return 0
+
+    with open(RELATIONS_SEED_FILE, "r", encoding="utf-8") as f:
+        relations_data = json.load(f)
+
+    for rel in relations_data:
+        relation = ExerciseRelation(
+            exercise_id=rel["exercise_id"],
+            related_exercise_id=rel["related_exercise_id"],
+            tipo_relazione=rel["tipo_relazione"],
+        )
+        session.add(relation)
+
+    session.commit()
+    logger.info(f"Seed relazioni: inserite {len(relations_data)} relazioni")
+    return len(relations_data)

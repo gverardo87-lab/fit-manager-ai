@@ -12,7 +12,6 @@ Bouncer adattato: WHERE (trainer_id = ? OR trainer_id IS NULL) AND deleted_at IS
 
 import json
 import logging
-import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,6 +20,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
 from sqlmodel import Session, select, func, or_
 
+from api.config import DATA_DIR
 from api.dependencies import get_current_trainer
 from api.database import get_catalog_session, get_session
 from api.models.exercise import Exercise
@@ -48,8 +48,8 @@ logger = logging.getLogger("fitmanager.api")
 
 router = APIRouter(prefix="/exercises", tags=["exercises"])
 
-# Media storage root
-MEDIA_ROOT = Path(os.path.dirname(__file__)).parent.parent / "data" / "media" / "exercises"
+# Media storage root — usa DATA_DIR da config (gestisce PyInstaller frozen)
+MEDIA_ROOT = DATA_DIR / "media" / "exercises"
 ALLOWED_CONTENT_TYPES = {
     "image/jpeg", "image/png", "image/webp",
     "video/mp4", "video/quicktime",
