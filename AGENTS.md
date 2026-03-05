@@ -63,6 +63,7 @@ Do not hide risks. Surface them early and explicitly.
 - Keep query invalidation symmetric across opposite operations.
 - Handle loading/error/empty states explicitly.
 - Avoid exposing sensitive data in default overview screens.
+- For dashboard visual redesigns, apply `.codex/skills/fitmanager-dashboard-crm-design` guidance.
 
 ### Cross-layer
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "FitManager Dashboard CRM Design"
+  short_description: "Refine dashboard layout and KPI readability."
+  default_prompt: "Use $fitmanager-dashboard-crm-design to redesign this dashboard section with stronger hierarchy and faster operator scan."
