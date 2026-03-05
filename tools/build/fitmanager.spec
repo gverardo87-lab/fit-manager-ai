@@ -30,6 +30,8 @@ a = Analysis(
         (str(ROOT / 'alembic.ini'), '.'),
         # Seed esercizi (caricato al primo avvio)
         (str(ROOT / 'data' / 'exercises' / 'seed_exercises.json'), 'data/exercises'),
+        (str(ROOT / 'data' / 'exercises' / 'seed_exercise_relations.json'), 'data/exercises'),
+        (str(ROOT / 'data' / 'exercises' / 'seed_exercise_media.json'), 'data/exercises'),
     ],
     hiddenimports=[
         # ── SQLModel / SQLAlchemy ──

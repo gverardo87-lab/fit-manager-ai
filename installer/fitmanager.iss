@@ -55,6 +55,7 @@ Source: "launcher.bat"; DestDir: "{app}"; Flags: ignoreversion
 ; Seed esercizi (prima installazione)
 Source: "..\data\exercises\seed_exercises.json"; DestDir: "{app}\data\exercises"; Flags: ignoreversion
 Source: "..\data\exercises\seed_exercise_relations.json"; DestDir: "{app}\data\exercises"; Flags: ignoreversion
+Source: "..\data\exercises\seed_exercise_media.json"; DestDir: "{app}\data\exercises"; Flags: ignoreversion
 
 ; Catalog DB (tassonomia scientifica — muscoli, articolazioni, condizioni, metriche)
 Source: "..\data\catalog.db"; DestDir: "{app}\data"; Flags: ignoreversion

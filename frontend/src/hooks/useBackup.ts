@@ -72,6 +72,9 @@ export function useRestoreBackup() {
     },
     onSuccess: (res) => {
       toast.success(res.message);
+      // Il DB e' stato sostituito: forza reload completo per invalidare
+      // tutte le cache React Query e ri-autenticare con i nuovi dati.
+      setTimeout(() => window.location.reload(), 1500);
     },
     onError: (error) => {
       toast.error(

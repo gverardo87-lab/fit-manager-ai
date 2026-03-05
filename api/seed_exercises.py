@@ -1,6 +1,6 @@
 # api/seed_exercises.py
 """
-Seed esercizi builtin + relazioni nel database.
+Seed esercizi builtin + relazioni + media nel database.
 
 Chiamato al startup dell'API (lifespan). Se la tabella esercizi contiene
 gia' record builtin, il seed viene skippato (idempotente).
@@ -8,6 +8,7 @@ gia' record builtin, il seed viene skippato (idempotente).
 Legge da data/exercises/:
 - seed_exercises.json — 311 esercizi attivi (in_subset=1) con ID preservati
 - seed_exercise_relations.json — 426 relazioni (progressioni/regressioni/varianti)
+- seed_exercise_media.json — 494 media (foto inizio/fine movimento)
 
 Gli esercizi archiviati (~750) verranno reinseriti gradualmente via activate_batch.py.
 """
@@ -139,4 +140,60 @@ def seed_exercise_relations(session: Session) -> int:
     if skipped:
         logger.warning(f"Seed relazioni: {skipped} scartate (ID esercizio mancante)")
     logger.info(f"Seed relazioni: inserite {inserted} relazioni")
+    return inserted
+
+
+MEDIA_SEED_FILE = DATA_DIR / "exercises" / "seed_exercise_media.json"
+
+
+def seed_exercise_media(session: Session) -> int:
+    """Inserisce media (foto inizio/fine movimento) se la tabella e' vuota.
+
+    Filtra media con FK orfane (es. DB legacy con ID diversi).
+
+    Returns:
+        Numero di media inseriti (0 se gia' seedati).
+    """
+    from api.models.exercise_media import ExerciseMedia
+
+    count = session.exec(
+        select(func.count(ExerciseMedia.id))
+    ).one()
+
+    if count > 0:
+        logger.info(f"Seed media: gia' presenti {count}, skip")
+        return 0
+
+    if not MEDIA_SEED_FILE.exists():
+        logger.warning(f"Seed media: file non trovato {MEDIA_SEED_FILE}")
+        return 0
+
+    # Carica ID esercizi effettivamente presenti nel DB
+    existing_ids = set(
+        session.exec(select(Exercise.id)).all()
+    )
+
+    with open(MEDIA_SEED_FILE, "r", encoding="utf-8") as f:
+        media_data = json.load(f)
+
+    inserted = 0
+    skipped = 0
+    for m in media_data:
+        if m["exercise_id"] in existing_ids:
+            session.add(ExerciseMedia(
+                exercise_id=m["exercise_id"],
+                trainer_id=None,  # builtin
+                tipo=m["tipo"],
+                url=m["url"],
+                ordine=m["ordine"],
+                descrizione=m.get("descrizione"),
+            ))
+            inserted += 1
+        else:
+            skipped += 1
+
+    session.commit()
+    if skipped:
+        logger.warning(f"Seed media: {skipped} scartati (ID esercizio mancante)")
+    logger.info(f"Seed media: inseriti {inserted} media")
     return inserted
