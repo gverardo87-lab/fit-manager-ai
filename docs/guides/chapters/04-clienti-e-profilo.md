@@ -38,4 +38,4 @@ Creare clienti, aggiornarli e monitorare anamnesi, misurazioni e progresso.
 - Shortcut: `Ctrl+K` -> "Nuovo Cliente"
 - Related page: `/clienti?new=1`
 - Related assistant example: `> aggiungi cliente giulia bianchi`
-
+- Guida illustrata: `../illustrated/flow-04-clienti-profilo.md`

@@ -38,4 +38,4 @@ Completare la configurazione iniziale e iniziare a lavorare in pochi minuti.
 - Shortcut: `Ctrl+K` -> "Nuovo Cliente"
 - Related page: `/clienti?new=1`
 - Related assistant example: `> crea cliente mario rossi`
-
+- Guida illustrata: `../illustrated/flow-01-setup-login-primi-passi.md`

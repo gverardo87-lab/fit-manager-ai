@@ -39,4 +39,4 @@ Usare ricerca rapida, scorciatoie operative e assistente testuale.
 - Shortcut: `Ctrl+K`
 - Related page: globale
 - Related assistant example: `> luca domani alle 17 pt`
-
+- Guida illustrata: `../illustrated/flow-08-command-palette-assistente.md`

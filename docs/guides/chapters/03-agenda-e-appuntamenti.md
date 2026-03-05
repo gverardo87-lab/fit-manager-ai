@@ -38,4 +38,4 @@ Gestire calendario, eventi e stati appuntamenti senza uscire dal flusso operativ
 - Shortcut: `Ctrl+K` -> "Agenda" / "Nuova Sessione"
 - Related page: `/agenda?newEvent=1`
 - Related assistant example: `> anna venerdi alle 18 pt`
-
+- Guida illustrata: `../illustrated/flow-03-agenda-operativa.md`

@@ -57,6 +57,7 @@ Esempio:
 - `UPG-2026-03-05-13`: hardening logica temporale dashboard (date locali no UTC shift + refresh automatico al cambio giorno).
 - `UPG-2026-03-05-14`: Wave 0 guida completata (foundation governance): 3 nuove skill guida, routing `AGENTS.md`, roadmap Wave 1-3 pronta.
 - `UPG-2026-03-05-15`: Wave 1 guida a capitoli/sezioni completata (`docs/guides/` con 12 capitoli route-mapped).
-- `UPG-2026-03-05-16`: Wave 2 guida illustrata con callout standard (planned).
+- `UPG-2026-03-05-16`: Wave 2 guida illustrata completata (`docs/guides/illustrated/` + asset manifest + link dai capitoli Wave 1).
 - `UPG-2026-03-05-17`: Wave 3 guida interattiva + integrazione assistant/help routing (planned).
 - `UPG-2026-03-05-18`: hardening dashboard mobile overflow/clipping (KPI/alert/agenda/todo) con width constraints e wrapping/truncate sicuro.
+- `UPG-2026-03-05-19`: dashboard piu' viva con barra "Focus operativo" + animazioni leggere a comparsa (no nuove dipendenze, rollback via flag locale).

@@ -12,7 +12,7 @@ Ogni capitolo e' orientato all'azione e include:
 
 1. Parti da `01-inizio-rapido.md` se sei al primo accesso.
 2. Usa i capitoli per area operativa durante il lavoro quotidiano.
-3. Se sei bloccato, apri `12-faq-troubleshooting.md`.
+3. Se sei bloccato, apri `12-faq-e-troubleshooting.md`.
 
 ## Mappa Capitoli
 
@@ -51,3 +51,8 @@ Ogni capitolo e' orientato all'azione e include:
 Gli esempi sono generici e non includono dati personali reali.
 Le informazioni economiche restano confinate nelle aree dedicate (es. Cassa).
 
+## Layer Illustrato (Wave 2)
+
+Per i walkthrough visuali (desktop/tablet/mobile), usa:
+
+- [Guida Illustrata - Indice](./illustrated/README.md)

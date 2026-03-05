@@ -38,4 +38,4 @@ Gestire backup, restore, export dati e impostazioni base account.
 - Shortcut: `Ctrl+K` -> "Impostazioni"
 - Related page: `/impostazioni`
 - Related assistant example: `> apri backup`
-
+- Guida illustrata: `../illustrated/flow-07-impostazioni-backup.md`

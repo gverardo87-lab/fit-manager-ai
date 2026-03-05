@@ -32,10 +32,31 @@ compromising privacy or usability on mobile/tablet.
 
 ## Impact Map
 
-- Planned files/modules:
-  - `docs/guides/assets/*` (screenshots and annotation exports)
-  - `docs/guides/*` (chapter updates with visual blocks)
-  - optional frontend rendering components if in-app docs are enabled
+- Files/modules touched:
+  - `docs/guides/illustrated/README.md`
+  - `docs/guides/illustrated/flow-01-setup-login-primi-passi.md`
+  - `docs/guides/illustrated/flow-02-dashboard-scan.md`
+  - `docs/guides/illustrated/flow-03-agenda-operativa.md`
+  - `docs/guides/illustrated/flow-04-clienti-profilo.md`
+  - `docs/guides/illustrated/flow-05-contratti-rate.md`
+  - `docs/guides/illustrated/flow-06-cassa-movimenti.md`
+  - `docs/guides/illustrated/flow-07-impostazioni-backup.md`
+  - `docs/guides/illustrated/flow-08-command-palette-assistente.md`
+  - `docs/guides/assets/illustrated/README.md`
+  - `docs/guides/assets/illustrated/manifest-wave2.md`
+  - `docs/guides/README.md`
+  - `docs/guides/chapters/01-inizio-rapido.md`
+  - `docs/guides/chapters/02-dashboard-operativa.md`
+  - `docs/guides/chapters/03-agenda-e-appuntamenti.md`
+  - `docs/guides/chapters/04-clienti-e-profilo.md`
+  - `docs/guides/chapters/05-contratti-e-pagamenti.md`
+  - `docs/guides/chapters/06-cassa-e-controllo-economico.md`
+  - `docs/guides/chapters/10-impostazioni-backup-e-sicurezza.md`
+  - `docs/guides/chapters/11-command-palette-e-assistente.md`
+  - `docs/upgrades/specs/UPG-2026-03-05-16-guide-illustrated-layer.md`
+  - `docs/upgrades/UPGRADE_LOG.md`
+  - `docs/upgrades/README.md`
+  - `docs/ai-sync/WORKBOARD.md`
 - Layer: docs UX (with optional frontend integration)
 - Invariants:
   - no sensitive real data in visuals;
@@ -56,6 +77,16 @@ compromising privacy or usability on mobile/tablet.
   - verify responsive readability at 390px, 768px, 1024px;
   - verify chapter text and visual steps are aligned.
 
+## Verification Evidence
+
+- 8 critical flow files created with callout-based step frames.
+- Responsive set declared for each flow (`desktop/tablet/mobile`).
+- Callout standards enforced in flow files and manifest:
+  - max 4 callouts per frame
+  - short labels
+  - ordered markers.
+- Wave 1 chapters linked to relevant illustrated flows.
+
 ## Risks and Mitigation
 
 - Risk: over-annotated images reduce comprehension.
@@ -65,3 +96,7 @@ compromising privacy or usability on mobile/tablet.
 
 - Revert illustrated assets and retain text-only guide foundation from Wave 1.
 
+## Notes
+
+- Wave 2 in this phase ships as annotation-ready illustrated specifications and asset manifest.
+- Screenshot capture/export execution remains operationally straightforward using the provided naming and checklist.

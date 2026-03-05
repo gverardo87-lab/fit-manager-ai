@@ -38,4 +38,4 @@ Creare contratti, monitorare rate e mantenere ordine sui pagamenti.
 - Shortcut: `Ctrl+K` -> "Nuovo Contratto"
 - Related page: `/contratti?new=1`
 - Related assistant example: `> registra entrata 100 euro contanti`
-
+- Guida illustrata: `../illustrated/flow-05-contratti-rate.md`

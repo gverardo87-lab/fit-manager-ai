@@ -37,4 +37,4 @@ Vedere stato operativo della giornata: KPI, alert, agenda e azioni rapide.
 - Shortcut: `Ctrl+K` -> "Dashboard" o "Nuova Sessione"
 - Related page: `/`, `/agenda?newEvent=1`
 - Related assistant example: `> paolo domani alle 10 colloquio`
-
+- Guida illustrata: `../illustrated/flow-02-dashboard-scan.md`

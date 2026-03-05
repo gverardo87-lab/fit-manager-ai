@@ -38,4 +38,4 @@ Gestire libro mastro, spese ricorrenti, aging report e forecast in un'unica area
 - Shortcut: `Ctrl+K` -> "Cassa"
 - Related page: `/cassa`
 - Related assistant example: `> crea uscita 45 euro carburante`
-
+- Guida illustrata: `../illustrated/flow-06-cassa-movimenti.md`
