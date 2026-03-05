@@ -194,18 +194,16 @@ export default function DashboardPage() {
           {isLoading && <KpiSkeleton />}
           {summary && <KpiCards summary={summary} events={todayEvents} alerts={alerts} />}
 
-          {/* ── Alert Panel ── */}
-          <AlertPanel alerts={alerts} isLoading={!alerts} alertActions={alertActions} />
-
-          {/* ── Lezioni della settimana ── */}
-          <WeeklyLessons events={weeklyEvents} isLoading={!weeklyEventsData} />
-
-          {/* ── Due colonne: Agenda + Todo ── */}
-          <div className="grid gap-6 lg:grid-cols-2">
-            <TodayAgenda events={todayEvents} isLoading={!eventsData} />
-            <TodoCard />
+          <div className="grid gap-6 xl:grid-cols-12">
+            <div className="space-y-6 xl:col-span-7">
+              <TodayAgenda events={todayEvents} isLoading={!eventsData} />
+              <WeeklyLessons events={weeklyEvents} isLoading={!weeklyEventsData} />
+            </div>
+            <div className="space-y-6 xl:col-span-5">
+              <AlertPanel alerts={alerts} isLoading={!alerts} alertActions={alertActions} />
+              <TodoCard />
+            </div>
           </div>
-
           {/* ── Azioni Rapide ── */}
           <QuickActions />
         </>
@@ -400,14 +398,16 @@ function AlertPanel({ alerts, isLoading, alertActions = {} }: {
 }) {
   if (isLoading) {
     return (
-      <div id="alert-panel" className="rounded-xl border p-5 space-y-3">
-        <div className="flex items-center gap-2">
+      <div id="alert-panel" className="rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-5 shadow-sm dark:from-zinc-900 dark:to-zinc-800/50">
+        <div className="mb-4 flex items-center gap-2">
           <Skeleton className="h-5 w-5 rounded" />
           <Skeleton className="h-5 w-40" />
         </div>
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-16 w-full rounded-lg" />
-        ))}
+        <div className="grid gap-3 sm:grid-cols-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-28 w-full rounded-xl" />
+          ))}
+        </div>
       </div>
     );
   }
@@ -418,17 +418,15 @@ function AlertPanel({ alerts, isLoading, alertActions = {} }: {
 
   if (!alerts || visibleAlerts.length === 0) {
     return (
-      <div id="alert-panel" className="flex items-center gap-4 rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50/80 to-white p-5 shadow-sm dark:border-emerald-800/50 dark:from-emerald-950/30 dark:to-zinc-900">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-900/30">
-          <CheckCircle2 className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
-        </div>
-        <div>
-          <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
-            Tutto sotto controllo
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Nessun alert attivo — ottimo lavoro!
-          </p>
+      <div id="alert-panel" className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50/80 to-white p-5 shadow-sm dark:border-emerald-800/50 dark:from-emerald-950/30 dark:to-zinc-900">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-900/30">
+            <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">Nessun alert operativo</p>
+            <p className="mt-1 text-xs text-muted-foreground">Tutto sotto controllo. Nessuna azione urgente richiesta.</p>
+          </div>
         </div>
       </div>
     );
@@ -436,8 +434,7 @@ function AlertPanel({ alerts, isLoading, alertActions = {} }: {
 
   return (
     <div id="alert-panel" className="rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-5 shadow-sm dark:from-zinc-900 dark:to-zinc-800/50">
-      {/* Header con badge notifica */}
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
           <div className="relative">
             <Bell className="h-5 w-5 text-amber-500" />
@@ -445,7 +442,7 @@ function AlertPanel({ alerts, isLoading, alertActions = {} }: {
               {visibleAlerts.length}
             </span>
           </div>
-          <h3 className="font-semibold">Attenzione Richiesta</h3>
+          <h3 className="font-semibold">Alert operativi</h3>
         </div>
         <div className="flex items-center gap-1.5">
           {criticalCount > 0 && (
@@ -461,8 +458,7 @@ function AlertPanel({ alerts, isLoading, alertActions = {} }: {
         </div>
       </div>
 
-      {/* Alert items — gerarchia visiva per severity */}
-      <div className="space-y-2.5">
+      <div className="grid gap-3 sm:grid-cols-2">
         {visibleAlerts.map((item, idx) => {
           const catCfg = ALERT_CATEGORY_CONFIG[item.category] ?? ALERT_CATEGORY_CONFIG.ghost_events;
           const CatIcon = catCfg.icon;
@@ -471,63 +467,64 @@ function AlertPanel({ alerts, isLoading, alertActions = {} }: {
           return (
             <div
               key={`${item.category}-${idx}`}
-              className={`flex items-center gap-3 rounded-lg border border-l-4 ${catCfg.borderColor} p-3.5 transition-all hover:shadow-md hover:-translate-y-0.5 ${
-                isCritical
-                  ? "bg-red-50/60 dark:bg-red-950/20"
-                  : "bg-white dark:bg-zinc-900"
+              className={`rounded-xl border border-l-4 ${catCfg.borderColor} p-3.5 transition-all hover:-translate-y-0.5 hover:shadow-md ${
+                isCritical ? "bg-red-50/60 dark:bg-red-950/20" : "bg-white dark:bg-zinc-900"
               }`}
             >
-              {/* Icona — piu' grande per critical */}
-              <div className={`flex ${isCritical ? "h-10 w-10" : "h-9 w-9"} shrink-0 items-center justify-center rounded-lg ${catCfg.bgColor}`}>
-                <CatIcon className={`${isCritical ? "h-5 w-5" : "h-4 w-4"} ${catCfg.color}`} />
-              </div>
-
-              {/* Contenuto */}
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <p className={`${isCritical ? "text-sm" : "text-[13px]"} font-semibold leading-tight`}>
-                    {item.title}
-                  </p>
+              <div className="mb-3 flex items-start justify-between gap-2">
+                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${catCfg.bgColor}`}>
+                  <CatIcon className={`h-4 w-4 ${catCfg.color}`} />
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {isCritical && (
+                    <Badge variant="destructive" className="h-5 px-1.5 py-0 text-[9px] uppercase">
+                      Critico
+                    </Badge>
+                  )}
+                  {!isCritical && (
+                    <Badge variant="secondary" className="h-5 px-1.5 py-0 text-[9px] uppercase">
+                      Avviso
+                    </Badge>
+                  )}
                   {item.count > 1 && (
-                    <Badge variant="secondary" className="h-4 px-1.5 py-0 text-[9px]">
-                      {item.count}
+                    <Badge variant="outline" className="h-5 px-1.5 py-0 text-[9px]">
+                      x{item.count}
                     </Badge>
                   )}
                 </div>
-                <p className="mt-0.5 text-[11px] text-muted-foreground">{item.detail}</p>
               </div>
 
-              {/* CTA contestuale — Sheet inline o navigazione */}
-              {alertActions[item.category] ? (
-                <Button
-                  variant={isCritical ? "default" : "outline"}
-                  size="sm"
-                  className={`h-8 shrink-0 gap-1.5 text-xs font-medium ${
-                    isCritical
-                      ? "bg-red-600 text-white shadow-sm hover:bg-red-700"
-                      : ""
-                  }`}
-                  onClick={alertActions[item.category]}
-                >
-                  {catCfg.cta}
-                  <ArrowRight className="h-3 w-3" />
-                </Button>
-              ) : item.link ? (
-                <Link href={item.link}>
+              <p className="text-sm font-semibold leading-tight">{item.title}</p>
+              <p className="mt-1 text-xs leading-snug text-muted-foreground">{item.detail}</p>
+
+              <div className="mt-3">
+                {alertActions[item.category] ? (
                   <Button
                     variant={isCritical ? "default" : "outline"}
                     size="sm"
-                    className={`h-8 shrink-0 gap-1.5 text-xs font-medium ${
-                      isCritical
-                        ? "bg-red-600 text-white shadow-sm hover:bg-red-700"
-                        : ""
+                    className={`h-8 w-full justify-between gap-1.5 text-xs font-medium ${
+                      isCritical ? "bg-red-600 text-white shadow-sm hover:bg-red-700" : ""
                     }`}
+                    onClick={alertActions[item.category]}
                   >
                     {catCfg.cta}
                     <ArrowRight className="h-3 w-3" />
                   </Button>
-                </Link>
-              ) : null}
+                ) : item.link ? (
+                  <Link href={item.link}>
+                    <Button
+                      variant={isCritical ? "default" : "outline"}
+                      size="sm"
+                      className={`h-8 w-full justify-between gap-1.5 text-xs font-medium ${
+                        isCritical ? "bg-red-600 text-white shadow-sm hover:bg-red-700" : ""
+                      }`}
+                    >
+                      {catCfg.cta}
+                      <ArrowRight className="h-3 w-3" />
+                    </Button>
+                  </Link>
+                ) : null}
+              </div>
             </div>
           );
         })}
@@ -535,11 +532,6 @@ function AlertPanel({ alerts, isLoading, alertActions = {} }: {
     </div>
   );
 }
-
-// ════════════════════════════════════════════════════════════
-// Agenda Oggi
-// ════════════════════════════════════════════════════════════
-
 interface WeeklyCategoryStat {
   category: string;
   label: string;
@@ -600,7 +592,7 @@ function WeeklyLessons({ events, isLoading }: { events: EventHydrated[]; isLoadi
     return (
       <div className="rounded-xl border p-5 space-y-4">
         <Skeleton className="h-5 w-52" />
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-[108px] w-full rounded-lg" />
           ))}
@@ -637,7 +629,7 @@ function WeeklyLessons({ events, isLoading }: { events: EventHydrated[]; isLoadi
           <p className="text-sm text-muted-foreground">Nessuna lezione pianificata questa settimana</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {stats.map((stat) => {
             const color = CATEGORY_COLORS[stat.category] ?? "bg-zinc-400";
             return (
@@ -678,9 +670,9 @@ function TodayAgenda({ events, isLoading }: { events: EventHydrated[]; isLoading
   if (isLoading) {
     return (
       <div className="rounded-xl border p-5 space-y-4">
-        <Skeleton className="h-5 w-40" />
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-14 w-full rounded-lg" />
+        <Skeleton className="h-5 w-44" />
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-20 w-full rounded-xl" />
         ))}
       </div>
     );
@@ -694,36 +686,36 @@ function TodayAgenda({ events, isLoading }: { events: EventHydrated[]; isLoading
 
   return (
     <div className="rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-5 shadow-sm dark:from-zinc-900 dark:to-zinc-800/50">
-      {/* Header */}
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 text-violet-500" />
-          <h3 className="text-sm font-semibold">Agenda Oggi</h3>
+          <h3 className="text-base font-semibold">Agenda Oggi</h3>
+          {events.length > 0 && (
+            <Badge variant="secondary" className="h-5 px-2 text-[11px]">
+              {events.length} {events.length === 1 ? "sessione" : "sessioni"}
+            </Badge>
+          )}
         </div>
         <Link href="/agenda">
-          <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs">
+          <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs">
             Calendario <ArrowRight className="h-3 w-3" />
           </Button>
         </Link>
       </div>
 
-      <p className="mb-3 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+      <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {todayFormatted}
       </p>
 
       {events.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed p-6 text-center">
           <CalendarCheck className="h-8 w-8 text-muted-foreground/30" />
-          <p className="text-sm text-muted-foreground">
-            Nessun appuntamento oggi
-          </p>
-          <p className="text-xs text-muted-foreground/70">
-            La giornata e&apos; libera
-          </p>
+          <p className="text-sm text-muted-foreground">Nessun appuntamento oggi</p>
+          <p className="text-xs text-muted-foreground/70">La giornata e&apos; libera</p>
         </div>
       ) : (
-        <ScrollArea className={events.length > 5 ? "h-[220px]" : ""}>
-          <div className="space-y-2">
+        <ScrollArea className={events.length > 6 ? "h-[300px] pr-1" : ""}>
+          <div className="space-y-3">
             {events.map((event) => {
               const time = event.data_inizio.toLocaleTimeString("it-IT", {
                 hour: "2-digit",
@@ -735,33 +727,39 @@ function TodayAgenda({ events, isLoading }: { events: EventHydrated[]; isLoading
               });
               const catColor = CATEGORY_COLORS[event.categoria] ?? "bg-zinc-400";
               const statusColor = STATUS_COLORS[event.stato] ?? "";
+              const timeTone = event.stato === "Completato"
+                ? "border-emerald-200 bg-emerald-50/80 dark:border-emerald-900/40 dark:bg-emerald-950/20"
+                : "border-violet-200 bg-violet-50/80 dark:border-violet-900/40 dark:bg-violet-950/20";
 
               return (
                 <div
                   key={event.id}
-                  className="flex items-center gap-3 rounded-lg border bg-white p-3 transition-shadow hover:shadow-sm dark:bg-zinc-900"
+                  className="grid grid-cols-[86px_1fr_auto] items-center gap-3 rounded-xl border bg-white p-3.5 transition-all hover:-translate-y-0.5 hover:shadow-sm dark:bg-zinc-900"
                 >
-                  <div className={`h-8 w-1 shrink-0 rounded-full ${catColor}`} />
-                  <div className="min-w-0 flex-1">
+                  <div className={`rounded-lg border px-2 py-1 text-center ${timeTone}`}>
+                    <p className="text-lg font-extrabold tabular-nums text-zinc-800 dark:text-zinc-100">{time}</p>
+                    <p className="text-[11px] tabular-nums text-muted-foreground">{endTime}</p>
+                  </div>
+
+                  <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold tabular-nums text-muted-foreground">
-                        {time}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground/50">—</span>
-                      <span className="text-[10px] tabular-nums text-muted-foreground/70">
-                        {endTime}
-                      </span>
+                      <span className={`h-2.5 w-2.5 rounded-full ${catColor}`} />
+                      <p className={`truncate text-[15px] font-semibold leading-tight ${statusColor}`}>
+                        {event.titolo || event.categoria}
+                      </p>
                     </div>
-                    <p className={`truncate text-sm font-medium ${statusColor}`}>
-                      {event.titolo || event.categoria}
-                    </p>
-                    {event.cliente_nome && (
-                      <p className="truncate text-[11px] text-muted-foreground">
+                    {event.cliente_nome ? (
+                      <p className="mt-1 truncate text-sm text-muted-foreground">
                         {event.cliente_nome} {event.cliente_cognome}
                       </p>
+                    ) : event.note ? (
+                      <p className="mt-1 truncate text-xs text-muted-foreground">{event.note}</p>
+                    ) : (
+                      <p className="mt-1 text-xs text-muted-foreground/60">Nessuna nota</p>
                     )}
                   </div>
-                  <Badge variant="outline" className="shrink-0 text-[9px]">
+
+                  <Badge variant="outline" className="shrink-0 px-2 py-0.5 text-xs font-semibold">
                     {event.categoria}
                   </Badge>
                 </div>
@@ -773,11 +771,6 @@ function TodayAgenda({ events, isLoading }: { events: EventHydrated[]; isLoading
     </div>
   );
 }
-
-// ════════════════════════════════════════════════════════════
-// Azioni Rapide
-// ════════════════════════════════════════════════════════════
-
 const QUICK_ACTIONS = [
   {
     label: "Nuovo Cliente",
