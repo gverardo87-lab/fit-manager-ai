@@ -53,6 +53,7 @@ def test_pay_rate_creates_cash_movement(client, auth_headers, sample_contract_wi
     client.post(f"/api/rates/{rate['id']}/pay", json={
         "importo": 200.0,
         "metodo": "BONIFICO",
+        "data_pagamento": "2026-02-01",
     }, headers=auth_headers)
 
     # Verifica movimenti

@@ -71,7 +71,11 @@ export function useUnsavedChanges<T>({
 }: UseUnsavedChangesOptions<T>): void {
   // Ref per evitare closure stale nel listener
   const dirtyRef = useRef(dirty);
-  dirtyRef.current = dirty;
+
+  // Sync ref fuori dal render per rispettare i vincoli React hooks lint.
+  useEffect(() => {
+    dirtyRef.current = dirty;
+  }, [dirty]);
 
   // Livello 1: beforeunload (chiusura tab / refresh)
   useEffect(() => {
@@ -86,8 +90,8 @@ export function useUnsavedChanges<T>({
 
   // Livello 2: auto-save draft quando dirty + dati cambiano
   useEffect(() => {
-    if (draftKey && draftData !== undefined && dirtyRef.current) {
+    if (draftKey && draftData !== undefined && dirty) {
       saveDraft(draftKey, draftData);
     }
-  }, [draftKey, draftData]);
+  }, [dirty, draftKey, draftData]);
 }

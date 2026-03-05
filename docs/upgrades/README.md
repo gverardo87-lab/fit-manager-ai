@@ -61,3 +61,5 @@ Esempio:
 - `UPG-2026-03-05-20`: scaffold pagina `/guida` + sidebar + CommandPalette. Evoluto in SpotlightTour (UPG-23).
 - `UPG-2026-03-05-21`: hardening governance per sviluppo parallelo Codex + Claude Code (priority sync, protocollo lock/handoff, workboard contract, allineamento CLAUDE layer).
 - `UPG-2026-03-05-23`: SpotlightTour interattivo 19 passi con navigazione cross-page. Hub `/guida` con tour launcher, FAQ, scorciatoie e feature discovery.
+- `UPG-2026-03-05-24`: stabilizzazione CI backend su pagamenti rate: test `test_pay_rate_creates_cash_movement` reso deterministico con `data_pagamento` esplicita, piu' verifica target (`test singolo + file completo`).
+- `UPG-2026-03-05-25`: hardening lint React Hooks su agenda/draft guard (`setState-in-effect`, `ref in render`, deps memo) con verifica mirata ESLint sui file critici.

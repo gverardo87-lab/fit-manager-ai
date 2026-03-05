@@ -12,7 +12,7 @@
  * - Color coding per categoria (PT=blu, SALA=grigio, ecc.)
  */
 
-import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { format, startOfWeek, endOfWeek, endOfDay, startOfMonth, endOfMonth, subMonths, addMonths } from "date-fns";
 import { it } from "date-fns/locale";
 import { Plus, CalendarDays, Eye, EyeOff, CheckCircle2, Clock, Target, AlertTriangle, Loader2 } from "lucide-react";
@@ -41,34 +41,43 @@ function getInitialRange() {
   };
 }
 
+/** Legge deep-link iniziale una sola volta per evitare setState in useEffect. */
+function getInitialDeepLinkState() {
+  if (typeof window === "undefined") {
+    return { openFromDeepLink: false, defaultClientId: undefined as number | undefined };
+  }
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("newEvent") !== "1") {
+    return { openFromDeepLink: false, defaultClientId: undefined as number | undefined };
+  }
+  const rawClientId = params.get("clientId");
+  const parsedClientId = rawClientId ? Number(rawClientId) : undefined;
+  return {
+    openFromDeepLink: true,
+    defaultClientId: Number.isFinite(parsedClientId) ? parsedClientId : undefined,
+  };
+}
+
 export default function AgendaPage() {
+  const [initialDeepLink] = useState(getInitialDeepLinkState);
   // ── State: date range per la query API ──
   const [dateRange, setDateRange] = useState(getInitialRange);
 
   // ── State: Sheet crea/modifica ──
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(() => initialDeepLink.openFromDeepLink);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [slotStart, setSlotStart] = useState<Date | undefined>();
   const [slotEnd, setSlotEnd] = useState<Date | undefined>();
-  const [defaultClientId, setDefaultClientId] = useState<number | undefined>();
+  const [defaultClientId] = useState<number | undefined>(
+    () => initialDeepLink.defaultClientId
+  );
 
-  // ── Deep-link: ?newEvent=1&clientId=X → auto-apre Sheet con cliente ──
-  const deepLinkConsumed = useRef(false);
+  // ── Deep-link: ?newEvent=1&clientId=X → pulizia URL dopo bootstrap iniziale ──
   useEffect(() => {
-    if (deepLinkConsumed.current) return;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("newEvent") === "1") {
-      deepLinkConsumed.current = true;
-      const cid = params.get("clientId");
-      if (cid) setDefaultClientId(Number(cid));
-      setSelectedEvent(null);
-      setSlotStart(undefined);
-      setSlotEnd(undefined);
-      setSheetOpen(true);
-      // Pulisci URL senza ricaricare
-      window.history.replaceState(window.history.state, "", window.location.pathname);
-    }
-  }, []);
+    if (!initialDeepLink.openFromDeepLink) return;
+    // Pulisci URL senza ricaricare
+    window.history.replaceState(window.history.state, "", window.location.pathname);
+  }, [initialDeepLink.openFromDeepLink]);
 
   // ── State: Dialog elimina ──
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -97,7 +106,7 @@ export default function AgendaPage() {
   );
 
   const { data: eventsData, isLoading, isError, isFetching, refetch } = useEvents(queryParams);
-  const events = eventsData?.items ?? [];
+  const events = useMemo(() => eventsData?.items ?? [], [eventsData]);
 
   // ── Eventi filtrati per categoria + stato (per il calendario) ──
   const calendarEvents = useMemo(
