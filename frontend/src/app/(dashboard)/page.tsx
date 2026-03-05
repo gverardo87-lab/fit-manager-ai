@@ -798,7 +798,7 @@ function AgendaLivePanel({ events, isLoading }: { events: EventHydrated[]; isLoa
 
   if (isLoading) {
     return (
-      <div className="rounded-xl border p-5 space-y-4">
+      <div className="rounded-xl border p-5 space-y-4 lg:h-[430px]">
         <Skeleton className="h-5 w-40" />
         <Skeleton className="h-24 w-full rounded-xl" />
         <div className="grid grid-cols-2 gap-3">
@@ -868,7 +868,7 @@ function AgendaLivePanel({ events, isLoading }: { events: EventHydrated[]; isLoa
       : "text-zinc-700 dark:text-zinc-300";
 
   return (
-    <div className="rounded-xl border bg-gradient-to-br from-white via-white to-zinc-50/60 p-5 shadow-sm dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800/50">
+    <div className="flex flex-col rounded-xl border bg-gradient-to-br from-white via-white to-zinc-50/60 p-5 shadow-sm lg:h-[430px] dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800/50">
       <div className="mb-4 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Clock className="h-4 w-4 text-blue-500" />
@@ -879,33 +879,33 @@ function AgendaLivePanel({ events, isLoading }: { events: EventHydrated[]; isLoa
         </Badge>
       </div>
 
-      <div className="rounded-xl border bg-white/90 p-4 text-center shadow-sm dark:bg-zinc-900/90">
+      <div className="rounded-xl border bg-white/90 p-3 text-center shadow-sm dark:bg-zinc-900/90">
         <p className="text-[11px] font-medium text-muted-foreground">{nowDayLabel}</p>
-        <p className="mt-1 text-4xl font-extrabold leading-none tabular-nums text-zinc-800 dark:text-zinc-100">
+        <p className="mt-1 text-3xl font-extrabold leading-none tabular-nums text-zinc-800 dark:text-zinc-100">
           {nowLabel}
         </p>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-3">
-        <div className={`rounded-xl border p-3 ${countdownTone}`}>
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <div className={`rounded-xl border p-2.5 ${countdownTone}`}>
           <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
             {liveInfo.mode === "in_progress" ? "Fine tra" : "Inizio tra"}
           </p>
-          <p className={`mt-1 text-2xl font-extrabold leading-none tabular-nums ${countdownTextTone}`}>
+          <p className={`mt-1 text-xl font-extrabold leading-none tabular-nums ${countdownTextTone}`}>
             {liveInfo.mode === "free" ? "--:--:--" : nextCountdown}
           </p>
         </div>
-        <div className={`rounded-xl border p-3 ${statusTone}`}>
+        <div className={`rounded-xl border p-2.5 ${statusTone}`}>
           <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
             Stato
           </p>
           <p className={`mt-1 text-sm font-bold ${statusTitleTone}`}>{statusTitle}</p>
-          <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{statusSubtitle}</p>
+          <p className="mt-1 text-[10px] leading-snug text-muted-foreground">{statusSubtitle}</p>
         </div>
       </div>
 
       {liveInfo.event && (
-        <div className="mt-3 rounded-xl border bg-white/80 p-3 dark:bg-zinc-900/80">
+        <div className="mt-2 rounded-xl border bg-white/80 p-2.5 dark:bg-zinc-900/80">
           <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
             Dettaglio sessione
           </p>
@@ -939,7 +939,7 @@ function TodayAgenda({ events, isLoading }: { events: EventHydrated[]; isLoading
 
   if (isLoading) {
     return (
-      <div className="rounded-xl border p-5 space-y-4">
+      <div className="rounded-xl border p-5 space-y-4 lg:h-[430px]">
         <Skeleton className="h-5 w-44" />
         {Array.from({ length: 4 }).map((_, i) => (
           <Skeleton key={i} className="h-24 w-full rounded-xl" />
@@ -955,7 +955,7 @@ function TodayAgenda({ events, isLoading }: { events: EventHydrated[]; isLoading
   });
 
   return (
-    <div className="rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-5 shadow-sm dark:from-zinc-900 dark:to-zinc-800/50">
+    <div className="flex flex-col rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-5 shadow-sm lg:h-[430px] dark:from-zinc-900 dark:to-zinc-800/50">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 text-violet-500" />
@@ -979,13 +979,13 @@ function TodayAgenda({ events, isLoading }: { events: EventHydrated[]; isLoading
       </p>
 
       {events.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed p-6 text-center">
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-6 text-center">
           <CalendarCheck className="h-8 w-8 text-muted-foreground/30" />
           <p className="text-sm text-muted-foreground">Nessun appuntamento oggi</p>
           <p className="text-xs text-muted-foreground/70">La giornata e&apos; libera</p>
         </div>
       ) : (
-        <ScrollArea className={events.length > 6 ? "h-[300px] pr-1" : ""}>
+        <ScrollArea className="min-h-0 flex-1 pr-1">
           <div className="space-y-3">
             {events.map((event) => {
               const time = event.data_inizio.toLocaleTimeString("it-IT", {
