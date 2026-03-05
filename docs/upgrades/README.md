@@ -61,3 +61,4 @@ Esempio:
 - `UPG-2026-03-05-17`: Wave 3 guida interattiva + integrazione assistant/help routing (planned).
 - `UPG-2026-03-05-18`: hardening dashboard mobile overflow/clipping (KPI/alert/agenda/todo) con width constraints e wrapping/truncate sicuro.
 - `UPG-2026-03-05-19`: dashboard piu' viva con barra "Focus operativo" + animazioni leggere a comparsa (no nuove dipendenze, rollback via flag locale).
+- `UPG-2026-03-05-20`: prima pagina guida in-app (`/guida`) con roadmap Wave 1-4 + shortcut aree CRM, integrata in sidebar e command palette.

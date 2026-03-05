@@ -24,6 +24,7 @@ import {
   FileText,
   Dumbbell,
   Wallet,
+  BookOpen,
   Settings,
   UserPlus,
   FilePlus,
@@ -91,6 +92,7 @@ const NAV_ITEMS = [
   { id: "nav-schede", href: "/schede", label: "Schede Allenamento", icon: Dumbbell },
   { id: "nav-allenamenti", href: "/allenamenti", label: "Monitoraggio Allenamenti", icon: Activity },
   { id: "nav-cassa", href: "/cassa", label: "Cassa", icon: Wallet },
+  { id: "nav-guida", href: "/guida", label: "Guida", icon: BookOpen },
   { id: "nav-impostazioni", href: "/impostazioni", label: "Impostazioni", icon: Settings },
 ] as const;
 

@@ -18,6 +18,7 @@ import {
   Users,
   FileText,
   Wallet,
+  BookOpen,
   Settings,
   LogOut,
   Dumbbell,
@@ -72,6 +73,7 @@ const NAV_TOP: NavEntry[] = [
 ];
 
 const NAV_BOTTOM: NavLink[] = [
+  { href: "/guida", label: "Guida", icon: BookOpen },
   { href: "/impostazioni", label: "Impostazioni", icon: Settings },
 ];
 
