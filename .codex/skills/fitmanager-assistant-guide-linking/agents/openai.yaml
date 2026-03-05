@@ -1,0 +1,4 @@
+interface:
+  display_name: "FitManager Assistant Guide Linking"
+  short_description: "Connect assistant NLP flows with read-only guide help."
+  default_prompt: "Use $fitmanager-assistant-guide-linking to add safe assistant routing between command execution and contextual guide help."

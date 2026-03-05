@@ -65,12 +65,15 @@ Do not hide risks. Surface them early and explicitly.
 - Avoid exposing sensitive data in default overview screens.
 - For dashboard visual redesigns, apply `.codex/skills/fitmanager-dashboard-crm-design` guidance.
 - For tablet/mobile UI optimization across CRM pages, apply `.codex/skills/fitmanager-responsive-adaptive-ui` guidance.
+- For user-guide chapter and contextual help content design, apply `.codex/skills/fitmanager-guide-content-architecture` guidance.
+- For illustrated guide assets (screenshots/callouts/step visuals), apply `.codex/skills/fitmanager-guide-illustrated-playbook` guidance.
 
 ### Cross-layer
 
 - No hardcoded absolute paths.
 - Persist business data in `data/`.
 - Keep core CRM usable without mandatory AI dependency.
+- For assistant-to-guide routing and NLP/NPL help integration, apply `.codex/skills/fitmanager-assistant-guide-linking` with API/frontend safety guardrails.
 
 ## 6) Mandatory Technical Review per Change
 
@@ -97,6 +100,7 @@ When relevant:
 - accounting/cash logic: targeted ledger integrity checks
 - safety engine logic: dedicated clinical QA scripts
 - installer/backup changes: backup -> mutate -> restore validation flow
+- guide/help changes: chapter coverage audit across CRM routes + link integrity + responsive pass (390px, 768px, 1024px)
 
 Do not claim done without verification evidence.
 

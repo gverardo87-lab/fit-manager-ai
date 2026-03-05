@@ -1,0 +1,4 @@
+interface:
+  display_name: "FitManager Guide Illustrated Playbook"
+  short_description: "Produce screenshot and callout based guidance assets."
+  default_prompt: "Use $fitmanager-guide-illustrated-playbook to create an illustrated walkthrough for this FitManager user flow."

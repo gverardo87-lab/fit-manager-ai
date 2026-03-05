@@ -1,0 +1,4 @@
+interface:
+  display_name: "FitManager Guide Content Architecture"
+  short_description: "Build chapter/section help structure for CRM workflows."
+  default_prompt: "Use $fitmanager-guide-content-architecture to design a complete, route-mapped user guide section for this FitManager scope."

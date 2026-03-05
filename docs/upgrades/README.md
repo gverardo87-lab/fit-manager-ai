@@ -55,3 +55,7 @@ Esempio:
 - `UPG-2026-03-05-11`: correzione densita verticale dashboard: riquadri agenda/live compatti e appuntamenti sempre scrollabili internamente.
 - `UPG-2026-03-05-12`: ottimizzazione responsive tablet/mobile dashboard + nuova skill riusabile `fitmanager-responsive-adaptive-ui` con routing in `AGENTS.md`.
 - `UPG-2026-03-05-13`: hardening logica temporale dashboard (date locali no UTC shift + refresh automatico al cambio giorno).
+- `UPG-2026-03-05-14`: Wave 0 guida completata (foundation governance): 3 nuove skill guida, routing `AGENTS.md`, roadmap Wave 1-3 pronta.
+- `UPG-2026-03-05-15`: Wave 1 guida a capitoli/sezioni (planned).
+- `UPG-2026-03-05-16`: Wave 2 guida illustrata con callout standard (planned).
+- `UPG-2026-03-05-17`: Wave 3 guida interattiva + integrazione assistant/help routing (planned).
