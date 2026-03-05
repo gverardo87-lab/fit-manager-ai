@@ -4,38 +4,31 @@
 /**
  * Dashboard — CRM-grade overview con 4 sezioni:
  *
- * 1. Hero KPI: 6 card gradient (clienti, entrate, uscite, margine, rate, appuntamenti)
+ * 1. Hero KPI: card operative (clienti, appuntamenti)
  * 2. Alert Panel: warning proattivi a 3 livelli di severita'
- * 3. Due colonne: Orizzonte Finanziario (mini aging) + Agenda Oggi
- * 4. Azioni rapide: link a creazione cliente, contratto, movimento
+ * 3. Due colonne: Agenda Oggi + Todo
+ * 4. Azioni rapide: link a creazione cliente, contratto, scheda
  *
- * Dati da 5 hook — incluso nuovo /dashboard/alerts.
+ * Dati da hook operativi + /dashboard/alerts.
  */
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Users,
-  TrendingUp,
-  TrendingDown,
-  Target,
-  AlertTriangle,
   CalendarCheck,
   LayoutDashboard,
   UserPlus,
   FileText,
-  Landmark,
   Clock,
   Calendar,
   ArrowRight,
   AlertCircle,
   CheckCircle2,
-  ShieldAlert,
   Ghost,
   UserX,
   CreditCard,
   Bell,
-  Wallet,
   Sparkles,
   Rocket,
 } from "lucide-react";
@@ -43,26 +36,20 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useDashboard, useDashboardAlerts } from "@/hooks/useDashboard";
-import { useMovementStats } from "@/hooks/useMovements";
-import { useAgingReport } from "@/hooks/useRates";
 import { useEvents, type EventHydrated } from "@/hooks/useAgenda";
-import { formatCurrency } from "@/lib/format";
 import { AnimatedNumber } from "@/components/ui/animated-number";
 import { GhostEventsSheet } from "@/components/dashboard/GhostEventsSheet";
-import { OverdueRatesSheet } from "@/components/dashboard/OverdueRatesSheet";
 import { ExpiringContractsSheet } from "@/components/dashboard/ExpiringContractsSheet";
 import { InactiveClientsSheet } from "@/components/dashboard/InactiveClientsSheet";
 import { TodoCard } from "@/components/dashboard/TodoCard";
-import type { DashboardSummary, MovementStats, AgingResponse, DashboardAlerts } from "@/types/api";
+import type { DashboardSummary, DashboardAlerts } from "@/types/api";
 
 // ── Date helpers ──
 
 const now = new Date();
 const ANNO = now.getFullYear();
-const MESE = now.getMonth() + 1;
 
 function todayISO(): string {
   return now.toISOString().slice(0, 10);
@@ -99,14 +86,11 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function DashboardPage() {
   const { data: summary, isLoading: summaryLoading, isError, refetch } = useDashboard();
-  const { data: stats, isLoading: statsLoading } = useMovementStats(ANNO, MESE);
   const { data: alerts } = useDashboardAlerts();
-  const { data: aging } = useAgingReport();
   const { data: eventsData } = useEvents({ start: todayISO(), end: tomorrowISO() });
 
   // Sheet state per risoluzione inline alert
   const [ghostSheetOpen, setGhostSheetOpen] = useState(false);
-  const [overdueSheetOpen, setOverdueSheetOpen] = useState(false);
   const [expiringSheetOpen, setExpiringSheetOpen] = useState(false);
   const [inactiveSheetOpen, setInactiveSheetOpen] = useState(false);
 
@@ -118,12 +102,11 @@ export default function DashboardPage() {
       .sort((a, b) => a.data_inizio.getTime() - b.data_inizio.getTime());
   }, [eventsData]);
 
-  const isLoading = summaryLoading || statsLoading;
+  const isLoading = summaryLoading;
 
   // Handler CTA per categoria alert — apre Sheet inline
   const alertActions: Record<string, () => void> = {
     ghost_events: () => setGhostSheetOpen(true),
-    overdue_rates: () => setOverdueSheetOpen(true),
     expiring_contracts: () => setExpiringSheetOpen(true),
     inactive_clients: () => setInactiveSheetOpen(true),
   };
@@ -138,7 +121,7 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-sm text-muted-foreground">
-            Panoramica della tua attivita' — {MESE_LABEL} {ANNO}
+            Panoramica della tua attivita&apos; — {MESE_LABEL} {ANNO}
           </p>
         </div>
       </div>
@@ -165,14 +148,13 @@ export default function DashboardPage() {
         <>
           {/* ── Hero KPI ── */}
           {isLoading && <KpiSkeleton />}
-          {summary && stats && <KpiCards summary={summary} stats={stats} />}
+          {summary && <KpiCards summary={summary} />}
 
           {/* ── Alert Panel ── */}
           <AlertPanel alerts={alerts} isLoading={!alerts} alertActions={alertActions} />
 
-          {/* ── Tre colonne: Aging + Agenda + Todo ── */}
-          <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
-            <FinancialHealth aging={aging} isLoading={!aging} />
+          {/* ── Due colonne: Agenda + Todo ── */}
+          <div className="grid gap-6 lg:grid-cols-2">
             <TodayAgenda events={todayEvents} isLoading={!eventsData} />
             <TodoCard />
           </div>
@@ -184,7 +166,6 @@ export default function DashboardPage() {
 
       {/* ── Sheet risoluzione inline ── */}
       <GhostEventsSheet open={ghostSheetOpen} onOpenChange={setGhostSheetOpen} />
-      <OverdueRatesSheet open={overdueSheetOpen} onOpenChange={setOverdueSheetOpen} />
       <ExpiringContractsSheet open={expiringSheetOpen} onOpenChange={setExpiringSheetOpen} />
       <InactiveClientsSheet open={inactiveSheetOpen} onOpenChange={setInactiveSheetOpen} />
     </div>
@@ -201,7 +182,7 @@ interface KpiDef {
   subtitle: string;
   icon: typeof Users;
   value: number;
-  format: "number" | "currency";
+  format: "number";
   href: string;
   borderColor: string;
   gradient: string;
@@ -210,9 +191,7 @@ interface KpiDef {
   valueColor: string;
 }
 
-function buildKpiList(summary: DashboardSummary, stats: MovementStats): KpiDef[] {
-  const isPositive = stats.margine_netto >= 0;
-
+function buildKpiList(summary: DashboardSummary): KpiDef[] {
   return [
     {
       key: "clients",
@@ -227,82 +206,6 @@ function buildKpiList(summary: DashboardSummary, stats: MovementStats): KpiDef[]
       iconBg: "bg-blue-100 dark:bg-blue-900/30",
       iconColor: "text-blue-600 dark:text-blue-400",
       valueColor: "text-blue-700 dark:text-blue-400",
-    },
-    {
-      key: "revenue",
-      label: "Entrate",
-      subtitle: "questo mese",
-      icon: TrendingUp,
-      value: stats.totale_entrate,
-      format: "currency",
-      href: "/cassa",
-      borderColor: "border-l-emerald-500",
-      gradient: "from-emerald-50/80 to-white dark:from-emerald-950/40 dark:to-zinc-900",
-      iconBg: "bg-emerald-100 dark:bg-emerald-900/30",
-      iconColor: "text-emerald-600 dark:text-emerald-400",
-      valueColor: "text-emerald-700 dark:text-emerald-400",
-    },
-    {
-      key: "expenses",
-      label: "Uscite Totali",
-      subtitle: "questo mese",
-      icon: TrendingDown,
-      value: stats.totale_uscite_variabili + stats.totale_uscite_fisse,
-      format: "currency",
-      href: "/cassa",
-      borderColor: "border-l-red-500",
-      gradient: "from-red-50/80 to-white dark:from-red-950/40 dark:to-zinc-900",
-      iconBg: "bg-red-100 dark:bg-red-900/30",
-      iconColor: "text-red-600 dark:text-red-400",
-      valueColor: "text-red-700 dark:text-red-400",
-    },
-    {
-      key: "margin",
-      label: "Margine Netto",
-      subtitle: "questo mese",
-      icon: Target,
-      value: stats.margine_netto,
-      format: "currency",
-      href: "/cassa",
-      borderColor: isPositive ? "border-l-emerald-500" : "border-l-red-500",
-      gradient: isPositive
-        ? "from-emerald-50/80 to-white dark:from-emerald-950/40 dark:to-zinc-900"
-        : "from-red-50/80 to-white dark:from-red-950/40 dark:to-zinc-900",
-      iconBg: isPositive ? "bg-emerald-100 dark:bg-emerald-900/30" : "bg-red-100 dark:bg-red-900/30",
-      iconColor: isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400",
-      valueColor: isPositive ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400",
-    },
-    {
-      key: "saldo",
-      label: "Saldo di Cassa",
-      subtitle: "attuale",
-      icon: Wallet,
-      value: summary.saldo_attuale,
-      format: "currency",
-      href: "/cassa",
-      borderColor: summary.saldo_attuale >= 0 ? "border-l-teal-500" : "border-l-red-500",
-      gradient: summary.saldo_attuale >= 0
-        ? "from-teal-50/80 to-white dark:from-teal-950/40 dark:to-zinc-900"
-        : "from-red-50/80 to-white dark:from-red-950/40 dark:to-zinc-900",
-      iconBg: summary.saldo_attuale >= 0 ? "bg-teal-100 dark:bg-teal-900/30" : "bg-red-100 dark:bg-red-900/30",
-      iconColor: summary.saldo_attuale >= 0 ? "text-teal-600 dark:text-teal-400" : "text-red-600 dark:text-red-400",
-      valueColor: summary.saldo_attuale >= 0 ? "text-teal-700 dark:text-teal-400" : "text-red-700 dark:text-red-400",
-    },
-    {
-      key: "rates",
-      label: "Rate in Scadenza",
-      subtitle: "prossimi 7 giorni",
-      icon: AlertTriangle,
-      value: summary.pending_rates,
-      format: "number",
-      href: "/contratti",
-      borderColor: summary.pending_rates > 0 ? "border-l-amber-500" : "border-l-zinc-300",
-      gradient: summary.pending_rates > 0
-        ? "from-amber-50/80 to-white dark:from-amber-950/40 dark:to-zinc-900"
-        : "from-zinc-50/80 to-white dark:from-zinc-900/40 dark:to-zinc-900",
-      iconBg: summary.pending_rates > 0 ? "bg-amber-100 dark:bg-amber-900/30" : "bg-zinc-100 dark:bg-zinc-800/30",
-      iconColor: summary.pending_rates > 0 ? "text-amber-600 dark:text-amber-400" : "text-zinc-500 dark:text-zinc-400",
-      valueColor: summary.pending_rates > 0 ? "text-amber-700 dark:text-amber-400" : "text-zinc-700 dark:text-zinc-400",
     },
     {
       key: "appointments",
@@ -321,11 +224,11 @@ function buildKpiList(summary: DashboardSummary, stats: MovementStats): KpiDef[]
   ];
 }
 
-function KpiCards({ summary, stats }: { summary: DashboardSummary; stats: MovementStats }) {
-  const kpis = buildKpiList(summary, stats);
+function KpiCards({ summary }: { summary: DashboardSummary }) {
+  const kpis = buildKpiList(summary);
 
   return (
-    <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       {kpis.map((kpi) => {
         const Icon = kpi.icon;
         return (
@@ -381,13 +284,6 @@ const ALERT_CATEGORY_CONFIG: Record<string, {
     borderColor: "border-l-amber-500",
     cta: "Vedi contratto",
   },
-  overdue_rates: {
-    icon: ShieldAlert,
-    color: "text-red-600 dark:text-red-400",
-    bgColor: "bg-red-100 dark:bg-red-900/30",
-    borderColor: "border-l-red-500",
-    cta: "Riscuoti",
-  },
   inactive_clients: {
     icon: UserX,
     color: "text-orange-600 dark:text-orange-400",
@@ -416,7 +312,11 @@ function AlertPanel({ alerts, isLoading, alertActions = {} }: {
     );
   }
 
-  if (!alerts || alerts.total_alerts === 0) {
+  const visibleAlerts = alerts?.items.filter((item) => item.category !== "overdue_rates") ?? [];
+  const criticalCount = visibleAlerts.filter((item) => item.severity === "critical").length;
+  const warningCount = visibleAlerts.filter((item) => item.severity === "warning").length;
+
+  if (!alerts || visibleAlerts.length === 0) {
     return (
       <div className="flex items-center gap-4 rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50/80 to-white p-5 shadow-sm dark:border-emerald-800/50 dark:from-emerald-950/30 dark:to-zinc-900">
         <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-900/30">
@@ -442,20 +342,20 @@ function AlertPanel({ alerts, isLoading, alertActions = {} }: {
           <div className="relative">
             <Bell className="h-5 w-5 text-amber-500" />
             <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white shadow-sm">
-              {alerts.total_alerts}
+              {visibleAlerts.length}
             </span>
           </div>
           <h3 className="font-semibold">Attenzione Richiesta</h3>
         </div>
         <div className="flex items-center gap-1.5">
-          {alerts.critical_count > 0 && (
+          {criticalCount > 0 && (
             <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-900/40 dark:text-red-400">
-              {alerts.critical_count} {alerts.critical_count === 1 ? "critico" : "critici"}
+              {criticalCount} {criticalCount === 1 ? "critico" : "critici"}
             </span>
           )}
-          {alerts.warning_count > 0 && (
+          {warningCount > 0 && (
             <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">
-              {alerts.warning_count} {alerts.warning_count === 1 ? "avviso" : "avvisi"}
+              {warningCount} {warningCount === 1 ? "avviso" : "avvisi"}
             </span>
           )}
         </div>
@@ -463,7 +363,7 @@ function AlertPanel({ alerts, isLoading, alertActions = {} }: {
 
       {/* Alert items — gerarchia visiva per severity */}
       <div className="space-y-2.5">
-        {alerts.items.map((item, idx) => {
+        {visibleAlerts.map((item, idx) => {
           const catCfg = ALERT_CATEGORY_CONFIG[item.category] ?? ALERT_CATEGORY_CONFIG.ghost_events;
           const CatIcon = catCfg.icon;
           const isCritical = item.severity === "critical";
@@ -537,110 +437,6 @@ function AlertPanel({ alerts, isLoading, alertActions = {} }: {
 }
 
 // ════════════════════════════════════════════════════════════
-// Orizzonte Finanziario (mini aging)
-// ════════════════════════════════════════════════════════════
-
-function FinancialHealth({ aging, isLoading }: { aging: AgingResponse | undefined; isLoading: boolean }) {
-  if (isLoading) {
-    return (
-      <div className="rounded-xl border p-5 space-y-4">
-        <Skeleton className="h-5 w-48" />
-        <div className="grid grid-cols-2 gap-3">
-          <Skeleton className="h-20 rounded-lg" />
-          <Skeleton className="h-20 rounded-lg" />
-        </div>
-        <Skeleton className="h-24 w-full" />
-      </div>
-    );
-  }
-
-  if (!aging) return null;
-
-  const hasOverdue = aging.totale_scaduto > 0;
-
-  return (
-    <div className="rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-5 shadow-sm dark:from-zinc-900 dark:to-zinc-800/50">
-      {/* Header */}
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <AlertTriangle className={`h-4 w-4 ${hasOverdue ? "text-amber-500" : "text-emerald-500"}`} />
-          <h3 className="text-sm font-semibold">Orizzonte Finanziario</h3>
-        </div>
-        <Link href="/cassa">
-          <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs">
-            Dettaglio <ArrowRight className="h-3 w-3" />
-          </Button>
-        </Link>
-      </div>
-
-      {/* Mini KPI */}
-      <div className="mb-4 grid grid-cols-2 gap-3">
-        <div className={`rounded-lg border border-l-4 ${hasOverdue ? "border-l-red-500 bg-red-50/50 dark:bg-red-950/20" : "border-l-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20"} p-3`}>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
-            Scaduto
-          </p>
-          <p className={`text-xl font-extrabold tracking-tighter tabular-nums ${hasOverdue ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`}>
-            {formatCurrency(aging.totale_scaduto)}
-          </p>
-          <p className="text-[10px] font-medium text-muted-foreground/60">
-            {aging.rate_scadute} {aging.rate_scadute === 1 ? "rata" : "rate"} — {aging.clienti_con_scaduto} {aging.clienti_con_scaduto === 1 ? "cliente" : "clienti"}
-          </p>
-        </div>
-        <div className="rounded-lg border border-l-4 border-l-amber-500 bg-amber-50/50 p-3 dark:bg-amber-950/20">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
-            In Arrivo
-          </p>
-          <p className="text-xl font-extrabold tracking-tighter tabular-nums text-amber-600 dark:text-amber-400">
-            {formatCurrency(aging.totale_in_arrivo)}
-          </p>
-          <p className="text-[10px] font-medium text-muted-foreground/60">
-            {aging.rate_in_arrivo} {aging.rate_in_arrivo === 1 ? "rata" : "rate"} previste
-          </p>
-        </div>
-      </div>
-
-      <Separator className="mb-3" />
-
-      {/* Bucket bars */}
-      {hasOverdue ? (
-        <div className="space-y-2">
-          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-            Scaduto per fascia
-          </p>
-          {aging.overdue_buckets.map((bucket) => {
-            const maxAmount = Math.max(...aging.overdue_buckets.map((b) => b.totale), 1);
-            const widthPct = Math.max((bucket.totale / maxAmount) * 100, 2);
-            return (
-              <div key={bucket.label} className="flex items-center gap-2">
-                <span className="w-12 text-[10px] tabular-nums text-muted-foreground">
-                  {bucket.label}gg
-                </span>
-                <div className="flex-1">
-                  <div
-                    className="h-2.5 rounded-full bg-gradient-to-r from-red-400 to-red-500 transition-all duration-500"
-                    style={{ width: `${widthPct}%` }}
-                  />
-                </div>
-                <span className="w-16 text-right text-[11px] font-medium tabular-nums">
-                  {formatCurrency(bucket.totale)}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/50 p-3 dark:border-emerald-800 dark:bg-emerald-950/20">
-          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-          <p className="text-sm text-emerald-700 dark:text-emerald-400">
-            Nessuna rata scaduta — tutto in ordine!
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════
 // Agenda Oggi
 // ════════════════════════════════════════════════════════════
 
@@ -688,7 +484,7 @@ function TodayAgenda({ events, isLoading }: { events: EventHydrated[]; isLoading
             Nessun appuntamento oggi
           </p>
           <p className="text-xs text-muted-foreground/70">
-            La giornata e' libera
+            La giornata e&apos; libera
           </p>
         </div>
       ) : (
@@ -766,9 +562,9 @@ const QUICK_ACTIONS = [
     border: "border-violet-200 dark:border-violet-800/50",
   },
   {
-    label: "Nuovo Movimento",
-    icon: Landmark,
-    href: "/cassa",
+    label: "Nuova Scheda",
+    icon: Rocket,
+    href: "/schede",
     gradient: "from-emerald-50 to-emerald-100/50 dark:from-emerald-950/30 dark:to-zinc-900",
     iconColor: "text-emerald-600 dark:text-emerald-400",
     border: "border-emerald-200 dark:border-emerald-800/50",
@@ -863,8 +659,8 @@ function WelcomeCard() {
             Benvenuto in FitManager AI Studio
           </h2>
           <p className="mt-2 max-w-lg text-sm text-muted-foreground">
-            Il tuo gestionale fitness e' pronto. Inizia aggiungendo il primo cliente
-            per sbloccare tutte le funzionalita': contratti, agenda, schede allenamento,
+            Il tuo gestionale fitness e&apos; pronto. Inizia aggiungendo il primo cliente
+            per sbloccare tutte le funzionalita&apos;: contratti, agenda, schede allenamento,
             analisi cliniche e molto altro.
           </p>
         </div>
@@ -903,15 +699,10 @@ function WelcomeCard() {
 function KpiSkeleton() {
   const borders = [
     "border-l-blue-500",
-    "border-l-emerald-500",
-    "border-l-red-500",
-    "border-l-emerald-500",
-    "border-l-teal-500",
-    "border-l-amber-500",
     "border-l-violet-500",
   ];
   return (
-    <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       {borders.map((border, i) => (
         <div key={i} className={`flex items-start gap-3 rounded-xl border border-l-4 ${border} p-4`}>
           <Skeleton className="h-10 w-10 shrink-0 rounded-lg" />
@@ -925,3 +716,4 @@ function KpiSkeleton() {
     </div>
   );
 }
+
