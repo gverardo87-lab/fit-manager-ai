@@ -12,7 +12,7 @@
  * Dati da hook operativi + /dashboard/alerts.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Users,
@@ -196,7 +196,10 @@ export default function DashboardPage() {
 
           <div className="grid gap-6 xl:grid-cols-12">
             <div className="space-y-6 xl:col-span-7">
-              <TodayAgenda events={todayEvents} isLoading={!eventsData} />
+              <div className="grid gap-6 lg:grid-cols-2">
+                <TodayAgenda events={todayEvents} isLoading={!eventsData} />
+                <AgendaLivePanel events={todayEvents} isLoading={!eventsData} />
+              </div>
               <WeeklyLessons events={weeklyEvents} isLoading={!weeklyEventsData} />
             </div>
             <div className="space-y-6 xl:col-span-5">
@@ -672,6 +675,162 @@ function WeeklyLessons({ events, isLoading }: { events: EventHydrated[]; isLoadi
               </div>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface AgendaLiveInfo {
+  mode: "in_progress" | "next_up" | "free";
+  event: EventHydrated | null;
+  remainingMs: number;
+}
+
+function buildAgendaLiveInfo(events: EventHydrated[], currentTime: Date): AgendaLiveInfo {
+  const nowTs = currentTime.getTime();
+  const actionableEvents = events.filter(
+    (event) => event.stato !== "Cancellato" && event.stato !== "Completato",
+  );
+
+  const currentEvent = actionableEvents.find(
+    (event) => event.data_inizio.getTime() <= nowTs && nowTs < event.data_fine.getTime(),
+  );
+  if (currentEvent) {
+    return {
+      mode: "in_progress",
+      event: currentEvent,
+      remainingMs: Math.max(0, currentEvent.data_fine.getTime() - nowTs),
+    };
+  }
+
+  const nextEvent = actionableEvents.find((event) => event.data_inizio.getTime() > nowTs);
+  if (nextEvent) {
+    return {
+      mode: "next_up",
+      event: nextEvent,
+      remainingMs: Math.max(0, nextEvent.data_inizio.getTime() - nowTs),
+    };
+  }
+
+  return { mode: "free", event: null, remainingMs: 0 };
+}
+
+function formatCountdown(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return [hours, minutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
+}
+
+function AgendaLivePanel({ events, isLoading }: { events: EventHydrated[]; isLoading: boolean }) {
+  const [clockTime, setClockTime] = useState(() => new Date());
+
+  useEffect(() => {
+    const timerId = window.setInterval(() => setClockTime(new Date()), 1000);
+    return () => window.clearInterval(timerId);
+  }, []);
+
+  const liveInfo = useMemo(
+    () => buildAgendaLiveInfo(events, clockTime),
+    [events, clockTime],
+  );
+
+  if (isLoading) {
+    return (
+      <div className="rounded-xl border p-5 space-y-4">
+        <Skeleton className="h-5 w-40" />
+        <Skeleton className="h-24 w-full rounded-xl" />
+        <div className="grid grid-cols-2 gap-3">
+          <Skeleton className="h-20 w-full rounded-xl" />
+          <Skeleton className="h-20 w-full rounded-xl" />
+        </div>
+      </div>
+    );
+  }
+
+  const nowLabel = clockTime.toLocaleTimeString("it-IT", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  const nowDayLabel = clockTime.toLocaleDateString("it-IT", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+
+  const nextCountdown = formatCountdown(liveInfo.remainingMs);
+  const eventTimeLabel = liveInfo.event
+    ? `${liveInfo.event.data_inizio.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })} - ${liveInfo.event.data_fine.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}`
+    : null;
+
+  const statusTitle = liveInfo.mode === "in_progress"
+    ? `${liveInfo.event?.categoria ?? "Sessione"} in progress`
+    : liveInfo.mode === "next_up"
+      ? "Prossimo appuntamento"
+      : "Disponibile";
+
+  const statusSubtitle = liveInfo.mode === "in_progress"
+    ? "Stai lavorando con un cliente in questo momento."
+    : liveInfo.mode === "next_up"
+      ? "Preparati: il prossimo slot sta per iniziare."
+      : "Nessuna lezione in corso o imminente.";
+
+  const statusBadge = liveInfo.mode === "in_progress"
+    ? "Occupato"
+    : liveInfo.mode === "next_up"
+      ? "In arrivo"
+      : "Libero";
+
+  return (
+    <div className="rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-5 shadow-sm dark:from-zinc-900 dark:to-zinc-800/50">
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Clock className="h-4 w-4 text-blue-500" />
+          <h3 className="text-base font-semibold">Stato in tempo reale</h3>
+        </div>
+        <Badge variant="secondary" className="text-[10px] font-semibold uppercase tracking-wide">
+          {statusBadge}
+        </Badge>
+      </div>
+
+      <div className="rounded-xl border bg-white/90 p-4 text-center shadow-sm dark:bg-zinc-900/90">
+        <p className="text-[11px] font-medium text-muted-foreground">{nowDayLabel}</p>
+        <p className="mt-1 text-4xl font-extrabold leading-none tabular-nums text-zinc-800 dark:text-zinc-100">
+          {nowLabel}
+        </p>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-3">
+        <div className="rounded-xl border bg-violet-50/80 p-3 dark:bg-violet-950/20">
+          <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+            {liveInfo.mode === "in_progress" ? "Fine tra" : "Inizio tra"}
+          </p>
+          <p className="mt-1 text-2xl font-extrabold leading-none tabular-nums text-violet-700 dark:text-violet-300">
+            {liveInfo.mode === "free" ? "--:--:--" : nextCountdown}
+          </p>
+        </div>
+        <div className="rounded-xl border bg-emerald-50/80 p-3 dark:bg-emerald-950/20">
+          <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+            Stato
+          </p>
+          <p className="mt-1 text-sm font-bold text-emerald-700 dark:text-emerald-300">{statusTitle}</p>
+          <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{statusSubtitle}</p>
+        </div>
+      </div>
+
+      {liveInfo.event && (
+        <div className="mt-3 rounded-xl border bg-white/80 p-3 dark:bg-zinc-900/80">
+          <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+            Dettaglio sessione
+          </p>
+          <p className="mt-1 truncate text-sm font-semibold">{liveInfo.event.titolo || liveInfo.event.categoria}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {eventTimeLabel}
+            {liveInfo.event.cliente_nome ? ` • ${liveInfo.event.cliente_nome} ${liveInfo.event.cliente_cognome}` : ""}
+          </p>
         </div>
       )}
     </div>
