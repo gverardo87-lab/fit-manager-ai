@@ -47,3 +47,4 @@ Esempio:
 - `UPG-2026-03-05-03`: introduzione `AGENTS.md` + bootstrap `agents/` per workflow agent-first.
 - `UPG-2026-03-05-04`: skill pack iniziale in `.codex/skills` per workflow automatici specializzati.
 - `UPG-2026-03-05-05`: dashboard KPI operativi (sessioni imminenti + alert operativi) per uso quotidiano del chinesiologo.
+- `UPG-2026-03-05-06`: dashboard "Lezioni della settimana" con vista per categoria/stato per pianificazione operativa rapida.
