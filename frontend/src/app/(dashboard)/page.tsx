@@ -170,6 +170,23 @@ const STATUS_COLORS: Record<string, string> = {
   Rinviato: "text-amber-600 dark:text-amber-400",
 };
 
+// POC toggle: disattiva in un punto unico per rollback veloce.
+const DASHBOARD_MICROSTEP2_ENABLED = true;
+
+function getRevealMotionClass(enabled: boolean, ready: boolean): string {
+  if (!enabled) return "";
+  return `transform-gpu transition-[opacity,transform] duration-500 ease-out motion-reduce:transform-none motion-reduce:transition-none ${
+    ready
+      ? "translate-y-0 opacity-100"
+      : "translate-y-1 opacity-0 motion-reduce:translate-y-0 motion-reduce:opacity-100"
+  }`;
+}
+
+function getRevealDelayStyle(enabled: boolean, delayMs: number) {
+  if (!enabled) return undefined;
+  return { transitionDelay: `${delayMs}ms` };
+}
+
 // ════════════════════════════════════════════════════════════
 // Pagina
 // ════════════════════════════════════════════════════════════
@@ -178,6 +195,13 @@ export default function DashboardPage() {
   const { data: summary, isLoading: summaryLoading, isError, refetch } = useDashboard();
   const { data: alerts } = useDashboardAlerts();
   const [dateAnchor, setDateAnchor] = useState(() => new Date());
+  const [entranceReady, setEntranceReady] = useState(() => !DASHBOARD_MICROSTEP2_ENABLED);
+
+  useEffect(() => {
+    if (!DASHBOARD_MICROSTEP2_ENABLED) return;
+    const rafId = window.requestAnimationFrame(() => setEntranceReady(true));
+    return () => window.cancelAnimationFrame(rafId);
+  }, []);
 
   useEffect(() => {
     const currentTime = new Date();
@@ -230,7 +254,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="space-y-4 md:space-y-6">
+    <div className="min-w-0 space-y-4 md:space-y-6">
       {/* ── Header ── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 sm:h-11 sm:w-11 dark:from-blue-900/40 dark:to-blue-800/30">
@@ -246,7 +270,7 @@ export default function DashboardPage() {
 
       {/* ── Error state ── */}
       {isError && (
-        <div className="flex items-center justify-between rounded-xl border border-destructive/50 bg-destructive/5 p-4">
+        <div className="flex flex-col gap-3 rounded-xl border border-destructive/50 bg-destructive/5 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
             <AlertCircle className="h-4 w-4 text-destructive" />
             <p className="text-sm text-destructive">
@@ -266,12 +290,41 @@ export default function DashboardPage() {
         <>
           {/* ── Hero KPI ── */}
           {isLoading && <KpiSkeleton />}
-          {summary && <KpiCards summary={summary} events={todayEvents} alerts={alerts} />}
+          {summary && (
+            <KpiCards
+              summary={summary}
+              events={todayEvents}
+              alerts={alerts}
+              animateIn={entranceReady}
+              animationsEnabled={DASHBOARD_MICROSTEP2_ENABLED}
+            />
+          )}
+          {summary && (
+            <ActionFocusBar
+              summary={summary}
+              events={todayEvents}
+              alerts={alerts}
+              animateIn={entranceReady}
+              animationsEnabled={DASHBOARD_MICROSTEP2_ENABLED}
+            />
+          )}
 
-          <div className="grid gap-5 md:gap-6 xl:grid-cols-12">
-            <div className="space-y-5 md:space-y-6 xl:col-span-7">
-              <div className="grid gap-4 md:grid-cols-2 lg:gap-6">
-                <TodayAgenda events={todayEvents} isLoading={!eventsData} referenceDate={dateAnchor} />
+          <div
+            className={`grid min-w-0 gap-5 md:gap-6 xl:grid-cols-12 ${getRevealMotionClass(
+              DASHBOARD_MICROSTEP2_ENABLED,
+              entranceReady,
+            )}`}
+            style={getRevealDelayStyle(DASHBOARD_MICROSTEP2_ENABLED, 120)}
+          >
+            <div className="min-w-0 space-y-5 md:space-y-6 xl:col-span-7">
+              <div className="grid min-w-0 gap-4 md:grid-cols-2 lg:gap-6">
+                <TodayAgenda
+                  events={todayEvents}
+                  isLoading={!eventsData}
+                  referenceDate={dateAnchor}
+                  animateIn={entranceReady}
+                  animationsEnabled={DASHBOARD_MICROSTEP2_ENABLED}
+                />
                 <AgendaLivePanel events={todayEvents} isLoading={!eventsData} />
               </div>
               <WeeklyLessons
@@ -280,13 +333,16 @@ export default function DashboardPage() {
                 weekLabel={currentWeekRangeLabel}
               />
             </div>
-            <div className="space-y-5 md:space-y-6 xl:col-span-5">
+            <div className="min-w-0 space-y-5 md:space-y-6 xl:col-span-5">
               <AlertPanel alerts={alerts} isLoading={!alerts} alertActions={alertActions} />
               <TodoCard />
             </div>
           </div>
           {/* ── Azioni Rapide ── */}
-          <QuickActions />
+          <QuickActions
+            animateIn={entranceReady}
+            animationsEnabled={DASHBOARD_MICROSTEP2_ENABLED}
+          />
         </>
       )}
 
@@ -315,6 +371,150 @@ interface KpiDef {
   iconBg: string;
   iconColor: string;
   valueColor: string;
+}
+
+interface ActionFocusDef {
+  title: string;
+  detail: string;
+  cta: string;
+  href: string;
+  icon: typeof BellRing;
+  iconBg: string;
+  iconColor: string;
+  pulseTone: string;
+}
+
+function buildActionFocus(
+  summary: DashboardSummary,
+  events: EventHydrated[],
+  alerts: DashboardAlerts | undefined,
+): ActionFocusDef {
+  const visibleAlerts = alerts?.items.filter((item) => item.category !== "overdue_rates") ?? [];
+  const criticalCount = visibleAlerts.filter((item) => item.severity === "critical").length;
+  const warningCount = visibleAlerts.filter((item) => item.severity === "warning").length;
+
+  if (criticalCount > 0) {
+    return {
+      title: criticalCount === 1 ? "1 alert critico da gestire subito" : `${criticalCount} alert critici da gestire subito`,
+      detail: warningCount > 0
+        ? `${warningCount} avvisi non bloccanti in attesa.`
+        : "Apri il pannello alert e risolvi le anomalie prioritarie.",
+      cta: "Gestisci alert",
+      href: "#alert-panel",
+      icon: AlertCircle,
+      iconBg: "bg-red-100 dark:bg-red-950/40",
+      iconColor: "text-red-700 dark:text-red-400",
+      pulseTone: "bg-red-500",
+    };
+  }
+
+  const nextSession = events.find(
+    (event) => event.stato === "Programmato" && event.data_inizio.getTime() >= Date.now(),
+  );
+  if (nextSession) {
+    const nextSessionTime = nextSession.data_inizio.toLocaleTimeString("it-IT", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const clientLabel = nextSession.cliente_nome
+      ? `${nextSession.cliente_nome} ${nextSession.cliente_cognome ?? ""}`.trim()
+      : nextSession.categoria;
+
+    return {
+      title: `Prossima sessione alle ${nextSessionTime}`,
+      detail: clientLabel,
+      cta: "Apri agenda",
+      href: "/agenda",
+      icon: Clock,
+      iconBg: "bg-blue-100 dark:bg-blue-950/40",
+      iconColor: "text-blue-700 dark:text-blue-400",
+      pulseTone: "bg-blue-500",
+    };
+  }
+
+  if (summary.todays_appointments === 0) {
+    return {
+      title: "Agenda libera oggi",
+      detail: "Ottimo momento per follow-up e pianificazione clienti.",
+      cta: "Vai ai clienti",
+      href: "/clienti",
+      icon: CalendarCheck,
+      iconBg: "bg-emerald-100 dark:bg-emerald-950/40",
+      iconColor: "text-emerald-700 dark:text-emerald-400",
+      pulseTone: "bg-emerald-500",
+    };
+  }
+
+  if (visibleAlerts.length > 0) {
+    return {
+      title: `${visibleAlerts.length} alert operativi da monitorare`,
+      detail: "Nessuna criticita' bloccante, ma conviene chiudere gli avvisi entro giornata.",
+      cta: "Vedi alert",
+      href: "#alert-panel",
+      icon: BellRing,
+      iconBg: "bg-amber-100 dark:bg-amber-950/40",
+      iconColor: "text-amber-700 dark:text-amber-400",
+      pulseTone: "bg-amber-500",
+    };
+  }
+
+  return {
+    title: "Ritmo operativo stabile",
+    detail: "Dashboard allineata: passa alla pianificazione settimanale.",
+    cta: "Vai in agenda",
+    href: "/agenda",
+    icon: CheckCircle2,
+    iconBg: "bg-zinc-100 dark:bg-zinc-800/50",
+    iconColor: "text-zinc-700 dark:text-zinc-300",
+    pulseTone: "bg-zinc-400",
+  };
+}
+
+function ActionFocusBar({
+  summary,
+  events,
+  alerts,
+  animateIn,
+  animationsEnabled,
+}: {
+  summary: DashboardSummary;
+  events: EventHydrated[];
+  alerts: DashboardAlerts | undefined;
+  animateIn: boolean;
+  animationsEnabled: boolean;
+}) {
+  const focus = useMemo(() => buildActionFocus(summary, events, alerts), [summary, events, alerts]);
+  const Icon = focus.icon;
+
+  return (
+    <div
+      className={`min-w-0 rounded-xl border bg-gradient-to-br from-white to-zinc-50/70 p-3.5 shadow-sm sm:p-4 dark:from-zinc-900 dark:to-zinc-800/60 ${getRevealMotionClass(
+        animationsEnabled,
+        animateIn,
+      )}`}
+      style={getRevealDelayStyle(animationsEnabled, 70)}
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className={`relative mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${focus.iconBg}`}>
+            <Icon className={`h-4 w-4 ${focus.iconColor}`} />
+            <span className={`absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full ${focus.pulseTone} motion-safe:animate-pulse`} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">Focus operativo</p>
+            <p className={`text-sm font-semibold ${focus.iconColor}`}>{focus.title}</p>
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">{focus.detail}</p>
+          </div>
+        </div>
+        <Link href={focus.href} className="shrink-0">
+          <Button variant="outline" size="sm" className="h-9 gap-1.5 text-xs">
+            {focus.cta}
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Button>
+        </Link>
+      </div>
+    </div>
+  );
 }
 
 function buildKpiList(
@@ -398,28 +598,37 @@ function KpiCards({
   summary,
   events,
   alerts,
+  animateIn,
+  animationsEnabled,
 }: {
   summary: DashboardSummary;
   events: EventHydrated[];
   alerts: DashboardAlerts | undefined;
+  animateIn: boolean;
+  animationsEnabled: boolean;
 }) {
   const visibleAlerts = alerts?.items.filter((item) => item.category !== "overdue_rates") ?? [];
   const kpis = buildKpiList(summary, events, visibleAlerts);
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
-      {kpis.map((kpi) => {
+    <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
+      {kpis.map((kpi, index) => {
         const Icon = kpi.icon;
         return (
-          <Link key={kpi.key} href={kpi.href}>
+          <Link
+            key={kpi.key}
+            href={kpi.href}
+            className={`block min-w-0 ${getRevealMotionClass(animationsEnabled, animateIn)}`}
+            style={getRevealDelayStyle(animationsEnabled, index * 55)}
+          >
             <div
-              className={`flex h-full items-start gap-2.5 rounded-xl border border-l-4 ${kpi.borderColor} bg-gradient-to-br ${kpi.gradient} p-3.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg sm:gap-3 sm:p-4`}
+              className={`flex h-full min-w-0 items-start gap-2.5 rounded-xl border border-l-4 ${kpi.borderColor} bg-gradient-to-br ${kpi.gradient} p-3.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg sm:gap-3 sm:p-4`}
             >
               <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg sm:h-10 sm:w-10 ${kpi.iconBg}`}>
                 <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${kpi.iconColor}`} />
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold tracking-widest text-muted-foreground/70 uppercase sm:text-xs">
+                <p className="text-[11px] font-semibold tracking-widest text-muted-foreground/70 uppercase leading-tight sm:text-xs">
                   {kpi.label}
                 </p>
                 <AnimatedNumber
@@ -515,17 +724,17 @@ function AlertPanel({ alerts, isLoading, alertActions = {} }: {
 
   return (
     <div id="alert-panel" className="rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-4 shadow-sm sm:p-5 dark:from-zinc-900 dark:to-zinc-800/50">
-      <div className="mb-4 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2.5">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2.5">
           <div className="relative">
             <Bell className="h-5 w-5 text-amber-500" />
             <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white shadow-sm">
               {visibleAlerts.length}
             </span>
           </div>
-          <h3 className="font-semibold">Alert operativi</h3>
+          <h3 className="truncate font-semibold">Alert operativi</h3>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5 sm:ml-0">
           {criticalCount > 0 && (
             <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-900/40 dark:text-red-400">
               {criticalCount} {criticalCount === 1 ? "critico" : "critici"}
@@ -548,11 +757,11 @@ function AlertPanel({ alerts, isLoading, alertActions = {} }: {
           return (
             <div
               key={`${item.category}-${idx}`}
-              className={`rounded-xl border border-l-4 ${catCfg.borderColor} p-3 transition-all hover:-translate-y-0.5 hover:shadow-md sm:p-3.5 ${
+              className={`min-w-0 rounded-xl border border-l-4 ${catCfg.borderColor} p-3 transition-all hover:-translate-y-0.5 hover:shadow-md sm:p-3.5 ${
                 isCritical ? "bg-red-50/60 dark:bg-red-950/20" : "bg-white dark:bg-zinc-900"
               }`}
             >
-              <div className="mb-3 flex items-start justify-between gap-2">
+              <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
                 <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${catCfg.bgColor}`}>
                   <CatIcon className={`h-4 w-4 ${catCfg.color}`} />
                 </div>
@@ -575,8 +784,8 @@ function AlertPanel({ alerts, isLoading, alertActions = {} }: {
                 </div>
               </div>
 
-              <p className="text-sm font-semibold leading-tight">{item.title}</p>
-              <p className="mt-1 text-xs leading-snug text-muted-foreground">{item.detail}</p>
+              <p className="break-words text-sm font-semibold leading-tight">{item.title}</p>
+              <p className="mt-1 break-words text-xs leading-snug text-muted-foreground">{item.detail}</p>
 
               <div className="mt-3">
                 {alertActions[item.category] ? (
@@ -695,7 +904,7 @@ function WeeklyLessons({
   const completedEvents = stats.reduce((acc, item) => acc + item.completed, 0);
 
   return (
-    <div className="rounded-xl border bg-gradient-to-br from-white via-white to-zinc-50/60 p-4 shadow-sm sm:p-5 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800/40">
+    <div className="min-w-0 rounded-xl border bg-gradient-to-br from-white via-white to-zinc-50/60 p-4 shadow-sm sm:p-5 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800/40">
       <div className="mb-3 flex flex-wrap items-start justify-between gap-3 sm:mb-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -739,7 +948,7 @@ function WeeklyLessons({
             return (
               <div
                 key={stat.category}
-                className={`rounded-xl border bg-gradient-to-br ${theme.card} ${theme.border} p-3.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md sm:p-4`}
+                className={`min-w-0 rounded-xl border bg-gradient-to-br ${theme.card} ${theme.border} p-3.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md sm:p-4`}
               >
                 <div className="mb-2.5 flex items-start justify-between">
                   <div className="flex items-center gap-2">
@@ -904,13 +1113,13 @@ function AgendaLivePanel({ events, isLoading }: { events: EventHydrated[]; isLoa
       : "text-zinc-700 dark:text-zinc-300";
 
   return (
-    <div className="flex h-[420px] flex-col rounded-xl border bg-gradient-to-br from-white via-white to-zinc-50/60 p-4 shadow-sm sm:h-[430px] sm:p-5 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800/50">
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+    <div className="flex h-[420px] min-w-0 flex-col rounded-xl border bg-gradient-to-br from-white via-white to-zinc-50/60 p-4 shadow-sm sm:h-[430px] sm:p-5 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800/50">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <Clock className="h-4 w-4 text-blue-500" />
           <h3 className="text-sm font-semibold sm:text-base">Stato in tempo reale</h3>
         </div>
-        <Badge variant="secondary" className="text-[10px] font-semibold uppercase tracking-wide">
+        <Badge variant="secondary" className="ml-auto max-w-[168px] truncate text-[10px] font-semibold uppercase tracking-wide sm:ml-0">
           {statusBadge}
         </Badge>
       </div>
@@ -946,7 +1155,7 @@ function AgendaLivePanel({ events, isLoading }: { events: EventHydrated[]; isLoa
             Dettaglio sessione
           </p>
           <p className="mt-1 truncate text-sm font-semibold">{liveInfo.event.titolo || liveInfo.event.categoria}</p>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-1 truncate text-xs text-muted-foreground">
             {eventTimeLabel}
             {liveInfo.event.cliente_nome ? ` • ${liveInfo.event.cliente_nome} ${liveInfo.event.cliente_cognome}` : ""}
           </p>
@@ -960,10 +1169,14 @@ function TodayAgenda({
   events,
   isLoading,
   referenceDate,
+  animateIn,
+  animationsEnabled,
 }: {
   events: EventHydrated[];
   isLoading: boolean;
   referenceDate: Date;
+  animateIn: boolean;
+  animationsEnabled: boolean;
 }) {
   const updateEvent = useUpdateEvent();
   const [updatingEventId, setUpdatingEventId] = useState<number | null>(null);
@@ -999,9 +1212,9 @@ function TodayAgenda({
   });
 
   return (
-    <div className="flex h-[420px] flex-col rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-4 shadow-sm sm:h-[430px] sm:p-5 dark:from-zinc-900 dark:to-zinc-800/50">
+    <div className="flex h-[420px] min-w-0 flex-col rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-4 shadow-sm sm:h-[430px] sm:p-5 dark:from-zinc-900 dark:to-zinc-800/50">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2.5">
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 sm:flex-nowrap">
           <Calendar className="h-4 w-4 text-violet-500" />
           <h3 className="text-sm font-semibold sm:text-base">Agenda Oggi</h3>
           {events.length > 0 && (
@@ -1031,7 +1244,7 @@ function TodayAgenda({
       ) : (
         <ScrollArea className="min-h-0 flex-1 pr-1">
           <div className="space-y-2.5 sm:space-y-3">
-            {events.map((event) => {
+            {events.map((event, index) => {
               const time = event.data_inizio.toLocaleTimeString("it-IT", {
                 hour: "2-digit",
                 minute: "2-digit",
@@ -1049,20 +1262,22 @@ function TodayAgenda({
               return (
                 <div
                   key={event.id}
-                  className="grid grid-cols-[88px_1fr] items-center gap-2.5 rounded-xl border bg-white p-2.5 transition-all hover:-translate-y-0.5 hover:shadow-sm sm:grid-cols-[96px_1fr] sm:p-3 md:grid-cols-[104px_1fr_auto] md:gap-3 md:p-3.5 dark:bg-zinc-900"
+                  className={getRevealMotionClass(animationsEnabled, animateIn)}
+                  style={getRevealDelayStyle(animationsEnabled, 180 + Math.min(index, 5) * 40)}
                 >
+                  <div className="grid min-w-0 grid-cols-[82px_minmax(0,1fr)] items-center gap-2.5 rounded-xl border bg-white p-2.5 transition-all hover:-translate-y-0.5 hover:shadow-sm sm:grid-cols-[92px_minmax(0,1fr)] sm:p-3 md:grid-cols-[104px_minmax(0,1fr)_auto] md:gap-3 md:p-3.5 dark:bg-zinc-900">
                   <div className={`rounded-lg border px-1.5 py-1 text-center sm:px-2 ${timeTone}`}>
                     <p className="text-xl font-extrabold leading-none tabular-nums text-zinc-800 sm:text-2xl dark:text-zinc-100">{time}</p>
                     <p className="mt-1 text-[11px] font-medium tabular-nums text-muted-foreground sm:text-xs">{endTime}</p>
                   </div>
 
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
                       <span className={`h-2.5 w-2.5 rounded-full ${catColor}`} />
-                      <p className={`truncate text-sm font-semibold leading-tight sm:text-[15px] ${statusColor}`}>
+                      <p className={`min-w-0 flex-1 truncate text-sm font-semibold leading-tight sm:text-[15px] ${statusColor}`}>
                         {event.titolo || event.categoria}
                       </p>
-                      <Badge variant="outline" className="h-5 px-1.5 py-0 text-[10px] font-semibold md:hidden">
+                      <Badge variant="outline" className="h-5 shrink-0 px-1.5 py-0 text-[10px] font-semibold md:hidden">
                         {event.categoria}
                       </Badge>
                     </div>
@@ -1122,6 +1337,7 @@ function TodayAgenda({
                       </div>
                     )}
                   </div>
+                  </div>
                 </div>
               );
             })}
@@ -1166,20 +1382,31 @@ const QUICK_ACTIONS = [
   },
 ] as const;
 
-function QuickActions() {
+function QuickActions({
+  animateIn,
+  animationsEnabled,
+}: {
+  animateIn: boolean;
+  animationsEnabled: boolean;
+}) {
   return (
-    <div>
+    <div className="min-w-0">
       <p className="mb-3 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         Azioni rapide
       </p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {QUICK_ACTIONS.map((action) => {
+        {QUICK_ACTIONS.map((action, index) => {
           const Icon = action.icon;
           return (
-            <Link key={action.label} href={action.href}>
-              <div className={`flex items-center gap-2.5 rounded-xl border ${action.border} bg-gradient-to-br ${action.gradient} p-3 transition-all hover:-translate-y-0.5 hover:shadow-md sm:gap-3 sm:p-4`}>
+            <Link
+              key={action.label}
+              href={action.href}
+              className={`block min-w-0 ${getRevealMotionClass(animationsEnabled, animateIn)}`}
+              style={getRevealDelayStyle(animationsEnabled, 260 + index * 45)}
+            >
+              <div className={`flex min-w-0 items-center gap-2.5 rounded-xl border ${action.border} bg-gradient-to-br ${action.gradient} p-3 transition-all hover:-translate-y-0.5 hover:shadow-md sm:gap-3 sm:p-4`}>
                 <Icon className={`h-5 w-5 ${action.iconColor}`} />
-                <span className="text-sm font-medium">{action.label}</span>
+                <span className="min-w-0 text-sm font-medium leading-tight">{action.label}</span>
               </div>
             </Link>
           );

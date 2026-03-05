@@ -78,7 +78,7 @@ export function TodoCard() {
 
   if (isLoading) {
     return (
-      <div className="rounded-xl border p-5 space-y-4">
+      <div className="space-y-4 rounded-xl border p-4 sm:p-5">
         <Skeleton className="h-5 w-40" />
         {Array.from({ length: 3 }).map((_, i) => (
           <Skeleton key={i} className="h-10 w-full rounded-lg" />
@@ -90,9 +90,9 @@ export function TodoCard() {
   const todos = data?.items ?? [];
 
   return (
-    <div className="rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-5 shadow-sm dark:from-zinc-900 dark:to-zinc-800/50">
+    <div className="min-w-0 rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-4 shadow-sm sm:p-5 dark:from-zinc-900 dark:to-zinc-800/50">
       {/* Header */}
-      <div className="mb-4 flex items-center gap-2">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         <ListTodo className="h-4 w-4 text-pink-500" />
         <h3 className="text-sm font-semibold">Promemoria</h3>
         {todos.length > 0 && (
@@ -104,14 +104,14 @@ export function TodoCard() {
 
       {/* Inline create */}
       <div className="mb-3 space-y-2">
-        <div className="flex gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <Input
             ref={inputRef}
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Nuovo promemoria..."
-            className="h-8 text-sm"
+            className="h-9 text-sm"
             maxLength={200}
           />
           <Button
@@ -156,7 +156,7 @@ export function TodoCard() {
           </p>
         </div>
       ) : (
-        <ScrollArea className={todos.length > 6 ? "h-[240px]" : ""}>
+        <ScrollArea className={todos.length > 6 ? "h-[240px] pr-1" : ""}>
           <div className="space-y-1.5">
             {todos.map((todo) => (
               <TodoItem
@@ -202,7 +202,7 @@ function TodoItem({
 
   return (
     <div
-      className={`group flex items-center gap-2 rounded-lg px-3 py-2 transition-all hover:shadow-sm ${containerClass}`}
+      className={`group flex min-w-0 items-center gap-2 overflow-hidden rounded-lg px-3 py-2 transition-all hover:shadow-sm ${containerClass}`}
     >
       {/* Checkbox toggle */}
       <button
@@ -225,7 +225,7 @@ function TodoItem({
 
       {/* Date badge */}
       {todo.data_scadenza && (
-        <span className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-medium ${dateBadgeClass}`}>
+        <span className={`max-w-[78px] shrink-0 truncate rounded px-1.5 py-0.5 text-[9px] font-medium ${dateBadgeClass}`}>
           {formatShortDate(todo.data_scadenza, false)}
         </span>
       )}
@@ -233,7 +233,7 @@ function TodoItem({
       {/* Delete button (visible on hover) */}
       <button
         onClick={onDelete}
-        className="shrink-0 rounded p-1 text-muted-foreground/30 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
+        className="shrink-0 rounded p-1 text-muted-foreground/30 opacity-100 transition-opacity hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100"
       >
         <Trash2 className="h-3.5 w-3.5" />
       </button>
