@@ -125,10 +125,14 @@ export function useDeleteContract() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: number) => {
-      await apiClient.delete(`/contracts/${id}`);
+    mutationFn: async ({ id, force, keepPayments }: { id: number; force?: boolean; keepPayments?: boolean }) => {
+      const params = new URLSearchParams();
+      if (force) params.set("force", "true");
+      if (keepPayments) params.set("keep_payments", "true");
+      const qs = params.toString();
+      await apiClient.delete(`/contracts/${id}${qs ? `?${qs}` : ""}`);
     },
-    onSuccess: () => {
+    onSuccess: (_data, { force }) => {
       queryClient.invalidateQueries({ queryKey: ["contracts"] });
       queryClient.invalidateQueries({ queryKey: ["contract"] });
       queryClient.invalidateQueries({ queryKey: ["clients"] });
@@ -138,7 +142,7 @@ export function useDeleteContract() {
       queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
       queryClient.invalidateQueries({ queryKey: ["aging-report"] });
       queryClient.invalidateQueries({ queryKey: ["cash-balance"] });
-      toast.success("Contratto eliminato");
+      toast.success(force ? "Contratto eliminato forzatamente" : "Contratto eliminato");
     },
     onError: (error) => {
       toast.error(extractErrorMessage(error, "Errore nell'eliminazione del contratto"));

@@ -532,6 +532,8 @@ def update_contract(
 @router.delete("/{contract_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_contract(
     contract_id: int,
+    force: bool = Query(False, description="Forza eliminazione anche con rate pendenti/crediti residui"),
+    keep_payments: bool = Query(False, description="Mantieni pagamenti incassati nel ledger (solo con force)"),
     trainer: Trainer = Depends(get_current_trainer),
     session: Session = Depends(get_session),
 ):
@@ -539,11 +541,13 @@ def delete_contract(
     Soft-delete contratto — per errori o contratti completati.
 
     Bouncer: contract.id + trainer_id + non eliminato.
-    RESTRICT (obbligazioni pendenti):
+    RESTRICT (obbligazioni pendenti) — skippato se force=True:
     - Rate non saldate (PENDENTE/PARZIALE) -> 409
     - Crediti residui (sedute PT non consumate) -> 409
     CASCADE (pulizia completa):
-    - Soft-delete rate SALDATE + tutti CashMovement
+    - Se force: reverse pagamenti rate + soft-delete TUTTE le rate
+    - Se keep_payments: detach movimenti dal contratto (restano nel ledger)
+    - Altrimenti: soft-delete tutti CashMovement
     - Detach eventi (id_contratto = NULL, restano in agenda)
     """
     contract = session.exec(
@@ -555,56 +559,80 @@ def delete_contract(
     if not contract:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contratto non trovato")
 
-    # RESTRICT 1: rate con obbligazioni pendenti (PENDENTE o PARZIALE)
-    rate_pendenti = session.exec(
-        select(func.count(Rate.id)).where(
-            Rate.id_contratto == contract_id,
-            Rate.stato.in_(["PENDENTE", "PARZIALE"]),
-            Rate.deleted_at == None,
-        )
-    ).one()
-    if rate_pendenti > 0:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Impossibile eliminare: il contratto ha {rate_pendenti} rate non saldate. "
-                   f"Usa la chiusura (chiuso) per archiviarlo.",
-        )
-
-    # RESTRICT 2: crediti residui (sedute PT non ancora consumate)
-    crediti_totali = contract.crediti_totali or 0
-    if crediti_totali > 0:
-        crediti_usati = session.exec(
-            select(func.count(Event.id)).where(
-                Event.id_contratto == contract_id,
-                Event.categoria == "PT",
-                Event.stato != "Cancellato",
-                Event.deleted_at == None,
+    if not force:
+        # RESTRICT 1: rate con obbligazioni pendenti (PENDENTE o PARZIALE)
+        rate_pendenti = session.exec(
+            select(func.count(Rate.id)).where(
+                Rate.id_contratto == contract_id,
+                Rate.stato.in_(["PENDENTE", "PARZIALE"]),
+                Rate.deleted_at == None,
             )
         ).one()
-        crediti_residui = crediti_totali - crediti_usati
-        if crediti_residui > 0:
+        if rate_pendenti > 0:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"Impossibile eliminare: il contratto ha {crediti_residui} crediti residui "
-                       f"({crediti_usati}/{crediti_totali} usati). "
+                detail=f"Impossibile eliminare: il contratto ha {rate_pendenti} rate non saldate. "
                        f"Usa la chiusura (chiuso) per archiviarlo.",
             )
 
+        # RESTRICT 2: crediti residui (sedute PT non ancora consumate)
+        crediti_totali = contract.crediti_totali or 0
+        if crediti_totali > 0:
+            crediti_usati = session.exec(
+                select(func.count(Event.id)).where(
+                    Event.id_contratto == contract_id,
+                    Event.categoria == "PT",
+                    Event.stato != "Cancellato",
+                    Event.deleted_at == None,
+                )
+            ).one()
+            crediti_residui = crediti_totali - crediti_usati
+            if crediti_residui > 0:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Impossibile eliminare: il contratto ha {crediti_residui} crediti residui "
+                           f"({crediti_usati}/{crediti_totali} usati). "
+                           f"Usa la chiusura (chiuso) per archiviarlo.",
+                )
+
     now = datetime.now(timezone.utc)
 
-    # CASCADE 1: soft-delete rate SALDATE (record storico completato)
-    saldate_rates = session.exec(
+    # Fetch tutte le rate del contratto
+    all_rates = session.exec(
         select(Rate).where(
             Rate.id_contratto == contract_id,
             Rate.deleted_at == None,
         )
     ).all()
-    for r in saldate_rates:
+
+    # FORCE + keep_payments=False: reverse pagamenti (soft-delete movimenti rata)
+    force_reversed_count = 0
+    force_reversed_amount = 0.0
+    if force and not keep_payments:
+        for r in all_rates:
+            if r.importo_saldato and r.importo_saldato > 0:
+                rate_movements = session.exec(
+                    select(CashMovement).where(
+                        CashMovement.id_rata == r.id,
+                        CashMovement.tipo == "ENTRATA",
+                        CashMovement.deleted_at == None,
+                    )
+                ).all()
+                for rm in rate_movements:
+                    rm.deleted_at = now
+                    session.add(rm)
+                    log_audit(session, "movement", rm.id, "DELETE", trainer.id)
+
+                force_reversed_amount += r.importo_saldato
+                force_reversed_count += 1
+
+    # CASCADE 1: soft-delete TUTTE le rate
+    for r in all_rates:
         r.deleted_at = now
         session.add(r)
         log_audit(session, "rate", r.id, "DELETE", trainer.id)
 
-    # CASCADE 2: soft-delete TUTTI i CashMovement (acconto + pagamenti rate)
+    # CASCADE 2: gestione CashMovement (acconto + pagamenti)
     movements = session.exec(
         select(CashMovement).where(
             CashMovement.id_contratto == contract_id,
@@ -612,10 +640,20 @@ def delete_contract(
             CashMovement.deleted_at == None,
         )
     ).all()
-    for mov in movements:
-        mov.deleted_at = now
-        session.add(mov)
-        log_audit(session, "movement", mov.id, "DELETE", trainer.id)
+    payments_kept = 0
+    if force and keep_payments:
+        # Detach: scollega movimenti dal contratto/rata (restano nel ledger)
+        for mov in movements:
+            mov.id_contratto = None
+            mov.id_rata = None
+            session.add(mov)
+            payments_kept += 1
+    else:
+        # Soft-delete tutti i movimenti
+        for mov in movements:
+            mov.deleted_at = now
+            session.add(mov)
+            log_audit(session, "movement", mov.id, "DELETE", trainer.id)
 
     # CASCADE 3: detach eventi (mantieni in agenda, rimuovi link contratto)
     linked_events = session.exec(
@@ -630,5 +668,14 @@ def delete_contract(
 
     contract.deleted_at = now
     session.add(contract)
-    log_audit(session, "contract", contract.id, "DELETE", trainer.id)
+    audit_changes = None
+    if force:
+        audit_changes = {
+            "force": True,
+            "keep_payments": keep_payments,
+            "rate_reversed": force_reversed_count,
+            "amount_reversed": round(force_reversed_amount, 2),
+            "payments_kept": payments_kept,
+        }
+    log_audit(session, "contract", contract.id, "DELETE", trainer.id, audit_changes)
     session.commit()
