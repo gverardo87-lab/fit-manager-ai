@@ -123,6 +123,44 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 const WEEKLY_CATEGORY_ORDER = ["PT", "PERSONALE", "COLLOQUIO", "SALA", "CORSO"] as const;
 
+const WEEKLY_CATEGORY_THEME: Record<string, {
+  chip: string;
+  card: string;
+  border: string;
+  total: string;
+}> = {
+  PT: {
+    chip: "bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300",
+    card: "from-blue-50/80 to-white dark:from-blue-950/25 dark:to-zinc-900",
+    border: "border-blue-200/80 dark:border-blue-800/50",
+    total: "text-blue-700 dark:text-blue-300",
+  },
+  PERSONALE: {
+    chip: "bg-pink-100 text-pink-700 dark:bg-pink-950/40 dark:text-pink-300",
+    card: "from-pink-50/80 to-white dark:from-pink-950/25 dark:to-zinc-900",
+    border: "border-pink-200/80 dark:border-pink-800/50",
+    total: "text-pink-700 dark:text-pink-300",
+  },
+  COLLOQUIO: {
+    chip: "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300",
+    card: "from-amber-50/80 to-white dark:from-amber-950/25 dark:to-zinc-900",
+    border: "border-amber-200/80 dark:border-amber-800/50",
+    total: "text-amber-700 dark:text-amber-300",
+  },
+  SALA: {
+    chip: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300",
+    card: "from-emerald-50/80 to-white dark:from-emerald-950/25 dark:to-zinc-900",
+    border: "border-emerald-200/80 dark:border-emerald-800/50",
+    total: "text-emerald-700 dark:text-emerald-300",
+  },
+  CORSO: {
+    chip: "bg-cyan-100 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300",
+    card: "from-cyan-50/80 to-white dark:from-cyan-950/25 dark:to-zinc-900",
+    border: "border-cyan-200/80 dark:border-cyan-800/50",
+    total: "text-cyan-700 dark:text-cyan-300",
+  },
+};
+
 const STATUS_COLORS: Record<string, string> = {
   Programmato: "text-blue-600 dark:text-blue-400",
   Completato: "text-emerald-600 dark:text-emerald-400",
@@ -621,7 +659,7 @@ function WeeklyLessons({ events, isLoading }: { events: EventHydrated[]; isLoadi
   const completedEvents = stats.reduce((acc, item) => acc + item.completed, 0);
 
   return (
-    <div className="rounded-xl border bg-gradient-to-br from-white to-zinc-50/40 p-5 shadow-sm dark:from-zinc-900 dark:to-zinc-800/40">
+    <div className="rounded-xl border bg-gradient-to-br from-white via-white to-zinc-50/60 p-5 shadow-sm dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800/40">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-[220px]">
           <div className="flex items-center gap-2">
@@ -633,7 +671,7 @@ function WeeklyLessons({ events, isLoading }: { events: EventHydrated[]; isLoadi
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="rounded-lg border bg-white px-3 py-1.5 text-right shadow-sm dark:bg-zinc-900">
+          <div className="rounded-lg border bg-gradient-to-br from-white to-zinc-50 px-3 py-1.5 text-right shadow-sm dark:from-zinc-900 dark:to-zinc-800/60">
             <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">Completate</p>
             <p className="text-2xl font-extrabold leading-none tabular-nums">
               {completedEvents}
@@ -656,31 +694,40 @@ function WeeklyLessons({ events, isLoading }: { events: EventHydrated[]; isLoadi
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {stats.map((stat) => {
             const color = CATEGORY_COLORS[stat.category] ?? "bg-zinc-400";
+            const theme = WEEKLY_CATEGORY_THEME[stat.category] ?? {
+              chip: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
+              card: "from-zinc-50/80 to-white dark:from-zinc-900/30 dark:to-zinc-900",
+              border: "border-zinc-200/80 dark:border-zinc-800/50",
+              total: "text-zinc-700 dark:text-zinc-300",
+            };
             return (
-              <div key={stat.category} className="rounded-xl border bg-white p-4 shadow-sm dark:bg-zinc-900">
+              <div
+                key={stat.category}
+                className={`rounded-xl border bg-gradient-to-br ${theme.card} ${theme.border} p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md`}
+              >
                 <div className="mb-3 flex items-start justify-between">
                   <div className="flex items-center gap-2">
                     <span className={`h-2.5 w-2.5 rounded-full ${color}`} />
-                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <span className={`rounded-md px-2 py-0.5 text-[13px] font-bold tracking-tight ${theme.chip}`}>
                       {stat.label}
                     </span>
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">Totale</p>
-                    <p className="text-3xl font-extrabold leading-none tabular-nums">{stat.total}</p>
+                    <p className={`text-3xl font-extrabold leading-none tabular-nums ${theme.total}`}>{stat.total}</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-2 text-center text-[11px] text-muted-foreground">
+                <div className="grid grid-cols-3 gap-2 text-center text-[12px] text-muted-foreground">
                   <div className="rounded-md border bg-zinc-50 px-2 py-1.5 dark:bg-zinc-800/60">
-                    <p className="text-lg font-extrabold leading-none tabular-nums text-zinc-700 dark:text-zinc-300">{stat.scheduled}</p>
+                    <p className="text-xl font-extrabold leading-none tabular-nums text-zinc-700 dark:text-zinc-300">{stat.scheduled}</p>
                     <p className="mt-1 font-medium">agenda</p>
                   </div>
                   <div className="rounded-md border bg-emerald-50 px-2 py-1.5 dark:bg-emerald-950/30">
-                    <p className="text-lg font-extrabold leading-none tabular-nums text-emerald-600 dark:text-emerald-400">{stat.completed}</p>
+                    <p className="text-xl font-extrabold leading-none tabular-nums text-emerald-600 dark:text-emerald-400">{stat.completed}</p>
                     <p className="mt-1 font-medium">fatte</p>
                   </div>
                   <div className="rounded-md border bg-red-50 px-2 py-1.5 dark:bg-red-950/30">
-                    <p className="text-lg font-extrabold leading-none tabular-nums text-red-500">{stat.cancelled}</p>
+                    <p className="text-xl font-extrabold leading-none tabular-nums text-red-500">{stat.cancelled}</p>
                     <p className="mt-1 font-medium">cancel.</p>
                   </div>
                 </div>
@@ -796,8 +843,32 @@ function AgendaLivePanel({ events, isLoading }: { events: EventHydrated[]; isLoa
       ? "In arrivo"
       : "Libero";
 
+  const countdownTone = liveInfo.mode === "in_progress"
+    ? "border-amber-200 bg-amber-50/80 dark:border-amber-900/40 dark:bg-amber-950/20"
+    : liveInfo.mode === "next_up"
+      ? "border-blue-200 bg-blue-50/80 dark:border-blue-900/40 dark:bg-blue-950/20"
+      : "border-zinc-200 bg-zinc-50/80 dark:border-zinc-800/70 dark:bg-zinc-900/50";
+
+  const countdownTextTone = liveInfo.mode === "in_progress"
+    ? "text-amber-700 dark:text-amber-300"
+    : liveInfo.mode === "next_up"
+      ? "text-blue-700 dark:text-blue-300"
+      : "text-zinc-700 dark:text-zinc-300";
+
+  const statusTone = liveInfo.mode === "in_progress"
+    ? "border-amber-200 bg-amber-50/80 dark:border-amber-900/40 dark:bg-amber-950/20"
+    : liveInfo.mode === "next_up"
+      ? "border-emerald-200 bg-emerald-50/80 dark:border-emerald-900/40 dark:bg-emerald-950/20"
+      : "border-zinc-200 bg-zinc-50/80 dark:border-zinc-800/70 dark:bg-zinc-900/50";
+
+  const statusTitleTone = liveInfo.mode === "in_progress"
+    ? "text-amber-700 dark:text-amber-300"
+    : liveInfo.mode === "next_up"
+      ? "text-emerald-700 dark:text-emerald-300"
+      : "text-zinc-700 dark:text-zinc-300";
+
   return (
-    <div className="rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-5 shadow-sm dark:from-zinc-900 dark:to-zinc-800/50">
+    <div className="rounded-xl border bg-gradient-to-br from-white via-white to-zinc-50/60 p-5 shadow-sm dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800/50">
       <div className="mb-4 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Clock className="h-4 w-4 text-blue-500" />
@@ -816,19 +887,19 @@ function AgendaLivePanel({ events, isLoading }: { events: EventHydrated[]; isLoa
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-3">
-        <div className="rounded-xl border bg-violet-50/80 p-3 dark:bg-violet-950/20">
+        <div className={`rounded-xl border p-3 ${countdownTone}`}>
           <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
             {liveInfo.mode === "in_progress" ? "Fine tra" : "Inizio tra"}
           </p>
-          <p className="mt-1 text-2xl font-extrabold leading-none tabular-nums text-violet-700 dark:text-violet-300">
+          <p className={`mt-1 text-2xl font-extrabold leading-none tabular-nums ${countdownTextTone}`}>
             {liveInfo.mode === "free" ? "--:--:--" : nextCountdown}
           </p>
         </div>
-        <div className="rounded-xl border bg-emerald-50/80 p-3 dark:bg-emerald-950/20">
+        <div className={`rounded-xl border p-3 ${statusTone}`}>
           <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
             Stato
           </p>
-          <p className="mt-1 text-sm font-bold text-emerald-700 dark:text-emerald-300">{statusTitle}</p>
+          <p className={`mt-1 text-sm font-bold ${statusTitleTone}`}>{statusTitle}</p>
           <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{statusSubtitle}</p>
         </div>
       </div>
