@@ -45,6 +45,7 @@ def seed_builtin_exercises(session: Session) -> int:
 
     for ex in exercises_data:
         exercise = Exercise(
+            id=ex.get("id"),  # preserva ID originali per FK relazioni
             trainer_id=None,
             nome=ex["nome"],
             nome_en=ex.get("nome_en"),
