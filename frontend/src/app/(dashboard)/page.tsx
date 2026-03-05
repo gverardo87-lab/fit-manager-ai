@@ -64,6 +64,33 @@ function tomorrowISO(): string {
 
 const MESE_LABEL = now.toLocaleDateString("it-IT", { month: "long" });
 
+function weekStartDate(baseDate: Date = now): Date {
+  const date = new Date(baseDate);
+  const day = date.getDay();
+  const delta = day === 0 ? -6 : 1 - day;
+  date.setDate(date.getDate() + delta);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function weekStartISO(): string {
+  return weekStartDate().toISOString().slice(0, 10);
+}
+
+function nextWeekStartISO(): string {
+  const date = weekStartDate();
+  date.setDate(date.getDate() + 7);
+  return date.toISOString().slice(0, 10);
+}
+
+function currentWeekLabel(): string {
+  const start = weekStartDate();
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  const formatOptions: Intl.DateTimeFormatOptions = { day: "2-digit", month: "short" };
+  return `${start.toLocaleDateString("it-IT", formatOptions)} - ${end.toLocaleDateString("it-IT", formatOptions)}`;
+}
+
 // ── Category colors (mirror agenda) ──
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -73,6 +100,16 @@ const CATEGORY_COLORS: Record<string, string> = {
   COLLOQUIO: "bg-amber-500",
   PERSONALE: "bg-pink-500",
 };
+
+const CATEGORY_LABELS: Record<string, string> = {
+  PT: "PT",
+  PERSONALE: "Personale",
+  COLLOQUIO: "Colloquio",
+  SALA: "Sala",
+  CORSO: "Corso",
+};
+
+const WEEKLY_CATEGORY_ORDER = ["PT", "PERSONALE", "COLLOQUIO", "SALA", "CORSO"] as const;
 
 const STATUS_COLORS: Record<string, string> = {
   Programmato: "text-blue-600 dark:text-blue-400",
@@ -89,6 +126,7 @@ export default function DashboardPage() {
   const { data: summary, isLoading: summaryLoading, isError, refetch } = useDashboard();
   const { data: alerts } = useDashboardAlerts();
   const { data: eventsData } = useEvents({ start: todayISO(), end: tomorrowISO() });
+  const { data: weeklyEventsData } = useEvents({ start: weekStartISO(), end: nextWeekStartISO() });
 
   // Sheet state per risoluzione inline alert
   const [ghostSheetOpen, setGhostSheetOpen] = useState(false);
@@ -102,6 +140,11 @@ export default function DashboardPage() {
       .filter((e) => e.data_inizio.toISOString().slice(0, 10) === today && e.stato !== "Cancellato")
       .sort((a, b) => a.data_inizio.getTime() - b.data_inizio.getTime());
   }, [eventsData]);
+
+  const weeklyEvents = useMemo(() => {
+    if (!weeklyEventsData?.items) return [];
+    return [...weeklyEventsData.items].sort((a, b) => a.data_inizio.getTime() - b.data_inizio.getTime());
+  }, [weeklyEventsData]);
 
   const isLoading = summaryLoading;
 
@@ -153,6 +196,9 @@ export default function DashboardPage() {
 
           {/* ── Alert Panel ── */}
           <AlertPanel alerts={alerts} isLoading={!alerts} alertActions={alertActions} />
+
+          {/* ── Lezioni della settimana ── */}
+          <WeeklyLessons events={weeklyEvents} isLoading={!weeklyEventsData} />
 
           {/* ── Due colonne: Agenda + Todo ── */}
           <div className="grid gap-6 lg:grid-cols-2">
@@ -493,6 +539,140 @@ function AlertPanel({ alerts, isLoading, alertActions = {} }: {
 // ════════════════════════════════════════════════════════════
 // Agenda Oggi
 // ════════════════════════════════════════════════════════════
+
+interface WeeklyCategoryStat {
+  category: string;
+  label: string;
+  total: number;
+  scheduled: number;
+  completed: number;
+  cancelled: number;
+}
+
+function buildWeeklyCategoryStats(events: EventHydrated[]): WeeklyCategoryStat[] {
+  const statsMap = new Map<string, WeeklyCategoryStat>();
+
+  WEEKLY_CATEGORY_ORDER.forEach((category) => {
+    statsMap.set(category, {
+      category,
+      label: CATEGORY_LABELS[category] ?? category,
+      total: 0,
+      scheduled: 0,
+      completed: 0,
+      cancelled: 0,
+    });
+  });
+
+  events.forEach((event) => {
+    const category = event.categoria ?? "ALTRO";
+    const stat = statsMap.get(category) ?? {
+      category,
+      label: CATEGORY_LABELS[category] ?? category,
+      total: 0,
+      scheduled: 0,
+      completed: 0,
+      cancelled: 0,
+    };
+
+    stat.total += 1;
+    if (event.stato === "Completato") {
+      stat.completed += 1;
+    } else if (event.stato === "Cancellato") {
+      stat.cancelled += 1;
+    } else {
+      stat.scheduled += 1;
+    }
+
+    statsMap.set(category, stat);
+  });
+
+  const orderMap = new Map<string, number>(WEEKLY_CATEGORY_ORDER.map((key, index) => [key, index]));
+  return Array.from(statsMap.values())
+    .filter((stat) => stat.total > 0 || orderMap.has(stat.category))
+    .sort((a, b) => {
+      if (a.total !== b.total) return b.total - a.total;
+      return (orderMap.get(a.category) ?? 99) - (orderMap.get(b.category) ?? 99);
+    });
+}
+
+function WeeklyLessons({ events, isLoading }: { events: EventHydrated[]; isLoading: boolean }) {
+  if (isLoading) {
+    return (
+      <div className="rounded-xl border p-5 space-y-4">
+        <Skeleton className="h-5 w-52" />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-[108px] w-full rounded-lg" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const stats = buildWeeklyCategoryStats(events);
+  const totalEvents = stats.reduce((acc, item) => acc + item.total, 0);
+  const completedEvents = stats.reduce((acc, item) => acc + item.completed, 0);
+
+  return (
+    <div className="rounded-xl border bg-gradient-to-br from-white to-zinc-50/40 p-5 shadow-sm dark:from-zinc-900 dark:to-zinc-800/40">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <CalendarCheck className="h-4 w-4 text-blue-500" />
+            <h3 className="text-sm font-semibold">Lezioni della settimana</h3>
+          </div>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            {currentWeekLabel()} • {completedEvents}/{totalEvents} completate
+          </p>
+        </div>
+        <Link href="/agenda">
+          <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs">
+            Apri agenda <ArrowRight className="h-3 w-3" />
+          </Button>
+        </Link>
+      </div>
+
+      {totalEvents === 0 ? (
+        <div className="rounded-lg border border-dashed p-4 text-center">
+          <p className="text-sm text-muted-foreground">Nessuna lezione pianificata questa settimana</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          {stats.map((stat) => {
+            const color = CATEGORY_COLORS[stat.category] ?? "bg-zinc-400";
+            return (
+              <div key={stat.category} className="rounded-lg border bg-white p-3 dark:bg-zinc-900">
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className={`h-2.5 w-2.5 rounded-full ${color}`} />
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {stat.label}
+                    </span>
+                  </div>
+                  <span className="text-lg font-bold tabular-nums">{stat.total}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-1 text-[10px] text-muted-foreground">
+                  <div>
+                    <p className="font-semibold text-zinc-700 dark:text-zinc-300">{stat.scheduled}</p>
+                    <p>in agenda</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-emerald-600 dark:text-emerald-400">{stat.completed}</p>
+                    <p>fatte</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-red-500">{stat.cancelled}</p>
+                    <p>cancell.</p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function TodayAgenda({ events, isLoading }: { events: EventHydrated[]; isLoading: boolean }) {
   if (isLoading) {
