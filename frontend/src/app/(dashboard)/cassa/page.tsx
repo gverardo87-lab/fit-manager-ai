@@ -305,7 +305,7 @@ export default function CassaPage() {
   return (
     <div className="space-y-6">
       {/* ── Header + Filtri ── */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div data-guide="cassa-header" className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-200 dark:from-emerald-900/40 dark:to-emerald-800/30">
             <Landmark className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
@@ -361,7 +361,7 @@ export default function CassaPage() {
             <span className="hidden sm:inline">Registro Modifiche</span>
           </Button>
 
-          <Button onClick={() => setSheetOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+          <Button data-guide="cassa-new-button" onClick={() => setSheetOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white">
             <Plus className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">Nuovo Movimento</span>
           </Button>

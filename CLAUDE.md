@@ -53,6 +53,42 @@ Upgrade puramente visivi senza nuove dipendenze pesanti. Zero framer-motion, tut
 - **Confetti** (`lib/confetti.ts`): `celebrateRatePaid()` (burst singolo, 70 particelle) e `celebrateContractSaldato()` (cannoni L+R, 150ms offset). Lazy dynamic import di `canvas-confetti` (3KB). Triggerato da `usePayRate` in `onSuccess` quando `data.stato === "SALDATA"`.
 - **MuscleMapPanel status-aware**: vedi sezione Workout Template Builder.
 
+### Guide Tour Interattivo — SpotlightTour 19 Passi
+
+Tour guidato con overlay spotlight che naviga automaticamente tra le pagine.
+Copre l'intero ciclo operativo: dashboard, clienti, contratti, agenda, cassa, esercizi,
+schede allenamento, monitoraggio, impostazioni e ricerca rapida.
+
+**Architettura**:
+- **SpotlightTour** (`components/guide/SpotlightTour.tsx`): overlay leggero con box-shadow cutout (singolo DOM element).
+  Portal in `document.body`. Zero librerie esterne. CSS `spotlight-cutout` in `globals.css`.
+  Vive nel `layout.tsx` che non si smonta mai → stato sopravvive alla navigazione client-side.
+- **data-guide attributes**: `data-guide="step-id"` su elementi target in 8 pagine. `getTargetRect()` cerca via `querySelector`.
+- **Navigazione cross-page**: campo `navigateTo` su TourStep → `router.push()` via callback `onNavigate` dal layout.
+  Navigazione centralizzata nell'useEffect di `tryFind` (singola fonte di verita').
+- **Retry mechanism**: 20 tentativi × 200ms (4s) per step same-page, 25 × 200ms (5s) per cross-page.
+  Auto-skip se target non trovato dopo retry esauriti.
+- **Keyboard**: ArrowRight/Enter = avanti, ArrowLeft = indietro, Escape = chiudi.
+- **Mobile-aware**: step con `desktopOnly: true` filtrati sotto 1024px (solo sidebar-search).
+- **Auto-trigger**: prima visita dashboard → tour parte dopo 1.5s (`shouldShowOnboarding`).
+- **Manual trigger**: `window.dispatchEvent(new Event("start-guide-tour"))` da `/guida`.
+
+**Dati** (`lib/guide-tours.ts`, ~300 LOC, file puro dati zero React):
+- `TOUR_SCOPRI_FITMANAGER`: 19 step cross-page (ID: `"scopri-fitmanager"`)
+- `GUIDE_FAQ`: 7 domande frequenti con risposte actionable
+- `KEYBOARD_SHORTCUTS`: 5 scorciatoie
+- `FEATURE_CARDS`: 4 card feature discovery (assistente, smart programming, scudo clinico, export)
+
+**Progresso** (`hooks/useGuideProgress.ts`): localStorage `fitmanager.guide.progress.v1`.
+Traccia `completedTours` e `dismissedTours`. `shouldShowOnboarding` verifica se il tour principale e' stato completato o dismissato.
+
+**Hub Guida** (`app/(dashboard)/guida/page.tsx`):
+Hero card con CTA "Lancia tour" / "Rifai il tour", scorciatoie da tastiera, FAQ collapsibili, feature discovery cards.
+
+File chiave: `lib/guide-tours.ts` (dati), `components/guide/SpotlightTour.tsx` (overlay),
+`hooks/useGuideProgress.ts` (progresso), `app/(dashboard)/guida/page.tsx` (hub),
+`app/(dashboard)/layout.tsx` (integrazione tour + navigazione).
+
 ### Command Palette (Ctrl+K) — Feature Distintiva
 
 Elemento chiave di UX: ricerca fuzzy globale con 3 capacita' avanzate.

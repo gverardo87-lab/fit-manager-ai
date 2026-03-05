@@ -171,8 +171,10 @@ export function SpotlightTour({ tour, open, onComplete, onDismiss, onNavigate }:
     }
 
     let attempts = 0;
-    // Dopo navigazione serve piu' tempo per il mount della nuova pagina
-    const maxAttempts = step.navigateTo ? 20 : 10;
+    // Dopo navigazione serve piu' tempo per il mount della nuova pagina.
+    // Per step same-page con target data-dependent (KPI, filtri), servono
+    // comunque ~4s perche' i dati arrivano via React Query dopo il render.
+    const maxAttempts = step.navigateTo ? 25 : 20;
 
     const tryFind = () => {
       const rect = getTargetRect(step.target);

@@ -277,7 +277,7 @@ export default function ContrattiPage() {
   return (
     <div className="space-y-6">
       {/* ── Header gradient ── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div data-guide="contratti-header" className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-violet-100 to-violet-200 dark:from-violet-900/40 dark:to-violet-800/30">
             <FileText className="h-5 w-5 text-violet-600 dark:text-violet-400" />
@@ -296,7 +296,7 @@ export default function ContrattiPage() {
             )}
           </div>
         </div>
-        <Button onClick={handleNewContract}>
+        <Button data-guide="contratti-new-button" onClick={handleNewContract}>
           <Plus className="h-4 w-4 sm:mr-2" />
           <span className="hidden sm:inline">Nuovo Contratto</span>
         </Button>
@@ -304,7 +304,7 @@ export default function ContrattiPage() {
 
       {/* ── KPI Cards ── */}
       {contractsData && (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div data-guide="contratti-kpi" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {CONTRATTI_KPI.map((kpi) => {
             const value = getKpiValue(kpi.key, contractsData);
             const isAlert = kpi.key === "rate_scadute";

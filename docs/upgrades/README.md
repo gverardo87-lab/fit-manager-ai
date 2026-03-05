@@ -55,11 +55,9 @@ Esempio:
 - `UPG-2026-03-05-11`: correzione densita verticale dashboard: riquadri agenda/live compatti e appuntamenti sempre scrollabili internamente.
 - `UPG-2026-03-05-12`: ottimizzazione responsive tablet/mobile dashboard + nuova skill riusabile `fitmanager-responsive-adaptive-ui` con routing in `AGENTS.md`.
 - `UPG-2026-03-05-13`: hardening logica temporale dashboard (date locali no UTC shift + refresh automatico al cambio giorno).
-- `UPG-2026-03-05-14`: Wave 0 guida completata (foundation governance): 3 nuove skill guida, routing `AGENTS.md`, roadmap Wave 1-3 pronta.
-- `UPG-2026-03-05-15`: Wave 1 guida a capitoli/sezioni completata (`docs/guides/` con 12 capitoli route-mapped).
-- `UPG-2026-03-05-16`: Wave 2 guida illustrata completata (`docs/guides/illustrated/` + asset manifest + link dai capitoli Wave 1).
-- `UPG-2026-03-05-17`: Wave 3 guida interattiva + integrazione assistant/help routing (planned).
+- `UPG-2026-03-05-14..17`: superseded — vecchio approccio guida a capitoli/illustrata. Sostituito da SpotlightTour (UPG-23).
 - `UPG-2026-03-05-18`: hardening dashboard mobile overflow/clipping (KPI/alert/agenda/todo) con width constraints e wrapping/truncate sicuro.
 - `UPG-2026-03-05-19`: dashboard piu' viva con barra "Focus operativo" + animazioni leggere a comparsa (no nuove dipendenze, rollback via flag locale).
-- `UPG-2026-03-05-20`: prima pagina guida in-app (`/guida`) con roadmap Wave 1-4 + shortcut aree CRM, integrata in sidebar e command palette.
+- `UPG-2026-03-05-20`: scaffold pagina `/guida` + sidebar + CommandPalette. Evoluto in SpotlightTour (UPG-23).
 - `UPG-2026-03-05-21`: hardening governance per sviluppo parallelo Codex + Claude Code (priority sync, protocollo lock/handoff, workboard contract, allineamento CLAUDE layer).
+- `UPG-2026-03-05-23`: SpotlightTour interattivo 19 passi con navigazione cross-page. Hub `/guida` con tour launcher, FAQ, scorciatoie e feature discovery.

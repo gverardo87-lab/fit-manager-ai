@@ -131,8 +131,8 @@ export default function GuidaPage() {
               )}
             </div>
             <CardDescription className="max-w-xl">
-              Tour interattivo in 11 passi che ti guida attraverso l&apos;intero ciclo cliente:
-              dalla registrazione alla programmazione intelligente, fino al monitoraggio compliance.
+              Tour interattivo in 19 passi che ti guida attraverso l&apos;intero ciclo operativo:
+              clienti, contratti, agenda, cassa, esercizi, schede allenamento, monitoraggio e backup.
               Il tour naviga automaticamente tra le pagine.
             </CardDescription>
           </CardHeader>

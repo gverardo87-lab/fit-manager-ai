@@ -256,7 +256,7 @@ export default function AgendaPage() {
   return (
     <div className="space-y-6">
       {/* ── Header ── */}
-      <div className="flex items-center justify-between">
+      <div data-guide="agenda-header" className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/40 dark:to-blue-800/30">
             <CalendarDays className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -272,6 +272,7 @@ export default function AgendaPage() {
           </div>
         </div>
         <Button
+          data-guide="agenda-new-button"
           onClick={handleNewEvent}
           className="bg-blue-600 text-white shadow-sm hover:bg-blue-700"
         >
