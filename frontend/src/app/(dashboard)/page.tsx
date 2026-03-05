@@ -256,7 +256,7 @@ export default function DashboardPage() {
   return (
     <div className="min-w-0 space-y-4 md:space-y-6">
       {/* ── Header ── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div data-guide="dashboard-header" className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 sm:h-11 sm:w-11 dark:from-blue-900/40 dark:to-blue-800/30">
           <LayoutDashboard className="h-5 w-5 text-blue-600 dark:text-blue-400" />
         </div>

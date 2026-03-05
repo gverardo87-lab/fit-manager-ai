@@ -42,7 +42,7 @@ import {
 // NAVIGAZIONE — Section Labels pattern (Linear/Notion style)
 // ════════════════════════════════════════════════════════════
 
-type NavLink = { href: string; label: string; icon: React.ComponentType<{ className?: string }> };
+type NavLink = { href: string; label: string; icon: React.ComponentType<{ className?: string }>; guideId?: string };
 type NavSection = { section: string; items: NavLink[] };
 type NavEntry = NavLink | NavSection;
 
@@ -52,7 +52,7 @@ const NAV_TOP: NavEntry[] = [
   {
     section: "Clienti",
     items: [
-      { href: "/clienti", label: "Clienti", icon: Users },
+      { href: "/clienti", label: "Clienti", icon: Users, guideId: "sidebar-clienti" },
     ],
   },
   {
@@ -66,14 +66,14 @@ const NAV_TOP: NavEntry[] = [
     section: "Allenamento",
     items: [
       { href: "/esercizi", label: "Esercizi", icon: Dumbbell },
-      { href: "/schede", label: "Schede", icon: ClipboardList },
+      { href: "/schede", label: "Schede", icon: ClipboardList, guideId: "sidebar-schede" },
       { href: "/allenamenti", label: "Monitoraggio", icon: Activity },
     ],
   },
 ];
 
 const NAV_BOTTOM: NavLink[] = [
-  { href: "/guida", label: "Guida", icon: BookOpen },
+  { href: "/guida", label: "Guida", icon: BookOpen, guideId: "sidebar-guida" },
   { href: "/impostazioni", label: "Impostazioni", icon: Settings },
 ];
 
@@ -85,10 +85,12 @@ function NavItem({
   item,
   pathname,
   onNavigate,
+  showPulse,
 }: {
   item: NavLink;
   pathname: string;
   onNavigate?: () => void;
+  showPulse?: boolean;
 }) {
   const isActive =
     item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
@@ -108,8 +110,9 @@ function NavItem({
         <Link
           href={item.href}
           onClick={handleClick}
+          data-guide={item.guideId}
           className={cn(
-            "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+            "relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
             isActive
               ? "bg-primary/10 text-primary"
               : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
@@ -117,6 +120,12 @@ function NavItem({
         >
           <item.icon className="h-4.5 w-4.5 shrink-0" />
           {item.label}
+          {showPulse && (
+            <span className="absolute right-2 top-1/2 -translate-y-1/2">
+              <span className="absolute inline-flex h-2 w-2 animate-ping rounded-full bg-primary opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+            </span>
+          )}
         </Link>
       </TooltipTrigger>
       <TooltipContent side="right" className="lg:hidden">
@@ -132,9 +141,10 @@ function NavItem({
 
 interface SidebarProps {
   onNavigate?: () => void; // Chiamato dopo click su mobile (chiude Sheet)
+  guidePulse?: boolean;    // Pulse dot su "Guida" (primo accesso, tour non completato)
 }
 
-export function Sidebar({ onNavigate }: SidebarProps) {
+export function Sidebar({ onNavigate, guidePulse }: SidebarProps) {
   const pathname = usePathname();
   const trainer = getStoredTrainer();
 
@@ -158,6 +168,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       {/* ── Search trigger (apre Command Palette) ── */}
       <div className="px-3 pt-3">
         <Button
+          data-guide="sidebar-search"
           variant="outline"
           className="w-full justify-start gap-2 text-sm text-muted-foreground"
           onClick={() => window.dispatchEvent(new Event("open-command-palette"))}
@@ -171,7 +182,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       </div>
 
       {/* ── Navigation Links ── */}
-      <nav className="flex flex-1 flex-col overflow-y-auto px-3 py-4">
+      <nav data-guide="sidebar-nav" className="flex flex-1 flex-col overflow-y-auto px-3 py-4">
         <div className="space-y-1">
           {NAV_TOP.map((entry) =>
             "section" in entry ? (
@@ -210,6 +221,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
               item={item}
               pathname={pathname}
               onNavigate={onNavigate}
+              showPulse={guidePulse && item.href === "/guida"}
             />
           ))}
         </div>

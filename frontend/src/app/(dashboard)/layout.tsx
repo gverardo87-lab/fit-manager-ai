@@ -13,6 +13,9 @@
  * Lo scroll viene salvato continuamente in sessionStorage e ripristinato
  * al cambio pathname SE esiste un valore salvato (altrimenti scroll to top).
  * La Sidebar cancella il valore salvato onClick → fresh nav = top.
+ *
+ * SpotlightTour: tour guidato con overlay su elementi reali.
+ * Auto-trigger su prima visita dashboard. Manual trigger da /guida via custom event.
  */
 
 import { useState, useRef, useEffect } from "react";
@@ -21,6 +24,7 @@ import { Menu } from "lucide-react";
 
 import { Sidebar } from "@/components/layout/Sidebar";
 import { CommandPalette } from "@/components/layout/CommandPalette";
+import { SpotlightTour } from "@/components/guide/SpotlightTour";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +33,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { useGuideProgress } from "@/hooks/useGuideProgress";
+import { TOUR_SCOPRI_FITMANAGER } from "@/lib/guide-tours";
 
 export default function DashboardLayout({
   children,
@@ -36,10 +42,12 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
   const mainRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const prevPathnameRef = useRef(pathname);
   const scrollTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const { shouldShowOnboarding, markTourCompleted, markTourDismissed } = useGuideProgress();
 
   // ── Hook 1: Continuously save scroll position via scroll event ──
   useEffect(() => {
@@ -92,13 +100,40 @@ export default function DashboardLayout({
     }
   }, [pathname]);
 
+  // ── Hook 3: Auto-trigger tour on first dashboard visit ──
+  useEffect(() => {
+    if (shouldShowOnboarding && pathname === "/") {
+      const timer = setTimeout(() => setTourOpen(true), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [shouldShowOnboarding, pathname]);
+
+  // ── Hook 4: Listen for manual tour trigger from /guida ──
+  useEffect(() => {
+    const handler = () => setTourOpen(true);
+    window.addEventListener("start-guide-tour", handler);
+    return () => window.removeEventListener("start-guide-tour", handler);
+  }, []);
+
   return (
     <AuthGuard>
     <CommandPalette />
+    <SpotlightTour
+      tour={TOUR_SCOPRI_FITMANAGER}
+      open={tourOpen}
+      onComplete={() => {
+        setTourOpen(false);
+        markTourCompleted("scopri-fitmanager");
+      }}
+      onDismiss={() => {
+        setTourOpen(false);
+        markTourDismissed("scopri-fitmanager");
+      }}
+    />
     <div className="bg-mesh-app flex h-screen">
       {/* ── Sidebar desktop (fissa, visibile da lg in su) ── */}
       <aside className="hidden lg:flex lg:w-64 lg:flex-col lg:border-r lg:bg-white dark:lg:bg-zinc-900">
-        <Sidebar />
+        <Sidebar guidePulse={shouldShowOnboarding} />
       </aside>
 
       {/* ── Contenuto principale ── */}
