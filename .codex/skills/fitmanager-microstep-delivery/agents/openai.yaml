@@ -1,0 +1,4 @@
+interface:
+  display_name: "FitManager Microstep Delivery"
+  short_description: "Ship changes in validated microsteps."
+  default_prompt: "Apply microstep implementation with targeted verification and explicit risk review."

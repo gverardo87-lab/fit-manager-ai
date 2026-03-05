@@ -1,0 +1,4 @@
+interface:
+  display_name: "FitManager API Integrity"
+  short_description: "Protect ownership, contracts, and data integrity."
+  default_prompt: "Use API integrity workflow for FastAPI mutations and schema changes."

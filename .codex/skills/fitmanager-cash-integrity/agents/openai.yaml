@@ -1,0 +1,4 @@
+interface:
+  display_name: "FitManager Cash Integrity"
+  short_description: "Harden ledger semantics and financial consistency."
+  default_prompt: "Apply cash-critical safeguards for ledger, balances, and audit flows."

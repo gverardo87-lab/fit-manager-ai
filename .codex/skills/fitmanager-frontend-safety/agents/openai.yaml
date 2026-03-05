@@ -1,0 +1,4 @@
+interface:
+  display_name: "FitManager Frontend Safety"
+  short_description: "Guard frontend state, privacy and UX quality."
+  default_prompt: "Use frontend safety checks for Next.js and React Query changes."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "FitManager Upgrade Doc Sync"
+  short_description: "Keep specs, logs, and workboard in sync."
+  default_prompt: "Run post-change documentation sync for UPG specs, log, and workboard."
