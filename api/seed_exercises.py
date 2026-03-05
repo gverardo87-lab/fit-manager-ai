@@ -95,6 +95,8 @@ RELATIONS_SEED_FILE = DATA_DIR / "exercises" / "seed_exercise_relations.json"
 def seed_exercise_relations(session: Session) -> int:
     """Inserisce relazioni (progressioni/regressioni/varianti) se la tabella e' vuota.
 
+    Filtra relazioni con FK orfane (es. DB legacy con ID diversi).
+
     Returns:
         Numero di relazioni inserite (0 se gia' seedate).
     """
@@ -112,17 +114,29 @@ def seed_exercise_relations(session: Session) -> int:
         logger.warning(f"Seed relazioni: file non trovato {RELATIONS_SEED_FILE}")
         return 0
 
+    # Carica ID esercizi effettivamente presenti nel DB
+    existing_ids = set(
+        session.exec(select(Exercise.id)).all()
+    )
+
     with open(RELATIONS_SEED_FILE, "r", encoding="utf-8") as f:
         relations_data = json.load(f)
 
+    inserted = 0
+    skipped = 0
     for rel in relations_data:
-        relation = ExerciseRelation(
-            exercise_id=rel["exercise_id"],
-            related_exercise_id=rel["related_exercise_id"],
-            tipo_relazione=rel["tipo_relazione"],
-        )
-        session.add(relation)
+        if rel["exercise_id"] in existing_ids and rel["related_exercise_id"] in existing_ids:
+            session.add(ExerciseRelation(
+                exercise_id=rel["exercise_id"],
+                related_exercise_id=rel["related_exercise_id"],
+                tipo_relazione=rel["tipo_relazione"],
+            ))
+            inserted += 1
+        else:
+            skipped += 1
 
     session.commit()
-    logger.info(f"Seed relazioni: inserite {len(relations_data)} relazioni")
-    return len(relations_data)
+    if skipped:
+        logger.warning(f"Seed relazioni: {skipped} scartate (ID esercizio mancante)")
+    logger.info(f"Seed relazioni: inserite {inserted} relazioni")
+    return inserted
