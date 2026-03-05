@@ -250,7 +250,7 @@ export default function ClientiPage() {
   return (
     <div className="space-y-6">
       {/* ── Header gradient ── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div data-guide="clienti-header" className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/40 dark:to-blue-800/30">
             <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -269,7 +269,7 @@ export default function ClientiPage() {
             )}
           </div>
         </div>
-        <Button onClick={handleNewClient}>
+        <Button data-guide="clienti-new-button" onClick={handleNewClient}>
           <Plus className="h-4 w-4 sm:mr-2" />
           <span className="hidden sm:inline">Nuovo Cliente</span>
         </Button>
@@ -277,7 +277,7 @@ export default function ClientiPage() {
 
       {/* ── KPI Cards ── */}
       {data && (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div data-guide="clienti-kpi" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {CLIENTI_KPI.map((kpi) => {
             const value = getKpiValue(kpi.key, data);
             const isAlert = kpi.key === "rate_scadute";

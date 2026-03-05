@@ -18,8 +18,8 @@
  * Auto-trigger su prima visita dashboard. Manual trigger da /guida via custom event.
  */
 
-import { useState, useRef, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { Menu } from "lucide-react";
 
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -47,7 +47,15 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const prevPathnameRef = useRef(pathname);
   const scrollTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const router = useRouter();
   const { shouldShowOnboarding, markTourCompleted, markTourDismissed } = useGuideProgress();
+
+  // ── Tour navigation callback (cross-page tour) ──
+  const handleTourNavigate = useCallback((href: string) => {
+    if (pathname !== href) {
+      router.push(href);
+    }
+  }, [router, pathname]);
 
   // ── Hook 1: Continuously save scroll position via scroll event ──
   useEffect(() => {
@@ -129,6 +137,7 @@ export default function DashboardLayout({
         setTourOpen(false);
         markTourDismissed("scopri-fitmanager");
       }}
+      onNavigate={handleTourNavigate}
     />
     <div className="bg-mesh-app flex h-screen">
       {/* ── Sidebar desktop (fissa, visibile da lg in su) ── */}

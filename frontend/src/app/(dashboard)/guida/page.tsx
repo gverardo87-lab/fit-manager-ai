@@ -114,12 +114,12 @@ export default function GuidaPage() {
       </div>
 
       {/* ── Hero: Tour guidato ── */}
-      <Card className="overflow-hidden border-primary/20">
+      <Card data-guide="guida-hero" className="overflow-hidden border-primary/20">
         <div className="bg-gradient-to-br from-primary/5 via-primary/3 to-transparent">
           <CardHeader className="space-y-3">
             <div className="flex items-center gap-2">
               <Compass className="h-5 w-5 text-primary" />
-              <CardTitle>Scopri FitManager</CardTitle>
+              <CardTitle>Scopri l&apos;intero ciclo cliente</CardTitle>
               {tourDone && (
                 <Badge
                   variant="outline"
@@ -131,8 +131,9 @@ export default function GuidaPage() {
               )}
             </div>
             <CardDescription className="max-w-xl">
-              Un tour guidato che evidenzia le aree principali dell&apos;app direttamente
-              sull&apos;interfaccia. Dura meno di un minuto e puoi ripeterlo quando vuoi.
+              Tour interattivo in 11 passi che ti guida attraverso l&apos;intero ciclo cliente:
+              dalla registrazione alla programmazione intelligente, fino al monitoraggio compliance.
+              Il tour naviga automaticamente tra le pagine.
             </CardDescription>
           </CardHeader>
           <CardContent>

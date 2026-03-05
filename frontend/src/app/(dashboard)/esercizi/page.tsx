@@ -340,7 +340,7 @@ export default function EserciziPage() {
   return (
     <div className="space-y-6">
       {/* ── Header ── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div data-guide="esercizi-header" className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-violet-100 to-violet-200 dark:from-violet-900/40 dark:to-violet-800/30">
             <Dumbbell className="h-5 w-5 text-violet-600 dark:text-violet-400" />
@@ -407,7 +407,7 @@ export default function EserciziPage() {
 
       {/* ── FilterBar chip interattivi ── */}
       {data && (
-        <div className="rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-3 shadow-sm dark:from-zinc-900 dark:to-zinc-800/50">
+        <div data-guide="esercizi-filters" className="rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-3 shadow-sm dark:from-zinc-900 dark:to-zinc-800/50">
           <div className="flex flex-col gap-2">
             {/* Riga 1: Categoria (multi-toggle, pattern Clienti) */}
             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">

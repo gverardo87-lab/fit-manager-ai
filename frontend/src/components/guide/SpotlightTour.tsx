@@ -24,6 +24,8 @@ interface SpotlightTourProps {
   open: boolean;
   onComplete: () => void;
   onDismiss: () => void;
+  /** Callback per navigare a una route (cross-page tour) */
+  onNavigate?: (href: string) => void;
 }
 
 // ── Geometry helpers ──
@@ -124,7 +126,7 @@ function computeTooltipPosition(
 
 // ── Component ──
 
-export function SpotlightTour({ tour, open, onComplete, onDismiss }: SpotlightTourProps) {
+export function SpotlightTour({ tour, open, onComplete, onDismiss, onNavigate }: SpotlightTourProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [targetRect, setTargetRect] = useState<Rect | null>(null);
   const [tooltipPos, setTooltipPos] = useState<TooltipPosition | null>(null);
@@ -161,7 +163,8 @@ export function SpotlightTour({ tour, open, onComplete, onDismiss }: SpotlightTo
     }
 
     let attempts = 0;
-    const maxAttempts = 10;
+    // Dopo navigazione serve piu' tempo per il mount della nuova pagina
+    const maxAttempts = step.navigateTo ? 20 : 10;
 
     const tryFind = () => {
       const rect = getTargetRect(step.target);
@@ -214,6 +217,30 @@ export function SpotlightTour({ tour, open, onComplete, onDismiss }: SpotlightTo
     };
   }, [open, visible, updatePosition]);
 
+  // ── Navigation handlers ──
+
+  const goNext = useCallback(() => {
+    if (isLastStep) {
+      onComplete();
+    } else {
+      const nextStep = activeSteps[currentStep + 1];
+      if (nextStep?.navigateTo && onNavigate) {
+        onNavigate(nextStep.navigateTo);
+      }
+      setCurrentStep((prev) => prev + 1);
+    }
+  }, [isLastStep, onComplete, activeSteps, currentStep, onNavigate]);
+
+  const goBack = useCallback(() => {
+    if (currentStep > 0) {
+      const prevStep = activeSteps[currentStep - 1];
+      if (prevStep?.navigateTo && onNavigate) {
+        onNavigate(prevStep.navigateTo);
+      }
+      setCurrentStep((prev) => prev - 1);
+    }
+  }, [currentStep, activeSteps, onNavigate]);
+
   // ── Keyboard ──
 
   useEffect(() => {
@@ -228,24 +255,18 @@ export function SpotlightTour({ tour, open, onComplete, onDismiss }: SpotlightTo
         case "ArrowRight":
         case "Enter":
           e.preventDefault();
-          if (isLastStep) {
-            onComplete();
-          } else {
-            setCurrentStep((prev) => prev + 1);
-          }
+          goNext();
           break;
         case "ArrowLeft":
           e.preventDefault();
-          if (currentStep > 0) {
-            setCurrentStep((prev) => prev - 1);
-          }
+          goBack();
           break;
       }
     };
 
     window.addEventListener("keydown", handleKeyDown, { capture: true });
     return () => window.removeEventListener("keydown", handleKeyDown, { capture: true });
-  }, [open, currentStep, isLastStep, onComplete, onDismiss]);
+  }, [open, goNext, goBack, onDismiss]);
 
   // ── Reset step on open ──
 
@@ -253,24 +274,14 @@ export function SpotlightTour({ tour, open, onComplete, onDismiss }: SpotlightTo
     if (open) {
       setCurrentStep(0);
       setVisible(false);
+      // Se il primo step richiede navigazione, triggera subito
+      const firstStep = activeSteps[0];
+      if (firstStep?.navigateTo && onNavigate) {
+        onNavigate(firstStep.navigateTo);
+      }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
-
-  // ── Navigation handlers ──
-
-  const goNext = useCallback(() => {
-    if (isLastStep) {
-      onComplete();
-    } else {
-      setCurrentStep((prev) => prev + 1);
-    }
-  }, [isLastStep, onComplete]);
-
-  const goBack = useCallback(() => {
-    if (currentStep > 0) {
-      setCurrentStep((prev) => prev - 1);
-    }
-  }, [currentStep]);
 
   // ── Render ──
 

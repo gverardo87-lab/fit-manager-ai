@@ -318,7 +318,7 @@ export default function AllenamentiPage() {
   return (
     <div className="space-y-6">
       {/* ── Header con icona gradient ── */}
-      <div className="flex items-center gap-3">
+      <div data-guide="monitoraggio-header" className="flex items-center gap-3">
         <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-teal-100 to-teal-200 dark:from-teal-900/40 dark:to-teal-800/30">
           <Activity className="h-5 w-5 text-teal-600 dark:text-teal-400" />
         </div>

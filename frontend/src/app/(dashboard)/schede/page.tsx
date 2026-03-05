@@ -189,7 +189,7 @@ export default function SchedePage() {
   return (
     <div className="space-y-6">
       {/* ── Header ── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div data-guide="schede-header" className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-teal-100 to-teal-200 dark:from-teal-900/40 dark:to-teal-800/30">
             <ClipboardList className="h-5 w-5 text-teal-600 dark:text-teal-400" />
@@ -203,7 +203,7 @@ export default function SchedePage() {
             )}
           </div>
         </div>
-        <Button onClick={() => setTemplateSelectorOpen(true)}>
+        <Button data-guide="schede-new-button" onClick={() => setTemplateSelectorOpen(true)}>
           <Plus className="h-4 w-4 sm:mr-2" />
           <span className="hidden sm:inline">Nuova Scheda</span>
         </Button>
