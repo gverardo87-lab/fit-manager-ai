@@ -64,6 +64,7 @@ Do not hide risks. Surface them early and explicitly.
 - Handle loading/error/empty states explicitly.
 - Avoid exposing sensitive data in default overview screens.
 - For dashboard visual redesigns, apply `.codex/skills/fitmanager-dashboard-crm-design` guidance.
+- For tablet/mobile UI optimization across CRM pages, apply `.codex/skills/fitmanager-responsive-adaptive-ui` guidance.
 
 ### Cross-layer
 

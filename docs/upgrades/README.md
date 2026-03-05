@@ -53,3 +53,5 @@ Esempio:
 - `UPG-2026-03-05-09`: dashboard interattiva con cambio stato appuntamenti inline nelle righe Agenda.
 - `UPG-2026-03-05-10`: rifinitura visuale dashboard con chip settimanali piu' leggibili e cromia state-aware per il pannello live.
 - `UPG-2026-03-05-11`: correzione densita verticale dashboard: riquadri agenda/live compatti e appuntamenti sempre scrollabili internamente.
+- `UPG-2026-03-05-12`: ottimizzazione responsive tablet/mobile dashboard + nuova skill riusabile `fitmanager-responsive-adaptive-ui` con routing in `AGENTS.md`.
+- `UPG-2026-03-05-13`: hardening logica temporale dashboard (date locali no UTC shift + refresh automatico al cambio giorno).

@@ -1,0 +1,4 @@
+interface:
+  display_name: "FitManager Responsive Adaptive UI"
+  short_description: "Drive mobile and tablet UX consistency across CRM pages."
+  default_prompt: "Use $fitmanager-responsive-adaptive-ui to optimize this FitManager screen for mobile and tablet while preserving desktop density and clarity."

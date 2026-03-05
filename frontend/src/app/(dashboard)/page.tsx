@@ -61,22 +61,24 @@ import {
 
 // ── Date helpers ──
 
-const now = new Date();
-const ANNO = now.getFullYear();
-
-function todayISO(): string {
-  return now.toISOString().slice(0, 10);
+function formatLocalISODate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
-function tomorrowISO(): string {
-  const d = new Date(now);
+function todayISO(referenceDate: Date = new Date()): string {
+  return formatLocalISODate(referenceDate);
+}
+
+function tomorrowISO(referenceDate: Date = new Date()): string {
+  const d = new Date(referenceDate);
   d.setDate(d.getDate() + 1);
-  return d.toISOString().slice(0, 10);
+  return formatLocalISODate(d);
 }
 
-const MESE_LABEL = now.toLocaleDateString("it-IT", { month: "long" });
-
-function weekStartDate(baseDate: Date = now): Date {
+function weekStartDate(baseDate: Date = new Date()): Date {
   const date = new Date(baseDate);
   const day = date.getDay();
   const delta = day === 0 ? -6 : 1 - day;
@@ -85,18 +87,18 @@ function weekStartDate(baseDate: Date = now): Date {
   return date;
 }
 
-function weekStartISO(): string {
-  return weekStartDate().toISOString().slice(0, 10);
+function weekStartISO(baseDate: Date = new Date()): string {
+  return formatLocalISODate(weekStartDate(baseDate));
 }
 
-function nextWeekStartISO(): string {
-  const date = weekStartDate();
+function nextWeekStartISO(baseDate: Date = new Date()): string {
+  const date = weekStartDate(baseDate);
   date.setDate(date.getDate() + 7);
-  return date.toISOString().slice(0, 10);
+  return formatLocalISODate(date);
 }
 
-function currentWeekLabel(): string {
-  const start = weekStartDate();
+function currentWeekLabel(baseDate: Date = new Date()): string {
+  const start = weekStartDate(baseDate);
   const end = new Date(start);
   end.setDate(end.getDate() + 6);
   const formatOptions: Intl.DateTimeFormatOptions = { day: "2-digit", month: "short" };
@@ -175,8 +177,30 @@ const STATUS_COLORS: Record<string, string> = {
 export default function DashboardPage() {
   const { data: summary, isLoading: summaryLoading, isError, refetch } = useDashboard();
   const { data: alerts } = useDashboardAlerts();
-  const { data: eventsData } = useEvents({ start: todayISO(), end: tomorrowISO() });
-  const { data: weeklyEventsData } = useEvents({ start: weekStartISO(), end: nextWeekStartISO() });
+  const [dateAnchor, setDateAnchor] = useState(() => new Date());
+
+  useEffect(() => {
+    const currentTime = new Date();
+    const nextMidnight = new Date(currentTime);
+    nextMidnight.setHours(24, 0, 0, 0);
+    const timeoutMs = Math.max(1000, nextMidnight.getTime() - currentTime.getTime());
+    const timeoutId = window.setTimeout(() => setDateAnchor(new Date()), timeoutMs);
+    return () => window.clearTimeout(timeoutId);
+  }, [dateAnchor]);
+
+  const currentDayStart = useMemo(() => todayISO(dateAnchor), [dateAnchor]);
+  const nextDayStart = useMemo(() => tomorrowISO(dateAnchor), [dateAnchor]);
+  const currentWeekStart = useMemo(() => weekStartISO(dateAnchor), [dateAnchor]);
+  const nextWeekStart = useMemo(() => nextWeekStartISO(dateAnchor), [dateAnchor]);
+  const currentWeekRangeLabel = useMemo(() => currentWeekLabel(dateAnchor), [dateAnchor]);
+  const monthLabel = useMemo(
+    () => dateAnchor.toLocaleDateString("it-IT", { month: "long" }),
+    [dateAnchor],
+  );
+  const yearLabel = dateAnchor.getFullYear();
+
+  const { data: eventsData } = useEvents({ start: currentDayStart, end: nextDayStart });
+  const { data: weeklyEventsData } = useEvents({ start: currentWeekStart, end: nextWeekStart });
 
   // Sheet state per risoluzione inline alert
   const [ghostSheetOpen, setGhostSheetOpen] = useState(false);
@@ -185,11 +209,11 @@ export default function DashboardPage() {
 
   const todayEvents = useMemo(() => {
     if (!eventsData?.items) return [];
-    const today = todayISO();
+    const today = currentDayStart;
     return eventsData.items
-      .filter((e) => e.data_inizio.toISOString().slice(0, 10) === today && e.stato !== "Cancellato")
+      .filter((e) => formatLocalISODate(e.data_inizio) === today && e.stato !== "Cancellato")
       .sort((a, b) => a.data_inizio.getTime() - b.data_inizio.getTime());
-  }, [eventsData]);
+  }, [eventsData, currentDayStart]);
 
   const weeklyEvents = useMemo(() => {
     if (!weeklyEventsData?.items) return [];
@@ -206,16 +230,16 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* ── Header ── */}
-      <div className="flex items-center gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/40 dark:to-blue-800/30">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 sm:h-11 sm:w-11 dark:from-blue-900/40 dark:to-blue-800/30">
           <LayoutDashboard className="h-5 w-5 text-blue-600 dark:text-blue-400" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">
-            Panoramica della tua attivita&apos; — {MESE_LABEL} {ANNO}
+          <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Dashboard</h1>
+          <p className="text-xs text-muted-foreground sm:text-sm">
+            Panoramica della tua attivita&apos; — {monthLabel} {yearLabel}
           </p>
         </div>
       </div>
@@ -244,15 +268,19 @@ export default function DashboardPage() {
           {isLoading && <KpiSkeleton />}
           {summary && <KpiCards summary={summary} events={todayEvents} alerts={alerts} />}
 
-          <div className="grid gap-6 xl:grid-cols-12">
-            <div className="space-y-6 xl:col-span-7">
-              <div className="grid gap-6 lg:grid-cols-2">
-                <TodayAgenda events={todayEvents} isLoading={!eventsData} />
+          <div className="grid gap-5 md:gap-6 xl:grid-cols-12">
+            <div className="space-y-5 md:space-y-6 xl:col-span-7">
+              <div className="grid gap-4 md:grid-cols-2 lg:gap-6">
+                <TodayAgenda events={todayEvents} isLoading={!eventsData} referenceDate={dateAnchor} />
                 <AgendaLivePanel events={todayEvents} isLoading={!eventsData} />
               </div>
-              <WeeklyLessons events={weeklyEvents} isLoading={!weeklyEventsData} />
+              <WeeklyLessons
+                events={weeklyEvents}
+                isLoading={!weeklyEventsData}
+                weekLabel={currentWeekRangeLabel}
+              />
             </div>
-            <div className="space-y-6 xl:col-span-5">
+            <div className="space-y-5 md:space-y-6 xl:col-span-5">
               <AlertPanel alerts={alerts} isLoading={!alerts} alertActions={alertActions} />
               <TodoCard />
             </div>
@@ -379,27 +407,27 @@ function KpiCards({
   const kpis = buildKpiList(summary, events, visibleAlerts);
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
       {kpis.map((kpi) => {
         const Icon = kpi.icon;
         return (
           <Link key={kpi.key} href={kpi.href}>
             <div
-              className={`flex h-full items-start gap-2 rounded-xl border border-l-4 ${kpi.borderColor} bg-gradient-to-br ${kpi.gradient} p-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg sm:gap-3 sm:p-4`}
+              className={`flex h-full items-start gap-2.5 rounded-xl border border-l-4 ${kpi.borderColor} bg-gradient-to-br ${kpi.gradient} p-3.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg sm:gap-3 sm:p-4`}
             >
-              <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg sm:h-10 sm:w-10 ${kpi.iconBg}`}>
+              <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg sm:h-10 sm:w-10 ${kpi.iconBg}`}>
                 <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${kpi.iconColor}`} />
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] font-semibold tracking-widest text-muted-foreground/70 uppercase sm:text-[11px]">
+                <p className="text-[11px] font-semibold tracking-widest text-muted-foreground/70 uppercase sm:text-xs">
                   {kpi.label}
                 </p>
                 <AnimatedNumber
                   value={kpi.value}
                   format={kpi.format}
-                  className={`text-xl font-extrabold tracking-tighter tabular-nums sm:text-3xl ${kpi.valueColor}`}
+                  className={`text-2xl font-extrabold tracking-tighter tabular-nums sm:text-3xl ${kpi.valueColor}`}
                 />
-                <p className="text-[10px] font-medium text-muted-foreground/60">{kpi.subtitle}</p>
+                <p className="text-[11px] font-medium text-muted-foreground/60 sm:text-xs">{kpi.subtitle}</p>
               </div>
             </div>
           </Link>
@@ -451,12 +479,12 @@ function AlertPanel({ alerts, isLoading, alertActions = {} }: {
 }) {
   if (isLoading) {
     return (
-      <div id="alert-panel" className="rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-5 shadow-sm dark:from-zinc-900 dark:to-zinc-800/50">
+      <div id="alert-panel" className="rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-4 shadow-sm sm:p-5 dark:from-zinc-900 dark:to-zinc-800/50">
         <div className="mb-4 flex items-center gap-2">
           <Skeleton className="h-5 w-5 rounded" />
           <Skeleton className="h-5 w-40" />
         </div>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-2.5 sm:grid-cols-2 sm:gap-3">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-28 w-full rounded-xl" />
           ))}
@@ -471,7 +499,7 @@ function AlertPanel({ alerts, isLoading, alertActions = {} }: {
 
   if (!alerts || visibleAlerts.length === 0) {
     return (
-      <div id="alert-panel" className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50/80 to-white p-5 shadow-sm dark:border-emerald-800/50 dark:from-emerald-950/30 dark:to-zinc-900">
+      <div id="alert-panel" className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50/80 to-white p-4 shadow-sm sm:p-5 dark:border-emerald-800/50 dark:from-emerald-950/30 dark:to-zinc-900">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-900/30">
             <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
@@ -486,7 +514,7 @@ function AlertPanel({ alerts, isLoading, alertActions = {} }: {
   }
 
   return (
-    <div id="alert-panel" className="rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-5 shadow-sm dark:from-zinc-900 dark:to-zinc-800/50">
+    <div id="alert-panel" className="rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-4 shadow-sm sm:p-5 dark:from-zinc-900 dark:to-zinc-800/50">
       <div className="mb-4 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
           <div className="relative">
@@ -511,7 +539,7 @@ function AlertPanel({ alerts, isLoading, alertActions = {} }: {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-2.5 sm:grid-cols-2 sm:gap-3">
         {visibleAlerts.map((item, idx) => {
           const catCfg = ALERT_CATEGORY_CONFIG[item.category] ?? ALERT_CATEGORY_CONFIG.ghost_events;
           const CatIcon = catCfg.icon;
@@ -520,7 +548,7 @@ function AlertPanel({ alerts, isLoading, alertActions = {} }: {
           return (
             <div
               key={`${item.category}-${idx}`}
-              className={`rounded-xl border border-l-4 ${catCfg.borderColor} p-3.5 transition-all hover:-translate-y-0.5 hover:shadow-md ${
+              className={`rounded-xl border border-l-4 ${catCfg.borderColor} p-3 transition-all hover:-translate-y-0.5 hover:shadow-md sm:p-3.5 ${
                 isCritical ? "bg-red-50/60 dark:bg-red-950/20" : "bg-white dark:bg-zinc-900"
               }`}
             >
@@ -555,7 +583,7 @@ function AlertPanel({ alerts, isLoading, alertActions = {} }: {
                   <Button
                     variant={isCritical ? "default" : "outline"}
                     size="sm"
-                    className={`h-8 w-full justify-between gap-1.5 text-xs font-medium ${
+                    className={`h-9 w-full justify-between gap-1.5 text-xs font-medium sm:h-8 ${
                       isCritical ? "bg-red-600 text-white shadow-sm hover:bg-red-700" : ""
                     }`}
                     onClick={alertActions[item.category]}
@@ -568,7 +596,7 @@ function AlertPanel({ alerts, isLoading, alertActions = {} }: {
                     <Button
                       variant={isCritical ? "default" : "outline"}
                       size="sm"
-                      className={`h-8 w-full justify-between gap-1.5 text-xs font-medium ${
+                      className={`h-9 w-full justify-between gap-1.5 text-xs font-medium sm:h-8 ${
                         isCritical ? "bg-red-600 text-white shadow-sm hover:bg-red-700" : ""
                       }`}
                     >
@@ -640,10 +668,18 @@ function buildWeeklyCategoryStats(events: EventHydrated[]): WeeklyCategoryStat[]
     });
 }
 
-function WeeklyLessons({ events, isLoading }: { events: EventHydrated[]; isLoading: boolean }) {
+function WeeklyLessons({
+  events,
+  isLoading,
+  weekLabel,
+}: {
+  events: EventHydrated[];
+  isLoading: boolean;
+  weekLabel: string;
+}) {
   if (isLoading) {
     return (
-      <div className="rounded-xl border p-5 space-y-4">
+      <div className="space-y-4 rounded-xl border p-4 sm:p-5">
         <Skeleton className="h-5 w-52" />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 5 }).map((_, i) => (
@@ -659,23 +695,23 @@ function WeeklyLessons({ events, isLoading }: { events: EventHydrated[]; isLoadi
   const completedEvents = stats.reduce((acc, item) => acc + item.completed, 0);
 
   return (
-    <div className="rounded-xl border bg-gradient-to-br from-white via-white to-zinc-50/60 p-5 shadow-sm dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800/40">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-[220px]">
+    <div className="rounded-xl border bg-gradient-to-br from-white via-white to-zinc-50/60 p-4 shadow-sm sm:p-5 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800/40">
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-3 sm:mb-4">
+        <div className="min-w-0">
           <div className="flex items-center gap-2">
             <CalendarCheck className="h-4 w-4 text-blue-500" />
             <h3 className="text-base font-semibold">Lezioni della settimana</h3>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            {currentWeekLabel()}
+            {weekLabel}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full flex-wrap items-center justify-start gap-2 sm:w-auto sm:justify-end">
           <div className="rounded-lg border bg-gradient-to-br from-white to-zinc-50 px-3 py-1.5 text-right shadow-sm dark:from-zinc-900 dark:to-zinc-800/60">
             <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">Completate</p>
-            <p className="text-2xl font-extrabold leading-none tabular-nums">
+            <p className="text-xl font-extrabold leading-none tabular-nums sm:text-2xl">
               {completedEvents}
-              <span className="ml-1 text-sm font-semibold text-muted-foreground">/ {totalEvents}</span>
+              <span className="ml-1 text-xs font-semibold text-muted-foreground sm:text-sm">/ {totalEvents}</span>
             </p>
           </div>
           <Link href="/agenda">
@@ -703,9 +739,9 @@ function WeeklyLessons({ events, isLoading }: { events: EventHydrated[]; isLoadi
             return (
               <div
                 key={stat.category}
-                className={`rounded-xl border bg-gradient-to-br ${theme.card} ${theme.border} p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md`}
+                className={`rounded-xl border bg-gradient-to-br ${theme.card} ${theme.border} p-3.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md sm:p-4`}
               >
-                <div className="mb-3 flex items-start justify-between">
+                <div className="mb-2.5 flex items-start justify-between">
                   <div className="flex items-center gap-2">
                     <span className={`h-2.5 w-2.5 rounded-full ${color}`} />
                     <span className={`rounded-md px-2 py-0.5 text-[13px] font-bold tracking-tight ${theme.chip}`}>
@@ -717,17 +753,17 @@ function WeeklyLessons({ events, isLoading }: { events: EventHydrated[]; isLoadi
                     <p className={`text-3xl font-extrabold leading-none tabular-nums ${theme.total}`}>{stat.total}</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-2 text-center text-[12px] text-muted-foreground">
+                <div className="grid grid-cols-3 gap-2 text-center text-[11px] text-muted-foreground sm:text-xs">
                   <div className="rounded-md border bg-zinc-50 px-2 py-1.5 dark:bg-zinc-800/60">
-                    <p className="text-xl font-extrabold leading-none tabular-nums text-zinc-700 dark:text-zinc-300">{stat.scheduled}</p>
+                    <p className="text-lg font-extrabold leading-none tabular-nums text-zinc-700 sm:text-xl dark:text-zinc-300">{stat.scheduled}</p>
                     <p className="mt-1 font-medium">agenda</p>
                   </div>
                   <div className="rounded-md border bg-emerald-50 px-2 py-1.5 dark:bg-emerald-950/30">
-                    <p className="text-xl font-extrabold leading-none tabular-nums text-emerald-600 dark:text-emerald-400">{stat.completed}</p>
+                    <p className="text-lg font-extrabold leading-none tabular-nums text-emerald-600 sm:text-xl dark:text-emerald-400">{stat.completed}</p>
                     <p className="mt-1 font-medium">fatte</p>
                   </div>
                   <div className="rounded-md border bg-red-50 px-2 py-1.5 dark:bg-red-950/30">
-                    <p className="text-xl font-extrabold leading-none tabular-nums text-red-500">{stat.cancelled}</p>
+                    <p className="text-lg font-extrabold leading-none tabular-nums text-red-500 sm:text-xl">{stat.cancelled}</p>
                     <p className="mt-1 font-medium">cancel.</p>
                   </div>
                 </div>
@@ -798,7 +834,7 @@ function AgendaLivePanel({ events, isLoading }: { events: EventHydrated[]; isLoa
 
   if (isLoading) {
     return (
-      <div className="rounded-xl border p-5 space-y-4 lg:h-[430px]">
+      <div className="h-[420px] space-y-3.5 rounded-xl border p-4 sm:h-[430px] sm:p-5">
         <Skeleton className="h-5 w-40" />
         <Skeleton className="h-24 w-full rounded-xl" />
         <div className="grid grid-cols-2 gap-3">
@@ -868,34 +904,34 @@ function AgendaLivePanel({ events, isLoading }: { events: EventHydrated[]; isLoa
       : "text-zinc-700 dark:text-zinc-300";
 
   return (
-    <div className="flex flex-col rounded-xl border bg-gradient-to-br from-white via-white to-zinc-50/60 p-5 shadow-sm lg:h-[430px] dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800/50">
-      <div className="mb-4 flex items-center justify-between gap-2">
+    <div className="flex h-[420px] flex-col rounded-xl border bg-gradient-to-br from-white via-white to-zinc-50/60 p-4 shadow-sm sm:h-[430px] sm:p-5 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800/50">
+      <div className="mb-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Clock className="h-4 w-4 text-blue-500" />
-          <h3 className="text-base font-semibold">Stato in tempo reale</h3>
+          <h3 className="text-sm font-semibold sm:text-base">Stato in tempo reale</h3>
         </div>
         <Badge variant="secondary" className="text-[10px] font-semibold uppercase tracking-wide">
           {statusBadge}
         </Badge>
       </div>
 
-      <div className="rounded-xl border bg-white/90 p-3 text-center shadow-sm dark:bg-zinc-900/90">
-        <p className="text-[11px] font-medium text-muted-foreground">{nowDayLabel}</p>
-        <p className="mt-1 text-3xl font-extrabold leading-none tabular-nums text-zinc-800 dark:text-zinc-100">
+      <div className="rounded-xl border bg-white/90 p-2.5 text-center shadow-sm sm:p-3 dark:bg-zinc-900/90">
+        <p className="text-[10px] font-medium text-muted-foreground sm:text-[11px]">{nowDayLabel}</p>
+        <p className="mt-1 text-[1.9rem] font-extrabold leading-none tabular-nums text-zinc-800 sm:text-3xl dark:text-zinc-100">
           {nowLabel}
         </p>
       </div>
 
       <div className="mt-2 grid grid-cols-2 gap-2">
-        <div className={`rounded-xl border p-2.5 ${countdownTone}`}>
+        <div className={`rounded-xl border p-2.5 sm:p-3 ${countdownTone}`}>
           <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
             {liveInfo.mode === "in_progress" ? "Fine tra" : "Inizio tra"}
           </p>
-          <p className={`mt-1 text-xl font-extrabold leading-none tabular-nums ${countdownTextTone}`}>
+          <p className={`mt-1 text-lg font-extrabold leading-none tabular-nums sm:text-xl ${countdownTextTone}`}>
             {liveInfo.mode === "free" ? "--:--:--" : nextCountdown}
           </p>
         </div>
-        <div className={`rounded-xl border p-2.5 ${statusTone}`}>
+        <div className={`rounded-xl border p-2.5 sm:p-3 ${statusTone}`}>
           <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
             Stato
           </p>
@@ -920,7 +956,15 @@ function AgendaLivePanel({ events, isLoading }: { events: EventHydrated[]; isLoa
   );
 }
 
-function TodayAgenda({ events, isLoading }: { events: EventHydrated[]; isLoading: boolean }) {
+function TodayAgenda({
+  events,
+  isLoading,
+  referenceDate,
+}: {
+  events: EventHydrated[];
+  isLoading: boolean;
+  referenceDate: Date;
+}) {
   const updateEvent = useUpdateEvent();
   const [updatingEventId, setUpdatingEventId] = useState<number | null>(null);
 
@@ -939,7 +983,7 @@ function TodayAgenda({ events, isLoading }: { events: EventHydrated[]; isLoading
 
   if (isLoading) {
     return (
-      <div className="rounded-xl border p-5 space-y-4 lg:h-[430px]">
+      <div className="h-[420px] space-y-4 rounded-xl border p-4 sm:h-[430px] sm:p-5">
         <Skeleton className="h-5 w-44" />
         {Array.from({ length: 4 }).map((_, i) => (
           <Skeleton key={i} className="h-24 w-full rounded-xl" />
@@ -948,18 +992,18 @@ function TodayAgenda({ events, isLoading }: { events: EventHydrated[]; isLoading
     );
   }
 
-  const todayFormatted = now.toLocaleDateString("it-IT", {
+  const todayFormatted = referenceDate.toLocaleDateString("it-IT", {
     weekday: "long",
     day: "numeric",
     month: "long",
   });
 
   return (
-    <div className="flex flex-col rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-5 shadow-sm lg:h-[430px] dark:from-zinc-900 dark:to-zinc-800/50">
-      <div className="mb-4 flex items-center justify-between gap-3">
+    <div className="flex h-[420px] flex-col rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-4 shadow-sm sm:h-[430px] sm:p-5 dark:from-zinc-900 dark:to-zinc-800/50">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2.5">
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 text-violet-500" />
-          <h3 className="text-base font-semibold">Agenda Oggi</h3>
+          <h3 className="text-sm font-semibold sm:text-base">Agenda Oggi</h3>
           {events.length > 0 && (
             <div className="rounded-lg border bg-white px-2.5 py-1 text-center shadow-sm dark:bg-zinc-900">
               <p className="text-[10px] leading-none font-semibold tracking-wide text-muted-foreground uppercase">Sessioni</p>
@@ -974,7 +1018,7 @@ function TodayAgenda({ events, isLoading }: { events: EventHydrated[]; isLoading
         </Link>
       </div>
 
-      <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <p className="mb-2.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground sm:text-xs">
         {todayFormatted}
       </p>
 
@@ -986,7 +1030,7 @@ function TodayAgenda({ events, isLoading }: { events: EventHydrated[]; isLoading
         </div>
       ) : (
         <ScrollArea className="min-h-0 flex-1 pr-1">
-          <div className="space-y-3">
+          <div className="space-y-2.5 sm:space-y-3">
             {events.map((event) => {
               const time = event.data_inizio.toLocaleTimeString("it-IT", {
                 hour: "2-digit",
@@ -1005,17 +1049,17 @@ function TodayAgenda({ events, isLoading }: { events: EventHydrated[]; isLoading
               return (
                 <div
                   key={event.id}
-                  className="grid grid-cols-[100px_1fr] items-center gap-3 rounded-xl border bg-white p-3.5 transition-all hover:-translate-y-0.5 hover:shadow-sm md:grid-cols-[108px_1fr_auto] dark:bg-zinc-900"
+                  className="grid grid-cols-[88px_1fr] items-center gap-2.5 rounded-xl border bg-white p-2.5 transition-all hover:-translate-y-0.5 hover:shadow-sm sm:grid-cols-[96px_1fr] sm:p-3 md:grid-cols-[104px_1fr_auto] md:gap-3 md:p-3.5 dark:bg-zinc-900"
                 >
-                  <div className={`rounded-lg border px-2 py-1 text-center ${timeTone}`}>
-                    <p className="text-2xl font-extrabold leading-none tabular-nums text-zinc-800 dark:text-zinc-100">{time}</p>
-                    <p className="mt-1 text-xs font-medium tabular-nums text-muted-foreground">{endTime}</p>
+                  <div className={`rounded-lg border px-1.5 py-1 text-center sm:px-2 ${timeTone}`}>
+                    <p className="text-xl font-extrabold leading-none tabular-nums text-zinc-800 sm:text-2xl dark:text-zinc-100">{time}</p>
+                    <p className="mt-1 text-[11px] font-medium tabular-nums text-muted-foreground sm:text-xs">{endTime}</p>
                   </div>
 
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <span className={`h-2.5 w-2.5 rounded-full ${catColor}`} />
-                      <p className={`truncate text-[15px] font-semibold leading-tight ${statusColor}`}>
+                      <p className={`truncate text-sm font-semibold leading-tight sm:text-[15px] ${statusColor}`}>
                         {event.titolo || event.categoria}
                       </p>
                       <Badge variant="outline" className="h-5 px-1.5 py-0 text-[10px] font-semibold md:hidden">
@@ -1023,7 +1067,7 @@ function TodayAgenda({ events, isLoading }: { events: EventHydrated[]; isLoading
                       </Badge>
                     </div>
                     {event.cliente_nome ? (
-                      <p className="mt-1 truncate text-sm text-muted-foreground">
+                      <p className="mt-1 truncate text-xs text-muted-foreground sm:text-sm">
                         {event.cliente_nome} {event.cliente_cognome}
                       </p>
                     ) : event.note ? (
@@ -1037,7 +1081,7 @@ function TodayAgenda({ events, isLoading }: { events: EventHydrated[]; isLoading
                         onValueChange={(value) => handleStatusChange(event, value)}
                         disabled={updatingEventId === event.id}
                       >
-                        <SelectTrigger className="h-8 w-full text-xs">
+                        <SelectTrigger className="h-9 w-full text-xs">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1060,7 +1104,7 @@ function TodayAgenda({ events, isLoading }: { events: EventHydrated[]; isLoading
                       onValueChange={(value) => handleStatusChange(event, value)}
                       disabled={updatingEventId === event.id}
                     >
-                      <SelectTrigger className="h-8 w-[140px] text-xs">
+                      <SelectTrigger className="h-9 w-[132px] text-xs lg:w-[140px]">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -1133,7 +1177,7 @@ function QuickActions() {
           const Icon = action.icon;
           return (
             <Link key={action.label} href={action.href}>
-              <div className={`flex items-center gap-3 rounded-xl border ${action.border} bg-gradient-to-br ${action.gradient} p-4 transition-all hover:shadow-md hover:-translate-y-0.5`}>
+              <div className={`flex items-center gap-2.5 rounded-xl border ${action.border} bg-gradient-to-br ${action.gradient} p-3 transition-all hover:-translate-y-0.5 hover:shadow-md sm:gap-3 sm:p-4`}>
                 <Icon className={`h-5 w-5 ${action.iconColor}`} />
                 <span className="text-sm font-medium">{action.label}</span>
               </div>
@@ -1190,7 +1234,7 @@ const FIRST_STEPS = [
 
 function WelcomeCard() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 md:space-y-6">
       {/* Hero welcome */}
       <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-background to-primary/10 p-6 sm:p-8">
         <div className="pointer-events-none absolute -right-12 -top-12 h-48 w-48 rounded-full bg-primary/5 blur-3xl" />
