@@ -5,12 +5,14 @@ Aggiornare prima di iniziare e alla chiusura di ogni task.
 
 ## Active
 
-_Nessun task attivo. Prossimo step: Wave 1 guida (UPG-2026-03-05-15)._
+_Nessun task attivo. Prossimo step: verifica Wave 1 e avvio Wave 2 guida illustrata (UPG-2026-03-05-16)._
 
 ## Completed
 
 | Work ID | Owner | Branch | Scope | Commit | Checks | Closed (UTC) | Notes |
 |---|---|---|---|---|---|---|---|
+| AGT-2026-03-05-15 | Codex | `codex_02` | Wave 1 guida: creazione `docs/guides/` con indice + 12 capitoli route-mapped (setup/login/dashboard/agenda/clienti/contratti/cassa/esercizi/schede/allenamenti/impostazioni/command palette + FAQ), struttura uniforme con passi/errori/recovery/quick actions | `_pending_` | check copertura route via `rg` + check struttura capitoli + sync `UPGRADE_LOG`/`README`/`WORKBOARD` | 2026-03-05 | Foundation pronta per review utente; Wave 2 potra' concentrarsi su layer illustrato senza rifare l'architettura contenuti |
+| AGT-2026-03-05-18 | Codex | `codex_02` | Dashboard mobile hardening: fix overflow/clipping su KPI/alert/agenda + rifinitura `TodoCard` per impegni touch-safe (width constraints, wrapping/truncate, righe agenda `minmax(0,1fr)`) | `_pending_` | `npm --prefix frontend run lint -- "src/app/(dashboard)/page.tsx" "src/components/dashboard/TodoCard.tsx"` | 2026-03-05 | Migliorata usabilita' mobile reale: niente righe che escono dallo schermo e card piu' stabili su viewport stretti |
 | AGT-2026-03-05-14 | Codex | `codex_02` | Guide program Wave 0 foundation: 3 skill guida (`content-architecture`, `illustrated-playbook`, `assistant-guide-linking`), routing `AGENTS.md`, specs roadmap `UPG-14..17`, sync docs upgrade/workboard | `051fffe` | verifica struttura skill + `rg -n "TODO" .codex/skills/fitmanager-guide-*` + allineamento `UPGRADE_LOG`/`README`/`WORKBOARD` | 2026-03-05 | Wave 0 completata; Wave 1 pronta per implementazione guida capitoli/sezioni |
 | AGT-2026-03-05-13 | Codex | `codex_02` | Dashboard reliability microstep: fix date rollover/local-time safety (no UTC shift su range giorno), refresh automatico a mezzanotte e allineamento label dinamiche header/agenda/settimana | `ddcf2e6` | `npm --prefix frontend run lint -- "src/app/(dashboard)/page.tsx"` | 2026-03-05 | Riduce rischio errori invisibili su dashboard lasciata aperta molte ore, soprattutto fascia notturna |
 | AGT-2026-03-05-12 | Codex | `codex_02` | Dashboard responsive microstep: ottimizzazione grafica tablet/mobile (gerarchia, densita, spacing), altezza compatta agenda/live con scroll interno, creazione skill cross-app `fitmanager-responsive-adaptive-ui` e routing in `AGENTS.md` | `ddcf2e6` | `npm --prefix frontend run lint -- "src/app/(dashboard)/page.tsx"` | 2026-03-05 | Foundation riusabile per prossimi redesign mobile/tablet su tutte le pagine CRM, non solo dashboard |

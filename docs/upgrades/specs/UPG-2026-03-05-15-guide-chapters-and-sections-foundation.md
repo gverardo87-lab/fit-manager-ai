@@ -33,11 +33,24 @@ and solve common operational doubts with clear, welcoming instructions.
 
 ## Impact Map
 
-- Planned files/modules:
-  - `docs/guides/` (new guide content tree)
-  - `frontend/src/lib/help/*` (optional guide metadata index)
-  - `frontend/src/components/layout/*` (entry links only if needed)
-  - docs sync files under `docs/upgrades/` and `docs/ai-sync/`
+- Files/modules touched:
+  - `docs/guides/README.md`
+  - `docs/guides/chapters/01-inizio-rapido.md`
+  - `docs/guides/chapters/02-dashboard-operativa.md`
+  - `docs/guides/chapters/03-agenda-e-appuntamenti.md`
+  - `docs/guides/chapters/04-clienti-e-profilo.md`
+  - `docs/guides/chapters/05-contratti-e-pagamenti.md`
+  - `docs/guides/chapters/06-cassa-e-controllo-economico.md`
+  - `docs/guides/chapters/07-esercizi-e-archivio-tecnico.md`
+  - `docs/guides/chapters/08-schede-allenamento.md`
+  - `docs/guides/chapters/09-monitoraggio-allenamenti.md`
+  - `docs/guides/chapters/10-impostazioni-backup-e-sicurezza.md`
+  - `docs/guides/chapters/11-command-palette-e-assistente.md`
+  - `docs/guides/chapters/12-faq-e-troubleshooting.md`
+  - `docs/upgrades/specs/UPG-2026-03-05-15-guide-chapters-and-sections-foundation.md`
+  - `docs/upgrades/UPGRADE_LOG.md`
+  - `docs/upgrades/README.md`
+  - `docs/ai-sync/WORKBOARD.md`
 - Layer: docs-first with optional lightweight frontend links
 - Invariants:
   - privacy-safe examples;
@@ -48,7 +61,7 @@ and solve common operational doubts with clear, welcoming instructions.
 
 - each core route has at least one guide chapter section;
 - each section includes purpose, steps, mistakes, and recovery;
-- chapter links are valid and discoverable from at least one UI entry point;
+- chapter links are valid and discoverable from the guide index;
 - docs sync is complete for the wave.
 
 ## Test Plan
@@ -57,6 +70,20 @@ and solve common operational doubts with clear, welcoming instructions.
   - coverage audit against core route list;
   - link validation pass;
   - UX readability check on desktop/tablet/mobile.
+
+## Verification Evidence
+
+- `docs/guides/` created with 12 chapter files + index.
+- Route coverage validated against Wave 1 matrix:
+  - `/setup`, `/login`, `/`, `/agenda`, `/clienti`, `/clienti/[id]`,
+    `/contratti`, `/contratti/[id]`, `/cassa`, `/esercizi`, `/esercizi/[id]`,
+    `/schede`, `/schede/[id]`, `/allenamenti`, `/impostazioni`, global `Ctrl+K`.
+- Chapter structure validated for all files:
+  - section for purpose
+  - steps
+  - common mistakes
+  - troubleshooting
+  - quick actions
 
 ## Risks and Mitigation
 
@@ -67,3 +94,7 @@ and solve common operational doubts with clear, welcoming instructions.
 
 - Revert wave files and keep only Wave 0 governance artifacts if content quality is insufficient.
 
+## Notes
+
+- Wave 1 intentionally ships as docs-first foundation.
+- Illustrated assets and interactive guide behaviors are deferred to `UPG-2026-03-05-16` and `UPG-2026-03-05-17`.
