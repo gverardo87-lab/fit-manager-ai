@@ -11,6 +11,7 @@ _Nessun task attivo. Wave 4 (UX hardening) da avviare._
 
 | Work ID | Owner | Branch | Scope | Commit | Checks | Closed (UTC) | Notes |
 |---|---|---|---|---|---|---|---|
+| AGT-2026-03-05-03 | Codex | `codex_02` | Governance agent-first: `AGENTS.md` root, override `frontend/api`, bootstrap `agents/`, config `.codex/config.toml` MCP-ready | `34f2db3` | manual review file consistency + docs sync (`UPGRADE_LOG`, spec, README upgrades) | 2026-03-05 | Base pronta per step successivo: override aggiuntivi per cartelle sensibili e setup MCP locale |
 | AGT-2026-03-05-02 | Codex | `codex_01` | Dashboard privacy hardening: overview neutra per uso client-facing (no KPI/importi economici), rimozione blocchi finanziari, alert operativi filtrati | `b353ec8` | `npm --prefix frontend run lint -- "src/app/(dashboard)/page.tsx"` | 2026-03-05 | Mergeato anche su `main`; dashboard pronta per fase UX operativa |
 | AGT-2026-03-05-01 | Claude Code | `codex_01` | Fix installer post-smoke-test: path PyInstaller, seed media/relazioni, backup restore WAL+schema+cookie | `e5cd7f4..275312c` (7 commit) | check-all.sh green, installer 83MB testato | 2026-03-05 | Installer funzionante: install → login → esercizi con foto → backup/restore OK |
 | AGT-2026-03-04-06 | Codex + Claude Code | `codex_01` | UPG-2026-03-04-06 Wave 1-3: license pipeline + setup wizard + build distribution | `516f9d0..484376e` | check-all.sh green, smoke test install OK | 2026-03-04 | Wave 1 (S1.1-S1.6), Wave 2 (S2.1-S2.2), Wave 3 (S3.1-S3.4) |
