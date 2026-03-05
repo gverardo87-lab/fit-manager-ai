@@ -594,7 +594,7 @@ function WeeklyLessons({ events, isLoading }: { events: EventHydrated[]; isLoadi
         <Skeleton className="h-5 w-52" />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-[108px] w-full rounded-lg" />
+            <Skeleton key={i} className="h-[148px] w-full rounded-xl" />
           ))}
         </div>
       </div>
@@ -607,21 +607,30 @@ function WeeklyLessons({ events, isLoading }: { events: EventHydrated[]; isLoadi
 
   return (
     <div className="rounded-xl border bg-gradient-to-br from-white to-zinc-50/40 p-5 shadow-sm dark:from-zinc-900 dark:to-zinc-800/40">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div>
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-[220px]">
           <div className="flex items-center gap-2">
             <CalendarCheck className="h-4 w-4 text-blue-500" />
-            <h3 className="text-sm font-semibold">Lezioni della settimana</h3>
+            <h3 className="text-base font-semibold">Lezioni della settimana</h3>
           </div>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            {currentWeekLabel()} • {completedEvents}/{totalEvents} completate
+          <p className="mt-1 text-xs text-muted-foreground">
+            {currentWeekLabel()}
           </p>
         </div>
-        <Link href="/agenda">
-          <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs">
-            Apri agenda <ArrowRight className="h-3 w-3" />
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <div className="rounded-lg border bg-white px-3 py-1.5 text-right shadow-sm dark:bg-zinc-900">
+            <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">Completate</p>
+            <p className="text-2xl font-extrabold leading-none tabular-nums">
+              {completedEvents}
+              <span className="ml-1 text-sm font-semibold text-muted-foreground">/ {totalEvents}</span>
+            </p>
+          </div>
+          <Link href="/agenda">
+            <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs">
+              Apri agenda <ArrowRight className="h-3 w-3" />
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {totalEvents === 0 ? (
@@ -633,28 +642,31 @@ function WeeklyLessons({ events, isLoading }: { events: EventHydrated[]; isLoadi
           {stats.map((stat) => {
             const color = CATEGORY_COLORS[stat.category] ?? "bg-zinc-400";
             return (
-              <div key={stat.category} className="rounded-lg border bg-white p-3 dark:bg-zinc-900">
-                <div className="mb-2 flex items-center justify-between">
+              <div key={stat.category} className="rounded-xl border bg-white p-4 shadow-sm dark:bg-zinc-900">
+                <div className="mb-3 flex items-start justify-between">
                   <div className="flex items-center gap-2">
                     <span className={`h-2.5 w-2.5 rounded-full ${color}`} />
                     <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       {stat.label}
                     </span>
                   </div>
-                  <span className="text-lg font-bold tabular-nums">{stat.total}</span>
+                  <div className="text-right">
+                    <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">Totale</p>
+                    <p className="text-3xl font-extrabold leading-none tabular-nums">{stat.total}</p>
+                  </div>
                 </div>
-                <div className="grid grid-cols-3 gap-1 text-[10px] text-muted-foreground">
-                  <div>
-                    <p className="font-semibold text-zinc-700 dark:text-zinc-300">{stat.scheduled}</p>
-                    <p>in agenda</p>
+                <div className="grid grid-cols-3 gap-2 text-center text-[11px] text-muted-foreground">
+                  <div className="rounded-md border bg-zinc-50 px-2 py-1.5 dark:bg-zinc-800/60">
+                    <p className="text-lg font-extrabold leading-none tabular-nums text-zinc-700 dark:text-zinc-300">{stat.scheduled}</p>
+                    <p className="mt-1 font-medium">agenda</p>
                   </div>
-                  <div>
-                    <p className="font-semibold text-emerald-600 dark:text-emerald-400">{stat.completed}</p>
-                    <p>fatte</p>
+                  <div className="rounded-md border bg-emerald-50 px-2 py-1.5 dark:bg-emerald-950/30">
+                    <p className="text-lg font-extrabold leading-none tabular-nums text-emerald-600 dark:text-emerald-400">{stat.completed}</p>
+                    <p className="mt-1 font-medium">fatte</p>
                   </div>
-                  <div>
-                    <p className="font-semibold text-red-500">{stat.cancelled}</p>
-                    <p>cancell.</p>
+                  <div className="rounded-md border bg-red-50 px-2 py-1.5 dark:bg-red-950/30">
+                    <p className="text-lg font-extrabold leading-none tabular-nums text-red-500">{stat.cancelled}</p>
+                    <p className="mt-1 font-medium">cancel.</p>
                   </div>
                 </div>
               </div>
@@ -672,7 +684,7 @@ function TodayAgenda({ events, isLoading }: { events: EventHydrated[]; isLoading
       <div className="rounded-xl border p-5 space-y-4">
         <Skeleton className="h-5 w-44" />
         {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-20 w-full rounded-xl" />
+          <Skeleton key={i} className="h-24 w-full rounded-xl" />
         ))}
       </div>
     );
@@ -691,9 +703,10 @@ function TodayAgenda({ events, isLoading }: { events: EventHydrated[]; isLoading
           <Calendar className="h-4 w-4 text-violet-500" />
           <h3 className="text-base font-semibold">Agenda Oggi</h3>
           {events.length > 0 && (
-            <Badge variant="secondary" className="h-5 px-2 text-[11px]">
-              {events.length} {events.length === 1 ? "sessione" : "sessioni"}
-            </Badge>
+            <div className="rounded-lg border bg-white px-2.5 py-1 text-center shadow-sm dark:bg-zinc-900">
+              <p className="text-[10px] leading-none font-semibold tracking-wide text-muted-foreground uppercase">Sessioni</p>
+              <p className="mt-1 text-xl font-extrabold leading-none tabular-nums">{events.length}</p>
+            </div>
           )}
         </div>
         <Link href="/agenda">
@@ -734,11 +747,11 @@ function TodayAgenda({ events, isLoading }: { events: EventHydrated[]; isLoading
               return (
                 <div
                   key={event.id}
-                  className="grid grid-cols-[86px_1fr_auto] items-center gap-3 rounded-xl border bg-white p-3.5 transition-all hover:-translate-y-0.5 hover:shadow-sm dark:bg-zinc-900"
+                  className="grid grid-cols-[100px_1fr] items-center gap-3 rounded-xl border bg-white p-3.5 transition-all hover:-translate-y-0.5 hover:shadow-sm md:grid-cols-[108px_1fr_auto] dark:bg-zinc-900"
                 >
                   <div className={`rounded-lg border px-2 py-1 text-center ${timeTone}`}>
-                    <p className="text-lg font-extrabold tabular-nums text-zinc-800 dark:text-zinc-100">{time}</p>
-                    <p className="text-[11px] tabular-nums text-muted-foreground">{endTime}</p>
+                    <p className="text-2xl font-extrabold leading-none tabular-nums text-zinc-800 dark:text-zinc-100">{time}</p>
+                    <p className="mt-1 text-xs font-medium tabular-nums text-muted-foreground">{endTime}</p>
                   </div>
 
                   <div className="min-w-0">
@@ -747,6 +760,9 @@ function TodayAgenda({ events, isLoading }: { events: EventHydrated[]; isLoading
                       <p className={`truncate text-[15px] font-semibold leading-tight ${statusColor}`}>
                         {event.titolo || event.categoria}
                       </p>
+                      <Badge variant="outline" className="h-5 px-1.5 py-0 text-[10px] font-semibold md:hidden">
+                        {event.categoria}
+                      </Badge>
                     </div>
                     {event.cliente_nome ? (
                       <p className="mt-1 truncate text-sm text-muted-foreground">
@@ -759,7 +775,7 @@ function TodayAgenda({ events, isLoading }: { events: EventHydrated[]; isLoading
                     )}
                   </div>
 
-                  <Badge variant="outline" className="shrink-0 px-2 py-0.5 text-xs font-semibold">
+                  <Badge variant="outline" className="hidden shrink-0 px-2.5 py-1 text-xs font-semibold md:inline-flex">
                     {event.categoria}
                   </Badge>
                 </div>
