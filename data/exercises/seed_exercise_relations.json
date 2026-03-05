@@ -1,13 +1,13 @@
 [
   {
     "exercise_id": 1,
-    "related_exercise_id": 2,
-    "tipo_relazione": "progression"
+    "related_exercise_id": 12,
+    "tipo_relazione": "regression"
   },
   {
     "exercise_id": 1,
-    "related_exercise_id": 12,
-    "tipo_relazione": "regression"
+    "related_exercise_id": 2,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 2,
@@ -36,13 +36,13 @@
   },
   {
     "exercise_id": 5,
-    "related_exercise_id": 3,
-    "tipo_relazione": "progression"
+    "related_exercise_id": 150,
+    "tipo_relazione": "regression"
   },
   {
     "exercise_id": 5,
-    "related_exercise_id": 150,
-    "tipo_relazione": "regression"
+    "related_exercise_id": 3,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 5,
@@ -71,17 +71,12 @@
   },
   {
     "exercise_id": 8,
-    "related_exercise_id": 6,
-    "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 8,
     "related_exercise_id": 9,
     "tipo_relazione": "regression"
   },
   {
-    "exercise_id": 9,
-    "related_exercise_id": 8,
+    "exercise_id": 8,
+    "related_exercise_id": 6,
     "tipo_relazione": "progression"
   },
   {
@@ -90,14 +85,19 @@
     "tipo_relazione": "regression"
   },
   {
-    "exercise_id": 12,
-    "related_exercise_id": 1,
+    "exercise_id": 9,
+    "related_exercise_id": 8,
     "tipo_relazione": "progression"
   },
   {
     "exercise_id": 12,
     "related_exercise_id": 141,
     "tipo_relazione": "regression"
+  },
+  {
+    "exercise_id": 12,
+    "related_exercise_id": 1,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 13,
@@ -126,6 +126,11 @@
   },
   {
     "exercise_id": 20,
+    "related_exercise_id": 30,
+    "tipo_relazione": "regression"
+  },
+  {
+    "exercise_id": 20,
     "related_exercise_id": 18,
     "tipo_relazione": "progression"
   },
@@ -133,11 +138,6 @@
     "exercise_id": 20,
     "related_exercise_id": 19,
     "tipo_relazione": "variation"
-  },
-  {
-    "exercise_id": 20,
-    "related_exercise_id": 30,
-    "tipo_relazione": "regression"
   },
   {
     "exercise_id": 22,
@@ -166,23 +166,18 @@
   },
   {
     "exercise_id": 27,
-    "related_exercise_id": 28,
-    "tipo_relazione": "variation"
-  },
-  {
-    "exercise_id": 27,
     "related_exercise_id": 378,
     "tipo_relazione": "regression"
   },
   {
-    "exercise_id": 28,
-    "related_exercise_id": 27,
-    "tipo_relazione": "regression"
+    "exercise_id": 27,
+    "related_exercise_id": 28,
+    "tipo_relazione": "variation"
   },
   {
     "exercise_id": 28,
     "related_exercise_id": 27,
-    "tipo_relazione": "variation"
+    "tipo_relazione": "regression"
   },
   {
     "exercise_id": 28,
@@ -190,9 +185,9 @@
     "tipo_relazione": "progression"
   },
   {
-    "exercise_id": 30,
-    "related_exercise_id": 20,
-    "tipo_relazione": "progression"
+    "exercise_id": 28,
+    "related_exercise_id": 27,
+    "tipo_relazione": "variation"
   },
   {
     "exercise_id": 30,
@@ -200,8 +195,8 @@
     "tipo_relazione": "regression"
   },
   {
-    "exercise_id": 31,
-    "related_exercise_id": 32,
+    "exercise_id": 30,
+    "related_exercise_id": 20,
     "tipo_relazione": "progression"
   },
   {
@@ -210,14 +205,19 @@
     "tipo_relazione": "regression"
   },
   {
-    "exercise_id": 32,
-    "related_exercise_id": 30,
+    "exercise_id": 31,
+    "related_exercise_id": 32,
     "tipo_relazione": "progression"
   },
   {
     "exercise_id": 32,
     "related_exercise_id": 31,
     "tipo_relazione": "regression"
+  },
+  {
+    "exercise_id": 32,
+    "related_exercise_id": 30,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 34,
@@ -246,15 +246,20 @@
   },
   {
     "exercise_id": 38,
-    "related_exercise_id": 39,
-    "tipo_relazione": "variation"
-  },
-  {
-    "exercise_id": 38,
     "related_exercise_id": 290,
     "tipo_relazione": "progression"
   },
   {
+    "exercise_id": 38,
+    "related_exercise_id": 39,
+    "tipo_relazione": "variation"
+  },
+  {
+    "exercise_id": 39,
+    "related_exercise_id": 50,
+    "tipo_relazione": "regression"
+  },
+  {
     "exercise_id": 39,
     "related_exercise_id": 38,
     "tipo_relazione": "progression"
@@ -263,11 +268,6 @@
     "exercise_id": 39,
     "related_exercise_id": 38,
     "tipo_relazione": "variation"
-  },
-  {
-    "exercise_id": 39,
-    "related_exercise_id": 50,
-    "tipo_relazione": "regression"
   },
   {
     "exercise_id": 40,
@@ -301,22 +301,17 @@
   },
   {
     "exercise_id": 43,
+    "related_exercise_id": 149,
+    "tipo_relazione": "regression"
+  },
+  {
+    "exercise_id": 43,
     "related_exercise_id": 50,
     "tipo_relazione": "progression"
   },
   {
     "exercise_id": 43,
     "related_exercise_id": 149,
-    "tipo_relazione": "regression"
-  },
-  {
-    "exercise_id": 43,
-    "related_exercise_id": 149,
-    "tipo_relazione": "variation"
-  },
-  {
-    "exercise_id": 44,
-    "related_exercise_id": 48,
     "tipo_relazione": "variation"
   },
   {
@@ -325,9 +320,9 @@
     "tipo_relazione": "regression"
   },
   {
-    "exercise_id": 45,
-    "related_exercise_id": 374,
-    "tipo_relazione": "progression"
+    "exercise_id": 44,
+    "related_exercise_id": 48,
+    "tipo_relazione": "variation"
   },
   {
     "exercise_id": 47,
@@ -336,8 +331,8 @@
   },
   {
     "exercise_id": 48,
-    "related_exercise_id": 44,
-    "tipo_relazione": "variation"
+    "related_exercise_id": 374,
+    "tipo_relazione": "regression"
   },
   {
     "exercise_id": 48,
@@ -346,7 +341,12 @@
   },
   {
     "exercise_id": 48,
-    "related_exercise_id": 374,
+    "related_exercise_id": 44,
+    "tipo_relazione": "variation"
+  },
+  {
+    "exercise_id": 49,
+    "related_exercise_id": 48,
     "tipo_relazione": "regression"
   },
   {
@@ -355,19 +355,14 @@
     "tipo_relazione": "progression"
   },
   {
-    "exercise_id": 49,
-    "related_exercise_id": 48,
+    "exercise_id": 50,
+    "related_exercise_id": 43,
     "tipo_relazione": "regression"
   },
   {
     "exercise_id": 50,
     "related_exercise_id": 39,
     "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 50,
-    "related_exercise_id": 43,
-    "tipo_relazione": "regression"
   },
   {
     "exercise_id": 51,
@@ -391,12 +386,17 @@
   },
   {
     "exercise_id": 55,
+    "related_exercise_id": 57,
+    "tipo_relazione": "regression"
+  },
+  {
+    "exercise_id": 55,
     "related_exercise_id": 56,
     "tipo_relazione": "progression"
   },
   {
-    "exercise_id": 55,
-    "related_exercise_id": 57,
+    "exercise_id": 56,
+    "related_exercise_id": 55,
     "tipo_relazione": "regression"
   },
   {
@@ -405,24 +405,14 @@
     "tipo_relazione": "progression"
   },
   {
-    "exercise_id": 56,
-    "related_exercise_id": 55,
+    "exercise_id": 57,
+    "related_exercise_id": 62,
     "tipo_relazione": "regression"
   },
   {
     "exercise_id": 57,
     "related_exercise_id": 55,
     "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 57,
-    "related_exercise_id": 62,
-    "tipo_relazione": "regression"
-  },
-  {
-    "exercise_id": 58,
-    "related_exercise_id": 59,
-    "tipo_relazione": "variation"
   },
   {
     "exercise_id": 58,
@@ -430,9 +420,14 @@
     "tipo_relazione": "progression"
   },
   {
-    "exercise_id": 59,
-    "related_exercise_id": 58,
+    "exercise_id": 58,
+    "related_exercise_id": 59,
     "tipo_relazione": "variation"
+  },
+  {
+    "exercise_id": 59,
+    "related_exercise_id": 360,
+    "tipo_relazione": "regression"
   },
   {
     "exercise_id": 59,
@@ -441,7 +436,12 @@
   },
   {
     "exercise_id": 59,
-    "related_exercise_id": 360,
+    "related_exercise_id": 58,
+    "tipo_relazione": "variation"
+  },
+  {
+    "exercise_id": 60,
+    "related_exercise_id": 152,
     "tipo_relazione": "regression"
   },
   {
@@ -453,11 +453,6 @@
     "exercise_id": 60,
     "related_exercise_id": 61,
     "tipo_relazione": "variation"
-  },
-  {
-    "exercise_id": 60,
-    "related_exercise_id": 152,
-    "tipo_relazione": "regression"
   },
   {
     "exercise_id": 61,
@@ -526,6 +521,11 @@
   },
   {
     "exercise_id": 72,
+    "related_exercise_id": 1054,
+    "tipo_relazione": "regression"
+  },
+  {
+    "exercise_id": 72,
     "related_exercise_id": 71,
     "tipo_relazione": "progression"
   },
@@ -535,19 +535,14 @@
     "tipo_relazione": "variation"
   },
   {
-    "exercise_id": 72,
-    "related_exercise_id": 1054,
+    "exercise_id": 77,
+    "related_exercise_id": 148,
     "tipo_relazione": "regression"
   },
   {
     "exercise_id": 77,
     "related_exercise_id": 78,
     "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 77,
-    "related_exercise_id": 148,
-    "tipo_relazione": "regression"
   },
   {
     "exercise_id": 77,
@@ -566,7 +561,7 @@
   },
   {
     "exercise_id": 83,
-    "related_exercise_id": 92,
+    "related_exercise_id": 249,
     "tipo_relazione": "regression"
   },
   {
@@ -576,7 +571,7 @@
   },
   {
     "exercise_id": 83,
-    "related_exercise_id": 249,
+    "related_exercise_id": 92,
     "tipo_relazione": "regression"
   },
   {
@@ -586,8 +581,8 @@
   },
   {
     "exercise_id": 85,
-    "related_exercise_id": 86,
-    "tipo_relazione": "variation"
+    "related_exercise_id": 92,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 85,
@@ -596,8 +591,8 @@
   },
   {
     "exercise_id": 85,
-    "related_exercise_id": 92,
-    "tipo_relazione": "progression"
+    "related_exercise_id": 86,
+    "tipo_relazione": "variation"
   },
   {
     "exercise_id": 86,
@@ -626,17 +621,17 @@
   },
   {
     "exercise_id": 92,
-    "related_exercise_id": 83,
-    "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 92,
     "related_exercise_id": 85,
     "tipo_relazione": "regression"
   },
   {
     "exercise_id": 92,
     "related_exercise_id": 94,
+    "tipo_relazione": "progression"
+  },
+  {
+    "exercise_id": 92,
+    "related_exercise_id": 83,
     "tipo_relazione": "progression"
   },
   {
@@ -676,17 +671,12 @@
   },
   {
     "exercise_id": 96,
-    "related_exercise_id": 95,
-    "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 96,
     "related_exercise_id": 99,
     "tipo_relazione": "regression"
   },
   {
-    "exercise_id": 97,
-    "related_exercise_id": 101,
+    "exercise_id": 96,
+    "related_exercise_id": 95,
     "tipo_relazione": "progression"
   },
   {
@@ -695,14 +685,19 @@
     "tipo_relazione": "regression"
   },
   {
-    "exercise_id": 98,
-    "related_exercise_id": 100,
+    "exercise_id": 97,
+    "related_exercise_id": 101,
     "tipo_relazione": "progression"
   },
   {
     "exercise_id": 98,
     "related_exercise_id": 102,
     "tipo_relazione": "regression"
+  },
+  {
+    "exercise_id": 98,
+    "related_exercise_id": 100,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 99,
@@ -736,13 +731,13 @@
   },
   {
     "exercise_id": 102,
-    "related_exercise_id": 95,
-    "tipo_relazione": "variation"
+    "related_exercise_id": 98,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 102,
-    "related_exercise_id": 98,
-    "tipo_relazione": "progression"
+    "related_exercise_id": 95,
+    "tipo_relazione": "variation"
   },
   {
     "exercise_id": 103,
@@ -781,13 +776,13 @@
   },
   {
     "exercise_id": 111,
-    "related_exercise_id": 106,
-    "tipo_relazione": "progression"
+    "related_exercise_id": 107,
+    "tipo_relazione": "regression"
   },
   {
     "exercise_id": 111,
-    "related_exercise_id": 107,
-    "tipo_relazione": "regression"
+    "related_exercise_id": 106,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 112,
@@ -831,13 +826,13 @@
   },
   {
     "exercise_id": 117,
-    "related_exercise_id": 118,
-    "tipo_relazione": "progression"
+    "related_exercise_id": 346,
+    "tipo_relazione": "regression"
   },
   {
     "exercise_id": 117,
-    "related_exercise_id": 346,
-    "tipo_relazione": "regression"
+    "related_exercise_id": 118,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 118,
@@ -861,11 +856,6 @@
   },
   {
     "exercise_id": 120,
-    "related_exercise_id": 122,
-    "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 120,
     "related_exercise_id": 124,
     "tipo_relazione": "regression"
   },
@@ -875,8 +865,8 @@
     "tipo_relazione": "progression"
   },
   {
-    "exercise_id": 121,
-    "related_exercise_id": 119,
+    "exercise_id": 120,
+    "related_exercise_id": 122,
     "tipo_relazione": "progression"
   },
   {
@@ -885,14 +875,19 @@
     "tipo_relazione": "regression"
   },
   {
-    "exercise_id": 122,
-    "related_exercise_id": 120,
-    "tipo_relazione": "regression"
+    "exercise_id": 121,
+    "related_exercise_id": 119,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 122,
     "related_exercise_id": 647,
     "tipo_relazione": "progression"
+  },
+  {
+    "exercise_id": 122,
+    "related_exercise_id": 120,
+    "tipo_relazione": "regression"
   },
   {
     "exercise_id": 123,
@@ -901,13 +896,13 @@
   },
   {
     "exercise_id": 124,
-    "related_exercise_id": 120,
-    "tipo_relazione": "progression"
+    "related_exercise_id": 353,
+    "tipo_relazione": "regression"
   },
   {
     "exercise_id": 124,
-    "related_exercise_id": 353,
-    "tipo_relazione": "regression"
+    "related_exercise_id": 120,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 125,
@@ -918,16 +913,6 @@
     "exercise_id": 125,
     "related_exercise_id": 383,
     "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 133,
-    "related_exercise_id": 135,
-    "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 133,
-    "related_exercise_id": 241,
-    "tipo_relazione": "regression"
   },
   {
     "exercise_id": 134,
@@ -946,23 +931,13 @@
   },
   {
     "exercise_id": 136,
-    "related_exercise_id": 116,
-    "tipo_relazione": "variation"
+    "related_exercise_id": 138,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 136,
-    "related_exercise_id": 138,
-    "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 137,
-    "related_exercise_id": 138,
-    "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 137,
-    "related_exercise_id": 234,
-    "tipo_relazione": "regression"
+    "related_exercise_id": 116,
+    "tipo_relazione": "variation"
   },
   {
     "exercise_id": 138,
@@ -981,13 +956,13 @@
   },
   {
     "exercise_id": 141,
-    "related_exercise_id": 3,
-    "tipo_relazione": "variation"
+    "related_exercise_id": 12,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 141,
-    "related_exercise_id": 12,
-    "tipo_relazione": "progression"
+    "related_exercise_id": 3,
+    "tipo_relazione": "variation"
   },
   {
     "exercise_id": 144,
@@ -1001,22 +976,12 @@
   },
   {
     "exercise_id": 145,
-    "related_exercise_id": 135,
-    "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 145,
     "related_exercise_id": 352,
     "tipo_relazione": "regression"
   },
   {
-    "exercise_id": 146,
-    "related_exercise_id": 148,
-    "tipo_relazione": "regression"
-  },
-  {
-    "exercise_id": 146,
-    "related_exercise_id": 1054,
+    "exercise_id": 145,
+    "related_exercise_id": 135,
     "tipo_relazione": "progression"
   },
   {
@@ -1056,13 +1021,13 @@
   },
   {
     "exercise_id": 151,
-    "related_exercise_id": 64,
-    "tipo_relazione": "progression"
+    "related_exercise_id": 65,
+    "tipo_relazione": "regression"
   },
   {
     "exercise_id": 151,
-    "related_exercise_id": 65,
-    "tipo_relazione": "regression"
+    "related_exercise_id": 64,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 152,
@@ -1086,13 +1051,13 @@
   },
   {
     "exercise_id": 157,
-    "related_exercise_id": 158,
-    "tipo_relazione": "variation"
+    "related_exercise_id": 446,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 157,
-    "related_exercise_id": 446,
-    "tipo_relazione": "progression"
+    "related_exercise_id": 158,
+    "tipo_relazione": "variation"
   },
   {
     "exercise_id": 158,
@@ -1121,13 +1086,13 @@
   },
   {
     "exercise_id": 164,
-    "related_exercise_id": 166,
-    "tipo_relazione": "progression"
+    "related_exercise_id": 283,
+    "tipo_relazione": "regression"
   },
   {
     "exercise_id": 164,
-    "related_exercise_id": 283,
-    "tipo_relazione": "regression"
+    "related_exercise_id": 166,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 166,
@@ -1136,33 +1101,33 @@
   },
   {
     "exercise_id": 171,
-    "related_exercise_id": 172,
-    "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 171,
-    "related_exercise_id": 172,
-    "tipo_relazione": "variation"
-  },
-  {
-    "exercise_id": 171,
     "related_exercise_id": 362,
     "tipo_relazione": "regression"
   },
   {
+    "exercise_id": 171,
+    "related_exercise_id": 172,
+    "tipo_relazione": "progression"
+  },
+  {
+    "exercise_id": 171,
+    "related_exercise_id": 172,
+    "tipo_relazione": "variation"
+  },
+  {
     "exercise_id": 172,
     "related_exercise_id": 171,
     "tipo_relazione": "regression"
   },
   {
     "exercise_id": 172,
-    "related_exercise_id": 171,
-    "tipo_relazione": "variation"
+    "related_exercise_id": 173,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 172,
-    "related_exercise_id": 173,
-    "tipo_relazione": "progression"
+    "related_exercise_id": 171,
+    "tipo_relazione": "variation"
   },
   {
     "exercise_id": 173,
@@ -1188,11 +1153,6 @@
     "exercise_id": 174,
     "related_exercise_id": 173,
     "tipo_relazione": "variation"
-  },
-  {
-    "exercise_id": 182,
-    "related_exercise_id": 305,
-    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 182,
@@ -1200,23 +1160,8 @@
     "tipo_relazione": "regression"
   },
   {
-    "exercise_id": 189,
-    "related_exercise_id": 397,
-    "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 191,
-    "related_exercise_id": 192,
-    "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 192,
-    "related_exercise_id": 191,
-    "tipo_relazione": "regression"
-  },
-  {
-    "exercise_id": 192,
-    "related_exercise_id": 322,
+    "exercise_id": 182,
+    "related_exercise_id": 305,
     "tipo_relazione": "progression"
   },
   {
@@ -1231,13 +1176,13 @@
   },
   {
     "exercise_id": 210,
-    "related_exercise_id": 214,
-    "tipo_relazione": "progression"
+    "related_exercise_id": 217,
+    "tipo_relazione": "regression"
   },
   {
     "exercise_id": 210,
-    "related_exercise_id": 217,
-    "tipo_relazione": "regression"
+    "related_exercise_id": 214,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 211,
@@ -1266,27 +1211,12 @@
   },
   {
     "exercise_id": 217,
-    "related_exercise_id": 210,
-    "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 217,
     "related_exercise_id": 212,
     "tipo_relazione": "regression"
   },
   {
-    "exercise_id": 221,
-    "related_exercise_id": 151,
-    "tipo_relazione": "regression"
-  },
-  {
-    "exercise_id": 223,
-    "related_exercise_id": 150,
-    "tipo_relazione": "regression"
-  },
-  {
-    "exercise_id": 223,
-    "related_exercise_id": 299,
+    "exercise_id": 217,
+    "related_exercise_id": 210,
     "tipo_relazione": "progression"
   },
   {
@@ -1295,109 +1225,9 @@
     "tipo_relazione": "progression"
   },
   {
-    "exercise_id": 229,
-    "related_exercise_id": 153,
-    "tipo_relazione": "regression"
-  },
-  {
-    "exercise_id": 229,
-    "related_exercise_id": 230,
-    "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 230,
-    "related_exercise_id": 229,
-    "tipo_relazione": "regression"
-  },
-  {
-    "exercise_id": 230,
-    "related_exercise_id": 654,
-    "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 232,
-    "related_exercise_id": 233,
-    "tipo_relazione": "regression"
-  },
-  {
-    "exercise_id": 232,
-    "related_exercise_id": 234,
-    "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 232,
-    "related_exercise_id": 234,
-    "tipo_relazione": "variation"
-  },
-  {
-    "exercise_id": 234,
-    "related_exercise_id": 137,
-    "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 234,
-    "related_exercise_id": 232,
-    "tipo_relazione": "regression"
-  },
-  {
-    "exercise_id": 234,
-    "related_exercise_id": 232,
-    "tipo_relazione": "variation"
-  },
-  {
-    "exercise_id": 235,
-    "related_exercise_id": 138,
-    "tipo_relazione": "regression"
-  },
-  {
-    "exercise_id": 238,
-    "related_exercise_id": 237,
-    "tipo_relazione": "regression"
-  },
-  {
-    "exercise_id": 238,
-    "related_exercise_id": 241,
-    "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 241,
-    "related_exercise_id": 133,
-    "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 241,
-    "related_exercise_id": 238,
-    "tipo_relazione": "regression"
-  },
-  {
-    "exercise_id": 241,
-    "related_exercise_id": 243,
-    "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 241,
-    "related_exercise_id": 243,
-    "tipo_relazione": "variation"
-  },
-  {
-    "exercise_id": 243,
-    "related_exercise_id": 241,
-    "tipo_relazione": "regression"
-  },
-  {
-    "exercise_id": 243,
-    "related_exercise_id": 241,
-    "tipo_relazione": "variation"
-  },
-  {
     "exercise_id": 244,
     "related_exercise_id": 93,
     "tipo_relazione": "regression"
-  },
-  {
-    "exercise_id": 246,
-    "related_exercise_id": 250,
-    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 247,
@@ -1406,33 +1236,13 @@
   },
   {
     "exercise_id": 249,
-    "related_exercise_id": 83,
-    "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 249,
     "related_exercise_id": 94,
     "tipo_relazione": "regression"
   },
   {
-    "exercise_id": 250,
-    "related_exercise_id": 244,
+    "exercise_id": 249,
+    "related_exercise_id": 83,
     "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 250,
-    "related_exercise_id": 246,
-    "tipo_relazione": "regression"
-  },
-  {
-    "exercise_id": 251,
-    "related_exercise_id": 51,
-    "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 251,
-    "related_exercise_id": 51,
-    "tipo_relazione": "variation"
   },
   {
     "exercise_id": 251,
@@ -1440,19 +1250,14 @@
     "tipo_relazione": "regression"
   },
   {
-    "exercise_id": 252,
-    "related_exercise_id": 251,
-    "tipo_relazione": "regression"
-  },
-  {
-    "exercise_id": 252,
-    "related_exercise_id": 251,
-    "tipo_relazione": "variation"
-  },
-  {
-    "exercise_id": 252,
-    "related_exercise_id": 273,
+    "exercise_id": 251,
+    "related_exercise_id": 51,
     "tipo_relazione": "progression"
+  },
+  {
+    "exercise_id": 251,
+    "related_exercise_id": 51,
+    "tipo_relazione": "variation"
   },
   {
     "exercise_id": 253,
@@ -1463,26 +1268,6 @@
     "exercise_id": 253,
     "related_exercise_id": 42,
     "tipo_relazione": "variation"
-  },
-  {
-    "exercise_id": 263,
-    "related_exercise_id": 120,
-    "tipo_relazione": "regression"
-  },
-  {
-    "exercise_id": 263,
-    "related_exercise_id": 120,
-    "tipo_relazione": "variation"
-  },
-  {
-    "exercise_id": 263,
-    "related_exercise_id": 383,
-    "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 265,
-    "related_exercise_id": 266,
-    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 266,
@@ -1500,33 +1285,8 @@
     "tipo_relazione": "progression"
   },
   {
-    "exercise_id": 273,
-    "related_exercise_id": 252,
-    "tipo_relazione": "regression"
-  },
-  {
-    "exercise_id": 273,
-    "related_exercise_id": 290,
-    "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 275,
-    "related_exercise_id": 106,
-    "tipo_relazione": "progression"
-  },
-  {
     "exercise_id": 277,
     "related_exercise_id": 101,
-    "tipo_relazione": "regression"
-  },
-  {
-    "exercise_id": 278,
-    "related_exercise_id": 277,
-    "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 281,
-    "related_exercise_id": 147,
     "tipo_relazione": "regression"
   },
   {
@@ -1540,16 +1300,6 @@
     "tipo_relazione": "progression"
   },
   {
-    "exercise_id": 285,
-    "related_exercise_id": 287,
-    "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 287,
-    "related_exercise_id": 285,
-    "tipo_relazione": "regression"
-  },
-  {
     "exercise_id": 289,
     "related_exercise_id": 64,
     "tipo_relazione": "regression"
@@ -1560,38 +1310,8 @@
     "tipo_relazione": "regression"
   },
   {
-    "exercise_id": 291,
-    "related_exercise_id": 290,
-    "tipo_relazione": "regression"
-  },
-  {
-    "exercise_id": 292,
-    "related_exercise_id": 161,
-    "tipo_relazione": "regression"
-  },
-  {
-    "exercise_id": 294,
-    "related_exercise_id": 945,
-    "tipo_relazione": "regression"
-  },
-  {
     "exercise_id": 297,
     "related_exercise_id": 760,
-    "tipo_relazione": "regression"
-  },
-  {
-    "exercise_id": 299,
-    "related_exercise_id": 2,
-    "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 299,
-    "related_exercise_id": 223,
-    "tipo_relazione": "regression"
-  },
-  {
-    "exercise_id": 300,
-    "related_exercise_id": 1080,
     "tipo_relazione": "regression"
   },
   {
@@ -1610,11 +1330,6 @@
     "tipo_relazione": "regression"
   },
   {
-    "exercise_id": 322,
-    "related_exercise_id": 192,
-    "tipo_relazione": "regression"
-  },
-  {
     "exercise_id": 327,
     "related_exercise_id": 462,
     "tipo_relazione": "regression"
@@ -1626,13 +1341,13 @@
   },
   {
     "exercise_id": 347,
-    "related_exercise_id": 594,
-    "tipo_relazione": "progression"
+    "related_exercise_id": 595,
+    "tipo_relazione": "regression"
   },
   {
     "exercise_id": 347,
-    "related_exercise_id": 595,
-    "tipo_relazione": "regression"
+    "related_exercise_id": 594,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 349,
@@ -1641,6 +1356,11 @@
   },
   {
     "exercise_id": 350,
+    "related_exercise_id": 367,
+    "tipo_relazione": "regression"
+  },
+  {
+    "exercise_id": 350,
     "related_exercise_id": 351,
     "tipo_relazione": "progression"
   },
@@ -1650,19 +1370,9 @@
     "tipo_relazione": "variation"
   },
   {
-    "exercise_id": 350,
-    "related_exercise_id": 367,
-    "tipo_relazione": "regression"
-  },
-  {
     "exercise_id": 351,
     "related_exercise_id": 350,
     "tipo_relazione": "regression"
-  },
-  {
-    "exercise_id": 351,
-    "related_exercise_id": 350,
-    "tipo_relazione": "variation"
   },
   {
     "exercise_id": 351,
@@ -1670,14 +1380,19 @@
     "tipo_relazione": "progression"
   },
   {
-    "exercise_id": 352,
-    "related_exercise_id": 145,
-    "tipo_relazione": "progression"
+    "exercise_id": 351,
+    "related_exercise_id": 350,
+    "tipo_relazione": "variation"
   },
   {
     "exercise_id": 352,
     "related_exercise_id": 1080,
     "tipo_relazione": "regression"
+  },
+  {
+    "exercise_id": 352,
+    "related_exercise_id": 145,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 353,
@@ -1706,13 +1421,13 @@
   },
   {
     "exercise_id": 358,
-    "related_exercise_id": 398,
-    "tipo_relazione": "variation"
+    "related_exercise_id": 423,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 358,
-    "related_exercise_id": 423,
-    "tipo_relazione": "progression"
+    "related_exercise_id": 398,
+    "tipo_relazione": "variation"
   },
   {
     "exercise_id": 359,
@@ -1741,23 +1456,23 @@
   },
   {
     "exercise_id": 363,
-    "related_exercise_id": 369,
-    "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 363,
     "related_exercise_id": 387,
     "tipo_relazione": "regression"
   },
   {
-    "exercise_id": 364,
-    "related_exercise_id": 365,
+    "exercise_id": 363,
+    "related_exercise_id": 369,
     "tipo_relazione": "progression"
   },
   {
     "exercise_id": 364,
     "related_exercise_id": 406,
     "tipo_relazione": "regression"
+  },
+  {
+    "exercise_id": 364,
+    "related_exercise_id": 365,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 365,
@@ -1841,17 +1556,22 @@
   },
   {
     "exercise_id": 379,
-    "related_exercise_id": 23,
-    "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 379,
     "related_exercise_id": 26,
     "tipo_relazione": "regression"
   },
   {
     "exercise_id": 379,
     "related_exercise_id": 31,
+    "tipo_relazione": "progression"
+  },
+  {
+    "exercise_id": 379,
+    "related_exercise_id": 23,
+    "tipo_relazione": "progression"
+  },
+  {
+    "exercise_id": 381,
+    "related_exercise_id": 1035,
     "tipo_relazione": "progression"
   },
   {
@@ -1862,17 +1582,7 @@
   {
     "exercise_id": 381,
     "related_exercise_id": 1035,
-    "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 381,
-    "related_exercise_id": 1035,
     "tipo_relazione": "variation"
-  },
-  {
-    "exercise_id": 382,
-    "related_exercise_id": 105,
-    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 382,
@@ -1880,14 +1590,19 @@
     "tipo_relazione": "regression"
   },
   {
-    "exercise_id": 383,
-    "related_exercise_id": 121,
+    "exercise_id": 382,
+    "related_exercise_id": 105,
     "tipo_relazione": "progression"
   },
   {
     "exercise_id": 383,
     "related_exercise_id": 125,
     "tipo_relazione": "regression"
+  },
+  {
+    "exercise_id": 383,
+    "related_exercise_id": 121,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 383,
@@ -1901,13 +1616,13 @@
   },
   {
     "exercise_id": 385,
-    "related_exercise_id": 370,
-    "tipo_relazione": "progression"
+    "related_exercise_id": 467,
+    "tipo_relazione": "regression"
   },
   {
     "exercise_id": 385,
-    "related_exercise_id": 467,
-    "tipo_relazione": "regression"
+    "related_exercise_id": 370,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 386,
@@ -1936,13 +1651,13 @@
   },
   {
     "exercise_id": 391,
-    "related_exercise_id": 68,
-    "tipo_relazione": "progression"
+    "related_exercise_id": 446,
+    "tipo_relazione": "regression"
   },
   {
     "exercise_id": 391,
-    "related_exercise_id": 446,
-    "tipo_relazione": "regression"
+    "related_exercise_id": 68,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 397,
@@ -1951,13 +1666,13 @@
   },
   {
     "exercise_id": 398,
-    "related_exercise_id": 358,
-    "tipo_relazione": "variation"
+    "related_exercise_id": 423,
+    "tipo_relazione": "regression"
   },
   {
     "exercise_id": 398,
-    "related_exercise_id": 423,
-    "tipo_relazione": "regression"
+    "related_exercise_id": 358,
+    "tipo_relazione": "variation"
   },
   {
     "exercise_id": 405,
@@ -2036,13 +1751,13 @@
   },
   {
     "exercise_id": 453,
-    "related_exercise_id": 366,
-    "tipo_relazione": "progression"
+    "related_exercise_id": 452,
+    "tipo_relazione": "regression"
   },
   {
     "exercise_id": 453,
-    "related_exercise_id": 452,
-    "tipo_relazione": "regression"
+    "related_exercise_id": 366,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 453,
@@ -2061,23 +1776,23 @@
   },
   {
     "exercise_id": 462,
-    "related_exercise_id": 327,
-    "tipo_relazione": "progression"
-  },
-  {
-    "exercise_id": 462,
     "related_exercise_id": 544,
     "tipo_relazione": "regression"
   },
   {
-    "exercise_id": 464,
-    "related_exercise_id": 465,
+    "exercise_id": 462,
+    "related_exercise_id": 327,
     "tipo_relazione": "progression"
   },
   {
     "exercise_id": 464,
     "related_exercise_id": 545,
     "tipo_relazione": "regression"
+  },
+  {
+    "exercise_id": 464,
+    "related_exercise_id": 465,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 465,
@@ -2111,13 +1826,13 @@
   },
   {
     "exercise_id": 470,
-    "related_exercise_id": 397,
-    "tipo_relazione": "progression"
+    "related_exercise_id": 465,
+    "tipo_relazione": "regression"
   },
   {
     "exercise_id": 470,
-    "related_exercise_id": 465,
-    "tipo_relazione": "regression"
+    "related_exercise_id": 397,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 471,
@@ -2131,13 +1846,13 @@
   },
   {
     "exercise_id": 495,
-    "related_exercise_id": 549,
-    "tipo_relazione": "progression"
+    "related_exercise_id": 607,
+    "tipo_relazione": "regression"
   },
   {
     "exercise_id": 495,
-    "related_exercise_id": 607,
-    "tipo_relazione": "regression"
+    "related_exercise_id": 549,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 544,
@@ -2236,13 +1951,13 @@
   },
   {
     "exercise_id": 595,
-    "related_exercise_id": 347,
-    "tipo_relazione": "progression"
+    "related_exercise_id": 461,
+    "tipo_relazione": "regression"
   },
   {
     "exercise_id": 595,
-    "related_exercise_id": 461,
-    "tipo_relazione": "regression"
+    "related_exercise_id": 347,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 607,
@@ -2271,13 +1986,13 @@
   },
   {
     "exercise_id": 643,
-    "related_exercise_id": 826,
-    "tipo_relazione": "variation"
+    "related_exercise_id": 854,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 643,
-    "related_exercise_id": 854,
-    "tipo_relazione": "progression"
+    "related_exercise_id": 826,
+    "tipo_relazione": "variation"
   },
   {
     "exercise_id": 647,
@@ -2291,13 +2006,13 @@
   },
   {
     "exercise_id": 657,
-    "related_exercise_id": 633,
-    "tipo_relazione": "progression"
+    "related_exercise_id": 658,
+    "tipo_relazione": "regression"
   },
   {
     "exercise_id": 657,
-    "related_exercise_id": 658,
-    "tipo_relazione": "regression"
+    "related_exercise_id": 633,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 658,
@@ -2346,6 +2061,11 @@
   },
   {
     "exercise_id": 854,
+    "related_exercise_id": 643,
+    "tipo_relazione": "regression"
+  },
+  {
+    "exercise_id": 854,
     "related_exercise_id": 552,
     "tipo_relazione": "progression"
   },
@@ -2353,11 +2073,6 @@
     "exercise_id": 854,
     "related_exercise_id": 552,
     "tipo_relazione": "variation"
-  },
-  {
-    "exercise_id": 854,
-    "related_exercise_id": 643,
-    "tipo_relazione": "regression"
   },
   {
     "exercise_id": 945,
@@ -2381,13 +2096,13 @@
   },
   {
     "exercise_id": 1054,
-    "related_exercise_id": 72,
-    "tipo_relazione": "progression"
+    "related_exercise_id": 78,
+    "tipo_relazione": "regression"
   },
   {
     "exercise_id": 1054,
-    "related_exercise_id": 78,
-    "tipo_relazione": "regression"
+    "related_exercise_id": 72,
+    "tipo_relazione": "progression"
   },
   {
     "exercise_id": 1080,

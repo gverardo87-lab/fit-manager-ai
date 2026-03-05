@@ -1,12 +1,15 @@
 # api/seed_exercises.py
 """
-Seed esercizi builtin nel database.
+Seed esercizi builtin + relazioni nel database.
 
 Chiamato al startup dell'API (lifespan). Se la tabella esercizi contiene
 gia' record builtin, il seed viene skippato (idempotente).
 
-Legge da data/exercises/seed_exercises.json — export completo dal DB prod
-con tutti i campi (classificazione, biomeccanica, tassonomia, in_subset).
+Legge da data/exercises/:
+- seed_exercises.json — 311 esercizi attivi (in_subset=1) con ID preservati
+- seed_exercise_relations.json — 426 relazioni (progressioni/regressioni/varianti)
+
+Gli esercizi archiviati (~750) verranno reinseriti gradualmente via activate_batch.py.
 """
 
 import json
@@ -82,8 +85,7 @@ def seed_builtin_exercises(session: Session) -> int:
 
     session.commit()
     inserted = len(exercises_data)
-    active = sum(1 for ex in exercises_data if ex.get("in_subset"))
-    logger.info(f"Seed esercizi: inseriti {inserted} builtin ({active} attivi)")
+    logger.info(f"Seed esercizi: inseriti {inserted} builtin")
     return inserted
 
 
