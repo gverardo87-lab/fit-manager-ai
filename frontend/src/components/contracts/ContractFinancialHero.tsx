@@ -54,7 +54,7 @@ export function ContractFinancialHero({ contract }: { contract: ContractWithRate
     <div className="rounded-xl border bg-gradient-to-br from-zinc-50 to-zinc-100/50 p-5 dark:from-zinc-900 dark:to-zinc-800/50">
       <div className="space-y-3">
         {/* ── Riga 1: Valore | Acconto | Da Rateizzare ── */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <KpiCard
             icon={<Wallet className="h-4 w-4 text-violet-600 dark:text-violet-400" />}
             iconBg="bg-violet-100 dark:bg-violet-900/30"
@@ -87,7 +87,7 @@ export function ContractFinancialHero({ contract }: { contract: ContractWithRate
         </div>
 
         {/* ── Riga 2: Versato (con progress) | Rate Pagate | Residuo ── */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {/* Versato — card piu' alta con progress bar */}
           <div className="flex flex-col gap-2 rounded-lg border bg-white p-3 shadow-sm dark:bg-zinc-900">
             <div className="flex items-start gap-2.5">
@@ -149,7 +149,7 @@ export function ContractFinancialHero({ contract }: { contract: ContractWithRate
 
         {/* ── Riga 3: Crediti Sedute (solo se il contratto ha crediti) ── */}
         {creditiTotali > 0 && (
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <KpiCard
               icon={<Dumbbell className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />}
               iconBg="bg-indigo-100 dark:bg-indigo-900/30"

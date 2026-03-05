@@ -202,6 +202,7 @@ interface KpiDef {
   icon: typeof Users;
   value: number;
   format: "number" | "currency";
+  href: string;
   borderColor: string;
   gradient: string;
   iconBg: string;
@@ -220,6 +221,7 @@ function buildKpiList(summary: DashboardSummary, stats: MovementStats): KpiDef[]
       icon: Users,
       value: summary.active_clients,
       format: "number",
+      href: "/clienti",
       borderColor: "border-l-blue-500",
       gradient: "from-blue-50/80 to-white dark:from-blue-950/40 dark:to-zinc-900",
       iconBg: "bg-blue-100 dark:bg-blue-900/30",
@@ -233,6 +235,7 @@ function buildKpiList(summary: DashboardSummary, stats: MovementStats): KpiDef[]
       icon: TrendingUp,
       value: stats.totale_entrate,
       format: "currency",
+      href: "/cassa",
       borderColor: "border-l-emerald-500",
       gradient: "from-emerald-50/80 to-white dark:from-emerald-950/40 dark:to-zinc-900",
       iconBg: "bg-emerald-100 dark:bg-emerald-900/30",
@@ -246,6 +249,7 @@ function buildKpiList(summary: DashboardSummary, stats: MovementStats): KpiDef[]
       icon: TrendingDown,
       value: stats.totale_uscite_variabili + stats.totale_uscite_fisse,
       format: "currency",
+      href: "/cassa",
       borderColor: "border-l-red-500",
       gradient: "from-red-50/80 to-white dark:from-red-950/40 dark:to-zinc-900",
       iconBg: "bg-red-100 dark:bg-red-900/30",
@@ -259,6 +263,7 @@ function buildKpiList(summary: DashboardSummary, stats: MovementStats): KpiDef[]
       icon: Target,
       value: stats.margine_netto,
       format: "currency",
+      href: "/cassa",
       borderColor: isPositive ? "border-l-emerald-500" : "border-l-red-500",
       gradient: isPositive
         ? "from-emerald-50/80 to-white dark:from-emerald-950/40 dark:to-zinc-900"
@@ -274,6 +279,7 @@ function buildKpiList(summary: DashboardSummary, stats: MovementStats): KpiDef[]
       icon: Wallet,
       value: summary.saldo_attuale,
       format: "currency",
+      href: "/cassa",
       borderColor: summary.saldo_attuale >= 0 ? "border-l-teal-500" : "border-l-red-500",
       gradient: summary.saldo_attuale >= 0
         ? "from-teal-50/80 to-white dark:from-teal-950/40 dark:to-zinc-900"
@@ -289,6 +295,7 @@ function buildKpiList(summary: DashboardSummary, stats: MovementStats): KpiDef[]
       icon: AlertTriangle,
       value: summary.pending_rates,
       format: "number",
+      href: "/contratti",
       borderColor: summary.pending_rates > 0 ? "border-l-amber-500" : "border-l-zinc-300",
       gradient: summary.pending_rates > 0
         ? "from-amber-50/80 to-white dark:from-amber-950/40 dark:to-zinc-900"
@@ -304,6 +311,7 @@ function buildKpiList(summary: DashboardSummary, stats: MovementStats): KpiDef[]
       icon: CalendarCheck,
       value: summary.todays_appointments,
       format: "number",
+      href: "/agenda",
       borderColor: "border-l-violet-500",
       gradient: "from-violet-50/80 to-white dark:from-violet-950/40 dark:to-zinc-900",
       iconBg: "bg-violet-100 dark:bg-violet-900/30",
@@ -321,25 +329,26 @@ function KpiCards({ summary, stats }: { summary: DashboardSummary; stats: Moveme
       {kpis.map((kpi) => {
         const Icon = kpi.icon;
         return (
-          <div
-            key={kpi.key}
-            className={`flex items-start gap-2 rounded-xl border border-l-4 ${kpi.borderColor} bg-gradient-to-br ${kpi.gradient} p-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg sm:gap-3 sm:p-4`}
-          >
-            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg sm:h-10 sm:w-10 ${kpi.iconBg}`}>
-              <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${kpi.iconColor}`} />
+          <Link key={kpi.key} href={kpi.href}>
+            <div
+              className={`flex h-full items-start gap-2 rounded-xl border border-l-4 ${kpi.borderColor} bg-gradient-to-br ${kpi.gradient} p-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg sm:gap-3 sm:p-4`}
+            >
+              <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg sm:h-10 sm:w-10 ${kpi.iconBg}`}>
+                <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${kpi.iconColor}`} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold tracking-widest text-muted-foreground/70 uppercase sm:text-[11px]">
+                  {kpi.label}
+                </p>
+                <AnimatedNumber
+                  value={kpi.value}
+                  format={kpi.format}
+                  className={`text-xl font-extrabold tracking-tighter tabular-nums sm:text-3xl ${kpi.valueColor}`}
+                />
+                <p className="text-[10px] font-medium text-muted-foreground/60">{kpi.subtitle}</p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold tracking-widest text-muted-foreground/70 uppercase sm:text-[11px]">
-                {kpi.label}
-              </p>
-              <AnimatedNumber
-                value={kpi.value}
-                format={kpi.format}
-                className={`text-xl font-extrabold tracking-tighter tabular-nums sm:text-3xl ${kpi.valueColor}`}
-              />
-              <p className="text-[10px] font-medium text-muted-foreground/60">{kpi.subtitle}</p>
-            </div>
-          </div>
+          </Link>
         );
       })}
     </div>
@@ -851,7 +860,7 @@ function WelcomeCard() {
             <Sparkles className="h-7 w-7 text-primary" />
           </div>
           <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
-            Benvenuto in ProFit AI Studio
+            Benvenuto in FitManager AI Studio
           </h2>
           <p className="mt-2 max-w-lg text-sm text-muted-foreground">
             Il tuo gestionale fitness e' pronto. Inizia aggiungendo il primo cliente

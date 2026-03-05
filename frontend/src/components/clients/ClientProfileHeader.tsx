@@ -31,6 +31,7 @@ export function ClientProfileHeader({ client, onEdit }: ClientProfileHeaderProps
       <div className="flex items-center gap-4">
         <Link
           href="/clienti"
+          title="Torna ai clienti"
           className="flex h-9 w-9 items-center justify-center rounded-lg border bg-background transition-colors hover:bg-accent"
         >
           <ArrowLeft className="h-4 w-4" />

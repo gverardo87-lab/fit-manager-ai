@@ -18,7 +18,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
-import { Loader2, Dumbbell } from "lucide-react";
+import { Loader2, Dumbbell, Eye, EyeOff } from "lucide-react";
 import { AxiosError } from "axios";
 
 import apiClient from "@/lib/api-client";
@@ -64,6 +64,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Se non esiste nessun trainer, redirect al Setup Wizard
   useEffect(() => {
@@ -119,7 +120,7 @@ export default function LoginPage() {
             <Dumbbell className="h-7 w-7 text-primary" />
           </div>
           <CardTitle className="text-2xl font-bold tracking-tight">
-            ProFit AI Studio
+            FitManager AI Studio
           </CardTitle>
           <CardDescription>
             Accedi al tuo gestionale fitness
@@ -158,13 +159,28 @@ export default function LoginPage() {
                   <FormItem>
                     <FormLabel>Password</FormLabel>
                     <FormControl>
-                      <Input
-                        type="password"
-                        placeholder="La tua password"
-                        autoComplete="current-password"
-                        disabled={loginMutation.isPending}
-                        {...field}
-                      />
+                      <div className="relative">
+                        <Input
+                          type={showPassword ? "text" : "password"}
+                          placeholder="La tua password"
+                          autoComplete="current-password"
+                          disabled={loginMutation.isPending}
+                          className="pr-10"
+                          {...field}
+                        />
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          onClick={() => setShowPassword((v) => !v)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>

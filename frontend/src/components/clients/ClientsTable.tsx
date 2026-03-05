@@ -28,6 +28,7 @@ import {
   StickyNote,
   Users,
   Plus,
+  X,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -56,6 +57,11 @@ import {
 import { formatCurrency, formatShortDate, getFinanceBarColor } from "@/lib/format";
 import type { ClientEnriched } from "@/types/api";
 
+/** Strip diacritics for accent-insensitive Italian search */
+function stripAccents(s: string): string {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
 // ── Component ──
 
 interface ClientsTableProps {
@@ -71,12 +77,12 @@ export function ClientsTable({ clients, onEdit, onDelete, onNewClient }: Clients
   const filtered = useMemo(() => {
     if (!search.trim()) return clients;
 
-    const q = search.toLowerCase();
+    const q = stripAccents(search.toLowerCase());
     return clients.filter(
       (c) =>
-        c.nome.toLowerCase().includes(q) ||
-        c.cognome.toLowerCase().includes(q) ||
-        c.email?.toLowerCase().includes(q)
+        stripAccents(c.nome.toLowerCase()).includes(q) ||
+        stripAccents(c.cognome.toLowerCase()).includes(q) ||
+        stripAccents(c.email?.toLowerCase() ?? "").includes(q)
     );
   }, [clients, search]);
 
@@ -89,8 +95,17 @@ export function ClientsTable({ clients, onEdit, onDelete, onNewClient }: Clients
           placeholder="Cerca cliente per nome o email..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="pl-10"
+          className="pl-10 pr-9"
         />
+        {search && (
+          <button
+            type="button"
+            onClick={() => setSearch("")}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       {/* ── Tabella o empty state ── */}

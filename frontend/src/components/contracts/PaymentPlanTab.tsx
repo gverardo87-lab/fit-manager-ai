@@ -126,6 +126,9 @@ function GeneratePlanForm({ contract }: { contract: ContractWithRates }) {
         <Plus className="h-5 w-5" />
         <p className="font-medium">Nessun piano rate configurato</p>
       </div>
+      <p className="text-sm text-muted-foreground/70">
+        Genera un piano automatico oppure aggiungi le rate manualmente.
+      </p>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">

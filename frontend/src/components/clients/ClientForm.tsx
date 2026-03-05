@@ -126,14 +126,14 @@ export function ClientForm({ client, onSubmit, isPending, onDirtyChange }: Clien
       {/* ── Email / Telefono ── */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">Email <span className="text-muted-foreground font-normal">(opzionale)</span></Label>
           <Input id="email" type="email" {...register("email")} />
           {errors.email && (
             <p className="text-sm text-destructive">{errors.email.message}</p>
           )}
         </div>
         <div className="space-y-2">
-          <Label htmlFor="telefono">Telefono</Label>
+          <Label htmlFor="telefono">Telefono <span className="text-muted-foreground font-normal">(opzionale)</span></Label>
           <Input id="telefono" {...register("telefono")} />
           {errors.telefono && (
             <p className="text-sm text-destructive">
@@ -146,11 +146,11 @@ export function ClientForm({ client, onSubmit, isPending, onDirtyChange }: Clien
       {/* ── Data Nascita / Sesso ── */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="data_nascita">Data di Nascita</Label>
+          <Label htmlFor="data_nascita">Data di Nascita <span className="text-muted-foreground font-normal">(opzionale)</span></Label>
           <Input id="data_nascita" type="date" {...register("data_nascita")} />
         </div>
         <div className="space-y-2">
-          <Label>Sesso</Label>
+          <Label>Sesso <span className="text-muted-foreground font-normal">(opzionale)</span></Label>
           <Select
             value={watch("sesso") ?? ""}
             onValueChange={(v) =>
