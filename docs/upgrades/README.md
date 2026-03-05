@@ -49,3 +49,4 @@ Esempio:
 - `UPG-2026-03-05-05`: dashboard KPI operativi (sessioni imminenti + alert operativi) per uso quotidiano del chinesiologo.
 - `UPG-2026-03-05-06`: dashboard "Lezioni della settimana" con vista per categoria/stato per pianificazione operativa rapida.
 - `UPG-2026-03-05-07`: nuova skill `fitmanager-dashboard-crm-design` + routing in `AGENTS.md` per standardizzare i redesign dashboard.
+- `UPG-2026-03-05-08`: split agenda dashboard in doppio riquadro con pannello live (orologio + countdown + stato sessione in corso/prossima/libero).
