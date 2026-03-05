@@ -25,6 +25,7 @@ import {
   ArrowRight,
   AlertCircle,
   CheckCircle2,
+  BellRing,
   Ghost,
   UserX,
   CreditCard,
@@ -148,7 +149,7 @@ export default function DashboardPage() {
         <>
           {/* ── Hero KPI ── */}
           {isLoading && <KpiSkeleton />}
-          {summary && <KpiCards summary={summary} />}
+          {summary && <KpiCards summary={summary} events={todayEvents} alerts={alerts} />}
 
           {/* ── Alert Panel ── */}
           <AlertPanel alerts={alerts} isLoading={!alerts} alertActions={alertActions} />
@@ -191,7 +192,15 @@ interface KpiDef {
   valueColor: string;
 }
 
-function buildKpiList(summary: DashboardSummary): KpiDef[] {
+function buildKpiList(
+  summary: DashboardSummary,
+  events: EventHydrated[],
+  visibleAlerts: DashboardAlerts["items"],
+): KpiDef[] {
+  const upcomingSessions = events.filter(
+    (event) => event.stato === "Programmato" && event.data_inizio.getTime() >= Date.now(),
+  ).length;
+
   return [
     {
       key: "clients",
@@ -221,14 +230,59 @@ function buildKpiList(summary: DashboardSummary): KpiDef[] {
       iconColor: "text-violet-600 dark:text-violet-400",
       valueColor: "text-violet-700 dark:text-violet-400",
     },
+    {
+      key: "upcoming",
+      label: "Sessioni Imminenti",
+      subtitle: "da ora in poi",
+      icon: Clock,
+      value: upcomingSessions,
+      format: "number",
+      href: "/agenda",
+      borderColor: "border-l-emerald-500",
+      gradient: "from-emerald-50/80 to-white dark:from-emerald-950/40 dark:to-zinc-900",
+      iconBg: "bg-emerald-100 dark:bg-emerald-900/30",
+      iconColor: "text-emerald-600 dark:text-emerald-400",
+      valueColor: "text-emerald-700 dark:text-emerald-400",
+    },
+    {
+      key: "alerts",
+      label: "Alert Operativi",
+      subtitle: "da gestire",
+      icon: BellRing,
+      value: visibleAlerts.length,
+      format: "number",
+      href: "#alert-panel",
+      borderColor: visibleAlerts.length > 0 ? "border-l-amber-500" : "border-l-zinc-300",
+      gradient: visibleAlerts.length > 0
+        ? "from-amber-50/80 to-white dark:from-amber-950/40 dark:to-zinc-900"
+        : "from-zinc-50/80 to-white dark:from-zinc-900/40 dark:to-zinc-900",
+      iconBg: visibleAlerts.length > 0
+        ? "bg-amber-100 dark:bg-amber-900/30"
+        : "bg-zinc-100 dark:bg-zinc-800/30",
+      iconColor: visibleAlerts.length > 0
+        ? "text-amber-600 dark:text-amber-400"
+        : "text-zinc-500 dark:text-zinc-400",
+      valueColor: visibleAlerts.length > 0
+        ? "text-amber-700 dark:text-amber-400"
+        : "text-zinc-700 dark:text-zinc-400",
+    },
   ];
 }
 
-function KpiCards({ summary }: { summary: DashboardSummary }) {
-  const kpis = buildKpiList(summary);
+function KpiCards({
+  summary,
+  events,
+  alerts,
+}: {
+  summary: DashboardSummary;
+  events: EventHydrated[];
+  alerts: DashboardAlerts | undefined;
+}) {
+  const visibleAlerts = alerts?.items.filter((item) => item.category !== "overdue_rates") ?? [];
+  const kpis = buildKpiList(summary, events, visibleAlerts);
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {kpis.map((kpi) => {
         const Icon = kpi.icon;
         return (
@@ -300,7 +354,7 @@ function AlertPanel({ alerts, isLoading, alertActions = {} }: {
 }) {
   if (isLoading) {
     return (
-      <div className="rounded-xl border p-5 space-y-3">
+      <div id="alert-panel" className="rounded-xl border p-5 space-y-3">
         <div className="flex items-center gap-2">
           <Skeleton className="h-5 w-5 rounded" />
           <Skeleton className="h-5 w-40" />
@@ -318,7 +372,7 @@ function AlertPanel({ alerts, isLoading, alertActions = {} }: {
 
   if (!alerts || visibleAlerts.length === 0) {
     return (
-      <div className="flex items-center gap-4 rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50/80 to-white p-5 shadow-sm dark:border-emerald-800/50 dark:from-emerald-950/30 dark:to-zinc-900">
+      <div id="alert-panel" className="flex items-center gap-4 rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50/80 to-white p-5 shadow-sm dark:border-emerald-800/50 dark:from-emerald-950/30 dark:to-zinc-900">
         <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-900/30">
           <CheckCircle2 className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
         </div>
@@ -335,7 +389,7 @@ function AlertPanel({ alerts, isLoading, alertActions = {} }: {
   }
 
   return (
-    <div className="rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-5 shadow-sm dark:from-zinc-900 dark:to-zinc-800/50">
+    <div id="alert-panel" className="rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-5 shadow-sm dark:from-zinc-900 dark:to-zinc-800/50">
       {/* Header con badge notifica */}
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
@@ -700,9 +754,11 @@ function KpiSkeleton() {
   const borders = [
     "border-l-blue-500",
     "border-l-violet-500",
+    "border-l-emerald-500",
+    "border-l-amber-500",
   ];
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {borders.map((border, i) => (
         <div key={i} className={`flex items-start gap-3 rounded-xl border border-l-4 ${border} p-4`}>
           <Skeleton className="h-10 w-10 shrink-0 rounded-lg" />
