@@ -32,19 +32,19 @@
 ```
 Source (Git privato — MAI esposto al cliente)
 |
-+-- api/                    <- PyInstaller -> api.exe (~50MB)
++-- api/                    <- PyInstaller -> fitmanager.exe (102MB)
 |   Include: FastAPI, SQLModel, uvicorn, bcrypt, jose
 |   Esclude: torch, transformers, langchain (Phase 2 AI)
 |
-+-- frontend/               <- next build --standalone -> bundle (~30MB)
++-- frontend/               <- next build --standalone -> bundle (45MB)
 |   Include: Node.js minimal runtime
 |   Output: .next/standalone/ + .next/static/
 |   Source maps: MAI distribuite
 |
-+-- installer/              <- Inno Setup -> FitManager_Setup.exe
++-- installer/              <- Inno Setup -> FitManager_Setup.exe (83MB)
 |   fitmanager.iss          Script installer Inno Setup
-|   launcher.bat            Avvia api.exe + frontend
-|   assets/                 Icone, testi, EULA
+|   launcher.bat            Avvia backend + frontend + apre browser
+|   assets/                 Icone, testi, EULA, license.key, license_public.pem
 |
 +-- tools/build/
     build-backend.sh        PyInstaller spec + esclusioni

@@ -8,8 +8,8 @@
 - Area: Cross-layer (API + Frontend + Deployment)
 - Priority: high
 - Target release: launch candidate (T-5 days)
-- Status: wave_3_complete
-- Revision: R1 (claude-code) — vedi sezione "Revisione R1" in fondo
+- Status: wave_1_2_3_complete (Wave 4 UX hardening pending)
+- Revision: R2 (claude-code 2026-03-05) — vedi sezione "Revisione R2" in fondo
 
 ## Problem
 
@@ -231,6 +231,19 @@ Gia presente e da preservare:
 - Bug trovato e risolto: `.next/static/` mancante nel bundle → ricompilato.
 - Backend health: `{"status":"ok","db":"connected","catalog":"connected"}`.
 
+**S3.5 Fix post-smoke-test** (2026-03-05) — DONE
+- Bug 1: PyInstaller path resolution — `Path(__file__)` non funziona in bundle congelato.
+  Fix: tutti i seed/alembic usano `DATA_DIR` da `api/config.py` (che gestisce `sys.frozen`).
+- Bug 2: Seed incompleto — 1060 esercizi (con archiviati), relazioni e media mancanti.
+  Fix: seed ridotto a 311 attivi + 426 relazioni FK-safe + 494 media. 3 JSON in `data/exercises/`.
+- Bug 3: Immagini esercizi non visibili — file su disco ma `esercizi_media` DB vuoto.
+  Fix: `seed_exercise_media()` al startup con FK guard (skip orfani).
+- Bug 4: Backup restore non funziona — WAL stale + schema mismatch + JWT stale.
+  Fix: `PRAGMA wal_checkpoint(TRUNCATE)` post-restore + `create_db_and_tables()` + cookie clear + redirect `/login`.
+- Bug 5: Nome app "ProFit AI Studio" → "FitManager AI Studio" in `main.py`.
+- Installer ricompilato: 83MB (da 58MB, include 494 foto esercizi).
+- Testato: install → login → esercizi con foto → backup create → backup restore → redirect login → OK.
+
 ### Wave 4 - UX hardening mirato (Day 4-5) — ex Wave 3, ridotta
 
 > **Rationale R1**: 8 pagine in 1-2 giorni e' over-scoped per T-5. Ridotto alle 3 pagine
@@ -335,6 +348,18 @@ Differenze rispetto al piano originale Codex:
 | 4 | S1.2 non rifletteva stato reale | **Aggiornato a DONE**: middleware gia presente in `main.py:202-235` |
 | 5 | Gap snapshot non aggiornato | **Aggiornato**: S1.1 e S1.2 barrati come DONE, aggiunto CLI mancante |
 | 6 | Rischi mancavano PyInstaller/installer | **Aggiunto Rischio 4**: tuning imprevisto su macchina target |
+
+## Revisione R2 — Claude Code (2026-03-05)
+
+Post-smoke-test: 5 bug trovati e corretti (S3.5). Installer ricompilato da 58MB a 83MB (include foto esercizi).
+
+| # | Bug trovato | Fix |
+|---|-------------|-----|
+| 1 | `Path(__file__)` non funziona in PyInstaller bundle | Tutti i path usano `DATA_DIR` da `config.py` (gestisce `sys.frozen`) |
+| 2 | Seed include 1060 esercizi (con archiviati) + relazioni/media mancanti | Ridotto a 311 attivi + 426 relazioni + 494 media, 3 JSON separati |
+| 3 | Immagini esercizi non visibili (file esistono, DB vuoto) | `seed_exercise_media()` al startup con FK guard |
+| 4 | Backup restore non funziona (WAL stale + schema mismatch + JWT stale) | WAL checkpoint + `create_db_and_tables()` + cookie clear + redirect `/login` |
+| 5 | Nome app sbagliato ("ProFit AI Studio") | Corretto in "FitManager AI Studio" |
 
 ## Notes
 

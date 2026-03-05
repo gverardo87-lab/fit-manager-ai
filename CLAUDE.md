@@ -615,8 +615,14 @@ core/              Moduli AI (dormant, non esposti via API — prossima fase)
 1. Auto-backup business DB (solo prod, max 5 auto-backup)
 2. `create_db_and_tables()` — business tables
 3. `create_catalog_tables()` — fallback se catalog.db assente
-4. Seed esercizi builtin
+4. Seed esercizi builtin (311 esercizi + 426 relazioni + 494 media, idempotente, FK guard)
 5. `PRAGMA integrity_check` su entrambi i DB
+
+**Seed data** (`data/exercises/`):
+- `seed_exercises.json` — 311 esercizi attivi (`in_subset=1`) con ID preservati per FK
+- `seed_exercise_relations.json` — 426 relazioni (progressioni/regressioni/varianti)
+- `seed_exercise_media.json` — 494 media (foto inizio/fine movimento)
+- Inclusi nell'installer e nel bundle PyInstaller (`fitmanager.spec` datas)
 
 **WAL mode**: entrambi i DB usano `PRAGMA journal_mode=WAL` + `foreign_keys=ON` + `busy_timeout=5000` (via event listener).
 
@@ -625,12 +631,13 @@ File chiave: `api/database.py` (dual engine), `api/config.py` (CATALOG_DATABASE_
 ### Backup & Data Protection (v2.0)
 
 **Backup atomico**: `sqlite3.backup()` + `PRAGMA integrity_check` + SHA-256 checksum (sidecar `.sha256`).
+**Restore robusto**: `sqlite3.backup()` page-level INTO DB live + `PRAGMA wal_checkpoint(TRUNCATE)` post-restore + `create_db_and_tables()` schema sync + `engine.dispose()`. Frontend: clear cookie JWT + redirect `/login` (credenziali backup potrebbero differire).
 
 **7 endpoint** (`api/routers/backup.py`):
 - `POST /backup/create` — backup manuale con integrity + checksum
 - `GET /backup/list` — lista con checksum da sidecar
 - `GET /backup/download/{f}` — download con path traversal protection
-- `POST /backup/restore` — upload con magic bytes + integrity pre-check + safety backup + `sqlite3.backup()` page-level restore
+- `POST /backup/restore` — upload con magic bytes + integrity pre-check + safety backup + `sqlite3.backup()` page-level restore + WAL checkpoint + schema sync
 - `GET /backup/export` — JSON v2.0 con 17 entita' business in ordine FK-safe
 - `POST /backup/verify/{f}` — verifica SHA-256 + integrity_check
 - `POST /backup/pre-update` — backup pre-aggiornamento app
@@ -790,6 +797,11 @@ Errori reali trovati e corretti. MAI ripeterli.
 | Cross-DB subquery in dual-DB | `select(Exercise.id)` come subquery per filtrare `ExerciseCondition` fallisce (tabelle in DB diversi) | Fetch IDs dal business engine, poi passa lista di IDs al catalog engine. Mai subquery cross-engine |
 | Catalog FK cross-DB su `id_esercizio` | Junction tables (esercizi_muscoli/articolazioni/condizioni) hanno FK a `esercizi.id` che non esiste in catalog.db | DDL catalog SENZA FK su `id_esercizio` (referenza cross-DB, validazione application-level). FK intra-catalog enforced |
 | Restore DB non funziona con WAL mode | `shutil.copy2` / `write_bytes` sovrascrive solo `.db` ma `-wal` e `-shm` contengono write recenti → WAL replay annulla il restore. Su Windows, file lock impedisce overwrite con connessioni attive | `sqlite3.backup()` page-level copy INTO il DB live (bypassa file lock, gestisce WAL). `engine.dispose()` DOPO il backup forza nuove connessioni. MAI file-level overwrite su DB SQLite con WAL attivo |
+| Restore senza WAL checkpoint | Dopo `sqlite3.backup()` i file `-wal`/`-shm` stale del DB precedente interferiscono con i dati ripristinati | `PRAGMA wal_checkpoint(TRUNCATE)` subito dopo il restore per forzare flush WAL e rimuovere file stale |
+| Restore senza schema sync | Backup da versione precedente puo' mancare tabelle nuove (es. `esercizi_media`) → crash al primo accesso | `create_db_and_tables()` dopo `engine.dispose()` → CREATE IF NOT EXISTS su tutte le tabelle |
+| Restore senza cookie clear | JWT nel cookie referenzia trainer del DB pre-restore → 401 silenzioso dopo redirect | `Cookies.remove(TOKEN_COOKIE)` + `window.location.href = "/login"` nel frontend dopo restore |
+| `Path(__file__)` in PyInstaller | In bundle congelato `__file__` punta alla cartella temp di estrazione, non alla cartella installazione | Usare sempre `DATA_DIR` da `api/config.py` che gestisce `sys.frozen` e `sys._MEIPASS` |
+| Seed media mancante | Immagini esercizi su disco (`data/media/exercises/`) ma `esercizi_media` DB vuoto → `exercise.media = []` → frontend non renderizza foto | `seed_exercise_media()` al startup con FK guard (skip orfani). JSON: `data/exercises/seed_exercise_media.json` (494 record) |
 
 ---
 
@@ -1038,7 +1050,7 @@ Source (Git privato)
 |
 +-- api/           -> PyInstaller -> dist/fitmanager/fitmanager.exe (102MB)
 +-- frontend/      -> next build --standalone -> .next/standalone/ (45MB)
-+-- installer/     -> Inno Setup -> dist/FitManager_Setup.exe (58MB)
++-- installer/     -> Inno Setup -> dist/FitManager_Setup.exe (83MB)
 |   launcher.bat      Avvia backend + frontend + apre browser (supporta --port)
 |   fitmanager.iss    Script Inno Setup 6 (italiano, data/ preservata)
 |   node/             node.exe runtime (copiato, non committato)
@@ -1070,8 +1082,10 @@ Source (Git privato)
 - [x] Dashboard WelcomeCard first-run — S2.2 DONE
 - [x] Next.js standalone bundle (45MB) — S3.1 DONE
 - [x] PyInstaller `fitmanager.exe` (102MB) — S3.2 DONE
-- [x] Launcher + Inno Setup installer (58MB) — S3.3 DONE
+- [x] Launcher + Inno Setup installer (83MB) — S3.3 DONE
 - [x] Smoke test: install → login page funzionante — S3.4 DONE
+- [x] Fix post-smoke-test: path PyInstaller, seed media/relazioni, backup restore — S3.5 DONE
+- [x] Installer testato: install → login → esercizi con foto → backup/restore — 83MB
 - [ ] `__version__` visibile in UI Impostazioni
 - [ ] Flusso E2E completo: install → licenza → setup → cliente → contratto → agenda
 
@@ -1106,7 +1120,7 @@ pytest tests/ -v                                          # 63 test
 # ── Build Distribuzione ──
 bash tools/build/build-frontend.sh                        # Next.js standalone bundle (45MB)
 bash tools/build/build-backend.sh                         # PyInstaller exe (102MB, richiede pip install pyinstaller)
-# Inno Setup (compila installer 58MB):
+# Inno Setup (compila installer 83MB):
 "/c/Users/gvera/AppData/Local/Programs/Inno Setup 6/ISCC.exe" installer/fitmanager.iss
 # Test installer: dist/FitManager_Setup.exe
 

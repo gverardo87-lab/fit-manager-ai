@@ -6,63 +6,62 @@ Next.js 16 + React 19 + TypeScript 5 + shadcn/ui + Tailwind CSS 4.
 
 ```
 frontend/src/
-├── app/                     Next.js App Router
+├── app/                     Next.js App Router — 18 pagine
 │   ├── (dashboard)/         Route group (non appare in URL)
-│   │   ├── layout.tsx       Sidebar + AuthGuard wrapper
-│   │   ├── page.tsx         Dashboard KPI
-│   │   ├── clienti/         Pagina clienti + [id]/ scheda cliente
-│   │   ├── contratti/       Pagina contratti + [id]/ scheda contratto
-│   │   ├── agenda/          Pagina agenda/calendario
-│   │   ├── cassa/           Pagina Cassa (5 tab: Libro Mastro, Spese Fisse, Entrate & Uscite, Scadenze, Previsioni)
-│   │   ├── esercizi/        Pagina esercizi + [id]/ scheda esercizio (MuscleMap SVG hero)
-│   │   └── impostazioni/   Pagina impostazioni
-│   ├── login/page.tsx       Login pubblico
+│   │   ├── layout.tsx       Sidebar + AuthGuard + CommandPalette + scroll restoration
+│   │   ├── page.tsx         Dashboard KPI + WelcomeCard first-run
+│   │   ├── agenda/          Calendario interattivo (react-big-calendar + DnD)
+│   │   ├── allenamenti/     Monitoraggio compliance programmi
+│   │   ├── cassa/           5 tab: Libro Mastro, Spese Fisse, Entrate & Uscite, Scadenze, Previsioni
+│   │   ├── clienti/         Lista + [id]/ profilo (anamnesi, misurazioni, progressi)
+│   │   ├── contratti/       Lista + [id]/ dettaglio con rate e pagamenti
+│   │   ├── esercizi/        Lista + [id]/ dettaglio con MuscleMap SVG + tassonomia
+│   │   ├── impostazioni/    Account, backup/restore, saldo iniziale
+│   │   └── schede/          Lista + [id]/ builder split con preview live
+│   ├── login/page.tsx       Login pubblico (mesh gradient animato)
+│   ├── setup/page.tsx       Setup Wizard primo avvio (crea trainer)
+│   ├── licenza/page.tsx     Pagina licenza scaduta/non valida
 │   └── layout.tsx           Root layout (Providers, fonts)
-├── components/
-│   ├── auth/AuthGuard.tsx   Client-side route protection
-│   ├── layout/
-│   │   ├── Sidebar.tsx      Navigazione sezioni + trainer info + search trigger
-│   │   └── CommandPalette.tsx  Ctrl+K — preview panel + KPI + azioni contestuali
-│   ├── clients/             Componenti dominio clienti
-│   ├── contracts/           Componenti dominio contratti (PaymentPlanTab con
-│   │                        RateCard, PayRateForm, PaymentHistory, AddRateForm)
-│   ├── agenda/              Componenti dominio agenda/calendario
-│   │                        (AgendaCalendar, CustomToolbar, CustomEvent,
-│   │                         EventHoverCard, EventSheet, EventForm,
-│   │                         DeleteEventDialog, calendar-setup.ts)
-│   ├── dashboard/           Componenti dashboard (TodoCard, GhostEventsSheet,
-│   │                        OverdueRatesSheet, ExpiringContractsSheet, InactiveClientsSheet)
-│   ├── exercises/           Componenti dominio esercizi (ExercisesTable, ExerciseSheet,
-│   │                        ExerciseForm, DeleteExerciseDialog, MuscleMap, exercise-constants)
-│   ├── workouts/            Componenti dominio schede (SessionCard, SortableExerciseRow,
-│   │                        ExerciseSelector, TemplateSelector, WorkoutPreview, ExportButtons)
-│   ├── movements/           Componenti dominio cassa (MovementsTable, MovementSheet,
-│   │                        DeleteMovementDialog, RecurringExpensesTab (con EditDialog,
-│   │                        AddForm, ExpensesTable, AlertDialog delete confirm),
-│   │                        SplitLedgerView, AdvancedFilters, LedgerColumn, AgingReport,
-│   │                        ForecastTab (KPI + AreaChart + Runway + Timeline))
-│   └── ui/                  shadcn/ui primitives
-├── hooks/                   React Query hooks (1 per dominio)
-├── lib/
-│   ├── api-client.ts        Axios + JWT interceptor + extractErrorMessage
-│   ├── auth.ts              Login/logout/cookie management
-│   ├── format.ts            5 utility: formatCurrency, toISOLocal, formatShortDate, formatDateTime, getFinanceBarColor
-│   ├── contraindication-engine.ts  Motore controindicazioni anamnesi (classify, extract, batch)
-│   ├── workout-templates.ts Template schede + getSectionForCategory + SECTION_CATEGORIES
-│   ├── normative-ranges.ts  Range normativi OMS/ACSM/AHA/ESH (classifyValue, getNormativeBands)
-│   ├── derived-metrics.ts   Metriche derivate (BMI, LBM, FFMI, WHR, MAP, forza relativa NSCA)
-│   ├── clinical-analysis.ts Orchestratore 5 moduli clinici (generateClinicalReport)
-│   ├── metric-correlations.ts Correlazioni inter-metrica (3 coppie, analyzeCorrelations)
-│   ├── measurement-analytics.ts Rate settimanale (computeWeeklyRate, formatRate)
-│   └── providers.tsx        QueryClientProvider
-└── types/
-    └── api.ts               TypeScript interfaces (mirror Pydantic)
+├── components/              ~73 componenti organizzati per dominio
+│   ├── auth/                AuthGuard (route protection client-side)
+│   ├── layout/              Sidebar (sezioni, clearPageState) + CommandPalette (~1170 LOC, assistant mode)
+│   ├── agenda/              AgendaCalendar, CustomEvent, CustomToolbar, EventHoverCard, EventSheet, calendar-setup
+│   ├── clients/             ClientsTable, ClientSheet, ClientForm, ClientProfileHeader/Kpi,
+│   │                        ClinicalAnalysisPanel, GoalFormDialog, GoalsSummary, MeasurementChart,
+│   │                        ProgressiTab, AnamnesiWizard, InteractiveBodyMap, SessionComparison
+│   ├── contracts/           ContractsTable, ContractSheet, ContractForm, ContractFinancialHero,
+│   │                        PaymentPlanTab (RateCard, PayRateForm, PaymentHistory, AddRateForm),
+│   │                        RateEditDialog, RateUnpayDialog
+│   ├── dashboard/           TodoCard, GhostEventsSheet, OverdueRatesSheet,
+│   │                        ExpiringContractsSheet, InactiveClientsSheet
+│   ├── exercises/           ExercisesTable, ExerciseSheet, ExerciseForm, MuscleMap SVG
+│   ├── movements/           MovementsTable, MovementSheet, RecurringExpensesTab, CashAuditSheet,
+│   │                        SplitLedgerView, AdvancedFilters, AgingReport, ForecastTab
+│   ├── workouts/            SessionCard, SortableExerciseRow, BlockCard, ExerciseSelector,
+│   │                        TemplateSelector, WorkoutPreview, ExportButtons, ExerciseDetailPanel,
+│   │                        SmartAnalysisPanel, MuscleMapPanel, RiskBodyMap
+│   └── ui/                  shadcn/ui (33 primitives + AnimatedNumber + Skeleton shimmer)
+├── hooks/                   React Query hooks — 16 moduli
+│   ├── useAgenda, useClients, useContracts, useRates, useMovements
+│   ├── useExercises, useWorkouts, useMeasurements, useGoals
+│   ├── useRecurringExpenses, useTodos, useDashboard, useBackup
+│   ├── useAssistant, useSmartProgramming, useUnsavedChanges
+├── lib/                     22 utility/engine
+│   ├── api-client.ts        Axios + JWT interceptor + runtime API URL detection
+│   ├── auth.ts, format.ts, utils.ts, url-state.ts, providers.tsx, media.ts
+│   ├── clinical-analysis.ts, derived-metrics.ts, normative-ranges.ts
+│   ├── measurement-analytics.ts, metric-correlations.ts
+│   ├── smart-programming.ts (~1250 LOC), workout-templates.ts, workout-monitoring.ts
+│   ├── muscle-map-utils.ts, exercise-replacement.ts, confetti.ts
+│   └── export-workout.ts, export-workout-pdf.ts (clinico HTML→PDF)
+├── types/api.ts             TypeScript interfaces (mirror Pydantic)
+└── __tests__/               Vitest (69 test data protection + 1 workout metrics)
 ```
 
 ## Pattern Obbligatori
 
 ### Hook per dominio
-Un file hook per ogni dominio. Struttura:
+16 moduli hook, uno per dominio. Struttura:
 ```typescript
 // useClients.ts
 export function useClients() { return useQuery({...}) }            // READ (tutti, filtro client-side)
@@ -71,6 +70,10 @@ export function useUpdateClient() { return useMutation({...}) }    // UPDATE
 export function useDeleteClient() { return useMutation({...}) }    // DELETE
 ```
 Ogni mutation: `invalidateQueries` sulle key correlate + `toast.success/error`.
+
+Moduli: useAgenda, useClients, useContracts, useRates, useMovements, useExercises, useWorkouts,
+useMeasurements, useGoals, useRecurringExpenses, useTodos, useDashboard, useBackup,
+useAssistant, useSmartProgramming, useUnsavedChanges.
 
 ### Query Key Convention
 ```typescript

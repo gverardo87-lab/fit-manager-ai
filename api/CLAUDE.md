@@ -6,36 +6,70 @@ FastAPI + SQLModel + SQLite (PostgreSQL-ready). Multi-tenant via JWT.
 
 ```
 api/
-├── main.py              App factory, CORS (multi-origin), migrations, router registration
-├── config.py            DATABASE_URL (env-driven), JWT_SECRET, API_PREFIX
-├── database.py          SQLModel engine + session factory
+├── main.py              App factory, CORS, lifespan (backup+seed+integrity), 17 routers
+├── config.py            DATABASE_URL (env/port-auto), CATALOG_DATABASE_URL, JWT_SECRET, DATA_DIR (sys.frozen-aware)
+├── database.py          Dual engine (business + catalog) + session factories
 ├── dependencies.py      get_current_trainer() → JWT validation
+├── seed_exercises.py    Seed builtin: 311 esercizi + 426 relazioni + 494 media (idempotente, FK guard)
 ├── auth/
-│   ├── router.py        POST /login, /register
+│   ├── router.py        POST /login, /register, /setup/status, /setup/create
 │   ├── service.py       bcrypt hash, JWT create/validate
 │   └── schemas.py       TokenResponse, LoginRequest
-├── models/              SQLModel ORM (table=True)
-│   ├── trainer.py       trainers (tenant root)
+├── models/              SQLModel ORM (table=True) — 20 modelli
+│   ├── trainer.py       trainers (tenant root, saldo_iniziale_cassa)
 │   ├── client.py        clienti
 │   ├── contract.py      contratti (+ relationships: rates, movements)
 │   ├── rate.py          rate_programmate
 │   ├── event.py         agenda
 │   ├── movement.py      movimenti_cassa (ledger)
 │   ├── recurring_expense.py  spese_ricorrenti
+│   ├── exercise.py      esercizi (builtin + custom, in_subset flag)
+│   ├── exercise_media.py esercizi_media (foto start/end)
+│   ├── exercise_relation.py esercizi_relazioni (progressione/regressione/variante)
+│   ├── workout.py       schede_allenamento + sessioni_scheda + esercizi_sessione + blocchi
+│   ├── workout_log.py   allenamenti_eseguiti (monitoraggio compliance)
+│   ├── measurement.py   misurazioni + valori_misurazione
+│   ├── goal.py          obiettivi_cliente
+│   ├── muscle.py        muscoli + esercizi_muscoli (catalog junction)
+│   ├── joint.py         articolazioni + esercizi_articolazioni (catalog junction)
+│   ├── medical_condition.py condizioni_mediche + esercizi_condizioni (catalog junction)
+│   ├── audit_log.py     audit_log (timeline modifiche)
 │   └── todo.py          todos (trainer-owned)
-├── routers/             REST endpoints con Bouncer Pattern
+├── routers/             REST endpoints con Bouncer Pattern — 17 router
 │   ├── _audit.py        log_audit() helper condiviso
+│   ├── agenda.py        CRUD eventi + credit guard + _sync_contract_chiuso
+│   ├── assistant.py     Parse + commit NLP (feature flag ASSISTANT_V1_ENABLED)
+│   ├── backup.py        Backup/Restore/Export/Verify (7 endpoint, WAL-safe)
 │   ├── clients.py       CRUD clienti
 │   ├── contracts.py     CRUD contratti + batch fetch enriched
-│   ├── rates.py         CRUD rate + pay/unpay atomic
-│   ├── agenda.py        CRUD eventi + credit guard + _sync_contract_chiuso
-│   ├── movements.py     Ledger + pending/confirm + forecast proiezione
-│   ├── recurring_expenses.py  CRUD spese fisse
 │   ├── dashboard.py     KPI + alerts + inline resolution endpoints (7 GET)
-│   ├── backup.py        Backup/Restore/Export (5 endpoint, DB_PATH da DATABASE_URL)
-│   └── todos.py         CRUD todos + toggle completato (inline schemas)
-└── schemas/
-    └── financial.py     Contract/Rate/Movement/Dashboard/PaymentReceipt DTOs
+│   ├── exercises.py     CRUD esercizi + safety-map + tassonomia (dual session)
+│   ├── goals.py         CRUD obiettivi + progress tracking (dual session)
+│   ├── measurements.py  CRUD misurazioni + valori (dual session)
+│   ├── movements.py     Ledger + pending/confirm + forecast + saldo + audit-log
+│   ├── rates.py         CRUD rate + pay/unpay atomic
+│   ├── recurring_expenses.py  CRUD spese fisse + close/rettifica
+│   ├── todos.py         CRUD todos + toggle completato
+│   ├── workout_logs.py  CRUD log allenamenti (monitoraggio)
+│   └── workouts.py      CRUD schede + sessioni + esercizi (deep IDOR chain)
+├── schemas/             Pydantic v2 — 9 moduli
+│   ├── assistant.py     ParseRequest/Response, CommitRequest/Response (6 schema)
+│   ├── exercise.py      ExerciseCreate/Update/Response + media/relazioni/tassonomia
+│   ├── financial.py     Contract/Rate/Movement/Dashboard/PaymentReceipt DTOs
+│   ├── goal.py          GoalCreate/Update/Response + progress
+│   ├── measurement.py   MeasurementCreate/Response + valori
+│   ├── safety.py        SafetyMapResponse + ExerciseSafetyEntry
+│   ├── workout.py       WorkoutPlan/Session/Exercise Create/Update/Response
+│   └── workout_log.py   WorkoutLogCreate/Response
+└── services/            Business logic — 5 servizi + 1 parser (8 moduli)
+    ├── condition_rules.py  Regole deterministiche anamnesi → condizioni (80 pattern rules)
+    ├── goal_engine.py      Calcolo progresso obiettivi
+    ├── license.py          Verifica licenza JWT RSA (4-tier key resolution)
+    ├── safety_engine.py    Safety map per-esercizio (extract conditions + build map)
+    └── assistant_parser/   Parser NLP deterministico (6 moduli)
+        ├── normalizer.py, intent_classifier.py, entity_extractor.py
+        ├── entity_resolver.py, confidence.py, orchestrator.py
+        └── commit_dispatcher.py
 ```
 
 ## Pattern Obbligatori

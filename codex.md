@@ -81,12 +81,13 @@ Se cambia pipeline safety/condizioni (`condition_rules.py`, `populate_conditions
 - Severita' clinica: avoid > modify > caution (MAI invertire modify/caution)
 
 Se cambia backup o architettura DB (`backup.py`, `database.py`, `config.py`):
-- Test manuale: backup → modifica dato → restore → ricarica pagina → modifica sparita
+- Test manuale: backup → modifica dato → restore → redirect login → login → modifica sparita
 - Verify endpoint: `POST /backup/verify/{filename}` → `valid: true`
 - Export: `GET /backup/export` → verificare tutte le 17 entita' presenti
 - Health: `GET /health` → entrambi i DB connessi
 - MAI `shutil.copy2` o `write_bytes` su DB SQLite con WAL mode — usare `sqlite3.backup()`
-- Dopo restore: `engine.dispose()` per forzare nuove connessioni
+- Dopo restore: `PRAGMA wal_checkpoint(TRUNCATE)` + `engine.dispose()` + `create_db_and_tables()` (schema sync)
+- Frontend: `Cookies.remove(TOKEN_COOKIE)` + redirect `/login` (credenziali backup potrebbero differire)
 
 Se cambia motore smart programming (`smart-programming.ts`):
 - Verificare pesi scorer sommano a 1.00 (14 dimensioni)

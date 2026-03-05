@@ -5,20 +5,21 @@ Aggiornare prima di iniziare e alla chiusura di ogni task.
 
 ## Active
 
-| Work ID | Owner | Branch | Scope | Locked files | Status | Started (UTC) | Updated (UTC) | Handoff / Notes |
-|---|---|---|---|---|---|---|---|---|
-| AGT-2026-03-04-06 | Codex | `codex_01` | UPG-2026-03-04-06 S1.1 licensing core backend + test | `api/services/license.py`, `tests/test_license_service.py`, `docs/upgrades/specs/UPG-2026-03-04-06-launch-market-readiness-roadmap.md`, `docs/upgrades/UPGRADE_LOG.md`, `docs/ai-sync/WORKBOARD.md` | in_progress | 2026-03-04 16:45 | 2026-03-04 16:53 | S0.1 chiuso (commit/push). S1.1 implementato e validato, pronto commit intermedio |
+_Nessun task attivo. Wave 4 (UX hardening) da avviare._
 
 ## Completed
 
 | Work ID | Owner | Branch | Scope | Commit | Checks | Closed (UTC) | Notes |
 |---|---|---|---|---|---|---|---|
+| AGT-2026-03-05-01 | Claude Code | `codex_01` | Fix installer post-smoke-test: path PyInstaller, seed media/relazioni, backup restore WAL+schema+cookie | `e5cd7f4..275312c` (7 commit) | check-all.sh green, installer 83MB testato | 2026-03-05 | Installer funzionante: install → login → esercizi con foto → backup/restore OK |
+| AGT-2026-03-04-06 | Codex + Claude Code | `codex_01` | UPG-2026-03-04-06 Wave 1-3: license pipeline + setup wizard + build distribution | `516f9d0..484376e` | check-all.sh green, smoke test install OK | 2026-03-04 | Wave 1 (S1.1-S1.6), Wave 2 (S2.1-S2.2), Wave 3 (S3.1-S3.4) |
+| AGT-2026-03-04-04 | Codex + Claude Code | `codex_01` | Assistant CRM V0.5: parser deterministico + Command Palette UX | `e0e9415, 3653992` | check-all.sh green | 2026-03-04 | 6 moduli parser + CommandPalette 1170 LOC |
+| AGT-2026-03-04-02 | Codex | `codex_01` | Export clinico schede: file scaricabile HTML->PDF con logo cliente + foto esercizi embedded, mantenendo anteprima separata | `d49b3d0` | eslint frontend file toccati | 2026-03-04 | ExportButtons + WorkoutPreview + export-workout-pdf + persistenza logo trainer |
+| AGT-2026-03-04-03 | Codex | `codex_01` | Hardening stampa clinico: paginazione A4, colori print, riduzione densita foto/padding per meno pagine | `2cf8cd4, a502f71` | `npm --prefix frontend run lint -- "src/lib/export-workout-pdf.ts"` | 2026-03-04 | Fix page-break blocchi + compattazione proporzioni media |
+| AGT-2026-03-04-01 | Claude Code | `codex_01` | Dual-DB architecture + Backup v2.0 bank-grade (5 pilastri) + restore fix WAL | `818e602` | check-all.sh green, test dev+prod PASS | 2026-03-04 | 14 file: database.py, config.py, backup.py, exercises.py, safety_engine.py, measurements.py, goals.py, main.py, types/api.ts, useBackup.ts, impostazioni/page.tsx |
 | AGT-2026-03-03-08 | Claude Code | `codex_01` | Riallineamento Safety Engine — 80 pattern rules, 0 condizioni morte, severity avoid>modify>caution | `43e5010` | check-all.sh green, verify_qa_clinical 150 PASS 0 FAIL | 2026-03-03 | populate_conditions.py + safety_engine.py + RiskBodyMap.tsx + seed/verify QA |
 | AGT-2026-03-03-11 | Claude Code | `codex_01` | Smart Programming Engine tuning 3 round: language mismatch, accessori 2-pass affinita', credito diluted, safety actionable, naming PPL | `97ab0a1, 82bf14f, 77e9961` | check-all.sh green | 2026-03-03 | smart-programming.ts + SmartAnalysisPanel.tsx |
 | AGT-2026-03-03-06 | Codex | `codex_01` | Protezione Cassa + fix flusso spese fisse (reale vs previsto) | `54aa785, 9477fc0, 9735b29, 7739d8e` | check-all.sh green | 2026-03-03 | UPG-2026-03-03-06 + UPG-2026-03-03-07 |
-| AGT-2026-03-04-01 | Claude Code | `codex_01` | Dual-DB architecture + Backup v2.0 bank-grade (5 pilastri) + restore fix WAL | `818e602` | check-all.sh green, test dev+prod PASS | 2026-03-04 | 14 file: database.py, config.py, backup.py, exercises.py, safety_engine.py, measurements.py, goals.py, main.py, types/api.ts, useBackup.ts, impostazioni/page.tsx |
-| AGT-2026-03-04-02 | Codex | `codex_01` | Export clinico schede: file scaricabile HTML->PDF con logo cliente + foto esercizi embedded, mantenendo anteprima separata | `d49b3d0` | eslint frontend file toccati | 2026-03-04 | ExportButtons + WorkoutPreview + export-workout-pdf + persistenza logo trainer |
-| AGT-2026-03-04-03 | Codex | `codex_01` | Hardening stampa clinico: paginazione A4, colori print, riduzione densita foto/padding per meno pagine | `2cf8cd4, a502f71` | `npm --prefix frontend run lint -- "src/lib/export-workout-pdf.ts"` | 2026-03-04 | Fix page-break blocchi + compattazione proporzioni media |
 
 ## Quick rules
 
