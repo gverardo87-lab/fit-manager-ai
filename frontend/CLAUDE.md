@@ -9,7 +9,7 @@ frontend/src/
 ├── app/                     Next.js App Router — 18 pagine
 │   ├── (dashboard)/         Route group (non appare in URL)
 │   │   ├── layout.tsx       Sidebar + AuthGuard + CommandPalette + scroll restoration
-│   │   ├── page.tsx         Dashboard KPI + WelcomeCard first-run
+│   │   ├── page.tsx         Dashboard operativa (no dati economici) + WelcomeCard first-run
 │   │   ├── agenda/          Calendario interattivo (react-big-calendar + DnD)
 │   │   ├── allenamenti/     Monitoraggio compliance programmi
 │   │   ├── cassa/           5 tab: Libro Mastro, Spese Fisse, Entrate & Uscite, Scadenze, Previsioni

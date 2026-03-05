@@ -47,7 +47,7 @@ Palette colori: oklch color space in `globals.css`. Primary = teal (hue 170).
 
 Upgrade puramente visivi senza nuove dipendenze pesanti. Zero framer-motion, tutto CSS + rAF.
 
-- **AnimatedNumber** (`components/ui/animated-number.tsx`): KPI contano da 0 al mount, animano su cambio con ease-out-cubic via `requestAnimationFrame`. Format: `"currency"` | `"number"`. Usato in Dashboard (6 KPI) e Cassa (SaldoHeroCard + 4 KPI mensili).
+- **AnimatedNumber** (`components/ui/animated-number.tsx`): KPI contano da 0 al mount, animano su cambio con ease-out-cubic via `requestAnimationFrame`. Format: `"currency"` | `"number"`. Usato in Dashboard (KPI operativi non-finanziari) e Cassa (SaldoHeroCard + 4 KPI mensili).
 - **Skeleton shimmer** (`components/ui/skeleton.tsx`): rimpiazza `animate-pulse` con sweep CSS (`@keyframes shimmer`, `translateX` via `::after` pseudo-element). Skeleton anatomicamente accurati in 4 pagine (clienti/contratti/esercizi/schede).
 - **Gradient mesh** (`globals.css`): `.bg-mesh-login` (animated gradient 4-stop, 400% background-size) sulla login. `.bg-mesh-app` (radial-gradient teal ellisse top-left) sul layout dashboard.
 - **Confetti** (`lib/confetti.ts`): `celebrateRatePaid()` (burst singolo, 70 particelle) e `celebrateContractSaldato()` (cannoni L+R, 150ms offset). Lazy dynamic import di `canvas-confetti` (3KB). Triggerato da `usePayRate` in `onSuccess` quando `data.stato === "SALDATA"`.
@@ -478,7 +478,7 @@ con bordo severity-colorato + badge. Riceve `measurements`, `sesso`, `dataNascit
 - **SaldoHeroCard** (cassa/page.tsx): card teal full-width con saldo attuale + 3 sub-KPI mese
 - **ComposedChart** (cassa/page.tsx): `BarChart` → `ComposedChart` con `Line` teal per saldo (dual Y-axis)
 - **Running Balance** (MovementsTable.tsx): colonna "Saldo" (`hidden lg:table-cell`), balance progressivo dal `saldoFinePeriodo`
-- **Dashboard KPI**: card "Saldo di Cassa" con icona Wallet, colori teal
+- **Dashboard (privacy-first)**: overview operativa senza importi economici; i KPI finanziari restano nella pagina Cassa
 - **Impostazioni**: sezione "Saldo Iniziale di Cassa" (importo + data + salva)
 
 File chiave: `api/routers/movements.py` (_compute_saldo, _compute_saldo_before, balance/saldo-iniziale endpoints),

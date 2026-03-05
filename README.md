@@ -106,7 +106,7 @@ core/                   Moduli AI (dormant — prossima fase)
 
 ### Attive
 
-- **Dashboard** — KPI in tempo reale (clienti attivi, entrate mensili, rate in scadenza)
+- **Dashboard** — overview operativa client-safe (clienti attivi, appuntamenti, alert operativi, todo)
 - **Clienti** — CRUD completo, ricerca, anagrafica
 - **Contratti** — Gestione contratti con piano pagamenti, pagamenti parziali, storico, auto-close/reopen
 - **Agenda** — Calendario interattivo (react-big-calendar), drag & drop, colori per categoria e stato, credit engine

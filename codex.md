@@ -54,6 +54,7 @@ Frontend:
 - Type sync rigoroso con `frontend/src/types/api.ts`
 - Invalidazione query simmetrica su operazioni inverse
 - Gestione loading/error/empty state
+- Dashboard client-facing privacy-first: evitare importi economici su `/dashboard`; dati finanziari solo su `/cassa` o viste esplicitamente private
 
 Cross-layer:
 - Niente path assoluti hardcoded
