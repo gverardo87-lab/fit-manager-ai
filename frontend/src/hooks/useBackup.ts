@@ -12,7 +12,8 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import apiClient, { extractErrorMessage } from "@/lib/api-client";
+import Cookies from "js-cookie";
+import apiClient, { extractErrorMessage, TOKEN_COOKIE } from "@/lib/api-client";
 import type {
   BackupInfo,
   BackupCreateResponse,
@@ -72,9 +73,12 @@ export function useRestoreBackup() {
     },
     onSuccess: (res) => {
       toast.success(res.message);
-      // Il DB e' stato sostituito: forza reload completo per invalidare
-      // tutte le cache React Query e ri-autenticare con i nuovi dati.
-      setTimeout(() => window.location.reload(), 1500);
+      // Il DB e' stato sostituito: cancella JWT (il trainer potrebbe essere diverso)
+      // e forza redirect al login per ri-autenticarsi con le credenziali del backup.
+      Cookies.remove(TOKEN_COOKIE);
+      setTimeout(() => {
+        window.location.href = "/login";
+      }, 1500);
     },
     onError: (error) => {
       toast.error(

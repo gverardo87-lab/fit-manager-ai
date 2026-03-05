@@ -364,9 +364,23 @@ def restore_backup(
     finally:
         temp_path.unlink(missing_ok=True)
 
-    # Chiudi il pool connessioni — le prossime request creano connessioni fresche
-    # che vedranno i dati ripristinati.
+    # ── Post-restore: WAL checkpoint + schema sync ──
+    # 1. Forza WAL checkpoint per svuotare eventuali WAL stale pre-restore
+    try:
+        wal_conn = sqlite3.connect(str(DB_PATH))
+        wal_conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        wal_conn.close()
+    except Exception as e:
+        logger.warning("WAL checkpoint post-restore fallito: %s", e)
+
+    # 2. Chiudi il pool connessioni — le prossime request creano connessioni fresche
     engine.dispose()
+
+    # 3. Assicura che tutte le tabelle esistano (CREATE IF NOT EXISTS).
+    #    Se il backup e' piu' vecchio e manca una tabella recente (es. esercizi_media),
+    #    senza questo step l'app crasherebbe su ogni query a quella tabella.
+    from api.database import create_db_and_tables
+    create_db_and_tables()
 
     logger.warning(
         "Database ripristinato via sqlite3.backup(): %d bytes, trainer %d. Safety: %s",
@@ -374,7 +388,7 @@ def restore_backup(
     )
 
     return BackupRestoreResponse(
-        message="Database ripristinato con successo. Ricaricare la pagina per vedere i dati aggiornati.",
+        message="Database ripristinato con successo. La pagina si ricarichera' automaticamente.",
         safety_backup=safety_filename,
     )
 
