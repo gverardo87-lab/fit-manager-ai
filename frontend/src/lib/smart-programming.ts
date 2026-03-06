@@ -546,7 +546,7 @@ function scoreRecoveryFit(ex: Exercise, ctx: ScorerContext): { score: number; re
 }
 
 /** 8. Compound Priority — compound > bodyweight > isolation */
-function scoreCompoundPriority(ex: Exercise, ctx: ScorerContext): { score: number; reason: string } {
+function scoreCompoundPriority(ex: Exercise): { score: number; reason: string } {
   const cat = ex.categoria;
   if (cat === "compound") return { score: 1.0, reason: "Compound multiarticolare" };
   if (cat === "bodyweight") return { score: 0.7, reason: "Bodyweight funzionale" };

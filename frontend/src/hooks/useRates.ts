@@ -11,7 +11,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import apiClient, { extractErrorMessage } from "@/lib/api-client";
-import { celebrateRatePaid, celebrateContractSaldato } from "@/lib/confetti";
+import { celebrateRatePaid } from "@/lib/confetti";
 import type {
   Rate,
   RateCreate,

@@ -11,7 +11,6 @@ import { toast } from "sonner";
 import apiClient, { extractErrorMessage } from "@/lib/api-client";
 import type {
   Contract,
-  ContractListItem,
   ContractCreate,
   ContractUpdate,
   ContractWithRates,

@@ -21,7 +21,7 @@ import type { ClientProfile } from "@/lib/smart-programming";
 export function useSmartProgramming(clientId: number | null) {
   const { data: client, isLoading: clientLoading } = useClient(clientId);
   const { data: safetyData, isLoading: safetyLoading } = useExerciseSafetyMap(clientId);
-  const { data: latestMeasurement, isLoading: measurementLoading } = useLatestMeasurement(clientId);
+  const { isLoading: measurementLoading } = useLatestMeasurement(clientId);
   const { data: measurementsData, isLoading: measListLoading } = useClientMeasurements(clientId);
   const { data: goalsData, isLoading: goalsLoading } = useClientGoals(clientId);
 
@@ -64,7 +64,7 @@ export function useSmartProgramming(clientId: number | null) {
     }
 
     return profile;
-  }, [client, safetyData, latestMeasurement, measurementsData, goalsData]);
+  }, [client, safetyData, measurementsData, goalsData]);
 
   const isLoading = clientLoading || safetyLoading || measurementLoading || measListLoading || goalsLoading;
 

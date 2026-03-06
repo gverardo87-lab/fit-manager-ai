@@ -47,7 +47,7 @@ export function computeWeeks(dataInizio: string, dataFine: string): WeekSlot[] {
   const end = new Date(dataFine + "T00:00:00");
   const weeks: WeekSlot[] = [];
 
-  let weekStart = new Date(start);
+  const weekStart = new Date(start);
   let weekNum = 1;
 
   while (weekStart <= end) {

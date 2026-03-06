@@ -1,8 +1,6 @@
 """Test JWT_SECRET auto-bootstrap in api/config.py."""
 
 import os
-import importlib
-from pathlib import Path
 
 
 def test_jwt_bootstrap_generates_and_persists(tmp_path, monkeypatch):

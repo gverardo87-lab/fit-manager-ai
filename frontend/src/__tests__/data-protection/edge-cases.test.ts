@@ -208,7 +208,7 @@ describe("Draft + Guard integration", () => {
   it("scenario: chiusura bloccata → draft ancora disponibile per recovery", () => {
     const key = "scheda-builder-7";
     const dirtyRef = { current: false };
-    let isOpen = true;
+    const isOpen = true;
 
     const guardedOpenChange = (newOpen: boolean) => {
       if (!newOpen && dirtyRef.current) {
@@ -271,7 +271,7 @@ describe("Concurrent mutations — Race condition", () => {
    */
   it("mutation fallita: form resta dirty e aperto", () => {
     const dirtyRef = { current: true };
-    let isOpen = true;
+    const isOpen = true;
 
     // Mutation fallisce → onError (non chiama onOpenChange)
     const handleMutationError = () => {

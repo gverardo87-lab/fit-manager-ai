@@ -385,7 +385,7 @@ function addExerciseCard(
   headerRow.height = 22;
 
   // ── Row 2: Data line 1 (Serie + Carico) ──
-  const dataRow1 = ws.addRow([
+  ws.addRow([
     "", "", "",
     "Serie",
     ex.serie,
@@ -396,7 +396,7 @@ function addExerciseCard(
   const dataRow1Num = ws.rowCount;
 
   // ── Row 3: Data line 2 (Rip + Riposo) ──
-  const dataRow2 = ws.addRow([
+  ws.addRow([
     "", "", "",
     "Rip",
     ex.ripetizioni,
@@ -504,7 +504,7 @@ function addBlockExerciseCard(
   headerRow.height = 22;
 
   // ── Row 2: Dati esercizio (Rip ± Kg condizionale) ──
-  const dataRow = ws.addRow([
+  ws.addRow([
     "", "", "",
     showRip ? ripLabel : "",
     showRip ? ex.ripetizioni : "",
@@ -515,7 +515,7 @@ function addBlockExerciseCard(
   const dataRowNum = ws.rowCount;
 
   // ── Row 3: Spacer (per altezza immagini — 2 righe = ~110px per IMAGE_SIZE 150×100) ──
-  const spacerRow = ws.addRow(["", "", "", "", "", "", "", ""]);
+  ws.addRow(["", "", "", "", "", "", "", ""]);
   const spacerRowNum = ws.rowCount;
 
   // Merge nota H su entrambe le righe dati
