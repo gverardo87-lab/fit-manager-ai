@@ -202,7 +202,7 @@ export function WorkoutPreview({
 
       {/* ── Footer ── */}
       <div className="flex items-center justify-between border-t pt-3 text-[10px] text-muted-foreground">
-        <span>ProFit AI Studio</span>
+        <span>FitManager AI Studio</span>
         <span>{new Date().toLocaleDateString("it-IT")}</span>
       </div>
     </div>

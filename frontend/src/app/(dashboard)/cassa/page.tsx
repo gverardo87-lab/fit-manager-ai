@@ -138,7 +138,7 @@ const chartConfig: ChartConfig = {
   },
   saldo: {
     label: "Saldo",
-    color: "oklch(0.55 0.15 170)",
+    color: "oklch(0.52 0.14 173)",
   },
 };
 
@@ -993,7 +993,7 @@ function DailyChart({
             yAxisId="saldo"
             dataKey="saldo"
             type="monotone"
-            stroke="oklch(0.55 0.15 170)"
+            stroke="oklch(0.52 0.14 173)"
             strokeWidth={2}
             dot={false}
             animationBegin={200}

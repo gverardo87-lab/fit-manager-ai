@@ -9,6 +9,7 @@ in Python — latenza zero, scalabile anche con migliaia di record.
 Multi-tenancy: ogni query filtra per trainer_id dal JWT.
 """
 
+import json
 from datetime import date, datetime, timedelta
 from fastapi import APIRouter, Depends
 from sqlalchemy import bindparam
@@ -22,9 +23,12 @@ from api.models.movement import CashMovement
 from api.models.rate import Rate
 from api.models.event import Event
 from api.models.contract import Contract
+from api.models.measurement import ClientMeasurement
+from api.models.workout import WorkoutPlan
 from api.schemas.financial import (
     DashboardSummary, ReconciliationItem, ReconciliationResponse,
     AlertItem, DashboardAlerts,
+    ClinicalReadinessClientItem, ClinicalReadinessSummary, ClinicalReadinessResponse,
 )
 from api.routers.movements import _compute_saldo
 
@@ -637,3 +641,192 @@ def get_dashboard_alerts(
         info_count=info,
         items=items,
     )
+
+
+def _get_anamnesi_state(anamnesi_json: str | None) -> str:
+    """
+    Stato anamnesi:
+    - missing: non presente
+    - structured: nuovo wizard
+    - legacy: formato precedente o JSON non parseabile
+    """
+    if not anamnesi_json:
+        return "missing"
+
+    try:
+        data = json.loads(anamnesi_json)
+    except (TypeError, json.JSONDecodeError):
+        return "legacy"
+
+    if isinstance(data, dict) and "infortuni_attuali" in data and "data_compilazione" in data:
+        return "structured"
+
+    return "legacy"
+
+
+def _build_clinical_readiness_item(
+    client: Client,
+    has_measurements: bool,
+    has_workout_plan: bool,
+) -> ClinicalReadinessClientItem:
+    """Costruisce un item readiness con priorita' e next-best-action deterministiche."""
+    anamnesi_state = _get_anamnesi_state(client.anamnesi_json)
+
+    missing_steps: list[str] = []
+    readiness_score = 0
+    priority_score = 0
+
+    if anamnesi_state == "structured":
+        readiness_score += 40
+    elif anamnesi_state == "legacy":
+        readiness_score += 15
+        missing_steps.append("anamnesi_legacy")
+        priority_score += 80
+    else:
+        missing_steps.append("anamnesi_missing")
+        priority_score += 100
+
+    if has_measurements:
+        readiness_score += 30
+    else:
+        missing_steps.append("baseline")
+        priority_score += 60
+
+    if has_workout_plan:
+        readiness_score += 30
+    else:
+        missing_steps.append("workout")
+        priority_score += 40
+
+    client_id = client.id or 0
+
+    if anamnesi_state == "missing":
+        next_action_code = "collect_anamnesi"
+        next_action_label = "Compila anamnesi"
+        next_action_href = f"/clienti/{client_id}/anamnesi"
+    elif anamnesi_state == "legacy":
+        next_action_code = "migrate_anamnesi"
+        next_action_label = "Rivedi anamnesi"
+        next_action_href = f"/clienti/{client_id}/anamnesi"
+    elif not has_measurements:
+        next_action_code = "collect_baseline"
+        next_action_label = "Registra baseline"
+        next_action_href = f"/clienti/{client_id}/misurazioni"
+    elif not has_workout_plan:
+        next_action_code = "assign_workout"
+        next_action_label = "Assegna scheda"
+        next_action_href = f"/clienti/{client_id}?tab=schede"
+    else:
+        next_action_code = "ready"
+        next_action_label = "Profilo pronto"
+        next_action_href = f"/clienti/{client_id}"
+
+    if priority_score >= 80:
+        priority = "high"
+    elif priority_score >= 40:
+        priority = "medium"
+    else:
+        priority = "low"
+
+    return ClinicalReadinessClientItem(
+        client_id=client_id,
+        client_nome=client.nome,
+        client_cognome=client.cognome,
+        anamnesi_state=anamnesi_state,
+        has_measurements=has_measurements,
+        has_workout_plan=has_workout_plan,
+        missing_steps=missing_steps,
+        readiness_score=readiness_score,
+        priority=priority,
+        priority_score=priority_score,
+        next_action_code=next_action_code,
+        next_action_label=next_action_label,
+        next_action_href=next_action_href,
+    )
+
+
+@router.get("/clinical-readiness", response_model=ClinicalReadinessResponse)
+def get_clinical_readiness(
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """
+    Coda operativa per onboarding/migrazione legacy a basso attrito.
+
+    Regola deterministica per cliente attivo:
+    1) anamnesi (missing/legacy/structured)
+    2) baseline misurazioni presente?
+    3) scheda allenamento assegnata?
+    """
+    active_clients = session.exec(
+        select(Client).where(
+            Client.trainer_id == trainer.id,
+            Client.stato == "Attivo",
+            Client.deleted_at == None,
+        )
+    ).all()
+
+    client_ids = [c.id for c in active_clients if c.id is not None]
+    if not client_ids:
+        return ClinicalReadinessResponse(
+            summary=ClinicalReadinessSummary(),
+            items=[],
+        )
+
+    measurement_rows = session.exec(
+        select(ClientMeasurement.id_cliente)
+        .where(
+            ClientMeasurement.trainer_id == trainer.id,
+            ClientMeasurement.deleted_at == None,
+            ClientMeasurement.id_cliente.in_(client_ids),
+        )
+        .group_by(ClientMeasurement.id_cliente)
+    ).all()
+    clients_with_measurements = set(measurement_rows)
+
+    workout_rows = session.exec(
+        select(WorkoutPlan.id_cliente)
+        .where(
+            WorkoutPlan.trainer_id == trainer.id,
+            WorkoutPlan.deleted_at == None,
+            WorkoutPlan.id_cliente != None,
+            WorkoutPlan.id_cliente.in_(client_ids),
+        )
+        .group_by(WorkoutPlan.id_cliente)
+    ).all()
+    clients_with_workout = {cid for cid in workout_rows if cid is not None}
+
+    items = []
+    for client in active_clients:
+        if client.id is None:
+            continue
+        items.append(
+            _build_clinical_readiness_item(
+                client=client,
+                has_measurements=client.id in clients_with_measurements,
+                has_workout_plan=client.id in clients_with_workout,
+            )
+        )
+
+    items.sort(
+        key=lambda item: (
+            -item.priority_score,
+            item.readiness_score,
+            item.client_cognome.lower(),
+            item.client_nome.lower(),
+        )
+    )
+
+    summary = ClinicalReadinessSummary(
+        total_clients=len(items),
+        ready_clients=sum(1 for i in items if i.next_action_code == "ready"),
+        missing_anamnesi=sum(1 for i in items if i.anamnesi_state == "missing"),
+        legacy_anamnesi=sum(1 for i in items if i.anamnesi_state == "legacy"),
+        missing_measurements=sum(1 for i in items if not i.has_measurements),
+        missing_workout_plan=sum(1 for i in items if not i.has_workout_plan),
+        high_priority=sum(1 for i in items if i.priority == "high"),
+        medium_priority=sum(1 for i in items if i.priority == "medium"),
+        low_priority=sum(1 for i in items if i.priority == "low"),
+    )
+
+    return ClinicalReadinessResponse(summary=summary, items=items)

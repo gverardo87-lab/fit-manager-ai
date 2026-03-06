@@ -161,7 +161,7 @@ export default function DashboardLayout({
               <Sidebar onNavigate={() => setMobileOpen(false)} />
             </SheetContent>
           </Sheet>
-          <span className="text-sm font-semibold">ProFit AI Studio</span>
+          <span className="text-sm font-semibold">FitManager AI Studio</span>
         </header>
 
         {/* ── Page content ── */}

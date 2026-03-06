@@ -2,7 +2,7 @@
 /**
  * Export scheda allenamento in Excel — Layout "Scheda Clinica".
  *
- * Documento medico-sportivo proprietario ProFit AI Studio.
+ * Documento medico-sportivo proprietario FitManager AI Studio.
  * Struttura: Copertina → Profilo Clinico (opzionale) → 1 foglio per sessione.
  *
  * Esercizi principali: card-block (header teal + 2 righe dati/immagini + separatore).
@@ -207,7 +207,7 @@ function createCoverSheet(
   ws.addRow([]);
 
   // Brand
-  const brandRow = ws.addRow(["ProFit AI Studio"]);
+  const brandRow = ws.addRow(["FitManager AI Studio"]);
   const brandRowNum = ws.rowCount;
   ws.mergeCells(`A${brandRowNum}:${mergeLetter}${brandRowNum}`);
   brandRow.getCell(1).font = { bold: true, size: 20, color: { argb: TEAL } };
@@ -282,7 +282,7 @@ function createCoverSheet(
   dateRow.getCell(1).alignment = { horizontal: "center" };
 
   // Footer
-  const footerRow = ws.addRow(["Documento generato da ProFit AI Studio"]);
+  const footerRow = ws.addRow(["Documento generato da FitManager AI Studio"]);
   const footerRowNum = ws.rowCount;
   ws.mergeCells(`A${footerRowNum}:${mergeLetter}${footerRowNum}`);
   footerRow.getCell(1).font = { size: 9, italic: true, color: { argb: GRAY_LIGHT } };
@@ -668,7 +668,7 @@ export async function exportWorkoutExcel({
   }
 
   const wb = new ExcelJS.Workbook();
-  wb.creator = "ProFit AI Studio";
+  wb.creator = "FitManager AI Studio";
   wb.created = new Date();
 
   const mergeLetter = hasImages ? MERGE_CARD : MERGE_TABLE;
@@ -885,7 +885,7 @@ export async function exportWorkoutExcel({
 
     // ── Footer ──
     ws.addRow([]);
-    const footerCells = ["ProFit AI Studio", "", "", "", "", "", "", new Date().toLocaleDateString("it-IT")];
+    const footerCells = ["FitManager AI Studio", "", "", "", "", "", "", new Date().toLocaleDateString("it-IT")];
     const footerRow = ws.addRow(footerCells);
     footerRow.font = { size: 8, italic: true, color: { argb: GRAY_LIGHT } };
   }

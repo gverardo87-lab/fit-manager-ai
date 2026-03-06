@@ -56,8 +56,8 @@ import type {
 // CONSTANTS
 // ════════════════════════════════════════════════════════════
 
-const COLOR_TEAL_LIGHT = "oklch(0.55 0.15 170)";
-const COLOR_TEAL_DARK = "oklch(0.70 0.15 170)";
+const COLOR_TEAL_LIGHT = "oklch(0.52 0.14 173)";
+const COLOR_TEAL_DARK = "oklch(0.68 0.14 173)";
 
 function getInitialIsMobile() {
   return typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches;

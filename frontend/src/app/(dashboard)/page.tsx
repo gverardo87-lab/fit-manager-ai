@@ -50,7 +50,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useDashboard, useDashboardAlerts } from "@/hooks/useDashboard";
+import { useDashboard, useDashboardAlerts, useClinicalReadiness } from "@/hooks/useDashboard";
 import { useEvents, useUpdateEvent, type EventHydrated } from "@/hooks/useAgenda";
 import { AnimatedNumber } from "@/components/ui/animated-number";
 import {
@@ -76,6 +76,8 @@ import {
   EVENT_STATUSES,
   type DashboardSummary,
   type DashboardAlerts,
+  type ClinicalReadinessResponse,
+  type ClinicalReadinessClientItem,
 } from "@/types/api";
 import { getRevealClass, getRevealStyle } from "@/lib/page-reveal";
 
@@ -270,6 +272,7 @@ function getRevealDelayStyle(_enabled: boolean, delayMs: number) {
 export default function DashboardPage() {
   const { data: summary, isLoading: summaryLoading, isError, refetch } = useDashboard();
   const { data: alerts } = useDashboardAlerts();
+  const { data: clinicalReadiness, isLoading: clinicalReadinessLoading } = useClinicalReadiness();
   const [dateAnchor, setDateAnchor] = useState(() => new Date());
   const [entranceReady, setEntranceReady] = useState(() => !DASHBOARD_MICROSTEP2_ENABLED);
 
@@ -462,7 +465,18 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* ── Azioni Rapide ── */}
+          {/* Row 3: Clinical Readiness Queue */}
+          <div
+            className={getRevealMotionClass(DASHBOARD_MICROSTEP2_ENABLED, entranceReady)}
+            style={getRevealDelayStyle(DASHBOARD_MICROSTEP2_ENABLED, 360)}
+          >
+            <ClinicalReadinessPanel
+              readiness={clinicalReadiness}
+              isLoading={clinicalReadinessLoading}
+            />
+          </div>
+
+          {/* Azioni Rapide */}
           <QuickActions
             animateIn={entranceReady}
             animationsEnabled={DASHBOARD_MICROSTEP2_ENABLED}
@@ -1066,6 +1080,175 @@ function AlertPanel({ alerts, isLoading, alertActions = {} }: {
 // ════════════════════════════════════════════════════════════
 // Today Agenda
 // ════════════════════════════════════════════════════════════
+
+const CLINICAL_PRIORITY_BADGE: Record<ClinicalReadinessClientItem["priority"], string> = {
+  high: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800",
+  medium: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800",
+  low: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800",
+};
+
+const CLINICAL_PRIORITY_LABEL: Record<ClinicalReadinessClientItem["priority"], string> = {
+  high: "Alta",
+  medium: "Media",
+  low: "Bassa",
+};
+
+const CLINICAL_ANAMNESI_LABEL: Record<ClinicalReadinessClientItem["anamnesi_state"], string> = {
+  missing: "Anamnesi assente",
+  legacy: "Anamnesi legacy",
+  structured: "Anamnesi allineata",
+};
+
+const CLINICAL_STEP_LABEL: Record<string, string> = {
+  anamnesi_missing: "Compila anamnesi",
+  anamnesi_legacy: "Rivedi anamnesi",
+  baseline: "Registra baseline",
+  workout: "Assegna scheda",
+};
+
+function ClinicalReadinessPanel({
+  readiness,
+  isLoading,
+}: {
+  readiness: ClinicalReadinessResponse | undefined;
+  isLoading: boolean;
+}) {
+  if (isLoading) {
+    return (
+      <div className="rounded-2xl border p-4 sm:p-5">
+        <Skeleton className="h-5 w-56" />
+        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <Skeleton className="h-16 rounded-xl" />
+          <Skeleton className="h-16 rounded-xl" />
+          <Skeleton className="h-16 rounded-xl" />
+          <Skeleton className="h-16 rounded-xl" />
+        </div>
+        <div className="mt-4 grid gap-2.5 md:grid-cols-2">
+          <Skeleton className="h-28 rounded-xl" />
+          <Skeleton className="h-28 rounded-xl" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!readiness || readiness.summary.total_clients === 0) {
+    return (
+      <div className="rounded-2xl border bg-gradient-to-br from-white to-zinc-50/60 p-4 sm:p-5 dark:from-zinc-900 dark:to-zinc-800/40">
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+          <h3 className="text-sm font-semibold sm:text-base">Readiness clinica</h3>
+        </div>
+        <p className="mt-2 text-sm text-muted-foreground">Nessun cliente attivo da analizzare.</p>
+      </div>
+    );
+  }
+
+  const summary = readiness.summary;
+  const actionableItems = readiness.items.filter((item) => item.next_action_code !== "ready");
+  const topItems = actionableItems.slice(0, 6);
+
+  return (
+    <div className="rounded-2xl border bg-gradient-to-br from-white via-white to-zinc-50/70 p-4 shadow-sm sm:p-5 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800/50">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div>
+              <h3 className="truncate text-sm font-bold sm:text-base">Coda readiness clinica</h3>
+              <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">
+                onboarding legacy con next-action
+              </p>
+            </div>
+          </div>
+        </div>
+        <Link href="/clienti">
+          <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs text-muted-foreground hover:text-foreground">
+            Clienti <ArrowRight className="h-3 w-3" />
+          </Button>
+        </Link>
+      </div>
+
+      <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-xl border bg-zinc-50/80 px-3 py-2 dark:bg-zinc-900/60">
+          <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">Clienti attivi</p>
+          <p className="mt-1 text-2xl font-extrabold leading-none tabular-nums">{summary.total_clients}</p>
+        </div>
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-3 py-2 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+          <p className="text-[10px] font-semibold tracking-wide text-emerald-700 uppercase dark:text-emerald-300">Pronti</p>
+          <p className="mt-1 text-2xl font-extrabold leading-none tabular-nums text-emerald-700 dark:text-emerald-300">
+            {summary.ready_clients}
+          </p>
+        </div>
+        <div className="rounded-xl border border-red-200 bg-red-50/80 px-3 py-2 dark:border-red-900/40 dark:bg-red-950/20">
+          <p className="text-[10px] font-semibold tracking-wide text-red-700 uppercase dark:text-red-300">Alta priorita</p>
+          <p className="mt-1 text-2xl font-extrabold leading-none tabular-nums text-red-700 dark:text-red-300">
+            {summary.high_priority}
+          </p>
+        </div>
+        <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2 dark:border-amber-900/40 dark:bg-amber-950/20">
+          <p className="text-[10px] font-semibold tracking-wide text-amber-700 uppercase dark:text-amber-300">Anamnesi da allineare</p>
+          <p className="mt-1 text-2xl font-extrabold leading-none tabular-nums text-amber-700 dark:text-amber-300">
+            {summary.missing_anamnesi + summary.legacy_anamnesi}
+          </p>
+        </div>
+      </div>
+
+      {topItems.length === 0 ? (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-4 text-sm text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300">
+          Tutti i clienti attivi hanno anamnesi, baseline e scheda allineate.
+        </div>
+      ) : (
+        <div className="grid gap-2.5 md:grid-cols-2">
+          {topItems.map((item) => (
+            <div key={item.client_id} className="rounded-xl border bg-white p-3 shadow-sm dark:bg-zinc-900">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">
+                    {item.client_nome} {item.client_cognome}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {CLINICAL_ANAMNESI_LABEL[item.anamnesi_state]} · score {item.readiness_score}%
+                  </p>
+                </div>
+                <Badge
+                  variant="outline"
+                  className={`h-6 px-2 text-[10px] font-semibold uppercase ${CLINICAL_PRIORITY_BADGE[item.priority]}`}
+                >
+                  {CLINICAL_PRIORITY_LABEL[item.priority]}
+                </Badge>
+              </div>
+
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {item.missing_steps.map((step) => (
+                  <Badge key={`${item.client_id}-${step}`} variant="secondary" className="text-[10px]">
+                    {CLINICAL_STEP_LABEL[step] ?? step}
+                  </Badge>
+                ))}
+              </div>
+
+              <div className="mt-3 flex justify-end">
+                <Link href={item.next_action_href}>
+                  <Button size="sm" className="h-8 gap-1.5 text-xs">
+                    {item.next_action_label}
+                    <ArrowRight className="h-3 w-3" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {actionableItems.length > topItems.length && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          Mostrati i primi {topItems.length} clienti su {actionableItems.length} da completare.
+        </p>
+      )}
+    </div>
+  );
+}
 
 interface AgendaLiveInfo {
   mode: "in_progress" | "next_up" | "free";

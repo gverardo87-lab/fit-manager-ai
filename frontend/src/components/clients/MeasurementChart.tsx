@@ -48,7 +48,7 @@ import {
 // COLORS
 // ════════════════════════════════════════════════════════════
 
-const COLOR_PRIMARY = "oklch(0.55 0.15 170)";   // teal
+const COLOR_PRIMARY = "oklch(0.52 0.14 173)";   // teal
 const COLOR_SECONDARY = "oklch(0.55 0.15 295)"; // violet
 
 // ════════════════════════════════════════════════════════════

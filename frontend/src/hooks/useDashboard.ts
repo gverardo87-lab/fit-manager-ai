@@ -14,6 +14,7 @@ import apiClient from "@/lib/api-client";
 import type {
   DashboardSummary,
   DashboardAlerts,
+  ClinicalReadinessResponse,
   Event,
   ListResponse,
   OverdueRateItem,
@@ -40,6 +41,19 @@ export function useDashboardAlerts() {
     queryFn: async () => {
       const { data } = await apiClient.get<DashboardAlerts>(
         "/dashboard/alerts"
+      );
+      return data;
+    },
+    refetchInterval: 60_000,
+  });
+}
+
+export function useClinicalReadiness() {
+  return useQuery<ClinicalReadinessResponse>({
+    queryKey: ["dashboard", "clinical-readiness"],
+    queryFn: async () => {
+      const { data } = await apiClient.get<ClinicalReadinessResponse>(
+        "/dashboard/clinical-readiness"
       );
       return data;
     },

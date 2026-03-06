@@ -21,7 +21,7 @@ const caveat = Caveat({
 });
 
 export const metadata: Metadata = {
-  title: "ProFit AI Studio",
+  title: "FitManager AI Studio",
   description: "CRM gestionale per personal trainer — privacy first, zero cloud.",
 };
 

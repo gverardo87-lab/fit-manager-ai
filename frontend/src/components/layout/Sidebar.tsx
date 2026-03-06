@@ -10,6 +10,7 @@
  * In basso: dati trainer loggato + bottone logout.
  */
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -151,16 +152,15 @@ export function Sidebar({ onNavigate, guidePulse }: SidebarProps) {
   return (
     <div className="flex h-full flex-col">
       {/* ── Logo ── */}
-      <div className="flex h-16 items-center gap-3 px-6">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-          <Dumbbell className="h-5 w-5 text-primary-foreground" />
-        </div>
-        <div>
-          <h1 className="text-base font-bold leading-tight tracking-tight">
-            ProFit AI
-          </h1>
-          <p className="text-[11px] text-muted-foreground">Studio</p>
-        </div>
+      <div className="flex h-16 items-center gap-3 px-4">
+        <Image
+          src="/logo.png"
+          alt="FitManager AI Studio"
+          width={140}
+          height={40}
+          className="h-10 w-auto object-contain"
+          priority
+        />
       </div>
 
       <Separator />

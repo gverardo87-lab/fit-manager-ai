@@ -18,7 +18,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
-import { Loader2, Dumbbell, Eye, EyeOff } from "lucide-react";
+import Image from "next/image";
+import { Loader2, Eye, EyeOff } from "lucide-react";
 import { AxiosError } from "axios";
 
 import apiClient from "@/lib/api-client";
@@ -115,11 +116,18 @@ export default function LoginPage() {
 
       <Card className="relative w-full max-w-sm shadow-lg sm:max-w-md">
         <CardHeader className="space-y-3 text-center">
-          {/* Logo / Icona */}
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10">
-            <Dumbbell className="h-7 w-7 text-primary" />
+          {/* Logo */}
+          <div className="mx-auto">
+            <Image
+              src="/logo.png"
+              alt="FitManager AI Studio"
+              width={200}
+              height={60}
+              className="h-16 w-auto object-contain"
+              priority
+            />
           </div>
-          <CardTitle className="text-2xl font-bold tracking-tight">
+          <CardTitle className="sr-only">
             FitManager AI Studio
           </CardTitle>
           <CardDescription>

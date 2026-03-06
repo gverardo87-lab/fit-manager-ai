@@ -685,6 +685,63 @@ export interface DashboardAlerts {
   items: AlertItem[];
 }
 
+/** Stato anamnesi nella coda readiness */
+export type AnamnesiReadinessState = "missing" | "legacy" | "structured";
+
+/** Step mancanti nella coda readiness */
+export type ClinicalMissingStep =
+  | "anamnesi_missing"
+  | "anamnesi_legacy"
+  | "baseline"
+  | "workout";
+
+/** Priorita operativa readiness */
+export type ClinicalPriority = "high" | "medium" | "low";
+
+/** Next action deterministica nella coda readiness */
+export type ClinicalNextActionCode =
+  | "collect_anamnesi"
+  | "migrate_anamnesi"
+  | "collect_baseline"
+  | "assign_workout"
+  | "ready";
+
+/** Singolo cliente nella coda readiness clinica */
+export interface ClinicalReadinessClientItem {
+  client_id: number;
+  client_nome: string;
+  client_cognome: string;
+  anamnesi_state: AnamnesiReadinessState;
+  has_measurements: boolean;
+  has_workout_plan: boolean;
+  missing_steps: ClinicalMissingStep[];
+  readiness_score: number;
+  priority: ClinicalPriority;
+  priority_score: number;
+  next_action_code: ClinicalNextActionCode;
+  next_action_label: string;
+  next_action_href: string;
+}
+
+/** Contatori aggregati della coda readiness */
+export interface ClinicalReadinessSummary {
+  total_clients: number;
+  ready_clients: number;
+  missing_anamnesi: number;
+  legacy_anamnesi: number;
+  missing_measurements: number;
+  missing_workout_plan: number;
+  high_priority: number;
+  medium_priority: number;
+  low_priority: number;
+}
+
+/** GET /api/dashboard/clinical-readiness */
+export interface ClinicalReadinessResponse {
+  summary: ClinicalReadinessSummary;
+  items: ClinicalReadinessClientItem[];
+}
+
 // ════════════════════════════════════════════════════════════
 // TODO (api/routers/todos.py — inline schemas)
 // ════════════════════════════════════════════════════════════
