@@ -2,53 +2,234 @@
 "use client";
 
 /**
- * TodoCard — card promemoria per la Dashboard.
+ * TodoCard - card promemoria per la Dashboard.
  *
  * Design:
+ * - Hero "Azione consigliata" con priorita deterministica
  * - Inline input per creazione rapida (titolo + invio)
- * - Lista todo con checkbox toggle + colori urgenza
- * - Scaduti = rosso, oggi = ambra, futuri/senza data = default
+ * - Lista todo ordinata per urgenza
+ * - Scaduti = rosso, oggi = ambra, futuri = blu
  * - Completati in fondo, barrati, opacity ridotta
- * - Delete via X button on hover
  */
 
-import { useState, useRef, type KeyboardEvent } from "react";
-import { Plus, Trash2, ListTodo, Check, CalendarDays } from "lucide-react";
+import Link from "next/link";
+import { useRef, useState, type KeyboardEvent } from "react";
+import {
+  AlertTriangle,
+  BellRing,
+  CalendarClock,
+  CalendarDays,
+  Check,
+  ClipboardCheck,
+  ListTodo,
+  Plus,
+  Sparkles,
+  Trash2,
+  type LucideIcon,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useTodos, useCreateTodo, useToggleTodo, useDeleteTodo } from "@/hooks/useTodos";
+import { useCreateTodo, useDeleteTodo, useTodos, useToggleTodo } from "@/hooks/useTodos";
 import { formatShortDate } from "@/lib/format";
 import type { Todo } from "@/types/api";
 
-// ── Urgency colors based on scadenza ──
+// Priority helpers
 
-function getUrgencyClass(todo: Todo): string {
+function formatLocalISODate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getTodoBucket(todo: Todo, todayISO: string): number {
+  if (todo.completato) return 4;
+  if (!todo.data_scadenza) return 3;
+  if (todo.data_scadenza < todayISO) return 0;
+  if (todo.data_scadenza === todayISO) return 1;
+  return 2;
+}
+
+function sortTodosByPriority(todos: Todo[], todayISO: string): Todo[] {
+  return [...todos].sort((a, b) => {
+    const bucketDelta = getTodoBucket(a, todayISO) - getTodoBucket(b, todayISO);
+    if (bucketDelta !== 0) return bucketDelta;
+
+    if (a.data_scadenza && b.data_scadenza && a.data_scadenza !== b.data_scadenza) {
+      return a.data_scadenza.localeCompare(b.data_scadenza);
+    }
+
+    if (a.created_at !== b.created_at) {
+      return b.created_at.localeCompare(a.created_at);
+    }
+
+    return b.id - a.id;
+  });
+}
+
+function getUrgencyClass(todo: Todo, todayISO: string): string {
   if (todo.completato) return "text-muted-foreground/50 line-through";
   if (!todo.data_scadenza) return "";
 
-  const today = new Date().toISOString().slice(0, 10);
-  if (todo.data_scadenza < today) return "text-red-600 dark:text-red-400";
-  if (todo.data_scadenza === today) return "text-amber-600 dark:text-amber-400";
+  if (todo.data_scadenza < todayISO) return "text-red-600 dark:text-red-400";
+  if (todo.data_scadenza === todayISO) return "text-amber-600 dark:text-amber-400";
   return "";
 }
 
-function getDateBadgeClass(todo: Todo): string {
+function getDateBadgeClass(todo: Todo, todayISO: string): string {
   if (todo.completato) return "bg-muted text-muted-foreground/50";
   if (!todo.data_scadenza) return "";
 
-  const today = new Date().toISOString().slice(0, 10);
-  if (todo.data_scadenza < today) return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
-  if (todo.data_scadenza === today) return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
-  return "bg-muted text-muted-foreground";
+  if (todo.data_scadenza < todayISO) return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
+  if (todo.data_scadenza === todayISO) return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
+  return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
 }
 
-// ── Component ──
+function scrollToAlertPanel(): void {
+  const panel = document.getElementById("alert-panel");
+  if (panel) panel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 
-export function TodoCard() {
+type TodoHeroMode =
+  | "overdue"
+  | "today"
+  | "critical_alerts"
+  | "warning_alerts"
+  | "upcoming_sessions"
+  | "free";
+
+interface TodoHeroState {
+  mode: TodoHeroMode;
+  title: string;
+  detail: string;
+  primaryLabel: string;
+  primaryHref?: string;
+  targetTodoId?: number;
+  icon: LucideIcon;
+  panelTone: string;
+  iconTone: string;
+  titleTone: string;
+}
+
+interface TodoHeroContext {
+  todayISO: string;
+  todos: Todo[];
+  overdueCount: number;
+  dueTodayCount: number;
+  criticalAlertCount: number;
+  warningAlertCount: number;
+  upcomingSessionsCount: number;
+}
+
+function buildTodoHeroState(ctx: TodoHeroContext): TodoHeroState {
+  const firstOverdueTodo = ctx.todos.find(
+    (todo) => !todo.completato && !!todo.data_scadenza && todo.data_scadenza < ctx.todayISO,
+  );
+  const firstDueTodayTodo = ctx.todos.find(
+    (todo) => !todo.completato && !!todo.data_scadenza && todo.data_scadenza === ctx.todayISO,
+  );
+
+  if (ctx.overdueCount > 0) {
+    return {
+      mode: "overdue",
+      title: ctx.overdueCount === 1 ? "1 promemoria scaduto da chiudere" : `${ctx.overdueCount} promemoria scaduti da chiudere`,
+      detail: firstOverdueTodo
+        ? `Priorita: ${firstOverdueTodo.titolo}`
+        : "Chiudi i task scaduti prima delle prossime sessioni.",
+      primaryLabel: "Completa prossimo",
+      targetTodoId: firstOverdueTodo?.id,
+      icon: AlertTriangle,
+      panelTone: "border-red-200 bg-red-50/70 dark:border-red-900/40 dark:bg-red-950/20",
+      iconTone: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+      titleTone: "text-red-700 dark:text-red-300",
+    };
+  }
+
+  if (ctx.dueTodayCount > 0) {
+    return {
+      mode: "today",
+      title: ctx.dueTodayCount === 1 ? "1 promemoria da chiudere oggi" : `${ctx.dueTodayCount} promemoria da chiudere oggi`,
+      detail: firstDueTodayTodo
+        ? `Prossimo task: ${firstDueTodayTodo.titolo}`
+        : "Chiudi i task della giornata entro fine turno.",
+      primaryLabel: "Completa prossimo",
+      targetTodoId: firstDueTodayTodo?.id,
+      icon: ClipboardCheck,
+      panelTone: "border-amber-200 bg-amber-50/70 dark:border-amber-900/40 dark:bg-amber-950/20",
+      iconTone: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+      titleTone: "text-amber-700 dark:text-amber-300",
+    };
+  }
+
+  if (ctx.criticalAlertCount > 0) {
+    return {
+      mode: "critical_alerts",
+      title: ctx.criticalAlertCount === 1 ? "1 alert critico operativo" : `${ctx.criticalAlertCount} alert critici operativi`,
+      detail: "Apri il pannello alert e risolvi prima le criticita bloccanti.",
+      primaryLabel: "Apri alert",
+      icon: BellRing,
+      panelTone: "border-red-200 bg-red-50/70 dark:border-red-900/40 dark:bg-red-950/20",
+      iconTone: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+      titleTone: "text-red-700 dark:text-red-300",
+    };
+  }
+
+  if (ctx.warningAlertCount > 0) {
+    return {
+      mode: "warning_alerts",
+      title: ctx.warningAlertCount === 1 ? "1 avviso operativo da monitorare" : `${ctx.warningAlertCount} avvisi operativi da monitorare`,
+      detail: "Non e bloccante, ma conviene chiuderli entro la giornata.",
+      primaryLabel: "Apri alert",
+      icon: BellRing,
+      panelTone: "border-amber-200 bg-amber-50/70 dark:border-amber-900/40 dark:bg-amber-950/20",
+      iconTone: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+      titleTone: "text-amber-700 dark:text-amber-300",
+    };
+  }
+
+  if (ctx.upcomingSessionsCount > 0) {
+    return {
+      mode: "upcoming_sessions",
+      title: ctx.upcomingSessionsCount === 1 ? "1 sessione imminente in agenda" : `${ctx.upcomingSessionsCount} sessioni imminenti in agenda`,
+      detail: "Apri agenda e prepara i task pre-sessione.",
+      primaryLabel: "Apri agenda",
+      primaryHref: "/agenda",
+      icon: CalendarClock,
+      panelTone: "border-blue-200 bg-blue-50/70 dark:border-blue-900/40 dark:bg-blue-950/20",
+      iconTone: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+      titleTone: "text-blue-700 dark:text-blue-300",
+    };
+  }
+
+  return {
+    mode: "free",
+    title: "Nessuna urgenza operativa in corso",
+    detail: "Crea un follow-up strategico per clienti inattivi o rinnovi in arrivo.",
+    primaryLabel: "Aggiungi follow-up",
+    icon: Sparkles,
+    panelTone: "border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/40 dark:bg-emerald-950/20",
+    iconTone: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+    titleTone: "text-emerald-700 dark:text-emerald-300",
+  };
+}
+
+interface TodoCardProps {
+  criticalAlertCount?: number;
+  warningAlertCount?: number;
+  upcomingSessionsCount?: number;
+}
+
+// Component
+
+export function TodoCard({
+  criticalAlertCount = 0,
+  warningAlertCount = 0,
+  upcomingSessionsCount = 0,
+}: TodoCardProps = {}) {
   const { data, isLoading } = useTodos();
   const createTodo = useCreateTodo();
   const toggleTodo = useToggleTodo();
@@ -59,6 +240,28 @@ export function TodoCard() {
   const [showDateInput, setShowDateInput] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const todayISO = formatLocalISODate(new Date());
+  const todos = sortTodosByPriority(data?.items ?? [], todayISO);
+  const activeCount = todos.filter((todo) => !todo.completato).length;
+  const overdueCount = todos.filter(
+    (todo) => !todo.completato && !!todo.data_scadenza && todo.data_scadenza < todayISO,
+  ).length;
+  const dueTodayCount = todos.filter(
+    (todo) => !todo.completato && !!todo.data_scadenza && todo.data_scadenza === todayISO,
+  ).length;
+  const upcomingCount = todos.filter(
+    (todo) => !todo.completato && !!todo.data_scadenza && todo.data_scadenza > todayISO,
+  ).length;
+  const hero = buildTodoHeroState({
+    todayISO,
+    todos,
+    overdueCount,
+    dueTodayCount,
+    criticalAlertCount,
+    warningAlertCount,
+    upcomingSessionsCount,
+  });
+
   const handleCreate = () => {
     const titolo = newTitle.trim();
     if (!titolo) return;
@@ -67,6 +270,25 @@ export function TodoCard() {
     setNewDate("");
     setShowDateInput(false);
     inputRef.current?.focus();
+  };
+
+  const handleHeroPrimaryAction = () => {
+    if ((hero.mode === "overdue" || hero.mode === "today") && hero.targetTodoId) {
+      toggleTodo.mutate(hero.targetTodoId);
+      return;
+    }
+
+    if (hero.mode === "critical_alerts" || hero.mode === "warning_alerts") {
+      scrollToAlertPanel();
+      return;
+    }
+
+    if (hero.mode === "free") {
+      createTodo.mutate({
+        titolo: "Follow-up clienti inattivi",
+        data_scadenza: todayISO,
+      });
+    }
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -80,6 +302,7 @@ export function TodoCard() {
     return (
       <div className="space-y-4 rounded-xl border p-4 sm:p-5">
         <Skeleton className="h-5 w-40" />
+        <Skeleton className="h-24 w-full rounded-lg" />
         {Array.from({ length: 3 }).map((_, i) => (
           <Skeleton key={i} className="h-10 w-full rounded-lg" />
         ))}
@@ -87,19 +310,64 @@ export function TodoCard() {
     );
   }
 
-  const todos = data?.items ?? [];
+  const HeroIcon = hero.icon;
+  const showAlertShortcut = criticalAlertCount + warningAlertCount > 0 &&
+    hero.mode !== "critical_alerts" && hero.mode !== "warning_alerts";
 
   return (
-    <div className="min-w-0 rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-4 shadow-sm sm:p-5 dark:from-zinc-900 dark:to-zinc-800/50">
+    <div
+      id="todo-panel"
+      className="min-w-0 rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-4 shadow-sm sm:p-5 dark:from-zinc-900 dark:to-zinc-800/50"
+    >
       {/* Header */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <ListTodo className="h-4 w-4 text-pink-500" />
         <h3 className="text-sm font-semibold">Promemoria</h3>
         {todos.length > 0 && (
           <span className="ml-auto text-[10px] font-medium text-muted-foreground">
-            {todos.filter((t) => !t.completato).length} attivi
+            {activeCount} attivi
           </span>
         )}
+      </div>
+
+      {/* Hero action */}
+      <div className={`mb-3 rounded-lg border p-3 ${hero.panelTone}`}>
+        <div className="flex min-w-0 items-start gap-2.5">
+          <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${hero.iconTone}`}>
+            <HeroIcon className="h-4 w-4" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">Azione consigliata</p>
+            <p className={`mt-0.5 text-sm font-semibold ${hero.titleTone}`}>{hero.title}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{hero.detail}</p>
+          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {hero.primaryHref ? (
+            <Link href={hero.primaryHref}>
+              <Button size="sm" className="h-8 text-xs">{hero.primaryLabel}</Button>
+            </Link>
+          ) : (
+            <Button
+              size="sm"
+              className="h-8 text-xs"
+              onClick={handleHeroPrimaryAction}
+              disabled={toggleTodo.isPending || createTodo.isPending}
+            >
+              {hero.primaryLabel}
+            </Button>
+          )}
+          {showAlertShortcut && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs"
+              onClick={scrollToAlertPanel}
+            >
+              Apri alert
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Inline create */}
@@ -119,7 +387,7 @@ export function TodoCard() {
             size="icon"
             className={cn(
               "h-8 w-8 shrink-0",
-              showDateInput && "text-pink-500"
+              showDateInput && "text-pink-500",
             )}
             onClick={() => setShowDateInput((prev) => !prev)}
             title="Aggiungi scadenza"
@@ -146,6 +414,36 @@ export function TodoCard() {
         )}
       </div>
 
+      {/* Priority counters */}
+      {activeCount > 0 && (
+        <div className="mb-3 grid grid-cols-3 gap-1.5">
+          <div className="rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-center dark:border-red-900/40 dark:bg-red-950/20">
+            <p className="text-base font-extrabold leading-none tabular-nums text-red-700 dark:text-red-300">
+              {overdueCount}
+            </p>
+            <p className="mt-1 text-[10px] font-semibold tracking-wide text-red-700/80 uppercase dark:text-red-300/80">
+              Scaduti
+            </p>
+          </div>
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-center dark:border-amber-900/40 dark:bg-amber-950/20">
+            <p className="text-base font-extrabold leading-none tabular-nums text-amber-700 dark:text-amber-300">
+              {dueTodayCount}
+            </p>
+            <p className="mt-1 text-[10px] font-semibold tracking-wide text-amber-700/80 uppercase dark:text-amber-300/80">
+              Oggi
+            </p>
+          </div>
+          <div className="rounded-md border border-blue-200 bg-blue-50 px-2 py-1.5 text-center dark:border-blue-900/40 dark:bg-blue-950/20">
+            <p className="text-base font-extrabold leading-none tabular-nums text-blue-700 dark:text-blue-300">
+              {upcomingCount}
+            </p>
+            <p className="mt-1 text-[10px] font-semibold tracking-wide text-blue-700/80 uppercase dark:text-blue-300/80">
+              Prossimi
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Todo list */}
       {todos.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed p-6 text-center">
@@ -162,6 +460,7 @@ export function TodoCard() {
               <TodoItem
                 key={todo.id}
                 todo={todo}
+                todayISO={todayISO}
                 onToggle={() => toggleTodo.mutate(todo.id)}
                 onDelete={() => deleteTodo.mutate(todo.id)}
               />
@@ -173,24 +472,26 @@ export function TodoCard() {
   );
 }
 
-// ── Single Todo Item ──
+// Single Todo Item
 
 function TodoItem({
   todo,
+  todayISO,
   onToggle,
   onDelete,
 }: {
   todo: Todo;
+  todayISO: string;
   onToggle: () => void;
   onDelete: () => void;
 }) {
-  const urgencyClass = getUrgencyClass(todo);
-  const dateBadgeClass = getDateBadgeClass(todo);
+  const urgencyClass = getUrgencyClass(todo, todayISO);
+  const dateBadgeClass = getDateBadgeClass(todo, todayISO);
 
   const isOverdue = !todo.completato && !!todo.data_scadenza &&
-    todo.data_scadenza < new Date().toISOString().slice(0, 10);
+    todo.data_scadenza < todayISO;
   const isToday = !todo.completato && !!todo.data_scadenza &&
-    todo.data_scadenza === new Date().toISOString().slice(0, 10);
+    todo.data_scadenza === todayISO;
 
   const containerClass = todo.completato
     ? "bg-muted/30 opacity-60 border"
@@ -204,7 +505,6 @@ function TodoItem({
     <div
       className={`group flex min-w-0 items-center gap-2 overflow-hidden rounded-lg px-3 py-2 transition-all hover:shadow-sm ${containerClass}`}
     >
-      {/* Checkbox toggle */}
       <button
         onClick={onToggle}
         className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors ${
@@ -216,21 +516,18 @@ function TodoItem({
         {todo.completato && <Check className="h-3 w-3" />}
       </button>
 
-      {/* Content */}
       <div className="min-w-0 flex-1">
         <p className={`truncate text-sm font-medium ${urgencyClass}`}>
           {todo.titolo}
         </p>
       </div>
 
-      {/* Date badge */}
       {todo.data_scadenza && (
         <span className={`max-w-[78px] shrink-0 truncate rounded px-1.5 py-0.5 text-[9px] font-medium ${dateBadgeClass}`}>
           {formatShortDate(todo.data_scadenza, false)}
         </span>
       )}
 
-      {/* Delete button (visible on hover) */}
       <button
         onClick={onDelete}
         className="shrink-0 rounded p-1 text-muted-foreground/30 opacity-100 transition-opacity hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100"

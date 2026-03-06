@@ -244,6 +244,16 @@ export default function DashboardPage() {
     return [...weeklyEventsData.items].sort((a, b) => a.data_inizio.getTime() - b.data_inizio.getTime());
   }, [weeklyEventsData]);
 
+  const criticalAlertCount = alerts?.items.filter(
+    (item) => item.category !== "overdue_rates" && item.severity === "critical",
+  ).length ?? 0;
+  const warningAlertCount = alerts?.items.filter(
+    (item) => item.category !== "overdue_rates" && item.severity === "warning",
+  ).length ?? 0;
+  const upcomingSessionsCount = todayEvents.filter(
+    (event) => event.stato === "Programmato",
+  ).length;
+
   const isLoading = summaryLoading;
 
   // Handler CTA per categoria alert — apre Sheet inline
@@ -316,7 +326,7 @@ export default function DashboardPage() {
             )}`}
             style={getRevealDelayStyle(DASHBOARD_MICROSTEP2_ENABLED, 120)}
           >
-            <div className="min-w-0 space-y-5 md:space-y-6 xl:col-span-7">
+            <div className="order-2 min-w-0 space-y-5 md:space-y-6 xl:order-1 xl:col-span-7">
               <div className="grid min-w-0 gap-4 md:grid-cols-2 lg:gap-6">
                 <TodayAgenda
                   events={todayEvents}
@@ -333,9 +343,13 @@ export default function DashboardPage() {
                 weekLabel={currentWeekRangeLabel}
               />
             </div>
-            <div className="min-w-0 space-y-5 md:space-y-6 xl:col-span-5">
+            <div className="order-1 min-w-0 space-y-5 md:space-y-6 xl:order-2 xl:col-span-5">
+              <TodoCard
+                criticalAlertCount={criticalAlertCount}
+                warningAlertCount={warningAlertCount}
+                upcomingSessionsCount={upcomingSessionsCount}
+              />
               <AlertPanel alerts={alerts} isLoading={!alerts} alertActions={alertActions} />
-              <TodoCard />
             </div>
           </div>
           {/* ── Azioni Rapide ── */}

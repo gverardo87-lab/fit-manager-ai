@@ -34,7 +34,7 @@ Esempio:
 - `rolled_back`
 - `superseded`
 
-## Ultimo allineamento (2026-03-05)
+## Ultimo allineamento (2026-03-06)
 
 - `UPG-2026-03-04-01`: dual-DB + backup v2.0 bank-grade.
 - `UPG-2026-03-04-02`: export clinico schede (HTML locale -> PDF) con logo e foto embedded.
@@ -64,3 +64,5 @@ Esempio:
 - `UPG-2026-03-05-24`: stabilizzazione CI backend su pagamenti rate: test `test_pay_rate_creates_cash_movement` reso deterministico con `data_pagamento` esplicita, piu' verifica target (`test singolo + file completo`).
 - `UPG-2026-03-05-25`: hardening lint React Hooks su agenda/draft guard (`setState-in-effect`, `ref in render`, deps memo) con verifica mirata ESLint sui file critici.
 - `UPG-2026-03-05-26`: hardening sprint T2-T6 pre-lancio: hook safety frontend (0 errori ESLint), cleanup lint minori, esclusione `tests/legacy` da Ruff (0 errori `api/tests`) e rimozione `license.key` pre-bundled dall'installer.
+- `UPG-2026-03-06-27`: dashboard reminder-first: promemoria portati in priorita alta nella board (mobile/tablet-first), alert spostati sotto i promemoria e `TodoCard` hardenizzata con bucket `scaduti/oggi/prossimi` + ordinamento urgenza e data locale robusta.
+- `UPG-2026-03-06-28`: `TodoCard` evoluta in "Azione consigliata" con priorita cross-signal (todo + alert + agenda) e CTA operative dirette; rimosso `Date.now` dai path render per rispettare React purity lint.
