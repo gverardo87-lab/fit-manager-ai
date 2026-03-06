@@ -1,12 +1,20 @@
 """
 Training Science Engine — Motore scientifico per la programmazione dell'allenamento.
 
-Architettura a 4 moduli indipendenti:
-  types.py               — Enum e modelli Pydantic (vocabolario del dominio)
-  principles.py          — Parametri di carico per obiettivo (NSCA/ACSM/Schoenfeld)
-  muscle_contribution.py — Matrice contribuzione EMG pattern → muscoli
-  volume_model.py        — MEV/MAV/MRV per muscolo × livello + volume effettivo
-  balance_ratios.py      — Rapporti biomeccanici push:pull, quad:ham, ant:post
+Architettura a 9 moduli indipendenti (Phase 1 + Phase 2):
+
+  Phase 1 — Fondamenta scientifiche:
+    types.py               — Enum e modelli Pydantic (vocabolario del dominio)
+    principles.py          — Parametri di carico per obiettivo (NSCA/ACSM/Schoenfeld)
+    muscle_contribution.py — Matrice contribuzione EMG + volume ipertrofico pesato
+    volume_model.py        — MEV/MAV/MRV per muscolo x livello + classificazione
+    balance_ratios.py      — Rapporti biomeccanici push:pull, quad:ham, ant:post
+
+  Phase 2 — Generazione piani:
+    split_logic.py         — Frequenza -> split ottimale + struttura sessioni
+    session_order.py       — Ordinamento fisiologico (SNC-demanding first)
+    plan_builder.py        — Generatore volume-driven a 4 fasi con feedback loop
+    plan_analyzer.py       — Analisi 4D (volume, balance, frequenza, recupero)
 
 Ogni modulo ha UNA responsabilita', e' testabile in isolamento,
 e i numeri hanno fonti bibliografiche nel docstring.
@@ -14,7 +22,7 @@ e i numeri hanno fonti bibliografiche nel docstring.
 Uso tipico:
     from api.services.training_science import (
         Obiettivo, Livello, PatternMovimento,
-        get_parametri, get_contribution, analyze_volume, analyze_balance,
+        build_plan, analyze_plan,
     )
 """
 
@@ -50,6 +58,7 @@ from .muscle_contribution import (
     get_all_muscles,
     is_compound,
     compute_effective_sets,
+    compute_hypertrophy_sets,
     resolve_pattern,
 )
 from .volume_model import (
@@ -114,6 +123,7 @@ __all__ = [
     "get_all_muscles",
     "is_compound",
     "compute_effective_sets",
+    "compute_hypertrophy_sets",
     "resolve_pattern",
     # Volume Model
     "get_volume_target",

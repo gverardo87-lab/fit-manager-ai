@@ -4,22 +4,26 @@ Training Science Engine — Generatore di piani volume-driven.
 Questo modulo e' il cuore del sistema: genera un piano di allenamento
 settimanale che GARANTISCE il volume ottimale per ogni muscolo.
 
-Algoritmo a 3 fasi:
+Algoritmo a 4 fasi:
 
   FASE 1 — Struttura base (compound)
     Per ogni sessione, assegna pattern compound dal ruolo sessione.
     Le serie sono determinate dai parametri di carico dell'obiettivo.
     Ordine fisiologico NSCA (SNC-demanding first).
 
-  FASE 2 — Compensazione volume (isolation)
-    Calcola il volume effettivo per muscolo (via matrice EMG).
-    Confronta con il target MAV per livello × obiettivo.
-    Aggiunge slot di isolamento dove il volume e' sotto MEV.
+  FASE 2 — Boost serie compound per muscoli carenti
+    Calcola il volume ipertrofico (pesato, non meccanico grezzo).
+    Per muscoli coperti solo da compound (petto, dorsali) che sono
+    sotto MAV, incrementa le serie dei pattern compound correlati.
 
-  FASE 3 — Validazione e bilanciamento
-    Verifica rapporti biomeccanici (push:pull, quad:ham, ant:post).
-    Se un rapporto e' fuori tolleranza, aggiunge/rimuove serie.
-    Verifica che nessun muscolo superi MRV.
+  FASE 3 — Compensazione volume con isolamento
+    Per muscoli con pattern di isolamento disponibile che sono
+    sotto MAV, aggiunge slot di isolamento nelle sessioni affini.
+
+  FASE 4 — Feedback loop con analisi volume
+    Ricalcola il volume dopo le fasi 2-3. Se ci sono ancora deficit
+    significativi, ripete la compensazione (max 1 iterazione extra).
+    Verifica MRV e genera warning per il plan_analyzer.
 
 Principio architetturale: il piano e' DETERMINATO dai numeri.
 Non ci sono scelte arbitrarie — ogni decisione ha una fonte.
@@ -44,8 +48,9 @@ from .types import (
 )
 from .principles import PARAMETRI_CARICO, get_serie_per_slot, get_rep_range, get_riposo
 from .muscle_contribution import (
-    compute_effective_sets,
+    compute_hypertrophy_sets,
     is_compound,
+    get_contribution,
 )
 from .volume_model import (
     get_scaled_volume_target,
@@ -64,12 +69,13 @@ from .session_order import order_patterns, get_priority
 # MAPPATURA ISOLAMENTO — Muscolo → Pattern di isolamento migliore
 # ════════════════════════════════════════════════════════════
 #
-# Quando un muscolo e' sotto-stimolato (< MEV), si aggiunge
+# Quando un muscolo e' sotto-stimolato (< MAV_min), si aggiunge
 # il pattern di isolamento piu' efficace per quel muscolo.
 # La scelta e' deterministica: il pattern con contributo 1.0.
 #
 # Non tutti i muscoli hanno un isolamento diretto — quelli
-# che non lo hanno (es. core) vengono gestiti da compound.
+# che non lo hanno (es. petto, dorsali) vengono gestiti con
+# boost delle serie compound (Fase 2).
 
 ISOLAMENTO_PER_MUSCOLO: dict[M, P] = {
     M.BICIPITI: P.CURL,
@@ -85,16 +91,28 @@ ISOLAMENTO_PER_MUSCOLO: dict[M, P] = {
 
 
 # ════════════════════════════════════════════════════════════
-# AFFINITA' SESSIONE — Quale isolamento in quale sessione
+# BOOST COMPOUND — Muscolo → Pattern compound da potenziare
 # ════════════════════════════════════════════════════════════
 #
-# Gli isolamenti non vanno in sessioni casuali — un curl
-# va nella sessione che gia' allena i bicipiti (pull/upper).
-# Questo evita di "sporcare" una sessione legs con esercizi
-# per le braccia, compromettendo recupero e focus.
+# Per muscoli senza isolamento diretto (petto, dorsali, delt_ant),
+# il volume si aumenta aggiungendo serie ai compound che li
+# attivano come motore primario (contributo 1.0).
 #
-# Regola (Israetel RP 2020): il lavoro accessorio segue
-# la catena muscolare dominante della sessione.
+# Esempio: petto carente → +1 serie a push_h in ogni sessione upper.
+
+COMPOUND_PER_MUSCOLO: dict[M, list[P]] = {
+    M.PETTO: [P.PUSH_H],
+    M.DORSALI: [P.PULL_H, P.PULL_V],
+    M.DELT_ANT: [P.PUSH_V],
+    M.TRAPEZIO: [P.PULL_H],
+    M.CORE: [P.CORE],
+    M.AVAMBRACCI: [P.CARRY],
+}
+
+
+# ════════════════════════════════════════════════════════════
+# AFFINITA' SESSIONE — Quale isolamento in quale sessione
+# ════════════════════════════════════════════════════════════
 
 AFFINITA_ISOLAMENTO: dict[P, set[RuoloSessione]] = {
     P.CURL: {RuoloSessione.PULL, RuoloSessione.UPPER, RuoloSessione.FULL_BODY},
@@ -112,11 +130,6 @@ AFFINITA_ISOLAMENTO: dict[P, set[RuoloSessione]] = {
 # ════════════════════════════════════════════════════════════
 # LIMITI SESSIONE — Guardrail scientifici
 # ════════════════════════════════════════════════════════════
-#
-# Una sessione non puo' avere slot illimitati. Limiti basati su:
-#   - Durata ragionevole (45-75 min, Helms 2019)
-#   - Capacita' di recupero intra-sessione
-#   - Diminishing returns oltre un certo volume per sessione
 
 _MAX_SLOT_SESSIONE: dict[Livello, int] = {
     Livello.PRINCIPIANTE: 6,
@@ -129,6 +142,13 @@ _MAX_ISOLATION_SESSIONE: dict[Livello, int] = {
     Livello.INTERMEDIO: 3,
     Livello.AVANZATO: 4,
 }
+
+# Limite incremento serie per compound boost (per sessione).
+# Evita sessioni con 8+ serie sullo stesso pattern (NSCA 2016:
+# oltre 5-6 serie per esercizio nella stessa sessione, la qualita'
+# delle ultime serie degrada significativamente).
+_MAX_SERIE_PER_SLOT = 6
+_MAX_COMPOUND_BOOST_PER_SESSION = 2
 
 
 # ════════════════════════════════════════════════════════════
@@ -171,39 +191,117 @@ def _build_compound_slots(
 
 
 # ════════════════════════════════════════════════════════════
-# FASE 2 — Compensazione volume con isolamento
+# FASE 2 — Boost serie compound per muscoli carenti
 # ════════════════════════════════════════════════════════════
 
 
-def _compute_plan_volume(
+def _compute_plan_hypertrophy_volume(
     sessioni: list[tuple[RuoloSessione, list[SlotSessione]]],
 ) -> dict[M, float]:
     """
-    Calcola il volume effettivo settimanale per muscolo
-    sommando i contributi di tutti gli slot di tutte le sessioni.
+    Calcola il volume IPERTROFICO settimanale per muscolo.
+
+    Usa compute_hypertrophy_sets() che sconta il volume da stabilizzazione
+    e riduce il volume da sinergismo minore.
     """
     all_slots: list[tuple[P, int]] = []
     for _, slots in sessioni:
         for slot in slots:
             all_slots.append((slot.pattern, slot.serie))
-    return compute_effective_sets(all_slots)
+    return compute_hypertrophy_sets(all_slots)
 
 
-def _find_deficit_muscles(
-    volume_effettivo: dict[M, float],
+def _find_compound_deficits(
+    volume_ipertrofico: dict[M, float],
     livello: Livello,
     obiettivo: Obiettivo,
 ) -> list[tuple[M, float]]:
     """
-    Identifica muscoli sotto MEV e calcola il deficit in serie.
+    Identifica muscoli compound-only che sono sotto MAV_min.
 
-    Ritorna lista di (muscolo, serie_mancanti) ordinata per
-    deficit decrescente (i muscoli piu' carenti prima).
+    Questi muscoli NON hanno un pattern di isolamento diretto
+    e quindi il volume si corregge incrementando le serie compound.
+    """
+    deficits: list[tuple[M, float]] = []
+    for muscolo in M:
+        if muscolo in ISOLAMENTO_PER_MUSCOLO:
+            continue
+        if muscolo not in COMPOUND_PER_MUSCOLO:
+            continue
 
-    Muscoli senza isolamento diretto (core, dorsali, petto, delt_ant,
-    trapezio, avambracci) non vengono inclusi perche' devono essere
-    coperti da compound — se sono sotto MEV il problema e' nella
-    struttura compound, non risolvibile con isolamento.
+        target = get_scaled_volume_target(muscolo, livello, obiettivo)
+        serie_attuali = volume_ipertrofico.get(muscolo, 0.0)
+
+        if serie_attuali < target.mav_min:
+            deficit = target.mav_min - serie_attuali
+            deficits.append((muscolo, deficit))
+
+    deficits.sort(key=lambda x: -x[1])
+    return deficits
+
+
+def _boost_compound_series(
+    sessioni: list[tuple[RuoloSessione, list[SlotSessione]]],
+    deficits: list[tuple[M, float]],
+) -> None:
+    """
+    Incrementa le serie dei compound che attivano i muscoli carenti.
+
+    Per ogni muscolo in deficit, trova gli slot compound che lo attivano
+    come motore primario e incrementa le serie di 1, rispettando i limiti.
+
+    Modifica le sessioni in-place.
+    """
+    for muscolo, deficit in deficits:
+        target_patterns = COMPOUND_PER_MUSCOLO.get(muscolo, [])
+        if not target_patterns:
+            continue
+
+        # Quanto volume ci serve? Ogni +1 serie su pattern primario (1.0)
+        # aggiunge ~1.0 serie ipertrofica (peso 1.0 × contributo 1.0)
+        boosts_needed = max(1, round(deficit))
+
+        boosts_done = 0
+        for i, (_, slots) in enumerate(sessioni):
+            if boosts_done >= boosts_needed:
+                break
+
+            session_boosts = 0
+            for slot in slots:
+                if boosts_done >= boosts_needed:
+                    break
+                if session_boosts >= _MAX_COMPOUND_BOOST_PER_SESSION:
+                    break
+                if slot.pattern not in target_patterns:
+                    continue
+                if slot.serie >= _MAX_SERIE_PER_SLOT:
+                    continue
+
+                # Verifica che il pattern attivi il muscolo come primario
+                contrib = get_contribution(slot.pattern).get(muscolo, 0.0)
+                if contrib < 0.7:
+                    continue
+
+                slot.serie += 1
+                boosts_done += 1
+                session_boosts += 1
+
+
+# ════════════════════════════════════════════════════════════
+# FASE 3 — Compensazione volume con isolamento
+# ════════════════════════════════════════════════════════════
+
+
+def _find_isolation_deficits(
+    volume_ipertrofico: dict[M, float],
+    livello: Livello,
+    obiettivo: Obiettivo,
+) -> list[tuple[M, float]]:
+    """
+    Identifica muscoli con isolamento disponibile che sono sotto MAV_min.
+
+    Usa il volume ipertrofico (pesato) per il confronto con i target,
+    non il volume meccanico grezzo.
     """
     deficits: list[tuple[M, float]] = []
 
@@ -212,14 +310,12 @@ def _find_deficit_muscles(
             continue
 
         target = get_scaled_volume_target(muscolo, livello, obiettivo)
-        serie_attuali = volume_effettivo.get(muscolo, 0.0)
+        serie_attuali = volume_ipertrofico.get(muscolo, 0.0)
 
-        # Obiettivo: portare almeno al mav_min (inizio range ottimale)
         if serie_attuali < target.mav_min:
             deficit = target.mav_min - serie_attuali
             deficits.append((muscolo, deficit))
 
-    # Ordina per deficit maggiore prima
     deficits.sort(key=lambda x: -x[1])
     return deficits
 
@@ -245,42 +341,34 @@ def _add_isolation_slots(
     max_iso = _MAX_ISOLATION_SESSIONE[livello]
     max_slot = _MAX_SLOT_SESSIONE[livello]
     params = PARAMETRI_CARICO[obiettivo]
-    serie_iso = params.serie_isolation[0]  # serie base per isolation
+    serie_iso = params.serie_isolation[0]
 
-    # Traccia quanti isolamenti abbiamo aggiunto per sessione
-    iso_count: dict[int, int] = {i: 0 for i in range(len(sessioni))}
-
-    # Conta slot totali per sessione
-    slot_count: dict[int, int] = {i: len(slots) for i, (_, slots) in enumerate(sessioni)}
+    # Conta isolamenti e slot gia' presenti per sessione
+    iso_count: dict[int, int] = {}
+    slot_count: dict[int, int] = {}
+    for i, (_, slots) in enumerate(sessioni):
+        iso_count[i] = sum(1 for s in slots if s.priorita == OP.ISOLATION)
+        slot_count[i] = len(slots)
 
     for muscolo, deficit in deficits:
         pattern_iso = ISOLAMENTO_PER_MUSCOLO[muscolo]
         affinita = AFFINITA_ISOLAMENTO.get(pattern_iso, set())
 
-        # Quante occorrenze servono per coprire il deficit?
-        # Ogni slot di isolamento contribuisce 1.0 × serie_iso al muscolo target
         occorrenze_necessarie = max(1, round(deficit / serie_iso))
 
         aggiunte = 0
         for i, (ruolo, slots) in enumerate(sessioni):
             if aggiunte >= occorrenze_necessarie:
                 break
-
-            # Check affinita'
             if ruolo not in affinita:
                 continue
-
-            # Check limiti sessione
             if iso_count[i] >= max_iso:
                 continue
             if slot_count[i] >= max_slot:
                 continue
-
-            # Check se questo isolamento e' gia' presente nella sessione
             if any(s.pattern == pattern_iso for s in slots):
                 continue
 
-            # Calcola serie: minimo tra parametri obiettivo e deficit residuo
             serie_da_aggiungere = min(
                 serie_iso,
                 max(2, round(deficit - aggiunte * serie_iso)),
@@ -303,6 +391,35 @@ def _add_isolation_slots(
 
 
 # ════════════════════════════════════════════════════════════
+# FASE 4 — Feedback loop
+# ════════════════════════════════════════════════════════════
+
+_MAX_FEEDBACK_ITERATIONS = 1
+
+
+def _has_significant_deficits(
+    volume_ipertrofico: dict[M, float],
+    livello: Livello,
+    obiettivo: Obiettivo,
+) -> bool:
+    """
+    True se ci sono muscoli con MEV > 0 ancora sotto MEV dopo compensazione.
+
+    Questo e' il criterio per un'altra iterazione del feedback loop:
+    non cerchiamo la perfezione (tutti in MAV), ma che nessun muscolo
+    critico sia completamente sotto-stimolato.
+    """
+    for muscolo in M:
+        target = get_scaled_volume_target(muscolo, livello, obiettivo)
+        if target.mev == 0:
+            continue
+        serie = volume_ipertrofico.get(muscolo, 0.0)
+        if serie < target.mev:
+            return True
+    return False
+
+
+# ════════════════════════════════════════════════════════════
 # API PUBBLICA — Generazione piano
 # ════════════════════════════════════════════════════════════
 
@@ -315,11 +432,12 @@ def build_plan(
     """
     Genera un piano di allenamento settimanale completo.
 
-    Algoritmo deterministico a 3 fasi:
+    Algoritmo deterministico a 4 fasi con feedback loop:
 
     1. Struttura compound base (split_logic + session_order)
-    2. Compensazione volume con isolamento (matrice EMG + MEV/MAV)
-    3. Validazione MRV (guardrail overtraining)
+    2. Boost serie compound per muscoli carenti (petto, dorsali, ecc.)
+    3. Compensazione con isolamento (matrice EMG + MEV/MAV)
+    4. Feedback: se deficit significativi persistono, ripeti 2-3
 
     Input:
         frequenza: 2-6 sessioni/settimana
@@ -339,24 +457,39 @@ def build_plan(
         compound_slots = _build_compound_slots(patterns, obiettivo)
         sessioni.append((ruolo, compound_slots))
 
-    # ── FASE 2: Compensazione isolation ──
-    volume = _compute_plan_volume(sessioni)
-    deficits = _find_deficit_muscles(volume, livello, obiettivo)
-    if deficits:
-        _add_isolation_slots(sessioni, deficits, obiettivo, livello)
+    # ── FASE 2: Boost compound per muscoli carenti ──
+    volume = _compute_plan_hypertrophy_volume(sessioni)
+    compound_deficits = _find_compound_deficits(volume, livello, obiettivo)
+    if compound_deficits:
+        _boost_compound_series(sessioni, compound_deficits)
 
-    # ── FASE 3: Validazione MRV ──
-    # MRV violations are detected by plan_analyzer — here we just verify
-    # the plan is buildable. Future: reduce series on MRV-exceeding muscles.
-    _compute_plan_volume(sessioni)
+    # ── FASE 3: Compensazione isolation ──
+    volume = _compute_plan_hypertrophy_volume(sessioni)
+    iso_deficits = _find_isolation_deficits(volume, livello, obiettivo)
+    if iso_deficits:
+        _add_isolation_slots(sessioni, iso_deficits, obiettivo, livello)
 
-    # Costruisci TemplatePiano
+    # ── FASE 4: Feedback loop ──
+    for _ in range(_MAX_FEEDBACK_ITERATIONS):
+        volume = _compute_plan_hypertrophy_volume(sessioni)
+        if not _has_significant_deficits(volume, livello, obiettivo):
+            break
+
+        # Riprova compound boost + isolation
+        compound_deficits = _find_compound_deficits(volume, livello, obiettivo)
+        if compound_deficits:
+            _boost_compound_series(sessioni, compound_deficits)
+
+        volume = _compute_plan_hypertrophy_volume(sessioni)
+        iso_deficits = _find_isolation_deficits(volume, livello, obiettivo)
+        if iso_deficits:
+            _add_isolation_slots(sessioni, iso_deficits, obiettivo, livello)
+
+    # ── Costruisci TemplatePiano ──
     template_sessioni: list[TemplateSessione] = []
     for i, (ruolo, slots) in enumerate(sessioni):
-        # Riordina slot per priorita' fisiologica
         slots.sort(key=lambda s: (s.priorita.value, s.pattern.value))
 
-        # Nome con indice per sessioni multiple dello stesso ruolo
         role_count = sum(1 for r, _ in sessioni[:i + 1] if r == ruolo)
         total_role = sum(1 for r, _ in sessioni if r == ruolo)
         if total_role > 1:
@@ -371,7 +504,7 @@ def build_plan(
             slots=slots,
         ))
 
-    piano = TemplatePiano(
+    return TemplatePiano(
         frequenza=frequenza,
         obiettivo=obiettivo,
         livello=livello,
@@ -379,9 +512,7 @@ def build_plan(
         sessioni=template_sessioni,
     )
 
-    return piano
-
 
 def _to_letter(n: int) -> str:
-    """Converte 1→A, 2→B, 3→C per naming sessioni."""
+    """Converte 1->A, 2->B, 3->C per naming sessioni."""
     return chr(64 + n)

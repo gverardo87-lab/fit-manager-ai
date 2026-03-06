@@ -29,7 +29,7 @@ from .types import (
     AnalisiPiano,
     VolumeEffettivo,
 )
-from .muscle_contribution import compute_effective_sets
+from .muscle_contribution import compute_effective_sets, compute_hypertrophy_sets
 from .volume_model import get_scaled_volume_target, classify_volume
 from .balance_ratios import analyze_balance as _analyze_balance
 
@@ -90,19 +90,22 @@ def _analyze_volume(
     piano: TemplatePiano, warnings: list[str]
 ) -> AnalisiVolume:
     """
-    Calcola il volume effettivo per ogni muscolo e confronta con target.
+    Calcola il volume IPERTROFICO per ogni muscolo e confronta con target.
 
-    Il volume effettivo e' calcolato dalla matrice di contribuzione EMG:
-    ogni esercizio contribuisce proporzionalmente all'attivazione muscolare.
+    Il volume ipertrofico sconta il contributo da stabilizzazione (0.2 → 0)
+    e riduce il sinergismo minore (0.4 → 50%), basandosi sulla soglia EMG
+    del 40% MVC per lo stimolo ipertrofico (Schoenfeld 2017, Israetel 2020).
+
+    Questo evita di contare volume "fantasma" da stabilizzazione che non
+    contribuisce alla crescita muscolare ma infiava i conteggi MRV.
     """
-    # Raccogli tutti gli slot del piano
     all_slots: list[tuple[P, int]] = []
     for sessione in piano.sessioni:
         for slot in sessione.slots:
             all_slots.append((slot.pattern, slot.serie))
 
-    effective = compute_effective_sets(all_slots)
-    volume_totale = sum(effective.values())
+    hypertrophy = compute_hypertrophy_sets(all_slots)
+    volume_totale = sum(hypertrophy.values())
 
     per_muscolo: list[VolumeEffettivo] = []
     sotto_mev: list[str] = []
@@ -110,7 +113,7 @@ def _analyze_volume(
 
     for muscolo in M:
         target = get_scaled_volume_target(muscolo, piano.livello, piano.obiettivo)
-        serie = round(effective.get(muscolo, 0.0), 1)
+        serie = round(hypertrophy.get(muscolo, 0.0), 1)
         stato = classify_volume(serie, target)
 
         per_muscolo.append(VolumeEffettivo(
@@ -198,7 +201,7 @@ def _analyze_frequency(
         session_slots: list[tuple[P, int]] = [
             (slot.pattern, slot.serie) for slot in sessione.slots
         ]
-        session_volume = compute_effective_sets(session_slots)
+        session_volume = compute_hypertrophy_sets(session_slots)
 
         for muscolo in M:
             if session_volume.get(muscolo, 0.0) >= min_series_for_stimulus:

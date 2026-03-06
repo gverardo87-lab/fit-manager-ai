@@ -166,6 +166,9 @@ def compute_effective_sets(
     """
     Calcola il volume effettivo per muscolo da una lista di (pattern, serie).
 
+    Questo e' il volume MECCANICO totale — usato per rapporti biomeccanici
+    e analisi di recupero dove conta il lavoro reale svolto dal muscolo.
+
     Esempio:
         slots = [(P.PUSH_H, 4), (P.PUSH_V, 3), (P.CURL, 3)]
         result = {
@@ -182,6 +185,87 @@ def compute_effective_sets(
         for muscolo, contributo in get_contribution(pattern).items():
             effective[muscolo] = effective.get(muscolo, 0.0) + serie * contributo
     return effective
+
+
+# ════════════════════════════════════════════════════════════
+# VOLUME IPERTROFICO — Peso differenziato per qualita' stimolo
+# ════════════════════════════════════════════════════════════
+#
+# Non tutto il volume e' uguale per la crescita muscolare.
+# Un muscolo che STABILIZZA (core durante squat, 0.2) non riceve
+# lo stesso stimolo ipertrofico di quando e' il MOTORE PRIMARIO
+# (core durante crunch, 1.0).
+#
+# Schoenfeld 2017: lo stimolo ipertrofico richiede "sufficient
+# mechanical tension" — la soglia EMG e' circa 40% MVC.
+# Israetel (RP 2020): il volume indiretto da stabilizzazione
+# "conta poco o nulla" verso il volume totale per l'ipertrofia.
+#
+# Pesi per qualita' di contribuzione:
+#   1.0 (primario):           peso 1.0 — stimolo pieno
+#   0.7 (sinergista maggiore): peso 1.0 — stimolo pieno (sopra 40% MVC)
+#   0.4 (sinergista minore):   peso 0.5 — stimolo parziale
+#   0.2 (stabilizzatore):      peso 0.0 — sotto soglia ipertrofica
+#
+# IMPORTANTE: compute_effective_sets() resta invariato per i calcoli
+# di balance ratio e recupero, dove il lavoro meccanico conta tutto.
+# compute_hypertrophy_sets() si usa SOLO per confronto con MEV/MAV/MRV.
+
+_HYPERTROPHY_WEIGHT: dict[float, float] = {
+    1.0: 1.0,   # motore primario: stimolo pieno
+    0.7: 1.0,   # sinergista maggiore: stimolo pieno (EMG > 40% MVC)
+    0.4: 0.5,   # sinergista minore: stimolo parziale
+    0.2: 0.0,   # stabilizzatore: sotto soglia ipertrofica
+}
+
+
+def _get_hypertrophy_weight(contributo: float) -> float:
+    """
+    Ritorna il peso ipertrofico per un livello di contribuzione.
+
+    Lookup esatto nella tabella dei pesi. Per valori non standard
+    (futuri), interpola linearmente.
+    """
+    if contributo in _HYPERTROPHY_WEIGHT:
+        return _HYPERTROPHY_WEIGHT[contributo]
+    # Fallback per valori non standard: proporzionale
+    if contributo >= 0.7:
+        return 1.0
+    if contributo >= 0.4:
+        return 0.5
+    return 0.0
+
+
+def compute_hypertrophy_sets(
+    slots: list[tuple[P, int]],
+) -> dict[M, float]:
+    """
+    Calcola il volume IPERTROFICO per muscolo (serie che contano per la crescita).
+
+    A differenza di compute_effective_sets(), questa funzione sconta il volume
+    da stabilizzazione (contributo 0.2 → peso 0) e riduce il volume da
+    sinergismo minore (contributo 0.4 → peso 0.5).
+
+    USARE PER: confronto con target MEV/MAV/MRV (soglie di volume ipertrofico).
+    NON USARE PER: rapporti biomeccanici e recupero (usare compute_effective_sets).
+
+    Esempio (squat, 4 serie):
+      compute_effective_sets:   core = 4 × 0.4 = 1.6
+      compute_hypertrophy_sets: core = 4 × 0.4 × 0.5 = 0.8
+                                polpacci = 4 × 0.2 × 0.0 = 0.0
+
+    Fonti:
+      - Schoenfeld 2017: soglia EMG 40% MVC per stimolo ipertrofico
+      - Israetel RP 2020: volume indiretto non conta verso MRV
+    """
+    hypertrophy: dict[M, float] = {}
+    for pattern, serie in slots:
+        for muscolo, contributo in get_contribution(pattern).items():
+            weight = _get_hypertrophy_weight(contributo)
+            if weight > 0:
+                volume = serie * contributo * weight
+                hypertrophy[muscolo] = hypertrophy.get(muscolo, 0.0) + volume
+    return hypertrophy
 
 
 # ════════════════════════════════════════════════════════════
