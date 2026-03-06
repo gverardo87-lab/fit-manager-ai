@@ -10,7 +10,6 @@
  * In basso: dati trainer loggato + bottone logout.
  */
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -26,6 +25,7 @@ import {
   ClipboardList,
   Activity,
   Search,
+  Waves,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -152,15 +152,16 @@ export function Sidebar({ onNavigate, guidePulse }: SidebarProps) {
   return (
     <div className="flex h-full flex-col">
       {/* ── Logo ── */}
-      <div className="flex h-16 items-center gap-3 px-4">
-        <Image
-          src="/logo.png"
-          alt="FitManager AI Studio"
-          width={140}
-          height={40}
-          className="h-10 w-auto object-contain"
-          priority
-        />
+      <div className="flex h-16 items-center gap-3 px-5">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary">
+          <Waves className="h-5 w-5 text-primary-foreground" />
+        </div>
+        <div className="min-w-0">
+          <h1 className="text-[15px] font-bold leading-tight tracking-tight text-foreground">
+            FitManager
+          </h1>
+          <p className="text-[11px] font-medium text-muted-foreground">AI Studio</p>
+        </div>
       </div>
 
       <Separator />
