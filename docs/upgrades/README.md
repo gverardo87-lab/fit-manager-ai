@@ -63,3 +63,4 @@ Esempio:
 - `UPG-2026-03-05-23`: SpotlightTour interattivo 19 passi con navigazione cross-page. Hub `/guida` con tour launcher, FAQ, scorciatoie e feature discovery.
 - `UPG-2026-03-05-24`: stabilizzazione CI backend su pagamenti rate: test `test_pay_rate_creates_cash_movement` reso deterministico con `data_pagamento` esplicita, piu' verifica target (`test singolo + file completo`).
 - `UPG-2026-03-05-25`: hardening lint React Hooks su agenda/draft guard (`setState-in-effect`, `ref in render`, deps memo) con verifica mirata ESLint sui file critici.
+- `UPG-2026-03-05-26`: hardening sprint T2-T6 pre-lancio: hook safety frontend (0 errori ESLint), cleanup lint minori, esclusione `tests/legacy` da Ruff (0 errori `api/tests`) e rimozione `license.key` pre-bundled dall'installer.
