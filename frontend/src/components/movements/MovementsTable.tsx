@@ -49,6 +49,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { CashMovement } from "@/types/api";
 import { formatCurrency } from "@/lib/format";
 
@@ -141,19 +142,15 @@ export function MovementsTable({
       </div>
 
       {filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-16">
-          <Landmark className="mb-3 h-10 w-10 text-muted-foreground/40" />
-          <p className="text-sm font-medium text-muted-foreground">
-            {search
-              ? "Nessun risultato per la ricerca"
-              : "Nessun movimento in questo periodo"}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground/70">
-            {search
-              ? "Prova con un termine diverso"
-              : "I movimenti appariranno qui"}
-          </p>
-        </div>
+        <EmptyState
+          icon={Landmark}
+          title={search
+            ? "Nessun risultato per la ricerca"
+            : "Nessun movimento in questo periodo"}
+          subtitle={search
+            ? "Prova con un termine diverso"
+            : "I movimenti appariranno qui"}
+        />
       ) : (
         <div className="rounded-lg border bg-white dark:bg-zinc-900">
           <Table>

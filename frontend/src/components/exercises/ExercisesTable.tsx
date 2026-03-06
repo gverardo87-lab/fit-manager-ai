@@ -31,6 +31,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   CATEGORY_LABELS,
   CATEGORY_COLORS,
@@ -58,19 +59,15 @@ export function ExercisesTable({
     <div className="space-y-3">
       {/* ── Empty State ── */}
       {exercises.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-12">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-            <Dumbbell className="h-6 w-6 text-muted-foreground/50" />
-          </div>
-          <div className="text-center">
-            <p className="font-medium text-muted-foreground">Nessun esercizio trovato</p>
-            {onNewExercise && (
-              <Button variant="link" size="sm" onClick={onNewExercise} className="mt-1">
-                Crea il primo esercizio
-              </Button>
-            )}
-          </div>
-        </div>
+        <EmptyState
+          icon={Dumbbell}
+          title="Nessun esercizio trovato"
+          action={onNewExercise ? {
+            label: "Crea il primo esercizio",
+            onClick: onNewExercise,
+            variant: "link",
+          } : undefined}
+        />
       ) : (
         <div className="rounded-lg border bg-white dark:bg-zinc-900">
           <Table>

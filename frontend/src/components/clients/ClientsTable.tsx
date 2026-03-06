@@ -54,6 +54,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { EmptyState } from "@/components/ui/empty-state";
 import { formatCurrency, formatShortDate, getFinanceBarColor } from "@/lib/format";
 import type { ClientEnriched } from "@/types/api";
 
@@ -110,27 +111,16 @@ export function ClientsTable({ clients, onEdit, onDelete, onNewClient }: Clients
 
       {/* ── Tabella o empty state ── */}
       {filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-12">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-            <Users className="h-6 w-6 text-muted-foreground/50" />
-          </div>
-          <div className="text-center">
-            <p className="font-medium text-muted-foreground">
-              {search ? "Nessun risultato per la ricerca" : "Nessun cliente nel portafoglio"}
-            </p>
-            {!search && (
-              <p className="mt-1 text-sm text-muted-foreground/70">
-                Aggiungi il primo cliente per iniziare
-              </p>
-            )}
-          </div>
-          {!search && onNewClient && (
-            <Button variant="outline" size="sm" onClick={onNewClient} className="mt-1">
-              <Plus className="mr-2 h-4 w-4" />
-              Nuovo Cliente
-            </Button>
-          )}
-        </div>
+        <EmptyState
+          icon={Users}
+          title={search ? "Nessun risultato per la ricerca" : "Nessun cliente nel portafoglio"}
+          subtitle={!search ? "Aggiungi il primo cliente per iniziare" : undefined}
+          action={!search && onNewClient ? {
+            label: "Nuovo Cliente",
+            onClick: onNewClient,
+            icon: <Plus className="h-4 w-4" />,
+          } : undefined}
+        />
       ) : (
         <div className="rounded-lg border bg-white dark:bg-zinc-900">
           <Table>
