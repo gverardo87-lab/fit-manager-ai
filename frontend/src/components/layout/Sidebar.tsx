@@ -24,10 +24,11 @@ import {
   Dumbbell,
   ClipboardList,
   Activity,
+  HeartPulse,
   Search,
-  Waves,
 } from "lucide-react";
 
+import { LogoIcon } from "@/components/ui/logo";
 import { cn } from "@/lib/utils";
 import { getStoredTrainer, logout } from "@/lib/auth";
 import { clearPageState } from "@/lib/url-state";
@@ -43,7 +44,13 @@ import {
 // NAVIGAZIONE — Section Labels pattern (Linear/Notion style)
 // ════════════════════════════════════════════════════════════
 
-type NavLink = { href: string; label: string; icon: React.ComponentType<{ className?: string }>; guideId?: string };
+type NavLink = {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  guideId?: string;
+  activeMatch?: (pathname: string) => boolean;
+};
 type NavSection = { section: string; items: NavLink[] };
 type NavEntry = NavLink | NavSection;
 
@@ -53,7 +60,15 @@ const NAV_TOP: NavEntry[] = [
   {
     section: "Clienti",
     items: [
-      { href: "/clienti", label: "Clienti", icon: Users, guideId: "sidebar-clienti" },
+      {
+        href: "/clienti",
+        label: "Clienti",
+        icon: Users,
+        guideId: "sidebar-clienti",
+        activeMatch: (pathname) =>
+          pathname === "/clienti" || /^\/clienti\/\d+(\/|$)/.test(pathname),
+      },
+      { href: "/clienti/myportal", label: "MyPortal", icon: HeartPulse },
     ],
   },
   {
@@ -94,7 +109,11 @@ function NavItem({
   showPulse?: boolean;
 }) {
   const isActive =
-    item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+    item.activeMatch
+      ? item.activeMatch(pathname)
+      : item.href === "/"
+        ? pathname === "/"
+        : pathname.startsWith(item.href);
 
   const handleClick = () => {
     // Cancella filtri e scroll salvati per la pagina target →
@@ -154,7 +173,7 @@ export function Sidebar({ onNavigate, guidePulse }: SidebarProps) {
       {/* ── Logo ── */}
       <div className="flex h-16 items-center gap-3 px-5">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary">
-          <Waves className="h-5 w-5 text-primary-foreground" />
+          <LogoIcon className="h-5 w-5 text-primary-foreground" />
         </div>
         <div className="min-w-0">
           <h1 className="text-[15px] font-bold leading-tight tracking-tight text-foreground">
