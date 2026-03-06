@@ -73,6 +73,9 @@ export function getSectionForCategory(categoria: string): TemplateSection {
 
 // ════════════════════════════════════════════════════════════
 // BEGINNER — Full Body (2 sessioni/settimana)
+// Allineato a SESSION_BLUEPRINTS[2].beginner (smart-programming.ts)
+// A = push focus + quad, B = pull focus + hip
+// Push_h in entrambe le sessioni per copertura petto
 // ════════════════════════════════════════════════════════════
 
 const BEGINNER_TEMPLATE: WorkoutTemplate = {
@@ -86,19 +89,19 @@ const BEGINNER_TEMPLATE: WorkoutTemplate = {
   sessioni: [
     {
       nome_sessione: "Full Body A",
-      focus_muscolare: "quadricipiti, petto, dorsali",
+      focus_muscolare: "petto, quadricipiti, dorsali",
       durata_minuti: 50,
       slots: [
         // Avviamento
         { sezione: "avviamento", pattern_hint: "warmup", label: "Corsa leggera o Cyclette", serie: 1, ripetizioni: "5 min", tempo_riposo_sec: 0 },
         { sezione: "avviamento", pattern_hint: "warmup", label: "Jumping Jacks", serie: 2, ripetizioni: "15", tempo_riposo_sec: 30 },
-        // Principale
-        { sezione: "principale", pattern_hint: "squat", label: "Squat o Pressa", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 90 },
-        { sezione: "principale", pattern_hint: "push_h", label: "Panca o Push-up", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 90 },
-        { sezione: "principale", pattern_hint: "pull_h", label: "Rematore o Lat Machine", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 90 },
-        { sezione: "principale", pattern_hint: "hinge", label: "Romanian Deadlift", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 90 },
-        { sezione: "principale", pattern_hint: "push_v", label: "Shoulder Press", serie: 2, ripetizioni: "10-12", tempo_riposo_sec: 60 },
-        { sezione: "principale", pattern_hint: "core", label: "Plank o Crunch", serie: 3, ripetizioni: "30s", tempo_riposo_sec: 45 },
+        // Principale — CP push_h, CS pull_h, CS squat, CS hinge, IA tricipiti, IA core
+        { sezione: "principale", pattern_hint: "push_h", label: "Panca o Push-up", serie: 3, ripetizioni: "8-12", tempo_riposo_sec: 90 },
+        { sezione: "principale", pattern_hint: "pull_h", label: "Rematore o Lat Machine", serie: 3, ripetizioni: "8-12", tempo_riposo_sec: 90 },
+        { sezione: "principale", pattern_hint: "squat", label: "Squat o Pressa", serie: 3, ripetizioni: "8-12", tempo_riposo_sec: 90 },
+        { sezione: "principale", pattern_hint: "hinge", label: "Romanian Deadlift", serie: 3, ripetizioni: "8-12", tempo_riposo_sec: 90 },
+        { sezione: "principale", pattern_hint: "push_h", label: "Tricipiti", serie: 2, ripetizioni: "10-15", tempo_riposo_sec: 60 },
+        { sezione: "principale", pattern_hint: "core", label: "Plank o Crunch", serie: 2, ripetizioni: "30s", tempo_riposo_sec: 60 },
         // Stretching — mirato ai muscoli lavorati
         { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Quadricipiti", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["quadriceps"] },
         { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Pettorali", serie: 1, ripetizioni: "30s", tempo_riposo_sec: 0, muscoli_target: ["chest"] },
@@ -107,19 +110,19 @@ const BEGINNER_TEMPLATE: WorkoutTemplate = {
     },
     {
       nome_sessione: "Full Body B",
-      focus_muscolare: "glutei, spalle, braccia",
+      focus_muscolare: "dorsali, glutei, petto",
       durata_minuti: 50,
       slots: [
         // Avviamento
         { sezione: "avviamento", pattern_hint: "warmup", label: "Skip o Cyclette", serie: 1, ripetizioni: "5 min", tempo_riposo_sec: 0 },
         { sezione: "avviamento", pattern_hint: "warmup", label: "Cerchi Braccia", serie: 2, ripetizioni: "10/direzione", tempo_riposo_sec: 0 },
-        // Principale
-        { sezione: "principale", pattern_hint: "hinge", label: "Stacco o Hip Thrust", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 90 },
-        { sezione: "principale", pattern_hint: "push_v", label: "Military Press", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 90 },
-        { sezione: "principale", pattern_hint: "pull_v", label: "Lat Pulldown", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 90 },
-        { sezione: "principale", pattern_hint: "squat", label: "Affondi o Leg Press", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 90 },
-        { sezione: "principale", pattern_hint: "pull_h", label: "Curl Bicipiti", serie: 2, ripetizioni: "12-15", tempo_riposo_sec: 60 },
-        { sezione: "principale", pattern_hint: "core", label: "Russian Twist o Side Plank", serie: 3, ripetizioni: "30s", tempo_riposo_sec: 45 },
+        // Principale — CP pull_v, CS push_h, CS hinge, CS squat, IA bicipiti, IA polpacci
+        { sezione: "principale", pattern_hint: "pull_v", label: "Lat Pulldown o Trazioni", serie: 3, ripetizioni: "8-12", tempo_riposo_sec: 90 },
+        { sezione: "principale", pattern_hint: "push_h", label: "Panca Inclinata o Push-up", serie: 3, ripetizioni: "8-12", tempo_riposo_sec: 90 },
+        { sezione: "principale", pattern_hint: "hinge", label: "Hip Thrust o Stacco", serie: 3, ripetizioni: "8-12", tempo_riposo_sec: 90 },
+        { sezione: "principale", pattern_hint: "squat", label: "Affondi o Leg Press", serie: 3, ripetizioni: "8-12", tempo_riposo_sec: 90 },
+        { sezione: "principale", pattern_hint: "pull_h", label: "Curl Bicipiti", serie: 2, ripetizioni: "10-15", tempo_riposo_sec: 60 },
+        { sezione: "principale", pattern_hint: "squat", label: "Calf Raise", serie: 2, ripetizioni: "15-20", tempo_riposo_sec: 60 },
         // Stretching — mirato ai muscoli lavorati
         { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Femorali", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["hamstrings", "glutes"] },
         { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Spalle", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["shoulders"] },
@@ -131,6 +134,9 @@ const BEGINNER_TEMPLATE: WorkoutTemplate = {
 
 // ════════════════════════════════════════════════════════════
 // INTERMEDIO — Upper/Lower Split (4 sessioni/settimana)
+// Allineato a SESSION_BLUEPRINTS[4].intermedio (smart-programming.ts)
+// Upper A = push focus + antagonista pull, Upper B = pull focus + antagonista push
+// Lower A = quad focus, Lower B = hip focus + core + carry
 // ════════════════════════════════════════════════════════════
 
 const INTERMEDIO_TEMPLATE: WorkoutTemplate = {
@@ -151,13 +157,13 @@ const INTERMEDIO_TEMPLATE: WorkoutTemplate = {
         { sezione: "avviamento", pattern_hint: "warmup", label: "Corsa leggera", serie: 1, ripetizioni: "5 min", tempo_riposo_sec: 0 },
         { sezione: "avviamento", pattern_hint: "warmup", label: "Cerchi Braccia + Rotazioni Tronco", serie: 2, ripetizioni: "10/direzione", tempo_riposo_sec: 0 },
         { sezione: "avviamento", pattern_hint: "mobility", label: "Shoulder Dislocates", serie: 2, ripetizioni: "10", tempo_riposo_sec: 0 },
-        // Principale
+        // Principale — CP push_h, CS push_v, CS push_h, CS pull_h, IT tricipiti, IA bicipiti
         { sezione: "principale", pattern_hint: "push_h", label: "Panca Piana", serie: 4, ripetizioni: "6-8", tempo_riposo_sec: 120 },
         { sezione: "principale", pattern_hint: "push_v", label: "Military Press", serie: 3, ripetizioni: "8-10", tempo_riposo_sec: 90 },
-        { sezione: "principale", pattern_hint: "push_h", label: "Croci o Panca Inclinata", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 60 },
+        { sezione: "principale", pattern_hint: "push_h", label: "Panca Inclinata o Croci", serie: 3, ripetizioni: "8-10", tempo_riposo_sec: 90 },
         { sezione: "principale", pattern_hint: "pull_h", label: "Rematore", serie: 3, ripetizioni: "8-10", tempo_riposo_sec: 90 },
-        { sezione: "principale", pattern_hint: "push_h", label: "Tricipiti", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 60 },
-        { sezione: "principale", pattern_hint: "pull_h", label: "Curl Bicipiti", serie: 2, ripetizioni: "10-12", tempo_riposo_sec: 60 },
+        { sezione: "principale", pattern_hint: "push_h", label: "Tricipiti Corda o Dip", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 60 },
+        { sezione: "principale", pattern_hint: "pull_h", label: "Curl Bicipiti", serie: 3, ripetizioni: "12-15", tempo_riposo_sec: 45 },
         // Stretching — mirato a petto/spalle/tricipiti
         { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Pettorali", serie: 1, ripetizioni: "30s", tempo_riposo_sec: 0, muscoli_target: ["chest"] },
         { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Spalle", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["shoulders"] },
@@ -166,20 +172,20 @@ const INTERMEDIO_TEMPLATE: WorkoutTemplate = {
     },
     {
       nome_sessione: "Lower A — Quad Focus",
-      focus_muscolare: "quadricipiti, glutei, polpacci",
+      focus_muscolare: "quadricipiti, glutei, femorali",
       durata_minuti: 60,
       slots: [
         // Avviamento
         { sezione: "avviamento", pattern_hint: "warmup", label: "Cyclette o Corsa", serie: 1, ripetizioni: "5 min", tempo_riposo_sec: 0 },
         { sezione: "avviamento", pattern_hint: "warmup", label: "Squat Bodyweight + Skip", serie: 2, ripetizioni: "15", tempo_riposo_sec: 30 },
         { sezione: "avviamento", pattern_hint: "mobility", label: "Mobilita Caviglie", serie: 2, ripetizioni: "10/lato", tempo_riposo_sec: 0 },
-        // Principale
+        // Principale — CP squat, CS squat, CS hinge, IT quadricipiti, IT femorali, IA polpacci
         { sezione: "principale", pattern_hint: "squat", label: "Squat", serie: 4, ripetizioni: "6-8", tempo_riposo_sec: 120 },
         { sezione: "principale", pattern_hint: "squat", label: "Leg Press", serie: 3, ripetizioni: "8-10", tempo_riposo_sec: 90 },
         { sezione: "principale", pattern_hint: "hinge", label: "Romanian Deadlift", serie: 3, ripetizioni: "8-10", tempo_riposo_sec: 90 },
-        { sezione: "principale", pattern_hint: "squat", label: "Leg Extension", serie: 3, ripetizioni: "12-15", tempo_riposo_sec: 60 },
-        { sezione: "principale", pattern_hint: "hinge", label: "Leg Curl", serie: 3, ripetizioni: "12-15", tempo_riposo_sec: 60 },
-        { sezione: "principale", pattern_hint: "squat", label: "Calf Raise", serie: 3, ripetizioni: "15-20", tempo_riposo_sec: 45 },
+        { sezione: "principale", pattern_hint: "squat", label: "Leg Extension", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 60 },
+        { sezione: "principale", pattern_hint: "hinge", label: "Leg Curl", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 60 },
+        { sezione: "principale", pattern_hint: "squat", label: "Calf Raise", serie: 3, ripetizioni: "12-15", tempo_riposo_sec: 45 },
         // Stretching — mirato a quad/femorali/polpacci
         { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Quadricipiti", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["quadriceps"] },
         { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Femorali", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["hamstrings"] },
@@ -195,13 +201,13 @@ const INTERMEDIO_TEMPLATE: WorkoutTemplate = {
         { sezione: "avviamento", pattern_hint: "warmup", label: "Corsa leggera", serie: 1, ripetizioni: "5 min", tempo_riposo_sec: 0 },
         { sezione: "avviamento", pattern_hint: "warmup", label: "Inchworm", serie: 2, ripetizioni: "5", tempo_riposo_sec: 30 },
         { sezione: "avviamento", pattern_hint: "mobility", label: "Rotazioni Toraciche", serie: 2, ripetizioni: "8/lato", tempo_riposo_sec: 0 },
-        // Principale
+        // Principale — CP pull_v, CS pull_h, CS push_v, IT trapezio, IT bicipiti, IA tricipiti
         { sezione: "principale", pattern_hint: "pull_v", label: "Trazioni o Lat Pulldown", serie: 4, ripetizioni: "6-8", tempo_riposo_sec: 120 },
         { sezione: "principale", pattern_hint: "pull_h", label: "Rematore Bilanciere", serie: 3, ripetizioni: "8-10", tempo_riposo_sec: 90 },
         { sezione: "principale", pattern_hint: "push_v", label: "Lento Avanti", serie: 3, ripetizioni: "8-10", tempo_riposo_sec: 90 },
-        { sezione: "principale", pattern_hint: "pull_h", label: "Face Pull o Alzate Lat.", serie: 3, ripetizioni: "12-15", tempo_riposo_sec: 60 },
+        { sezione: "principale", pattern_hint: "pull_h", label: "Face Pull o Alzate Post.", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 60 },
         { sezione: "principale", pattern_hint: "pull_h", label: "Curl Manubri", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 60 },
-        { sezione: "principale", pattern_hint: "push_h", label: "French Press", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 60 },
+        { sezione: "principale", pattern_hint: "push_h", label: "French Press", serie: 3, ripetizioni: "12-15", tempo_riposo_sec: 45 },
         // Stretching — mirato a dorsali/spalle/bicipiti
         { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Dorsali", serie: 1, ripetizioni: "30s", tempo_riposo_sec: 0, muscoli_target: ["lats", "back"] },
         { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Spalle", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["shoulders"] },
@@ -217,13 +223,13 @@ const INTERMEDIO_TEMPLATE: WorkoutTemplate = {
         { sezione: "avviamento", pattern_hint: "warmup", label: "Cyclette o Corsa", serie: 1, ripetizioni: "5 min", tempo_riposo_sec: 0 },
         { sezione: "avviamento", pattern_hint: "warmup", label: "Affondi Bodyweight", serie: 2, ripetizioni: "10/lato", tempo_riposo_sec: 30 },
         { sezione: "avviamento", pattern_hint: "mobility", label: "Cerchi d'Anca", serie: 2, ripetizioni: "10/direzione", tempo_riposo_sec: 0 },
-        // Principale
-        { sezione: "principale", pattern_hint: "hinge", label: "Stacco da Terra", serie: 4, ripetizioni: "5-6", tempo_riposo_sec: 150 },
+        // Principale — CP hinge, CS hinge, CS squat, IT femorali, IT core, IA avambracci
+        { sezione: "principale", pattern_hint: "hinge", label: "Stacco da Terra", serie: 4, ripetizioni: "6-8", tempo_riposo_sec: 120 },
         { sezione: "principale", pattern_hint: "hinge", label: "Hip Thrust", serie: 3, ripetizioni: "8-10", tempo_riposo_sec: 90 },
-        { sezione: "principale", pattern_hint: "squat", label: "Affondi Camminati", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 90 },
+        { sezione: "principale", pattern_hint: "squat", label: "Affondi Camminati", serie: 3, ripetizioni: "8-10", tempo_riposo_sec: 90 },
         { sezione: "principale", pattern_hint: "hinge", label: "Leg Curl Sdraiato", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 60 },
         { sezione: "principale", pattern_hint: "core", label: "Plank o Ab Wheel", serie: 3, ripetizioni: "30-45s", tempo_riposo_sec: 60 },
-        { sezione: "principale", pattern_hint: "carry", label: "Farmer Walk", serie: 3, ripetizioni: "30m", tempo_riposo_sec: 60 },
+        { sezione: "principale", pattern_hint: "carry", label: "Farmer Walk", serie: 3, ripetizioni: "30m", tempo_riposo_sec: 45 },
         // Stretching — mirato a glutei/flessori anca/schiena
         { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Flessori Anca", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["quadriceps", "glutes"] },
         { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Glutei", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["glutes"] },
@@ -235,6 +241,9 @@ const INTERMEDIO_TEMPLATE: WorkoutTemplate = {
 
 // ════════════════════════════════════════════════════════════
 // AVANZATO — Push/Pull/Legs (6 sessioni/settimana)
+// Allineato a SESSION_BLUEPRINTS[6].avanzato (smart-programming.ts)
+// A = forza (CP+CS pesanti), B = ipertrofia (CP+CS volume)
+// Ogni muscolo allenato 2x/sett (frequenza ottimale PPL)
 // ════════════════════════════════════════════════════════════
 
 const AVANZATO_TEMPLATE: WorkoutTemplate = {
@@ -255,14 +264,13 @@ const AVANZATO_TEMPLATE: WorkoutTemplate = {
         { sezione: "avviamento", pattern_hint: "warmup", label: "Corsa leggera", serie: 1, ripetizioni: "5 min", tempo_riposo_sec: 0 },
         { sezione: "avviamento", pattern_hint: "warmup", label: "Cerchi Braccia", serie: 2, ripetizioni: "10/direzione", tempo_riposo_sec: 0 },
         { sezione: "avviamento", pattern_hint: "mobility", label: "Shoulder Dislocates", serie: 2, ripetizioni: "10", tempo_riposo_sec: 0 },
-        // Principale
-        { sezione: "principale", pattern_hint: "push_h", label: "Panca Piana", serie: 5, ripetizioni: "5-6", tempo_riposo_sec: 150 },
-        { sezione: "principale", pattern_hint: "push_v", label: "Military Press", serie: 4, ripetizioni: "6-8", tempo_riposo_sec: 120 },
+        // Principale — CP push_h, CS push_v, CS push_h, IT spalle, IA tricipiti x2
+        { sezione: "principale", pattern_hint: "push_h", label: "Panca Piana", serie: 4, ripetizioni: "6-8", tempo_riposo_sec: 120 },
+        { sezione: "principale", pattern_hint: "push_v", label: "Military Press", serie: 3, ripetizioni: "8-10", tempo_riposo_sec: 90 },
         { sezione: "principale", pattern_hint: "push_h", label: "Panca Inclinata Manubri", serie: 3, ripetizioni: "8-10", tempo_riposo_sec: 90 },
-        { sezione: "principale", pattern_hint: "push_v", label: "Alzate Laterali", serie: 3, ripetizioni: "12-15", tempo_riposo_sec: 60 },
-        { sezione: "principale", pattern_hint: "push_h", label: "Dip o Push Down", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 60 },
-        { sezione: "principale", pattern_hint: "push_h", label: "Overhead Extension", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 60 },
-        { sezione: "principale", pattern_hint: "push_v", label: "Alzate Frontali", serie: 2, ripetizioni: "12-15", tempo_riposo_sec: 45 },
+        { sezione: "principale", pattern_hint: "push_v", label: "Alzate Laterali", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 60 },
+        { sezione: "principale", pattern_hint: "push_h", label: "Dip o Push Down", serie: 3, ripetizioni: "12-15", tempo_riposo_sec: 45 },
+        { sezione: "principale", pattern_hint: "push_h", label: "Overhead Extension", serie: 3, ripetizioni: "12-15", tempo_riposo_sec: 45 },
         // Stretching
         { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Pettorali", serie: 1, ripetizioni: "30s", tempo_riposo_sec: 0, muscoli_target: ["chest"] },
         { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Spalle", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["shoulders"] },
@@ -278,14 +286,13 @@ const AVANZATO_TEMPLATE: WorkoutTemplate = {
         { sezione: "avviamento", pattern_hint: "warmup", label: "Corsa leggera", serie: 1, ripetizioni: "5 min", tempo_riposo_sec: 0 },
         { sezione: "avviamento", pattern_hint: "warmup", label: "Inchworm", serie: 2, ripetizioni: "5", tempo_riposo_sec: 30 },
         { sezione: "avviamento", pattern_hint: "mobility", label: "Rotazioni Toraciche", serie: 2, ripetizioni: "8/lato", tempo_riposo_sec: 0 },
-        // Principale
-        { sezione: "principale", pattern_hint: "pull_v", label: "Trazioni Zavorrate", serie: 4, ripetizioni: "5-6", tempo_riposo_sec: 150 },
-        { sezione: "principale", pattern_hint: "pull_h", label: "Rematore Bilanciere", serie: 4, ripetizioni: "6-8", tempo_riposo_sec: 120 },
+        // Principale — CP pull_v, CS pull_h, CS pull_v, IT trapezio, IA bicipiti x2
+        { sezione: "principale", pattern_hint: "pull_v", label: "Trazioni Zavorrate", serie: 4, ripetizioni: "6-8", tempo_riposo_sec: 120 },
+        { sezione: "principale", pattern_hint: "pull_h", label: "Rematore Bilanciere", serie: 3, ripetizioni: "8-10", tempo_riposo_sec: 90 },
         { sezione: "principale", pattern_hint: "pull_v", label: "Lat Pulldown Presa Stretta", serie: 3, ripetizioni: "8-10", tempo_riposo_sec: 90 },
-        { sezione: "principale", pattern_hint: "pull_h", label: "Face Pull", serie: 3, ripetizioni: "12-15", tempo_riposo_sec: 60 },
-        { sezione: "principale", pattern_hint: "pull_h", label: "Curl Bilanciere", serie: 3, ripetizioni: "8-10", tempo_riposo_sec: 60 },
-        { sezione: "principale", pattern_hint: "pull_h", label: "Curl Martello", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 60 },
-        { sezione: "principale", pattern_hint: "pull_h", label: "Rear Delt Fly", serie: 2, ripetizioni: "12-15", tempo_riposo_sec: 45 },
+        { sezione: "principale", pattern_hint: "pull_h", label: "Face Pull", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 60 },
+        { sezione: "principale", pattern_hint: "pull_h", label: "Curl Bilanciere", serie: 3, ripetizioni: "12-15", tempo_riposo_sec: 45 },
+        { sezione: "principale", pattern_hint: "pull_h", label: "Curl Martello", serie: 3, ripetizioni: "12-15", tempo_riposo_sec: 45 },
         // Stretching
         { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Dorsali", serie: 1, ripetizioni: "30s", tempo_riposo_sec: 0, muscoli_target: ["lats", "back"] },
         { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Collo", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["traps"] },
@@ -294,21 +301,20 @@ const AVANZATO_TEMPLATE: WorkoutTemplate = {
     },
     {
       nome_sessione: "Legs A — Quad Focus",
-      focus_muscolare: "quadricipiti, glutei, polpacci",
+      focus_muscolare: "quadricipiti, femorali, polpacci",
       durata_minuti: 70,
       slots: [
         // Avviamento
         { sezione: "avviamento", pattern_hint: "warmup", label: "Cyclette", serie: 1, ripetizioni: "5 min", tempo_riposo_sec: 0 },
         { sezione: "avviamento", pattern_hint: "warmup", label: "Squat Bodyweight + Skip", serie: 2, ripetizioni: "15", tempo_riposo_sec: 30 },
         { sezione: "avviamento", pattern_hint: "mobility", label: "Mobilita Caviglie", serie: 2, ripetizioni: "10/lato", tempo_riposo_sec: 0 },
-        // Principale
-        { sezione: "principale", pattern_hint: "squat", label: "Squat", serie: 5, ripetizioni: "5-6", tempo_riposo_sec: 180 },
-        { sezione: "principale", pattern_hint: "squat", label: "Leg Press", serie: 4, ripetizioni: "8-10", tempo_riposo_sec: 120 },
+        // Principale — CP squat, CS hinge, CS squat, IT femorali, IT polpacci, IA avambracci
+        { sezione: "principale", pattern_hint: "squat", label: "Squat", serie: 4, ripetizioni: "6-8", tempo_riposo_sec: 120 },
         { sezione: "principale", pattern_hint: "hinge", label: "Romanian Deadlift", serie: 3, ripetizioni: "8-10", tempo_riposo_sec: 90 },
-        { sezione: "principale", pattern_hint: "squat", label: "Leg Extension", serie: 3, ripetizioni: "12-15", tempo_riposo_sec: 60 },
-        { sezione: "principale", pattern_hint: "squat", label: "Affondi Bulgari", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 90 },
-        { sezione: "principale", pattern_hint: "squat", label: "Calf Raise in Piedi", serie: 4, ripetizioni: "12-15", tempo_riposo_sec: 45 },
-        { sezione: "principale", pattern_hint: "core", label: "Crunch Cable", serie: 3, ripetizioni: "15-20", tempo_riposo_sec: 45 },
+        { sezione: "principale", pattern_hint: "squat", label: "Leg Press", serie: 3, ripetizioni: "8-10", tempo_riposo_sec: 90 },
+        { sezione: "principale", pattern_hint: "hinge", label: "Leg Curl", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 60 },
+        { sezione: "principale", pattern_hint: "squat", label: "Calf Raise in Piedi", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 60 },
+        { sezione: "principale", pattern_hint: "carry", label: "Farmer Walk", serie: 3, ripetizioni: "12-15", tempo_riposo_sec: 45 },
         // Stretching
         { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Quadricipiti", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["quadriceps"] },
         { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Femorali", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["hamstrings"] },
@@ -323,12 +329,12 @@ const AVANZATO_TEMPLATE: WorkoutTemplate = {
         // Avviamento
         { sezione: "avviamento", pattern_hint: "warmup", label: "Jumping Jacks", serie: 2, ripetizioni: "20", tempo_riposo_sec: 30 },
         { sezione: "avviamento", pattern_hint: "warmup", label: "Cerchi Braccia", serie: 2, ripetizioni: "10/direzione", tempo_riposo_sec: 0 },
-        // Principale
-        { sezione: "principale", pattern_hint: "push_h", label: "Panca Inclinata", serie: 4, ripetizioni: "8-10", tempo_riposo_sec: 90 },
-        { sezione: "principale", pattern_hint: "push_h", label: "Croci Cavi", serie: 3, ripetizioni: "12-15", tempo_riposo_sec: 60 },
-        { sezione: "principale", pattern_hint: "push_v", label: "Arnold Press", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 90 },
-        { sezione: "principale", pattern_hint: "push_v", label: "Alzate Laterali Cavi", serie: 4, ripetizioni: "12-15", tempo_riposo_sec: 45 },
-        { sezione: "principale", pattern_hint: "push_h", label: "Tricipiti Corda", serie: 3, ripetizioni: "12-15", tempo_riposo_sec: 60 },
+        // Principale — CP push_h, CS push_v, CS push_h, IT spalle, IA tricipiti x2
+        { sezione: "principale", pattern_hint: "push_h", label: "Panca Inclinata", serie: 4, ripetizioni: "6-8", tempo_riposo_sec: 120 },
+        { sezione: "principale", pattern_hint: "push_v", label: "Arnold Press", serie: 3, ripetizioni: "8-10", tempo_riposo_sec: 90 },
+        { sezione: "principale", pattern_hint: "push_h", label: "Croci Cavi", serie: 3, ripetizioni: "8-10", tempo_riposo_sec: 90 },
+        { sezione: "principale", pattern_hint: "push_v", label: "Alzate Laterali Cavi", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 60 },
+        { sezione: "principale", pattern_hint: "push_h", label: "Tricipiti Corda", serie: 3, ripetizioni: "12-15", tempo_riposo_sec: 45 },
         { sezione: "principale", pattern_hint: "push_h", label: "Kick Back", serie: 3, ripetizioni: "12-15", tempo_riposo_sec: 45 },
         // Stretching
         { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Pettorali", serie: 1, ripetizioni: "30s", tempo_riposo_sec: 0, muscoli_target: ["chest"] },
@@ -343,12 +349,12 @@ const AVANZATO_TEMPLATE: WorkoutTemplate = {
         // Avviamento
         { sezione: "avviamento", pattern_hint: "warmup", label: "Corsa leggera", serie: 1, ripetizioni: "5 min", tempo_riposo_sec: 0 },
         { sezione: "avviamento", pattern_hint: "mobility", label: "Rotazioni Toraciche", serie: 2, ripetizioni: "8/lato", tempo_riposo_sec: 0 },
-        // Principale
-        { sezione: "principale", pattern_hint: "pull_v", label: "Lat Pulldown", serie: 4, ripetizioni: "8-10", tempo_riposo_sec: 90 },
-        { sezione: "principale", pattern_hint: "pull_h", label: "Rematore Manubrio", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 90 },
-        { sezione: "principale", pattern_hint: "pull_h", label: "Pulley Basso", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 90 },
-        { sezione: "principale", pattern_hint: "pull_h", label: "Face Pull", serie: 3, ripetizioni: "15-20", tempo_riposo_sec: 45 },
-        { sezione: "principale", pattern_hint: "pull_h", label: "Curl Concentrato", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 60 },
+        // Principale — CP pull_h, CS pull_v, CS pull_h, IT trapezio, IA bicipiti x2
+        { sezione: "principale", pattern_hint: "pull_h", label: "Rematore Manubrio", serie: 4, ripetizioni: "6-8", tempo_riposo_sec: 120 },
+        { sezione: "principale", pattern_hint: "pull_v", label: "Lat Pulldown", serie: 3, ripetizioni: "8-10", tempo_riposo_sec: 90 },
+        { sezione: "principale", pattern_hint: "pull_h", label: "Pulley Basso", serie: 3, ripetizioni: "8-10", tempo_riposo_sec: 90 },
+        { sezione: "principale", pattern_hint: "pull_v", label: "Pullover", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 60 },
+        { sezione: "principale", pattern_hint: "pull_h", label: "Curl Concentrato", serie: 3, ripetizioni: "12-15", tempo_riposo_sec: 45 },
         { sezione: "principale", pattern_hint: "pull_h", label: "Curl Cavo Presa Alta", serie: 3, ripetizioni: "12-15", tempo_riposo_sec: 45 },
         // Stretching
         { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Dorsali", serie: 1, ripetizioni: "30s", tempo_riposo_sec: 0, muscoli_target: ["lats", "back"] },
@@ -357,21 +363,20 @@ const AVANZATO_TEMPLATE: WorkoutTemplate = {
     },
     {
       nome_sessione: "Legs B — Hip Focus",
-      focus_muscolare: "glutei, femorali, core",
+      focus_muscolare: "glutei, femorali, adduttori",
       durata_minuti: 65,
       slots: [
         // Avviamento
         { sezione: "avviamento", pattern_hint: "warmup", label: "Cyclette", serie: 1, ripetizioni: "5 min", tempo_riposo_sec: 0 },
         { sezione: "avviamento", pattern_hint: "warmup", label: "Affondi Bodyweight", serie: 2, ripetizioni: "10/lato", tempo_riposo_sec: 30 },
         { sezione: "avviamento", pattern_hint: "mobility", label: "World's Greatest Stretch", serie: 2, ripetizioni: "5/lato", tempo_riposo_sec: 0 },
-        // Principale
-        { sezione: "principale", pattern_hint: "hinge", label: "Stacco da Terra", serie: 4, ripetizioni: "5-6", tempo_riposo_sec: 180 },
-        { sezione: "principale", pattern_hint: "hinge", label: "Hip Thrust", serie: 4, ripetizioni: "8-10", tempo_riposo_sec: 90 },
-        { sezione: "principale", pattern_hint: "squat", label: "Affondi Camminati", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 90 },
-        { sezione: "principale", pattern_hint: "hinge", label: "Leg Curl", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 60 },
-        { sezione: "principale", pattern_hint: "hinge", label: "Good Morning", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 60 },
-        { sezione: "principale", pattern_hint: "squat", label: "Calf Raise Seduto", serie: 4, ripetizioni: "15-20", tempo_riposo_sec: 45 },
-        { sezione: "principale", pattern_hint: "core", label: "Plank Laterale", serie: 3, ripetizioni: "30s", tempo_riposo_sec: 45 },
+        // Principale — CP hinge, CS squat, CS hinge, IT adduttori, IT polpacci, IA avambracci
+        { sezione: "principale", pattern_hint: "hinge", label: "Stacco da Terra", serie: 4, ripetizioni: "6-8", tempo_riposo_sec: 120 },
+        { sezione: "principale", pattern_hint: "squat", label: "Affondi Camminati", serie: 3, ripetizioni: "8-10", tempo_riposo_sec: 90 },
+        { sezione: "principale", pattern_hint: "hinge", label: "Hip Thrust", serie: 3, ripetizioni: "8-10", tempo_riposo_sec: 90 },
+        { sezione: "principale", pattern_hint: "squat", label: "Adductor Machine", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 60 },
+        { sezione: "principale", pattern_hint: "hinge", label: "Calf Raise Seduto", serie: 3, ripetizioni: "10-12", tempo_riposo_sec: 60 },
+        { sezione: "principale", pattern_hint: "carry", label: "Suitcase Carry", serie: 3, ripetizioni: "12-15", tempo_riposo_sec: 45 },
         // Stretching
         { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Flessori Anca", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["quadriceps", "glutes"] },
         { sezione: "stretching", pattern_hint: "stretch", label: "Stretching Glutei", serie: 1, ripetizioni: "30s/lato", tempo_riposo_sec: 0, muscoli_target: ["glutes", "hamstrings"] },

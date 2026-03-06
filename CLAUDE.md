@@ -353,16 +353,26 @@ File chiave: `lib/workout-monitoring.ts` (utility), `app/(dashboard)/allenamenti
    - **`assessFitnessLevel()`**: combina strength ratios NSCA + livello attivita anamnesi
    - **`computeSmartAnalysis()`**: orchestratore analisi (coverage + volume + biomechanics + recovery + safety)
    - **`computeSafetyBreakdown()`**: conteggio avoid/modify/caution per display actionable
-   - **SPLIT_PATTERNS bilanciati**: Upper alterna push/pull (2+2), Lower alterna squat/hinge, `rotation` in 3-day C
-   - **Naming split auto-detect**: PPL rilevato da pattern content (no overlap tra sessioni tranne core)
-   - **scoreMuscleMatch v2**: coverage ratio + normalizzazione EN→IT via `normalizeMuscleGroup()`
+   - **SPLIT_PATTERNS bilanciati**: Lower usa `carry` (core+avambracci+trapezio), Upper usa `rotation` (core+spalle, piano trasversale). Zero `"core"` esplicito — coperto da carry/rotation funzionali
+   - **Naming split auto-detect**: PPL rilevato da pattern content (no overlap tra sessioni tranne core/carry/rotation)
+   - **scoreMuscleMatch v3**: coverage ratio + normalizzazione EN→IT + **pattern floor**: se pattern esatto, score min 0.5
+     (esercizi carry/rotation con muscoli DB specifici non vengono penalizzati rispetto allo schema stimato)
    - **normalizeDifficulty()**: bridge EN→IT per `difficultyDistance()` (beginner→principiante)
    - **Senza client**: dim. safety/strength/bilateral → neutral (0.5). Funziona anche senza dati client.
-   - **Accessory system 2-pass**: `computeEstimatedCoverage()` stima copertura pattern globale,
-     `inferSessionType()` deduce push/pull/legs/upper/lower/full, accessori per affinita'
-     (Push→tricipiti/spalle, Pull→bicipiti/trapezio, Legs→polpacci/adduttori). maxAcc: beginner 2, intermedio 3, avanzato 4
-   - **Credito secondario diluted**: budget 1.0 / N secondari, max 0.5 ciascuno.
-     Evita overcounting muscoli "hub" (core, spalle, dorsali, glutei)
+   - **Generation pipeline 3-pass + fill 2-phase**:
+     - Pass 2: accessori per deficit con affinita' sessione (crediti 1.0/0.35, maxAcc: beginner 2, intermedio 3, avanzato 4)
+     - Pass 3: validazione + auto-correzione (< 80% in range → slot correttivi, max 2 iter)
+     - **fillSmartPlan Fase 1**: greedy fill (14D scoring per slot)
+     - **fillSmartPlan Fase 2**: coverage-aware swap optimization — `computeRealCoverage()` sui muscoli
+       REALI degli esercizi assegnati (non stimati), swap con top-5 alternative se deficit > 20%,
+       min score ratio 0.60, max 3 pass (1 swap/pass per stabilita')
+   - **ACCESSORY_VOLUME**: serie/rep differenziate per gruppo muscolare (NSCA/Schoenfeld 2017).
+     Grandi (petto/dorsali/quadricipiti): 3×8-12. Piccoli (bicipiti/tricipiti/avambracci): 2×10-15.
+     Polpacci: 4×15-20 (alta frequenza). Usato da pass 2 e pass 3.
+   - **patternToMuscleRoles()**: mappa pattern→{primari, secondari} differenziati.
+     Core RIMOSSO da squat/hinge secondari. Previene inflazione hub muscles.
+   - **Slot muscoli_target**: solo PRIMARI. `scoreMuscleMatch` con pattern floor.
+   - **Credito secondario diluted** (computeMuscleCoverage + computeRealCoverage): budget 1.0/N, max 0.5.
 
 2. **Hook** (`hooks/useSmartProgramming.ts`, ~60 LOC):
    - Aggrega 5 hook esistenti: useClient + useExerciseSafetyMap + useLatestMeasurement + useClientMeasurements + useClientGoals
