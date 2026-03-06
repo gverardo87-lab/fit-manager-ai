@@ -351,7 +351,7 @@ function RatesList({
             <AlertDialogDescription>
               {deleteRate?.descrizione ?? `Rata #${deleteRate?.id}`} —{" "}
               {deleteRate ? formatCurrency(deleteRate.importo_previsto) : ""}
-              . Questa azione e' irreversibile.
+              . Questa azione e&apos; irreversibile.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -881,3 +881,4 @@ function PaymentHistory({ rate }: { rate: Rate }) {
     </div>
   );
 }
+

@@ -77,9 +77,9 @@ export function RateUnpayDialog({
               <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive dark:border-destructive/30 dark:bg-destructive/10">
                 <p className="font-semibold">Questa azione:</p>
                 <ul className="mt-1.5 list-disc pl-5 space-y-1">
-                  <li>Riportera' la rata allo stato PENDENTE</li>
-                  <li>Riaprira' il contratto (se era saldato)</li>
-                  <li>Cancellera' il record dal Libro Mastro</li>
+                  <li>Riportera&apos; la rata allo stato PENDENTE</li>
+                  <li>Riaprira&apos; il contratto (se era saldato)</li>
+                  <li>Cancellera&apos; il record dal Libro Mastro</li>
                 </ul>
               </div>
             </div>
@@ -122,3 +122,6 @@ export function RateUnpayDialog({
     </AlertDialog>
   );
 }
+
+
+

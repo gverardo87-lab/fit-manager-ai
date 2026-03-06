@@ -93,8 +93,8 @@ function RateEditDialogContent({
             <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50/50 px-3 py-2.5 dark:border-blue-900/50 dark:bg-blue-950/20">
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
               <p className="text-xs text-blue-700 dark:text-blue-300">
-                Questa rata ha {formatCurrency(rate.importo_saldato)} gia' versato.
-                L&apos;importo previsto non puo' scendere sotto il versato.
+                Questa rata ha {formatCurrency(rate.importo_saldato)} gia&apos; versato.
+                L&apos;importo previsto non puo&apos; scendere sotto il versato.
               </p>
             </div>
           )}
@@ -111,7 +111,7 @@ function RateEditDialogContent({
             />
             {belowSaldato && rate && (
               <p className="text-[11px] text-destructive">
-                Non puoi impostare meno di {formatCurrency(rate.importo_saldato)} (gia' versato)
+                Non puoi impostare meno di {formatCurrency(rate.importo_saldato)} (gia&apos; versato)
               </p>
             )}
           </div>
@@ -159,3 +159,6 @@ function RateEditDialogContent({
     </Dialog>
   );
 }
+
+
+

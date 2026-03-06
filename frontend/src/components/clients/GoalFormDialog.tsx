@@ -367,9 +367,9 @@ function GoalFormDialogContent({
             </div>
           </div>
 
-          {/* Priorita' */}
+          {/* Priorita&apos; */}
           <div className="space-y-1.5">
-            <Label>Priorita'</Label>
+            <Label>Priorita&apos;</Label>
             <Select value={priorita} onValueChange={(v) => { setPriorita(v); dirtyRef.current = true; }}>
               <SelectTrigger>
                 <SelectValue />
@@ -421,4 +421,5 @@ function GoalFormDialogContent({
     </Dialog>
   );
 }
+
 

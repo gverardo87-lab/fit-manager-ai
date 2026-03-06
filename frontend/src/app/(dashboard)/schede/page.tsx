@@ -438,7 +438,7 @@ export default function SchedePage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Eliminare la scheda?</AlertDialogTitle>
             <AlertDialogDescription>
-              La scheda &ldquo;{deleteTarget?.nome}&rdquo; verra' eliminata. Questa azione non e' reversibile.
+              La scheda &ldquo;{deleteTarget?.nome}&rdquo; verra&apos; eliminata. Questa azione non e&apos; reversibile.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -514,3 +514,4 @@ function TableSkeleton() {
     </div>
   );
 }
+

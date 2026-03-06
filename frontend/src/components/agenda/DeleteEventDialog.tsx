@@ -58,7 +58,7 @@ export function DeleteEventDialog({
             <span className="font-semibold">
               {format(event.start, "dd MMMM yyyy, HH:mm", { locale: it })}
             </span>
-            . Questa azione non puo' essere annullata.
+            . Questa azione non puo&apos; essere annullata.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -80,3 +80,4 @@ export function DeleteEventDialog({
     </AlertDialog>
   );
 }
+

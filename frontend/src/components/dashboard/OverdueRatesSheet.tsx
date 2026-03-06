@@ -195,7 +195,7 @@ export function OverdueRatesSheet({ open, onOpenChange }: OverdueRatesSheetProps
                       {item.importo_saldato > 0 && (
                         <div>
                           <p className="text-[10px] text-muted-foreground uppercase">
-                            Gia' versato
+                            Gia&apos; versato
                           </p>
                           <p className="text-sm font-medium text-muted-foreground tabular-nums">
                             {formatCurrency(item.importo_saldato)} / {formatCurrency(item.importo_previsto)}
@@ -246,3 +246,4 @@ export function OverdueRatesSheet({ open, onOpenChange }: OverdueRatesSheetProps
     </Sheet>
   );
 }
+

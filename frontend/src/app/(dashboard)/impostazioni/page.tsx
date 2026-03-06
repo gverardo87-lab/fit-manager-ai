@@ -6,7 +6,7 @@
  *
  * Sezioni:
  * 1. Backup Database — crea, lista, scarica, ripristina
- * 2. Export Dati — download JSON (GDPR / portabilita')
+ * 2. Export Dati — download JSON (GDPR / portabilita&apos;)
  *
  * Scalabile: future sezioni (profilo, sicurezza, tema) si aggiungono qui.
  */
@@ -304,7 +304,7 @@ export default function ImpostazioniPage() {
               <div>
                 <CardTitle>Export Dati</CardTitle>
                 <CardDescription>
-                  Scarica tutti i tuoi dati in formato JSON (GDPR / portabilita')
+                  Scarica tutti i tuoi dati in formato JSON (GDPR / portabilita&apos;)
                 </CardDescription>
               </div>
             </div>
@@ -335,14 +335,14 @@ export default function ImpostazioniPage() {
               Ripristinare il backup?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Il database corrente verra' sovrascritto con{" "}
+              Il database corrente verra&apos; sovrascritto con{" "}
               <span className="font-mono font-medium">{restoreFilename}</span>.
               <br />
-              Un backup di sicurezza verra' creato automaticamente prima del
+              Un backup di sicurezza verra&apos; creato automaticamente prima del
               ripristino.
               <br />
               <strong>
-                Dopo il ripristino sara' necessario riavviare il server.
+                Dopo il ripristino sara&apos; necessario riavviare il server.
               </strong>
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -485,4 +485,8 @@ function SaldoInizialeSection() {
     </Card>
   );
 }
+
+
+
+
 

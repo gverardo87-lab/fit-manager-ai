@@ -163,7 +163,7 @@ export function StepStileVita({ data, onChange }: StepProps) {
       <div className="grid gap-4 sm:grid-cols-3">
         {/* Livello attivita' */}
         <div className="space-y-1.5">
-          <label className="text-sm font-medium">Livello di attivita' fisica</label>
+          <label className="text-sm font-medium">Livello di attivita&apos; fisica</label>
           <Select
             value={data.livello_attivita}
             onValueChange={(v) => onChange({ livello_attivita: v })}
@@ -269,3 +269,4 @@ export function StepObiettivi({ data, onChange }: StepProps) {
     </div>
   );
 }
+

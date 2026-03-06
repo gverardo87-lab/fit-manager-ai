@@ -202,7 +202,7 @@ export default function GuidaPage() {
       <section className="space-y-3">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-base font-semibold tracking-tight">Scopri le funzionalita' avanzate</h2>
+          <h2 className="text-base font-semibold tracking-tight">Scopri le funzionalita&apos; avanzate</h2>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           {FEATURE_CARDS.map((card) => {
@@ -236,3 +236,4 @@ export default function GuidaPage() {
     </div>
   );
 }
+

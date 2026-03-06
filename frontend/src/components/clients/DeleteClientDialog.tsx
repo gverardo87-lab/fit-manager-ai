@@ -54,7 +54,7 @@ export function DeleteClientDialog({
             <span className="font-semibold">
               {client.nome} {client.cognome}
             </span>
-            . Questa azione non puo' essere annullata.
+            . Questa azione non puo&apos; essere annullata.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -76,3 +76,4 @@ export function DeleteClientDialog({
     </AlertDialog>
   );
 }
+
