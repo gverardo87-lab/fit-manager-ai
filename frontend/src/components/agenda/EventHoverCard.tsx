@@ -52,44 +52,59 @@ export function EventHoverCard({ event, onQuickAction, children }: EventHoverCar
   const enterTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const leaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const calculatePosition = useCallback(() => {
+    if (!triggerRef.current) {
+      setPosition(null);
+      return;
+    }
+    const rect = triggerRef.current.getBoundingClientRect();
+    const popupWidth = 260;
+    let left = rect.left + rect.width / 2 - popupWidth / 2;
+    left = Math.max(8, Math.min(left, window.innerWidth - popupWidth - 8));
+    setPosition({ top: rect.bottom + 4, left });
+  }, []);
+
   const handleMouseEnter = useCallback(() => {
     if (leaveTimeout.current) {
       clearTimeout(leaveTimeout.current);
       leaveTimeout.current = null;
     }
-    enterTimeout.current = setTimeout(() => setOpen(true), 350);
-  }, []);
+    enterTimeout.current = setTimeout(() => {
+      calculatePosition();
+      setOpen(true);
+    }, 350);
+  }, [calculatePosition]);
 
   const handleMouseLeave = useCallback(() => {
     if (enterTimeout.current) {
       clearTimeout(enterTimeout.current);
       enterTimeout.current = null;
     }
-    leaveTimeout.current = setTimeout(() => setOpen(false), 200);
-  }, []);
-
-  // Calcola posizione del popup quando si apre
-  useEffect(() => {
-    if (!open || !triggerRef.current) {
+    leaveTimeout.current = setTimeout(() => {
+      setOpen(false);
       setPosition(null);
-      return;
-    }
-    const rect = triggerRef.current.getBoundingClientRect();
-    const popupWidth = 260;
-    // Centra orizzontalmente rispetto al trigger, sotto di esso
-    let left = rect.left + rect.width / 2 - popupWidth / 2;
-    // Evita di uscire dal viewport a sinistra/destra
-    left = Math.max(8, Math.min(left, window.innerWidth - popupWidth - 8));
-    setPosition({ top: rect.bottom + 4, left });
-  }, [open]);
+    }, 200);
+  }, []);
 
   const handleAction = useCallback(
     (stato: string) => {
       setOpen(false);
+      setPosition(null);
       onQuickAction?.(event.id, stato);
     },
     [event.id, onQuickAction]
   );
+
+  useEffect(() => {
+    if (!open) return;
+    const syncPosition = () => calculatePosition();
+    window.addEventListener("resize", syncPosition);
+    window.addEventListener("scroll", syncPosition, true);
+    return () => {
+      window.removeEventListener("resize", syncPosition);
+      window.removeEventListener("scroll", syncPosition, true);
+    };
+  }, [open, calculatePosition]);
 
   // Cleanup timeouts
   useEffect(() => {

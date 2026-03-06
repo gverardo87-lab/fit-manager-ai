@@ -14,24 +14,20 @@
  * - Se presente, renderizza i children normalmente
  */
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { isAuthenticated } from "@/lib/auth";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const [checked, setChecked] = useState(false);
+  const authenticated = isAuthenticated();
 
   useEffect(() => {
-    if (!isAuthenticated()) {
-      router.replace("/login");
-    } else {
-      setChecked(true);
-    }
-  }, [router]);
+    if (!authenticated) router.replace("/login");
+  }, [authenticated, router]);
 
   // Non renderizzare nulla finche' non abbiamo verificato l'auth
-  if (!checked) return null;
+  if (!authenticated) return null;
 
   return <>{children}</>;
 }

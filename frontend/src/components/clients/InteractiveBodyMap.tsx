@@ -59,6 +59,10 @@ import type {
 const COLOR_TEAL_LIGHT = "oklch(0.55 0.15 170)";
 const COLOR_TEAL_DARK = "oklch(0.70 0.15 170)";
 
+function getInitialIsMobile() {
+  return typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches;
+}
+
 // Metriche dove calare e' positivo (per delta color nel detail)
 const LOWER_IS_BETTER_IDS = new Set([9, 10]); // Vita, Fianchi
 
@@ -112,10 +116,9 @@ export function InteractiveBodyMap({
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
 
   // Responsive
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(getInitialIsMobile);
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 768px)");
-    setIsMobile(mq.matches);
     const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);

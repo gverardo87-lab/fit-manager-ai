@@ -20,6 +20,10 @@ import type { SafetyConditionDetail } from "@/types/api";
 const COLORS_LIGHT = ["#dc2626", "#d97706", "#2563eb"] as const; // red-600, amber-600, blue-600
 const COLORS_DARK = ["#ef4444", "#f59e0b", "#3b82f6"] as const;  // red-500, amber-500, blue-500
 
+function getInitialIsMobile() {
+  return typeof window !== "undefined" && window.matchMedia("(max-width: 640px)").matches;
+}
+
 interface RiskBodyMapProps {
   /** Tutte le condizioni uniche rilevate (con body_tags e severita) */
   conditions: SafetyConditionDetail[];
@@ -63,10 +67,9 @@ export function RiskBodyMap({ conditions }: RiskBodyMapProps) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
 
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(getInitialIsMobile);
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 640px)");
-    setIsMobile(mq.matches);
     const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);

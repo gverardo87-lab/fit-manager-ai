@@ -11,7 +11,7 @@
  * Scalabile: future sezioni (profilo, sicurezza, tema) si aggiungono qui.
  */
 
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState } from "react";
 import {
   Settings,
   Database,
@@ -366,16 +366,23 @@ function SaldoInizialeSection() {
   const { data: saldoData, isLoading } = useSaldoIniziale();
   const updateSaldo = useUpdateSaldoIniziale();
 
-  const [importo, setImporto] = useState("");
-  const [dataInizio, setDataInizio] = useState("");
-  const [userHasEdited, setUserHasEdited] = useState(false);
+  const [draft, setDraft] = useState<{ importo: string; dataInizio: string } | null>(null);
+  const importo = draft?.importo ?? (saldoData ? String(saldoData.saldo_iniziale_cassa) : "");
+  const dataInizio = draft?.dataInizio ?? (saldoData?.data_saldo_iniziale ?? "");
 
-  // Sync server → local (solo al caricamento iniziale, non sovrascrive modifiche utente)
-  useEffect(() => {
-    if (!saldoData || userHasEdited) return;
-    setImporto(String(saldoData.saldo_iniziale_cassa));
-    setDataInizio(saldoData.data_saldo_iniziale ?? "");
-  }, [saldoData, userHasEdited]);
+  const setImportoDraft = (nextImporto: string) => {
+    setDraft((prev) => ({
+      importo: nextImporto,
+      dataInizio: prev?.dataInizio ?? (saldoData?.data_saldo_iniziale ?? ""),
+    }));
+  };
+
+  const setDataInizioDraft = (nextDataInizio: string) => {
+    setDraft((prev) => ({
+      importo: prev?.importo ?? (saldoData ? String(saldoData.saldo_iniziale_cassa) : ""),
+      dataInizio: nextDataInizio,
+    }));
+  };
 
   const handleSave = () => {
     const parsed = parseFloat(importo);
@@ -385,7 +392,7 @@ function SaldoInizialeSection() {
         saldo_iniziale_cassa: parsed,
         data_saldo_iniziale: dataInizio || null,
       },
-      { onSuccess: () => setUserHasEdited(false) },
+      { onSuccess: () => setDraft(null) },
     );
   };
 
@@ -433,7 +440,7 @@ function SaldoInizialeSection() {
               step="0.01"
               placeholder="0.00"
               value={importo}
-              onChange={(e) => { setImporto(e.target.value); setUserHasEdited(true); }}
+              onChange={(e) => setImportoDraft(e.target.value)}
             />
           </div>
 
@@ -446,7 +453,7 @@ function SaldoInizialeSection() {
                 id="data-saldo"
                 type="date"
                 value={dataInizio}
-                onChange={(e) => { setDataInizio(e.target.value); setUserHasEdited(true); }}
+                onChange={(e) => setDataInizioDraft(e.target.value)}
                 className="pl-10"
               />
             </div>
@@ -478,3 +485,4 @@ function SaldoInizialeSection() {
     </Card>
   );
 }
+

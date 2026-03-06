@@ -10,7 +10,7 @@
  * dal database, in base a pattern_movimento/categoria e difficolta.
  */
 
-import { useCallback, useMemo, useState, useEffect } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Zap, TrendingUp, Flame, FileText, User, Brain, Sparkles, Layers } from "lucide-react";
 
@@ -179,7 +179,15 @@ interface TemplateSelectorProps {
   clientId?: number;
 }
 
-export function TemplateSelector({ open, onOpenChange, clientId }: TemplateSelectorProps) {
+export function TemplateSelector(props: TemplateSelectorProps) {
+  const { open, clientId } = props;
+  if (!open) return null;
+
+  const dialogKey = `template-selector-${clientId ?? "none"}`;
+  return <TemplateSelectorDialog key={dialogKey} {...props} />;
+}
+
+function TemplateSelectorDialog({ open, onOpenChange, clientId }: TemplateSelectorProps) {
   const router = useRouter();
   const createWorkout = useCreateWorkout();
   const { data: exerciseData } = useExercises();
@@ -194,16 +202,6 @@ export function TemplateSelector({ open, onOpenChange, clientId }: TemplateSelec
   const [smartSessions, setSmartSessions] = useState<number>(4);
   const [smartObiettivo, setSmartObiettivo] = useState<string>("generale");
   const [smartLivello, setSmartLivello] = useState<string>("auto");
-
-  // Sync prop → state quando il dialog si apre (resetta TUTTA la config smart)
-  useEffect(() => {
-    if (open) {
-      setSelectedClientId(clientId ?? null);
-      setSmartSessions(4);
-      setSmartObiettivo("generale");
-      setSmartLivello("auto");
-    }
-  }, [open, clientId]);
 
   // Smart programming — profile client per scoring potenziato
   const { profile: smartProfile } = useSmartProgramming(selectedClientId);
@@ -598,3 +596,4 @@ export function TemplateSelector({ open, onOpenChange, clientId }: TemplateSelec
     </Dialog>
   );
 }
+

@@ -100,21 +100,28 @@ export default function MisurazionePage({
   // Previene sovrascrittura se React Query ri-fetcha i dati durante l'editing.
   const initializedEditId = useRef<number | null>(null);
   // Distingue "dati caricati dal server" da "utente ha effettivamente editato"
-  const userHasEditedRef = useRef(false);
+  const [userHasEdited, setUserHasEdited] = useState(false);
 
   // Initialize form from edit measurement (solo una volta per misurazione)
   useEffect(() => {
-    if (editMeasurement && initializedEditId.current !== editMeasurement.id) {
-      setDate(new Date(editMeasurement.data_misurazione));
-      setNote(editMeasurement.note ?? "");
-      const vals: Record<number, string> = {};
-      for (const v of editMeasurement.valori) {
-        vals[v.id_metrica] = String(v.valore);
-      }
-      setValues(vals);
-      initializedEditId.current = editMeasurement.id;
-      userHasEditedRef.current = false; // Reset: dati dal server, non editati
+    if (!editMeasurement || initializedEditId.current === editMeasurement.id) return;
+
+    const nextDate = new Date(editMeasurement.data_misurazione);
+    const nextNote = editMeasurement.note ?? "";
+    const nextValues: Record<number, string> = {};
+    for (const v of editMeasurement.valori) {
+      nextValues[v.id_metrica] = String(v.valore);
     }
+
+    const rafId = requestAnimationFrame(() => {
+      setDate(nextDate);
+      setNote(nextNote);
+      setValues(nextValues);
+      initializedEditId.current = editMeasurement.id;
+      setUserHasEdited(false); // Reset: dati dal server, non editati
+    });
+
+    return () => cancelAnimationFrame(rafId);
   }, [editMeasurement]);
 
   // Group metrics by category
@@ -136,11 +143,11 @@ export default function MisurazionePage({
 
   // Protezione dati: in create mode dirty = ha dati; in edit mode dirty = utente ha editato
   const hasFormData = filledCount > 0 || note.trim().length > 0;
-  const isDirty = isEdit ? userHasEditedRef.current : hasFormData;
+  const isDirty = isEdit ? userHasEdited : hasFormData;
   useUnsavedChanges({ dirty: isDirty });
 
   const handleValueChange = (metricId: number, val: string) => {
-    userHasEditedRef.current = true;
+    setUserHasEdited(true);
     setValues((prev) => ({ ...prev, [metricId]: val }));
   };
 
@@ -240,7 +247,7 @@ export default function MisurazionePage({
                 <Calendar
                   mode="single"
                   selected={date}
-                  onSelect={(d) => { if (d) { userHasEditedRef.current = true; setDate(d); } }}
+                  onSelect={(d) => { if (d) { setUserHasEdited(true); setDate(d); } }}
                   disabled={{ after: new Date() }}
                   locale={it}
                 />
@@ -316,7 +323,7 @@ export default function MisurazionePage({
             id="measurement-note"
             placeholder="Appunti sulla sessione di misurazione..."
             value={note}
-            onChange={(e) => { userHasEditedRef.current = true; setNote(e.target.value); }}
+            onChange={(e) => { setUserHasEdited(true); setNote(e.target.value); }}
             rows={4}
           />
         </CardContent>

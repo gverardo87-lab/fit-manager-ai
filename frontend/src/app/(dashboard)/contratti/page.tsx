@@ -12,7 +12,7 @@
  * - ContractSheet per crea/modifica, ContractDetailSheet per master-detail
  */
 
-import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { differenceInDays, parseISO, startOfToday } from "date-fns";
 import {
   Plus,
@@ -151,25 +151,31 @@ function matchesSituazione(c: ContractListItem, key: string): boolean {
 // ── Page Component ──
 
 export default function ContrattiPage() {
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [initialDeepLink] = useState(() => {
+    if (typeof window === "undefined") {
+      return { openFromDeepLink: false, defaultClientId: undefined as number | undefined };
+    }
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("new") !== "1") {
+      return { openFromDeepLink: false, defaultClientId: undefined as number | undefined };
+    }
+    const rawClientId = params.get("cliente");
+    const parsedClientId = rawClientId ? Number(rawClientId) : undefined;
+    return {
+      openFromDeepLink: true,
+      defaultClientId: Number.isFinite(parsedClientId) ? parsedClientId : undefined,
+    };
+  });
+  const [sheetOpen, setSheetOpen] = useState(() => initialDeepLink.openFromDeepLink);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [selectedContract, setSelectedContract] = useState<ContractListItem | null>(null);
-  const [defaultClientId, setDefaultClientId] = useState<number | undefined>();
+  const [defaultClientId] = useState<number | undefined>(() => initialDeepLink.defaultClientId);
 
   // ── Deep-link: ?new=1&cliente=X → auto-apre Sheet con cliente ──
-  const deepLinkConsumed = useRef(false);
   useEffect(() => {
-    if (deepLinkConsumed.current) return;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("new") === "1") {
-      deepLinkConsumed.current = true;
-      const cid = params.get("cliente");
-      if (cid) setDefaultClientId(Number(cid));
-      setSelectedContract(null);
-      setSheetOpen(true);
-      window.history.replaceState(window.history.state, "", window.location.pathname);
-    }
-  }, []);
+    if (!initialDeepLink.openFromDeepLink) return;
+    window.history.replaceState(window.history.state, "", window.location.pathname);
+  }, [initialDeepLink.openFromDeepLink]);
 
   // Filter state (sessionStorage → URL → default)
   const [activeStati, setActiveStati] = useState<Set<string>>(() => {

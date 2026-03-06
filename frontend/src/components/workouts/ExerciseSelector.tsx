@@ -185,7 +185,7 @@ export function ExerciseSelector({
   const [showFilters, setShowFilters] = useState(true);
   const [expandedSafetyId, setExpandedSafetyId] = useState<number | null>(null);
   const [expandedDetailId, setExpandedDetailId] = useState<number | null>(null);
-  const [recentStore, setRecentStore] = useState<RecentExerciseItem[]>([]);
+  const [recentStore, setRecentStore] = useState<RecentExerciseItem[]>(loadRecentExercises);
 
   // ── Debounce: input istantaneo, filtro ritardato 200ms ──
   const handleSearchChange = useCallback((value: string) => {
@@ -226,11 +226,6 @@ export function ExerciseSelector({
   }, [exercises, categoryFilter]);
 
   // Carica i recenti solo quando il dialog e aperto.
-  useEffect(() => {
-    if (!open) return;
-    setRecentStore(loadRecentExercises());
-  }, [open, recentSection]);
-
   // ── Available filter options (dynamic from current pool) ──
 
   const availablePatterns = useMemo(() => {

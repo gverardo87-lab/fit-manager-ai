@@ -10,7 +10,7 @@
  * Usato sia in modalita' creazione che modifica (prop `goal` opzionale).
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -81,7 +81,15 @@ const DIRECTION_OPTIONS: {
 // COMPONENT
 // ════════════════════════════════════════════════════════════
 
-export function GoalFormDialog({
+export function GoalFormDialog(props: GoalFormDialogProps) {
+  const { open, goal } = props;
+  if (!open) return null;
+
+  const dialogKey = `goal-form-${goal?.id ?? "new"}`;
+  return <GoalFormDialogContent key={dialogKey} {...props} />;
+}
+
+function GoalFormDialogContent({
   open,
   onOpenChange,
   clientId,
@@ -108,38 +116,20 @@ export function GoalFormDialog({
   }, [goalsData]);
 
   // ── Form state ──
-  const [metricId, setMetricId] = useState<string>("");
-  const [direzione, setDirezione] = useState<GoalDirection>("diminuire");
-  const [valoreTarget, setValoreTarget] = useState<string>("");
-  const [dataInizio, setDataInizio] = useState<Date | undefined>(new Date());
-  const [dataScadenza, setDataScadenza] = useState<Date | undefined>();
-  const [priorita, setPriorita] = useState<string>("3");
-  const [note, setNote] = useState<string>("");
+  const [metricId, setMetricId] = useState<string>(() => (goal ? String(goal.id_metrica) : ""));
+  const [direzione, setDirezione] = useState<GoalDirection>(() => goal?.direzione ?? "diminuire");
+  const [valoreTarget, setValoreTarget] = useState<string>(() =>
+    goal && goal.valore_target !== null ? String(goal.valore_target) : ""
+  );
+  const [dataInizio, setDataInizio] = useState<Date | undefined>(() =>
+    goal ? new Date(goal.data_inizio) : new Date()
+  );
+  const [dataScadenza, setDataScadenza] = useState<Date | undefined>(() =>
+    goal?.data_scadenza ? new Date(goal.data_scadenza) : undefined
+  );
+  const [priorita, setPriorita] = useState<string>(() => String(goal?.priorita ?? 3));
+  const [note, setNote] = useState<string>(() => goal?.note ?? "");
   const dirtyRef = useRef(false);
-
-  // ── Sync state on open/goal change ──
-  useEffect(() => {
-    if (!open) return;
-    dirtyRef.current = false;
-
-    if (goal) {
-      setMetricId(String(goal.id_metrica));
-      setDirezione(goal.direzione);
-      setValoreTarget(goal.valore_target !== null ? String(goal.valore_target) : "");
-      setDataInizio(new Date(goal.data_inizio));
-      setDataScadenza(goal.data_scadenza ? new Date(goal.data_scadenza) : undefined);
-      setPriorita(String(goal.priorita));
-      setNote(goal.note ?? "");
-    } else {
-      setMetricId("");
-      setDirezione("diminuire");
-      setValoreTarget("");
-      setDataInizio(new Date());
-      setDataScadenza(undefined);
-      setPriorita("3");
-      setNote("");
-    }
-  }, [open, goal]);
 
   // Protezione chiusura accidentale
   const guardedOpenChange = useCallback((newOpen: boolean) => {
@@ -431,3 +421,4 @@ export function GoalFormDialog({
     </Dialog>
   );
 }
+

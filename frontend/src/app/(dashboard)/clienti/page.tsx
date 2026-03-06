@@ -13,7 +13,7 @@
  * - DeleteClientDialog per conferma eliminazione
  */
 
-import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { loadFilters, saveFilters, getUrlParams, syncUrlParams } from "@/lib/url-state";
 import {
@@ -123,26 +123,28 @@ const SITUAZIONE_CHIPS: FilterChipDef[] = [
 
 // ── Page Component ──
 
+function getInitialDeepLinkState() {
+  if (typeof window === "undefined") {
+    return { openFromDeepLink: false };
+  }
+  const params = new URLSearchParams(window.location.search);
+  return { openFromDeepLink: params.get("new") === "1" };
+}
+
 export default function ClientiPage() {
+  const [initialDeepLink] = useState(getInitialDeepLinkState);
   // ── URL-backed filter state ──
   const pathname = usePathname();
 
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(() => initialDeepLink.openFromDeepLink);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<ClientEnriched | null>(null);
 
   // ── Deep-link: ?new=1 → auto-apre Sheet creazione ──
-  const deepLinkConsumed = useRef(false);
   useEffect(() => {
-    if (deepLinkConsumed.current) return;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("new") === "1") {
-      deepLinkConsumed.current = true;
-      setSelectedClient(null);
-      setSheetOpen(true);
-      window.history.replaceState(window.history.state, "", window.location.pathname);
-    }
-  }, []);
+    if (!initialDeepLink.openFromDeepLink) return;
+    window.history.replaceState(window.history.state, "", window.location.pathname);
+  }, [initialDeepLink.openFromDeepLink]);
 
   // Filter state (sessionStorage → URL → default)
   // Sidebar onClick cancella sessionStorage → fresh nav = default.

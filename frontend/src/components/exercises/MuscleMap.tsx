@@ -16,6 +16,10 @@ import { buildBodyData, FRONT_SLUGS, BACK_SLUGS } from "@/lib/muscle-map-utils";
 const COLORS_LIGHT = ["#2563eb", "#93c5fd"] as const; // blue-600, blue-300
 const COLORS_DARK = ["#3b82f6", "#60a5fa"] as const;  // blue-500, blue-400
 
+function getInitialIsMobile() {
+  return typeof window !== "undefined" && window.matchMedia("(max-width: 640px)").matches;
+}
+
 // ════════════════════════════════════════════════════════════
 // COMPONENT
 // ════════════════════════════════════════════════════════════
@@ -36,10 +40,9 @@ export function MuscleMap({ muscoliPrimari, muscoliSecondari, muscoliTerziari, s
   const isDark = resolvedTheme === "dark";
 
   // Responsive scale — usato solo se scale non è passato dall'esterno
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(getInitialIsMobile);
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 640px)");
-    setIsMobile(mq.matches);
     const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);

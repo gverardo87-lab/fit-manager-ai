@@ -56,8 +56,11 @@ export function AnimatedNumber({
 
     // Ottimizzazione: se delta è trascurabile, aggiorna direttamente
     if (Math.abs(target - startValueRef.current) < 0.01) {
-      setDisplayed(target);
       prevDisplayedRef.current = target;
+      rafRef.current = requestAnimationFrame(() => {
+        setDisplayed(target);
+        rafRef.current = null;
+      });
       return;
     }
 

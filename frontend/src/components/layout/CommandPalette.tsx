@@ -607,6 +607,23 @@ export function CommandPalette() {
   }, [assistantText, assistantMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Enter to commit in assistant mode ──
+  const handleCommit = useCallback(
+    (op: ParsedOperation) => {
+      commitMutation.mutate(
+        { intent: op.intent, payload: op.payload },
+        {
+          onSuccess: (data) => {
+            setOpen(false);
+            if (data.navigate_to) {
+              router.push(data.navigate_to);
+            }
+          },
+        },
+      );
+    },
+    [commitMutation, router],
+  );
+
   useEffect(() => {
     if (!open || !assistantMode || !parseResult?.success) return;
 

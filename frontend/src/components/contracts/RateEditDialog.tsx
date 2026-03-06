@@ -8,7 +8,7 @@
  * Rate con pagamenti: importo_previsto >= importo_saldato (validazione).
  */
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { format, parseISO } from "date-fns";
 import { Loader2, Info } from "lucide-react";
 
@@ -35,7 +35,15 @@ interface RateEditDialogProps {
   contractScadenza?: string;
 }
 
-export function RateEditDialog({
+export function RateEditDialog(props: RateEditDialogProps) {
+  const { open, rate } = props;
+  if (!open) return null;
+
+  const dialogKey = `rate-edit-${rate?.id ?? "new"}`;
+  return <RateEditDialogContent key={dialogKey} {...props} />;
+}
+
+function RateEditDialogContent({
   rate,
   open,
   onOpenChange,
@@ -43,18 +51,11 @@ export function RateEditDialog({
 }: RateEditDialogProps) {
   const updateMutation = useUpdateRate();
 
-  const [importo, setImporto] = useState("");
-  const [descrizione, setDescrizione] = useState("");
-  const [dataScadenza, setDataScadenza] = useState<Date | undefined>(undefined);
-
-  // Sync state quando la rata cambia (prop-driven open)
-  useEffect(() => {
-    if (rate && open) {
-      setImporto(String(rate.importo_previsto));
-      setDescrizione(rate.descrizione ?? "");
-      setDataScadenza(parseISO(rate.data_scadenza));
-    }
-  }, [rate, open]);
+  const [importo, setImporto] = useState(() => (rate ? String(rate.importo_previsto) : ""));
+  const [descrizione, setDescrizione] = useState(() => rate?.descrizione ?? "");
+  const [dataScadenza, setDataScadenza] = useState<Date | undefined>(() =>
+    rate ? parseISO(rate.data_scadenza) : undefined
+  );
 
   const hasPagamenti = (rate?.importo_saldato ?? 0) > 0;
   const importoNum = parseFloat(importo) || 0;

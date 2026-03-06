@@ -9,7 +9,7 @@
  * Pre-popolamento se anamnesi esistente (modifica).
  */
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
   Bone,
   Stethoscope,
@@ -68,7 +68,16 @@ interface AnamnesiWizardProps {
   existing: AnamnesiData | null;
 }
 
-export function AnamnesiWizard({
+export function AnamnesiWizard(props: AnamnesiWizardProps) {
+  const { open, existing, clientId } = props;
+  if (!open) return null;
+
+  const existingKey = existing?.data_ultimo_aggiornamento ?? existing?.data_compilazione ?? "new";
+  const dialogKey = `anamnesi-${clientId}-${existingKey}`;
+  return <AnamnesiWizardDialog key={dialogKey} {...props} />;
+}
+
+function AnamnesiWizardDialog({
   open,
   onOpenChange,
   clientId,
@@ -78,15 +87,6 @@ export function AnamnesiWizard({
   const [data, setData] = useState<AnamnesiData>(() => existing ?? getEmptyAnamnesi());
   const dirtyRef = useRef(false);
   const updateAnamnesi = useUpdateAnamnesi();
-
-  // Sync state quando il dialog si apre (modifica o nuova compilazione)
-  useEffect(() => {
-    if (open) {
-      setData(existing ?? getEmptyAnamnesi());
-      setStep(0);
-      dirtyRef.current = false;
-    }
-  }, [open, existing]);
 
   const handleChange = useCallback((updates: Partial<AnamnesiData>) => {
     setData((prev) => ({ ...prev, ...updates }));
