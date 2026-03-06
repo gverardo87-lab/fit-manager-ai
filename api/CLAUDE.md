@@ -18,7 +18,7 @@ A fine task:
 
 ```
 api/
-├── main.py              App factory, CORS, lifespan (backup+seed+integrity), 15 routers
+├── main.py              App factory, CORS, lifespan (backup+seed+integrity), 16 routers
 ├── config.py            DATABASE_URL (env/port-auto), CATALOG_DATABASE_URL, JWT_SECRET, DATA_DIR (sys.frozen-aware)
 ├── database.py          Dual engine (business + catalog) + session factories
 ├── dependencies.py      get_current_trainer() → JWT validation
@@ -47,7 +47,7 @@ api/
 │   ├── medical_condition.py condizioni_mediche + esercizi_condizioni (catalog junction)
 │   ├── audit_log.py     audit_log (timeline modifiche)
 │   └── todo.py          todos (trainer-owned)
-├── routers/             REST endpoints con Bouncer Pattern — 15 router
+├── routers/             REST endpoints con Bouncer Pattern — 16 router
 │   ├── _audit.py        log_audit() helper condiviso
 │   ├── agenda.py        CRUD eventi + credit guard + _sync_contract_chiuso
 │   ├── assistant.py     Parse + commit NLP (feature flag ASSISTANT_V1_ENABLED)
@@ -62,6 +62,7 @@ api/
 │   ├── rates.py         CRUD rate + pay/unpay atomic
 │   ├── recurring_expenses.py  CRUD spese fisse + close/rettifica
 │   ├── todos.py         CRUD todos + toggle completato
+│   ├── training_science.py  Generazione piani + analisi 4D + mesociclo (5 endpoint, zero DB)
 │   ├── workout_logs.py  CRUD log allenamenti (monitoraggio)
 │   └── workouts.py      CRUD schede + sessioni + esercizi (deep IDOR chain)
 ├── schemas/             Pydantic v2 — 8 moduli
@@ -73,15 +74,24 @@ api/
 │   ├── safety.py        SafetyMapResponse + ExerciseSafetyEntry
 │   ├── workout.py       WorkoutPlan/Session/Exercise Create/Update/Response
 │   └── workout_log.py   WorkoutLogCreate/Response
-└── services/            Business logic — 5 servizi + 1 parser (8 moduli)
+└── services/            Business logic — 6 servizi + 1 parser (18 moduli)
     ├── condition_rules.py  Regole deterministiche anamnesi → condizioni (80 pattern rules)
     ├── goal_engine.py      Calcolo progresso obiettivi
     ├── license.py          Verifica licenza JWT RSA (4-tier key resolution)
     ├── safety_engine.py    Safety map per-esercizio (extract conditions + build map)
-    └── assistant_parser/   Parser NLP deterministico (6 moduli)
-        ├── normalizer.py, intent_classifier.py, entity_extractor.py
-        ├── entity_resolver.py, confidence.py, orchestrator.py
-        └── commit_dispatcher.py
+    ├── assistant_parser/   Parser NLP deterministico (6 moduli)
+    │   ├── normalizer.py, intent_classifier.py, entity_extractor.py
+    │   ├── entity_resolver.py, confidence.py, orchestrator.py
+    │   └── commit_dispatcher.py
+    └── training_science/   Motore scientifico allenamento (10 moduli, ~2000 LOC)
+        ├── types.py, principles.py            — Fondamenta (enum, parametri carico)
+        ├── muscle_contribution.py             — Matrice EMG 18x15 + dual volume
+        ├── volume_model.py                    — MEV/MAV/MRV per muscolo x livello
+        ├── balance_ratios.py                  — Rapporti biomeccanici (5 ratio)
+        ├── split_logic.py, session_order.py   — Split + ordinamento fisiologico
+        ├── plan_builder.py                    — Generatore 4 fasi + feedback loop
+        ├── plan_analyzer.py                   — Analisi 4D (score 0-100)
+        └── periodization.py                   — Mesociclo a blocchi (4-6 sett)
 ```
 
 ## Pattern Obbligatori

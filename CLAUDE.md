@@ -332,6 +332,58 @@ useUpdateWorkout() → attivazione/modifica date
 File chiave: `lib/workout-monitoring.ts` (utility), `app/(dashboard)/allenamenti/page.tsx` (pagina),
 `api/models/workout_log.py` (modello), `api/routers/workout_logs.py` (4 endpoint).
 
+### Training Science Engine — Motore Scientifico Backend
+
+> **Filosofia: ogni numero ha una fonte bibliografica.** Zero inventato, zero approssimato.
+> Motore deterministico backend che genera piani di allenamento volume-driven
+> e li analizza su 4 dimensioni scientifiche.
+
+**Architettura a 10 moduli** (`api/services/training_science/`, ~2000 LOC):
+
+| Fase | Modulo | Responsabilita' |
+|------|--------|----------------|
+| Phase 1 | `types.py` | Enum e modelli Pydantic (vocabolario del dominio) |
+| Phase 1 | `principles.py` | Parametri di carico per obiettivo (NSCA/ACSM/Schoenfeld) |
+| Phase 1 | `muscle_contribution.py` | Matrice contribuzione EMG 18x15 + volume ipertrofico pesato |
+| Phase 1 | `volume_model.py` | MEV/MAV/MRV per muscolo x livello + classificazione |
+| Phase 1 | `balance_ratios.py` | Rapporti biomeccanici push:pull, quad:ham, ant:post |
+| Phase 2 | `split_logic.py` | Frequenza -> split ottimale + struttura sessioni |
+| Phase 2 | `session_order.py` | Ordinamento fisiologico (SNC-demanding first) |
+| Phase 2 | `plan_builder.py` | Generatore volume-driven a 4 fasi con feedback loop |
+| Phase 2 | `plan_analyzer.py` | Analisi 4D (volume, balance, frequenza, recupero) |
+| Phase 3 | `periodization.py` | Mesociclo (progressione volume lineare + deload) |
+
+**Concetti chiave**:
+- **Dual volume computation**: `compute_effective_sets()` (meccanico, per balance/recovery) vs
+  `compute_hypertrophy_sets()` (pesato, per MEV/MAV/MRV — soglia EMG 40% MVC, Schoenfeld 2017)
+- **Volume model**: MEV (sotto = zero stimolo), MAV (range ottimale), MRV (oltre = overtraining).
+  15 muscoli x 3 livelli = 45 combinazioni. Scalati per obiettivo via `fattore_volume`
+- **Plan builder 4 fasi**: (1) compound base, (2) boost compound per deficit, (3) compensazione isolation,
+  (4) feedback loop se muscoli critici ancora sotto MEV
+- **Periodizzazione a blocchi**: accumulazione -> intensificazione -> overreaching -> deload.
+  Durata: principiante 4, intermedio 5, avanzato 6 settimane. Deload a 50% (Helms 2019)
+- **Frequency clamp**: principiante max 3x, intermedio max 5x, avanzato max 6x (NSCA 2016)
+
+**API REST** (5 endpoint in `api/routers/training_science.py`, prefix `/training-science`):
+
+| Endpoint | Metodo | Descrizione |
+|----------|--------|-------------|
+| `/plan` | POST | Genera piano settimanale volume-driven |
+| `/analyze` | POST | Analisi 4D (volume, balance, frequenza, recupero) |
+| `/mesocycle` | POST | Genera mesociclo con periodizzazione a blocchi |
+| `/parameters/{obiettivo}` | GET | Parametri di carico NSCA/ACSM |
+| `/volume-targets` | GET | Target MEV/MAV/MRV per livello x obiettivo |
+
+Tutti computazionali puri (zero DB). JWT auth. Schema input inline nel router (3 Pydantic model).
+
+**Fonti**: NSCA 2016, ACSM 2009, Schoenfeld 2010/2017/2021, Krieger 2010, Israetel RP 2020,
+Bompa 2019, Helms 2019, Contreras 2010, Alentorn-Geli 2009, Sahrmann 2002, Zourdos 2016.
+
+Spec dettagliata: `docs/upgrades/specs/TRAINING-SCIENCE-SPEC.md`
+Roadmap: `docs/upgrades/specs/KINESCORE-ROADMAP.md`
+
+File chiave: `api/services/training_science/` (10 moduli), `api/routers/training_science.py` (5 endpoint).
+
 ### Smart Programming Engine — Motore 14 Dimensioni
 
 > **Filosofia: INFORMARE, mai LIMITARE.** Zero Ollama. Tutto client-side deterministico.
@@ -694,9 +746,9 @@ frontend/          Next.js 16 + React 19 + TypeScript
        v
 api/               FastAPI + SQLModel ORM — Dual Engine
   models/          19 modelli ORM (SQLAlchemy table=True)
-  routers/         15 router con Bouncer Pattern + Deep IDOR
+  routers/         16 router con Bouncer Pattern + Deep IDOR
   schemas/         Pydantic v2 (input/output validation)
-  services/        Safety Engine, Goal Engine
+  services/        Safety Engine, Goal Engine, Training Science Engine (10 moduli)
        |
        v
 SQLite (Dual-DB)
@@ -1283,7 +1335,7 @@ sqlite3 data/catalog.db ".tables"
 
 ## Metriche Progetto
 
-- **api/**: ~15,000 LOC Python — 19 modelli ORM, 15 router, 8 schema modules, 5 services + 1 parser (8 moduli)
+- **api/**: ~17,000 LOC Python — 19 modelli ORM, 16 router, 8 schema modules, 6 services + 1 parser (18 moduli)
 - **frontend/**: ~18,000 LOC TypeScript — ~80 componenti, 17 hook modules, 21 pagine
 - **core/**: ~10,300 LOC Python — moduli AI (RAG, exercise archive) in attesa di API endpoints
 - **tools/admin_scripts/**: ~3,200 LOC Python — 16 script (import, quality engine, taxonomy, seed, test, QA clinica)
