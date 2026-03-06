@@ -101,21 +101,37 @@ def test_clinical_readiness_prioritizes_missing_and_legacy(client, auth_headers,
     # Priority order: missing anamnesi -> legacy anamnesi -> missing workout -> ready
     assert items[0]["client_id"] == c_missing["id"]
     assert items[0]["next_action_code"] == "collect_anamnesi"
+    assert items[0]["next_action_href"] == f"/clienti/{c_missing['id']}/anamnesi?startWizard=1"
     assert items[0]["priority"] == "high"
+    assert items[0]["timeline_reason"] == "anamnesi_missing"
+    assert items[0]["timeline_status"] == "today"
+    assert items[0]["next_due_date"] == date.today().isoformat()
+    assert items[0]["days_to_due"] == 0
 
     assert items[1]["client_id"] == c_legacy["id"]
     assert items[1]["next_action_code"] == "migrate_anamnesi"
+    assert items[1]["next_action_href"] == f"/clienti/{c_legacy['id']}/anamnesi?startWizard=1"
     assert items[1]["priority"] == "high"
+    assert items[1]["timeline_reason"] == "anamnesi_legacy"
+    assert items[1]["timeline_status"] == "today"
+    assert items[1]["next_due_date"] == date.today().isoformat()
+    assert items[1]["days_to_due"] == 0
 
     assert items[2]["client_id"] == c_workout_missing["id"]
     assert items[2]["next_action_code"] == "assign_workout"
-    assert items[2]["next_action_href"] == f"/clienti/{c_workout_missing['id']}?tab=schede"
+    assert items[2]["next_action_href"] == f"/clienti/{c_workout_missing['id']}?tab=schede&startScheda=1"
     assert items[2]["priority"] == "medium"
+    assert items[2]["timeline_reason"] == "workout_missing"
+    assert items[2]["timeline_status"] == "today"
+    assert items[2]["next_due_date"] == date.today().isoformat()
+    assert items[2]["days_to_due"] == 0
 
     assert items[3]["client_id"] == c_ready["id"]
     assert items[3]["next_action_code"] == "ready"
     assert items[3]["readiness_score"] == 100
     assert items[3]["priority"] == "low"
+    assert items[3]["timeline_reason"] == "measurement_review"
+    assert items[3]["next_due_date"] == "2026-04-01"
 
 
 def test_clinical_readiness_enforces_trainer_isolation(client, auth_headers):

@@ -13,7 +13,7 @@
  * Primo dynamic route dell'app. Params unwrapped con React 19 use().
  */
 
-import { use, useState, useCallback } from "react";
+import { use, useState, useCallback, useEffect, useRef } from "react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
@@ -73,12 +73,14 @@ export default function ClientProfilePage({
   const { data: client, isLoading } = useClient(clientId);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
+  const autoOpenSchedaConsumedRef = useRef(false);
 
   // ── URL-backed tab state ──
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
   const activeTab = searchParams.get("tab") ?? "panoramica";
+  const shouldAutoOpenScheda = searchParams.get("startScheda") === "1";
   const handleTabChange = useCallback((value: string) => {
     const params = new URLSearchParams(searchParams.toString());
     if (value === "panoramica") params.delete("tab");
@@ -86,6 +88,20 @@ export default function ClientProfilePage({
     const qs = params.toString();
     router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
   }, [searchParams, pathname, router]);
+
+  useEffect(() => {
+    if (!shouldAutoOpenScheda || autoOpenSchedaConsumedRef.current) return;
+    autoOpenSchedaConsumedRef.current = true;
+
+    // Consuma il flag dall'URL per evitare riapertura su refresh/back
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("startScheda");
+    const qs = params.toString();
+    router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+
+    const rafId = window.requestAnimationFrame(() => setTemplateSelectorOpen(true));
+    return () => window.cancelAnimationFrame(rafId);
+  }, [shouldAutoOpenScheda, searchParams, pathname, router]);
 
   if (isLoading) return <ProfileSkeleton />;
   if (!client) {
@@ -273,7 +289,6 @@ function ContrattiTab({ clientId }: { clientId: number }) {
         <TableBody>
           {contracts.map((c: ContractListItem) => {
             const prezzo = c.prezzo_totale ?? 0;
-            const ratio = prezzo > 0 ? c.totale_versato / prezzo : 0;
             return (
               <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => router.push(`/contratti/${c.id}?from=clienti-${clientId}`)}>
                 <TableCell className="font-medium">{c.tipo_pacchetto ?? "—"}</TableCell>

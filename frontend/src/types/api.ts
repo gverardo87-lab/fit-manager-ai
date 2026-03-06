@@ -721,6 +721,10 @@ export interface ClinicalReadinessClientItem {
   next_action_code: ClinicalNextActionCode;
   next_action_label: string;
   next_action_href: string;
+  next_due_date: string | null; // ISO date YYYY-MM-DD
+  days_to_due: number | null;
+  timeline_status: "overdue" | "today" | "upcoming_7d" | "upcoming_14d" | "future" | "none";
+  timeline_reason: string | null;
 }
 
 /** Contatori aggregati della coda readiness */

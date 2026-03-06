@@ -14,6 +14,7 @@
  */
 
 import { useState, useCallback, useMemo, useEffect } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { loadFilters, saveFilters, getUrlParams, syncUrlParams } from "@/lib/url-state";
 import { usePageReveal } from "@/lib/page-reveal";
@@ -273,10 +274,18 @@ export default function ClientiPage() {
             )}
           </div>
         </div>
-        <Button data-guide="clienti-new-button" onClick={handleNewClient}>
-          <Plus className="h-4 w-4 sm:mr-2" />
-          <span className="hidden sm:inline">Nuovo Cliente</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Link href="/clienti/myportal">
+            <Button variant="outline">
+              <Eye className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">MyPortal</span>
+            </Button>
+          </Link>
+          <Button data-guide="clienti-new-button" onClick={handleNewClient}>
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Nuovo Cliente</span>
+          </Button>
+        </div>
       </div>
 
       {/* ── KPI Cards ── */}
@@ -414,7 +423,6 @@ function FilterBar({
           {STATO_CHIPS.map((chip) => {
             const active = activeStati.has(chip.key);
             const Icon = active ? Eye : EyeOff;
-            const ChipIcon = chip.icon;
             return (
               <button
                 key={chip.key}
@@ -450,7 +458,6 @@ function FilterBar({
           {SITUAZIONE_CHIPS.map((chip) => {
             const active = activeSituazioni.has(chip.key);
             const Icon = active ? Eye : EyeOff;
-            const ChipIcon = chip.icon;
             return (
               <button
                 key={chip.key}

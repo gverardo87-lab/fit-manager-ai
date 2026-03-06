@@ -11,8 +11,9 @@
  * Back button: torna al profilo cliente.
  */
 
-import { use, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, HeartPulse, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -30,9 +31,29 @@ export default function AnamnesiPage({
 }) {
   const { id } = use(params);
   const clientId = parseInt(id, 10);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
 
   const { data: client, isLoading } = useClient(clientId);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const autoOpenWizardConsumedRef = useRef(false);
+
+  const shouldAutoOpenWizard = searchParams.get("startWizard") === "1";
+
+  useEffect(() => {
+    if (!shouldAutoOpenWizard || autoOpenWizardConsumedRef.current) return;
+    autoOpenWizardConsumedRef.current = true;
+
+    // Consuma il flag dall'URL per evitare riaperture involontarie
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("startWizard");
+    const qs = params.toString();
+    router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+
+    const rafId = window.requestAnimationFrame(() => setWizardOpen(true));
+    return () => window.cancelAnimationFrame(rafId);
+  }, [shouldAutoOpenWizard, searchParams, router, pathname]);
 
   if (isLoading) {
     return (

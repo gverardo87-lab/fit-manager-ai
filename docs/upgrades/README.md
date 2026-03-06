@@ -68,3 +68,6 @@ Esempio:
 - `UPG-2026-03-06-28`: `TodoCard` evoluta in "Azione consigliata" con priorita cross-signal (todo + alert + agenda) e CTA operative dirette; rimosso `Date.now` dai path render per rispettare React purity lint.
 - `UPG-2026-03-06-29`: dashboard resa piu' densa e operativa: eliminata barra focus ridondante, KPI ridotti ai due essenziali, top layout 50/50 con promemoria post-it a sinistra e pannello unico clock+sedute scorrevoli a destra.
 - `UPG-2026-03-06-30`: introdotta coda "Clinical Readiness" (API + dashboard) per onboarding legacy: priorita deterministica su anamnesi/baseline/scheda, KPI readiness e CTA dirette cliente-per-cliente con test backend multi-tenant dedicati.
+- `UPG-2026-03-06-31`: CTA readiness rese realmente one-click con auto-avvio guidato (wizard anamnesi e selector scheda) tramite deep-link con flag consumati in URL, riducendo i click operativi nel flusso iniziale.
+- `UPG-2026-03-06-32`: introdotta pagina `Clienti > MyPortal` come board readiness dedicata (anamnesi/misurazioni/scheda per cliente) con filtri e ricerca, riusando la stessa fonte calcolo della dashboard senza appesantire il backend.
+- `UPG-2026-03-06-33`: timeline scadenze operativa in MyPortal/readiness con date e urgenze calcolate lato API (`next_due_date`, `days_to_due`, `timeline_status`, `timeline_reason`) per tracciare in modo affidabile cosa scade e quando.

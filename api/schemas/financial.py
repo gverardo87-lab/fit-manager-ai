@@ -432,6 +432,10 @@ class ClinicalReadinessClientItem(BaseModel):
     next_action_code: str                # collect_anamnesi | migrate_anamnesi | collect_baseline | assign_workout | ready
     next_action_label: str
     next_action_href: str
+    next_due_date: Optional[date] = None
+    days_to_due: Optional[int] = None
+    timeline_status: str = "none"        # overdue | today | upcoming_7d | upcoming_14d | future | none
+    timeline_reason: Optional[str] = None
 
 
 class ClinicalReadinessSummary(BaseModel):

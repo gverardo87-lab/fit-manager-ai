@@ -664,10 +664,123 @@ def _get_anamnesi_state(anamnesi_json: str | None) -> str:
     return "legacy"
 
 
+def _parse_iso_date(value: str | date | datetime | None) -> date | None:
+    """Parse robusto di date ISO (`YYYY-MM-DD` o datetime ISO)."""
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    normalized = value.strip()
+    if not normalized:
+        return None
+    try:
+        # Supporta datetime ISO (`2026-03-06T10:30:00+00:00`) e date pure.
+        return date.fromisoformat(normalized[:10])
+    except ValueError:
+        return None
+
+
+def _extract_anamnesi_reference_date(anamnesi_json: str | None) -> date | None:
+    """
+    Data di riferimento anamnesi per timeline:
+    1) data_ultimo_aggiornamento
+    2) data_compilazione
+    """
+    if not anamnesi_json:
+        return None
+
+    try:
+        data = json.loads(anamnesi_json)
+    except (TypeError, json.JSONDecodeError):
+        return None
+
+    if not isinstance(data, dict):
+        return None
+
+    updated = _parse_iso_date(data.get("data_ultimo_aggiornamento"))
+    if updated:
+        return updated
+    return _parse_iso_date(data.get("data_compilazione"))
+
+
+def _compute_timeline_due(
+    *,
+    reference_date: date,
+    anamnesi_state: str,
+    has_measurements: bool,
+    has_workout_plan: bool,
+    latest_measurement_date: date | None,
+    latest_workout_updated_at: str | date | datetime | None,
+    anamnesi_reference_date: date | None,
+) -> tuple[date | None, int | None, str, str | None]:
+    """
+    Timeline operativa scadenze (non clinico-medicale):
+    - gap strutturali: scadenza immediata (oggi)
+    - profili pronti: review periodiche (misure/scheda/anamnesi)
+    """
+    if anamnesi_state == "missing":
+        due_date = reference_date
+        days_to_due = 0
+        return due_date, days_to_due, "today", "anamnesi_missing"
+
+    if anamnesi_state == "legacy":
+        due_date = reference_date
+        days_to_due = 0
+        return due_date, days_to_due, "today", "anamnesi_legacy"
+
+    if not has_measurements:
+        due_date = reference_date
+        days_to_due = 0
+        return due_date, days_to_due, "today", "baseline_missing"
+
+    if not has_workout_plan:
+        due_date = reference_date
+        days_to_due = 0
+        return due_date, days_to_due, "today", "workout_missing"
+
+    # Cliente pronto: review periodiche basate su ultimo aggiornamento disponibile
+    candidates: list[tuple[date, str]] = []
+
+    if latest_measurement_date is not None:
+        candidates.append((latest_measurement_date + timedelta(days=30), "measurement_review"))
+
+    latest_workout_date = _parse_iso_date(latest_workout_updated_at)
+    if latest_workout_date is not None:
+        candidates.append((latest_workout_date + timedelta(days=21), "workout_review"))
+
+    if anamnesi_reference_date is not None:
+        candidates.append((anamnesi_reference_date + timedelta(days=180), "anamnesi_review"))
+
+    if not candidates:
+        return None, None, "none", "monitoring"
+
+    due_date, reason = min(candidates, key=lambda item: item[0])
+    days_to_due = (due_date - reference_date).days
+
+    if days_to_due < 0:
+        status = "overdue"
+    elif days_to_due == 0:
+        status = "today"
+    elif days_to_due <= 7:
+        status = "upcoming_7d"
+    elif days_to_due <= 14:
+        status = "upcoming_14d"
+    else:
+        status = "future"
+
+    return due_date, days_to_due, status, reason
+
+
 def _build_clinical_readiness_item(
     client: Client,
     has_measurements: bool,
     has_workout_plan: bool,
+    latest_measurement_date: date | None,
+    latest_workout_updated_at: str | date | datetime | None,
+    anamnesi_reference_date: date | None,
+    reference_date: date,
 ) -> ClinicalReadinessClientItem:
     """Costruisce un item readiness con priorita' e next-best-action deterministiche."""
     anamnesi_state = _get_anamnesi_state(client.anamnesi_json)
@@ -703,11 +816,11 @@ def _build_clinical_readiness_item(
     if anamnesi_state == "missing":
         next_action_code = "collect_anamnesi"
         next_action_label = "Compila anamnesi"
-        next_action_href = f"/clienti/{client_id}/anamnesi"
+        next_action_href = f"/clienti/{client_id}/anamnesi?startWizard=1"
     elif anamnesi_state == "legacy":
         next_action_code = "migrate_anamnesi"
         next_action_label = "Rivedi anamnesi"
-        next_action_href = f"/clienti/{client_id}/anamnesi"
+        next_action_href = f"/clienti/{client_id}/anamnesi?startWizard=1"
     elif not has_measurements:
         next_action_code = "collect_baseline"
         next_action_label = "Registra baseline"
@@ -715,7 +828,7 @@ def _build_clinical_readiness_item(
     elif not has_workout_plan:
         next_action_code = "assign_workout"
         next_action_label = "Assegna scheda"
-        next_action_href = f"/clienti/{client_id}?tab=schede"
+        next_action_href = f"/clienti/{client_id}?tab=schede&startScheda=1"
     else:
         next_action_code = "ready"
         next_action_label = "Profilo pronto"
@@ -727,6 +840,16 @@ def _build_clinical_readiness_item(
         priority = "medium"
     else:
         priority = "low"
+
+    next_due_date, days_to_due, timeline_status, timeline_reason = _compute_timeline_due(
+        reference_date=reference_date,
+        anamnesi_state=anamnesi_state,
+        has_measurements=has_measurements,
+        has_workout_plan=has_workout_plan,
+        latest_measurement_date=latest_measurement_date,
+        latest_workout_updated_at=latest_workout_updated_at,
+        anamnesi_reference_date=anamnesi_reference_date,
+    )
 
     return ClinicalReadinessClientItem(
         client_id=client_id,
@@ -742,6 +865,10 @@ def _build_clinical_readiness_item(
         next_action_code=next_action_code,
         next_action_label=next_action_label,
         next_action_href=next_action_href,
+        next_due_date=next_due_date,
+        days_to_due=days_to_due,
+        timeline_status=timeline_status,
+        timeline_reason=timeline_reason,
     )
 
 
@@ -758,6 +885,8 @@ def get_clinical_readiness(
     2) baseline misurazioni presente?
     3) scheda allenamento assegnata?
     """
+    today = date.today()
+
     active_clients = session.exec(
         select(Client).where(
             Client.trainer_id == trainer.id,
@@ -774,7 +903,7 @@ def get_clinical_readiness(
         )
 
     measurement_rows = session.exec(
-        select(ClientMeasurement.id_cliente)
+        select(ClientMeasurement.id_cliente, func.max(ClientMeasurement.data_misurazione))
         .where(
             ClientMeasurement.trainer_id == trainer.id,
             ClientMeasurement.deleted_at == None,
@@ -782,10 +911,18 @@ def get_clinical_readiness(
         )
         .group_by(ClientMeasurement.id_cliente)
     ).all()
-    clients_with_measurements = set(measurement_rows)
+    latest_measurement_by_client = {
+        row[0]: row[1]
+        for row in measurement_rows
+        if row[0] is not None
+    }
+    clients_with_measurements = set(latest_measurement_by_client.keys())
 
     workout_rows = session.exec(
-        select(WorkoutPlan.id_cliente)
+        select(
+            WorkoutPlan.id_cliente,
+            func.max(func.coalesce(WorkoutPlan.updated_at, WorkoutPlan.created_at)),
+        )
         .where(
             WorkoutPlan.trainer_id == trainer.id,
             WorkoutPlan.deleted_at == None,
@@ -794,17 +931,27 @@ def get_clinical_readiness(
         )
         .group_by(WorkoutPlan.id_cliente)
     ).all()
-    clients_with_workout = {cid for cid in workout_rows if cid is not None}
+    latest_workout_by_client = {
+        row[0]: row[1]
+        for row in workout_rows
+        if row[0] is not None
+    }
+    clients_with_workout = set(latest_workout_by_client.keys())
 
     items = []
     for client in active_clients:
         if client.id is None:
             continue
+        client_id = client.id
         items.append(
             _build_clinical_readiness_item(
                 client=client,
-                has_measurements=client.id in clients_with_measurements,
-                has_workout_plan=client.id in clients_with_workout,
+                has_measurements=client_id in clients_with_measurements,
+                has_workout_plan=client_id in clients_with_workout,
+                latest_measurement_date=latest_measurement_by_client.get(client_id),
+                latest_workout_updated_at=latest_workout_by_client.get(client_id),
+                anamnesi_reference_date=_extract_anamnesi_reference_date(client.anamnesi_json),
+                reference_date=today,
             )
         )
 
