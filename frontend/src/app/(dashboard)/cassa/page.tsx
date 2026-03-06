@@ -14,6 +14,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { loadFilters, saveFilters, getUrlParams, syncUrlParams } from "@/lib/url-state";
+import { usePageReveal } from "@/lib/page-reveal";
 import {
   Plus,
   Landmark,
@@ -146,6 +147,7 @@ const chartConfig: ChartConfig = {
 // ════════════════════════════════════════════════════════════
 
 export default function CassaPage() {
+  const { revealClass, revealStyle } = usePageReveal();
   const now = new Date();
   const currentMonth = now.getMonth() + 1;
   const currentYear = now.getFullYear();
@@ -305,7 +307,7 @@ export default function CassaPage() {
   return (
     <div className="space-y-6">
       {/* ── Header + Filtri ── */}
-      <div data-guide="cassa-header" className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div data-guide="cassa-header" className={revealClass(0, "flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between")} style={revealStyle(0)}>
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-200 dark:from-emerald-900/40 dark:to-emerald-800/30">
             <Landmark className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
@@ -369,33 +371,39 @@ export default function CassaPage() {
       </div>
 
       {/* ── Saldo Hero Card ── */}
-      {balanceLoading && (
-        <Skeleton className="h-28 w-full rounded-xl" />
-      )}
-      {balance && stats && (
-        <SaldoHeroCard
-          saldoAttuale={balance.saldo_attuale}
-          saldoPrevisto={balance.saldo_previsto}
-          deltaMovimentiFuturi={balance.delta_movimenti_futuri}
-          saldoInizioMese={stats.saldo_inizio_mese}
-          margineMese={stats.margine_netto}
-          saldoFineMese={stats.saldo_fine_mese}
-        />
-      )}
+      <div className={revealClass(50)} style={revealStyle(50)}>
+        {balanceLoading && (
+          <Skeleton className="h-28 w-full rounded-xl" />
+        )}
+        {balance && stats && (
+          <SaldoHeroCard
+            saldoAttuale={balance.saldo_attuale}
+            saldoPrevisto={balance.saldo_previsto}
+            deltaMovimentiFuturi={balance.delta_movimenti_futuri}
+            saldoInizioMese={stats.saldo_inizio_mese}
+            margineMese={stats.margine_netto}
+            saldoFineMese={stats.saldo_fine_mese}
+          />
+        )}
+      </div>
 
-      {balance && <CashProtectionCard protection={balance.protezione_cassa} />}
+      {balance && <div className={revealClass(80)} style={revealStyle(80)}><CashProtectionCard protection={balance.protezione_cassa} /></div>}
 
       {/* ── Hero Section: 4 KPI ── */}
-      {statsLoading && <KpiSkeleton />}
-      {stats && <KpiCards stats={stats} />}
+      <div className={revealClass(100)} style={revealStyle(100)}>
+        {statsLoading && <KpiSkeleton />}
+        {stats && <KpiCards stats={stats} />}
+      </div>
 
       {/* ── Grafico Entrate vs Uscite + Saldo ── */}
       {stats && stats.chart_data.length > 0 && (
-        <DailyChart data={stats.chart_data} meseLabel={meseLabel} />
+        <div className={revealClass(150)} style={revealStyle(150)}>
+          <DailyChart data={stats.chart_data} meseLabel={meseLabel} />
+        </div>
       )}
 
       {/* ── Tabs: Libro Mastro + Spese Fisse ── */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className={revealClass(200, "w-full")} style={revealStyle(200)}>
         <TabsList className="w-full overflow-x-auto bg-muted/50 p-1">
           <TabsTrigger value="ledger" className="flex-1 gap-1.5">
             <BookOpen className="h-3.5 w-3.5" />

@@ -1,15 +1,16 @@
-﻿// src/app/(dashboard)/page.tsx
+// src/app/(dashboard)/page.tsx
 "use client";
 
 /**
- * Dashboard â€” CRM-grade overview con 4 sezioni:
+ * Dashboard — Command Center operativo:
  *
- * 1. Hero KPI: card operative (clienti, appuntamenti)
- * 2. Alert Panel: warning proattivi a 3 livelli di severita'
- * 3. Due colonne: Agenda Oggi + Todo
- * 4. Azioni rapide: link a creazione cliente, contratto, scheda
+ * 1. Greeting Header personalizzato (time-aware)
+ * 2. 4 KPI card: Clienti, Sedute Oggi, Sedute Settimana (delta), Alert Attivi
+ * 3. Agenda Oggi + Grafico Settimanale (stacked BarChart)
+ * 4. Todo + Alert Panel
+ * 5. Azioni rapide
  *
- * Dati da hook operativi + /dashboard/alerts.
+ * Privacy-first: zero dati finanziari.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -17,7 +18,6 @@ import Link from "next/link";
 import {
   Users,
   CalendarCheck,
-  LayoutDashboard,
   UserPlus,
   FileText,
   Clock,
@@ -32,7 +32,19 @@ import {
   Sparkles,
   Rocket,
   Loader2,
+  TrendingUp,
+  TrendingDown,
+  BarChart3,
+  ShieldAlert,
 } from "lucide-react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  ReferenceArea,
+} from "recharts";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -48,17 +60,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  type ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartLegend,
+  ChartLegendContent,
+} from "@/components/ui/chart";
 import { GhostEventsSheet } from "@/components/dashboard/GhostEventsSheet";
 import { ExpiringContractsSheet } from "@/components/dashboard/ExpiringContractsSheet";
 import { InactiveClientsSheet } from "@/components/dashboard/InactiveClientsSheet";
 import { TodoCard } from "@/components/dashboard/TodoCard";
+import { getStoredTrainer } from "@/lib/auth";
 import {
   EVENT_STATUSES,
   type DashboardSummary,
   type DashboardAlerts,
 } from "@/types/api";
+import { getRevealClass, getRevealStyle } from "@/lib/page-reveal";
 
-// â”€â”€ Date helpers â”€â”€
+// ── Date helpers ──
 
 function formatLocalISODate(date: Date): string {
   const year = date.getFullYear();
@@ -96,6 +117,12 @@ function nextWeekStartISO(baseDate: Date = new Date()): string {
   return formatLocalISODate(date);
 }
 
+function prevWeekStartISO(baseDate: Date = new Date()): string {
+  const date = weekStartDate(baseDate);
+  date.setDate(date.getDate() - 7);
+  return formatLocalISODate(date);
+}
+
 function currentWeekLabel(baseDate: Date = new Date()): string {
   const start = weekStartDate(baseDate);
   const end = new Date(start);
@@ -104,7 +131,37 @@ function currentWeekLabel(baseDate: Date = new Date()): string {
   return `${start.toLocaleDateString("it-IT", formatOptions)} - ${end.toLocaleDateString("it-IT", formatOptions)}`;
 }
 
-// â”€â”€ Category colors (mirror agenda) â”€â”€
+// ── Greeting helpers ──
+
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 13) return "Buongiorno";
+  if (hour < 18) return "Buon pomeriggio";
+  return "Buonasera";
+}
+
+function buildSummaryLine(
+  todayCount: number,
+  alertCount: number,
+  dateAnchor: Date,
+): string {
+  const parts: string[] = [];
+  if (todayCount > 0) {
+    parts.push(`${todayCount} ${todayCount === 1 ? "appuntamento" : "appuntamenti"} oggi`);
+  }
+  if (alertCount > 0) {
+    parts.push(`${alertCount} ${alertCount === 1 ? "alert attivo" : "alert attivi"}`);
+  }
+  const dateStr = dateAnchor.toLocaleDateString("it-IT", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  return parts.length > 0 ? `${parts.join(", ")} \u2014 ${dateStr}` : dateStr;
+}
+
+// ── Category colors (mirror agenda) ──
 
 const CATEGORY_COLORS: Record<string, string> = {
   PT: "bg-blue-500",
@@ -122,45 +179,71 @@ const CATEGORY_LABELS: Record<string, string> = {
   CORSO: "Corso",
 };
 
-const WEEKLY_CATEGORY_ORDER = ["PT", "PERSONALE", "COLLOQUIO", "SALA", "CORSO"] as const;
+// ── Chart config ──
 
-const WEEKLY_CATEGORY_THEME: Record<string, {
-  chip: string;
-  card: string;
-  border: string;
-  total: string;
-}> = {
-  PT: {
-    chip: "bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300",
-    card: "from-blue-50/80 to-white dark:from-blue-950/25 dark:to-zinc-900",
-    border: "border-blue-200/80 dark:border-blue-800/50",
-    total: "text-blue-700 dark:text-blue-300",
-  },
-  PERSONALE: {
-    chip: "bg-pink-100 text-pink-700 dark:bg-pink-950/40 dark:text-pink-300",
-    card: "from-pink-50/80 to-white dark:from-pink-950/25 dark:to-zinc-900",
-    border: "border-pink-200/80 dark:border-pink-800/50",
-    total: "text-pink-700 dark:text-pink-300",
-  },
-  COLLOQUIO: {
-    chip: "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300",
-    card: "from-amber-50/80 to-white dark:from-amber-950/25 dark:to-zinc-900",
-    border: "border-amber-200/80 dark:border-amber-800/50",
-    total: "text-amber-700 dark:text-amber-300",
-  },
-  SALA: {
-    chip: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300",
-    card: "from-emerald-50/80 to-white dark:from-emerald-950/25 dark:to-zinc-900",
-    border: "border-emerald-200/80 dark:border-emerald-800/50",
-    total: "text-emerald-700 dark:text-emerald-300",
-  },
-  CORSO: {
-    chip: "bg-cyan-100 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300",
-    card: "from-cyan-50/80 to-white dark:from-cyan-950/25 dark:to-zinc-900",
-    border: "border-cyan-200/80 dark:border-cyan-800/50",
-    total: "text-cyan-700 dark:text-cyan-300",
-  },
+const CHART_CATEGORY_FILLS: Record<string, string> = {
+  PT: "var(--color-blue-500)",
+  SALA: "var(--color-emerald-500)",
+  CORSO: "var(--color-violet-500)",
+  COLLOQUIO: "var(--color-amber-500)",
+  PERSONALE: "var(--color-pink-500)",
 };
+
+const weeklyChartConfig: ChartConfig = {
+  PT: { label: "PT", color: "var(--color-blue-500)" },
+  SALA: { label: "Sala", color: "var(--color-emerald-500)" },
+  CORSO: { label: "Corso", color: "var(--color-violet-500)" },
+  COLLOQUIO: { label: "Colloquio", color: "var(--color-amber-500)" },
+  PERSONALE: { label: "Personale", color: "var(--color-pink-500)" },
+};
+
+const DAY_LABELS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"] as const;
+
+interface ChartDayData {
+  day: string;
+  PT: number;
+  SALA: number;
+  CORSO: number;
+  COLLOQUIO: number;
+  PERSONALE: number;
+  total: number;
+  isToday: boolean;
+}
+
+function buildWeeklyChartData(events: EventHydrated[], baseDate: Date): ChartDayData[] {
+  const monday = weekStartDate(baseDate);
+  const todayDayIndex = Math.floor(
+    (new Date().setHours(0, 0, 0, 0) - monday.getTime()) / (1000 * 60 * 60 * 24),
+  );
+  const result: ChartDayData[] = DAY_LABELS.map((label, idx) => ({
+    day: label,
+    PT: 0,
+    SALA: 0,
+    CORSO: 0,
+    COLLOQUIO: 0,
+    PERSONALE: 0,
+    total: 0,
+    isToday: idx === todayDayIndex,
+  }));
+
+  events.forEach((event) => {
+    if (event.stato === "Cancellato") return;
+    const dayIndex = Math.floor(
+      (event.data_inizio.getTime() - monday.getTime()) / (1000 * 60 * 60 * 24),
+    );
+    if (dayIndex < 0 || dayIndex > 6) return;
+    const category = event.categoria ?? "PERSONALE";
+    const key = category as keyof Omit<ChartDayData, "day" | "total" | "isToday">;
+    if (key in result[dayIndex]) {
+      result[dayIndex][key] += 1;
+    }
+    result[dayIndex].total += 1;
+  });
+
+  return result;
+}
+
+// ── Status colors (agenda) ──
 
 const STATUS_COLORS: Record<string, string> = {
   Programmato: "text-blue-600 dark:text-blue-400",
@@ -172,23 +255,17 @@ const STATUS_COLORS: Record<string, string> = {
 // POC toggle: disattiva in un punto unico per rollback veloce.
 const DASHBOARD_MICROSTEP2_ENABLED = true;
 
-function getRevealMotionClass(enabled: boolean, ready: boolean): string {
-  if (!enabled) return "";
-  return `transform-gpu transition-[opacity,transform] duration-500 ease-out motion-reduce:transform-none motion-reduce:transition-none ${
-    ready
-      ? "translate-y-0 opacity-100"
-      : "translate-y-1 opacity-0 motion-reduce:translate-y-0 motion-reduce:opacity-100"
-  }`;
+function getRevealMotionClass(_enabled: boolean, ready: boolean): string {
+  return getRevealClass(ready);
 }
 
-function getRevealDelayStyle(enabled: boolean, delayMs: number) {
-  if (!enabled) return undefined;
-  return { transitionDelay: `${delayMs}ms` };
+function getRevealDelayStyle(_enabled: boolean, delayMs: number) {
+  return getRevealStyle(delayMs);
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════════════════════
 // Pagina
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════════════════════
 
 export default function DashboardPage() {
   const { data: summary, isLoading: summaryLoading, isError, refetch } = useDashboard();
@@ -215,15 +292,18 @@ export default function DashboardPage() {
   const nextDayStart = useMemo(() => tomorrowISO(dateAnchor), [dateAnchor]);
   const currentWeekStart = useMemo(() => weekStartISO(dateAnchor), [dateAnchor]);
   const nextWeekStart = useMemo(() => nextWeekStartISO(dateAnchor), [dateAnchor]);
+  const previousWeekStart = useMemo(() => prevWeekStartISO(dateAnchor), [dateAnchor]);
   const currentWeekRangeLabel = useMemo(() => currentWeekLabel(dateAnchor), [dateAnchor]);
-  const monthLabel = useMemo(
-    () => dateAnchor.toLocaleDateString("it-IT", { month: "long" }),
-    [dateAnchor],
-  );
-  const yearLabel = dateAnchor.getFullYear();
 
   const { data: eventsData } = useEvents({ start: currentDayStart, end: nextDayStart });
   const { data: weeklyEventsData } = useEvents({ start: currentWeekStart, end: nextWeekStart });
+  const { data: prevWeekEventsData } = useEvents({ start: previousWeekStart, end: currentWeekStart });
+
+  // Trainer name for greeting
+  const trainerName = useMemo(() => {
+    const trainer = getStoredTrainer();
+    return trainer?.nome ?? null;
+  }, []);
 
   // Sheet state per risoluzione inline alert
   const [ghostSheetOpen, setGhostSheetOpen] = useState(false);
@@ -243,19 +323,37 @@ export default function DashboardPage() {
     return [...weeklyEventsData.items].sort((a, b) => a.data_inizio.getTime() - b.data_inizio.getTime());
   }, [weeklyEventsData]);
 
-  const criticalAlertCount = alerts?.items.filter(
-    (item) => item.category !== "overdue_rates" && item.severity === "critical",
-  ).length ?? 0;
-  const warningAlertCount = alerts?.items.filter(
-    (item) => item.category !== "overdue_rates" && item.severity === "warning",
-  ).length ?? 0;
+  const prevWeekEvents = useMemo(() => {
+    if (!prevWeekEventsData?.items) return [];
+    return prevWeekEventsData.items.filter((e) => e.stato !== "Cancellato");
+  }, [prevWeekEventsData]);
+
+  // Computed KPI values
+  const weeklySessionCount = weeklyEvents.filter((e) => e.stato !== "Cancellato").length;
+  const prevWeekSessionCount = prevWeekEvents.length;
+  const weeklyDelta = weeklySessionCount - prevWeekSessionCount;
+
+  const visibleAlerts = useMemo(
+    () => alerts?.items.filter((item) => item.category !== "overdue_rates") ?? [],
+    [alerts],
+  );
+  const totalAlertCount = visibleAlerts.length;
+  const criticalAlertCount = visibleAlerts.filter((item) => item.severity === "critical").length;
+  const warningAlertCount = visibleAlerts.filter((item) => item.severity === "warning").length;
   const upcomingSessionsCount = todayEvents.filter(
     (event) => event.stato === "Programmato",
   ).length;
 
   const isLoading = summaryLoading;
 
-  // Handler CTA per categoria alert â€” apre Sheet inline
+  // Chart data
+  const chartData = useMemo(
+    () => buildWeeklyChartData(weeklyEvents, dateAnchor),
+    [weeklyEvents, dateAnchor],
+  );
+  const completedEvents = weeklyEvents.filter((e) => e.stato === "Completato").length;
+
+  // Handler CTA per categoria alert
   const alertActions: Record<string, () => void> = {
     ghost_events: () => setGhostSheetOpen(true),
     expiring_contracts: () => setExpiringSheetOpen(true),
@@ -264,20 +362,25 @@ export default function DashboardPage() {
 
   return (
     <div className="min-w-0 space-y-4 md:space-y-6">
-      {/* â”€â”€ Header â”€â”€ */}
-      <div data-guide="dashboard-header" className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 sm:h-11 sm:w-11 dark:from-blue-900/40 dark:to-blue-800/30">
-          <LayoutDashboard className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Dashboard</h1>
-          <p className="text-xs text-muted-foreground sm:text-sm">
-            Panoramica della tua attivita&apos; â€” {monthLabel} {yearLabel}
-          </p>
-        </div>
+      {/* ── Greeting Header ── */}
+      <div
+        data-guide="dashboard-header"
+        className={`flex flex-col gap-1 ${getRevealMotionClass(DASHBOARD_MICROSTEP2_ENABLED, entranceReady)}`}
+        style={getRevealDelayStyle(DASHBOARD_MICROSTEP2_ENABLED, 0)}
+      >
+        <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
+          {getGreeting()}{trainerName ? `, ${trainerName}` : ""}
+        </h1>
+        <p className="text-xs text-muted-foreground sm:text-sm">
+          {buildSummaryLine(
+            summary?.todays_appointments ?? todayEvents.length,
+            totalAlertCount,
+            dateAnchor,
+          )}
+        </p>
       </div>
 
-      {/* â”€â”€ Error state â”€â”€ */}
+      {/* ── Error state ── */}
       {isError && (
         <div className="flex flex-col gap-3 rounded-xl border border-destructive/50 bg-destructive/5 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
@@ -292,36 +395,31 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* â”€â”€ First-run welcome (zero clienti) â”€â”€ */}
+      {/* ── First-run welcome (zero clienti) ── */}
       {!isLoading && summary && summary.active_clients === 0 ? (
         <WelcomeCard />
       ) : (
         <>
-          {/* â”€â”€ Hero KPI â”€â”€ */}
-          {isLoading && <KpiSkeleton />}
+          {/* ── Hero KPI ── */}
+          {isLoading && <DashboardSkeleton />}
           {summary && (
             <KpiCards
               summary={summary}
+              weeklySessionCount={weeklySessionCount}
+              weeklyDelta={weeklyDelta}
+              totalAlertCount={totalAlertCount}
+              criticalAlertCount={criticalAlertCount}
               animateIn={entranceReady}
               animationsEnabled={DASHBOARD_MICROSTEP2_ENABLED}
             />
           )}
 
-          <div
-            className={`grid min-w-0 gap-4 md:gap-5 xl:grid-cols-2 ${getRevealMotionClass(
-              DASHBOARD_MICROSTEP2_ENABLED,
-              entranceReady,
-            )}`}
-            style={getRevealDelayStyle(DASHBOARD_MICROSTEP2_ENABLED, 120)}
-          >
-            <div className="min-w-0">
-              <TodoCard
-                criticalAlertCount={criticalAlertCount}
-                warningAlertCount={warningAlertCount}
-                upcomingSessionsCount={upcomingSessionsCount}
-              />
-            </div>
-            <div className="min-w-0">
+          {/* ── Row 1: Agenda + Promemoria (post-it) ── */}
+          <div className="grid min-w-0 gap-4 md:gap-5 xl:grid-cols-2">
+            <div
+              className={`min-w-0 ${getRevealMotionClass(DASHBOARD_MICROSTEP2_ENABLED, entranceReady)}`}
+              style={getRevealDelayStyle(DASHBOARD_MICROSTEP2_ENABLED, 200)}
+            >
               <TodayAgenda
                 events={todayEvents}
                 isLoading={!eventsData}
@@ -330,21 +428,41 @@ export default function DashboardPage() {
                 animationsEnabled={DASHBOARD_MICROSTEP2_ENABLED}
               />
             </div>
-          </div>
-
-          <div className="grid min-w-0 gap-5 md:gap-6 xl:grid-cols-12">
-            <div className="min-w-0 xl:col-span-7">
-              <WeeklyLessons
-                events={weeklyEvents}
-                isLoading={!weeklyEventsData}
-                weekLabel={currentWeekRangeLabel}
+            <div
+              className={`min-w-0 ${getRevealMotionClass(DASHBOARD_MICROSTEP2_ENABLED, entranceReady)}`}
+              style={getRevealDelayStyle(DASHBOARD_MICROSTEP2_ENABLED, 240)}
+            >
+              <TodoCard
+                criticalAlertCount={criticalAlertCount}
+                warningAlertCount={warningAlertCount}
+                upcomingSessionsCount={upcomingSessionsCount}
               />
             </div>
-            <div className="min-w-0 xl:col-span-5">
+          </div>
+
+          {/* ── Row 2: Chart + Alert ── */}
+          <div className="grid min-w-0 gap-4 md:gap-5 xl:grid-cols-2">
+            <div
+              className={`min-w-0 ${getRevealMotionClass(DASHBOARD_MICROSTEP2_ENABLED, entranceReady)}`}
+              style={getRevealDelayStyle(DASHBOARD_MICROSTEP2_ENABLED, 280)}
+            >
+              <WeeklySessionsChart
+                chartData={chartData}
+                weekLabel={currentWeekRangeLabel}
+                completedCount={completedEvents}
+                totalCount={weeklySessionCount}
+                isLoading={!weeklyEventsData}
+              />
+            </div>
+            <div
+              className={`min-w-0 ${getRevealMotionClass(DASHBOARD_MICROSTEP2_ENABLED, entranceReady)}`}
+              style={getRevealDelayStyle(DASHBOARD_MICROSTEP2_ENABLED, 320)}
+            >
               <AlertPanel alerts={alerts} isLoading={!alerts} alertActions={alertActions} />
             </div>
           </div>
-          {/* â”€â”€ Azioni Rapide â”€â”€ */}
+
+          {/* ── Azioni Rapide ── */}
           <QuickActions
             animateIn={entranceReady}
             animationsEnabled={DASHBOARD_MICROSTEP2_ENABLED}
@@ -352,7 +470,7 @@ export default function DashboardPage() {
         </>
       )}
 
-      {/* â”€â”€ Sheet risoluzione inline â”€â”€ */}
+      {/* ── Sheet risoluzione inline ── */}
       <GhostEventsSheet open={ghostSheetOpen} onOpenChange={setGhostSheetOpen} />
       <ExpiringContractsSheet open={expiringSheetOpen} onOpenChange={setExpiringSheetOpen} />
       <InactiveClientsSheet open={inactiveSheetOpen} onOpenChange={setInactiveSheetOpen} />
@@ -360,9 +478,9 @@ export default function DashboardPage() {
   );
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════════════════════
 // KPI Cards
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════════════════════
 
 interface KpiDef {
   key: string;
@@ -371,15 +489,44 @@ interface KpiDef {
   icon: typeof Users;
   value: number;
   format: "number";
-  href: string;
+  href?: string;
+  scrollTo?: string;
   borderColor: string;
   gradient: string;
   iconBg: string;
   iconColor: string;
   valueColor: string;
+  delta?: number;
 }
 
-function buildKpiList(summary: DashboardSummary): KpiDef[] {
+function buildKpiList(
+  summary: DashboardSummary,
+  weeklySessionCount: number,
+  weeklyDelta: number,
+  totalAlertCount: number,
+  criticalAlertCount: number,
+): KpiDef[] {
+  // Alert KPI: colore dinamico in base a severita
+  let alertBorder = "border-l-emerald-500";
+  let alertGradient = "from-emerald-50/80 to-white dark:from-emerald-950/40 dark:to-zinc-900";
+  let alertIconBg = "bg-emerald-100 dark:bg-emerald-900/30";
+  let alertIconColor = "text-emerald-600 dark:text-emerald-400";
+  let alertValueColor = "text-emerald-700 dark:text-emerald-400";
+
+  if (criticalAlertCount > 0) {
+    alertBorder = "border-l-red-500";
+    alertGradient = "from-red-50/80 to-white dark:from-red-950/40 dark:to-zinc-900";
+    alertIconBg = "bg-red-100 dark:bg-red-900/30";
+    alertIconColor = "text-red-600 dark:text-red-400";
+    alertValueColor = "text-red-700 dark:text-red-400";
+  } else if (totalAlertCount > 0) {
+    alertBorder = "border-l-amber-500";
+    alertGradient = "from-amber-50/80 to-white dark:from-amber-950/40 dark:to-zinc-900";
+    alertIconBg = "bg-amber-100 dark:bg-amber-900/30";
+    alertIconColor = "text-amber-600 dark:text-amber-400";
+    alertValueColor = "text-amber-700 dark:text-amber-400";
+  }
+
   return [
     {
       key: "clients",
@@ -397,7 +544,7 @@ function buildKpiList(summary: DashboardSummary): KpiDef[] {
     },
     {
       key: "appointments",
-      label: "Appuntamenti Oggi",
+      label: "Sedute Oggi",
       subtitle: "in programma",
       icon: CalendarCheck,
       value: summary.todays_appointments,
@@ -409,49 +556,123 @@ function buildKpiList(summary: DashboardSummary): KpiDef[] {
       iconColor: "text-violet-600 dark:text-violet-400",
       valueColor: "text-violet-700 dark:text-violet-400",
     },
+    {
+      key: "weekly",
+      label: "Sedute Settimana",
+      subtitle: "attivita corrente",
+      icon: BarChart3,
+      value: weeklySessionCount,
+      format: "number",
+      href: "/agenda",
+      borderColor: "border-l-emerald-500",
+      gradient: "from-emerald-50/80 to-white dark:from-emerald-950/40 dark:to-zinc-900",
+      iconBg: "bg-emerald-100 dark:bg-emerald-900/30",
+      iconColor: "text-emerald-600 dark:text-emerald-400",
+      valueColor: "text-emerald-700 dark:text-emerald-400",
+      delta: weeklyDelta,
+    },
+    {
+      key: "alerts",
+      label: "Alert Attivi",
+      subtitle: totalAlertCount === 0 ? "tutto ok" : "richiedono attenzione",
+      icon: ShieldAlert,
+      value: totalAlertCount,
+      format: "number",
+      scrollTo: "#alert-panel",
+      borderColor: alertBorder,
+      gradient: alertGradient,
+      iconBg: alertIconBg,
+      iconColor: alertIconColor,
+      valueColor: alertValueColor,
+    },
   ];
 }
 
 function KpiCards({
   summary,
+  weeklySessionCount,
+  weeklyDelta,
+  totalAlertCount,
+  criticalAlertCount,
   animateIn,
   animationsEnabled,
 }: {
   summary: DashboardSummary;
+  weeklySessionCount: number;
+  weeklyDelta: number;
+  totalAlertCount: number;
+  criticalAlertCount: number;
   animateIn: boolean;
   animationsEnabled: boolean;
 }) {
-  const kpis = buildKpiList(summary);
+  const kpis = buildKpiList(summary, weeklySessionCount, weeklyDelta, totalAlertCount, criticalAlertCount);
 
   return (
-    <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+    <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 sm:gap-4">
       {kpis.map((kpi, index) => {
         const Icon = kpi.icon;
-        return (
-          <Link
-            key={kpi.key}
-            href={kpi.href}
-            className={`block min-w-0 ${getRevealMotionClass(animationsEnabled, animateIn)}`}
-            style={getRevealDelayStyle(animationsEnabled, index * 55)}
+
+        const inner = (
+          <div
+            className={`flex h-full min-w-0 items-start gap-2.5 rounded-xl border border-l-4 ${kpi.borderColor} bg-gradient-to-br ${kpi.gradient} p-3.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg sm:gap-3 sm:p-4`}
           >
-            <div
-              className={`flex h-full min-w-0 items-start gap-2.5 rounded-xl border border-l-4 ${kpi.borderColor} bg-gradient-to-br ${kpi.gradient} p-3.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg sm:gap-3 sm:p-4`}
-            >
-              <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg sm:h-10 sm:w-10 ${kpi.iconBg}`}>
-                <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${kpi.iconColor}`} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold tracking-widest text-muted-foreground/70 uppercase leading-tight sm:text-xs">
-                  {kpi.label}
-                </p>
+            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg sm:h-10 sm:w-10 ${kpi.iconBg}`}>
+              <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${kpi.iconColor}`} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold tracking-widest text-muted-foreground/70 uppercase leading-tight sm:text-xs">
+                {kpi.label}
+              </p>
+              <div className="flex items-baseline gap-2">
                 <AnimatedNumber
                   value={kpi.value}
                   format={kpi.format}
                   className={`text-2xl font-extrabold tracking-tighter tabular-nums sm:text-3xl ${kpi.valueColor}`}
                 />
-                <p className="text-[11px] font-medium text-muted-foreground/60 sm:text-xs">{kpi.subtitle}</p>
+                {kpi.delta !== undefined && kpi.delta !== 0 && (
+                  <span
+                    className={`inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[11px] font-bold tabular-nums ${
+                      kpi.delta > 0
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400"
+                        : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"
+                    }`}
+                  >
+                    {kpi.delta > 0 ? (
+                      <TrendingUp className="h-3 w-3" />
+                    ) : (
+                      <TrendingDown className="h-3 w-3" />
+                    )}
+                    {kpi.delta > 0 ? `+${kpi.delta}` : kpi.delta}
+                  </span>
+                )}
               </div>
+              <p className="text-[11px] font-medium text-muted-foreground/60 sm:text-xs">{kpi.subtitle}</p>
             </div>
+          </div>
+        );
+
+        if (kpi.scrollTo) {
+          return (
+            <button
+              key={kpi.key}
+              type="button"
+              onClick={() => document.querySelector(kpi.scrollTo!)?.scrollIntoView({ behavior: "smooth" })}
+              className={`block min-w-0 text-left ${getRevealMotionClass(animationsEnabled, animateIn)}`}
+              style={getRevealDelayStyle(animationsEnabled, 40 + index * 40)}
+            >
+              {inner}
+            </button>
+          );
+        }
+
+        return (
+          <Link
+            key={kpi.key}
+            href={kpi.href!}
+            className={`block min-w-0 ${getRevealMotionClass(animationsEnabled, animateIn)}`}
+            style={getRevealDelayStyle(animationsEnabled, 40 + index * 40)}
+          >
+            {inner}
           </Link>
         );
       })}
@@ -459,11 +680,217 @@ function KpiCards({
   );
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-// Alert Panel â€” Warning proattivi
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════════════════════
+// Weekly Sessions Chart
+// ════════════════════════════════════════════════════════════
 
-// Config-driven: ogni categoria ha icona, colori, e CTA contestuale
+function WeeklySessionsChart({
+  chartData,
+  weekLabel,
+  completedCount,
+  totalCount,
+  isLoading,
+}: {
+  chartData: ChartDayData[];
+  weekLabel: string;
+  completedCount: number;
+  totalCount: number;
+  isLoading: boolean;
+}) {
+  if (isLoading) {
+    return (
+      <div className="flex h-[480px] flex-col rounded-2xl border p-4 sm:p-5">
+        <Skeleton className="mb-4 h-5 w-52" />
+        <Skeleton className="flex-1 w-full rounded-xl" />
+      </div>
+    );
+  }
+
+  const hasData = totalCount > 0;
+  const activeCategories = (["PT", "SALA", "CORSO", "COLLOQUIO", "PERSONALE"] as const).filter(
+    (cat) => chartData.some((d) => d[cat] > 0),
+  );
+
+  return (
+    <div className="flex h-[480px] min-w-0 flex-col rounded-2xl border bg-gradient-to-br from-white via-white to-zinc-50/70 p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04),_0_4px_12px_rgba(0,0,0,0.03)] sm:p-5 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800/50">
+      {/* Header */}
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30">
+              <BarChart3 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div>
+              <h3 className="truncate text-sm font-bold sm:text-base">Sedute della settimana</h3>
+              <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">
+                {weekLabel}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {hasData && (
+            <div className="rounded-xl border bg-gradient-to-br from-white to-zinc-50/80 px-3.5 py-2 text-right shadow-sm dark:from-zinc-900 dark:to-zinc-800/60">
+              <p className="text-[9px] font-bold tracking-widest text-muted-foreground/70 uppercase">Completate</p>
+              <p className="text-xl font-extrabold leading-none tabular-nums tracking-tight sm:text-2xl">
+                {completedCount}
+                <span className="ml-1 text-xs font-semibold text-muted-foreground/60 sm:text-sm">/ {totalCount}</span>
+              </p>
+            </div>
+          )}
+          <Link href="/agenda">
+            <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs text-muted-foreground hover:text-foreground">
+              Agenda <ArrowRight className="h-3 w-3" />
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {!hasData ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-muted-foreground/15 p-8 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted/50">
+            <CalendarCheck className="h-6 w-6 text-muted-foreground/30" />
+          </div>
+          <p className="text-sm font-medium text-muted-foreground">Nessuna seduta pianificata questa settimana</p>
+          <p className="text-xs text-muted-foreground/60">Pianifica appuntamenti dall&apos;agenda</p>
+        </div>
+      ) : (
+        <div className="min-h-0 flex-1">
+          <ChartContainer config={weeklyChartConfig} className="h-full w-full">
+            <BarChart data={chartData} accessibilityLayer barGap={2} barCategoryGap="20%">
+              <defs>
+                <linearGradient id="chartGridGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--color-muted-foreground)" stopOpacity={0.06} />
+                  <stop offset="100%" stopColor="var(--color-muted-foreground)" stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid
+                vertical={false}
+                stroke="var(--color-muted-foreground)"
+                strokeOpacity={0.08}
+                strokeDasharray="4 6"
+              />
+              {/* Today highlight band */}
+              {chartData.map((d, idx) =>
+                d.isToday ? (
+                  <ReferenceArea
+                    key={`today-${idx}`}
+                    x1={d.day}
+                    x2={d.day}
+                    fill="var(--color-primary)"
+                    fillOpacity={0.04}
+                    stroke="var(--color-primary)"
+                    strokeOpacity={0.12}
+                    strokeDasharray="3 3"
+                  />
+                ) : null,
+              )}
+              <XAxis
+                dataKey="day"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={10}
+                fontSize={12}
+                fontWeight={500}
+                tick={({ x, y, payload }) => {
+                  const entry = chartData.find((d) => d.day === payload.value);
+                  const isTodayTick = entry?.isToday ?? false;
+                  return (
+                    <g transform={`translate(${x},${y})`}>
+                      <text
+                        x={0}
+                        y={0}
+                        dy={4}
+                        textAnchor="middle"
+                        fontSize={12}
+                        fontWeight={isTodayTick ? 700 : 500}
+                        fill={isTodayTick ? "var(--color-primary)" : "var(--color-muted-foreground)"}
+                      >
+                        {payload.value}
+                      </text>
+                      {isTodayTick && (
+                        <circle cx={0} cy={12} r={2} fill="var(--color-primary)" />
+                      )}
+                    </g>
+                  );
+                }}
+              />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tickMargin={4}
+                fontSize={11}
+                allowDecimals={false}
+                stroke="var(--color-muted-foreground)"
+                strokeOpacity={0.5}
+              />
+              <ChartTooltip
+                cursor={{ fill: "var(--color-muted)", opacity: 0.15, radius: 6 }}
+                content={({ payload, label }) => {
+                  if (!payload?.length) return null;
+                  const dayTotal = payload.reduce((sum, entry) => sum + (Number(entry.value) || 0), 0);
+                  const entry = chartData.find((d) => d.day === label);
+                  const isTodayTooltip = entry?.isToday ?? false;
+                  return (
+                    <div className="overflow-hidden rounded-xl border bg-white/95 shadow-lg backdrop-blur-sm dark:bg-zinc-900/95">
+                      <div className={`px-3.5 py-2 ${isTodayTooltip ? "bg-primary/5" : "bg-muted/30"}`}>
+                        <p className="text-xs font-bold tracking-wide">
+                          {label}
+                          {isTodayTooltip && <span className="ml-1.5 text-[10px] font-semibold text-primary">(oggi)</span>}
+                        </p>
+                      </div>
+                      <div className="space-y-1 px-3.5 py-2.5">
+                        {payload
+                          .filter((pEntry) => Number(pEntry.value) > 0)
+                          .map((pEntry) => (
+                            <div key={pEntry.name} className="flex items-center gap-2.5 text-sm">
+                              <div
+                                className="h-3 w-3 rounded-[3px] shadow-sm"
+                                style={{ backgroundColor: pEntry.color }}
+                              />
+                              <span className="text-muted-foreground">
+                                {CATEGORY_LABELS[pEntry.name as string] ?? pEntry.name}
+                              </span>
+                              <span className="ml-auto font-bold tabular-nums">{pEntry.value}</span>
+                            </div>
+                          ))}
+                      </div>
+                      {dayTotal > 0 && (
+                        <div className="flex items-center justify-between border-t px-3.5 py-2 text-sm">
+                          <span className="font-semibold text-muted-foreground">Totale</span>
+                          <span className="font-extrabold tabular-nums">{dayTotal}</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                }}
+              />
+              {activeCategories.map((cat, i) => (
+                <Bar
+                  key={cat}
+                  dataKey={cat}
+                  stackId="sessions"
+                  fill={CHART_CATEGORY_FILLS[cat]}
+                  radius={i === activeCategories.length - 1 ? [6, 6, 0, 0] : [0, 0, 0, 0]}
+                  maxBarSize={40}
+                  animationBegin={i * 100}
+                  animationDuration={900}
+                  animationEasing="ease-out"
+                />
+              ))}
+              <ChartLegend content={<ChartLegendContent />} />
+            </BarChart>
+          </ChartContainer>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// Alert Panel
+// ════════════════════════════════════════════════════════════
+
 const ALERT_CATEGORY_CONFIG: Record<string, {
   icon: typeof Ghost;
   color: string;
@@ -635,168 +1062,10 @@ function AlertPanel({ alerts, isLoading, alertActions = {} }: {
     </div>
   );
 }
-interface WeeklyCategoryStat {
-  category: string;
-  label: string;
-  total: number;
-  scheduled: number;
-  completed: number;
-  cancelled: number;
-}
 
-function buildWeeklyCategoryStats(events: EventHydrated[]): WeeklyCategoryStat[] {
-  const statsMap = new Map<string, WeeklyCategoryStat>();
-
-  WEEKLY_CATEGORY_ORDER.forEach((category) => {
-    statsMap.set(category, {
-      category,
-      label: CATEGORY_LABELS[category] ?? category,
-      total: 0,
-      scheduled: 0,
-      completed: 0,
-      cancelled: 0,
-    });
-  });
-
-  events.forEach((event) => {
-    const category = event.categoria ?? "ALTRO";
-    const stat = statsMap.get(category) ?? {
-      category,
-      label: CATEGORY_LABELS[category] ?? category,
-      total: 0,
-      scheduled: 0,
-      completed: 0,
-      cancelled: 0,
-    };
-
-    stat.total += 1;
-    if (event.stato === "Completato") {
-      stat.completed += 1;
-    } else if (event.stato === "Cancellato") {
-      stat.cancelled += 1;
-    } else {
-      stat.scheduled += 1;
-    }
-
-    statsMap.set(category, stat);
-  });
-
-  const orderMap = new Map<string, number>(WEEKLY_CATEGORY_ORDER.map((key, index) => [key, index]));
-  return Array.from(statsMap.values())
-    .filter((stat) => stat.total > 0 || orderMap.has(stat.category))
-    .sort((a, b) => {
-      if (a.total !== b.total) return b.total - a.total;
-      return (orderMap.get(a.category) ?? 99) - (orderMap.get(b.category) ?? 99);
-    });
-}
-
-function WeeklyLessons({
-  events,
-  isLoading,
-  weekLabel,
-}: {
-  events: EventHydrated[];
-  isLoading: boolean;
-  weekLabel: string;
-}) {
-  if (isLoading) {
-    return (
-      <div className="space-y-4 rounded-xl border p-4 sm:p-5">
-        <Skeleton className="h-5 w-52" />
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-[148px] w-full rounded-xl" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  const stats = buildWeeklyCategoryStats(events);
-  const totalEvents = stats.reduce((acc, item) => acc + item.total, 0);
-  const completedEvents = stats.reduce((acc, item) => acc + item.completed, 0);
-
-  return (
-    <div className="min-w-0 rounded-xl border bg-gradient-to-br from-white via-white to-zinc-50/60 p-4 shadow-sm sm:p-5 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800/40">
-      <div className="mb-3 flex flex-wrap items-start justify-between gap-3 sm:mb-4">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <CalendarCheck className="h-4 w-4 text-blue-500" />
-            <h3 className="text-base font-semibold">Lezioni della settimana</h3>
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {weekLabel}
-          </p>
-        </div>
-        <div className="flex w-full flex-wrap items-center justify-start gap-2 sm:w-auto sm:justify-end">
-          <div className="rounded-lg border bg-gradient-to-br from-white to-zinc-50 px-3 py-1.5 text-right shadow-sm dark:from-zinc-900 dark:to-zinc-800/60">
-            <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">Completate</p>
-            <p className="text-xl font-extrabold leading-none tabular-nums sm:text-2xl">
-              {completedEvents}
-              <span className="ml-1 text-xs font-semibold text-muted-foreground sm:text-sm">/ {totalEvents}</span>
-            </p>
-          </div>
-          <Link href="/agenda">
-            <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs">
-              Apri agenda <ArrowRight className="h-3 w-3" />
-            </Button>
-          </Link>
-        </div>
-      </div>
-
-      {totalEvents === 0 ? (
-        <div className="rounded-lg border border-dashed p-4 text-center">
-          <p className="text-sm text-muted-foreground">Nessuna lezione pianificata questa settimana</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {stats.map((stat) => {
-            const color = CATEGORY_COLORS[stat.category] ?? "bg-zinc-400";
-            const theme = WEEKLY_CATEGORY_THEME[stat.category] ?? {
-              chip: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
-              card: "from-zinc-50/80 to-white dark:from-zinc-900/30 dark:to-zinc-900",
-              border: "border-zinc-200/80 dark:border-zinc-800/50",
-              total: "text-zinc-700 dark:text-zinc-300",
-            };
-            return (
-              <div
-                key={stat.category}
-                className={`min-w-0 rounded-xl border bg-gradient-to-br ${theme.card} ${theme.border} p-3.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md sm:p-4`}
-              >
-                <div className="mb-2.5 flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className={`h-2.5 w-2.5 rounded-full ${color}`} />
-                    <span className={`rounded-md px-2 py-0.5 text-[13px] font-bold tracking-tight ${theme.chip}`}>
-                      {stat.label}
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">Totale</p>
-                    <p className={`text-3xl font-extrabold leading-none tabular-nums ${theme.total}`}>{stat.total}</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-center text-[11px] text-muted-foreground sm:text-xs">
-                  <div className="rounded-md border bg-zinc-50 px-2 py-1.5 dark:bg-zinc-800/60">
-                    <p className="text-lg font-extrabold leading-none tabular-nums text-zinc-700 sm:text-xl dark:text-zinc-300">{stat.scheduled}</p>
-                    <p className="mt-1 font-medium">agenda</p>
-                  </div>
-                  <div className="rounded-md border bg-emerald-50 px-2 py-1.5 dark:bg-emerald-950/30">
-                    <p className="text-lg font-extrabold leading-none tabular-nums text-emerald-600 sm:text-xl dark:text-emerald-400">{stat.completed}</p>
-                    <p className="mt-1 font-medium">fatte</p>
-                  </div>
-                  <div className="rounded-md border bg-red-50 px-2 py-1.5 dark:bg-red-950/30">
-                    <p className="text-lg font-extrabold leading-none tabular-nums text-red-500 sm:text-xl">{stat.cancelled}</p>
-                    <p className="mt-1 font-medium">cancel.</p>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
+// ════════════════════════════════════════════════════════════
+// Today Agenda
+// ════════════════════════════════════════════════════════════
 
 interface AgendaLiveInfo {
   mode: "in_progress" | "next_up" | "free";
@@ -883,7 +1152,7 @@ function TodayAgenda({
 
   if (isLoading) {
     return (
-      <div className="h-[520px] space-y-3 rounded-2xl border p-4 sm:p-5">
+      <div className="h-[480px] space-y-3 rounded-2xl border p-4 sm:p-5">
         <Skeleton className="h-6 w-52" />
         <Skeleton className="h-24 w-full rounded-xl" />
         <Skeleton className="h-8 w-full rounded-lg" />
@@ -923,7 +1192,7 @@ function TodayAgenda({
 
   return (
     <div
-      className={`flex h-[520px] min-w-0 flex-col rounded-2xl border bg-gradient-to-br from-white via-white to-zinc-50/70 p-4 shadow-sm sm:p-5 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800/50 ${getRevealMotionClass(
+      className={`flex h-[480px] min-w-0 flex-col rounded-2xl border bg-gradient-to-br from-white via-white to-zinc-50/70 p-4 shadow-sm sm:p-5 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800/50 ${getRevealMotionClass(
         animationsEnabled,
         animateIn,
       )}`}
@@ -1088,6 +1357,10 @@ function TodayAgenda({
   );
 }
 
+// ════════════════════════════════════════════════════════════
+// Quick Actions
+// ════════════════════════════════════════════════════════════
+
 const QUICK_ACTIONS = [
   {
     label: "Nuovo Cliente",
@@ -1143,7 +1416,7 @@ function QuickActions({
               key={action.label}
               href={action.href}
               className={`block min-w-0 ${getRevealMotionClass(animationsEnabled, animateIn)}`}
-              style={getRevealDelayStyle(animationsEnabled, 260 + index * 45)}
+              style={getRevealDelayStyle(animationsEnabled, 360 + index * 40)}
             >
               <div className={`flex min-w-0 items-center gap-2.5 rounded-xl border ${action.border} bg-gradient-to-br ${action.gradient} p-3 transition-all hover:-translate-y-0.5 hover:shadow-md sm:gap-3 sm:p-4`}>
                 <Icon className={`h-5 w-5 ${action.iconColor}`} />
@@ -1157,9 +1430,9 @@ function QuickActions({
   );
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════════════════════
 // Welcome Card (first-run)
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════════════════════
 
 const FIRST_STEPS = [
   {
@@ -1247,29 +1520,60 @@ function WelcomeCard() {
   );
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-// Skeleton
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════════════════════
+// Dashboard Skeleton
+// ════════════════════════════════════════════════════════════
 
-function KpiSkeleton() {
+function DashboardSkeleton() {
   const borders = [
     "border-l-blue-500",
     "border-l-violet-500",
+    "border-l-emerald-500",
+    "border-l-amber-500",
   ];
+
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-      {borders.map((border, i) => (
-        <div key={i} className={`flex items-start gap-3 rounded-xl border border-l-4 ${border} p-4`}>
-          <Skeleton className="h-10 w-10 shrink-0 rounded-lg" />
-          <div className="flex-1 space-y-2">
-            <Skeleton className="h-3 w-16" />
-            <Skeleton className="h-6 w-20" />
-            <Skeleton className="h-2 w-12" />
+    <div className="space-y-4 md:space-y-6">
+      {/* 4 KPI */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 sm:gap-4">
+        {borders.map((border, i) => (
+          <div key={i} className={`flex items-start gap-3 rounded-xl border border-l-4 ${border} p-4`}>
+            <Skeleton className="h-10 w-10 shrink-0 rounded-lg" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-6 w-20" />
+              <Skeleton className="h-2 w-12" />
+            </div>
           </div>
+        ))}
+      </div>
+
+      {/* Row 1: Agenda + Promemoria */}
+      <div className="grid gap-4 md:gap-5 xl:grid-cols-2">
+        <div className="h-[480px] space-y-3 rounded-2xl border p-4 sm:p-5">
+          <Skeleton className="h-6 w-52" />
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <Skeleton className="h-8 w-full rounded-lg" />
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-16 w-full rounded-xl" />
+          ))}
         </div>
-      ))}
+        <div className="flex h-[480px] flex-col rounded-2xl border-2 border-amber-300/40 p-4 sm:p-5">
+          <Skeleton className="mb-3 h-6 w-32" />
+          <Skeleton className="mb-3 h-24 w-full rounded-lg" />
+          <Skeleton className="mb-3 h-9 w-full rounded-lg" />
+          <Skeleton className="flex-1 w-full rounded-lg" />
+        </div>
+      </div>
+
+      {/* Row 2: Chart + Alert */}
+      <div className="grid gap-4 md:gap-5 xl:grid-cols-2">
+        <div className="flex h-[480px] flex-col rounded-2xl border p-4 sm:p-5">
+          <Skeleton className="mb-4 h-5 w-52" />
+          <Skeleton className="flex-1 w-full rounded-xl" />
+        </div>
+        <Skeleton className="h-64 w-full rounded-xl" />
+      </div>
     </div>
   );
 }
-
-

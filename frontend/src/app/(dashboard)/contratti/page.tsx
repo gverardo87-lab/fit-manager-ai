@@ -13,6 +13,7 @@
  */
 
 import { useState, useCallback, useMemo, useEffect } from "react";
+import { usePageReveal } from "@/lib/page-reveal";
 import { differenceInDays, parseISO, startOfToday } from "date-fns";
 import {
   Plus,
@@ -151,6 +152,7 @@ function matchesSituazione(c: ContractListItem, key: string): boolean {
 // ── Page Component ──
 
 export default function ContrattiPage() {
+  const { revealClass, revealStyle } = usePageReveal();
   const [initialDeepLink] = useState(() => {
     if (typeof window === "undefined") {
       return { openFromDeepLink: false, defaultClientId: undefined as number | undefined };
@@ -283,7 +285,7 @@ export default function ContrattiPage() {
   return (
     <div className="space-y-6">
       {/* ── Header gradient ── */}
-      <div data-guide="contratti-header" className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div data-guide="contratti-header" className={revealClass(0, "flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between")} style={revealStyle(0)}>
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-violet-100 to-violet-200 dark:from-violet-900/40 dark:to-violet-800/30">
             <FileText className="h-5 w-5 text-violet-600 dark:text-violet-400" />
@@ -310,7 +312,7 @@ export default function ContrattiPage() {
 
       {/* ── KPI Cards ── */}
       {contractsData && (
-        <div data-guide="contratti-kpi" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div data-guide="contratti-kpi" className={revealClass(50, "grid grid-cols-2 gap-3 lg:grid-cols-4")} style={revealStyle(50)}>
           {CONTRATTI_KPI.map((kpi) => {
             const value = getKpiValue(kpi.key, contractsData);
             const isAlert = kpi.key === "rate_scadute";
@@ -360,41 +362,45 @@ export default function ContrattiPage() {
 
       {/* ── FilterBar chip (pattern Clienti/Agenda) ── */}
       {contractsData && (
-        <FilterBar
-          activeStati={activeStati}
-          onToggleStato={handleToggleStato}
-          activeSituazioni={activeSituazioni}
-          onToggleSituazione={handleToggleSituazione}
-        />
-      )}
-
-      {/* ── Contenuto ── */}
-      {isLoading && <TableSkeleton />}
-
-      {isError && (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-6 text-center">
-          <p className="text-destructive">
-            Errore nel caricamento dei contratti.
-          </p>
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-3"
-            onClick={() => refetch()}
-          >
-            Riprova
-          </Button>
+        <div className={revealClass(100)} style={revealStyle(100)}>
+          <FilterBar
+            activeStati={activeStati}
+            onToggleStato={handleToggleStato}
+            activeSituazioni={activeSituazioni}
+            onToggleSituazione={handleToggleSituazione}
+          />
         </div>
       )}
 
-      {contractsData && (
-        <ContractsTable
-          contracts={filteredContracts}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          onNewContract={handleNewContract}
-        />
-      )}
+      {/* ── Contenuto ── */}
+      <div className={revealClass(150)} style={revealStyle(150)}>
+        {isLoading && <TableSkeleton />}
+
+        {isError && (
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-6 text-center">
+            <p className="text-destructive">
+              Errore nel caricamento dei contratti.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              onClick={() => refetch()}
+            >
+              Riprova
+            </Button>
+          </div>
+        )}
+
+        {contractsData && (
+          <ContractsTable
+            contracts={filteredContracts}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onNewContract={handleNewContract}
+          />
+        )}
+      </div>
 
       {/* ── Sheet crea/modifica ── */}
       <ContractSheet

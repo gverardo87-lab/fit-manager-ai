@@ -21,6 +21,7 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { loadFilters, saveFilters, getUrlParams, syncUrlParams } from "@/lib/url-state";
+import { usePageReveal } from "@/lib/page-reveal";
 import Link from "next/link";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
@@ -195,6 +196,7 @@ const STATUS_CARD_GRADIENT: Record<ProgramStatus, string> = {
 // ════════════════════════════════════════════════════════════
 
 export default function AllenamentiPage() {
+  const { revealClass, revealStyle } = usePageReveal();
   const router = useRouter();
   const initialClientId = getUrlParams().get("idCliente");
 
@@ -318,7 +320,7 @@ export default function AllenamentiPage() {
   return (
     <div className="space-y-6">
       {/* ── Header con icona gradient ── */}
-      <div data-guide="monitoraggio-header" className="flex items-center gap-3">
+      <div data-guide="monitoraggio-header" className={revealClass(0, "flex items-center gap-3")} style={revealStyle(0)}>
         <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-teal-100 to-teal-200 dark:from-teal-900/40 dark:to-teal-800/30">
           <Activity className="h-5 w-5 text-teal-600 dark:text-teal-400" />
         </div>
@@ -342,7 +344,7 @@ export default function AllenamentiPage() {
       )}
 
       {/* ── KPI Hero Cards ── */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className={revealClass(50, "grid grid-cols-2 gap-4 lg:grid-cols-4")} style={revealStyle(50)}>
         {MONITORING_KPI.map((kpi) => {
           const Icon = kpi.icon;
           return (
@@ -367,7 +369,7 @@ export default function AllenamentiPage() {
       </div>
 
       {/* ── Filtri ── */}
-      <div className="flex flex-wrap gap-3 items-center">
+      <div className={revealClass(100, "flex flex-wrap gap-3 items-center")} style={revealStyle(100)}>
         <Select value={clientFilter} onValueChange={setClientFilter}>
           <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="Tutti i clienti" />
@@ -419,7 +421,7 @@ export default function AllenamentiPage() {
 
       {/* ── Cards ── */}
       {filteredPlans.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed py-16">
+        <div className={revealClass(150, "flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed py-16")} style={revealStyle(150)}>
           <ClipboardList className="h-10 w-10 text-muted-foreground/30" />
           <p className="text-sm text-muted-foreground">
             {plansWithClient.length === 0
@@ -432,7 +434,7 @@ export default function AllenamentiPage() {
           </Button>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className={revealClass(150, "space-y-4")} style={revealStyle(150)}>
           {filteredPlans.map((plan) => (
             <ProgramCard key={plan.id} plan={plan} />
           ))}

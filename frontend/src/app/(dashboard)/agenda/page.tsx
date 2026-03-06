@@ -13,6 +13,7 @@
  */
 
 import { useState, useCallback, useMemo, useEffect } from "react";
+import { usePageReveal } from "@/lib/page-reveal";
 import { format, startOfWeek, endOfWeek, endOfDay, startOfMonth, endOfMonth, subMonths, addMonths } from "date-fns";
 import { it } from "date-fns/locale";
 import { Plus, CalendarDays, Eye, EyeOff, CheckCircle2, Clock, Target, AlertTriangle, Loader2 } from "lucide-react";
@@ -59,6 +60,7 @@ function getInitialDeepLinkState() {
 }
 
 export default function AgendaPage() {
+  const { revealClass, revealStyle } = usePageReveal();
   const [initialDeepLink] = useState(getInitialDeepLinkState);
   // ── State: date range per la query API ──
   const [dateRange, setDateRange] = useState(getInitialRange);
@@ -265,7 +267,7 @@ export default function AgendaPage() {
   return (
     <div className="space-y-6">
       {/* ── Header ── */}
-      <div data-guide="agenda-header" className="flex items-center justify-between">
+      <div data-guide="agenda-header" className={revealClass(0, "flex items-center justify-between")} style={revealStyle(0)}>
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/40 dark:to-blue-800/30">
             <CalendarDays className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -291,53 +293,57 @@ export default function AgendaPage() {
       </div>
 
       {/* ── Filtri + Legenda ── */}
-      <FilterBar
-        activeCategories={activeCategories}
-        onToggleCategory={handleToggleCategory}
-        activeStatuses={activeStatuses}
-        onToggleStatus={handleToggleStatus}
-      />
+      <div className={revealClass(50)} style={revealStyle(50)}>
+        <FilterBar
+          activeCategories={activeCategories}
+          onToggleCategory={handleToggleCategory}
+          activeStatuses={activeStatuses}
+          onToggleStatus={handleToggleStatus}
+        />
+      </div>
 
       {/* ── KPI contestuali al range visibile ── */}
-      {!isLoading && <RangeStatsBar stats={rangeStats} label={rangeLabel} />}
+      {!isLoading && <div className={revealClass(100)} style={revealStyle(100)}><RangeStatsBar stats={rangeStats} label={rangeLabel} /></div>}
 
       {/* ── Contenuto: 3-state rendering ── */}
-      {isLoading && <CalendarSkeleton />}
+      <div className={revealClass(150)} style={revealStyle(150)}>
+        {isLoading && <CalendarSkeleton />}
 
-      {isError && (
-        <div className="flex items-center justify-between rounded-xl border border-destructive/50 bg-destructive/5 p-4">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-destructive" />
-            <p className="text-sm text-destructive">
-              Errore nel caricamento degli eventi.
-            </p>
-          </div>
-          <Button variant="outline" size="sm" onClick={() => refetch()}>
-            Riprova
-          </Button>
-        </div>
-      )}
-
-      {!isLoading && !isError && (
-        <div className="relative">
-          {isFetching && (
-            <div className="absolute inset-x-0 top-0 z-10 flex justify-center">
-              <div className="rounded-b-lg bg-blue-50 px-3 py-1 shadow-sm dark:bg-blue-950/40">
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500" />
-              </div>
+        {isError && (
+          <div className="flex items-center justify-between rounded-xl border border-destructive/50 bg-destructive/5 p-4">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-destructive" />
+              <p className="text-sm text-destructive">
+                Errore nel caricamento degli eventi.
+              </p>
             </div>
-          )}
-          <AgendaCalendar
-            events={calendarEvents}
-            onSelectSlot={handleSelectSlot}
-            onSelectEvent={handleSelectEvent}
-            onRangeChange={handleRangeChange}
-            onEventDrop={handleEventDrop}
-            onEventResize={handleEventResize}
-            onQuickAction={handleQuickAction}
-          />
-        </div>
-      )}
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              Riprova
+            </Button>
+          </div>
+        )}
+
+        {!isLoading && !isError && (
+          <div className="relative">
+            {isFetching && (
+              <div className="absolute inset-x-0 top-0 z-10 flex justify-center">
+                <div className="rounded-b-lg bg-blue-50 px-3 py-1 shadow-sm dark:bg-blue-950/40">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500" />
+                </div>
+              </div>
+            )}
+            <AgendaCalendar
+              events={calendarEvents}
+              onSelectSlot={handleSelectSlot}
+              onSelectEvent={handleSelectEvent}
+              onRangeChange={handleRangeChange}
+              onEventDrop={handleEventDrop}
+              onEventResize={handleEventResize}
+              onQuickAction={handleQuickAction}
+            />
+          </div>
+        )}
+      </div>
 
       {/* ── Sheet crea/modifica ── */}
       <EventSheet

@@ -2,14 +2,17 @@
 "use client";
 
 /**
- * TodoCard - card promemoria per la Dashboard.
+ * TodoCard - post-it promemoria stile frigorifero.
  *
  * Design:
+ * - Sfondo giallo post-it con angolo piegato
+ * - Font handwritten (Caveat) per i todo
  * - Hero "Azione consigliata" con priorita deterministica
  * - Inline input per creazione rapida (titolo + invio)
  * - Lista todo ordinata per urgenza
  * - Scaduti = rosso, oggi = ambra, futuri = blu
  * - Completati in fondo, barrati, opacity ridotta
+ * - Altezza fissa h-[480px] per allineamento con TodayAgenda
  */
 
 import Link from "next/link";
@@ -300,7 +303,7 @@ export function TodoCard({
 
   if (isLoading) {
     return (
-      <div className="space-y-4 rounded-xl border p-4 sm:p-5">
+      <div className="flex h-[480px] flex-col space-y-4 rounded-xl border p-4 sm:p-5">
         <Skeleton className="h-5 w-40" />
         <Skeleton className="h-24 w-full rounded-lg" />
         {Array.from({ length: 3 }).map((_, i) => (
@@ -317,22 +320,41 @@ export function TodoCard({
   return (
     <div
       id="todo-panel"
-      className="relative min-w-0 overflow-hidden rounded-2xl border border-amber-300/90 bg-gradient-to-br from-amber-100 via-yellow-50 to-amber-200/70 p-4 shadow-sm sm:p-5 dark:border-amber-700/60 dark:from-amber-950/45 dark:via-zinc-900 dark:to-amber-900/25"
+      className="relative flex h-[480px] min-w-0 flex-col overflow-hidden rounded-2xl border-2 border-amber-300/70 bg-gradient-to-br from-amber-50 via-yellow-50/95 to-amber-100/70 p-4 shadow-[4px_6px_16px_-2px_rgba(0,0,0,0.10),_0_1px_3px_rgba(0,0,0,0.06)] sm:p-5 dark:border-amber-700/50 dark:from-amber-950/50 dark:via-zinc-900 dark:to-amber-900/30"
+      style={{ backgroundImage: "repeating-linear-gradient(transparent, transparent 31px, rgba(180,160,120,0.10) 31px, rgba(180,160,120,0.10) 32px)" }}
     >
-      <div className="pointer-events-none absolute right-0 top-0 h-8 w-8 rotate-45 bg-amber-200/80 shadow-inner dark:bg-amber-800/40" />
+      {/* Angolo piegato post-it — con ombra sotto la piega */}
+      <div className="pointer-events-none absolute right-0 top-0 h-12 w-12">
+        <div className="absolute right-0 top-0 h-12 w-12 bg-gradient-to-bl from-amber-200/90 via-amber-100 to-yellow-50 dark:from-amber-800/60 dark:via-amber-900/50 dark:to-amber-950/40" style={{ clipPath: "polygon(100% 0, 0 0, 100% 100%)" }} />
+        <div className="absolute right-0 top-0 h-12 w-12" style={{ clipPath: "polygon(100% 0, 0 0, 100% 100%)", boxShadow: "inset -3px 3px 6px rgba(0,0,0,0.10)" }} />
+        <div className="absolute right-0 top-[48px] h-2 w-12 bg-gradient-to-r from-transparent via-black/[0.04] to-transparent dark:via-black/[0.15]" style={{ clipPath: "polygon(0 0, 100% 0, 85% 100%, 15% 100%)" }} />
+      </div>
+
+      {/* Puntina 3D — corpo metallico con riflesso e ombra proiettata */}
+      <div className="pointer-events-none absolute left-5 top-3.5">
+        {/* Ombra proiettata */}
+        <div className="absolute left-0.5 top-1 h-5 w-5 rounded-full bg-black/10 blur-[2px] dark:bg-black/25" />
+        {/* Corpo puntina */}
+        <div className="relative flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-red-400 via-red-500 to-red-600 shadow-[0_1px_3px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.3)] dark:from-red-500 dark:via-red-600 dark:to-red-700">
+          {/* Riflesso metallico */}
+          <div className="absolute left-1 top-0.5 h-2 w-2.5 rounded-full bg-gradient-to-br from-white/50 to-transparent" />
+          {/* Punto centrale */}
+          <div className="h-1.5 w-1.5 rounded-full bg-red-800/40 dark:bg-red-900/50" />
+        </div>
+      </div>
+
       {/* Header */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <ListTodo className="h-4 w-4 text-pink-500" />
-        <h3 className="text-sm font-semibold">Promemoria</h3>
+      <div className="mb-3 flex flex-wrap items-center gap-2 pl-7">
+        <h3 className="font-[family-name:var(--font-caveat)] text-2xl font-bold text-amber-900/80 sm:text-3xl dark:text-amber-200/80">Promemoria</h3>
         {todos.length > 0 && (
-          <span className="ml-auto text-[10px] font-medium text-muted-foreground">
+          <span className="ml-auto font-[family-name:var(--font-caveat)] text-base font-semibold text-amber-700/60 dark:text-amber-400/60">
             {activeCount} attivi
           </span>
         )}
       </div>
 
       {/* Hero action */}
-      <div className={`mb-3 rounded-lg border p-3 backdrop-blur-[1px] ${hero.panelTone}`}>
+      <div className={`mb-3 shrink-0 rounded-lg border p-3 backdrop-blur-[1px] ${hero.panelTone}`}>
         <div className="flex min-w-0 items-start gap-2.5">
           <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${hero.iconTone}`}>
             <HeroIcon className="h-4 w-4" />
@@ -372,15 +394,15 @@ export function TodoCard({
       </div>
 
       {/* Inline create */}
-      <div className="mb-3 space-y-2">
+      <div className="mb-3 shrink-0 space-y-2">
         <div className="flex min-w-0 items-center gap-2">
           <Input
             ref={inputRef}
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Nuovo promemoria..."
-            className="h-9 text-sm"
+            placeholder="Scrivi un promemoria..."
+            className="h-10 border-amber-300/60 bg-white/60 font-[family-name:var(--font-caveat)] text-lg placeholder:font-sans placeholder:text-sm dark:border-amber-800/40 dark:bg-zinc-900/40"
             maxLength={200}
           />
           <Button
@@ -398,7 +420,7 @@ export function TodoCard({
           <Button
             variant="outline"
             size="icon"
-            className="h-8 w-8 shrink-0"
+            className="h-8 w-8 shrink-0 border-amber-300/60 dark:border-amber-800/40"
             onClick={handleCreate}
             disabled={!newTitle.trim() || createTodo.isPending}
           >
@@ -410,15 +432,15 @@ export function TodoCard({
             type="date"
             value={newDate}
             onChange={(e) => setNewDate(e.target.value)}
-            className="h-8 text-sm"
+            className="h-8 border-amber-300/60 bg-white/60 text-sm dark:border-amber-800/40 dark:bg-zinc-900/40"
           />
         )}
       </div>
 
       {/* Priority counters */}
       {activeCount > 0 && (
-        <div className="mb-3 grid grid-cols-3 gap-1.5">
-          <div className="rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-center dark:border-red-900/40 dark:bg-red-950/20">
+        <div className="mb-3 grid shrink-0 grid-cols-3 gap-1.5">
+          <div className="rounded-md border border-red-200 bg-red-50/80 px-2 py-1.5 text-center dark:border-red-900/40 dark:bg-red-950/20">
             <p className="text-base font-extrabold leading-none tabular-nums text-red-700 dark:text-red-300">
               {overdueCount}
             </p>
@@ -426,7 +448,7 @@ export function TodoCard({
               Scaduti
             </p>
           </div>
-          <div className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-center dark:border-amber-900/40 dark:bg-amber-950/20">
+          <div className="rounded-md border border-amber-200 bg-amber-50/80 px-2 py-1.5 text-center dark:border-amber-900/40 dark:bg-amber-950/20">
             <p className="text-base font-extrabold leading-none tabular-nums text-amber-700 dark:text-amber-300">
               {dueTodayCount}
             </p>
@@ -434,7 +456,7 @@ export function TodoCard({
               Oggi
             </p>
           </div>
-          <div className="rounded-md border border-blue-200 bg-blue-50 px-2 py-1.5 text-center dark:border-blue-900/40 dark:bg-blue-950/20">
+          <div className="rounded-md border border-blue-200 bg-blue-50/80 px-2 py-1.5 text-center dark:border-blue-900/40 dark:bg-blue-950/20">
             <p className="text-base font-extrabold leading-none tabular-nums text-blue-700 dark:text-blue-300">
               {upcomingCount}
             </p>
@@ -445,17 +467,17 @@ export function TodoCard({
         </div>
       )}
 
-      {/* Todo list */}
+      {/* Todo list — scrollable, fills remaining space */}
       {todos.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed p-6 text-center">
-          <ListTodo className="h-8 w-8 text-muted-foreground/30" />
-          <p className="text-sm text-muted-foreground">Nessun promemoria</p>
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-amber-300/50 p-6 text-center dark:border-amber-800/30">
+          <ListTodo className="h-8 w-8 text-amber-400/40" />
+          <p className="font-[family-name:var(--font-caveat)] text-2xl font-semibold text-amber-700/60 dark:text-amber-400/50">Nessun promemoria</p>
           <p className="text-xs text-muted-foreground/70">
-            Aggiungi un promemoria qui sopra
+            Scrivi qualcosa qui sopra
           </p>
         </div>
       ) : (
-        <ScrollArea className={todos.length > 6 ? "h-[240px] pr-1" : ""}>
+        <ScrollArea className="min-h-0 flex-1 pr-1">
           <div className="space-y-1.5">
             {todos.map((todo) => (
               <TodoItem
@@ -495,12 +517,12 @@ function TodoItem({
     todo.data_scadenza === todayISO;
 
   const containerClass = todo.completato
-    ? "bg-muted/30 opacity-60 border"
+    ? "bg-amber-100/30 opacity-60 border border-amber-200/40 dark:bg-zinc-900/30 dark:border-amber-800/20"
     : isOverdue
       ? "border border-l-4 border-l-red-500 bg-red-50/60 dark:bg-red-950/20"
       : isToday
         ? "border border-l-4 border-l-amber-500 bg-amber-50/60 dark:bg-amber-950/20"
-        : "border bg-white dark:bg-zinc-900";
+        : "border border-amber-200/50 bg-white/50 dark:border-amber-800/30 dark:bg-zinc-900/40";
 
   return (
     <div
@@ -511,14 +533,14 @@ function TodoItem({
         className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors ${
           todo.completato
             ? "border-emerald-500 bg-emerald-500 text-white"
-            : "border-muted-foreground/30 hover:border-emerald-400"
+            : "border-amber-400/60 hover:border-emerald-400 dark:border-amber-600/40"
         }`}
       >
         {todo.completato && <Check className="h-3 w-3" />}
       </button>
 
       <div className="min-w-0 flex-1">
-        <p className={`truncate text-sm font-medium ${urgencyClass}`}>
+        <p className={`truncate font-[family-name:var(--font-caveat)] text-xl font-semibold leading-tight sm:text-2xl ${urgencyClass}`}>
           {todo.titolo}
         </p>
       </div>

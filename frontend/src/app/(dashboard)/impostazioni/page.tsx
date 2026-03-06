@@ -12,6 +12,7 @@
  */
 
 import { useRef, useState } from "react";
+import { usePageReveal } from "@/lib/page-reveal";
 import {
   Settings,
   Database,
@@ -81,6 +82,7 @@ function formatBytes(bytes: number): string {
 // ── Page ──
 
 export default function ImpostazioniPage() {
+  const { revealClass, revealStyle } = usePageReveal();
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [restoreFilename, setRestoreFilename] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -127,7 +129,7 @@ export default function ImpostazioniPage() {
   return (
     <div className="space-y-6">
       {/* ── Header ── */}
-      <div data-guide="impostazioni-header" className="flex items-center gap-3">
+      <div data-guide="impostazioni-header" className={revealClass(0, "flex items-center gap-3")} style={revealStyle(0)}>
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-900/30">
           <Settings className="h-5 w-5 text-slate-600 dark:text-slate-400" />
         </div>
@@ -140,10 +142,12 @@ export default function ImpostazioniPage() {
       </div>
 
       {/* ── Sezione Saldo Iniziale ── */}
-      <SaldoInizialeSection />
+      <div className={revealClass(50)} style={revealStyle(50)}>
+        <SaldoInizialeSection />
+      </div>
 
       {/* ── Sezione Backup ── */}
-      <Card>
+      <Card className={revealClass(100)} style={revealStyle(100)}>
         <CardHeader>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
@@ -296,7 +300,7 @@ export default function ImpostazioniPage() {
       </Card>
 
       {/* ── Sezione Export ── */}
-      <Card>
+      <Card className={revealClass(150)} style={revealStyle(150)}>
         <CardHeader>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">

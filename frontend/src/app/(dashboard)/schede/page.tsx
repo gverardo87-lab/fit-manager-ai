@@ -14,6 +14,7 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { loadFilters, saveFilters, getUrlParams, syncUrlParams } from "@/lib/url-state";
+import { usePageReveal } from "@/lib/page-reveal";
 import {
   Plus,
   ClipboardList,
@@ -97,6 +98,7 @@ const NONE_VALUE = "__none__";
 // ════════════════════════════════════════════════════════════
 
 export default function SchedePage() {
+  const { revealClass, revealStyle } = usePageReveal();
   const router = useRouter();
 
   const [filters, setFilters] = useState<WorkoutFilters>(() => {
@@ -189,7 +191,7 @@ export default function SchedePage() {
   return (
     <div className="space-y-6">
       {/* ── Header ── */}
-      <div data-guide="schede-header" className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div data-guide="schede-header" className={revealClass(0, "flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between")} style={revealStyle(0)}>
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-teal-100 to-teal-200 dark:from-teal-900/40 dark:to-teal-800/30">
             <ClipboardList className="h-5 w-5 text-teal-600 dark:text-teal-400" />
@@ -211,7 +213,7 @@ export default function SchedePage() {
 
       {/* ── KPI Cards ── */}
       {data && (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className={revealClass(50, "grid grid-cols-2 gap-3 lg:grid-cols-4")} style={revealStyle(50)}>
           <KpiCard
             label="Totale Schede"
             value={kpi.total}
@@ -262,7 +264,7 @@ export default function SchedePage() {
       )}
 
       {/* ── Filter Bar ── */}
-      <div className="flex flex-wrap gap-2">
+      <div className={revealClass(100, "flex flex-wrap gap-2")} style={revealStyle(100)}>
         <Select value={filters.obiettivo ?? NONE_VALUE} onValueChange={(v) => updateFilter("obiettivo", v)}>
           <SelectTrigger className="w-[160px]">
             <SelectValue placeholder="Obiettivo" />
@@ -319,6 +321,7 @@ export default function SchedePage() {
       </div>
 
       {/* ── Content ── */}
+      <div className={revealClass(150)} style={revealStyle(150)}>
       {isLoading && <TableSkeleton />}
 
       {isError && (
@@ -425,6 +428,7 @@ export default function SchedePage() {
           </Table>
         </div>
       )}
+      </div>
 
       {/* ── Template Selector ── */}
       <TemplateSelector

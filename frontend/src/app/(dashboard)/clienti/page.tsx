@@ -16,6 +16,7 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { loadFilters, saveFilters, getUrlParams, syncUrlParams } from "@/lib/url-state";
+import { usePageReveal } from "@/lib/page-reveal";
 import {
   Plus,
   Users,
@@ -132,6 +133,7 @@ function getInitialDeepLinkState() {
 }
 
 export default function ClientiPage() {
+  const { revealClass, revealStyle } = usePageReveal();
   const [initialDeepLink] = useState(getInitialDeepLinkState);
   // ── URL-backed filter state ──
   const pathname = usePathname();
@@ -252,7 +254,7 @@ export default function ClientiPage() {
   return (
     <div className="space-y-6">
       {/* ── Header gradient ── */}
-      <div data-guide="clienti-header" className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div data-guide="clienti-header" className={revealClass(0, "flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between")} style={revealStyle(0)}>
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/40 dark:to-blue-800/30">
             <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -279,7 +281,7 @@ export default function ClientiPage() {
 
       {/* ── KPI Cards ── */}
       {data && (
-        <div data-guide="clienti-kpi" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div data-guide="clienti-kpi" className={revealClass(50, "grid grid-cols-2 gap-3 lg:grid-cols-4")} style={revealStyle(50)}>
           {CLIENTI_KPI.map((kpi) => {
             const value = getKpiValue(kpi.key, data);
             const isAlert = kpi.key === "rate_scadute";
@@ -329,41 +331,45 @@ export default function ClientiPage() {
 
       {/* ── FilterBar chip (pattern Agenda) ── */}
       {data && (
-        <FilterBar
-          activeStati={activeStati}
-          onToggleStato={handleToggleStato}
-          activeSituazioni={activeSituazioni}
-          onToggleSituazione={handleToggleSituazione}
-        />
-      )}
-
-      {/* ── Contenuto ── */}
-      {isLoading && <TableSkeleton />}
-
-      {isError && (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-6 text-center">
-          <p className="text-destructive">
-            Errore nel caricamento dei clienti.
-          </p>
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-3"
-            onClick={() => refetch()}
-          >
-            Riprova
-          </Button>
+        <div className={revealClass(100)} style={revealStyle(100)}>
+          <FilterBar
+            activeStati={activeStati}
+            onToggleStato={handleToggleStato}
+            activeSituazioni={activeSituazioni}
+            onToggleSituazione={handleToggleSituazione}
+          />
         </div>
       )}
 
-      {data && (
-        <ClientsTable
-          clients={filteredClients}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          onNewClient={handleNewClient}
-        />
-      )}
+      {/* ── Contenuto ── */}
+      <div className={revealClass(150)} style={revealStyle(150)}>
+        {isLoading && <TableSkeleton />}
+
+        {isError && (
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-6 text-center">
+            <p className="text-destructive">
+              Errore nel caricamento dei clienti.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              onClick={() => refetch()}
+            >
+              Riprova
+            </Button>
+          </div>
+        )}
+
+        {data && (
+          <ClientsTable
+            clients={filteredClients}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onNewClient={handleNewClient}
+          />
+        )}
+      </div>
 
       {/* ── Sheet crea/modifica ── */}
       <ClientSheet

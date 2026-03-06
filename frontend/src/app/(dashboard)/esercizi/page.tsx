@@ -18,6 +18,7 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { loadFilters, saveFilters, getUrlParams, syncUrlParams } from "@/lib/url-state";
+import { usePageReveal } from "@/lib/page-reveal";
 import {
   Plus,
   Dumbbell,
@@ -110,6 +111,7 @@ function useExerciseKpi(exercises: Exercise[]) {
 // ════════════════════════════════════════════════════════════
 
 export default function EserciziPage() {
+  const { revealClass, revealStyle } = usePageReveal();
   // ── URL-backed filter state ──
   const pathname = usePathname();
 
@@ -340,7 +342,7 @@ export default function EserciziPage() {
   return (
     <div className="space-y-6">
       {/* ── Header ── */}
-      <div data-guide="esercizi-header" className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div data-guide="esercizi-header" className={revealClass(0, "flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between")} style={revealStyle(0)}>
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-violet-100 to-violet-200 dark:from-violet-900/40 dark:to-violet-800/30">
             <Dumbbell className="h-5 w-5 text-violet-600 dark:text-violet-400" />
@@ -367,7 +369,7 @@ export default function EserciziPage() {
 
       {/* ── KPI Cards ── */}
       {data && (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className={revealClass(50, "grid grid-cols-2 gap-3 lg:grid-cols-4")} style={revealStyle(50)}>
           <KpiCard
             label="Totale"
             value={kpi.total}
@@ -407,7 +409,7 @@ export default function EserciziPage() {
 
       {/* ── FilterBar chip interattivi ── */}
       {data && (
-        <div data-guide="esercizi-filters" className="rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-3 shadow-sm dark:from-zinc-900 dark:to-zinc-800/50">
+        <div data-guide="esercizi-filters" className={revealClass(100, "rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-3 shadow-sm dark:from-zinc-900 dark:to-zinc-800/50")} style={revealStyle(100)}>
           <div className="flex flex-col gap-2">
             {/* Riga 1: Categoria (multi-toggle, pattern Clienti) */}
             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
@@ -589,7 +591,7 @@ export default function EserciziPage() {
 
       {/* ── Ricerca testuale ── */}
       {data && (
-        <div className="relative">
+        <div className={revealClass(130, "relative")} style={revealStyle(130)}>
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Cerca per nome, muscolo, attrezzatura..."
@@ -609,25 +611,27 @@ export default function EserciziPage() {
       )}
 
       {/* ── Content ── */}
-      {isLoading && <TableSkeleton />}
+      <div className={revealClass(160)} style={revealStyle(160)}>
+        {isLoading && <TableSkeleton />}
 
-      {isError && (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-6 text-center">
-          <p className="text-destructive">Errore nel caricamento degli esercizi.</p>
-          <Button variant="outline" size="sm" className="mt-3" onClick={() => refetch()}>
-            Riprova
-          </Button>
-        </div>
-      )}
+        {isError && (
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-6 text-center">
+            <p className="text-destructive">Errore nel caricamento degli esercizi.</p>
+            <Button variant="outline" size="sm" className="mt-3" onClick={() => refetch()}>
+              Riprova
+            </Button>
+          </div>
+        )}
 
-      {data && (
-        <ExercisesTable
-          exercises={filtered}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          onNewExercise={handleNewExercise}
-        />
-      )}
+        {data && (
+          <ExercisesTable
+            exercises={filtered}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onNewExercise={handleNewExercise}
+          />
+        )}
+      </div>
 
       {/* ── Sheet + Dialog ── */}
       <ExerciseSheet

@@ -12,6 +12,7 @@
  */
 
 import { useState } from "react";
+import { usePageReveal } from "@/lib/page-reveal";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -89,6 +90,7 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
 // ── Page ──
 
 export default function GuidaPage() {
+  const { revealClass, revealStyle } = usePageReveal();
   const { isTourCompleted, resetProgress } = useGuideProgress();
   const tourDone = isTourCompleted("scopri-fitmanager");
 
@@ -101,7 +103,7 @@ export default function GuidaPage() {
   return (
     <div className="space-y-6">
       {/* ── Header ── */}
-      <div className="flex items-start gap-3">
+      <div className={revealClass(0, "flex items-start gap-3")} style={revealStyle(0)}>
         <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-teal-100 to-teal-200 dark:from-teal-900/40 dark:to-teal-800/30">
           <BookOpen className="h-5 w-5 text-teal-600 dark:text-teal-400" />
         </div>
@@ -114,7 +116,7 @@ export default function GuidaPage() {
       </div>
 
       {/* ── Hero: Tour guidato ── */}
-      <Card data-guide="guida-hero" className="overflow-hidden border-primary/20">
+      <Card data-guide="guida-hero" className={revealClass(50, "overflow-hidden border-primary/20")} style={revealStyle(50)}>
         <div className="bg-gradient-to-br from-primary/5 via-primary/3 to-transparent">
           <CardHeader className="space-y-3">
             <div className="flex items-center gap-2">
@@ -158,7 +160,7 @@ export default function GuidaPage() {
       </Card>
 
       {/* ── Scorciatoie da tastiera ── */}
-      <section className="space-y-3">
+      <section className={revealClass(100, "space-y-3")} style={revealStyle(100)}>
         <div className="flex items-center gap-2">
           <Keyboard className="h-4 w-4 text-muted-foreground" />
           <h2 className="text-base font-semibold tracking-tight">Scorciatoie da tastiera</h2>
@@ -186,7 +188,7 @@ export default function GuidaPage() {
       </section>
 
       {/* ── FAQ ── */}
-      <section className="space-y-3">
+      <section className={revealClass(150, "space-y-3")} style={revealStyle(150)}>
         <div className="flex items-center gap-2">
           <MessageCircleQuestion className="h-4 w-4 text-muted-foreground" />
           <h2 className="text-base font-semibold tracking-tight">Domande frequenti</h2>
@@ -199,7 +201,7 @@ export default function GuidaPage() {
       </section>
 
       {/* ── Feature Discovery ── */}
-      <section className="space-y-3">
+      <section className={revealClass(200, "space-y-3")} style={revealStyle(200)}>
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-muted-foreground" />
           <h2 className="text-base font-semibold tracking-tight">Scopri le funzionalita&apos; avanzate</h2>
