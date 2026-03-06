@@ -23,12 +23,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useClinicalReadiness } from "@/hooks/useDashboard";
+import { useClinicalReadinessWorklist } from "@/hooks/useDashboard";
 import { usePageReveal } from "@/lib/page-reveal";
 import type { ClinicalReadinessClientItem } from "@/types/api";
 
 type PortalFilter = "all" | "todo" | "ready";
 type TimelineStatus = ClinicalReadinessClientItem["timeline_status"];
+const PAGE_SIZE = 20;
 
 const PRIORITY_BADGE: Record<ClinicalReadinessClientItem["priority"], string> = {
   high: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800",
@@ -77,10 +78,6 @@ const TIMELINE_REASON_LABEL: Record<string, string> = {
   anamnesi_review: "Review anamnesi",
   monitoring: "Monitoraggio",
 };
-
-function stripAccents(value: string): string {
-  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-}
 
 function formatIsoDate(isoDate: string | null): string {
   if (!isoDate) return "N/D";
@@ -154,33 +151,41 @@ function KpiCard({
 
 export default function MyPortalPage() {
   const { revealClass, revealStyle } = usePageReveal();
-  const { data, isLoading, isError, refetch } = useClinicalReadiness();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<PortalFilter>("todo");
+  const [page, setPage] = useState(1);
 
-  const filteredItems = useMemo(() => {
-    const items = data?.items ?? [];
-    const byFilter = items.filter((item) => {
-      if (filter === "todo") return item.next_action_code !== "ready";
-      if (filter === "ready") return item.next_action_code === "ready";
-      return true;
-    });
+  const {
+    data,
+    isLoading,
+    isError,
+    isFetching,
+    refetch,
+  } = useClinicalReadinessWorklist({
+    page,
+    page_size: PAGE_SIZE,
+    view: filter,
+    search,
+  });
 
-    const q = stripAccents(search.trim().toLowerCase());
-    if (!q) return byFilter;
-
-    return byFilter.filter((item) =>
-      stripAccents(`${item.client_nome} ${item.client_cognome}`.toLowerCase()).includes(q),
-    );
-  }, [data, filter, search]);
+  const {
+    data: timelineData,
+    isLoading: timelineLoading,
+    refetch: refetchTimeline,
+  } = useClinicalReadinessWorklist({
+    page: 1,
+    page_size: 9,
+    view: "all",
+    sort_by: "due_date",
+  });
 
   const actionableCount = useMemo(
-    () => (data?.items ?? []).filter((item) => item.next_action_code !== "ready").length,
+    () => (data?.summary.total_clients ?? 0) - (data?.summary.ready_clients ?? 0),
     [data],
   );
 
   const timelineItems = useMemo(() => {
-    return (data?.items ?? [])
+    return (timelineData?.items ?? [])
       .filter((item) => item.next_due_date !== null)
       .sort((a, b) => {
         const aDate = a.next_due_date ?? "9999-12-31";
@@ -188,9 +193,29 @@ export default function MyPortalPage() {
         if (aDate !== bDate) return aDate.localeCompare(bDate);
         return a.client_cognome.localeCompare(b.client_cognome);
       });
-  }, [data]);
+  }, [timelineData]);
 
+  const pagedItems = data?.items ?? [];
+  const totalItems = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
   const summary = data?.summary;
+  const canGoPrev = page > 1;
+  const canGoNext = page < totalPages;
+
+  const handleRetry = () => {
+    void refetch();
+    void refetchTimeline();
+  };
+
+  const handleFilterChange = (nextFilter: PortalFilter) => {
+    setFilter(nextFilter);
+    setPage(1);
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setPage(1);
+  };
 
   return (
     <div className="space-y-6">
@@ -222,7 +247,7 @@ export default function MyPortalPage() {
       {isError && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
           <p className="text-sm text-destructive">Impossibile caricare i dati di MyPortal.</p>
-          <Button variant="outline" size="sm" className="mt-2" onClick={() => refetch()}>
+          <Button variant="outline" size="sm" className="mt-2" onClick={handleRetry}>
             Riprova
           </Button>
         </div>
@@ -257,7 +282,7 @@ export default function MyPortalPage() {
                   type="button"
                   size="sm"
                   variant={filter === "todo" ? "default" : "outline"}
-                  onClick={() => setFilter("todo")}
+                  onClick={() => handleFilterChange("todo")}
                   className="h-8"
                 >
                   Da completare
@@ -266,7 +291,7 @@ export default function MyPortalPage() {
                   type="button"
                   size="sm"
                   variant={filter === "all" ? "default" : "outline"}
-                  onClick={() => setFilter("all")}
+                  onClick={() => handleFilterChange("all")}
                   className="h-8"
                 >
                   Tutti
@@ -275,7 +300,7 @@ export default function MyPortalPage() {
                   type="button"
                   size="sm"
                   variant={filter === "ready" ? "default" : "outline"}
-                  onClick={() => setFilter("ready")}
+                  onClick={() => handleFilterChange("ready")}
                   className="h-8"
                 >
                   Pronti
@@ -285,7 +310,7 @@ export default function MyPortalPage() {
                 <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={search}
-                  onChange={(event) => setSearch(event.target.value)}
+                  onChange={(event) => handleSearchChange(event.target.value)}
                   placeholder="Cerca cliente..."
                   className="pl-9"
                 />
@@ -298,11 +323,13 @@ export default function MyPortalPage() {
               <Clock3 className="h-4 w-4 text-amber-500" />
               <h2 className="text-sm font-semibold">Timeline scadenze</h2>
             </div>
-            {timelineItems.length === 0 ? (
+            {timelineLoading ? (
+              <Skeleton className="h-28 rounded-lg" />
+            ) : timelineItems.length === 0 ? (
               <p className="text-xs text-muted-foreground">Nessuna scadenza disponibile.</p>
             ) : (
               <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                {timelineItems.slice(0, 9).map((item) => (
+                {timelineItems.map((item) => (
                   <div key={`timeline-${item.client_id}`} className="rounded-lg border bg-zinc-50/70 p-2.5 dark:bg-zinc-900/70">
                     <div className="flex items-start justify-between gap-2">
                       <p className="truncate text-xs font-semibold">
@@ -329,7 +356,7 @@ export default function MyPortalPage() {
             )}
           </div>
 
-          {filteredItems.length === 0 ? (
+          {pagedItems.length === 0 ? (
             <div className={revealClass(130)} style={revealStyle(130)}>
               <EmptyState
                 icon={Filter}
@@ -354,7 +381,7 @@ export default function MyPortalPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredItems.map((item) => (
+                    {pagedItems.map((item) => (
                       <TableRow key={item.client_id}>
                         <TableCell className="font-medium">
                           <Link href={`/clienti/${item.client_id}`} className="hover:underline">
@@ -403,7 +430,7 @@ export default function MyPortalPage() {
               </div>
 
               <div className={revealClass(130, "space-y-2 md:hidden")} style={revealStyle(130)}>
-                {filteredItems.map((item) => (
+                {pagedItems.map((item) => (
                   <div key={item.client_id} className="rounded-xl border bg-white p-3 shadow-sm dark:bg-zinc-900">
                     <div className="flex items-start justify-between gap-2">
                       <div>
@@ -472,6 +499,35 @@ export default function MyPortalPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+
+              <div className={revealClass(140, "rounded-xl border bg-white p-3 shadow-sm dark:bg-zinc-900")} style={revealStyle(140)}>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs text-muted-foreground">
+                    {totalItems} clienti · Pagina {page}/{totalPages}
+                    {isFetching && <span className="ml-1">(aggiornamento...)</span>}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={!canGoPrev}
+                      onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                    >
+                      Precedente
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={!canGoNext}
+                      onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+                    >
+                      Successiva
+                    </Button>
+                  </div>
+                </div>
               </div>
             </>
           )}

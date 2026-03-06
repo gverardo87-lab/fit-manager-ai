@@ -10,8 +10,9 @@ Multi-tenancy: ogni query filtra per trainer_id dal JWT.
 """
 
 import json
+import unicodedata
 from datetime import date, datetime, timedelta
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import bindparam
 from sqlmodel import Session, select, func, text
 
@@ -28,7 +29,12 @@ from api.models.workout import WorkoutPlan
 from api.schemas.financial import (
     DashboardSummary, ReconciliationItem, ReconciliationResponse,
     AlertItem, DashboardAlerts,
-    ClinicalReadinessClientItem, ClinicalReadinessSummary, ClinicalReadinessResponse,
+)
+from api.schemas.clinical import (
+    ClinicalReadinessClientItem,
+    ClinicalReadinessSummary,
+    ClinicalReadinessResponse,
+    ClinicalReadinessWorklistResponse,
 )
 from api.routers.movements import _compute_saldo
 
@@ -872,24 +878,19 @@ def _build_clinical_readiness_item(
     )
 
 
-@router.get("/clinical-readiness", response_model=ClinicalReadinessResponse)
-def get_clinical_readiness(
-    trainer: Trainer = Depends(get_current_trainer),
-    session: Session = Depends(get_session),
-):
-    """
-    Coda operativa per onboarding/migrazione legacy a basso attrito.
+def _normalize_search_text(value: str) -> str:
+    normalized = unicodedata.normalize("NFD", value or "")
+    return "".join(ch for ch in normalized if unicodedata.category(ch) != "Mn").lower().strip()
 
-    Regola deterministica per cliente attivo:
-    1) anamnesi (missing/legacy/structured)
-    2) baseline misurazioni presente?
-    3) scheda allenamento assegnata?
-    """
-    today = date.today()
 
+def _compute_clinical_readiness_data(
+    trainer_id: int,
+    session: Session,
+    reference_date: date,
+) -> tuple[ClinicalReadinessSummary, list[ClinicalReadinessClientItem]]:
     active_clients = session.exec(
         select(Client).where(
-            Client.trainer_id == trainer.id,
+            Client.trainer_id == trainer_id,
             Client.stato == "Attivo",
             Client.deleted_at == None,
         )
@@ -897,15 +898,12 @@ def get_clinical_readiness(
 
     client_ids = [c.id for c in active_clients if c.id is not None]
     if not client_ids:
-        return ClinicalReadinessResponse(
-            summary=ClinicalReadinessSummary(),
-            items=[],
-        )
+        return ClinicalReadinessSummary(), []
 
     measurement_rows = session.exec(
         select(ClientMeasurement.id_cliente, func.max(ClientMeasurement.data_misurazione))
         .where(
-            ClientMeasurement.trainer_id == trainer.id,
+            ClientMeasurement.trainer_id == trainer_id,
             ClientMeasurement.deleted_at == None,
             ClientMeasurement.id_cliente.in_(client_ids),
         )
@@ -924,7 +922,7 @@ def get_clinical_readiness(
             func.max(func.coalesce(WorkoutPlan.updated_at, WorkoutPlan.created_at)),
         )
         .where(
-            WorkoutPlan.trainer_id == trainer.id,
+            WorkoutPlan.trainer_id == trainer_id,
             WorkoutPlan.deleted_at == None,
             WorkoutPlan.id_cliente != None,
             WorkoutPlan.id_cliente.in_(client_ids),
@@ -938,7 +936,7 @@ def get_clinical_readiness(
     }
     clients_with_workout = set(latest_workout_by_client.keys())
 
-    items = []
+    items: list[ClinicalReadinessClientItem] = []
     for client in active_clients:
         if client.id is None:
             continue
@@ -951,7 +949,7 @@ def get_clinical_readiness(
                 latest_measurement_date=latest_measurement_by_client.get(client_id),
                 latest_workout_updated_at=latest_workout_by_client.get(client_id),
                 anamnesi_reference_date=_extract_anamnesi_reference_date(client.anamnesi_json),
-                reference_date=today,
+                reference_date=reference_date,
             )
         )
 
@@ -975,5 +973,122 @@ def get_clinical_readiness(
         medium_priority=sum(1 for i in items if i.priority == "medium"),
         low_priority=sum(1 for i in items if i.priority == "low"),
     )
+    return summary, items
 
+
+def _filter_clinical_readiness_items(
+    items: list[ClinicalReadinessClientItem],
+    *,
+    view: str,
+    priority: str | None,
+    timeline_status: str | None,
+    search: str | None,
+) -> list[ClinicalReadinessClientItem]:
+    filtered = items
+
+    if view == "todo":
+        filtered = [item for item in filtered if item.next_action_code != "ready"]
+    elif view == "ready":
+        filtered = [item for item in filtered if item.next_action_code == "ready"]
+
+    if priority:
+        filtered = [item for item in filtered if item.priority == priority]
+
+    if timeline_status:
+        filtered = [item for item in filtered if item.timeline_status == timeline_status]
+
+    if search:
+        query = _normalize_search_text(search)
+        if query:
+            filtered = [
+                item
+                for item in filtered
+                if query in _normalize_search_text(f"{item.client_nome} {item.client_cognome}")
+            ]
+
+    return filtered
+
+
+def _sort_clinical_readiness_items(
+    items: list[ClinicalReadinessClientItem],
+    *,
+    sort_by: str,
+) -> list[ClinicalReadinessClientItem]:
+    if sort_by != "due_date":
+        return items
+
+    return sorted(
+        items,
+        key=lambda item: (
+            item.next_due_date is None,
+            item.next_due_date or date.max,
+            -item.priority_score,
+            item.client_cognome.lower(),
+            item.client_nome.lower(),
+        ),
+    )
+
+
+@router.get("/clinical-readiness", response_model=ClinicalReadinessResponse)
+def get_clinical_readiness(
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """
+    Coda operativa per onboarding/migrazione legacy a basso attrito.
+
+    Regola deterministica per cliente attivo:
+    1) anamnesi (missing/legacy/structured)
+    2) baseline misurazioni presente?
+    3) scheda allenamento assegnata?
+    """
+    summary, items = _compute_clinical_readiness_data(
+        trainer_id=trainer.id,
+        session=session,
+        reference_date=date.today(),
+    )
     return ClinicalReadinessResponse(summary=summary, items=items)
+
+
+@router.get("/clinical-readiness/worklist", response_model=ClinicalReadinessWorklistResponse)
+def get_clinical_readiness_worklist(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=25, ge=1, le=200),
+    view: str = Query(default="todo", pattern="^(all|todo|ready)$"),
+    sort_by: str = Query(default="priority", pattern="^(priority|due_date)$"),
+    priority: str | None = Query(default=None, pattern="^(high|medium|low)$"),
+    timeline_status: str | None = Query(default=None, pattern="^(overdue|today|upcoming_7d|upcoming_14d|future|none)$"),
+    search: str | None = Query(default=None, max_length=120),
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """
+    Worklist paginata readiness per MyPortal.
+
+    Mantiene la stessa logica deterministica dell'endpoint legacy ma
+    applica filtri server-side e paginazione per scalare oltre 50 clienti.
+    """
+    summary, items = _compute_clinical_readiness_data(
+        trainer_id=trainer.id,
+        session=session,
+        reference_date=date.today(),
+    )
+    filtered = _filter_clinical_readiness_items(
+        items,
+        view=view,
+        priority=priority,
+        timeline_status=timeline_status,
+        search=search,
+    )
+    sorted_items = _sort_clinical_readiness_items(filtered, sort_by=sort_by)
+    total = len(filtered)
+    offset = (page - 1) * page_size
+    paged_items = sorted_items[offset: offset + page_size]
+
+    return ClinicalReadinessWorklistResponse(
+        summary=summary,
+        items=paged_items,
+        total=total,
+        page=page,
+        page_size=page_size,
+    )

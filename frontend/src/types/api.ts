@@ -746,6 +746,15 @@ export interface ClinicalReadinessResponse {
   items: ClinicalReadinessClientItem[];
 }
 
+/** GET /api/dashboard/clinical-readiness/worklist */
+export interface ClinicalReadinessWorklistResponse {
+  summary: ClinicalReadinessSummary;
+  items: ClinicalReadinessClientItem[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
 // ════════════════════════════════════════════════════════════
 // TODO (api/routers/todos.py — inline schemas)
 // ════════════════════════════════════════════════════════════

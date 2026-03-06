@@ -158,3 +158,173 @@ def test_clinical_readiness_enforces_trainer_isolation(client, auth_headers):
 
     assert own_client["id"] in ids
     assert other_client["id"] not in ids
+
+
+def test_clinical_readiness_worklist_supports_pagination_and_filters(client, auth_headers, session):
+    """Worklist endpoint must support server-side pagination and deterministic filters."""
+    trainer = session.exec(
+        select(Trainer).where(Trainer.email == "test@test.com")
+    ).first()
+    assert trainer is not None
+    assert trainer.id is not None
+
+    c_missing = _create_client(client, auth_headers, "Arianna", "Rossi")
+    c_legacy = _create_client(client, auth_headers, "Bruno", "Bianchi", anamnesi={"note": "legacy"})
+    c_workout_missing = _create_client(
+        client,
+        auth_headers,
+        "Chiara",
+        "Verdi",
+        anamnesi=_structured_anamnesi(),
+    )
+    c_ready = _create_client(
+        client,
+        auth_headers,
+        "Diego",
+        "Neri",
+        anamnesi=_structured_anamnesi(),
+    )
+    c_ready_two = _create_client(
+        client,
+        auth_headers,
+        "Elena",
+        "Marini",
+        anamnesi=_structured_anamnesi(),
+    )
+
+    session.add(
+        ClientMeasurement(
+            id_cliente=c_workout_missing["id"],
+            trainer_id=trainer.id,
+            data_misurazione=date(2026, 3, 1),
+        )
+    )
+    session.add(
+        ClientMeasurement(
+            id_cliente=c_ready["id"],
+            trainer_id=trainer.id,
+            data_misurazione=date(2026, 3, 2),
+        )
+    )
+    session.add(
+        ClientMeasurement(
+            id_cliente=c_ready_two["id"],
+            trainer_id=trainer.id,
+            data_misurazione=date(2026, 3, 3),
+        )
+    )
+    session.add(
+        WorkoutPlan(
+            trainer_id=trainer.id,
+            id_cliente=c_ready["id"],
+            nome="Ready plan 1",
+            obiettivo="generale",
+            livello="beginner",
+        )
+    )
+    session.add(
+        WorkoutPlan(
+            trainer_id=trainer.id,
+            id_cliente=c_ready_two["id"],
+            nome="Ready plan 2",
+            obiettivo="generale",
+            livello="beginner",
+        )
+    )
+    session.commit()
+
+    page_one = client.get(
+        "/api/dashboard/clinical-readiness/worklist",
+        params={"view": "todo", "page": 1, "page_size": 2},
+        headers=auth_headers,
+    )
+    assert page_one.status_code == 200
+    page_one_data = page_one.json()
+
+    assert page_one_data["summary"]["total_clients"] == 5
+    assert page_one_data["total"] == 3
+    assert page_one_data["page"] == 1
+    assert page_one_data["page_size"] == 2
+    assert [item["client_id"] for item in page_one_data["items"]] == [
+        c_missing["id"],
+        c_legacy["id"],
+    ]
+
+    page_two = client.get(
+        "/api/dashboard/clinical-readiness/worklist",
+        params={"view": "todo", "page": 2, "page_size": 2},
+        headers=auth_headers,
+    )
+    assert page_two.status_code == 200
+    page_two_data = page_two.json()
+    assert page_two_data["total"] == 3
+    assert len(page_two_data["items"]) == 1
+    assert page_two_data["items"][0]["client_id"] == c_workout_missing["id"]
+
+    high_priority = client.get(
+        "/api/dashboard/clinical-readiness/worklist",
+        params={"view": "all", "priority": "high", "page_size": 20},
+        headers=auth_headers,
+    )
+    assert high_priority.status_code == 200
+    high_priority_ids = [item["client_id"] for item in high_priority.json()["items"]]
+    assert high_priority.json()["total"] == 2
+    assert c_missing["id"] in high_priority_ids
+    assert c_legacy["id"] in high_priority_ids
+
+    timeline_today = client.get(
+        "/api/dashboard/clinical-readiness/worklist",
+        params={"view": "todo", "timeline_status": "today", "page_size": 20},
+        headers=auth_headers,
+    )
+    assert timeline_today.status_code == 200
+    assert timeline_today.json()["total"] == 3
+
+    due_date_sorted = client.get(
+        "/api/dashboard/clinical-readiness/worklist",
+        params={"view": "all", "sort_by": "due_date", "page_size": 20},
+        headers=auth_headers,
+    )
+    assert due_date_sorted.status_code == 200
+    sorted_ids = [item["client_id"] for item in due_date_sorted.json()["items"]]
+    assert sorted_ids[:3] == [c_missing["id"], c_legacy["id"], c_workout_missing["id"]]
+    assert sorted_ids[3:] == [c_ready["id"], c_ready_two["id"]]
+
+    search_by_name = client.get(
+        "/api/dashboard/clinical-readiness/worklist",
+        params={"view": "all", "search": "rossi", "page_size": 20},
+        headers=auth_headers,
+    )
+    assert search_by_name.status_code == 200
+    assert search_by_name.json()["total"] == 1
+    assert search_by_name.json()["items"][0]["client_id"] == c_missing["id"]
+
+
+def test_clinical_readiness_worklist_enforces_trainer_isolation(client, auth_headers):
+    """Worklist endpoint must only return clients owned by authenticated trainer."""
+    own_client = _create_client(client, auth_headers, "Mario", "Owner")
+
+    register_other = client.post(
+        "/api/auth/register",
+        json={
+            "email": "worklist_other@test.com",
+            "nome": "Other",
+            "cognome": "Trainer",
+            "password": "testpass123",
+        },
+    )
+    assert register_other.status_code == 201
+    other_headers = {"Authorization": f"Bearer {register_other.json()['access_token']}"}
+
+    other_client = _create_client(client, other_headers, "Luigi", "Other")
+
+    response = client.get(
+        "/api/dashboard/clinical-readiness/worklist",
+        params={"view": "all", "page_size": 50},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    ids = [item["client_id"] for item in response.json()["items"]]
+
+    assert own_client["id"] in ids
+    assert other_client["id"] not in ids

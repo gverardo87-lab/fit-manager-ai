@@ -298,7 +298,7 @@ Coda deterministica per onboarding/migrazione clienti. Per ogni cliente attivo c
 - **timeline**: `_compute_timeline_due()` — gap immediati = overdue, review periodiche (30/21/180gg)
 - **Ordinamento**: `priority_score` desc → `readiness_score` asc → cognome/nome
 
-Schema: `ClinicalReadinessClientItem`, `ClinicalReadinessSummary`, `ClinicalReadinessResponse` in `financial.py`.
+Schema: `ClinicalReadinessClientItem`, `ClinicalReadinessSummary`, `ClinicalReadinessResponse` in `clinical.py`.
 
 Pattern condiviso per endpoint inline resolution:
 - **Anti-N+1**: batch fetch dati correlati dopo query principale

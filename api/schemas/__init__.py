@@ -1,2 +1,2 @@
-# api/schemas/ — Pydantic v2 schemas per validazione input/output.
-# Import direttamente da api.schemas.financial (modulo unico per ora).
+# api/schemas/ - Pydantic v2 schemas per validazione input/output.
+# Domini separati principali: financial.py, clinical.py, workout.py, ...

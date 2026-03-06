@@ -15,6 +15,8 @@ import type {
   DashboardSummary,
   DashboardAlerts,
   ClinicalReadinessResponse,
+  ClinicalReadinessWorklistResponse,
+  ClinicalPriority,
   Event,
   ListResponse,
   OverdueRateItem,
@@ -58,6 +60,52 @@ export function useClinicalReadiness() {
       return data;
     },
     refetchInterval: 60_000,
+  });
+}
+
+type ClinicalTimelineStatus =
+  | "overdue"
+  | "today"
+  | "upcoming_7d"
+  | "upcoming_14d"
+  | "future"
+  | "none";
+
+export interface ClinicalReadinessWorklistQuery {
+  page?: number;
+  page_size?: number;
+  view?: "all" | "todo" | "ready";
+  sort_by?: "priority" | "due_date";
+  priority?: ClinicalPriority;
+  timeline_status?: ClinicalTimelineStatus;
+  search?: string;
+}
+
+export function useClinicalReadinessWorklist(
+  query: ClinicalReadinessWorklistQuery = {},
+  enabled = true,
+) {
+  const params = {
+    page: query.page ?? 1,
+    page_size: query.page_size ?? 25,
+    view: query.view ?? "todo",
+    sort_by: query.sort_by ?? "priority",
+    priority: query.priority,
+    timeline_status: query.timeline_status,
+    search: query.search?.trim() || undefined,
+  };
+
+  return useQuery<ClinicalReadinessWorklistResponse>({
+    queryKey: ["dashboard", "clinical-readiness", "worklist", params],
+    queryFn: async () => {
+      const { data } = await apiClient.get<ClinicalReadinessWorklistResponse>(
+        "/dashboard/clinical-readiness/worklist",
+        { params },
+      );
+      return data;
+    },
+    refetchInterval: 60_000,
+    enabled,
   });
 }
 

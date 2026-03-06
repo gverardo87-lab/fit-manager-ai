@@ -136,6 +136,22 @@ Obiettivo: evitare migrazione massiva manuale iniziale.
    - trend panel misure + compliance allenamento;
    - slot dominio nutrizione (senza bloccare core CRM).
 
+## Implementation Status (2026-03-06)
+
+- Completed now (M0a + M0b + M0c):
+  - spec architetturale MyPortal v2 definita;
+  - endpoint read-only paginato `GET /api/dashboard/clinical-readiness/worklist`;
+  - filtri server-side disponibili: `view`, `priority`, `timeline_status`, `search`;
+  - ordinamento server-side opzionale `sort_by=priority|due_date` per timeline/worklist;
+  - hook frontend `useClinicalReadinessWorklist` + type sync;
+  - pagina MyPortal collegata al worklist paginato con controlli pagina (`Precedente/Successiva`);
+  - rimozione filtro/search full-list in memoria nella pagina MyPortal;
+  - test backend su paginazione/filtri/sort/isolation multi-tenant;
+  - schema readiness estratto in modulo dedicato `api/schemas/clinical.py` con compat re-export in `financial.py`.
+- Next smallest step (M1):
+  - introdurre filtri timeline avanzati e page-size selector nella UI MyPortal;
+  - iniziare ottimizzazione compute path per ridurre full-scan nel calcolo summary/worklist.
+
 ## Acceptance Criteria
 
 - Functional:
@@ -194,4 +210,3 @@ Obiettivo: evitare migrazione massiva manuale iniziale.
 - Oracle Health reminder windows + inbox volume controls: `docs.oracle.com`
 - HL7 FHIR pattern references: `Task`, `CarePlan`, `Subscription`
 - athenahealth patient engagement automation references: `athenahealth.com`
-
