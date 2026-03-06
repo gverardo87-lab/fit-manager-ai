@@ -51,3 +51,4 @@ Registro unico degli upgrade tecnici e UX.
 1. Prima della patch: aggiungi riga con stato `planned`.
 2. Durante la patch: aggiorna in `in_progress` se utile.
 3. A fine patch: aggiungi commit, test, note e stato `done`.
+UPG-2026-03-06-01 | G. Verardo | TBD | Analisi e ADR portale clienti via Tailscale Funnel | planned | - | - | Prima esplorazione per self-service portal
