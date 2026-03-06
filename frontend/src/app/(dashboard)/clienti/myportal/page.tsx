@@ -14,6 +14,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -29,7 +36,14 @@ import type { ClinicalReadinessClientItem } from "@/types/api";
 
 type PortalFilter = "all" | "todo" | "ready";
 type TimelineStatus = ClinicalReadinessClientItem["timeline_status"];
-const PAGE_SIZE = 20;
+type PriorityFilter = "all" | ClinicalReadinessClientItem["priority"];
+type DueFilter = "all" | Exclude<TimelineStatus, "none">;
+type SortMode = "priority" | "due_date";
+
+const DEFAULT_PAGE_SIZE = 20;
+const DEFAULT_TIMELINE_PAGE_SIZE = 9;
+const PAGE_SIZE_OPTIONS = [10, 20, 30, 50] as const;
+const TIMELINE_PAGE_SIZE_OPTIONS = [6, 9, 12, 18] as const;
 
 const PRIORITY_BADGE: Record<ClinicalReadinessClientItem["priority"], string> = {
   high: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800",
@@ -77,6 +91,20 @@ const TIMELINE_REASON_LABEL: Record<string, string> = {
   workout_review: "Review scheda",
   anamnesi_review: "Review anamnesi",
   monitoring: "Monitoraggio",
+};
+
+const DUE_FILTER_LABEL: Record<DueFilter, string> = {
+  all: "Tutte le scadenze",
+  overdue: "Scadute",
+  today: "Oggi",
+  upcoming_7d: "Entro 7 giorni",
+  upcoming_14d: "Entro 14 giorni",
+  future: "Pianificate",
+};
+
+const SORT_LABEL: Record<SortMode, string> = {
+  priority: "Priorita",
+  due_date: "Scadenza",
 };
 
 function formatIsoDate(isoDate: string | null): string {
@@ -153,7 +181,15 @@ export default function MyPortalPage() {
   const { revealClass, revealStyle } = usePageReveal();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<PortalFilter>("todo");
+  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
+  const [dueFilter, setDueFilter] = useState<DueFilter>("all");
+  const [sortBy, setSortBy] = useState<SortMode>("priority");
+  const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
   const [page, setPage] = useState(1);
+  const [timelinePage, setTimelinePage] = useState(1);
+  const [timelinePageSize, setTimelinePageSize] = useState<number>(DEFAULT_TIMELINE_PAGE_SIZE);
+
+  const trimmedSearch = search.trim();
 
   const {
     data,
@@ -163,20 +199,27 @@ export default function MyPortalPage() {
     refetch,
   } = useClinicalReadinessWorklist({
     page,
-    page_size: PAGE_SIZE,
+    page_size: pageSize,
     view: filter,
-    search,
+    sort_by: sortBy,
+    priority: priorityFilter === "all" ? undefined : priorityFilter,
+    timeline_status: dueFilter === "all" ? undefined : dueFilter,
+    search: trimmedSearch || undefined,
   });
 
   const {
     data: timelineData,
     isLoading: timelineLoading,
+    isFetching: timelineFetching,
     refetch: refetchTimeline,
   } = useClinicalReadinessWorklist({
-    page: 1,
-    page_size: 9,
-    view: "all",
+    page: timelinePage,
+    page_size: timelinePageSize,
+    view: filter,
     sort_by: "due_date",
+    priority: priorityFilter === "all" ? undefined : priorityFilter,
+    timeline_status: dueFilter === "all" ? undefined : dueFilter,
+    search: trimmedSearch || undefined,
   });
 
   const actionableCount = useMemo(
@@ -197,10 +240,16 @@ export default function MyPortalPage() {
 
   const pagedItems = data?.items ?? [];
   const totalItems = data?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const summary = data?.summary;
   const canGoPrev = page > 1;
   const canGoNext = page < totalPages;
+  const timelineTotalItems = timelineData?.total ?? 0;
+  const timelineTotalPages = Math.max(1, Math.ceil(timelineTotalItems / timelinePageSize));
+  const timelineCanGoPrev = timelinePage > 1;
+  const timelineCanGoNext = timelinePage < timelineTotalPages;
+  const hasAdvancedFilters =
+    priorityFilter !== "all" || dueFilter !== "all" || sortBy !== "priority" || pageSize !== DEFAULT_PAGE_SIZE;
 
   const handleRetry = () => {
     void refetch();
@@ -210,10 +259,48 @@ export default function MyPortalPage() {
   const handleFilterChange = (nextFilter: PortalFilter) => {
     setFilter(nextFilter);
     setPage(1);
+    setTimelinePage(1);
   };
 
   const handleSearchChange = (value: string) => {
     setSearch(value);
+    setPage(1);
+    setTimelinePage(1);
+  };
+
+  const handlePriorityFilterChange = (value: PriorityFilter) => {
+    setPriorityFilter(value);
+    setPage(1);
+    setTimelinePage(1);
+  };
+
+  const handleDueFilterChange = (value: DueFilter) => {
+    setDueFilter(value);
+    setPage(1);
+    setTimelinePage(1);
+  };
+
+  const handleSortByChange = (value: SortMode) => {
+    setSortBy(value);
+    setPage(1);
+  };
+
+  const handlePageSizeChange = (value: number) => {
+    setPageSize(value);
+    setPage(1);
+  };
+
+  const handleTimelinePageSizeChange = (value: number) => {
+    setTimelinePageSize(value);
+    setTimelinePage(1);
+  };
+
+  const handleResetAdvancedFilters = () => {
+    setPriorityFilter("all");
+    setDueFilter("all");
+    setSortBy("priority");
+    setPageSize(DEFAULT_PAGE_SIZE);
+    setTimelinePage(1);
     setPage(1);
   };
 
@@ -276,52 +363,158 @@ export default function MyPortalPage() {
           </div>
 
           <div className={revealClass(90, "rounded-xl border bg-white p-3 shadow-sm dark:bg-zinc-900")} style={revealStyle(90)}>
-            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={filter === "todo" ? "default" : "outline"}
-                  onClick={() => handleFilterChange("todo")}
-                  className="h-8"
-                >
-                  Da completare
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={filter === "all" ? "default" : "outline"}
-                  onClick={() => handleFilterChange("all")}
-                  className="h-8"
-                >
-                  Tutti
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={filter === "ready" ? "default" : "outline"}
-                  onClick={() => handleFilterChange("ready")}
-                  className="h-8"
-                >
-                  Pronti
-                </Button>
+            <div className="space-y-2">
+              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={filter === "todo" ? "default" : "outline"}
+                    onClick={() => handleFilterChange("todo")}
+                    className="h-8"
+                  >
+                    Da completare
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={filter === "all" ? "default" : "outline"}
+                    onClick={() => handleFilterChange("all")}
+                    className="h-8"
+                  >
+                    Tutti
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={filter === "ready" ? "default" : "outline"}
+                    onClick={() => handleFilterChange("ready")}
+                    className="h-8"
+                  >
+                    Pronti
+                  </Button>
+                </div>
+                <div className="relative w-full md:w-80">
+                  <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={search}
+                    onChange={(event) => handleSearchChange(event.target.value)}
+                    placeholder="Cerca cliente..."
+                    className="pl-9"
+                  />
+                </div>
               </div>
-              <div className="relative w-full md:w-80">
-                <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={search}
-                  onChange={(event) => handleSearchChange(event.target.value)}
-                  placeholder="Cerca cliente..."
-                  className="pl-9"
-                />
+
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                <Select value={priorityFilter} onValueChange={(value) => handlePriorityFilterChange(value as PriorityFilter)}>
+                  <SelectTrigger size="sm" className="w-full">
+                    <SelectValue placeholder="Priorita" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Priorita: tutte</SelectItem>
+                    <SelectItem value="high">Priorita: alta</SelectItem>
+                    <SelectItem value="medium">Priorita: media</SelectItem>
+                    <SelectItem value="low">Priorita: bassa</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={dueFilter} onValueChange={(value) => handleDueFilterChange(value as DueFilter)}>
+                  <SelectTrigger size="sm" className="w-full">
+                    <SelectValue placeholder="Scadenza" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Scadenza: tutte</SelectItem>
+                    <SelectItem value="overdue">Scadenza: scadute</SelectItem>
+                    <SelectItem value="today">Scadenza: oggi</SelectItem>
+                    <SelectItem value="upcoming_7d">Scadenza: entro 7 giorni</SelectItem>
+                    <SelectItem value="upcoming_14d">Scadenza: entro 14 giorni</SelectItem>
+                    <SelectItem value="future">Scadenza: pianificate</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={sortBy} onValueChange={(value) => handleSortByChange(value as SortMode)}>
+                  <SelectTrigger size="sm" className="w-full">
+                    <SelectValue placeholder="Ordinamento" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="priority">Ordinamento: priorita</SelectItem>
+                    <SelectItem value="due_date">Ordinamento: scadenza</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={String(pageSize)} onValueChange={(value) => handlePageSizeChange(Number(value))}>
+                  <SelectTrigger size="sm" className="w-full">
+                    <SelectValue placeholder="Righe per pagina" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAGE_SIZE_OPTIONS.map((size) => (
+                      <SelectItem key={size} value={String(size)}>
+                        {size} righe
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-muted-foreground">
+                  {totalItems} risultati filtrati - ordinamento {SORT_LABEL[sortBy].toLowerCase()} - {DUE_FILTER_LABEL[dueFilter].toLowerCase()}
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 justify-start sm:justify-center"
+                  disabled={!hasAdvancedFilters}
+                  onClick={handleResetAdvancedFilters}
+                >
+                  Reset filtri avanzati
+                </Button>
               </div>
             </div>
           </div>
 
           <div className={revealClass(110, "rounded-xl border bg-white p-3 shadow-sm dark:bg-zinc-900")} style={revealStyle(110)}>
-            <div className="mb-2 flex items-center gap-2">
-              <Clock3 className="h-4 w-4 text-amber-500" />
-              <h2 className="text-sm font-semibold">Timeline scadenze</h2>
+            <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2">
+                <Clock3 className="h-4 w-4 text-amber-500" />
+                <h2 className="text-sm font-semibold">Timeline scadenze</h2>
+                <Badge variant="outline" className="text-[10px]">
+                  {timelineTotalItems}
+                </Badge>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Select value={String(timelinePageSize)} onValueChange={(value) => handleTimelinePageSizeChange(Number(value))}>
+                  <SelectTrigger size="sm" className="w-[130px]">
+                    <SelectValue placeholder="Timeline" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIMELINE_PAGE_SIZE_OPTIONS.map((size) => (
+                      <SelectItem key={size} value={String(size)}>
+                        {size} card
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={!timelineCanGoPrev}
+                  onClick={() => setTimelinePage((prev) => Math.max(1, prev - 1))}
+                >
+                  Precedente
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={!timelineCanGoNext}
+                  onClick={() => setTimelinePage((prev) => Math.min(timelineTotalPages, prev + 1))}
+                >
+                  Successiva
+                </Button>
+              </div>
             </div>
             {timelineLoading ? (
               <Skeleton className="h-28 rounded-lg" />
@@ -354,6 +547,13 @@ export default function MyPortalPage() {
                 ))}
               </div>
             )}
+            <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+              <p>
+                Pagina timeline {timelinePage}/{timelineTotalPages}
+                {timelineFetching && <span className="ml-1">(aggiornamento...)</span>}
+              </p>
+              <p>{DUE_FILTER_LABEL[dueFilter]}</p>
+            </div>
           </div>
 
           {pagedItems.length === 0 ? (
@@ -504,7 +704,7 @@ export default function MyPortalPage() {
               <div className={revealClass(140, "rounded-xl border bg-white p-3 shadow-sm dark:bg-zinc-900")} style={revealStyle(140)}>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-xs text-muted-foreground">
-                    {totalItems} clienti · Pagina {page}/{totalPages}
+                    {totalItems} clienti - Pagina {page}/{totalPages}
                     {isFetching && <span className="ml-1">(aggiornamento...)</span>}
                   </p>
                   <div className="flex items-center gap-2">

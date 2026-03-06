@@ -138,7 +138,7 @@ Obiettivo: evitare migrazione massiva manuale iniziale.
 
 ## Implementation Status (2026-03-06)
 
-- Completed now (M0a + M0b + M0c):
+- Completed now (M0a + M0b + M0c + M1 frontend):
   - spec architetturale MyPortal v2 definita;
   - endpoint read-only paginato `GET /api/dashboard/clinical-readiness/worklist`;
   - filtri server-side disponibili: `view`, `priority`, `timeline_status`, `search`;
@@ -146,11 +146,13 @@ Obiettivo: evitare migrazione massiva manuale iniziale.
   - hook frontend `useClinicalReadinessWorklist` + type sync;
   - pagina MyPortal collegata al worklist paginato con controlli pagina (`Precedente/Successiva`);
   - rimozione filtro/search full-list in memoria nella pagina MyPortal;
+  - UI MyPortal M1 con filtri avanzati completi (priorita/scadenza/ordinamento/page-size) e reset filtri;
+  - timeline MyPortal paginata con controllo densita card e stato filtri coerente alla worklist;
   - test backend su paginazione/filtri/sort/isolation multi-tenant;
   - schema readiness estratto in modulo dedicato `api/schemas/clinical.py` con compat re-export in `financial.py`.
-- Next smallest step (M1):
-  - introdurre filtri timeline avanzati e page-size selector nella UI MyPortal;
-  - iniziare ottimizzazione compute path per ridurre full-scan nel calcolo summary/worklist.
+- Next smallest step (M1 backend optimization):
+  - ridurre full-scan nel calcolo summary/worklist con pre-aggregazioni/query path piu selettivi;
+  - introdurre metriche tecniche (latenza endpoint, cardinalita filtri) per verificare la tenuta 100+ clienti.
 
 ## Acceptance Criteria
 
