@@ -63,6 +63,25 @@ from .balance_ratios import (
     analyze_balance,
     BALANCE_RATIOS,
 )
+from .split_logic import (
+    get_split,
+    get_session_roles,
+    get_patterns_for_role,
+    get_muscles_for_role,
+    compute_frequency_per_muscle,
+    identify_underhit_muscles,
+)
+from .session_order import (
+    get_priority,
+    order_patterns,
+    validate_order,
+)
+from .plan_builder import (
+    build_plan,
+)
+from .plan_analyzer import (
+    analyze_plan,
+)
 
 __all__ = [
     # Types
@@ -105,4 +124,19 @@ __all__ = [
     # Balance
     "analyze_balance",
     "BALANCE_RATIOS",
+    # Split Logic
+    "get_split",
+    "get_session_roles",
+    "get_patterns_for_role",
+    "get_muscles_for_role",
+    "compute_frequency_per_muscle",
+    "identify_underhit_muscles",
+    # Session Order
+    "get_priority",
+    "order_patterns",
+    "validate_order",
+    # Plan Builder
+    "build_plan",
+    # Plan Analyzer
+    "analyze_plan",
 ]
