@@ -1,7 +1,7 @@
 """
 Training Science Engine — Motore scientifico per la programmazione dell'allenamento.
 
-Architettura a 9 moduli indipendenti (Phase 1 + Phase 2):
+Architettura a 10 moduli indipendenti (Phase 1 + Phase 2 + Phase 3):
 
   Phase 1 — Fondamenta scientifiche:
     types.py               — Enum e modelli Pydantic (vocabolario del dominio)
@@ -16,13 +16,16 @@ Architettura a 9 moduli indipendenti (Phase 1 + Phase 2):
     plan_builder.py        — Generatore volume-driven a 4 fasi con feedback loop
     plan_analyzer.py       — Analisi 4D (volume, balance, frequenza, recupero)
 
+  Phase 3 — Periodizzazione:
+    periodization.py       — Mesociclo (progressione volume + deload)
+
 Ogni modulo ha UNA responsabilita', e' testabile in isolamento,
 e i numeri hanno fonti bibliografiche nel docstring.
 
 Uso tipico:
     from api.services.training_science import (
         Obiettivo, Livello, PatternMovimento,
-        build_plan, analyze_plan,
+        build_plan, analyze_plan, build_mesocycle,
     )
 """
 
@@ -92,6 +95,13 @@ from .plan_builder import (
 from .plan_analyzer import (
     analyze_plan,
 )
+from .periodization import (
+    build_mesocycle,
+    get_mesocycle_duration,
+    get_weekly_config,
+    Mesociclo,
+    SettimanaConfig,
+)
 
 __all__ = [
     # Types
@@ -151,4 +161,10 @@ __all__ = [
     "build_plan",
     # Plan Analyzer
     "analyze_plan",
+    # Periodization
+    "build_mesocycle",
+    "get_mesocycle_duration",
+    "get_weekly_config",
+    "Mesociclo",
+    "SettimanaConfig",
 ]
