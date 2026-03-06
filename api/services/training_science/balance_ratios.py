@@ -47,16 +47,19 @@ BALANCE_RATIOS: list[RapportoBiomeccanico] = [
         numeratore=["pull_h"],
         denominatore=["pull_v"],
         target=1.0,
-        tolleranza=0.20,
-        fonte="NSCA — dorsali: spessore (row) + larghezza (pulldown)",
+        tolleranza=0.35,
+        fonte="NSCA — dorsali: spessore (row) + larghezza (pulldown). "
+        "Tolleranza ampia: pull_h recluta piu' massa muscolare (trapezio 0.7 vs 0.4), "
+        "squilibrio lieve e' fisiologico (Sahrmann 2002)",
     ),
     RapportoBiomeccanico(
         nome="Quad : Ham",
         numeratore=["quadricipiti"],
         denominatore=["femorali"],
         target=1.25,
-        tolleranza=0.20,
-        fonte="Alentorn-Geli 2009 — stabilita' ginocchio, prevenzione ACL",
+        tolleranza=0.30,
+        fonte="Alentorn-Geli 2009 — stabilita' ginocchio, prevenzione ACL. "
+        "Range 1.0-1.5 accettabile (NSCA 2016: rapporto altamente individuale)",
     ),
     RapportoBiomeccanico(
         nome="Anteriore : Posteriore",

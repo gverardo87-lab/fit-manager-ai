@@ -53,8 +53,8 @@ _VOLUME_TABLE: dict[M, dict[Livello, tuple[float, float, float, float, str]]] = 
     },
     M.DELT_ANT: {
         Livello.PRINCIPIANTE: (0, 0, 4, 8, "Volume indiretto da push sufficiente"),
-        Livello.INTERMEDIO: (0, 0, 6, 10, "Volume indiretto da push sufficiente"),
-        Livello.AVANZATO: (0, 0, 8, 12, "Lavoro diretto solo se carente"),
+        Livello.INTERMEDIO: (0, 0, 6, 14, "MRV alto: muscolo piccolo, recupero rapido (Israetel RP 2020)"),
+        Livello.AVANZATO: (0, 0, 8, 16, "MRV alto: muscolo piccolo, recupero rapido (Israetel RP 2020)"),
     },
     M.DELT_LAT: {
         Livello.PRINCIPIANTE: (6, 8, 10, 16, "Richiede isolamento diretto"),
@@ -79,12 +79,12 @@ _VOLUME_TABLE: dict[M, dict[Livello, tuple[float, float, float, float, str]]] = 
     M.QUADRICIPITI: {
         Livello.PRINCIPIANTE: (6, 8, 10, 14, ""),
         Livello.INTERMEDIO: (6, 12, 16, 18, ""),
-        Livello.AVANZATO: (6, 16, 22, 20, "MRV relativamente basso: alta fatica sistemica"),
+        Livello.AVANZATO: (6, 16, 22, 24, "MRV alto: avanzati tollerano volume elevato (Israetel RP 2020)"),
     },
     M.FEMORALI: {
         Livello.PRINCIPIANTE: (4, 6, 8, 12, ""),
         Livello.INTERMEDIO: (4, 10, 14, 16, ""),
-        Livello.AVANZATO: (4, 12, 18, 16, ""),
+        Livello.AVANZATO: (4, 12, 18, 20, "MRV = MAV_max + 2 (buffer standard Israetel RP 2020)"),
     },
     M.GLUTEI: {
         Livello.PRINCIPIANTE: (0, 4, 6, 10, "Volume indiretto da squat/hinge"),

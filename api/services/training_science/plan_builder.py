@@ -58,6 +58,7 @@ from .volume_model import (
 from .split_logic import (
     get_split,
     get_session_roles,
+    clamp_frequenza,
     PATTERN_COMPOUND_PER_RUOLO,
     NOMI_SESSIONE,
     FOCUS_SESSIONE,
@@ -447,6 +448,9 @@ def build_plan(
     Output:
         TemplatePiano con sessioni complete, ordinate, volume-driven.
     """
+    # Guardrail scientifico: clamp frequenza per livello (NSCA 2016)
+    frequenza, freq_warning = clamp_frequenza(frequenza, livello)
+
     split = get_split(frequenza)
     roles = get_session_roles(frequenza)
 
@@ -504,12 +508,17 @@ def build_plan(
             slots=slots,
         ))
 
+    note: list[str] = []
+    if freq_warning:
+        note.append(freq_warning)
+
     return TemplatePiano(
         frequenza=frequenza,
         obiettivo=obiettivo,
         livello=livello,
         tipo_split=split,
         sessioni=template_sessioni,
+        note_generazione=note,
     )
 
 

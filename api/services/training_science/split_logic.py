@@ -122,17 +122,31 @@ SESSIONI_PER_SPLIT: dict[tuple[TipoSplit, int], list[RuoloSessione]] = {
 #   - Core: full_body e lower (stabilizzazione pelvica)
 #   - Rotation: full_body e upper (piano trasversale spalle)
 #   - Carry: full_body e lower (integrazione core + grip)
+#
+# Calf_raise e' incluso come pattern obbligatorio in sessioni
+# lower/legs/full_body perche' i polpacci non ricevono volume
+# ipertrofico sufficiente da squat (contributo 0.2 = sotto soglia
+# EMG 40% MVC). Schoenfeld 2019: calves richiedono lavoro diretto.
+#
+# P.CORE RIMOSSO da full_body/lower/legs: il core riceve volume
+# ipertrofico sufficiente da carry (0.7), rotation (0.7),
+# squat (0.4) e hinge (0.4). L'aggiunta esplicita di core
+# causa overaccumulation sistematica oltre MRV.
+# Fonte: Israetel RP 2020 — "direct core work is optional when
+# the program includes heavy compounds." Se il core risultasse
+# sotto MAV, il plan_builder lo compensera' con isolamento (Fase 3).
 
 PATTERN_COMPOUND_PER_RUOLO: dict[RuoloSessione, list[P]] = {
     RuoloSessione.FULL_BODY: [
         P.PUSH_H, P.PUSH_V, P.PULL_H, P.PULL_V,
-        P.SQUAT, P.HINGE, P.CORE, P.ROTATION, P.CARRY,
+        P.SQUAT, P.HINGE, P.ROTATION, P.CARRY,
+        P.CALF_RAISE,
     ],
     RuoloSessione.UPPER: [
         P.PUSH_H, P.PUSH_V, P.PULL_H, P.PULL_V, P.ROTATION,
     ],
     RuoloSessione.LOWER: [
-        P.SQUAT, P.HINGE, P.CORE, P.CARRY,
+        P.SQUAT, P.HINGE, P.CARRY, P.CALF_RAISE,
     ],
     RuoloSessione.PUSH: [
         P.PUSH_H, P.PUSH_V,
@@ -141,7 +155,7 @@ PATTERN_COMPOUND_PER_RUOLO: dict[RuoloSessione, list[P]] = {
         P.PULL_H, P.PULL_V, P.ROTATION,
     ],
     RuoloSessione.LEGS: [
-        P.SQUAT, P.HINGE, P.CORE, P.CARRY,
+        P.SQUAT, P.HINGE, P.CARRY, P.CALF_RAISE,
     ],
 }
 
@@ -199,6 +213,46 @@ FOCUS_SESSIONE: dict[RuoloSessione, str] = {
 # ════════════════════════════════════════════════════════════
 # API PUBBLICA
 # ════════════════════════════════════════════════════════════
+
+
+# ════════════════════════════════════════════════════════════
+# FREQUENZA MASSIMA PER LIVELLO — Guardrail scientifico
+# ════════════════════════════════════════════════════════════
+#
+# NSCA 2016 (cap. 21-22) e Israetel RP 2020 definiscono range
+# di frequenza ottimale per livello:
+#   Principiante: 2-3 sessioni/sett (MRV basso, necessita recupero)
+#   Intermedio: 2-5 sessioni/sett (MRV medio, tolleranza crescente)
+#   Avanzato: 2-6 sessioni/sett (MRV alto, gestisce volume elevato)
+#
+# Se la frequenza richiesta eccede il massimo per il livello,
+# viene clampata al massimo consentito con un warning.
+
+FREQUENZA_MAX_PER_LIVELLO: dict[Livello, int] = {
+    Livello.PRINCIPIANTE: 3,
+    Livello.INTERMEDIO: 5,
+    Livello.AVANZATO: 6,
+}
+
+
+def clamp_frequenza(frequenza: int, livello: Livello) -> tuple[int, str | None]:
+    """
+    Limita la frequenza al massimo scientifico per il livello.
+
+    Ritorna (frequenza_effettiva, warning_opzionale).
+    Se la frequenza e' entro il range, warning e' None.
+
+    Fonte: NSCA 2016, Israetel RP 2020.
+    """
+    max_freq = FREQUENZA_MAX_PER_LIVELLO[livello]
+    if frequenza > max_freq:
+        warning = (
+            f"Frequenza {frequenza}x ridotta a {max_freq}x per livello {livello.value}. "
+            f"NSCA 2016: principianti necessitano piu' recupero, "
+            f"MRV insufficiente per {frequenza} sessioni/sett."
+        )
+        return max_freq, warning
+    return frequenza, None
 
 
 def get_split(frequenza: int) -> TipoSplit:

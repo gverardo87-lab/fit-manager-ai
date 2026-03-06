@@ -79,6 +79,7 @@ from .split_logic import (
     get_muscles_for_role,
     compute_frequency_per_muscle,
     identify_underhit_muscles,
+    clamp_frequenza,
 )
 from .session_order import (
     get_priority,
@@ -141,6 +142,7 @@ __all__ = [
     "get_muscles_for_role",
     "compute_frequency_per_muscle",
     "identify_underhit_muscles",
+    "clamp_frequenza",
     # Session Order
     "get_priority",
     "order_patterns",

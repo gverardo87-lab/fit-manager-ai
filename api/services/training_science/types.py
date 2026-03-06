@@ -225,6 +225,10 @@ class TemplatePiano(BaseModel):
     livello: Livello
     tipo_split: TipoSplit
     sessioni: list[TemplateSessione]
+    note_generazione: list[str] = Field(
+        default_factory=list,
+        description="Note e warning dal processo di generazione (es. frequenza clampata)",
+    )
 
 
 class VolumeEffettivo(BaseModel):
