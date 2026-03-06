@@ -1,4 +1,4 @@
-// src/components/layout/CommandPalette.tsx
+﻿// src/components/layout/CommandPalette.tsx
 "use client";
 
 /**
@@ -536,12 +536,16 @@ export function CommandPalette() {
 
   // ── Reset state on close ──
   useEffect(() => {
-    if (!open) {
+    if (open) return;
+
+    const rafId = requestAnimationFrame(() => {
       setHighlighted("");
       setSearchValue("");
       setAssistantMode(false);
       setParseResult(null);
-    }
+    });
+
+    return () => cancelAnimationFrame(rafId);
   }, [open]);
 
   // ── Search input handler — detects ">" to enter assistant mode ──
@@ -590,8 +594,8 @@ export function CommandPalette() {
     if (parseTimerRef.current) clearTimeout(parseTimerRef.current);
 
     if (!assistantMode || assistantText.length < 3) {
-      setParseResult(null);
-      return;
+      const rafId = requestAnimationFrame(() => setParseResult(null));
+      return () => cancelAnimationFrame(rafId);
     }
 
     parseTimerRef.current = setTimeout(() => {
@@ -643,24 +647,6 @@ export function CommandPalette() {
     document.addEventListener("keydown", handleKeyDown, true);
     return () => document.removeEventListener("keydown", handleKeyDown, true);
   }, [open, assistantMode, parseResult, commitMutation.isPending]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Commit handler ──
-  const handleCommit = useCallback(
-    (op: ParsedOperation) => {
-      commitMutation.mutate(
-        { intent: op.intent, payload: op.payload },
-        {
-          onSuccess: (data) => {
-            setOpen(false);
-            if (data.navigate_to) {
-              router.push(data.navigate_to);
-            }
-          },
-        },
-      );
-    },
-    [commitMutation, router],
-  );
 
   // ── Lazy data: clienti ──
   const { data: clientsData } = useQuery<ClientEnrichedListResponse>({
