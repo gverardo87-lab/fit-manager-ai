@@ -73,6 +73,7 @@ norecursedirs = ["tests/legacy"]
 
 [tool.ruff]
 target-version = "py39"
+extend-exclude = ["tests/legacy/"]
 
 [tool.ruff.lint]
 # E711/E712: SQLAlchemy richiede == None / == False per generare IS NULL / IS FALSE
