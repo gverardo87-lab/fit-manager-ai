@@ -12,22 +12,32 @@
  * - Controlla la presenza del cookie JWT
  * - Se assente, redirect immediato a /login
  * - Se presente, renderizza i children normalmente
+ *
+ * NOTA: useState(false) + useEffect e' il pattern corretto qui.
+ * isAuthenticated() legge document.cookie (browser-only API).
+ * Chiamarla durante SSR causa hydration mismatch perche' il server
+ * non ha cookie → render null, ma il client ha cookie → render children.
+ * Con useState(false) entrambi partono da null → match → effect lato
+ * client verifica e setta checked=true.
  */
 
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { isAuthenticated } from "@/lib/auth";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const authenticated = isAuthenticated();
+  const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    if (!authenticated) router.replace("/login");
-  }, [authenticated, router]);
+    if (isAuthenticated()) {
+      setChecked(true);
+    } else {
+      router.replace("/login");
+    }
+  }, [router]);
 
-  // Non renderizzare nulla finche' non abbiamo verificato l'auth
-  if (!authenticated) return null;
+  if (!checked) return null;
 
   return <>{children}</>;
 }
