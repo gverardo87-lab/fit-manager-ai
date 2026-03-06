@@ -7,7 +7,7 @@ Aggiornare prima di iniziare e alla chiusura di ogni task.
 
 | Work ID | Owner | Branch | Scope | Status | Locked files | Started (UTC) | Handoff / Notes |
 |---|---|---|---|---|---|---|---|
-| - | - | - | - | - | - | - | Nessun task attivo |
+| AGT-2026-03-06-34 | Codex | `codex_02` | MyPortal v2 architecture-first: spec worklist/task engine, reminder strategy, legacy migration zero-friction e piano microstep prima di implementare API/UI scalabile | in_progress | `docs/upgrades/specs/UPG-2026-03-06-34-myportal-v2-worklist-architecture.md`, `docs/upgrades/UPGRADE_LOG.md`, `docs/upgrades/README.md`, `docs/ai-sync/WORKBOARD.md` | 2026-03-06 | Focus su riduzione attrito operativo 50+ clienti; prossimo step tecnico previsto: endpoint paginato worklist read-only + compat layer dashboard |
 
 ## Completed
 

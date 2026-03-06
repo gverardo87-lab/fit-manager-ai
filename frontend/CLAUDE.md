@@ -18,25 +18,27 @@ A fine task:
 
 ```
 frontend/src/
-├── app/                     Next.js App Router — 18 pagine
+├── app/                     Next.js App Router — 21 pagine
 │   ├── (dashboard)/         Route group (non appare in URL)
 │   │   ├── layout.tsx       Sidebar + AuthGuard + CommandPalette + scroll restoration
-│   │   ├── page.tsx         Dashboard operativa (no dati economici) + WelcomeCard first-run
+│   │   ├── page.tsx         Dashboard reminder-first (~1760 LOC) + WelcomeCard first-run
 │   │   ├── agenda/          Calendario interattivo (react-big-calendar + DnD)
 │   │   ├── allenamenti/     Monitoraggio compliance programmi
 │   │   ├── cassa/           5 tab: Libro Mastro, Spese Fisse, Entrate & Uscite, Scadenze, Previsioni
-│   │   ├── clienti/         Lista + [id]/ profilo (anamnesi, misurazioni, progressi)
+│   │   ├── clienti/         Lista + [id]/ profilo + myportal/ tracking board
 │   │   ├── contratti/       Lista + [id]/ dettaglio con rate e pagamenti
 │   │   ├── esercizi/        Lista + [id]/ dettaglio con MuscleMap SVG + tassonomia
+│   │   ├── guida/           Hub guida interattiva + SpotlightTour
 │   │   ├── impostazioni/    Account, backup/restore, saldo iniziale
 │   │   └── schede/          Lista + [id]/ builder split con preview live
-│   ├── login/page.tsx       Login pubblico (mesh gradient animato)
+│   ├── login/page.tsx       Login pubblico (mesh gradient animato + LogoIcon)
 │   ├── setup/page.tsx       Setup Wizard primo avvio (crea trainer)
 │   ├── licenza/page.tsx     Pagina licenza scaduta/non valida
 │   └── layout.tsx           Root layout (Providers, fonts)
-├── components/              ~73 componenti organizzati per dominio
+├── components/              ~80 componenti organizzati per dominio
 │   ├── auth/                AuthGuard (route protection client-side)
-│   ├── layout/              Sidebar (sezioni, clearPageState) + CommandPalette (~1170 LOC, assistant mode)
+│   ├── guide/               SpotlightTour (overlay 19 passi cross-page)
+│   ├── layout/              Sidebar (sezioni, clearPageState, LogoIcon) + CommandPalette (~1170 LOC, assistant mode)
 │   ├── agenda/              AgendaCalendar, CustomEvent, CustomToolbar, EventHoverCard, EventSheet, calendar-setup
 │   ├── clients/             ClientsTable, ClientSheet, ClientForm, ClientProfileHeader/Kpi,
 │   │                        ClinicalAnalysisPanel, GoalFormDialog, GoalsSummary, MeasurementChart,
@@ -44,7 +46,7 @@ frontend/src/
 │   ├── contracts/           ContractsTable, ContractSheet, ContractForm, ContractFinancialHero,
 │   │                        PaymentPlanTab (RateCard, PayRateForm, PaymentHistory, AddRateForm),
 │   │                        RateEditDialog, RateUnpayDialog
-│   ├── dashboard/           TodoCard, GhostEventsSheet, OverdueRatesSheet,
+│   ├── dashboard/           TodoCard (hero actions), GhostEventsSheet, OverdueRatesSheet,
 │   │                        ExpiringContractsSheet, InactiveClientsSheet
 │   ├── exercises/           ExercisesTable, ExerciseSheet, ExerciseForm, MuscleMap SVG
 │   ├── movements/           MovementsTable, MovementSheet, RecurringExpensesTab, CashAuditSheet,
@@ -52,19 +54,21 @@ frontend/src/
 │   ├── workouts/            SessionCard, SortableExerciseRow, BlockCard, ExerciseSelector,
 │   │                        TemplateSelector, WorkoutPreview, ExportButtons, ExerciseDetailPanel,
 │   │                        SmartAnalysisPanel, MuscleMapPanel, RiskBodyMap
-│   └── ui/                  shadcn/ui (33 primitives + AnimatedNumber + Skeleton shimmer)
-├── hooks/                   React Query hooks — 16 moduli
+│   └── ui/                  shadcn/ui (33 primitives + AnimatedNumber + Skeleton shimmer + LogoIcon)
+├── hooks/                   React Query hooks — 17 moduli
 │   ├── useAgenda, useClients, useContracts, useRates, useMovements
 │   ├── useExercises, useWorkouts, useMeasurements, useGoals
 │   ├── useRecurringExpenses, useTodos, useDashboard, useBackup
-│   ├── useAssistant, useSmartProgramming, useUnsavedChanges
-├── lib/                     22 utility/engine
+│   ├── useAssistant, useSmartProgramming, useUnsavedChanges, useGuideProgress
+├── lib/                     23 utility/engine
 │   ├── api-client.ts        Axios + JWT interceptor + runtime API URL detection
 │   ├── auth.ts, format.ts, utils.ts, url-state.ts, providers.tsx, media.ts
 │   ├── clinical-analysis.ts, derived-metrics.ts, normative-ranges.ts
 │   ├── measurement-analytics.ts, metric-correlations.ts
 │   ├── smart-programming.ts (~1250 LOC), workout-templates.ts, workout-monitoring.ts
 │   ├── muscle-map-utils.ts, exercise-replacement.ts, confetti.ts
+│   ├── page-reveal.ts (staggered reveal animations)
+│   ├── guide-tours.ts (dati tour, FAQ, shortcuts)
 │   └── export-workout.ts, export-workout-pdf.ts (clinico HTML→PDF)
 ├── types/api.ts             TypeScript interfaces (mirror Pydantic)
 └── __tests__/               Vitest (69 test data protection + 1 workout metrics)
@@ -73,7 +77,7 @@ frontend/src/
 ## Pattern Obbligatori
 
 ### Hook per dominio
-16 moduli hook, uno per dominio. Struttura:
+17 moduli hook, uno per dominio. Struttura:
 ```typescript
 // useClients.ts
 export function useClients() { return useQuery({...}) }            // READ (tutti, filtro client-side)
@@ -85,7 +89,7 @@ Ogni mutation: `invalidateQueries` sulle key correlate + `toast.success/error`.
 
 Moduli: useAgenda, useClients, useContracts, useRates, useMovements, useExercises, useWorkouts,
 useMeasurements, useGoals, useRecurringExpenses, useTodos, useDashboard, useBackup,
-useAssistant, useSmartProgramming, useUnsavedChanges.
+useAssistant, useSmartProgramming, useUnsavedChanges, useGuideProgress.
 
 ### Query Key Convention
 ```typescript
@@ -98,6 +102,7 @@ useAssistant, useSmartProgramming, useUnsavedChanges.
 ["aging-report"]                     // orizzonte finanziario (scadenze)
 ["dashboard", "summary"]             // KPI aggregati
 ["dashboard", "alerts"]              // warning proattivi (4 categorie)
+["dashboard", "clinical-readiness"]  // coda readiness clinica (refetch 60s)
 ["dashboard", "ghost-events"]        // eventi fantasma per risoluzione inline
 ["dashboard", "overdue-rates"]       // rate scadute per pagamento inline
 ["dashboard", "expiring-contracts"]  // contratti in scadenza con crediti
@@ -336,10 +341,20 @@ Pilastro di sviluppo (vedi root `CLAUDE.md`). Regole pratiche:
 - **Feedback immediato**: toast su ogni azione, skeleton su ogni loading, error banner su ogni fallimento
 - **Hover & transition**: ogni elemento interattivo ha `transition-*` + hover state visibile
 
-## Dashboard Alert System (Inline Resolution)
+## Dashboard — Layout Reminder-First + Alert System
 
-La Dashboard ha un Alert Panel con 4 categorie di warning proattivi.
-Ogni CTA apre uno Sheet inline — risoluzione senza navigazione.
+La Dashboard (~1760 LOC) e' un pannello di controllo operativo con layout reminder-first.
+
+### Layout 50/50 (desktop)
+- **Sinistra**: TodoCard post-it (h-[480px]) con **Todo Hero** — state machine deterministica
+  che mostra la CTA piu' urgente: overdue → today → critical_alerts → warning → sessions → free
+- **Destra**: pannello unificato con orologio live + lista sessioni giorno
+- **KPI**: 2 essenziali (clienti attivi, appuntamenti oggi)
+- **Clinical Readiness**: card con top-3 azioni da completare per readiness clienti
+- **Page reveal**: staggered animation via `usePageReveal()`
+
+### Alert Panel (Inline Resolution)
+4 categorie di warning proattivi. CTA apre Sheet inline.
 
 | Sheet | Hook | Azione inline | Mutation riusata |
 |-------|------|---------------|------------------|
@@ -353,6 +368,11 @@ Pattern architetturale:
 - **Config-driven**: `ALERT_CATEGORY_CONFIG` con icona, colori, borderColor, cta per categoria
 - **Severity hierarchy**: critical (sfondo rosso, CTA filled), warning (sfondo neutro, CTA outline)
 - **ScrollArea flex**: `min-h-0 flex-1` su ScrollArea + `overflow-hidden` su SheetContent per scroll corretto
+
+### MyPortal (`/clienti/myportal`)
+Tracking board readiness clinica. KPI + filtri + tabella/card responsive.
+Riusa `useClinicalReadiness()` (zero API aggiuntive). Badge anamnesi/misurazioni/scheda colorati.
+Deep-link con flag auto-start (`?startWizard=1`, `?startScheda=1`).
 
 ## Visual Design — Cassa Page (CRM-grade)
 
@@ -484,8 +504,8 @@ type NavSection = { section: string; items: NavLink[] };
 type NavEntry = NavLink | NavSection;
 ```
 
-Struttura: Dashboard, Agenda (top-level) → Clienti (sezione) → Contabilita' (Contratti, Cassa) → Allenamento (Esercizi, Schede).
-Impostazioni pinned in fondo via `mt-auto`. Search trigger sopra la nav.
+Struttura: Dashboard, Agenda (top-level) → Clienti (Clienti, MyPortal) → Contabilita' (Contratti, Cassa) → Allenamento (Esercizi, Schede, Monitoraggio).
+Guida + Impostazioni pinned in fondo. Search trigger sopra la nav. Header con `LogoIcon` SVG su sfondo teal.
 
 ## Exercise Selector — Pattern Professionale
 

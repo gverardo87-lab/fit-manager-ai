@@ -51,6 +51,11 @@ Upgrade puramente visivi senza nuove dipendenze pesanti. Zero framer-motion, tut
 - **Skeleton shimmer** (`components/ui/skeleton.tsx`): rimpiazza `animate-pulse` con sweep CSS (`@keyframes shimmer`, `translateX` via `::after` pseudo-element). Skeleton anatomicamente accurati in 4 pagine (clienti/contratti/esercizi/schede).
 - **Gradient mesh** (`globals.css`): `.bg-mesh-login` (animated gradient 4-stop, 400% background-size) sulla login. `.bg-mesh-app` (radial-gradient teal ellisse top-left) sul layout dashboard.
 - **Confetti** (`lib/confetti.ts`): `celebrateRatePaid()` (burst singolo, 70 particelle) e `celebrateContractSaldato()` (cannoni L+R, 150ms offset). Lazy dynamic import di `canvas-confetti` (3KB). Triggerato da `usePayRate` in `onSuccess` quando `data.stato === "SALDATA"`.
+- **Page Reveal** (`lib/page-reveal.ts`): `usePageReveal()` hook — fade-in + slide-up con stagger configurabile.
+  `revealClass(delayMs)` + `revealStyle(delayMs)`. Rispetta `prefers-reduced-motion`. Usato in 6+ pagine
+  (Dashboard, MyPortal, Clienti, Cassa, Allenamenti, Agenda).
+- **Logo SVG** (`components/ui/logo.tsx`): `LogoIcon` — onda spirale + bar chart ascendente + foglia.
+  `currentColor` per inheritance, scale 20px-200px+. Usato in Sidebar header (sfondo teal) e Login hero.
 - **MuscleMapPanel status-aware**: vedi sezione Workout Template Builder.
 
 ### Guide Tour Interattivo — SpotlightTour 19 Passi
@@ -168,6 +173,66 @@ Riferimenti spec (Codex): `docs/upgrades/specs/UPG-2026-03-04-04-assistant-parse
 File chiave: `api/services/assistant_parser/` (6 moduli), `api/routers/assistant.py` (2 endpoint),
 `api/schemas/assistant.py` (6 schema Pydantic), `frontend/src/hooks/useAssistant.ts` (2 hook),
 `frontend/src/components/layout/CommandPalette.tsx` (assistant mode + preview).
+
+### Dashboard Operativa — Reminder-First Board + Clinical Readiness
+
+> **Filosofia: la dashboard e' un pannello di controllo, non una bacheca.**
+> Layout reminder-first: azioni urgenti in primo piano, KPI ridotti all'essenziale.
+
+**Layout 50/50 split** (desktop):
+- **Sinistra**: TodoCard "post-it" con hero action (h-[480px] fisso)
+- **Destra**: pannello unificato con orologio live + lista sessioni giorno scrollabile
+- KPI ridotti a 2 essenziali: clienti attivi + appuntamenti oggi
+- Alert Panel sotto con 4 categorie di warning proattivi (invariato)
+
+**Todo Hero — Next-Best-Action** (deterministic state machine):
+`buildTodoHeroState()` calcola la priorita' del momento e presenta CTA contestuale:
+1. `"overdue"` — todo scaduti → rosso + "Completa prossimo"
+2. `"today"` — todo oggi → ambra + "Completa prossimo"
+3. `"critical_alerts"` — alert critici operativi → rosso + "Apri alert"
+4. `"warning_alerts"` — alert warning → ambra + "Apri alert"
+5. `"upcoming_sessions"` — sessioni imminenti → blu + "Apri agenda"
+6. `"free"` — tutto ok → verde + "Aggiungi follow-up"
+
+**Clinical Readiness Queue** (`GET /api/dashboard/clinical-readiness`):
+Coda deterministica per onboarding/migrazione clienti. Ogni cliente riceve:
+- `anamnesi_state`: "missing" | "legacy" | "structured"
+- `readiness_score`: 0-100 (anamnesi 40pt + misurazioni 30pt + scheda 30pt)
+- `priority`: "high" | "medium" | "low" (da `priority_score` deterministico)
+- `next_action_code` + `next_action_label` + `next_action_href`: CTA actionable con deep-link
+- `timeline_status`: "overdue" | "today" | "upcoming_7d" | "upcoming_14d" | "future" | "none"
+- `next_due_date` + `days_to_due`: deadline per prossima azione
+
+**Timeline computation**: gap immediati (anamnesi/baseline mancanti) → `overdue`.
+Profili pronti: review periodiche (misurazioni 30gg, scheda 21gg, anamnesi 180gg).
+
+**One-Click CTA Auto-Start**: deep-link flags consumati dal frontend:
+- `?startWizard=1` → auto-apre AnamnesiWizard su `/clienti/[id]/anamnesi`
+- `?startScheda=1` → auto-apre TemplateSelector su `/clienti/[id]?tab=schede`
+- Pattern: `useSearchParams().get("flag")` + `requestAnimationFrame` + consume URL
+
+**Hook**: `useClinicalReadiness()` — query key `["dashboard", "clinical-readiness"]`, refetch 60s.
+
+File chiave: `api/routers/dashboard.py` (~980 LOC, 8 endpoint), `api/schemas/financial.py` (3 schema readiness),
+`frontend/src/hooks/useDashboard.ts` (6 hook), `frontend/src/app/(dashboard)/page.tsx` (~1760 LOC).
+
+### MyPortal — Tracking Board Clinico
+
+Pagina dedicata (`/clienti/myportal`) per monitorare progressione readiness clienti.
+
+**Features**:
+- **4 KPI card**: clienti totali, da completare, pronti, alta priorita'
+- **Filtro**: "Da completare" | "Tutti" | "Pronti" + ricerca fuzzy accent-insensitive
+- **Timeline Scadenze**: griglia deadline con badge status colorati (overdue/today/7d/14d/future)
+- **Dual layout**: tabella desktop (md+) con 8 colonne, card stack mobile
+- **Badge stati**: AnamnesiBadge (structured=verde, legacy=ambra, missing=rosso), CompletionBadge (completa/manca)
+- **CTA dirette**: ogni riga ha bottone azione che naviga con flag auto-start
+
+**Data source**: `useClinicalReadiness()` (stesso hook della dashboard, zero API aggiuntive).
+
+**Sidebar**: voce "MyPortal" (icona HeartPulse) nella sezione Clienti.
+
+File chiave: `frontend/src/app/(dashboard)/clienti/myportal/page.tsx` (~490 LOC).
 
 ### Workout Template Builder — Schede Allenamento
 
@@ -611,15 +676,15 @@ tutte le 6 pagine filtri (esercizi, clienti, contratti, schede, cassa, allenamen
 
 ```
 frontend/          Next.js 16 + React 19 + TypeScript
-  src/hooks/       React Query (server state) — 11 hook modules
+  src/hooks/       React Query (server state) — 17 hook modules
   src/components/  shadcn/ui + componenti dominio — ~80 componenti
   src/types/       Interfacce TypeScript (mirror Pydantic)
        |
        | REST API (JSON over HTTP, JWT auth)
        v
 api/               FastAPI + SQLModel ORM — Dual Engine
-  models/          17 modelli ORM (SQLAlchemy table=True)
-  routers/         11 router con Bouncer Pattern + Deep IDOR
+  models/          19 modelli ORM (SQLAlchemy table=True)
+  routers/         15 router con Bouncer Pattern + Deep IDOR
   schemas/         Pydantic v2 (input/output validation)
   services/        Safety Engine, Goal Engine
        |
@@ -1208,12 +1273,12 @@ sqlite3 data/catalog.db ".tables"
 
 ## Metriche Progetto
 
-- **api/**: ~5,800 LOC Python — 17 modelli ORM, 11 router, 2 schema modules, 1 parser service (6 moduli)
-- **frontend/**: ~15,000 LOC TypeScript — ~70 componenti, 11 hook modules, 16 pagine
+- **api/**: ~15,000 LOC Python — 19 modelli ORM, 15 router, 8 schema modules, 5 services + 1 parser (8 moduli)
+- **frontend/**: ~18,000 LOC TypeScript — ~80 componenti, 17 hook modules, 21 pagine
 - **core/**: ~10,300 LOC Python — moduli AI (RAG, exercise archive) in attesa di API endpoints
 - **tools/admin_scripts/**: ~3,200 LOC Python — 16 script (import, quality engine, taxonomy, seed, test, QA clinica)
 - **DB**: Dual-DB SQLite (22 business + 7 catalog), WAL mode, FK enforced, multi-tenant via trainer_id
-- **Esercizi**: 269 attivi (tassonomia completa, avviamento/mobilita photo-optional) + 790 archiviati (reinserimento graduale)
+- **Esercizi**: 311 attivi (tassonomia completa, seed JSON incluso in installer) + 790 archiviati (reinserimento graduale)
 - **Test**: 63 pytest + 67 E2E + 69 vitest (data protection)
 - **Sicurezza**: JWT auth, bcrypt, Deep Relational IDOR, 3-layer route protection
 - **Cloud**: 0 dipendenze, 0 dati verso terzi
