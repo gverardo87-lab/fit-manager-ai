@@ -63,9 +63,6 @@ Source: "..\data\catalog.db"; DestDir: "{app}\data"; Flags: ignoreversion
 ; Chiave pubblica licenza (verifica firma JWT RSA)
 Source: "assets\license_public.pem"; DestDir: "{app}\data"; Flags: ignoreversion
 
-; Licenza pre-attivata (JWT firmato RSA)
-Source: "assets\license.key"; DestDir: "{app}\data"; Flags: ignoreversion
-
 ; Foto esercizi attivi (staging da build-media.sh, ~36MB)
 Source: "..\dist\media\exercises\*"; DestDir: "{app}\data\media\exercises"; Flags: ignoreversion recursesubdirs
 
