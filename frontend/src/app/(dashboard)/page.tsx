@@ -1,8 +1,8 @@
-// src/app/(dashboard)/page.tsx
+﻿// src/app/(dashboard)/page.tsx
 "use client";
 
 /**
- * Dashboard — CRM-grade overview con 4 sezioni:
+ * Dashboard â€” CRM-grade overview con 4 sezioni:
  *
  * 1. Hero KPI: card operative (clienti, appuntamenti)
  * 2. Alert Panel: warning proattivi a 3 livelli di severita'
@@ -25,7 +25,6 @@ import {
   ArrowRight,
   AlertCircle,
   CheckCircle2,
-  BellRing,
   Ghost,
   UserX,
   CreditCard,
@@ -59,7 +58,7 @@ import {
   type DashboardAlerts,
 } from "@/types/api";
 
-// ── Date helpers ──
+// â”€â”€ Date helpers â”€â”€
 
 function formatLocalISODate(date: Date): string {
   const year = date.getFullYear();
@@ -105,7 +104,7 @@ function currentWeekLabel(baseDate: Date = new Date()): string {
   return `${start.toLocaleDateString("it-IT", formatOptions)} - ${end.toLocaleDateString("it-IT", formatOptions)}`;
 }
 
-// ── Category colors (mirror agenda) ──
+// â”€â”€ Category colors (mirror agenda) â”€â”€
 
 const CATEGORY_COLORS: Record<string, string> = {
   PT: "bg-blue-500",
@@ -187,9 +186,9 @@ function getRevealDelayStyle(enabled: boolean, delayMs: number) {
   return { transitionDelay: `${delayMs}ms` };
 }
 
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // Pagina
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 export default function DashboardPage() {
   const { data: summary, isLoading: summaryLoading, isError, refetch } = useDashboard();
@@ -256,7 +255,7 @@ export default function DashboardPage() {
 
   const isLoading = summaryLoading;
 
-  // Handler CTA per categoria alert — apre Sheet inline
+  // Handler CTA per categoria alert â€” apre Sheet inline
   const alertActions: Record<string, () => void> = {
     ghost_events: () => setGhostSheetOpen(true),
     expiring_contracts: () => setExpiringSheetOpen(true),
@@ -265,7 +264,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-w-0 space-y-4 md:space-y-6">
-      {/* ── Header ── */}
+      {/* â”€â”€ Header â”€â”€ */}
       <div data-guide="dashboard-header" className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 sm:h-11 sm:w-11 dark:from-blue-900/40 dark:to-blue-800/30">
           <LayoutDashboard className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -273,12 +272,12 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Dashboard</h1>
           <p className="text-xs text-muted-foreground sm:text-sm">
-            Panoramica della tua attivita&apos; — {monthLabel} {yearLabel}
+            Panoramica della tua attivita&apos; â€” {monthLabel} {yearLabel}
           </p>
         </div>
       </div>
 
-      {/* ── Error state ── */}
+      {/* â”€â”€ Error state â”€â”€ */}
       {isError && (
         <div className="flex flex-col gap-3 rounded-xl border border-destructive/50 bg-destructive/5 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
@@ -293,66 +292,59 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── First-run welcome (zero clienti) ── */}
+      {/* â”€â”€ First-run welcome (zero clienti) â”€â”€ */}
       {!isLoading && summary && summary.active_clients === 0 ? (
         <WelcomeCard />
       ) : (
         <>
-          {/* ── Hero KPI ── */}
+          {/* â”€â”€ Hero KPI â”€â”€ */}
           {isLoading && <KpiSkeleton />}
           {summary && (
             <KpiCards
               summary={summary}
-              events={todayEvents}
-              alerts={alerts}
-              animateIn={entranceReady}
-              animationsEnabled={DASHBOARD_MICROSTEP2_ENABLED}
-            />
-          )}
-          {summary && (
-            <ActionFocusBar
-              summary={summary}
-              events={todayEvents}
-              alerts={alerts}
               animateIn={entranceReady}
               animationsEnabled={DASHBOARD_MICROSTEP2_ENABLED}
             />
           )}
 
           <div
-            className={`grid min-w-0 gap-5 md:gap-6 xl:grid-cols-12 ${getRevealMotionClass(
+            className={`grid min-w-0 gap-4 md:gap-5 xl:grid-cols-2 ${getRevealMotionClass(
               DASHBOARD_MICROSTEP2_ENABLED,
               entranceReady,
             )}`}
             style={getRevealDelayStyle(DASHBOARD_MICROSTEP2_ENABLED, 120)}
           >
-            <div className="order-2 min-w-0 space-y-5 md:space-y-6 xl:order-1 xl:col-span-7">
-              <div className="grid min-w-0 gap-4 md:grid-cols-2 lg:gap-6">
-                <TodayAgenda
-                  events={todayEvents}
-                  isLoading={!eventsData}
-                  referenceDate={dateAnchor}
-                  animateIn={entranceReady}
-                  animationsEnabled={DASHBOARD_MICROSTEP2_ENABLED}
-                />
-                <AgendaLivePanel events={todayEvents} isLoading={!eventsData} />
-              </div>
+            <div className="min-w-0">
+              <TodoCard
+                criticalAlertCount={criticalAlertCount}
+                warningAlertCount={warningAlertCount}
+                upcomingSessionsCount={upcomingSessionsCount}
+              />
+            </div>
+            <div className="min-w-0">
+              <TodayAgenda
+                events={todayEvents}
+                isLoading={!eventsData}
+                referenceDate={dateAnchor}
+                animateIn={entranceReady}
+                animationsEnabled={DASHBOARD_MICROSTEP2_ENABLED}
+              />
+            </div>
+          </div>
+
+          <div className="grid min-w-0 gap-5 md:gap-6 xl:grid-cols-12">
+            <div className="min-w-0 xl:col-span-7">
               <WeeklyLessons
                 events={weeklyEvents}
                 isLoading={!weeklyEventsData}
                 weekLabel={currentWeekRangeLabel}
               />
             </div>
-            <div className="order-1 min-w-0 space-y-5 md:space-y-6 xl:order-2 xl:col-span-5">
-              <TodoCard
-                criticalAlertCount={criticalAlertCount}
-                warningAlertCount={warningAlertCount}
-                upcomingSessionsCount={upcomingSessionsCount}
-              />
+            <div className="min-w-0 xl:col-span-5">
               <AlertPanel alerts={alerts} isLoading={!alerts} alertActions={alertActions} />
             </div>
           </div>
-          {/* ── Azioni Rapide ── */}
+          {/* â”€â”€ Azioni Rapide â”€â”€ */}
           <QuickActions
             animateIn={entranceReady}
             animationsEnabled={DASHBOARD_MICROSTEP2_ENABLED}
@@ -360,7 +352,7 @@ export default function DashboardPage() {
         </>
       )}
 
-      {/* ── Sheet risoluzione inline ── */}
+      {/* â”€â”€ Sheet risoluzione inline â”€â”€ */}
       <GhostEventsSheet open={ghostSheetOpen} onOpenChange={setGhostSheetOpen} />
       <ExpiringContractsSheet open={expiringSheetOpen} onOpenChange={setExpiringSheetOpen} />
       <InactiveClientsSheet open={inactiveSheetOpen} onOpenChange={setInactiveSheetOpen} />
@@ -368,9 +360,9 @@ export default function DashboardPage() {
   );
 }
 
-// ════════════════════════════════════════════════════════════
-// KPI Cards (6 card)
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// KPI Cards
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 interface KpiDef {
   key: string;
@@ -387,159 +379,7 @@ interface KpiDef {
   valueColor: string;
 }
 
-interface ActionFocusDef {
-  title: string;
-  detail: string;
-  cta: string;
-  href: string;
-  icon: typeof BellRing;
-  iconBg: string;
-  iconColor: string;
-  pulseTone: string;
-}
-
-function buildActionFocus(
-  summary: DashboardSummary,
-  events: EventHydrated[],
-  alerts: DashboardAlerts | undefined,
-): ActionFocusDef {
-  const visibleAlerts = alerts?.items.filter((item) => item.category !== "overdue_rates") ?? [];
-  const criticalCount = visibleAlerts.filter((item) => item.severity === "critical").length;
-  const warningCount = visibleAlerts.filter((item) => item.severity === "warning").length;
-
-  if (criticalCount > 0) {
-    return {
-      title: criticalCount === 1 ? "1 alert critico da gestire subito" : `${criticalCount} alert critici da gestire subito`,
-      detail: warningCount > 0
-        ? `${warningCount} avvisi non bloccanti in attesa.`
-        : "Apri il pannello alert e risolvi le anomalie prioritarie.",
-      cta: "Gestisci alert",
-      href: "#alert-panel",
-      icon: AlertCircle,
-      iconBg: "bg-red-100 dark:bg-red-950/40",
-      iconColor: "text-red-700 dark:text-red-400",
-      pulseTone: "bg-red-500",
-    };
-  }
-
-  const nextSession = events.find(
-    (event) => event.stato === "Programmato" && event.data_inizio.getTime() >= Date.now(),
-  );
-  if (nextSession) {
-    const nextSessionTime = nextSession.data_inizio.toLocaleTimeString("it-IT", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-    const clientLabel = nextSession.cliente_nome
-      ? `${nextSession.cliente_nome} ${nextSession.cliente_cognome ?? ""}`.trim()
-      : nextSession.categoria;
-
-    return {
-      title: `Prossima sessione alle ${nextSessionTime}`,
-      detail: clientLabel,
-      cta: "Apri agenda",
-      href: "/agenda",
-      icon: Clock,
-      iconBg: "bg-blue-100 dark:bg-blue-950/40",
-      iconColor: "text-blue-700 dark:text-blue-400",
-      pulseTone: "bg-blue-500",
-    };
-  }
-
-  if (summary.todays_appointments === 0) {
-    return {
-      title: "Agenda libera oggi",
-      detail: "Ottimo momento per follow-up e pianificazione clienti.",
-      cta: "Vai ai clienti",
-      href: "/clienti",
-      icon: CalendarCheck,
-      iconBg: "bg-emerald-100 dark:bg-emerald-950/40",
-      iconColor: "text-emerald-700 dark:text-emerald-400",
-      pulseTone: "bg-emerald-500",
-    };
-  }
-
-  if (visibleAlerts.length > 0) {
-    return {
-      title: `${visibleAlerts.length} alert operativi da monitorare`,
-      detail: "Nessuna criticita' bloccante, ma conviene chiudere gli avvisi entro giornata.",
-      cta: "Vedi alert",
-      href: "#alert-panel",
-      icon: BellRing,
-      iconBg: "bg-amber-100 dark:bg-amber-950/40",
-      iconColor: "text-amber-700 dark:text-amber-400",
-      pulseTone: "bg-amber-500",
-    };
-  }
-
-  return {
-    title: "Ritmo operativo stabile",
-    detail: "Dashboard allineata: passa alla pianificazione settimanale.",
-    cta: "Vai in agenda",
-    href: "/agenda",
-    icon: CheckCircle2,
-    iconBg: "bg-zinc-100 dark:bg-zinc-800/50",
-    iconColor: "text-zinc-700 dark:text-zinc-300",
-    pulseTone: "bg-zinc-400",
-  };
-}
-
-function ActionFocusBar({
-  summary,
-  events,
-  alerts,
-  animateIn,
-  animationsEnabled,
-}: {
-  summary: DashboardSummary;
-  events: EventHydrated[];
-  alerts: DashboardAlerts | undefined;
-  animateIn: boolean;
-  animationsEnabled: boolean;
-}) {
-  const focus = useMemo(() => buildActionFocus(summary, events, alerts), [summary, events, alerts]);
-  const Icon = focus.icon;
-
-  return (
-    <div
-      className={`min-w-0 rounded-xl border bg-gradient-to-br from-white to-zinc-50/70 p-3.5 shadow-sm sm:p-4 dark:from-zinc-900 dark:to-zinc-800/60 ${getRevealMotionClass(
-        animationsEnabled,
-        animateIn,
-      )}`}
-      style={getRevealDelayStyle(animationsEnabled, 70)}
-    >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
-          <div className={`relative mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${focus.iconBg}`}>
-            <Icon className={`h-4 w-4 ${focus.iconColor}`} />
-            <span className={`absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full ${focus.pulseTone} motion-safe:animate-pulse`} />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">Focus operativo</p>
-            <p className={`text-sm font-semibold ${focus.iconColor}`}>{focus.title}</p>
-            <p className="mt-0.5 truncate text-xs text-muted-foreground">{focus.detail}</p>
-          </div>
-        </div>
-        <Link href={focus.href} className="shrink-0">
-          <Button variant="outline" size="sm" className="h-9 gap-1.5 text-xs">
-            {focus.cta}
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Button>
-        </Link>
-      </div>
-    </div>
-  );
-}
-
-function buildKpiList(
-  summary: DashboardSummary,
-  events: EventHydrated[],
-  visibleAlerts: DashboardAlerts["items"],
-): KpiDef[] {
-  const upcomingSessions = events.filter(
-    (event) => event.stato === "Programmato" && event.data_inizio.getTime() >= Date.now(),
-  ).length;
-
+function buildKpiList(summary: DashboardSummary): KpiDef[] {
   return [
     {
       key: "clients",
@@ -569,63 +409,22 @@ function buildKpiList(
       iconColor: "text-violet-600 dark:text-violet-400",
       valueColor: "text-violet-700 dark:text-violet-400",
     },
-    {
-      key: "upcoming",
-      label: "Sessioni Imminenti",
-      subtitle: "da ora in poi",
-      icon: Clock,
-      value: upcomingSessions,
-      format: "number",
-      href: "/agenda",
-      borderColor: "border-l-emerald-500",
-      gradient: "from-emerald-50/80 to-white dark:from-emerald-950/40 dark:to-zinc-900",
-      iconBg: "bg-emerald-100 dark:bg-emerald-900/30",
-      iconColor: "text-emerald-600 dark:text-emerald-400",
-      valueColor: "text-emerald-700 dark:text-emerald-400",
-    },
-    {
-      key: "alerts",
-      label: "Alert Operativi",
-      subtitle: "da gestire",
-      icon: BellRing,
-      value: visibleAlerts.length,
-      format: "number",
-      href: "#alert-panel",
-      borderColor: visibleAlerts.length > 0 ? "border-l-amber-500" : "border-l-zinc-300",
-      gradient: visibleAlerts.length > 0
-        ? "from-amber-50/80 to-white dark:from-amber-950/40 dark:to-zinc-900"
-        : "from-zinc-50/80 to-white dark:from-zinc-900/40 dark:to-zinc-900",
-      iconBg: visibleAlerts.length > 0
-        ? "bg-amber-100 dark:bg-amber-900/30"
-        : "bg-zinc-100 dark:bg-zinc-800/30",
-      iconColor: visibleAlerts.length > 0
-        ? "text-amber-600 dark:text-amber-400"
-        : "text-zinc-500 dark:text-zinc-400",
-      valueColor: visibleAlerts.length > 0
-        ? "text-amber-700 dark:text-amber-400"
-        : "text-zinc-700 dark:text-zinc-400",
-    },
   ];
 }
 
 function KpiCards({
   summary,
-  events,
-  alerts,
   animateIn,
   animationsEnabled,
 }: {
   summary: DashboardSummary;
-  events: EventHydrated[];
-  alerts: DashboardAlerts | undefined;
   animateIn: boolean;
   animationsEnabled: boolean;
 }) {
-  const visibleAlerts = alerts?.items.filter((item) => item.category !== "overdue_rates") ?? [];
-  const kpis = buildKpiList(summary, events, visibleAlerts);
+  const kpis = buildKpiList(summary);
 
   return (
-    <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
+    <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
       {kpis.map((kpi, index) => {
         const Icon = kpi.icon;
         return (
@@ -660,9 +459,9 @@ function KpiCards({
   );
 }
 
-// ════════════════════════════════════════════════════════════
-// Alert Panel — Warning proattivi
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// Alert Panel â€” Warning proattivi
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 // Config-driven: ogni categoria ha icona, colori, e CTA contestuale
 const ALERT_CATEGORY_CONFIG: Record<string, {
@@ -1042,143 +841,6 @@ function formatCountdown(ms: number): string {
   return [hours, minutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
 }
 
-function AgendaLivePanel({ events, isLoading }: { events: EventHydrated[]; isLoading: boolean }) {
-  const [clockTime, setClockTime] = useState(() => new Date());
-
-  useEffect(() => {
-    const timerId = window.setInterval(() => setClockTime(new Date()), 1000);
-    return () => window.clearInterval(timerId);
-  }, []);
-
-  const liveInfo = useMemo(
-    () => buildAgendaLiveInfo(events, clockTime),
-    [events, clockTime],
-  );
-
-  if (isLoading) {
-    return (
-      <div className="h-[420px] space-y-3.5 rounded-xl border p-4 sm:h-[430px] sm:p-5">
-        <Skeleton className="h-5 w-40" />
-        <Skeleton className="h-24 w-full rounded-xl" />
-        <div className="grid grid-cols-2 gap-3">
-          <Skeleton className="h-20 w-full rounded-xl" />
-          <Skeleton className="h-20 w-full rounded-xl" />
-        </div>
-      </div>
-    );
-  }
-
-  const nowLabel = clockTime.toLocaleTimeString("it-IT", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-  const nowDayLabel = clockTime.toLocaleDateString("it-IT", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
-
-  const nextCountdown = formatCountdown(liveInfo.remainingMs);
-  const eventTimeLabel = liveInfo.event
-    ? `${liveInfo.event.data_inizio.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })} - ${liveInfo.event.data_fine.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}`
-    : null;
-
-  const statusTitle = liveInfo.mode === "in_progress"
-    ? `${liveInfo.event?.categoria ?? "Sessione"} in progress`
-    : liveInfo.mode === "next_up"
-      ? "Prossimo appuntamento"
-      : "Disponibile";
-
-  const statusSubtitle = liveInfo.mode === "in_progress"
-    ? "Stai lavorando con un cliente in questo momento."
-    : liveInfo.mode === "next_up"
-      ? "Preparati: il prossimo slot sta per iniziare."
-      : "Nessuna lezione in corso o imminente.";
-
-  const statusBadge = liveInfo.mode === "in_progress"
-    ? "Occupato"
-    : liveInfo.mode === "next_up"
-      ? "In arrivo"
-      : "Libero";
-
-  const countdownTone = liveInfo.mode === "in_progress"
-    ? "border-amber-200 bg-amber-50/80 dark:border-amber-900/40 dark:bg-amber-950/20"
-    : liveInfo.mode === "next_up"
-      ? "border-blue-200 bg-blue-50/80 dark:border-blue-900/40 dark:bg-blue-950/20"
-      : "border-zinc-200 bg-zinc-50/80 dark:border-zinc-800/70 dark:bg-zinc-900/50";
-
-  const countdownTextTone = liveInfo.mode === "in_progress"
-    ? "text-amber-700 dark:text-amber-300"
-    : liveInfo.mode === "next_up"
-      ? "text-blue-700 dark:text-blue-300"
-      : "text-zinc-700 dark:text-zinc-300";
-
-  const statusTone = liveInfo.mode === "in_progress"
-    ? "border-amber-200 bg-amber-50/80 dark:border-amber-900/40 dark:bg-amber-950/20"
-    : liveInfo.mode === "next_up"
-      ? "border-emerald-200 bg-emerald-50/80 dark:border-emerald-900/40 dark:bg-emerald-950/20"
-      : "border-zinc-200 bg-zinc-50/80 dark:border-zinc-800/70 dark:bg-zinc-900/50";
-
-  const statusTitleTone = liveInfo.mode === "in_progress"
-    ? "text-amber-700 dark:text-amber-300"
-    : liveInfo.mode === "next_up"
-      ? "text-emerald-700 dark:text-emerald-300"
-      : "text-zinc-700 dark:text-zinc-300";
-
-  return (
-    <div className="flex h-[420px] min-w-0 flex-col rounded-xl border bg-gradient-to-br from-white via-white to-zinc-50/60 p-4 shadow-sm sm:h-[430px] sm:p-5 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800/50">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <Clock className="h-4 w-4 text-blue-500" />
-          <h3 className="text-sm font-semibold sm:text-base">Stato in tempo reale</h3>
-        </div>
-        <Badge variant="secondary" className="ml-auto max-w-[168px] truncate text-[10px] font-semibold uppercase tracking-wide sm:ml-0">
-          {statusBadge}
-        </Badge>
-      </div>
-
-      <div className="rounded-xl border bg-white/90 p-2.5 text-center shadow-sm sm:p-3 dark:bg-zinc-900/90">
-        <p className="text-[10px] font-medium text-muted-foreground sm:text-[11px]">{nowDayLabel}</p>
-        <p className="mt-1 text-[1.9rem] font-extrabold leading-none tabular-nums text-zinc-800 sm:text-3xl dark:text-zinc-100">
-          {nowLabel}
-        </p>
-      </div>
-
-      <div className="mt-2 grid grid-cols-2 gap-2">
-        <div className={`rounded-xl border p-2.5 sm:p-3 ${countdownTone}`}>
-          <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
-            {liveInfo.mode === "in_progress" ? "Fine tra" : "Inizio tra"}
-          </p>
-          <p className={`mt-1 text-lg font-extrabold leading-none tabular-nums sm:text-xl ${countdownTextTone}`}>
-            {liveInfo.mode === "free" ? "--:--:--" : nextCountdown}
-          </p>
-        </div>
-        <div className={`rounded-xl border p-2.5 sm:p-3 ${statusTone}`}>
-          <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
-            Stato
-          </p>
-          <p className={`mt-1 text-sm font-bold ${statusTitleTone}`}>{statusTitle}</p>
-          <p className="mt-1 text-[10px] leading-snug text-muted-foreground">{statusSubtitle}</p>
-        </div>
-      </div>
-
-      {liveInfo.event && (
-        <div className="mt-2 rounded-xl border bg-white/80 p-2.5 dark:bg-zinc-900/80">
-          <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
-            Dettaglio sessione
-          </p>
-          <p className="mt-1 truncate text-sm font-semibold">{liveInfo.event.titolo || liveInfo.event.categoria}</p>
-          <p className="mt-1 truncate text-xs text-muted-foreground">
-            {eventTimeLabel}
-            {liveInfo.event.cliente_nome ? ` • ${liveInfo.event.cliente_nome} ${liveInfo.event.cliente_cognome}` : ""}
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function TodayAgenda({
   events,
   isLoading,
@@ -1193,7 +855,13 @@ function TodayAgenda({
   animationsEnabled: boolean;
 }) {
   const updateEvent = useUpdateEvent();
+  const [clockTime, setClockTime] = useState(() => new Date());
   const [updatingEventId, setUpdatingEventId] = useState<number | null>(null);
+
+  useEffect(() => {
+    const timerId = window.setInterval(() => setClockTime(new Date()), 1000);
+    return () => window.clearInterval(timerId);
+  }, []);
 
   const handleStatusChange = useCallback((event: EventHydrated, nextStatus: string) => {
     if (event.stato === nextStatus) return;
@@ -1208,12 +876,19 @@ function TodayAgenda({
     );
   }, [updateEvent]);
 
+  const liveInfo = useMemo(
+    () => buildAgendaLiveInfo(events, clockTime),
+    [events, clockTime],
+  );
+
   if (isLoading) {
     return (
-      <div className="h-[420px] space-y-4 rounded-xl border p-4 sm:h-[430px] sm:p-5">
-        <Skeleton className="h-5 w-44" />
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 w-full rounded-xl" />
+      <div className="h-[520px] space-y-3 rounded-2xl border p-4 sm:p-5">
+        <Skeleton className="h-6 w-52" />
+        <Skeleton className="h-24 w-full rounded-xl" />
+        <Skeleton className="h-8 w-full rounded-lg" />
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-16 w-full rounded-xl" />
         ))}
       </div>
     );
@@ -1224,40 +899,90 @@ function TodayAgenda({
     day: "numeric",
     month: "long",
   });
+  const nowLabel = clockTime.toLocaleTimeString("it-IT", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  const nextCountdown = formatCountdown(liveInfo.remainingMs);
+  const statusBadge = liveInfo.mode === "in_progress"
+    ? "Occupato"
+    : liveInfo.mode === "next_up"
+      ? "In arrivo"
+      : "Libero";
+  const statusTitle = liveInfo.mode === "in_progress"
+    ? "Sessione in corso"
+    : liveInfo.mode === "next_up"
+      ? "Prossima sessione"
+      : "Finestra libera";
+  const statusTone = liveInfo.mode === "in_progress"
+    ? "border-amber-200 bg-amber-50/80 text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300"
+    : liveInfo.mode === "next_up"
+      ? "border-blue-200 bg-blue-50/80 text-blue-700 dark:border-blue-900/40 dark:bg-blue-950/20 dark:text-blue-300"
+      : "border-zinc-200 bg-zinc-50/80 text-zinc-700 dark:border-zinc-800/70 dark:bg-zinc-900/60 dark:text-zinc-300";
 
   return (
-    <div className="flex h-[420px] min-w-0 flex-col rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-4 shadow-sm sm:h-[430px] sm:p-5 dark:from-zinc-900 dark:to-zinc-800/50">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2.5">
-        <div className="flex min-w-0 flex-wrap items-center gap-2 sm:flex-nowrap">
-          <Calendar className="h-4 w-4 text-violet-500" />
-          <h3 className="text-sm font-semibold sm:text-base">Agenda Oggi</h3>
-          {events.length > 0 && (
-            <div className="rounded-lg border bg-white px-2.5 py-1 text-center shadow-sm dark:bg-zinc-900">
-              <p className="text-[10px] leading-none font-semibold tracking-wide text-muted-foreground uppercase">Sessioni</p>
-              <p className="mt-1 text-xl font-extrabold leading-none tabular-nums">{events.length}</p>
-            </div>
-          )}
+    <div
+      className={`flex h-[520px] min-w-0 flex-col rounded-2xl border bg-gradient-to-br from-white via-white to-zinc-50/70 p-4 shadow-sm sm:p-5 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800/50 ${getRevealMotionClass(
+        animationsEnabled,
+        animateIn,
+      )}`}
+      style={getRevealDelayStyle(animationsEnabled, 170)}
+    >
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-2">
+            <Clock className="h-4 w-4 text-blue-500" />
+            <h3 className="truncate text-sm font-semibold sm:text-base">Operativita giornata</h3>
+          </div>
+          <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground sm:text-xs">
+            {todayFormatted}
+          </p>
         </div>
-        <Link href="/agenda">
-          <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs">
-            Calendario <ArrowRight className="h-3 w-3" />
+        <Link href="/agenda" className="shrink-0">
+          <Button variant="outline" size="sm" className="h-8 gap-1 text-xs">
+            Agenda completa <ArrowRight className="h-3 w-3" />
           </Button>
         </Link>
       </div>
 
-      <p className="mb-2.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground sm:text-xs">
-        {todayFormatted}
-      </p>
+      <div className="mb-3 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2.5">
+        <div className="rounded-xl border bg-white/90 px-3 py-2 shadow-sm dark:bg-zinc-900/90">
+          <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">Ora</p>
+          <p className="mt-1 text-2xl font-extrabold leading-none tabular-nums text-zinc-800 dark:text-zinc-100">
+            {nowLabel}
+          </p>
+        </div>
+        <div className={`rounded-xl border px-3 py-2 ${statusTone}`}>
+          <p className="text-[10px] font-semibold tracking-wide uppercase">Stato live</p>
+          <p className="mt-1 text-sm font-bold">{statusTitle}</p>
+          <p className="mt-1 text-xs font-medium tabular-nums">
+            {liveInfo.mode === "free"
+              ? "Nessun countdown attivo"
+              : `${liveInfo.mode === "in_progress" ? "Fine tra" : "Inizio tra"} ${nextCountdown}`}
+          </p>
+        </div>
+      </div>
+
+      <div className="mb-3 flex items-center justify-between rounded-xl border bg-zinc-50/80 px-3 py-2 dark:bg-zinc-900/60">
+        <div>
+          <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">Sedute programmate</p>
+          <p className="text-sm font-semibold">{events.length}</p>
+        </div>
+        <Badge variant="secondary" className="text-[10px] font-semibold uppercase tracking-wide">
+          {statusBadge}
+        </Badge>
+      </div>
 
       {events.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-6 text-center">
           <CalendarCheck className="h-8 w-8 text-muted-foreground/30" />
           <p className="text-sm text-muted-foreground">Nessun appuntamento oggi</p>
-          <p className="text-xs text-muted-foreground/70">La giornata e&apos; libera</p>
+          <p className="text-xs text-muted-foreground/70">La giornata e libera</p>
         </div>
       ) : (
         <ScrollArea className="min-h-0 flex-1 pr-1">
-          <div className="space-y-2.5 sm:space-y-3">
+          <div className="space-y-2">
             {events.map((event, index) => {
               const time = event.data_inizio.toLocaleTimeString("it-IT", {
                 hour: "2-digit",
@@ -1277,40 +1002,42 @@ function TodayAgenda({
                 <div
                   key={event.id}
                   className={getRevealMotionClass(animationsEnabled, animateIn)}
-                  style={getRevealDelayStyle(animationsEnabled, 180 + Math.min(index, 5) * 40)}
+                  style={getRevealDelayStyle(animationsEnabled, 210 + Math.min(index, 6) * 35)}
                 >
-                  <div className="grid min-w-0 grid-cols-[82px_minmax(0,1fr)] items-center gap-2.5 rounded-xl border bg-white p-2.5 transition-all hover:-translate-y-0.5 hover:shadow-sm sm:grid-cols-[92px_minmax(0,1fr)] sm:p-3 md:grid-cols-[104px_minmax(0,1fr)_auto] md:gap-3 md:p-3.5 dark:bg-zinc-900">
-                  <div className={`rounded-lg border px-1.5 py-1 text-center sm:px-2 ${timeTone}`}>
-                    <p className="text-xl font-extrabold leading-none tabular-nums text-zinc-800 sm:text-2xl dark:text-zinc-100">{time}</p>
-                    <p className="mt-1 text-[11px] font-medium tabular-nums text-muted-foreground sm:text-xs">{endTime}</p>
-                  </div>
-
-                  <div className="min-w-0">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span className={`h-2.5 w-2.5 rounded-full ${catColor}`} />
-                      <p className={`min-w-0 flex-1 truncate text-sm font-semibold leading-tight sm:text-[15px] ${statusColor}`}>
-                        {event.titolo || event.categoria}
-                      </p>
-                      <Badge variant="outline" className="h-5 shrink-0 px-1.5 py-0 text-[10px] font-semibold md:hidden">
-                        {event.categoria}
-                      </Badge>
+                  <div className="grid min-w-0 grid-cols-[84px_minmax(0,1fr)] items-center gap-2 rounded-xl border bg-white p-2.5 transition-all hover:-translate-y-0.5 hover:shadow-sm md:grid-cols-[88px_minmax(0,1fr)_auto] dark:bg-zinc-900">
+                    <div className={`rounded-lg border px-1.5 py-1 text-center ${timeTone}`}>
+                      <p className="text-lg font-extrabold leading-none tabular-nums text-zinc-800 dark:text-zinc-100">{time}</p>
+                      <p className="mt-1 text-[11px] font-medium tabular-nums text-muted-foreground">{endTime}</p>
                     </div>
-                    {event.cliente_nome ? (
-                      <p className="mt-1 truncate text-xs text-muted-foreground sm:text-sm">
-                        {event.cliente_nome} {event.cliente_cognome}
-                      </p>
-                    ) : event.note ? (
-                      <p className="mt-1 truncate text-xs text-muted-foreground">{event.note}</p>
-                    ) : (
-                      <p className="mt-1 text-xs text-muted-foreground/60">Nessuna nota</p>
-                    )}
-                    <div className="mt-2 md:hidden">
+
+                    <div className="min-w-0">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className={`h-2.5 w-2.5 rounded-full ${catColor}`} />
+                        <p className={`min-w-0 flex-1 truncate text-sm font-semibold leading-tight ${statusColor}`}>
+                          {event.titolo || event.categoria}
+                        </p>
+                        <Badge variant="outline" className="h-5 shrink-0 px-1.5 py-0 text-[10px] font-semibold md:hidden">
+                          {event.categoria}
+                        </Badge>
+                      </div>
+                      {event.cliente_nome ? (
+                        <p className="mt-1 truncate text-xs text-muted-foreground">
+                          {event.cliente_nome} {event.cliente_cognome}
+                        </p>
+                      ) : event.note ? (
+                        <p className="mt-1 truncate text-xs text-muted-foreground">{event.note}</p>
+                      ) : (
+                        <p className="mt-1 text-xs text-muted-foreground/60">Nessuna nota</p>
+                      )}
+                    </div>
+
+                    <div className="md:hidden">
                       <Select
                         value={event.stato}
                         onValueChange={(value) => handleStatusChange(event, value)}
                         disabled={updatingEventId === event.id}
                       >
-                        <SelectTrigger className="h-9 w-full text-xs">
+                        <SelectTrigger className="h-8 w-full text-xs">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1322,35 +1049,34 @@ function TodayAgenda({
                         </SelectContent>
                       </Select>
                     </div>
-                  </div>
 
-                  <div className="hidden shrink-0 md:flex md:flex-col md:items-end md:gap-2">
-                    <Badge variant="outline" className="px-2.5 py-1 text-xs font-semibold">
-                      {event.categoria}
-                    </Badge>
-                    <Select
-                      value={event.stato}
-                      onValueChange={(value) => handleStatusChange(event, value)}
-                      disabled={updatingEventId === event.id}
-                    >
-                      <SelectTrigger className="h-9 w-[132px] text-xs lg:w-[140px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {EVENT_STATUSES.map((status) => (
-                          <SelectItem key={status} value={status} className="text-xs">
-                            {status}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {updatingEventId === event.id && (
-                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        Aggiorno...
-                      </div>
-                    )}
-                  </div>
+                    <div className="hidden shrink-0 md:flex md:flex-col md:items-end md:gap-1.5">
+                      <Badge variant="outline" className="px-2 py-0.5 text-[10px] font-semibold">
+                        {event.categoria}
+                      </Badge>
+                      <Select
+                        value={event.stato}
+                        onValueChange={(value) => handleStatusChange(event, value)}
+                        disabled={updatingEventId === event.id}
+                      >
+                        <SelectTrigger className="h-8 w-[126px] text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {EVENT_STATUSES.map((status) => (
+                            <SelectItem key={status} value={status} className="text-xs">
+                              {status}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {updatingEventId === event.id && (
+                        <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          Aggiorno...
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -1361,6 +1087,7 @@ function TodayAgenda({
     </div>
   );
 }
+
 const QUICK_ACTIONS = [
   {
     label: "Nuovo Cliente",
@@ -1430,9 +1157,9 @@ function QuickActions({
   );
 }
 
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // Welcome Card (first-run)
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 const FIRST_STEPS = [
   {
@@ -1520,19 +1247,17 @@ function WelcomeCard() {
   );
 }
 
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // Skeleton
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 function KpiSkeleton() {
   const borders = [
     "border-l-blue-500",
     "border-l-violet-500",
-    "border-l-emerald-500",
-    "border-l-amber-500",
   ];
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       {borders.map((border, i) => (
         <div key={i} className={`flex items-start gap-3 rounded-xl border border-l-4 ${border} p-4`}>
           <Skeleton className="h-10 w-10 shrink-0 rounded-lg" />
@@ -1546,4 +1271,5 @@ function KpiSkeleton() {
     </div>
   );
 }
+
 

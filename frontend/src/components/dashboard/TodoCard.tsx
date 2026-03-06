@@ -317,8 +317,9 @@ export function TodoCard({
   return (
     <div
       id="todo-panel"
-      className="min-w-0 rounded-xl border bg-gradient-to-br from-white to-zinc-50/50 p-4 shadow-sm sm:p-5 dark:from-zinc-900 dark:to-zinc-800/50"
+      className="relative min-w-0 overflow-hidden rounded-2xl border border-amber-300/90 bg-gradient-to-br from-amber-100 via-yellow-50 to-amber-200/70 p-4 shadow-sm sm:p-5 dark:border-amber-700/60 dark:from-amber-950/45 dark:via-zinc-900 dark:to-amber-900/25"
     >
+      <div className="pointer-events-none absolute right-0 top-0 h-8 w-8 rotate-45 bg-amber-200/80 shadow-inner dark:bg-amber-800/40" />
       {/* Header */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <ListTodo className="h-4 w-4 text-pink-500" />
@@ -331,7 +332,7 @@ export function TodoCard({
       </div>
 
       {/* Hero action */}
-      <div className={`mb-3 rounded-lg border p-3 ${hero.panelTone}`}>
+      <div className={`mb-3 rounded-lg border p-3 backdrop-blur-[1px] ${hero.panelTone}`}>
         <div className="flex min-w-0 items-start gap-2.5">
           <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${hero.iconTone}`}>
             <HeroIcon className="h-4 w-4" />

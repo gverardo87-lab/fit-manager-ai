@@ -66,3 +66,4 @@ Esempio:
 - `UPG-2026-03-05-26`: hardening sprint T2-T6 pre-lancio: hook safety frontend (0 errori ESLint), cleanup lint minori, esclusione `tests/legacy` da Ruff (0 errori `api/tests`) e rimozione `license.key` pre-bundled dall'installer.
 - `UPG-2026-03-06-27`: dashboard reminder-first: promemoria portati in priorita alta nella board (mobile/tablet-first), alert spostati sotto i promemoria e `TodoCard` hardenizzata con bucket `scaduti/oggi/prossimi` + ordinamento urgenza e data locale robusta.
 - `UPG-2026-03-06-28`: `TodoCard` evoluta in "Azione consigliata" con priorita cross-signal (todo + alert + agenda) e CTA operative dirette; rimosso `Date.now` dai path render per rispettare React purity lint.
+- `UPG-2026-03-06-29`: dashboard resa piu' densa e operativa: eliminata barra focus ridondante, KPI ridotti ai due essenziali, top layout 50/50 con promemoria post-it a sinistra e pannello unico clock+sedute scorrevoli a destra.
