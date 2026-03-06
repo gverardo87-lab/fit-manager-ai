@@ -60,6 +60,10 @@ interface MeasurementChartProps {
   metrics: Metric[];
   sesso?: string | null;
   dataNascita?: string | null;
+  /** Pre-seleziona metrica primaria (default: Peso id=1) */
+  defaultMetric1Id?: number;
+  /** Pre-seleziona metrica secondaria (default: nessuna) */
+  defaultMetric2Id?: number;
 }
 
 interface ChartDatum {
@@ -80,6 +84,8 @@ export function MeasurementChart({
   metrics,
   sesso,
   dataNascita,
+  defaultMetric1Id,
+  defaultMetric2Id,
 }: MeasurementChartProps) {
   // Metriche disponibili (con almeno 1 dato)
   const availableMetricIds = useMemo(() => {
@@ -97,15 +103,19 @@ export function MeasurementChart({
     [metrics, availableMetricIds]
   );
 
-  // Metric 1: default Peso (id=1) se disponibile
+  // Metric 1: default Peso (id=1) se disponibile, override via prop
   const [metric1Id, setMetric1Id] = useState<string>(() => {
+    if (defaultMetric1Id && availableMetricIds.has(defaultMetric1Id)) return String(defaultMetric1Id);
     if (availableMetricIds.has(1)) return "1";
     const first = availableMetrics[0];
     return first ? String(first.id) : "1";
   });
 
-  // Metric 2: opzionale (default: nessuna)
-  const [metric2Id, setMetric2Id] = useState<string>(NONE_VALUE);
+  // Metric 2: opzionale (default: nessuna), override via prop
+  const [metric2Id, setMetric2Id] = useState<string>(() => {
+    if (defaultMetric2Id && availableMetricIds.has(defaultMetric2Id)) return String(defaultMetric2Id);
+    return NONE_VALUE;
+  });
 
   const metric1 = metrics.find((m) => m.id === parseInt(metric1Id, 10));
   const metric2 =
