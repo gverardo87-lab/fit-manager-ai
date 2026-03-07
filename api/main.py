@@ -193,11 +193,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS: regex per accettare localhost, LAN (192.168.x.x), Tailscale (100.x.x.x)
+# CORS: regex per accettare localhost, LAN (192.168.x.x), Tailscale (100.x.x.x) e Tailscale Funnel (*.ts.net)
 # Nessun IP hardcodato — funziona da qualsiasi rete automaticamente.
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"^http://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|100\.\d+\.\d+\.\d+)(:\d+)?$",
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|100\.\d+\.\d+\.\d+|.*\.ts\.net)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

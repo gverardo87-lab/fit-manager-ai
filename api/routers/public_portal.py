@@ -171,9 +171,14 @@ def create_share_token(
         trainer.id, client_id,
     )
 
+    # Usa dominio esplicito se configurato (es. Tailscale Funnel)
+    base_url = os.getenv("PUBLIC_PORTAL_URL", "").rstrip("/")
+    url_path = f"/public/anamnesi/{share.token}"
+    final_url = f"{base_url}{url_path}" if base_url else url_path
+
     return ShareTokenResponse(
         token=share.token,
-        url=f"/public/anamnesi/{share.token}",
+        url=final_url,
         expires_at=share.expires_at,
         client_name=f"{client.nome} {client.cognome}",
     )

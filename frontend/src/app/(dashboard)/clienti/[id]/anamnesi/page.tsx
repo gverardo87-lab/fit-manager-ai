@@ -249,8 +249,12 @@ function ShareAnamnesiDialog({
   }, [createToken]);
 
   const fullUrl = result
-    ? `${typeof window !== "undefined" ? window.location.origin : ""}${result.url}`
+    ? (result.url.startsWith("http")
+        ? result.url
+        : `${typeof window !== "undefined" ? window.location.origin : ""}${result.url}`)
     : "";
+
+  const isAbsoluteUrl = result?.url.startsWith("http");
 
   const handleCopy = useCallback(() => {
     if (!fullUrl) return;
@@ -281,7 +285,7 @@ function ShareAnamnesiDialog({
 
         <div className="space-y-4 pt-2">
           {/* Warning localhost — link non funziona dal cellulare */}
-          {isLocalhost && (
+          {isLocalhost && !isAbsoluteUrl && (
             <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 p-3 text-xs text-amber-800 dark:text-amber-300">
               <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
               <div className="space-y-1">
@@ -301,10 +305,10 @@ function ShareAnamnesiDialog({
           {!result ? (
             <>
               <div className="rounded-lg border bg-muted/40 p-3 text-xs text-muted-foreground space-y-1">
-                <p>• Il link e' <strong>monouso</strong>: dopo l&apos;invio non puo' essere riutilizzato</p>
+                <p>• Il link e&apos; <strong>monouso</strong>: dopo l&apos;invio non puo&apos; essere riutilizzato</p>
                 <p>• Scade dopo <strong>48 ore</strong> dalla generazione</p>
                 <p>• I dati vengono salvati direttamente nel profilo cliente</p>
-                <p>• Il link funziona solo mentre FitManager e' aperto</p>
+                <p>• Il link funziona solo mentre FitManager e&apos; aperto</p>
               </div>
               <Button
                 className="w-full"
