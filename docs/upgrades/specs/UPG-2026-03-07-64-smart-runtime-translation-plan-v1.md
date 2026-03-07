@@ -4,7 +4,7 @@
 > Entra con un piano di traduzione che protegge il runtime attuale mentre sposta la fonte di verita'."*
 
 **Data**: 2026-03-07  
-**Stato**: ANALYSIS SPEC  
+**Stato**: PHASES A-E DONE — Phase F deferred (matrice non ancora verde su dati reali)
 **Ambito**: SMART backend, Training Science Engine, KineScore, Runtime Migration  
 **Dipende da**: `UPG-2026-03-07-40`, `UPG-2026-03-07-55`, `UPG-2026-03-07-57`, `UPG-2026-03-07-58`, `UPG-2026-03-07-59`, `UPG-2026-03-07-60`, `UPG-2026-03-07-61`, `UPG-2026-03-07-62`, `UPG-2026-03-07-63`
 
@@ -571,3 +571,81 @@ Promette qualcosa di piu' utile:
 - sostituire i pezzi solo quando servono davvero
 
 Questo e' il modo corretto di fare una migrazione scientifica seria.
+
+---
+
+## 16. Implementation Status (aggiornato 2026-03-07)
+
+### Phase A — Read-only registries: DONE (UPG-65)
+
+File creati:
+- `registry/evidence_types.py` — EvidenceUsageRecord, EVIDENCE_USAGE_REGISTRY
+- `registry/protocol_types.py` — ProtocolRecord, ProtocolSelectionResult, SplitFamily
+- `registry/protocol_registry.py` — 6 protocolli PRT-001..006
+- `registry/protocol_selector.py` — select_protocol() deterministico
+- `registry/__init__.py` — re-export
+
+### Phase B — Protocol selection in `/plan-package`: DONE (UPG-66)
+
+File modificati:
+- `runtime/plan_package_service.py` — protocol_id risolto e allegato a TSPlanPackage
+- `api/schemas/training_science.py` — TSPlanPackageProtocolInfo aggiunto
+
+### Phase C — Constraint adapter: DONE (UPG-67)
+
+File creati:
+- `constraints/constraint_types.py` — ConstraintSeverity, ConstraintScope, ConstraintStatus
+- `constraints/constraint_engine.py` — evaluate_protocol_constraints() read-only
+- `constraints/__init__.py` — re-export
+
+File modificati:
+- `runtime/plan_package_service.py` — constraint evaluation allegata a TSPlanPackage
+- `api/schemas/training_science.py` — TSConstraintEvaluationReport, TSConstraintFinding
+
+### Phase D — Feasibility engine: DONE (UPG-67b)
+
+File creati:
+- `runtime/feasibility_engine.py` — compute_feasibility_summary() pre-ranking
+
+File modificati:
+- `runtime/plan_package_service.py` — feasibility summary allegata
+- `api/schemas/training_science.py` — TSFeasibilitySummary
+
+### Phase E — Validation metadata: DONE (UPG-68)
+
+File creati:
+- `runtime/validation_metadata.py` — ValidationMetadata con build() factory
+
+File modificati:
+- `runtime/plan_package_service.py` — validation metadata allegata
+- `api/schemas/training_science.py` — TSValidationMetadata
+- `frontend/src/types/api.ts` — TSValidationMetadata interface
+
+### Demand Layer — DONE (UPG-69)
+
+File creati:
+- `demand/demand_types.py` — ExerciseDemandVector (10 dim), DemandCeiling, DemandFamily
+- `demand/demand_registry.py` — 54 vettori default (18 pattern x 3 diff) + 6 ceiling
+- `demand/demand_policy.py` — check_demand_ceiling() deterministico
+- `demand/__init__.py` — re-export
+
+### Validation Harness — DONE (UPG-70)
+
+File creati:
+- `validation/validation_catalog.py` — 6 benchmark (VM-001..006) + 5 client fixtures + 6 request fixtures
+- `validation/validation_contracts.py` — 22 check functions + warning policy + runner
+- `validation/__init__.py` — re-export
+
+### Phase F — Legacy planner replacement: DEFERRED
+
+Prerequisito: matrice verde su tutti i 6 benchmark con plan-package reale.
+Decisione: non presa, in attesa di integrazione end-to-end.
+
+### Bridge Contracts implementati
+
+| Contract | File | Stato |
+|----------|------|-------|
+| ProtocolSelectionResult | `registry/protocol_types.py` | DONE |
+| ConstraintEvaluationReport | `api/schemas/training_science.py` | DONE |
+| FeasibilitySummary | `api/schemas/training_science.py` | DONE |
+| ValidationMetadata | `runtime/validation_metadata.py` | DONE |

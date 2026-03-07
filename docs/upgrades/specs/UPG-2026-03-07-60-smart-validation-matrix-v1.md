@@ -4,7 +4,7 @@
 > Lo diventa quando fallisce sempre negli stessi punti e passa sempre negli stessi casi."*
 
 **Data**: 2026-03-07  
-**Stato**: ANALYSIS SPEC  
+**Stato**: HARNESS IMPLEMENTED — Benchmark fixtures e check functions pronti, matrice non ancora eseguita su dati reali
 **Ambito**: SMART backend, KineScore, Protocol Engine, Validation Harness  
 **Dipende da**: `UPG-2026-03-07-55`, `UPG-2026-03-07-56`, `UPG-2026-03-07-57`, `UPG-2026-03-07-58`, `UPG-2026-03-07-59`
 
@@ -476,3 +476,38 @@ protocolli:
 
 La matrice non aggiunge nuove fonti operative.
 Serve a rendere verificabile e congelato l'uso delle fonti gia' dichiarate.
+
+---
+
+## 18. Implementation Status (aggiornato 2026-03-07)
+
+### Harness implementato (UPG-70)
+
+Il validation harness vive in `api/services/training_science/validation/`:
+
+| File | LOC | Contenuto |
+|------|-----|-----------|
+| `validation_catalog.py` | ~275 | 6 ValidationCase (VM-001..006) + 5 ClientFixture (CFG-A..E) + 6 RequestFixture (RFX-001..006) |
+| `validation_contracts.py` | ~400 | 7 invariant + 7 snapshot + 8 tolerance check + warning policy + runner |
+| `__init__.py` | ~40 | Re-export pubblico |
+
+### Check implementati
+
+**Invariant (7)**: protocol_selection_correct, split_family_correct, no_advanced_draft_exercise,
+no_ceiling_exceeded, no_hard_constraint_fail, no_ballistic_impact_draft, demand_shoulder_lumbar_contained
+
+**Snapshot (7)**: session_count_matches_frequenza, session_roles_full_body, session_roles_upper_lower,
+pattern_exposure_balanced, compound_priority_high, advanced_suitability_allowed, clinical_overlay_dominant
+
+**Tolerance (8)**: score_above_band, push_pull_ratio_in_band, volume_in_low_mav, volume_in_mid_high_mav,
+volume_high_controlled, volume_conservative, recovery_overlap_below_threshold, strength_bias_present
+
+### Smoke test (sintetico)
+
+VM-001 (PRT-001 beginner 3x): 12/12 check pass con package sintetico.
+
+### Prossimi passi
+
+- Esecuzione con plan-package reale (endpoint `/training-science/plan-package`)
+- Congelamento output baseline per snapshot regression
+- Integrazione in CI come gate scientifico pre-release

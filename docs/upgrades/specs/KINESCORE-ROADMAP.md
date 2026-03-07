@@ -4,7 +4,7 @@
 > con motore deterministico a 14 dimensioni + Training Science Engine backend.
 
 Data: 2026-03-07
-Stato: Fase 0 DONE, Fase 4.1 DONE — In corso integrazione frontend
+Stato: Fase 0-0d DONE, Fase 4.1 DONE — In corso integrazione frontend
 
 ---
 
@@ -97,6 +97,65 @@ Il frontend lo fetcha via `hooks/useTrainingScience.ts` e lo cacha con React Que
 
 ### Dettaglio tecnico
 Vedi `docs/upgrades/specs/TRAINING-SCIENCE-SPEC.md` sezione 5.
+
+---
+
+## Fase 0d: SMART Runtime Layers (COMPLETATA)
+
+> **Breakthrough metodologico**: il metodo SMART/KineScore entra nel runtime backend
+> con 5 layer di governance scientifica sopra il planner legacy.
+
+### Implementazione (6 UPG, Phases A-E del Runtime Translation Plan)
+
+**Registry layer** (UPG-65):
+- 6 protocolli PRT-001..006 con metadata (obiettivo, livello, split, frequenza)
+- Evidence registry con anchor bibliografici e classi di evidenza
+- Protocol selector deterministico
+
+**Constraint adapter** (UPG-67):
+- Valutazione post-build del piano legacy contro i vincoli del protocollo
+- 3 severity (hard_fail, soft_warning, optimization_target)
+- 4 scope (protocol, weekly_plan, session, adjacent_sessions)
+
+**Feasibility engine** (UPG-67b):
+- Pre-ranking filtering: feasible / discouraged / infeasible
+- Contatori sintetici allegati al plan-package
+
+**Validation metadata** (UPG-68):
+- Envelope auditabile con versioni di tutti i sottosistemi
+- Riferimenti ai validation cases del benchmark
+
+**Demand layer** (UPG-69):
+- Vettore biomeccanico a 10 dimensioni (0..4) per 18 pattern x 3 difficolta'
+- 6 protocol ceilings (PRT-001..006) con limiti per dimensione
+- Policy engine deterministico (ceiling + family check)
+
+**Validation harness** (UPG-70):
+- 6 benchmark cases (VM-001..006) con 22 check functions
+- 3 livelli: invariant (hard gate), snapshot (behavioral), tolerance (range)
+- Warning policy: required/allowed/forbidden per caso
+- Runner con report e classificazione regressioni
+
+### Architettura (5 submoduli in `api/services/training_science/`)
+
+```
+registry/    — 5 file, protocolli + evidenze + selettore
+constraints/ — 3 file, tipi + engine read-only
+demand/      — 4 file, vettori + ceiling + policy
+runtime/     — +3 file (feasibility, validation_metadata, mappings)
+validation/  — 3 file, catalogo benchmark + contratti check
+```
+
+### Phase F (Legacy Replacement): DEFERRED
+
+Prerequisito: matrice verde su tutti i 6 benchmark con plan-package reale.
+Il planner legacy resta attivo come engine sottostante.
+
+### Spec dettagliate
+
+- `UPG-2026-03-07-64` (Runtime Translation Plan)
+- `UPG-2026-03-07-65` through `UPG-2026-03-07-70` (implementazione)
+- `UPG-2026-03-07-60` (Validation Matrix spec)
 
 ---
 
@@ -223,7 +282,7 @@ Feature-by-feature vs PT Distinction, Trainerize, Everfit, EvolutionFit, My PT H
 
 | Asset | Dimensione |
 |-------|-----------|
-| Esercizi attivi | 311 (1059 totali) |
+| Esercizi attivi | 391 (1111 totali) |
 | Muscoli anatomici | 53 (15 gruppi) |
 | Articolazioni | 15 |
 | Condizioni mediche | 47 |
@@ -232,7 +291,7 @@ Feature-by-feature vs PT Distinction, Trainerize, Everfit, EvolutionFit, My PT H
 | Mapping condizione-esercizio | ~3,600 |
 | Relazioni esercizi | 426 in 32 catene |
 | Scorer composito frontend | 14 dimensioni |
-| Training Science Engine backend | 10 moduli, ~2000 LOC |
+| Training Science Engine backend | 10 moduli core + 18 moduli SMART runtime, ~3500 LOC |
 | Moduli analisi clinica | 5 |
 | Fonti scientifiche | 15 peer-reviewed |
 
@@ -294,6 +353,7 @@ Ricercatore (Python)                    Sviluppatore (Full-stack)
 FASE 0  (DONE):  Motore frontend — dilution, bilanciamento, scoring
 FASE 0b (DONE):  Training Science Engine backend — 10 moduli + API
 FASE 0c (ORA):   Consolidamento SSoT — frontend consuma backend via API
+FASE 0d (DONE):  SMART Runtime Layers — registry, constraints, demand, validation
 FASE 1:          Nome metodo + deposito marchio + inizio white paper
 FASE 2:          White paper completato + validazione dati reali
 FASE 3:          Deposito brevetto + posizionamento mercato

@@ -386,7 +386,23 @@ Bompa 2019, Helms 2019, Contreras 2010, Alentorn-Geli 2009, Sahrmann 2002, Zourd
 Spec dettagliata: `docs/upgrades/specs/TRAINING-SCIENCE-SPEC.md`
 Roadmap: `docs/upgrades/specs/KINESCORE-ROADMAP.md`
 
-File chiave: `api/services/training_science/` (10 moduli), `api/routers/training_science.py` (5 endpoint).
+File chiave: `api/services/training_science/` (10 moduli core), `api/routers/training_science.py` (5 endpoint).
+
+**SMART Runtime Layers** (5 submoduli aggiuntivi, ~1500 LOC — Phases A-E del Runtime Translation Plan):
+
+| Submodulo | File | Responsabilita' |
+|-----------|------|-----------------|
+| `registry/` | 5 file | 6 protocolli PRT-001..006 + evidence anchors + selettore deterministico |
+| `constraints/` | 3 file | Constraint adapter read-only: valuta piano vs vincoli protocollo |
+| `demand/` | 4 file | Vettore biomeccanico 10D (18 pattern x 3 diff) + 6 ceiling + policy engine |
+| `runtime/` | +3 file | Feasibility engine + validation metadata + mappings |
+| `validation/` | 3 file | 6 benchmark (VM-001..006) + 22 check functions + runner |
+
+Strategia: adapter-first / strangler pattern. Il planner legacy resta engine sottostante.
+Ogni layer entra read-only, poi diventa runtime dependency.
+Phase F (sostituzione legacy) deferred fino a matrice verde su dati reali.
+
+Spec: `UPG-2026-03-07-64` (Runtime Translation Plan), `UPG-65..70` (implementazione).
 
 ### Smart Programming — Layer Frontend (Consumer del Backend)
 

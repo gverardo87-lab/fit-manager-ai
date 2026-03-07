@@ -86,7 +86,7 @@ api/
     │   ├── normalizer.py, intent_classifier.py, entity_extractor.py
     │   ├── entity_resolver.py, confidence.py, orchestrator.py
     │   └── commit_dispatcher.py
-    └── training_science/   Motore scientifico allenamento (10 moduli, ~2000 LOC)
+    └── training_science/   Motore scientifico allenamento (10 core + 18 SMART, ~3500 LOC)
         ├── types.py, principles.py            — Fondamenta (enum, parametri carico)
         ├── muscle_contribution.py             — Matrice EMG 18x15 + dual volume
         ├── volume_model.py                    — MEV/MAV/MRV per muscolo x livello
@@ -94,7 +94,20 @@ api/
         ├── split_logic.py, session_order.py   — Split + ordinamento fisiologico
         ├── plan_builder.py                    — Generatore 4 fasi + feedback loop
         ├── plan_analyzer.py                   — Analisi 4D (score 0-100)
-        └── periodization.py                   — Mesociclo a blocchi (4-6 sett)
+        ├── periodization.py                   — Mesociclo a blocchi (4-6 sett)
+        ├── registry/                          — SMART: 6 protocolli + evidence + selettore
+        │   ├── evidence_types.py, protocol_types.py, protocol_registry.py
+        │   └── protocol_selector.py
+        ├── constraints/                       — SMART: constraint adapter read-only
+        │   └── constraint_types.py, constraint_engine.py
+        ├── demand/                            — SMART: vettore biomeccanico 10D + ceiling
+        │   └── demand_types.py, demand_registry.py, demand_policy.py
+        ├── runtime/                           — SMART: orchestrazione DB-aware
+        │   ├── profile_resolver.py, exercise_catalog.py, exercise_ranker.py
+        │   ├── plan_package_service.py, feasibility_engine.py
+        │   └── validation_metadata.py, mappings.py, readiness.py
+        └── validation/                        — SMART: 6 benchmark + 22 check + runner
+            └── validation_catalog.py, validation_contracts.py
 ```
 
 ## Pattern Obbligatori
