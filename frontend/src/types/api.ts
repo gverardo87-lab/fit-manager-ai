@@ -1689,3 +1689,150 @@ export interface TSMesociclo {
   durata_settimane: number;
 }
 
+/** Obiettivo builder SMART lato UI/runtime orchestration */
+export type TSBuilderObjective = "generale" | "forza" | "ipertrofia" | "resistenza" | "dimagrimento";
+
+/** Livello builder SMART: auto o scelta esplicita compatibile col workout builder */
+export type TSBuilderLevelChoice = "auto" | "beginner" | "intermedio" | "avanzato";
+
+/** Modalita' builder SMART */
+export type TSBuilderMode = "general" | "performance" | "clinical";
+
+/** Severita' safety per candidato ranking */
+export type TSSafetySeverity = "avoid" | "modify" | "caution" | null;
+
+/** Bucket ordinato per presentare i candidati in UI */
+export type TSCandidateBucket = "recommended" | "allowed" | "discouraged";
+
+/** Stato sintetico anamnesi lato profile resolver */
+export type TSAnamnesiState = "missing" | "legacy" | "structured";
+
+/** Preset intenzionale inviato dal builder SMART */
+export interface TSPlanPresetInput {
+  frequenza: number;
+  obiettivo_builder: TSBuilderObjective;
+  livello_choice: TSBuilderLevelChoice;
+  livello_override?: Exclude<TSBuilderLevelChoice, "auto"> | null;
+  mode?: TSBuilderMode;
+  durata_target_min?: number | null;
+}
+
+/** Override operativi del trainer sul ranking */
+export interface TSTrainerOverridesInput {
+  excluded_exercise_ids?: number[];
+  preferred_exercise_ids?: number[];
+  pinned_exercise_ids_by_slot?: Record<string, number>;
+  notes?: string | null;
+}
+
+/** POST /api/training-science/plan-package */
+export interface TSPlanPackageRequest {
+  client_id?: number | null;
+  preset: TSPlanPresetInput;
+  trainer_overrides?: TSTrainerOverridesInput;
+}
+
+/** Profilo scientifico risolto lato backend */
+export interface TSScientificProfileResolved {
+  obiettivo_builder: TSBuilderObjective;
+  obiettivo_scientifico: TSObjective;
+  livello_scientifico: TSLevel;
+  livello_workout: "beginner" | "intermedio" | "avanzato";
+  mode: TSBuilderMode;
+  anamnesi_state: TSAnamnesiState;
+  safety_condition_count: number;
+  profile_warnings: string[];
+}
+
+/** Slot canonico backend-owned con identita' stabile */
+export interface TSCanonicalSlot {
+  slot_id: string;
+  pattern: TSPattern;
+  priorita: TSSlotPriority;
+  serie: number;
+  rep_min: number;
+  rep_max: number;
+  riposo_sec: number;
+  muscolo_target: TSMuscleGroup | null;
+  note: string;
+}
+
+/** Sessione canonica backend-owned */
+export interface TSCanonicalSession {
+  session_id: string;
+  nome: string;
+  ruolo: TSSessionRole;
+  focus: string;
+  slots: TSCanonicalSlot[];
+}
+
+/** Piano scientifico canonico restituito dal backend */
+export interface TSCanonicalPlan {
+  plan_id: string;
+  frequenza: number;
+  obiettivo: TSObjective;
+  livello: TSLevel;
+  tipo_split: TSSplitType;
+  sessioni: TSCanonicalSession[];
+  note_generazione: string[];
+}
+
+/** Candidato rankato per slot canonico */
+export interface TSSlotCandidate {
+  slot_id: string;
+  exercise_id: number;
+  rank: number;
+  total_score: number;
+  safety_severity: TSSafetySeverity;
+  bucket: TSCandidateBucket;
+  rationale: string[];
+  adaptation_hint: string | null;
+}
+
+/** Binding tra slot canonico ed esercizio selezionato nella projection */
+export interface TSSlotBinding {
+  session_id: string;
+  slot_id: string;
+  exercise_id: number;
+  candidate_rank: number;
+}
+
+/** Draft workout save-compatible derivato dal canonico */
+export interface TSWorkoutProjection {
+  draft: WorkoutPlanCreate;
+  slot_bindings: TSSlotBinding[];
+}
+
+/** Versioni dei sottosistemi del package */
+export interface TSPlanPackageEngineInfo {
+  planner_version: string;
+  ranking_version: string;
+  profile_version: string;
+}
+
+/** Envelope completo per il cutover SMART backend-first */
+export interface TSPlanPackage {
+  scientific_profile: TSScientificProfileResolved;
+  canonical_plan: TSCanonicalPlan;
+  rankings: Record<string, TSSlotCandidate[]>;
+  workout_projection: TSWorkoutProjection;
+  warnings: string[];
+  engine: TSPlanPackageEngineInfo;
+}
+
+
+// ── Portale Clienti Self-Service (UPG-2026-03-06-01) ────────────────────────
+
+export interface ShareTokenResponse {
+  token: string;
+  url: string;          // path relativo: /public/anamnesi/{token}
+  expires_at: string;   // ISO datetime
+  client_name: string;  // feedback per il trainer
+}
+
+export interface AnamnesiValidateResponse {
+  client_name: string;  // "Marco R."
+  trainer_name: string; // "Chiara B."
+  has_existing: boolean;
+  scope: string;
+}

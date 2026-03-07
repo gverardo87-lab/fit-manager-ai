@@ -1,11 +1,17 @@
 # Codex project configuration for FitManager AI Studio
 # Reference:
-# - https://developers.openai.com/codex/guides/agents-md
+# - https://developers.openai.com/codex/config
+# - https://developers.openai.com/codex/config-reference
 # - https://developers.openai.com/codex/mcp
 
-model = "gpt-5.2-codex"
+model = "gpt-5.4"
+model_reasoning_effort = "high"
+model_reasoning_summary = "none"
+model_verbosity = "medium"
+
 approval_policy = "on-request"
 sandbox_mode = "workspace-write"
+web_search = "cached"
 
 # If a directory has no AGENTS.md, Codex can fallback to these docs.
 project_doc_fallback_filenames = ["CLAUDE.md", "codex.md"]
@@ -14,6 +20,25 @@ project_doc_max_bytes = 65536
 # Official OpenAI developer docs MCP server.
 [mcp_servers.openai_docs]
 url = "https://developers.openai.com/mcp"
+
+# CLI-only profiles. Keep top-level defaults IDE-friendly.
+[profiles.quick]
+model = "gpt-5.4"
+model_reasoning_effort = "medium"
+model_reasoning_summary = "none"
+model_verbosity = "low"
+
+[profiles.deep]
+model = "gpt-5.4"
+model_reasoning_effort = "xhigh"
+model_reasoning_summary = "auto"
+model_verbosity = "high"
+web_search = "live"
+
+[profiles.safe]
+approval_policy = "untrusted"
+sandbox_mode = "read-only"
+web_search = "disabled"
 
 # Optional example for a local stdio MCP server:
 # [mcp_servers.context7]

@@ -31,6 +31,7 @@ import {
   blueprintSlotLabel,
 } from "./blueprints";
 import { scoreExercisesForSlot } from "./scorers";
+import { resolveAlternatives, weightedRandomPick } from "./selection";
 
 // ── Split Determination ──
 
@@ -67,7 +68,15 @@ export function generateSmartPlan(
 ): SmartPlan {
   const blueprint = determineSplit(sessioniPerSettimana, livello);
 
-  const sessioni: SmartSession[] = blueprint.sessioni.map(sb => {
+  // Resolve pattern alternatives per varieta' strutturale
+  const resolvedBlueprint: SplitBlueprint = {
+    sessioni: blueprint.sessioni.map(sb => ({
+      ...sb,
+      slots: resolveAlternatives(sb.slots),
+    })),
+  };
+
+  const sessioni: SmartSession[] = resolvedBlueprint.sessioni.map(sb => {
     const slots: SmartSlot[] = [];
 
     // Avviamento: 2-3 slot
@@ -125,8 +134,8 @@ export function generateSmartPlan(
     return { nome_sessione: sb.nome, focus_muscolare: sb.focus, durata_minuti: durataMinuti, slots };
   });
 
-  // Safety-net: verifica copertura dal blueprint, aggiungi slot correttivi
-  const blueprintSets = computeBlueprintCoverage(blueprint, obiettivo);
+  // Safety-net: verifica copertura dal blueprint risolto, aggiungi slot correttivi
+  const blueprintSets = computeBlueprintCoverage(resolvedBlueprint, obiettivo);
   const deficits = MUSCLE_GROUPS.filter(m => {
     const mt = getMuscleTarget(m, livello, sessioniPerSettimana);
     return (blueprintSets.get(m) ?? 0) < mt.min * 0.4;
@@ -241,6 +250,15 @@ export function fillSmartPlan(
         candidates, slot, profile, livello, plan.obiettivo,
         sessionAssigned, allAssigned, plan.sessioni_per_settimana,
       );
+
+      // Weighted random pick per slot principale: rompe il determinismo
+      if (scores.length > 1 && slot.sezione === "principale") {
+        const pickedIdx = weightedRandomPick(scores);
+        if (pickedIdx > 0) {
+          const [picked] = scores.splice(pickedIdx, 1);
+          scores.unshift(picked);
+        }
+      }
 
       sessionMap.set(sli, scores.slice(0, 10));
 

@@ -20,6 +20,7 @@ from sqlalchemy import event
 from sqlmodel import SQLModel, Session, create_engine
 
 from api.config import CATALOG_DATABASE_URL, DATABASE_URL
+import api.models.share_token  # noqa: F401 — registra ShareToken nel metadata SQLModel
 
 logger = logging.getLogger("fitmanager.database")
 

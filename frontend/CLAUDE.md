@@ -338,6 +338,8 @@ Token in cookie `fitmanager_token` (8h expiry). Trainer data in `fitmanager_trai
 | 401 interceptor loop login | Interceptor cattura 401 credenziali errate → redirect a /login → loop | Skip redirect se `pathname.startsWith("/login")` |
 | Badge "Scaduto" per rate in ritardo | Confondeva contratto scaduto con rate scadute — significato diverso | 7 livelli badge: Insolvente (red solid), Rate in Ritardo (red light), Scaduto (amber) |
 | KPI "Rate Scadute" contava contratti | `func.count(distinct(id_contratto))` → numeri bassi e fuorvianti | `func.count(Rate.id)` per contratti, label "Con Rate Scadute" per clienti |
+| Middleware intercetta fetch `/api/public/*` senza cookie | Next.js middleware gira PRIMA dei rewrites. `fetch('/api/public/...')` da pagina kiosk (no JWT cookie) → middleware → `307 /login` → client riceve HTML | Separare `PUBLIC_ROUTES` (accessibili senza auth, include `/api/public`) da `AUTH_ONLY_PAGES` (sole pagine auth che redirectano utenti loggati). MAI trattare queste due liste come sinonimi. |
+| Link kiosk da localhost non raggiungibile da altri device | `window.location.origin = "http://localhost:3000"` → URL nel link non raggiungibile su rete esterna | Mostrare warning amber nel dialog quando `hostname === "localhost"`. Il trainer deve accedere via IP LAN o Tailscale per generare link fruibili da smartphone. |
 
 ## Esperienza Utente — Principi Frontend
 

@@ -2,21 +2,26 @@
 Endpoint Training Science Engine — Generazione e analisi piani scientifici.
 
 Endpoint:
-  POST   /training-science/plan      -> genera piano settimanale volume-driven
-  POST   /training-science/analyze    -> analisi 4D di un piano esistente
-  POST   /training-science/mesocycle  -> genera mesociclo da piano base
+  POST   /training-science/plan          -> genera piano settimanale volume-driven
+  POST   /training-science/plan-package  -> orchestration runtime SMART DB-aware
+  POST   /training-science/analyze       -> analisi 4D di un piano esistente
+  POST   /training-science/mesocycle     -> genera mesociclo da piano base
   GET    /training-science/volume-targets -> target volume per livello x obiettivo
   GET    /training-science/parameters     -> parametri di carico per obiettivo
 
-Tutti gli endpoint sono computazionali puri (zero DB).
+`/plan`, `/analyze` e `/mesocycle` restano computazionali puri (zero DB).
+`/plan-package` e' additivo e orchestration-aware per il cutover SMART backend-first.
 Autenticazione JWT obbligatoria (il motore e' una feature del prodotto).
 """
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
+from sqlmodel import Session
 
+from api.database import get_catalog_session, get_session
 from api.dependencies import get_current_trainer
 from api.models.trainer import Trainer
+from api.schemas.training_science import TSPlanPackage, TSPlanPackageRequest
 from api.services.training_science import (
     Obiettivo,
     Livello,
@@ -31,6 +36,7 @@ from api.services.training_science import (
     get_parametri,
     get_all_volume_targets,
 )
+from api.services.training_science.runtime import build_plan_package
 
 router = APIRouter(prefix="/training-science", tags=["training-science"])
 
@@ -89,6 +95,33 @@ def generate_plan(
     Il trainer associa poi gli esercizi concreti del catalogo.
     """
     return build_plan(data.frequenza, data.obiettivo, data.livello)
+
+
+@router.post("/plan-package", response_model=TSPlanPackage)
+def generate_plan_package(
+    data: TSPlanPackageRequest,
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+    catalog_session: Session = Depends(get_catalog_session),
+):
+    """
+    Costruisce il package SMART per il primo cutover backend-first.
+
+    Include:
+    - profilo scientifico risolto dal cliente reale
+    - piano scientifico canonico
+    - ranking deterministico per slot
+    - workout projection compatibile col salvataggio attuale
+
+    Questo endpoint e' DB-aware perche' integra cliente, anamnesi,
+    safety map e catalogo esercizi nel runtime orchestration layer.
+    """
+    return build_plan_package(
+        session=session,
+        catalog_session=catalog_session,
+        trainer=trainer,
+        request=data,
+    )
 
 
 @router.post("/analyze", response_model=AnalisiPiano)

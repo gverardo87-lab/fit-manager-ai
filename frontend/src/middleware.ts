@@ -18,8 +18,11 @@ import type { NextRequest } from "next/server";
 // Nome del cookie JWT (deve combaciare con api-client.ts e auth.ts)
 const TOKEN_COOKIE = "fitmanager_token";
 
-// Rotte pubbliche — accessibili senza autenticazione
-const PUBLIC_ROUTES = ["/login", "/register", "/licenza", "/setup"];
+// Rotte pubbliche — accessibili senza autenticazione (pagine + API pubbliche)
+const PUBLIC_ROUTES = ["/login", "/register", "/licenza", "/setup", "/public", "/api/public"];
+
+// Rotte da cui ridirigere gli utenti già autenticati (solo pagine auth, non API)
+const AUTH_ONLY_PAGES = ["/login", "/register", "/licenza", "/setup"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -33,8 +36,9 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl, 307);
   }
 
-  // Caso 2: utente autenticato su /login o /register → redirect /
-  if (token && isPublicRoute) {
+  // Caso 2: utente autenticato sulle pagine auth (login/register/ecc.) → redirect /
+  // NON si applica a /public/* e /api/public/* (accessibili anche da trainer loggati)
+  if (token && AUTH_ONLY_PAGES.some((route) => pathname.startsWith(route))) {
     const homeUrl = new URL("/", request.url);
     return NextResponse.redirect(homeUrl, 307);
   }
