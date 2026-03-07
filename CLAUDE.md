@@ -1008,6 +1008,9 @@ Errori reali trovati e corretti. MAI ripeterli.
 | Restore senza cookie clear | JWT nel cookie referenzia trainer del DB pre-restore → 401 silenzioso dopo redirect | `Cookies.remove(TOKEN_COOKIE)` + `window.location.href = "/login"` nel frontend dopo restore |
 | `Path(__file__)` in PyInstaller | In bundle congelato `__file__` punta alla cartella temp di estrazione, non alla cartella installazione | Usare sempre `DATA_DIR` da `api/config.py` che gestisce `sys.frozen` e `sys._MEIPASS` |
 | Seed media mancante | Immagini esercizi su disco (`data/media/exercises/`) ma `esercizi_media` DB vuoto → `exercise.media = []` → frontend non renderizza foto | `seed_exercise_media()` al startup con FK guard (skip orfani). JSON: `data/exercises/seed_exercise_media.json` (494 record) |
+| Middleware Next.js intercetta prima dei rewrite | `fetch('/api/public/*')` senza cookie JWT viene bloccato dal middleware prima che il rewrite lo proxyi al backend → `307 /login` → client riceve HTML invece di JSON (404 o parse error) | Separare `PUBLIC_ROUTES` (accessibili senza auth) da `AUTH_ONLY_PAGES` (solo le pagine che redirectano utenti autenticati). Aggiungere `/api/public` a `PUBLIC_ROUTES` esplicitamente |
+| Link kiosk generato da localhost inutilizzabile su altri device | `window.location.origin = "http://localhost:3000"` → link non raggiungibile da smartphone su rete diversa | Il trainer deve accedere al CRM via IP LAN o Tailscale quando genera il link. Rilevare `hostname === "localhost"` e mostrare warning amber nel dialog |
+| `alembic upgrade head` su tabella gia' creata da `create_db_and_tables()` | SQLModel crea le tabelle al startup prima di Alembic → migrazione fallisce con "table already exists" | `alembic stamp <revision>` per marcare la migrazione come applicata senza eseguire il DDL |
 
 ---
 

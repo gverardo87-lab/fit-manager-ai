@@ -46,8 +46,9 @@ api/
 │   ├── joint.py         articolazioni + esercizi_articolazioni (catalog junction)
 │   ├── medical_condition.py condizioni_mediche + esercizi_condizioni (catalog junction)
 │   ├── audit_log.py     audit_log (timeline modifiche)
-│   └── todo.py          todos (trainer-owned)
-├── routers/             REST endpoints con Bouncer Pattern — 16 router
+│   ├── todo.py          todos (trainer-owned)
+│   └── share_token.py   share_tokens (UUID4 monouso per portale pubblico anamnesi)
+├── routers/             REST endpoints con Bouncer Pattern — 17 router
 │   ├── _audit.py        log_audit() helper condiviso
 │   ├── agenda.py        CRUD eventi + credit guard + _sync_contract_chiuso
 │   ├── assistant.py     Parse + commit NLP (feature flag ASSISTANT_V1_ENABLED)
@@ -64,13 +65,15 @@ api/
 │   ├── todos.py         CRUD todos + toggle completato
 │   ├── training_science.py  Generazione piani + analisi 4D + mesociclo (5 endpoint, zero DB)
 │   ├── workout_logs.py  CRUD log allenamenti (monitoraggio)
-│   └── workouts.py      CRUD schede + sessioni + esercizi (deep IDOR chain)
-├── schemas/             Pydantic v2 — 8 moduli
+│   ├── workouts.py      CRUD schede + sessioni + esercizi (deep IDOR chain)
+│   └── public_portal.py Portale pubblico anamnesi: generate token (JWT) + validate + submit (2 endpoint pubblici, rate limiter IP-based, feature flag PUBLIC_PORTAL_ENABLED)
+├── schemas/             Pydantic v2 — 9 moduli
 │   ├── assistant.py     ParseRequest/Response, CommitRequest/Response (6 schema)
 │   ├── exercise.py      ExerciseCreate/Update/Response + media/relazioni/tassonomia
 │   ├── financial.py     Contract/Rate/Movement/Dashboard/ClinicalReadiness/PaymentReceipt DTOs
 │   ├── goal.py          GoalCreate/Update/Response + progress
 │   ├── measurement.py   MeasurementCreate/Response + valori
+│   ├── public.py        ShareTokenCreate/Response, AnamnesiValidate/Submit (portale pubblico)
 │   ├── safety.py        SafetyMapResponse + ExerciseSafetyEntry
 │   ├── workout.py       WorkoutPlan/Session/Exercise Create/Update/Response
 │   └── workout_log.py   WorkoutLogCreate/Response
