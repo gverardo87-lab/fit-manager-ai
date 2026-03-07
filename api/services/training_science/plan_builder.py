@@ -158,12 +158,12 @@ _BALANCE_RATIO_BY_NAME = {ratio.nome: ratio for ratio in BALANCE_RATIOS}
 _PUSH_PATTERNS = {P.PUSH_H, P.PUSH_V}
 _POSTERIOR_CHAIN_ISOLATION_MUSCLES = {M.FEMORALI, M.GLUTEI}
 _FREQUENCY_STIMULUS_THRESHOLD = 2.0
-_BEGINNER_FULL_BODY_FREQUENCY_MUSCLES = {
+_BEGINNER_FULL_BODY_FREQUENCY_MUSCLES = (
     M.DELT_LAT,
+    M.POLPACCI,
     M.BICIPITI,
     M.TRICIPITI,
-    M.POLPACCI,
-}
+)
 
 
 # ════════════════════════════════════════════════════════════
@@ -376,6 +376,7 @@ def _apply_beginner_full_body_frequency_corrections(
     max_slot = _MAX_SLOT_SESSIONE[livello]
     riposo_iso = get_riposo(obiettivo, False)
     session_hypertrophy = _compute_session_hypertrophy_maps(sessioni)
+    weekly_hypertrophy = _compute_plan_hypertrophy_volume(sessioni)
 
     iso_count: dict[int, int] = {}
     slot_count: dict[int, int] = {}
@@ -383,7 +384,30 @@ def _apply_beginner_full_body_frequency_corrections(
         iso_count[i] = sum(1 for s in slots if s.priorita == OP.ISOLATION)
         slot_count[i] = len(slots)
 
-    for muscolo in _BEGINNER_FULL_BODY_FREQUENCY_MUSCLES:
+    prioritized_muscles = sorted(
+        _BEGINNER_FULL_BODY_FREQUENCY_MUSCLES,
+        key=lambda muscolo: (
+            0
+            if weekly_hypertrophy.get(muscolo, 0.0)
+            < get_scaled_volume_target(muscolo, livello, obiettivo).mev
+            else 1
+            if weekly_hypertrophy.get(muscolo, 0.0)
+            < get_scaled_volume_target(muscolo, livello, obiettivo).mav_min
+            else 2
+            if weekly_hypertrophy.get(muscolo, 0.0)
+            <= get_scaled_volume_target(muscolo, livello, obiettivo).mav_max
+            else 3,
+            weekly_hypertrophy.get(muscolo, 0.0),
+            muscolo.value,
+        ),
+    )
+
+    for muscolo in prioritized_muscles:
+        target = get_scaled_volume_target(muscolo, livello, obiettivo)
+        current_weekly = weekly_hypertrophy.get(muscolo, 0.0)
+        if current_weekly >= target.mav_max:
+            continue
+
         stimulated_sessions = [
             i
             for i, volume in enumerate(session_hypertrophy)
@@ -458,6 +482,8 @@ def _apply_beginner_full_body_frequency_corrections(
             session_hypertrophy[idx] = compute_hypertrophy_sets(
                 [(slot.pattern, slot.serie) for slot in slots]
             )
+            weekly_hypertrophy[muscolo] = current_weekly + serie_correction
+            current_weekly = weekly_hypertrophy[muscolo]
             if session_hypertrophy[idx].get(muscolo, 0.0) >= _FREQUENCY_STIMULUS_THRESHOLD:
                 missing_sessions -= 1
 

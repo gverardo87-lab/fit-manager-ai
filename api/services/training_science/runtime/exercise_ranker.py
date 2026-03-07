@@ -23,7 +23,7 @@ _BUCKET_ORDER = {"recommended": 0, "allowed": 1, "discouraged": 2}
 _FREQUENCY_BONUS_CAP = 12
 _RECOVERY_PENALTY_CAP = 12
 _LEVEL_DIFFICULTY_SCORE: dict[str, dict[str, int]] = {
-    "beginner": {"beginner": 12, "intermediate": 4, "advanced": -8},
+    "beginner": {"beginner": 12, "intermediate": 2, "advanced": -24},
     "intermedio": {"beginner": 6, "intermediate": 12, "advanced": 5},
     "avanzato": {"beginner": 2, "intermediate": 8, "advanced": 12},
 }
@@ -44,6 +44,20 @@ _RECOVERY_SENSITIVE_MUSCLES = {
     "abs",
     "abdominals",
 }
+_OBJECTIVE_REP_RANGE_ATTR = {
+    "forza": "rep_range_forza",
+    "ipertrofia": "rep_range_ipertrofia",
+    "tonificazione": "rep_range_ipertrofia",
+    "dimagrimento": "rep_range_ipertrofia",
+    "resistenza": "rep_range_resistenza",
+}
+_BEGINNER_POWER_SKILL_TOKENS = (
+    "jump",
+    "salto",
+    "muscle-up",
+    "muscle up",
+    "plyo",
+)
 
 
 @dataclass
@@ -107,6 +121,57 @@ def _difficulty_score(profile: TSScientificProfileResolved, exercise: RankableEx
 
 def _candidate_muscles(exercise: RankableExercise) -> set[str]:
     return set(exercise.muscoli_primari) | set(exercise.muscoli_secondari)
+
+
+def _objective_alignment_adjustment(
+    profile: TSScientificProfileResolved,
+    exercise: RankableExercise,
+) -> tuple[int, list[str]]:
+    objective_key = profile.obiettivo_scientifico.value
+    rep_range_attr = _OBJECTIVE_REP_RANGE_ATTR.get(objective_key)
+    rationale: list[str] = []
+
+    if rep_range_attr and getattr(exercise, rep_range_attr):
+        rationale.append("objective_rep_range_alignment")
+        return 8, rationale
+
+    penalty = 0
+    if rep_range_attr is not None:
+        penalty += 12
+        rationale.append("objective_rep_range_missing")
+
+    if profile.livello_workout == "beginner" and exercise.categoria == "cardio":
+        penalty += 12
+        rationale.append("beginner_cardio_slot_penalty")
+
+    lower_name = exercise.nome.lower()
+    if profile.livello_workout == "beginner" and any(
+        token in lower_name for token in _BEGINNER_POWER_SKILL_TOKENS
+    ):
+        penalty += 18
+        rationale.append("beginner_power_skill_penalty")
+
+    return -penalty, rationale
+
+
+def _is_beginner_unsuitable_exercise(
+    profile: TSScientificProfileResolved,
+    exercise: RankableExercise,
+) -> bool:
+    if profile.livello_workout != "beginner":
+        return False
+
+    lower_name = exercise.nome.lower()
+    if exercise.difficolta == "advanced":
+        return True
+    if any(token in lower_name for token in _BEGINNER_POWER_SKILL_TOKENS):
+        return True
+    if (
+        exercise.categoria == "cardio"
+        and profile.obiettivo_scientifico.value != "resistenza"
+    ):
+        return True
+    return False
 
 
 def _safety_adjustment(entry: ExerciseSafetyEntry | None) -> tuple[str | None, int, list[str], str | None]:
@@ -238,6 +303,13 @@ def rank_slot_candidates(
     limit: int = 8,
 ) -> list[TSSlotCandidate]:
     """Ordina i candidati per slot con tie-break stabile e zero random."""
+    compatible_beginner_options_exist = any(
+        exercise.id not in excluded_exercise_ids
+        and _pattern_score(slot, exercise) > 0
+        and not _is_beginner_unsuitable_exercise(profile, exercise)
+        for exercise in exercises
+    )
+
     scored_payloads: list[dict[str, object]] = []
     for exercise in exercises:
         if exercise.id in excluded_exercise_ids:
@@ -246,9 +318,17 @@ def rank_slot_candidates(
         pattern_score = _pattern_score(slot, exercise)
         if pattern_score <= 0:
             continue
+        if (
+            compatible_beginner_options_exist
+            and _is_beginner_unsuitable_exercise(profile, exercise)
+            and pinned_exercise_id != exercise.id
+            and exercise.id not in preferred_exercise_ids
+        ):
+            continue
 
         muscle_score = _muscle_score(slot, exercise)
         difficulty_score = _difficulty_score(profile, exercise)
+        objective_score, objective_rationale = _objective_alignment_adjustment(profile, exercise)
         preference_bonus = 6 if exercise.id in preferred_exercise_ids else 0
         pin_bonus = 100 if pinned_exercise_id == exercise.id else 0
 
@@ -267,6 +347,7 @@ def rank_slot_candidates(
             pattern_score
             + muscle_score
             + difficulty_score
+            + objective_score
             + preference_bonus
             + pin_bonus
             + pattern_balance_score
@@ -282,6 +363,7 @@ def rank_slot_candidates(
             rationale.append("muscle_target_match")
         if difficulty_score > 0:
             rationale.append("difficulty_alignment")
+        rationale.extend(objective_rationale)
         if preference_bonus > 0:
             rationale.append("trainer_preference")
         rationale.extend(safety_rationale)

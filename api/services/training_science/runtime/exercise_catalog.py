@@ -18,6 +18,9 @@ class RankableExercise:
     difficolta: str
     categoria: str
     attrezzatura: str
+    rep_range_forza: str | None
+    rep_range_ipertrofia: str | None
+    rep_range_resistenza: str | None
     muscoli_primari: tuple[str, ...]
     muscoli_secondari: tuple[str, ...]
 
@@ -56,6 +59,9 @@ def load_rankable_exercises(session: Session, trainer_id: int) -> list[RankableE
             difficolta=exercise.difficolta,
             categoria=exercise.categoria,
             attrezzatura=exercise.attrezzatura,
+            rep_range_forza=exercise.rep_range_forza,
+            rep_range_ipertrofia=exercise.rep_range_ipertrofia,
+            rep_range_resistenza=exercise.rep_range_resistenza,
             muscoli_primari=_parse_muscles(exercise.muscoli_primari),
             muscoli_secondari=_parse_muscles(exercise.muscoli_secondari),
         )
