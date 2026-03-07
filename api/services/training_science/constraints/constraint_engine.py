@@ -9,6 +9,8 @@ from api.schemas.training_science import (
 from api.services.training_science import AnalisiPiano, TipoSplit
 from api.services.training_science.registry import ProtocolSelectionResult
 
+CONSTRAINT_ENGINE_VERSION = "smart-constraint-v1"
+
 
 def _expected_split(protocol_split_family: str) -> TipoSplit | None:
     mapping = {

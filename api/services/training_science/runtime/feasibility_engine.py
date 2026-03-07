@@ -14,6 +14,8 @@ from api.schemas.safety import ExerciseSafetyEntry
 from api.schemas.training_science import TSScientificProfileResolved
 from .exercise_catalog import RankableExercise
 
+FEASIBILITY_ENGINE_VERSION = "smart-feasibility-v1"
+
 FeasibilityVerdict = Literal["feasible", "discouraged", "infeasible_for_auto_draft"]
 
 _BEGINNER_POWER_SKILL_TOKENS = (

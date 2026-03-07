@@ -1810,6 +1810,18 @@ export interface TSFeasibilitySummary {
   infeasible_count: number;
 }
 
+/** Tracciabilita' completa: versioni sottosistemi + riferimenti benchmark */
+export interface TSValidationMetadata {
+  protocol_id: string;
+  protocol_registry_version: string;
+  constraint_profile_id: string;
+  constraint_engine_version: string;
+  evidence_registry_version: string;
+  feasibility_engine_version: string;
+  validation_case_refs: string[];
+  generated_at: string;
+}
+
 /** Versioni dei sottosistemi del package */
 export interface TSPlanPackageEngineInfo {
   planner_version: string;
@@ -1880,6 +1892,7 @@ export interface TSPlanPackage {
   protocol: TSPlanPackageProtocolInfo;
   constraint_evaluation: TSConstraintEvaluationReport;
   feasibility_summary: TSFeasibilitySummary;
+  validation: TSValidationMetadata;
   engine: TSPlanPackageEngineInfo;
 }
 

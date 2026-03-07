@@ -165,6 +165,19 @@ class TSFeasibilitySummary(BaseModel):
     infeasible_count: int = Field(ge=0)
 
 
+class TSValidationMetadata(BaseModel):
+    """Tracciabilita' completa: versioni sottosistemi + riferimenti benchmark."""
+
+    protocol_id: str = Field(min_length=1, max_length=80)
+    protocol_registry_version: str = Field(min_length=1, max_length=50)
+    constraint_profile_id: str = Field(min_length=1, max_length=80)
+    constraint_engine_version: str = Field(min_length=1, max_length=50)
+    evidence_registry_version: str = Field(min_length=1, max_length=50)
+    feasibility_engine_version: str = Field(min_length=1, max_length=50)
+    validation_case_refs: list[str] = Field(default_factory=list)
+    generated_at: str = Field(min_length=1, max_length=30)
+
+
 class TSPlanPackageEngineInfo(BaseModel):
     """Versioni dei sottosistemi che hanno costruito il package."""
 
@@ -225,4 +238,5 @@ class TSPlanPackage(BaseModel):
     protocol: TSPlanPackageProtocolInfo
     constraint_evaluation: TSConstraintEvaluationReport
     feasibility_summary: TSFeasibilitySummary
+    validation: TSValidationMetadata
     engine: TSPlanPackageEngineInfo

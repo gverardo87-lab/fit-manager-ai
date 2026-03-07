@@ -2,6 +2,8 @@
 
 from dataclasses import dataclass
 
+EVIDENCE_REGISTRY_VERSION = "smart-evidence-v1"
+
 
 @dataclass(frozen=True)
 class EvidenceReference:

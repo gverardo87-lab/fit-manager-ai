@@ -12,6 +12,7 @@ from api.schemas.training_science import (
     TSPlanPackageProtocolInfo,
     TSPlanPackageRequest,
     TSSlotBinding,
+    TSValidationMetadata,
     TSWorkoutProjection,
 )
 from api.schemas.workout import WorkoutExerciseInput, WorkoutPlanCreate, WorkoutSessionInput
@@ -24,6 +25,7 @@ from .exercise_catalog import load_rankable_exercises
 from .exercise_ranker import RankerSelectionState, rank_slot_candidates
 from .feasibility_engine import compute_feasibility
 from .profile_resolver import resolve_plan_context
+from .validation_metadata import ValidationMetadata
 
 
 def _build_canonical_plan(template_plan: TemplatePiano) -> TSCanonicalPlan:
@@ -221,6 +223,13 @@ def build_plan_package(
             feasible_count=feasibility.feasible_count,
             discouraged_count=feasibility.discouraged_count,
             infeasible_count=feasibility.infeasible_count,
+        ),
+        validation=TSValidationMetadata(
+            **ValidationMetadata.build(
+                protocol_id=protocol_selection.protocol.protocol_id,
+                constraint_profile_id=protocol_selection.protocol.constraint_profile_id,
+                validation_case_ids=protocol_selection.protocol.validation_case_ids,
+            ).__dict__
         ),
         engine=TSPlanPackageEngineInfo(
             planner_version="ts-plan-v1",
