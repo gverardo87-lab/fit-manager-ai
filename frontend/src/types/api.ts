@@ -1810,6 +1810,24 @@ export interface TSPlanPackageEngineInfo {
   profile_version: string;
 }
 
+/** Stato dichiarato del protocollo selezionato dal registry */
+export type TSProtocolStatus =
+  | "supported"
+  | "clinical_only"
+  | "research_only"
+  | "unsupported_by_policy";
+
+/** Metadata read-only del protocollo SMART/KineScore selezionato */
+export interface TSPlanPackageProtocolInfo {
+  protocol_id: string;
+  label: string;
+  status: TSProtocolStatus;
+  exact_match: boolean;
+  registry_version: string;
+  validation_case_ids: string[];
+  selection_rationale: string[];
+}
+
 /** Envelope completo per il cutover SMART backend-first */
 export interface TSPlanPackage {
   scientific_profile: TSScientificProfileResolved;
@@ -1817,6 +1835,7 @@ export interface TSPlanPackage {
   rankings: Record<string, TSSlotCandidate[]>;
   workout_projection: TSWorkoutProjection;
   warnings: string[];
+  protocol: TSPlanPackageProtocolInfo;
   engine: TSPlanPackageEngineInfo;
 }
 

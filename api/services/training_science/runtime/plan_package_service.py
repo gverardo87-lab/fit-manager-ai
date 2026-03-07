@@ -7,11 +7,13 @@ from api.schemas.training_science import (
     TSCanonicalSlot,
     TSPlanPackage,
     TSPlanPackageEngineInfo,
+    TSPlanPackageProtocolInfo,
     TSPlanPackageRequest,
     TSSlotBinding,
     TSWorkoutProjection,
 )
 from api.schemas.workout import WorkoutExerciseInput, WorkoutPlanCreate, WorkoutSessionInput
+from api.services.training_science.registry import select_protocol
 from api.services.training_science import TemplatePiano, build_plan
 from sqlmodel import Session
 
@@ -91,6 +93,10 @@ def build_plan_package(
         catalog_session=catalog_session,
         trainer=trainer,
         request=request,
+    )
+    protocol_selection = select_protocol(
+        profile=context.scientific_profile,
+        frequenza=request.preset.frequenza,
     )
     template_plan = build_plan(
         request.preset.frequenza,
@@ -185,6 +191,15 @@ def build_plan_package(
         rankings=rankings,
         workout_projection=TSWorkoutProjection(draft=draft, slot_bindings=slot_bindings),
         warnings=warnings,
+        protocol=TSPlanPackageProtocolInfo(
+            protocol_id=protocol_selection.protocol.protocol_id,
+            label=protocol_selection.protocol.label,
+            status=protocol_selection.protocol.status,
+            exact_match=protocol_selection.exact_match,
+            registry_version=protocol_selection.registry_version,
+            validation_case_ids=list(protocol_selection.protocol.validation_case_ids),
+            selection_rationale=list(protocol_selection.selection_rationale),
+        ),
         engine=TSPlanPackageEngineInfo(
             planner_version="ts-plan-v1",
             ranking_version="ts-rank-v1-stateful",

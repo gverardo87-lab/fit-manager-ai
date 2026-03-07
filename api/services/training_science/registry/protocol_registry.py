@@ -1,0 +1,118 @@
+"""Registry read-only dei primi protocolli SMART/KineScore."""
+
+from api.services.training_science.types import Livello, Obiettivo
+
+from .protocol_types import ProtocolRecord
+
+PROTOCOL_REGISTRY_VERSION = "smart-protocol-registry-v1"
+
+PROTOCOL_REGISTRY: dict[str, ProtocolRecord] = {
+    "PRT-001": ProtocolRecord(
+        protocol_id="PRT-001",
+        label="Beginner General 3x Full Body",
+        status="supported",
+        supported_modes=("general",),
+        scientific_objective=Obiettivo.TONIFICAZIONE,
+        scientific_level=Livello.PRINCIPIANTE,
+        frequenza_min=3,
+        frequenza_max=3,
+        split_family="full_body",
+        constraint_profile_id="CNS-PRT-001",
+        validation_case_ids=("VM-001",),
+        evidence_usage_ids=("USE-PRT-001-CORE",),
+        rationale=(
+            "Protocollo base beginner general per tonificazione a 3 sedute.",
+            "Usa full body con carico sistemico conservativo e alta ripetibilita'.",
+        ),
+    ),
+    "PRT-002": ProtocolRecord(
+        protocol_id="PRT-002",
+        label="Intermediate General 3x Full Body",
+        status="supported",
+        supported_modes=("general",),
+        scientific_objective=Obiettivo.TONIFICAZIONE,
+        scientific_level=Livello.INTERMEDIO,
+        frequenza_min=3,
+        frequenza_max=3,
+        split_family="full_body",
+        constraint_profile_id="CNS-PRT-002",
+        validation_case_ids=("VM-002",),
+        evidence_usage_ids=("USE-PRT-002-CORE",),
+        rationale=(
+            "Protocollo intermedio general per tonificazione a 3 sedute.",
+            "Mantiene full body con densita' maggiore e piu' varieta' biomeccanica.",
+        ),
+    ),
+    "PRT-003": ProtocolRecord(
+        protocol_id="PRT-003",
+        label="Intermediate Hypertrophy 4x Upper Lower",
+        status="supported",
+        supported_modes=("general", "performance"),
+        scientific_objective=Obiettivo.IPERTROFIA,
+        scientific_level=Livello.INTERMEDIO,
+        frequenza_min=4,
+        frequenza_max=4,
+        split_family="upper_lower",
+        constraint_profile_id="CNS-PRT-003",
+        validation_case_ids=("VM-003",),
+        evidence_usage_ids=("USE-PRT-003-CORE",),
+        rationale=(
+            "Protocollo intermedio ipertrofia a 4 sedute.",
+            "Upper/lower favorisce volumi medi-alti e recovery gestibile.",
+        ),
+    ),
+    "PRT-004": ProtocolRecord(
+        protocol_id="PRT-004",
+        label="Intermediate Strength 4x Upper Lower",
+        status="supported",
+        supported_modes=("general", "performance"),
+        scientific_objective=Obiettivo.FORZA,
+        scientific_level=Livello.INTERMEDIO,
+        frequenza_min=4,
+        frequenza_max=4,
+        split_family="upper_lower",
+        constraint_profile_id="CNS-PRT-004",
+        validation_case_ids=("VM-004",),
+        evidence_usage_ids=("USE-PRT-004-CORE",),
+        rationale=(
+            "Protocollo intermedio forza a 4 sedute.",
+            "Upper/lower bilancia skill exposure e recupero neurale.",
+        ),
+    ),
+    "PRT-005": ProtocolRecord(
+        protocol_id="PRT-005",
+        label="Advanced Hypertrophy 5-6x Push Pull Legs",
+        status="research_only",
+        supported_modes=("performance",),
+        scientific_objective=Obiettivo.IPERTROFIA,
+        scientific_level=Livello.AVANZATO,
+        frequenza_min=5,
+        frequenza_max=6,
+        split_family="push_pull_legs",
+        constraint_profile_id="CNS-PRT-005",
+        validation_case_ids=("VM-005",),
+        evidence_usage_ids=("USE-PRT-005-CORE",),
+        rationale=(
+            "Protocollo avanzato ipertrofia ad alta frequenza.",
+            "Stato research-only finche' validation harness e benchmark non sono verdi.",
+        ),
+    ),
+    "PRT-006": ProtocolRecord(
+        protocol_id="PRT-006",
+        label="Clinical General 2-3x Full Body Conservative",
+        status="clinical_only",
+        supported_modes=("clinical",),
+        scientific_objective=Obiettivo.TONIFICAZIONE,
+        scientific_level=Livello.PRINCIPIANTE,
+        frequenza_min=2,
+        frequenza_max=3,
+        split_family="full_body",
+        constraint_profile_id="CNS-PRT-006",
+        validation_case_ids=("VM-006",),
+        evidence_usage_ids=("USE-PRT-006-CORE",),
+        rationale=(
+            "Protocollo clinical conservative per profili general beginner.",
+            "Privilegia fattibilita', recovery e safety overlay su output aggressivi.",
+        ),
+    ),
+}

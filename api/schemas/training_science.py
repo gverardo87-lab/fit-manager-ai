@@ -34,6 +34,12 @@ TSBuilderMode = Literal["general", "performance", "clinical"]
 TSSafetySeverity = Literal["avoid", "modify", "caution"] | None
 TSCandidateBucket = Literal["recommended", "allowed", "discouraged"]
 TSAnamnesiState = Literal["missing", "legacy", "structured"]
+TSProtocolStatus = Literal[
+    "supported",
+    "clinical_only",
+    "research_only",
+    "unsupported_by_policy",
+]
 
 
 class TSPlanPresetInput(BaseModel):
@@ -156,6 +162,18 @@ class TSPlanPackageEngineInfo(BaseModel):
     profile_version: str = Field(min_length=1, max_length=50)
 
 
+class TSPlanPackageProtocolInfo(BaseModel):
+    """Metadata read-only del protocollo selezionato dal registry."""
+
+    protocol_id: str = Field(min_length=1, max_length=80)
+    label: str = Field(min_length=1, max_length=200)
+    status: TSProtocolStatus
+    exact_match: bool
+    registry_version: str = Field(min_length=1, max_length=50)
+    validation_case_ids: list[str] = Field(default_factory=list)
+    selection_rationale: list[str] = Field(default_factory=list)
+
+
 class TSPlanPackage(BaseModel):
     """Envelope completo per il primo cutover SMART backend-first."""
 
@@ -164,4 +182,5 @@ class TSPlanPackage(BaseModel):
     rankings: dict[str, list[TSSlotCandidate]] = Field(default_factory=dict)
     workout_projection: TSWorkoutProjection
     warnings: list[str] = Field(default_factory=list)
+    protocol: TSPlanPackageProtocolInfo
     engine: TSPlanPackageEngineInfo
