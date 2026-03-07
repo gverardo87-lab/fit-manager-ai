@@ -40,6 +40,9 @@ TSProtocolStatus = Literal[
     "research_only",
     "unsupported_by_policy",
 ]
+TSConstraintSeverity = Literal["hard_fail", "soft_warning", "optimization_target"]
+TSConstraintScope = Literal["protocol", "weekly_plan", "session", "adjacent_sessions"]
+TSConstraintOverallStatus = Literal["pass", "warn", "fail"]
 
 
 class TSPlanPresetInput(BaseModel):
@@ -174,6 +177,35 @@ class TSPlanPackageProtocolInfo(BaseModel):
     selection_rationale: list[str] = Field(default_factory=list)
 
 
+class TSConstraintFinding(BaseModel):
+    """Singolo finding del constraint adapter runtime."""
+
+    rule_id: str = Field(min_length=1, max_length=120)
+    severity: TSConstraintSeverity
+    scope: TSConstraintScope
+    status: TSConstraintOverallStatus
+    message: str = Field(min_length=1, max_length=500)
+
+
+class TSConstraintEvaluationSummary(BaseModel):
+    """Sintesi leggibile del report vincoli."""
+
+    overall_status: TSConstraintOverallStatus
+    hard_fail_count: int = Field(ge=0)
+    soft_warning_count: int = Field(ge=0)
+    optimization_target_count: int = Field(ge=0)
+
+
+class TSConstraintEvaluationReport(BaseModel):
+    """Report read-only del primo constraint adapter sul planner legacy."""
+
+    protocol_id: str = Field(min_length=1, max_length=80)
+    constraint_profile_id: str = Field(min_length=1, max_length=80)
+    analyzer_score: float = Field(ge=0, le=100)
+    findings: list[TSConstraintFinding] = Field(default_factory=list)
+    summary: TSConstraintEvaluationSummary
+
+
 class TSPlanPackage(BaseModel):
     """Envelope completo per il primo cutover SMART backend-first."""
 
@@ -183,4 +215,5 @@ class TSPlanPackage(BaseModel):
     workout_projection: TSWorkoutProjection
     warnings: list[str] = Field(default_factory=list)
     protocol: TSPlanPackageProtocolInfo
+    constraint_evaluation: TSConstraintEvaluationReport
     engine: TSPlanPackageEngineInfo

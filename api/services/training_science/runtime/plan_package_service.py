@@ -5,6 +5,7 @@ from api.schemas.training_science import (
     TSCanonicalPlan,
     TSCanonicalSession,
     TSCanonicalSlot,
+    TSConstraintEvaluationReport,
     TSPlanPackage,
     TSPlanPackageEngineInfo,
     TSPlanPackageProtocolInfo,
@@ -13,8 +14,9 @@ from api.schemas.training_science import (
     TSWorkoutProjection,
 )
 from api.schemas.workout import WorkoutExerciseInput, WorkoutPlanCreate, WorkoutSessionInput
+from api.services.training_science.constraints import evaluate_protocol_constraints
 from api.services.training_science.registry import select_protocol
-from api.services.training_science import TemplatePiano, build_plan
+from api.services.training_science import TemplatePiano, analyze_plan, build_plan
 from sqlmodel import Session
 
 from .exercise_catalog import load_rankable_exercises
@@ -104,6 +106,12 @@ def build_plan_package(
         context.scientific_profile.livello_scientifico,
     )
     canonical_plan = _build_canonical_plan(template_plan)
+    constraint_evaluation: TSConstraintEvaluationReport = evaluate_protocol_constraints(
+        protocol_selection=protocol_selection,
+        canonical_plan=canonical_plan,
+        analyzer=analyze_plan(template_plan),
+        requested_frequenza=request.preset.frequenza,
+    )
     exercises = load_rankable_exercises(session, trainer.id)
     exercise_lookup = {exercise.id: exercise for exercise in exercises}
 
@@ -200,6 +208,7 @@ def build_plan_package(
             validation_case_ids=list(protocol_selection.protocol.validation_case_ids),
             selection_rationale=list(protocol_selection.selection_rationale),
         ),
+        constraint_evaluation=constraint_evaluation,
         engine=TSPlanPackageEngineInfo(
             planner_version="ts-plan-v1",
             ranking_version="ts-rank-v1-stateful",

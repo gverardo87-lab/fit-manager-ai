@@ -1817,6 +1817,15 @@ export type TSProtocolStatus =
   | "research_only"
   | "unsupported_by_policy";
 
+/** Severita' del primo constraint adapter read-only */
+export type TSConstraintSeverity = "hard_fail" | "soft_warning" | "optimization_target";
+
+/** Scope del finding nel report vincoli */
+export type TSConstraintScope = "protocol" | "weekly_plan" | "session" | "adjacent_sessions";
+
+/** Stato sintetico di finding/report */
+export type TSConstraintOverallStatus = "pass" | "warn" | "fail";
+
 /** Metadata read-only del protocollo SMART/KineScore selezionato */
 export interface TSPlanPackageProtocolInfo {
   protocol_id: string;
@@ -1828,6 +1837,32 @@ export interface TSPlanPackageProtocolInfo {
   selection_rationale: string[];
 }
 
+/** Singolo finding del constraint adapter */
+export interface TSConstraintFinding {
+  rule_id: string;
+  severity: TSConstraintSeverity;
+  scope: TSConstraintScope;
+  status: TSConstraintOverallStatus;
+  message: string;
+}
+
+/** Sintesi del report vincoli */
+export interface TSConstraintEvaluationSummary {
+  overall_status: TSConstraintOverallStatus;
+  hard_fail_count: number;
+  soft_warning_count: number;
+  optimization_target_count: number;
+}
+
+/** Report read-only dei vincoli del protocollo sul piano legacy */
+export interface TSConstraintEvaluationReport {
+  protocol_id: string;
+  constraint_profile_id: string;
+  analyzer_score: number;
+  findings: TSConstraintFinding[];
+  summary: TSConstraintEvaluationSummary;
+}
+
 /** Envelope completo per il cutover SMART backend-first */
 export interface TSPlanPackage {
   scientific_profile: TSScientificProfileResolved;
@@ -1836,6 +1871,7 @@ export interface TSPlanPackage {
   workout_projection: TSWorkoutProjection;
   warnings: string[];
   protocol: TSPlanPackageProtocolInfo;
+  constraint_evaluation: TSConstraintEvaluationReport;
   engine: TSPlanPackageEngineInfo;
 }
 
