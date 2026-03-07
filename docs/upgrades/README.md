@@ -40,6 +40,7 @@ Esempio:
 - `UPG-2026-03-07-36`: periodizzazione a blocchi con progressione volume lineare e deload 50%, piu' modelli `SettimanaConfig`/`Mesociclo`.
 - `UPG-2026-03-07-37`: esposizione REST del motore scientifico con 5 endpoint JWT auth e zero dipendenza dal DB.
 - `UPG-2026-03-07-38`: riallineata la baseline progetto `.codex/config.toml` a `gpt-5.4` con profili CLI `quick/deep/safe`, mantenendo il file repo privo di preferenze macchina/personali.
+- `UPG-2026-03-07-39`: introdotto `FitManager Collaboration Contract v1`, protocollo user-Codex per task complessi con mode esplicite, task brief minimo, decision gate e addendum SMART/Training Science.
 
 - `UPG-2026-03-04-01`: dual-DB + backup v2.0 bank-grade.
 - `UPG-2026-03-04-02`: export clinico schede (HTML locale -> PDF) con logo e foto embedded.
