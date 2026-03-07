@@ -88,6 +88,9 @@
 }
 
 :root {
+  --font-geist-sans: "Segoe UI", "Helvetica Neue", ui-sans-serif, system-ui, sans-serif;
+  --font-geist-mono: "Cascadia Code", "SFMono-Regular", Consolas, ui-monospace, monospace;
+  --font-caveat: "Segoe Print", "Bradley Hand", "Comic Sans MS", "Marker Felt", cursive;
   --radius: 0.75rem;
   --background: oklch(0.995 0.003 180);
   --foreground: oklch(0.141 0.005 285.823);

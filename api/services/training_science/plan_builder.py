@@ -35,6 +35,8 @@ Fonti:
   - Helms — "The Muscle and Strength Pyramid: Training" (2019)
 """
 
+from math import ceil
+
 from .types import (
     PatternMovimento as P,
     GruppoMuscolare as M,
@@ -155,6 +157,13 @@ _MAX_COMPOUND_BOOST_PER_SESSION = 2
 _BALANCE_RATIO_BY_NAME = {ratio.nome: ratio for ratio in BALANCE_RATIOS}
 _PUSH_PATTERNS = {P.PUSH_H, P.PUSH_V}
 _POSTERIOR_CHAIN_ISOLATION_MUSCLES = {M.FEMORALI, M.GLUTEI}
+_FREQUENCY_STIMULUS_THRESHOLD = 2.0
+_BEGINNER_FULL_BODY_FREQUENCY_MUSCLES = {
+    M.DELT_LAT,
+    M.BICIPITI,
+    M.TRICIPITI,
+    M.POLPACCI,
+}
 
 
 # ════════════════════════════════════════════════════════════
@@ -322,6 +331,135 @@ def _apply_quad_balance_correction(
     serie_iso = PARAMETRI_CARICO[obiettivo].serie_isolation[0]
     correction = min(max(1.0, target.mav_min - current_quad), float(serie_iso))
     _add_isolation_slots(sessioni, [(M.QUADRICIPITI, correction)], obiettivo, livello)
+
+
+def _compute_session_hypertrophy_maps(
+    sessioni: list[tuple[RuoloSessione, list[SlotSessione]]],
+) -> list[dict[M, float]]:
+    """Volume ipertrofico per singola sessione."""
+    maps: list[dict[M, float]] = []
+    for _, slots in sessioni:
+        maps.append(compute_hypertrophy_sets([(slot.pattern, slot.serie) for slot in slots]))
+    return maps
+
+
+def _is_beginner_full_body_microcycle(
+    sessioni: list[tuple[RuoloSessione, list[SlotSessione]]],
+    livello: Livello,
+) -> bool:
+    """Riconosce il caso 3x full body principiante da correggere con micro-dose dirette."""
+    return (
+        livello == Livello.PRINCIPIANTE
+        and len(sessioni) >= 3
+        and all(ruolo == RuoloSessione.FULL_BODY for ruolo, _ in sessioni)
+    )
+
+
+def _apply_beginner_full_body_frequency_corrections(
+    sessioni: list[tuple[RuoloSessione, list[SlotSessione]]],
+    obiettivo: Obiettivo,
+    livello: Livello,
+) -> None:
+    """
+    Porta i piccoli distretti accessori a freq >= 2x senza gonfiare il volume.
+
+    I compound full body possono lasciare 1.0-1.5 serie ipertrofiche per seduta
+    su braccia, deltoide laterale e polpacci: il totale settimanale puo' essere
+    accettabile, ma l'esposizione per-seduta resta sotto la soglia minima di
+    stimolo. Qui aggiungiamo solo la dose diretta minima necessaria.
+    """
+    if not _is_beginner_full_body_microcycle(sessioni, livello):
+        return
+
+    rep_min, rep_max = get_rep_range(obiettivo)
+    max_iso = _MAX_ISOLATION_SESSIONE[livello]
+    max_slot = _MAX_SLOT_SESSIONE[livello]
+    riposo_iso = get_riposo(obiettivo, False)
+    session_hypertrophy = _compute_session_hypertrophy_maps(sessioni)
+
+    iso_count: dict[int, int] = {}
+    slot_count: dict[int, int] = {}
+    for i, (_, slots) in enumerate(sessioni):
+        iso_count[i] = sum(1 for s in slots if s.priorita == OP.ISOLATION)
+        slot_count[i] = len(slots)
+
+    for muscolo in _BEGINNER_FULL_BODY_FREQUENCY_MUSCLES:
+        stimulated_sessions = [
+            i
+            for i, volume in enumerate(session_hypertrophy)
+            if volume.get(muscolo, 0.0) >= _FREQUENCY_STIMULUS_THRESHOLD
+        ]
+        missing_sessions = 2 - len(stimulated_sessions)
+        if missing_sessions <= 0:
+            continue
+
+        pattern_iso = ISOLAMENTO_PER_MUSCOLO[muscolo]
+        affinita = AFFINITA_ISOLAMENTO.get(pattern_iso, set())
+        candidate_indices: list[int] = []
+
+        for i, (ruolo, slots) in enumerate(sessioni):
+            if i in stimulated_sessions:
+                continue
+            if ruolo not in affinita:
+                continue
+
+            has_existing = any(slot.pattern == pattern_iso for slot in slots)
+            if not has_existing and iso_count[i] >= max_iso:
+                continue
+            if not has_existing and slot_count[i] >= max_slot:
+                continue
+
+            candidate_indices.append(i)
+
+        candidate_indices.sort(
+            key=lambda idx: (
+                max(
+                    0.0,
+                    _FREQUENCY_STIMULUS_THRESHOLD - session_hypertrophy[idx].get(muscolo, 0.0),
+                ),
+                iso_count[idx],
+                slot_count[idx],
+                idx,
+            )
+        )
+
+        for idx in candidate_indices:
+            if missing_sessions <= 0:
+                break
+
+            _, slots = sessioni[idx]
+            existing = next((slot for slot in slots if slot.pattern == pattern_iso), None)
+            gap = max(
+                0.0,
+                _FREQUENCY_STIMULUS_THRESHOLD - session_hypertrophy[idx].get(muscolo, 0.0),
+            )
+            serie_correction = max(1, ceil(gap))
+
+            if existing is not None:
+                add = min(serie_correction, _MAX_SERIE_PER_SLOT - existing.serie)
+                if add <= 0:
+                    continue
+                existing.serie += add
+            else:
+                slot = SlotSessione(
+                    pattern=pattern_iso,
+                    priorita=OP.ISOLATION,
+                    serie=serie_correction,
+                    rep_min=rep_min,
+                    rep_max=rep_max,
+                    riposo_sec=riposo_iso,
+                    muscolo_target=muscolo,
+                    note=f"Correzione frequenza {muscolo.value}",
+                )
+                slots.append(slot)
+                iso_count[idx] += 1
+                slot_count[idx] += 1
+
+            session_hypertrophy[idx] = compute_hypertrophy_sets(
+                [(slot.pattern, slot.serie) for slot in slots]
+            )
+            if session_hypertrophy[idx].get(muscolo, 0.0) >= _FREQUENCY_STIMULUS_THRESHOLD:
+                missing_sessions -= 1
 
 
 def _find_compound_deficits(
@@ -611,11 +749,13 @@ def build_plan(
         _boost_compound_series(sessioni, compound_deficits)
 
     # ── FASE 3: Compensazione isolation ──
+    _apply_beginner_full_body_frequency_corrections(sessioni, obiettivo, livello)
     volume = _compute_plan_hypertrophy_volume(sessioni)
     iso_deficits = _find_isolation_deficits(volume, livello, obiettivo)
     if iso_deficits:
         _add_isolation_slots(sessioni, iso_deficits, obiettivo, livello)
     _apply_quad_balance_correction(sessioni, obiettivo, livello)
+    _apply_beginner_full_body_frequency_corrections(sessioni, obiettivo, livello)
 
     # ── FASE 4: Feedback loop ──
     for _ in range(_MAX_FEEDBACK_ITERATIONS):
@@ -628,11 +768,13 @@ def build_plan(
         if compound_deficits:
             _boost_compound_series(sessioni, compound_deficits)
 
+        _apply_beginner_full_body_frequency_corrections(sessioni, obiettivo, livello)
         volume = _compute_plan_hypertrophy_volume(sessioni)
         iso_deficits = _find_isolation_deficits(volume, livello, obiettivo)
         if iso_deficits:
             _add_isolation_slots(sessioni, iso_deficits, obiettivo, livello)
         _apply_quad_balance_correction(sessioni, obiettivo, livello)
+        _apply_beginner_full_body_frequency_corrections(sessioni, obiettivo, livello)
 
     # ── Costruisci TemplatePiano ──
     template_sessioni: list[TemplateSessione] = []

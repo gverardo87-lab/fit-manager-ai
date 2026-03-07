@@ -1,28 +1,12 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Caveat } from "next/font/google";
 import { Providers } from "@/lib/providers";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-const caveat = Caveat({
-  variable: "--font-caveat",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
   title: "FitManager AI Studio",
-  description: "CRM gestionale per personal trainer — privacy first, zero cloud.",
+  description: "CRM gestionale per personal trainer â€” privacy first, zero cloud.",
 };
 
 export default function RootLayout({
@@ -32,9 +16,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="it">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} ${caveat.variable} antialiased`}
-      >
+      <body className="antialiased">
         <Providers>
           <TooltipProvider>{children}</TooltipProvider>
           <Toaster richColors position="top-right" />

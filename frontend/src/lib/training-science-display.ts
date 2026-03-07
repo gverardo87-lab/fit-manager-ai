@@ -53,7 +53,9 @@ export function mapBackendVolumeStatus(stato: string): BackendVolumeStatusKey {
   }
 }
 
-export function getBackendVolumeCounts(analysis: TSAnalisiPiano | null): BackendVolumeCounts {
+export function getBackendVolumeCounts(
+  analysis: TSAnalisiPiano | null | undefined,
+): BackendVolumeCounts {
   if (!analysis) {
     return {
       deficit: 0,
