@@ -38,6 +38,7 @@ import {
 } from "@/lib/smart-programming";
 import { getBackendVolumeCounts, mapBackendVolumeStatus } from "@/lib/training-science-display";
 import { useAnalyzePlan } from "@/hooks/useTrainingScience";
+import { ProtocolSection, FeasibilitySection, ConstraintSection } from "./SmartProtocolSection";
 import type {
   Exercise,
   ExerciseSafetyEntry,
@@ -459,6 +460,15 @@ export function SmartAnalysisPanel({
                   </div>
                 )}
               </section>
+            )}
+
+            {/* SMART Protocol + Feasibility + Constraints (backend) */}
+            {smartPlanPackage && (
+              <>
+                <ProtocolSection protocol={smartPlanPackage.protocol} />
+                <FeasibilitySection summary={smartPlanPackage.feasibility_summary} />
+                <ConstraintSection evaluation={smartPlanPackage.constraint_evaluation} />
+              </>
             )}
 
             {/* 1. Copertura Muscolare — EMG-based (backend) */}
