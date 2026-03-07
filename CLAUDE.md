@@ -261,7 +261,7 @@ Editor strutturato per creare schede allenamento professionali. Layout split: ed
 - **Blocchi Strutturati** (circuit/superset/tabata/amrap/emom/for_time): layout format-specific in builder, preview e export. `BLOCK_EXERCISE_CONFIG` (esportata da `SortableExerciseRow.tsx`) governa griglia, colonne Rip/Kg, notazione (A1/A2 superset, 1./2. altri, nessuna tabata). `BlockPreview` in preview con `border-l-4` + sfondo header colorato per tipo (`BLOCK_TYPE_PREVIEW_CONFIG`). Export: `addBlockExerciseCard()` con header colorato (`BLOCK_TYPE_HEADER_COLORS` scuri, testo bianco) + Rip ±Kg condizionali (tabata = solo nome). No Serie/Riposo per-esercizio nei blocchi (sono parametri del blocco). Notazione A1/A2 per superset in export (viola scuro).
 - **Client linkage**: assegnazione/riassegnazione cliente inline (Select + `"__none__"` sentinel), filtro cliente nella lista, tab "Schede" nel profilo cliente, cross-link bidirezionale
 - **TemplateSelector**: dialog con selezione cliente integrata (`selectedClientId` state, pre-compilato da contesto)
-- **344 esercizi attivi** (98 compound, 85 isolation, 54 stretching, 48 bodyweight, 30 mobilita, 19 avviamento, 10 cardio) + 724 archiviati
+- **391 esercizi attivi** (102 compound, 101 isolation, 54 stretching, 50 bodyweight, 35 cardio, 30 mobilita, 19 avviamento) + 720 archiviati
 - Tassonomia completa: muscoli FK (3,370 righe), articolazioni FK (858), condizioni mediche FK (1,280), relazioni (460)
 - Categorie: `compound`, `isolation`, `bodyweight`, `cardio`, `stretching`, `mobilita`, `avviamento`
 - Pattern: 9 forza (`squat`, `hinge`, `push_h/v`, `pull_h/v`, `core`, `rotation`, `carry`) + 3 complementari (`warmup`, `stretch`, `mobility`)
@@ -462,9 +462,10 @@ File chiave: `lib/smart-programming/` (5 moduli, <300 LOC ciascuno),
 > **Filosofia: l'allenamento e' un sottoramo della medicina.** Il database esercizi e' il nucleo del prodotto.
 > Contenuti imprecisi possono causare infortuni. Zero approssimazione.
 
-**Strategia "Database 344"**: 344 esercizi attivi (`in_subset=True`): 98 compound, 85 isolation, 54 stretching,
-48 bodyweight, 30 mobilita, 19 avviamento, 10 cardio. Avviamento/mobilita/stretching photo-optional (semplici bodyweight).
-724 esercizi archiviati (`in_subset=False`) reinseribili via `activate_batch.py`.
+**Strategia "Database 391"**: 391 esercizi attivi (`in_subset=True`): 102 compound, 101 isolation, 54 stretching,
+50 bodyweight, 35 cardio, 30 mobilita, 19 avviamento. Avviamento/mobilita/stretching/cardio photo-optional.
+720 esercizi archiviati (`in_subset=False`) reinseribili via `activate_batch.py`.
+Seed JSON (`seed_exercises.json`) fisso a 344 — gli esercizi aggiuntivi sono stati attivati via `activate_batch.py` post-install.
 
 **Target demografico Batch 3**: donne 18-50 anni con problematiche posturali o infortuni pregressi.
 8 esercizi creati ad hoc (`seed_women_exercises_b3.py`): Monster Walk Elastico, Fire Hydrant, Wall Angel,
@@ -479,7 +480,7 @@ Pipeline idempotente, dual-DB (`--db dev|prod|both`), script in `tools/admin_scr
 | `populate_exercise_relations.py` | Progressioni/regressioni tra esercizi subset | Zero Ollama |
 | `fill_subset_gaps.py` | Muscoli secondari + tempo consigliato (lookup deterministico) | Zero Ollama |
 | `fix_subset_classification.py` | Fix pattern/force/plane per subset | Zero Ollama |
-| `enrich_exercise_fields.py` | Enrichment campi descrittivi (per reinserimento batch) | Mixtral |
+| `enrich_exercise_fields.py` | Enrichment campi descrittivi (per reinserimento batch) | gemma2:9b |
 | `backfill_exercise_fields.py` | note_sicurezza + force/lateral (per reinserimento batch) | gemma2:9b |
 | `verify_exercise_quality.py` | Audit qualita' (per validazione pre-attivazione) | Zero Ollama |
 | `activate_batch.py` | Orchestratore foto-first: audit, deactivate, select, enrich, activate, verify | gemma2:9b |
@@ -488,6 +489,10 @@ Pipeline idempotente, dual-DB (`--db dev|prod|both`), script in `tools/admin_scr
 
 **Reinserimento futuro**: `activate_batch.py --db both` — coverage-driven selection, enrichment Ollama, quality gate con rollback automatico.
 Mai attivare esercizi con campi critici mancanti o senza foto.
+
+**Regola seed script**: ogni `seed_*.py` DEVE includere `esecuzione` pre-compilato con testo scientifico.
+`enrich_exercise_fields.py` NON ricompila `esecuzione` se vuoto in modo affidabile — la fase VERIFY
+fallisce per esercizi photo-optional senza `esecuzione`. Lezione appresa dal batch cardio (IDs 1094-1105).
 
 ### Tassonomia Scientifica Esercizi — Architettura a Strati
 
@@ -790,11 +795,11 @@ core/              Moduli AI (dormant, non esposti via API — prossima fase)
 1. Auto-backup business DB (solo prod, max 5 auto-backup)
 2. `create_db_and_tables()` — business tables
 3. `create_catalog_tables()` — fallback se catalog.db assente
-4. Seed esercizi builtin (344 esercizi + 426 relazioni + 494 media, idempotente, FK guard)
+4. Seed esercizi builtin (344 esercizi JSON base + 426 relazioni + 494 media, idempotente, FK guard)
 5. `PRAGMA integrity_check` su entrambi i DB
 
 **Seed data** (`data/exercises/`):
-- `seed_exercises.json` — 344 esercizi attivi (`in_subset=1`) con ID preservati per FK
+- `seed_exercises.json` — 344 esercizi attivi base (`in_subset=1`) con ID preservati per FK (DB live ha 391 via activate_batch)
 - `seed_exercise_relations.json` — 426 relazioni (progressioni/regressioni/varianti)
 - `seed_exercise_media.json` — 494 media (foto inizio/fine movimento)
 - Inclusi nell'installer e nel bundle PyInstaller (`fitmanager.spec` datas)
@@ -996,7 +1001,7 @@ Errori reali trovati e corretti. MAI ripeterli.
 | `useCreateContract`/`useDeleteContract` invalidazione incompleta | Invalidavano solo `["contracts"]` e `["dashboard"]`. Mancavano contract detail, clients, movements, aging | Aggiunte 6 invalidazioni: `["contract"]`, `["clients"]`, `["client"]`, `["movements"]`, `["movement-stats"]`, `["aging-report"]` |
 | SQLAlchemy subquery cross-join | `select(func.sum(case(CashMovement.tipo...))).select_from(query.subquery())` — i riferimenti `CashMovement.*` non vengono adattati alle colonne del subquery → cross-join implicito con tabella originale → somma enorme | Usare `subq = query.subquery()` poi `subq.c.tipo`, `subq.c.importo` nelle espressioni. MAI `CashMovement.*` con `select_from(subquery)` |
 | `activate_batch.py` verify rollback asimmetrico | Verify per-DB: DB-A rollbacka 5, DB-B rollbacka 3 → delta silenzioso tra DB. Anche: verify PRIMA di fill_tempo → 43/50 rollbackati per campo auto-fillable | 3 safeguard: (1) pre-check sync (union), (2) fill_tempo_consigliato pre-verify, (3) rollback union (se fallisce su QUALSIASI DB → rollback su TUTTI) |
-| `populate_exercise_relations` chain IDs stale | Chain IDs puntano a esercizi disattivati (57/91 stale) → 21% copertura relazioni | Aggiornare chains ad OGNI batch activation. Riscrittura completa chains da 186→344 esercizi |
+| `populate_exercise_relations` chain IDs stale | Chain IDs puntano a esercizi disattivati (57/91 stale) → 21% copertura relazioni | Aggiornare chains ad OGNI batch activation. Riscrittura completa chains da 186→391 esercizi |
 | `activate_batch.py` enrich skip troppo aggressivo | `needs_work` in `phase_enrich` e `enrich_single` controllava solo `descrizione_anatomica` + `note_sicurezza` → esercizi con questi 2 campi presenti ma altri REQUIRED vuoti venivano skippati silenziosamente → VERIFY FAIL | `phase_enrich`: `needs_work = not all(field_filled(ex_dict.get(f)) for f in REQUIRED_TEXT_FIELDS)`. `enrich_single`: `ENRICH_REQUIRED = [f for f in REQUIRED_TEXT_FIELDS if f != "note_sicurezza"]`, `needs_enrich = not all(...)` |
 | `seed_women_exercises_b3.py` formato muscoli errato | `muscoli_primari`/`muscoli_secondari` scritti come testo libero (es. `"Medio gluteo, Piccolo gluteo"`) invece di JSON array di group slug (es. `["glutes"]`) → colonna muscoli vuota nel frontend | SEMPRE usare `json.dumps(["slug1", "slug2"])`. Slug validi: chest, lats, traps, back, shoulders, biceps, triceps, forearms, core, glutes, hip_flexors, quadriceps, hamstrings, adductors, calves |
 | `activate_batch.py --ids` su esercizi senza `esecuzione` | Mobilita/mobilita esercizi con `esecuzione` vuoto superano ENRICH (descrizione_anatomica gia' presente) ma falliscono VERIFY → rollback | Patch `esecuzione` e `setup` PRIMA di `activate_batch`. Poi enrich completo con flag `--force-no-photo` |
@@ -1009,6 +1014,8 @@ Errori reali trovati e corretti. MAI ripeterli.
 | `router.push()` senza guard dirty | `goBack()` fa navigazione client-side che non triggera `beforeunload` → dati persi senza avviso | `goBack(force = false)` con `window.confirm()` se isDirty. `force=true` solo da mutation `onSuccess` |
 | `isDirty` falso positivo in edit mode | `filledCount > 0` vero subito dopo caricamento dati server (non serve modifica utente) → confirm spurio su back | `userHasEditedRef`: ref settato `true` solo su interazione reale (input/note/date), reset a `false` dopo init dal server |
 | `DETACH DATABASE` con transazione aperta | INSERT impliciti creano transazione; `DETACH` fallisce con "database src is locked" | `catalog.commit()` PRIMA di `DETACH` in `build_catalog.py` |
+| Seed esercizi senza `esecuzione` → VERIFY fail | `enrich_exercise_fields.py` NON ricompila `esecuzione` (lo skippa se vuoto per esercizi archivio). Nuovi seed partono da NULL → fase VERIFY di `activate_batch.py` fallisce per categorie photo-optional che richiedono `esecuzione` | Ogni `seed_*.py` DEVE pre-compilare `esecuzione` con testo scientifico. MAI lasciarlo NULL. Modello: `seed_isolation_intermediate.py` (IDs 1106-1111) |
+| `enrich_exercise_fields.py` usa Mixtral hardcoded | DEFAULT_MODEL era `"mixtral"` → Mixtral non sempre disponibile. Cardio batch falliva silenziosamente con modello sbagliato | DEFAULT_MODEL cambiato a `"gemma2:9b"`. Usare sempre `--model gemma2:9b` o lasciare il default |
 | Cross-DB subquery in dual-DB | `select(Exercise.id)` come subquery per filtrare `ExerciseCondition` fallisce (tabelle in DB diversi) | Fetch IDs dal business engine, poi passa lista di IDs al catalog engine. Mai subquery cross-engine |
 | Catalog FK cross-DB su `id_esercizio` | Junction tables (esercizi_muscoli/articolazioni/condizioni) hanno FK a `esercizi.id` che non esiste in catalog.db | DDL catalog SENZA FK su `id_esercizio` (referenza cross-DB, validazione application-level). FK intra-catalog enforced |
 | Restore DB non funziona con WAL mode | `shutil.copy2` / `write_bytes` sovrascrive solo `.db` ma `-wal` e `-shm` contengono write recenti → WAL replay annulla il restore. Su Windows, file lock impedisce overwrite con connessioni attive | `sqlite3.backup()` page-level copy INTO il DB live (bypassa file lock, gestisce WAL). `engine.dispose()` DOPO il backup forza nuove connessioni. MAI file-level overwrite su DB SQLite con WAL attivo |
@@ -1395,7 +1402,7 @@ sqlite3 data/catalog.db ".tables"
 - **core/**: ~10,300 LOC Python — moduli AI (RAG, exercise archive) in attesa di API endpoints
 - **tools/admin_scripts/**: ~3,200 LOC Python — 16 script (import, quality engine, taxonomy, seed, test, QA clinica)
 - **DB**: Dual-DB SQLite (22 business + 7 catalog), WAL mode, FK enforced, multi-tenant via trainer_id
-- **Esercizi**: 344 attivi (tassonomia completa, seed JSON incluso in installer) + 724 archiviati (reinserimento graduale)
+- **Esercizi**: 391 attivi nel DB live (seed JSON base 344, delta 47 via activate_batch) + 720 archiviati (reinserimento graduale)
 - **Test**: 63 pytest + 67 E2E + 69 vitest (data protection)
 - **Sicurezza**: JWT auth, bcrypt, Deep Relational IDOR, 3-layer route protection
 - **Cloud**: 0 dipendenze, 0 dati verso terzi

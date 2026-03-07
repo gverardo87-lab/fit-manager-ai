@@ -24,6 +24,7 @@ EXERCISES = [
         "piano_movimento": "frontal",
         "catena_cinetica": "closed",
         "tipo_contrazione": "concentric",
+        "esecuzione": "Siediti sulla macchina adduttori con il sedile regolato in modo che le ginocchia siano allineate ai perni. Posiziona la gamba da allenare sulla leva esterna, con il cuscinetto a contatto con la coscia interna. Mantieni la schiena aderente allo schienale e il core contratto. Esegui l'adduzione portando la coscia verso il centro in modo controllato. Mantieni la contrazione al punto di massimo avvicinamento per 1-2 secondi. Ritorna lentamente alla posizione iniziale resistendo al carico.",
     },
     {
         "id": 1107,
@@ -39,6 +40,7 @@ EXERCISES = [
         "piano_movimento": "frontal",
         "catena_cinetica": "open",
         "tipo_contrazione": "concentric",
+        "esecuzione": "Aggancia la caviglia appesantita al cavo basso e posizionati di fianco alla macchina con la gamba allenata lontana dalla puleggia. Stai in piedi con i piedi uniti e il peso corporeo sulla gamba d'appoggio. Abduce leggermente la gamba con il cavo, poi esegui l'adduzione portando la gamba verso e oltre la linea mediana del corpo. Mantieni il busto eretto e il core attivo per tutta l'esecuzione. Controlla il ritorno alla posizione di partenza.",
     },
     # ── LEG CURL intermediate (2) ───────────────────────────────────
     {
@@ -55,6 +57,7 @@ EXERCISES = [
         "piano_movimento": "sagittal",
         "catena_cinetica": "open",
         "tipo_contrazione": "concentric",
+        "esecuzione": "Sdraiati prone su una panca piana con le gambe fuori dal bordo. Stringi il manubrio tra i piedi (dorso del piede inferiore, suola del piede superiore). Mantieni le cosce aderenti alla panca e il bacino neutro. Fletti le ginocchia portando i talloni verso i glutei in modo controllato. Mantieni la contrazione massima per 1 secondo. Abbassa lentamente il manubrio fino alla quasi estensione completa senza far toccare terra.",
     },
     {
         "id": 1109,
@@ -70,6 +73,7 @@ EXERCISES = [
         "piano_movimento": "sagittal",
         "catena_cinetica": "closed",
         "tipo_contrazione": "eccentric",
+        "esecuzione": "Inginocchiati su una superficie morbida con le caviglie bloccate sotto una sbarra bassa o tenute da un partner. Il corpo deve formare una linea retta da ginocchia a testa. Mantieni il core e i glutei contratti. Abbassa lentamente il busto verso il pavimento resistendo con i femorali (fase eccentrica di 3-5 secondi). Quando non riesci più a controllare il movimento, appoggiati con le mani e spingi per tornare alla posizione eretta. Ripeti focalizzandoti sulla fase di discesa.",
     },
     # ── LEG EXTENSION intermediate (1) ─────────────────────────────
     {
@@ -86,6 +90,7 @@ EXERCISES = [
         "piano_movimento": "sagittal",
         "catena_cinetica": "open",
         "tipo_contrazione": "concentric",
+        "esecuzione": "Siediti sulla leg extension machine con la schiena aderente allo schienale. Posiziona un solo piede sotto il cuscinetto con il ginocchio flesso a 90°. Tieni l'altra gamba ferma o sollevata leggermente. Estendi il ginocchio fino alla quasi completa estensione contraendo il quadricipite. Mantieni la contrazione al top per 1-2 secondi con particolare focus sul vasto mediale. Abbassa il peso lentamente in 3 secondi. Completa tutte le ripetizioni su una gamba prima di passare all'altra.",
     },
     # ── FACE PULL intermediate (1) ──────────────────────────────────
     {
@@ -102,6 +107,7 @@ EXERCISES = [
         "piano_movimento": "transverse",
         "catena_cinetica": "open",
         "tipo_contrazione": "concentric",
+        "esecuzione": "Regola la puleggia del cavo ad altezza superiore alla testa e aggancia la corda doppia. Afferra i capi della corda con entrambe le mani in presa pronata, pollici rivolti verso di te. Fai un passo indietro per creare tensione con le braccia quasi tese. Tira la corda verso il viso portando le mani ai lati delle orecchie con i gomiti alti e aperti (90° rispetto al torso). Al punto finale, extraruota le spalle portando i pollici indietro. Ritorna lentamente alla posizione di partenza.",
     },
 ]
 
@@ -110,12 +116,12 @@ INSERT INTO esercizi (
     id, nome, categoria, pattern_movimento, attrezzatura, difficolta,
     muscoli_primari, muscoli_secondari, in_subset,
     force_type, piano_movimento, catena_cinetica, tipo_contrazione,
-    ore_recupero, is_builtin
+    esecuzione, ore_recupero, is_builtin
 ) VALUES (
     :id, :nome, :categoria, :pattern_movimento, :attrezzatura, :difficolta,
     :muscoli_primari, :muscoli_secondari, :in_subset,
     :force_type, :piano_movimento, :catena_cinetica, :tipo_contrazione,
-    :ore_recupero, :is_builtin
+    :esecuzione, :ore_recupero, :is_builtin
 )
 """
 
