@@ -38,6 +38,7 @@ import {
   type WorkoutTemplate,
   type TemplateExerciseSlot,
 } from "@/lib/workout-templates";
+import { storeSmartPlanPackage } from "@/lib/smart-plan-package-cache";
 import { useCreateWorkout } from "@/hooks/useWorkouts";
 import { useExercises } from "@/hooks/useExercises";
 import { useClients } from "@/hooks/useClients";
@@ -350,6 +351,7 @@ function TemplateSelectorDialog({ open, onOpenChange, clientId }: TemplateSelect
             planPackage.workout_projection.draft,
             {
               onSuccess: (plan) => {
+                storeSmartPlanPackage(plan.id, planPackage);
                 onOpenChange(false);
                 router.push(`/schede/${plan.id}`);
               },
@@ -434,7 +436,7 @@ function TemplateSelectorDialog({ open, onOpenChange, clientId }: TemplateSelect
               </div>
               <div className="space-y-1">
                 <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Obiettivo</Label>
-                <Select value={smartObiettivo} onValueChange={setSmartObiettivo}>
+                <Select value={smartObiettivo} onValueChange={(v) => setSmartObiettivo(v as TSBuilderObjective)}>
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue />
                   </SelectTrigger>
@@ -449,7 +451,7 @@ function TemplateSelectorDialog({ open, onOpenChange, clientId }: TemplateSelect
               </div>
               <div className="space-y-1">
                 <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Livello</Label>
-                <Select value={smartLivello} onValueChange={setSmartLivello}>
+                <Select value={smartLivello} onValueChange={(v) => setSmartLivello(v as TSBuilderLevelChoice)}>
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue />
                   </SelectTrigger>

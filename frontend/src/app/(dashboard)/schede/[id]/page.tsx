@@ -64,6 +64,7 @@ import { useLatestMeasurement } from "@/hooks/useMeasurements";
 import { toast } from "sonner";
 import { PATTERN_TO_1RM } from "@/lib/derived-metrics";
 import { getStoredTrainer } from "@/lib/auth";
+import { consumeSmartPlanPackage } from "@/lib/smart-plan-package-cache";
 import {
   OBIETTIVI_SCHEDA,
   LIVELLI_SCHEDA,
@@ -72,6 +73,8 @@ import {
   type Exercise,
   type SafetyConditionDetail,
   type BlockType,
+  type TSAnalisiPiano,
+  type TSPlanPackage,
 } from "@/types/api";
 import {
   SECTION_CATEGORIES,
@@ -474,6 +477,8 @@ export default function SchedaDetailPage({
   // Local state per editing
   const [sessions, setSessions] = useState<SessionCardData[]>([]);
   const [isDirty, setIsDirty] = useState(false);
+  const [smartPlanPackage, setSmartPlanPackage] = useState<TSPlanPackage | null>(null);
+  const [smartBackendAnalysis, setSmartBackendAnalysis] = useState<TSAnalisiPiano | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [saveIssues, setSaveIssues] = useState<SaveIssue[]>([]);
   const [saveIssuesExpanded, setSaveIssuesExpanded] = useState(false);
@@ -485,6 +490,7 @@ export default function SchedaDetailPage({
   const coalesceTimerRef = useRef<number | null>(null);
   const coalesceKeyRef = useRef<string | null>(null);
   const coalesceBaseRef = useRef<SessionCardData[] | null>(null);
+  const smartPlanPackageHydratedRef = useRef<number | null>(null);
   sessionsRef.current = sessions;
 
   // Ref che riflette isDirty — usato nell'effect per non catturare closure stale
@@ -638,6 +644,14 @@ export default function SchedaDetailPage({
     }
   }, [plan, clearCoalesceTimer]);
 
+  // Handoff temporaneo dal TemplateSelector: usa il plan-package solo alla prima apertura del builder.
+  useEffect(() => {
+    if (!plan) return;
+    if (smartPlanPackageHydratedRef.current === plan.id) return;
+    smartPlanPackageHydratedRef.current = plan.id;
+    setSmartPlanPackage(consumeSmartPlanPackage(plan.id));
+  }, [plan]);
+
   // Draft recovery — recupera bozza da sessionStorage se presente (TTL 24h)
   const draftRecoveredRef = useRef(false);
   useEffect(() => {
@@ -669,6 +683,11 @@ export default function SchedaDetailPage({
     setSaveIssues([]);
     setSaveIssuesExpanded(false);
   }, [sessions, saveIssues.length]);
+
+  useEffect(() => {
+    if (!isDirty || !smartPlanPackage) return;
+    setSmartPlanPackage(null);
+  }, [isDirty, smartPlanPackage]);
 
   useEffect(() => {
     return () => {
@@ -857,6 +876,43 @@ export default function SchedaDetailPage({
     return { avoid, caution, modify, total: avoid + caution + modify };
   }, [safetyEntries, sessions]);
 
+  const safetyConditionStats = useMemo(() => {
+    const detected = safetyMap?.condition_count ?? 0;
+    if (!safetyEntries) {
+      return { detected, mapped: 0, bodyTagged: 0, planImpacted: 0 };
+    }
+
+    const planExerciseIds = new Set<number>();
+    for (const session of sessions) {
+      for (const exercise of session.esercizi) planExerciseIds.add(exercise.id_esercizio);
+      for (const block of session.blocchi) {
+        for (const exercise of block.esercizi) planExerciseIds.add(exercise.id_esercizio);
+      }
+    }
+
+    const mapped = new Set<number>();
+    const bodyTagged = new Set<number>();
+    const planImpacted = new Set<number>();
+
+    for (const [exerciseId, entry] of Object.entries(safetyEntries)) {
+      const numericExerciseId = Number(exerciseId);
+      for (const condition of entry.conditions) {
+        mapped.add(condition.id);
+        if (condition.body_tags.length > 0) bodyTagged.add(condition.id);
+        if (planExerciseIds.has(numericExerciseId)) {
+          planImpacted.add(condition.id);
+        }
+      }
+    }
+
+    return {
+      detected,
+      mapped: mapped.size,
+      bodyTagged: bodyTagged.size,
+      planImpacted: planImpacted.size,
+    };
+  }, [safetyEntries, safetyMap?.condition_count, sessions]);
+
   // Condizioni raggruppate per categoria + esercizi coinvolti (per pannello espanso)
   const groupedConditions = useMemo(() => {
     if (!safetyEntries) return new Map<string, { nome: string; worstSeverity: string; exercises: { nome: string; severity: string }[] }[]>();
@@ -866,6 +922,11 @@ export default function SchedaDetailPage({
     for (const s of sessions) {
       for (const ex of s.esercizi) {
         exerciseNameMap.set(ex.id_esercizio, ex.esercizio_nome);
+      }
+      for (const block of s.blocchi) {
+        for (const ex of block.esercizi) {
+          exerciseNameMap.set(ex.id_esercizio, ex.esercizio_nome);
+        }
       }
     }
 
@@ -883,7 +944,7 @@ export default function SchedaDetailPage({
           exercises.set(exId, { nome: exName, severity: cond.severita });
           condMap.set(cond.id, { ...cond, worstSeverity: cond.severita, exercises });
         } else {
-          const sevRank: Record<string, number> = { avoid: 2, caution: 1, modify: 0 };
+          const sevRank: Record<string, number> = { avoid: 2, modify: 1, caution: 0 };
           if ((sevRank[cond.severita] ?? 0) > (sevRank[existing.worstSeverity] ?? 0)) {
             existing.worstSeverity = cond.severita;
           }
@@ -918,7 +979,7 @@ export default function SchedaDetailPage({
     const seen = new Map<number, SafetyConditionDetail>();
     for (const entry of Object.values(safetyEntries)) {
       for (const cond of entry.conditions) {
-        const sevRank: Record<string, number> = { avoid: 2, caution: 1, modify: 0 };
+        const sevRank: Record<string, number> = { avoid: 2, modify: 1, caution: 0 };
         const existing = seen.get(cond.id);
         if (!existing || (sevRank[cond.severita] ?? 0) > (sevRank[existing.severita] ?? 0)) {
           seen.set(cond.id, cond); // worst severity wins
@@ -952,6 +1013,11 @@ export default function SchedaDetailPage({
       for (const ex of s.esercizi) {
         exerciseNameMap.set(ex.id_esercizio, ex.esercizio_nome);
       }
+      for (const block of s.blocchi) {
+        for (const ex of block.esercizi) {
+          exerciseNameMap.set(ex.id_esercizio, ex.esercizio_nome);
+        }
+      }
     }
 
     // Condizioni uniche → esercizi coinvolti
@@ -965,7 +1031,7 @@ export default function SchedaDetailPage({
           condMap.set(cond.id, { nome: cond.nome, severita: cond.severita, esercizi: new Set([exName]) });
         } else {
           existing.esercizi.add(exName);
-          const sevRank: Record<string, number> = { avoid: 2, caution: 1, modify: 0 };
+          const sevRank: Record<string, number> = { avoid: 2, modify: 1, caution: 0 };
           if ((sevRank[cond.severita] ?? 0) > (sevRank[existing.severita] ?? 0)) {
             existing.severita = cond.severita;
           }
@@ -1748,6 +1814,16 @@ export default function SchedaDetailPage({
                     ))}
                   </div>
 
+                  <div className="text-[10px] text-muted-foreground">
+                    {safetyConditionStats.planImpacted} condizioni impattano la scheda corrente su {safetyConditionStats.detected} rilevate.
+                    {safetyConditionStats.mapped < safetyConditionStats.detected && (
+                      <span> {safetyConditionStats.mapped} sono gia&apos; mappate nel catalogo safety.</span>
+                    )}
+                    {safetyConditionStats.bodyTagged < safetyConditionStats.mapped && (
+                      <span> {safetyConditionStats.bodyTagged} hanno body tags anatomici renderizzabili.</span>
+                    )}
+                  </div>
+
                   {/* Pannello espanso — Risk Body Map + condizioni raggruppate */}
                   <CollapsibleContent className="space-y-3">
                     <Separator />
@@ -1850,6 +1926,7 @@ export default function SchedaDetailPage({
               exerciseMap={exerciseMap}
               livello={plan.livello}
               sessioniPerSettimana={plan.sessioni_per_settimana}
+              backendAnalysis={smartBackendAnalysis}
             />
           )}
 
@@ -1868,6 +1945,10 @@ export default function SchedaDetailPage({
               obiettivo={plan.obiettivo}
               sessioniPerSettimana={plan.sessioni_per_settimana}
               safetyMap={safetyEntries ?? null}
+              smartPlanPackage={smartPlanPackage}
+              safetyConditionCount={safetyConditionStats.detected}
+              impactedConditionCount={safetyConditionStats.planImpacted}
+              onBackendAnalysisChange={setSmartBackendAnalysis}
             />
           )}
 

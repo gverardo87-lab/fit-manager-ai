@@ -16,7 +16,7 @@ from api.services.training_science import TemplatePiano, build_plan
 from sqlmodel import Session
 
 from .exercise_catalog import load_rankable_exercises
-from .exercise_ranker import rank_slot_candidates
+from .exercise_ranker import RankerSelectionState, rank_slot_candidates
 from .profile_resolver import resolve_plan_context
 
 
@@ -99,16 +99,19 @@ def build_plan_package(
     )
     canonical_plan = _build_canonical_plan(template_plan)
     exercises = load_rankable_exercises(session, trainer.id)
+    exercise_lookup = {exercise.id: exercise for exercise in exercises}
 
     safety_entries = context.safety_map.entries if context.safety_map is not None else {}
     excluded_ids = set(request.trainer_overrides.excluded_exercise_ids)
     preferred_ids = set(request.trainer_overrides.preferred_exercise_ids)
+    selection_state = RankerSelectionState()
 
     rankings: dict[str, list] = {}
     slot_bindings: list[TSSlotBinding] = []
     workout_sessions: list[WorkoutSessionInput] = []
 
     for session_item in canonical_plan.sessioni:
+        selection_state.start_session()
         workout_exercises: list[WorkoutExerciseInput] = []
         for exercise_order, slot in enumerate(session_item.slots, start=1):
             ranked = rank_slot_candidates(
@@ -119,12 +122,14 @@ def build_plan_package(
                 excluded_exercise_ids=excluded_ids,
                 preferred_exercise_ids=preferred_ids,
                 pinned_exercise_id=request.trainer_overrides.pinned_exercise_ids_by_slot.get(slot.slot_id),
+                selection_state=selection_state,
             )
             rankings[slot.slot_id] = ranked
             if not ranked:
                 continue
 
             selected = ranked[0]
+            selected_exercise = exercise_lookup.get(selected.exercise_id)
             workout_exercises.append(
                 WorkoutExerciseInput(
                     id_esercizio=selected.exercise_id,
@@ -142,6 +147,8 @@ def build_plan_package(
                     candidate_rank=selected.rank,
                 )
             )
+            if selected_exercise is not None:
+                selection_state.register_selected_exercise(selected_exercise)
 
         workout_sessions.append(
             WorkoutSessionInput(
@@ -152,6 +159,7 @@ def build_plan_package(
                 blocchi=[],
             )
         )
+        selection_state.finish_session()
 
     client_name = None
     if context.client is not None:
@@ -179,7 +187,7 @@ def build_plan_package(
         warnings=warnings,
         engine=TSPlanPackageEngineInfo(
             planner_version="ts-plan-v1",
-            ranking_version="ts-rank-v1-minimal",
+            ranking_version="ts-rank-v1-stateful",
             profile_version="ts-profile-v1",
         ),
     )

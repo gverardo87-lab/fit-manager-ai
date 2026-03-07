@@ -18,7 +18,7 @@
  * POST /training-science/analyze che ritorna analisi 4D con score 0-100.
  */
 
-import { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import { useMemo, useState, useEffect, useRef, useEffectEvent } from "react";
 import { BarChart3, ChevronDown, AlertTriangle, BookOpen, Scale } from "lucide-react";
 
 import {
@@ -36,10 +36,12 @@ import {
   type BiomechanicalVariety,
   type SafetyBreakdown,
 } from "@/lib/smart-programming";
+import { getBackendVolumeCounts, mapBackendVolumeStatus } from "@/lib/training-science-display";
 import { useAnalyzePlan } from "@/hooks/useTrainingScience";
 import type {
   Exercise,
   ExerciseSafetyEntry,
+  TSPlanPackage,
   TSTemplatePiano,
   TSObjective,
   TSLevel,
@@ -62,6 +64,10 @@ interface SmartAnalysisPanelProps {
   obiettivo: string;
   sessioniPerSettimana: number;
   safetyMap: Record<number, ExerciseSafetyEntry> | null;
+  smartPlanPackage?: TSPlanPackage | null;
+  safetyConditionCount?: number;
+  impactedConditionCount?: number;
+  onBackendAnalysisChange?: (analysis: TSAnalisiPiano | null) => void;
 }
 
 // ════════════════════════════════════════════════════════════
@@ -138,22 +144,34 @@ function buildTemplatePiano(
   };
 }
 
+function buildTemplatePianoFromCanonical(planPackage: TSPlanPackage): TSTemplatePiano {
+  return {
+    frequenza: planPackage.canonical_plan.frequenza,
+    obiettivo: planPackage.canonical_plan.obiettivo,
+    livello: planPackage.canonical_plan.livello,
+    tipo_split: planPackage.canonical_plan.tipo_split,
+    sessioni: planPackage.canonical_plan.sessioni.map((session) => ({
+      nome: session.nome,
+      ruolo: session.ruolo,
+      focus: session.focus,
+      slots: session.slots.map((slot) => ({
+        pattern: slot.pattern,
+        priorita: slot.priorita,
+        serie: slot.serie,
+        rep_min: slot.rep_min,
+        rep_max: slot.rep_max,
+        riposo_sec: slot.riposo_sec,
+        muscolo_target: slot.muscolo_target,
+        note: slot.note,
+      })),
+    })),
+    note_generazione: planPackage.canonical_plan.note_generazione,
+  };
+}
+
 // ════════════════════════════════════════════════════════════
 // VOLUME STATUS — Colori e label per stato backend
 // ════════════════════════════════════════════════════════════
-
-type VolumeStatusKey = "deficit" | "suboptimal" | "optimal" | "excess";
-
-function mapBackendStatus(stato: string): VolumeStatusKey {
-  switch (stato) {
-    case "sotto_mev": return "deficit";
-    case "mev_mav": return "suboptimal";
-    case "ottimale": return "optimal";
-    case "sopra_mav": return "excess";
-    case "sopra_mrv": return "excess";
-    default: return "optimal";
-  }
-}
 
 const STATUS_COLORS = {
   deficit: {
@@ -203,6 +221,18 @@ const MUSCLE_LABELS: Record<string, string> = {
   avambracci: "Avambracci",
 };
 
+const PLAN_MODE_LABELS: Record<string, string> = {
+  general: "General",
+  performance: "Performance",
+  clinical: "Clinical",
+};
+
+const ANAMNESI_STATE_LABELS: Record<string, string> = {
+  missing: "Anamnesi mancante",
+  legacy: "Anamnesi legacy",
+  structured: "Anamnesi strutturata",
+};
+
 // Score color based on 0-100 range
 function getScoreColor(score: number): string {
   if (score >= 75) return "text-emerald-600 dark:text-emerald-400";
@@ -221,6 +251,10 @@ export function SmartAnalysisPanel({
   obiettivo,
   sessioniPerSettimana,
   safetyMap,
+  smartPlanPackage,
+  safetyConditionCount = 0,
+  impactedConditionCount = 0,
+  onBackendAnalysisChange,
 }: SmartAnalysisPanelProps) {
   const [expanded, setExpanded] = useState(false);
   const analyzeMutation = useAnalyzePlan();
@@ -228,22 +262,27 @@ export function SmartAnalysisPanel({
 
   // Build TSTemplatePiano from workout exercises
   const templatePiano = useMemo(
-    () => buildTemplatePiano(sessions, exerciseMap, livello, obiettivo, sessioniPerSettimana),
-    [sessions, exerciseMap, livello, obiettivo, sessioniPerSettimana],
+    () => smartPlanPackage
+      ? buildTemplatePianoFromCanonical(smartPlanPackage)
+      : buildTemplatePiano(sessions, exerciseMap, livello, obiettivo, sessioniPerSettimana),
+    [smartPlanPackage, sessions, exerciseMap, livello, obiettivo, sessioniPerSettimana],
   );
 
   // Stable serialization key to detect real data changes
   const pianoKey = useMemo(() => {
     if (!templatePiano) return "";
+    if (smartPlanPackage) {
+      return `canonical:${smartPlanPackage.canonical_plan.plan_id}`;
+    }
     return templatePiano.sessioni
       .map((s) => s.slots.map((sl) => `${sl.pattern}:${sl.serie}`).join(","))
       .join("|") + `|${templatePiano.livello}|${templatePiano.obiettivo}`;
-  }, [templatePiano]);
+  }, [templatePiano, smartPlanPackage]);
 
   // Trigger backend analysis on data change (debounced 600ms)
-  const triggerAnalysis = useCallback((piano: TSTemplatePiano) => {
+  const triggerAnalysis = useEffectEvent((piano: TSTemplatePiano) => {
     analyzeMutation.mutate(piano);
-  }, [analyzeMutation.mutate]); // eslint-disable-line react-hooks/exhaustive-deps
+  });
 
   useEffect(() => {
     if (!templatePiano || !pianoKey) return;
@@ -268,22 +307,41 @@ export function SmartAnalysisPanel({
   );
 
   const backendAnalysis: TSAnalisiPiano | null = analyzeMutation.data ?? null;
+  const generationWarnings = useMemo(() => {
+    if (!smartPlanPackage) return [];
+    return Array.from(
+      new Set([
+        ...smartPlanPackage.scientific_profile.profile_warnings,
+        ...smartPlanPackage.warnings,
+      ]),
+    );
+  }, [smartPlanPackage]);
+
+  useEffect(() => {
+    onBackendAnalysisChange?.(backendAnalysis);
+  }, [backendAnalysis, onBackendAnalysisChange]);
 
   if (!templatePiano) return null;
 
   // KPI from backend analysis
   const volumeData = backendAnalysis?.volume;
-  const deficitCount = volumeData
-    ? volumeData.per_muscolo.filter((m) => mapBackendStatus(m.stato) === "deficit").length
-    : 0;
-  const suboptimalCount = volumeData
-    ? volumeData.per_muscolo.filter((m) => mapBackendStatus(m.stato) === "suboptimal").length
-    : 0;
-  const optimalCount = volumeData
-    ? volumeData.per_muscolo.filter((m) => mapBackendStatus(m.stato) === "optimal").length
-    : 0;
-  // KPI "Deficit" card shows both sotto_mev + mev_mav (both need more volume)
-  const needsAttentionCount = deficitCount + suboptimalCount;
+  const volumeCounts = getBackendVolumeCounts(backendAnalysis);
+  const optimalCount = volumeCounts.optimal;
+  const needsAttentionCount = volumeCounts.attention;
+  const attentionColors = volumeCounts.deficit > 0 ? STATUS_COLORS.deficit : STATUS_COLORS.excess;
+  const hasSafetyRisk =
+    safetyBreakdown.avoid > 0 || safetyBreakdown.modify > 0 || safetyBreakdown.caution > 0;
+  const safetyKpiParts = [
+    safetyBreakdown.avoid > 0 ? (
+      <span key="avoid" className="text-red-600 dark:text-red-400">{safetyBreakdown.avoid}A</span>
+    ) : null,
+    safetyBreakdown.modify > 0 ? (
+      <span key="modify" className="text-blue-600 dark:text-blue-400">{safetyBreakdown.modify}M</span>
+    ) : null,
+    safetyBreakdown.caution > 0 ? (
+      <span key="caution" className="text-amber-600 dark:text-amber-400">{safetyBreakdown.caution}C</span>
+    ) : null,
+  ].filter(Boolean);
 
   const borderColor = backendAnalysis
     ? backendAnalysis.score >= 75
@@ -303,6 +361,11 @@ export function SmartAnalysisPanel({
               <div className="flex items-center gap-2">
                 <BarChart3 className="h-4.5 w-4.5 text-teal-600 dark:text-teal-400" />
                 <span className="text-sm font-semibold">Analisi Scientifica</span>
+                {smartPlanPackage && (
+                  <Badge variant="outline" className="h-5 text-[9px] font-normal">
+                    Piano canonico backend
+                  </Badge>
+                )}
                 {analyzeMutation.isPending && (
                   <span className="text-[10px] text-muted-foreground animate-pulse">analisi...</span>
                 )}
@@ -330,24 +393,22 @@ export function SmartAnalysisPanel({
               <div className={`text-lg font-extrabold tracking-tighter tabular-nums ${STATUS_COLORS.optimal.text}`}>{optimalCount}</div>
               <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Ottimali</div>
             </div>
-            <div className={`rounded-lg ${needsAttentionCount > 0 ? STATUS_COLORS.deficit.bg : "bg-muted/50"} px-2 py-2 text-center`}>
-              <div className={`text-lg font-extrabold tracking-tighter tabular-nums ${needsAttentionCount > 0 ? STATUS_COLORS.deficit.text : "text-muted-foreground"}`}>{needsAttentionCount}</div>
-              <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Carenti</div>
+            <div className={`rounded-lg ${needsAttentionCount > 0 ? attentionColors.bg : "bg-muted/50"} px-2 py-2 text-center`}>
+              <div className={`text-lg font-extrabold tracking-tighter tabular-nums ${needsAttentionCount > 0 ? attentionColors.text : "text-muted-foreground"}`}>{needsAttentionCount}</div>
+              <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Da correggere</div>
             </div>
             <div className="rounded-lg bg-muted/50 px-2 py-2 text-center">
               {safetyBreakdown.hasConditions ? (
                 <>
                   <div className="text-sm font-extrabold tracking-tighter tabular-nums leading-6">
-                    {safetyBreakdown.avoid > 0 && (
-                      <span className="text-red-600 dark:text-red-400">{safetyBreakdown.avoid}A</span>
-                    )}
-                    {safetyBreakdown.avoid > 0 && safetyBreakdown.modify > 0 && (
-                      <span className="text-muted-foreground mx-0.5">/</span>
-                    )}
-                    {safetyBreakdown.modify > 0 && (
-                      <span className="text-amber-600 dark:text-amber-400">{safetyBreakdown.modify}M</span>
-                    )}
-                    {safetyBreakdown.avoid === 0 && safetyBreakdown.modify === 0 && (
+                    {hasSafetyRisk ? (
+                      safetyKpiParts.map((part, index) => (
+                        <span key={index}>
+                          {index > 0 && <span className="mx-0.5 text-muted-foreground">/</span>}
+                          {part}
+                        </span>
+                      ))
+                    ) : (
                       <span className="text-emerald-600 dark:text-emerald-400">OK</span>
                     )}
                   </div>
@@ -366,6 +427,40 @@ export function SmartAnalysisPanel({
           <CollapsibleContent className="space-y-4">
             <Separator />
 
+            {smartPlanPackage && (
+              <section>
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                  Contesto Generazione
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  <Badge variant="outline" className="text-[10px] font-normal">
+                    {PLAN_MODE_LABELS[smartPlanPackage.scientific_profile.mode] ?? smartPlanPackage.scientific_profile.mode}
+                  </Badge>
+                  <Badge variant="outline" className="text-[10px] font-normal">
+                    Livello {smartPlanPackage.scientific_profile.livello_scientifico}
+                  </Badge>
+                  <Badge variant="outline" className="text-[10px] font-normal">
+                    {ANAMNESI_STATE_LABELS[smartPlanPackage.scientific_profile.anamnesi_state] ?? smartPlanPackage.scientific_profile.anamnesi_state}
+                  </Badge>
+                  {smartPlanPackage.scientific_profile.safety_condition_count > 0 && (
+                    <Badge variant="outline" className="text-[10px] font-normal">
+                      {smartPlanPackage.scientific_profile.safety_condition_count} condizioni safety
+                    </Badge>
+                  )}
+                </div>
+                {generationWarnings.length > 0 && (
+                  <div className="mt-2 space-y-1.5">
+                    {generationWarnings.map((warning, index) => (
+                      <div key={`${warning}-${index}`} className="flex items-start gap-2 text-[11px]">
+                        <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5 text-amber-500" />
+                        <span className="text-muted-foreground">{warning}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
+
             {/* 1. Copertura Muscolare — EMG-based (backend) */}
             {volumeData && (
               <section>
@@ -379,7 +474,7 @@ export function SmartAnalysisPanel({
                 </div>
                 <div className="space-y-1.5">
                   {volumeData.per_muscolo
-                    .filter((m) => m.serie_effettive > 0 || mapBackendStatus(m.stato) === "deficit")
+                    .filter((m) => m.serie_effettive > 0 || mapBackendVolumeStatus(m.stato) === "deficit")
                     .map((m) => (
                       <VolumeRow key={m.muscolo} data={m} />
                     ))}
@@ -467,6 +562,13 @@ export function SmartAnalysisPanel({
                 <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
                   Compatibilita Clinica
                 </div>
+                {safetyConditionCount > 0 && (
+                  <div className="mb-2 text-[10px] text-muted-foreground">
+                    {impactedConditionCount > 0
+                      ? `${impactedConditionCount} condizioni impattano la scheda corrente su ${safetyConditionCount} rilevate in anamnesi.`
+                      : `${safetyConditionCount} condizioni rilevate in anamnesi, nessuna attualmente triggerata dagli esercizi selezionati.`}
+                  </div>
+                )}
                 <div className="space-y-1.5">
                   {safetyBreakdown.avoid > 0 && (
                     <div className="flex items-center gap-2 text-xs">
@@ -477,15 +579,15 @@ export function SmartAnalysisPanel({
                   )}
                   {safetyBreakdown.modify > 0 && (
                     <div className="flex items-center gap-2 text-xs">
-                      <div className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />
-                      <span className="font-medium text-amber-700 dark:text-amber-400">{safetyBreakdown.modify} da adattare</span>
+                      <div className="h-2 w-2 rounded-full bg-blue-500 shrink-0" />
+                      <span className="font-medium text-blue-700 dark:text-blue-400">{safetyBreakdown.modify} da adattare</span>
                       <span className="text-muted-foreground">— richiedono modifica ROM/carico</span>
                     </div>
                   )}
                   {safetyBreakdown.caution > 0 && (
                     <div className="flex items-center gap-2 text-xs">
-                      <div className="h-2 w-2 rounded-full bg-blue-500 shrink-0" />
-                      <span className="font-medium text-blue-700 dark:text-blue-400">{safetyBreakdown.caution} cautela</span>
+                      <div className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />
+                      <span className="font-medium text-amber-700 dark:text-amber-400">{safetyBreakdown.caution} cautela</span>
                       <span className="text-muted-foreground">— monitorare durante esecuzione</span>
                     </div>
                   )}
@@ -516,7 +618,7 @@ export function SmartAnalysisPanel({
 // ════════════════════════════════════════════════════════════
 
 function VolumeRow({ data }: { data: TSVolumeEffettivo }) {
-  const status = mapBackendStatus(data.stato);
+  const status = mapBackendVolumeStatus(data.stato);
   const colors = STATUS_COLORS[status];
   const pct = data.target_mrv > 0
     ? Math.min(100, (data.serie_effettive / data.target_mrv) * 100)

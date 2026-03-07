@@ -1,5 +1,8 @@
 """Ranker puro e deterministico per candidati esercizio slot-by-slot."""
 
+from collections import Counter
+from dataclasses import dataclass, field
+
 from api.schemas.safety import ExerciseSafetyEntry
 from api.schemas.training_science import (
     TSScientificProfileResolved,
@@ -17,11 +20,57 @@ _SEVERITY_BUCKET = {
 }
 _SEVERITY_PENALTY = {None: 0, "caution": 20, "modify": 40, "avoid": 80}
 _BUCKET_ORDER = {"recommended": 0, "allowed": 1, "discouraged": 2}
+_FREQUENCY_BONUS_CAP = 12
+_RECOVERY_PENALTY_CAP = 12
 _LEVEL_DIFFICULTY_SCORE: dict[str, dict[str, int]] = {
     "beginner": {"beginner": 12, "intermediate": 4, "advanced": -8},
     "intermedio": {"beginner": 6, "intermediate": 12, "advanced": 5},
     "avanzato": {"beginner": 2, "intermediate": 8, "advanced": 12},
 }
+_QUAD_MUSCLES = {"quadriceps", "quads", "quadricipiti"}
+_HAMSTRINGS_MUSCLES = {"hamstrings", "femorali"}
+_PATTERN_BALANCE_PAIRS = (
+    ("push_h", "push_v"),
+    ("pull_h", "pull_v"),
+)
+_RECOVERY_SENSITIVE_MUSCLES = {
+    "back",
+    "lats",
+    "dorsali",
+    "traps",
+    "trapezius",
+    "trapezio",
+    "core",
+    "abs",
+    "abdominals",
+}
+
+
+@dataclass
+class RankerSelectionState:
+    """Stato incrementale del ranking per introdurre feedback settimanale."""
+
+    selected_pattern_counts: Counter[str] = field(default_factory=Counter)
+    selected_muscle_counts: Counter[str] = field(default_factory=Counter)
+    selected_exercise_ids: set[int] = field(default_factory=set)
+    previous_session_muscles: set[str] = field(default_factory=set)
+    current_session_muscles: set[str] = field(default_factory=set)
+
+    def start_session(self) -> None:
+        self.current_session_muscles = set()
+
+    def finish_session(self) -> None:
+        self.previous_session_muscles = set(self.current_session_muscles)
+        self.current_session_muscles = set()
+
+    def register_selected_exercise(self, exercise: RankableExercise) -> None:
+        self.selected_pattern_counts[exercise.pattern_movimento] += 1
+        for muscle in _candidate_muscles(exercise):
+            self.selected_muscle_counts[muscle] += 1
+        self.selected_exercise_ids.add(exercise.id)
+        self.current_session_muscles.update(
+            _candidate_muscles(exercise) & _RECOVERY_SENSITIVE_MUSCLES
+        )
 
 
 def _resolve_target_muscles(slot: TSCanonicalSlot) -> set[str]:
@@ -56,6 +105,10 @@ def _difficulty_score(profile: TSScientificProfileResolved, exercise: RankableEx
     return _LEVEL_DIFFICULTY_SCORE.get(profile.livello_workout, {}).get(exercise.difficolta, 0)
 
 
+def _candidate_muscles(exercise: RankableExercise) -> set[str]:
+    return set(exercise.muscoli_primari) | set(exercise.muscoli_secondari)
+
+
 def _safety_adjustment(entry: ExerciseSafetyEntry | None) -> tuple[str | None, int, list[str], str | None]:
     severity = entry.severity if entry is not None else None
     rationale: list[str] = []
@@ -72,6 +125,106 @@ def _safety_adjustment(entry: ExerciseSafetyEntry | None) -> tuple[str | None, i
     return severity, _SEVERITY_PENALTY[severity], rationale, adaptation_hint
 
 
+def _pattern_balance_adjustment(
+    exercise: RankableExercise,
+    state: RankerSelectionState | None,
+) -> tuple[int, list[str]]:
+    if state is None:
+        return 0, []
+
+    rationale: list[str] = []
+    bonus = 0
+    penalty = 0
+    for primary_pattern, alternate_pattern in _PATTERN_BALANCE_PAIRS:
+        if exercise.pattern_movimento not in {primary_pattern, alternate_pattern}:
+            continue
+
+        primary_count = state.selected_pattern_counts[primary_pattern]
+        alternate_count = state.selected_pattern_counts[alternate_pattern]
+        delta = primary_count - alternate_count
+
+        if exercise.pattern_movimento == alternate_pattern and delta > 0:
+            bonus += min(10, delta * 4)
+            rationale.append("weekly_pattern_rebalance")
+        elif exercise.pattern_movimento == primary_pattern and delta >= 1:
+            penalty += min(10, delta * 4)
+            rationale.append("weekly_pattern_penalty")
+
+    return bonus - penalty, rationale
+
+
+def _quad_ham_adjustment(
+    exercise: RankableExercise,
+    state: RankerSelectionState | None,
+) -> tuple[int, list[str]]:
+    if state is None:
+        return 0, []
+
+    muscles = _candidate_muscles(exercise)
+    quad_count = sum(state.selected_muscle_counts[muscle] for muscle in _QUAD_MUSCLES)
+    ham_count = sum(state.selected_muscle_counts[muscle] for muscle in _HAMSTRINGS_MUSCLES)
+
+    is_quad = exercise.pattern_movimento == "squat" or bool(muscles & _QUAD_MUSCLES)
+    is_ham = exercise.pattern_movimento == "hinge" or bool(muscles & _HAMSTRINGS_MUSCLES)
+
+    rationale: list[str] = []
+    if is_ham and quad_count > ham_count:
+        rationale.append("posterior_chain_rebalance")
+        return min(10, (quad_count - ham_count) * 3), rationale
+    if is_quad and ham_count + 1 < quad_count:
+        rationale.append("quad_dominance_penalty")
+        return -min(8, (quad_count - ham_count) * 2), rationale
+    return 0, rationale
+
+
+def _frequency_adjustment(
+    exercise: RankableExercise,
+    state: RankerSelectionState | None,
+) -> tuple[int, list[str]]:
+    if state is None:
+        return 0, []
+
+    muscles = _candidate_muscles(exercise)
+    bonus = 0
+    rationale: list[str] = []
+
+    if muscles & _HAMSTRINGS_MUSCLES:
+        ham_count = sum(state.selected_muscle_counts[muscle] for muscle in _HAMSTRINGS_MUSCLES)
+        if ham_count < 2:
+            bonus += min(_FREQUENCY_BONUS_CAP, (2 - ham_count) * 6)
+            rationale.append("frequency_boost_hamstrings")
+
+    if "bicipiti" in muscles or "biceps" in muscles:
+        biceps_count = state.selected_muscle_counts["bicipiti"] + state.selected_muscle_counts["biceps"]
+        if biceps_count < 2:
+            bonus += min(_FREQUENCY_BONUS_CAP, (2 - biceps_count) * 5)
+            rationale.append("frequency_boost_biceps")
+
+    return bonus, rationale
+
+
+def _recovery_adjustment(
+    exercise: RankableExercise,
+    state: RankerSelectionState | None,
+) -> tuple[int, list[str]]:
+    if state is None or not state.previous_session_muscles:
+        return 0, []
+
+    overlap = _candidate_muscles(exercise) & state.previous_session_muscles & _RECOVERY_SENSITIVE_MUSCLES
+    if not overlap:
+        return 0, []
+    return -min(_RECOVERY_PENALTY_CAP, len(overlap) * 4), ["recovery_overlap_penalty"]
+
+
+def _uniqueness_adjustment(
+    exercise: RankableExercise,
+    state: RankerSelectionState | None,
+) -> tuple[int, list[str]]:
+    if state is None or exercise.id not in state.selected_exercise_ids:
+        return 0, []
+    return -6, ["weekly_uniqueness_penalty"]
+
+
 def rank_slot_candidates(
     *,
     slot: TSCanonicalSlot,
@@ -81,10 +234,11 @@ def rank_slot_candidates(
     excluded_exercise_ids: set[int],
     preferred_exercise_ids: set[int],
     pinned_exercise_id: int | None,
+    selection_state: RankerSelectionState | None = None,
     limit: int = 8,
 ) -> list[TSSlotCandidate]:
     """Ordina i candidati per slot con tie-break stabile e zero random."""
-    scored: list[TSSlotCandidate] = []
+    scored_payloads: list[dict[str, object]] = []
     for exercise in exercises:
         if exercise.id in excluded_exercise_ids:
             continue
@@ -100,10 +254,27 @@ def rank_slot_candidates(
 
         safety_entry = safety_entries.get(exercise.id)
         severity, safety_penalty, safety_rationale, adaptation_hint = _safety_adjustment(safety_entry)
+        pattern_balance_score, pattern_balance_rationale = _pattern_balance_adjustment(
+            exercise, selection_state
+        )
+        quad_ham_score, quad_ham_rationale = _quad_ham_adjustment(exercise, selection_state)
+        frequency_score, frequency_rationale = _frequency_adjustment(exercise, selection_state)
+        recovery_score, recovery_rationale = _recovery_adjustment(exercise, selection_state)
+        uniqueness_score, uniqueness_rationale = _uniqueness_adjustment(exercise, selection_state)
 
         total_score = max(
             0,
-            pattern_score + muscle_score + difficulty_score + preference_bonus + pin_bonus - safety_penalty,
+            pattern_score
+            + muscle_score
+            + difficulty_score
+            + preference_bonus
+            + pin_bonus
+            + pattern_balance_score
+            + quad_ham_score
+            + frequency_score
+            + recovery_score
+            + uniqueness_score
+            - safety_penalty,
         )
         bucket = _SEVERITY_BUCKET[severity]
         rationale = ["pattern_match"]
@@ -114,27 +285,32 @@ def rank_slot_candidates(
         if preference_bonus > 0:
             rationale.append("trainer_preference")
         rationale.extend(safety_rationale)
+        rationale.extend(pattern_balance_rationale)
+        rationale.extend(quad_ham_rationale)
+        rationale.extend(frequency_rationale)
+        rationale.extend(recovery_rationale)
+        rationale.extend(uniqueness_rationale)
 
-        scored.append(
-            TSSlotCandidate(
-                slot_id=slot.slot_id,
-                exercise_id=exercise.id,
-                rank=0,
-                total_score=total_score,
-                safety_severity=severity,
-                bucket=bucket,
-                rationale=rationale,
-                adaptation_hint=adaptation_hint,
-            )
+        scored_payloads.append(
+            {
+                "slot_id": slot.slot_id,
+                "exercise_id": exercise.id,
+                "total_score": total_score,
+                "safety_severity": severity,
+                "bucket": bucket,
+                "rationale": rationale,
+                "adaptation_hint": adaptation_hint,
+            }
         )
 
-    scored.sort(
+    scored_payloads.sort(
         key=lambda item: (
-            _BUCKET_ORDER[item.bucket],
-            -item.total_score,
-            item.exercise_id,
+            _BUCKET_ORDER[str(item["bucket"])],
+            -float(item["total_score"]),
+            int(item["exercise_id"]),
         )
     )
-    for index, candidate in enumerate(scored, start=1):
-        candidate.rank = index
-    return scored[:limit]
+    return [
+        TSSlotCandidate(rank=index, **payload)
+        for index, payload in enumerate(scored_payloads[:limit], start=1)
+    ]

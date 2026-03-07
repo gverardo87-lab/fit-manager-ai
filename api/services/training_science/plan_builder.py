@@ -52,6 +52,7 @@ from .muscle_contribution import (
     is_compound,
     get_contribution,
 )
+from .balance_ratios import BALANCE_RATIOS, analyze_balance
 from .volume_model import (
     get_scaled_volume_target,
 )
@@ -151,6 +152,9 @@ _MAX_ISOLATION_SESSIONE: dict[Livello, int] = {
 # delle ultime serie degrada significativamente).
 _MAX_SERIE_PER_SLOT = 6
 _MAX_COMPOUND_BOOST_PER_SESSION = 2
+_BALANCE_RATIO_BY_NAME = {ratio.nome: ratio for ratio in BALANCE_RATIOS}
+_PUSH_PATTERNS = {P.PUSH_H, P.PUSH_V}
+_POSTERIOR_CHAIN_ISOLATION_MUSCLES = {M.FEMORALI, M.GLUTEI}
 
 
 # ════════════════════════════════════════════════════════════
@@ -211,6 +215,113 @@ def _compute_plan_hypertrophy_volume(
         for slot in slots:
             all_slots.append((slot.pattern, slot.serie))
     return compute_hypertrophy_sets(all_slots)
+
+
+def _collect_plan_slots(
+    sessioni: list[tuple[RuoloSessione, list[SlotSessione]]],
+) -> list[tuple[P, int]]:
+    """Flatten del piano per analisi ratio e guardrail incrementali."""
+    all_slots: list[tuple[P, int]] = []
+    for _, slots in sessioni:
+        for slot in slots:
+            all_slots.append((slot.pattern, slot.serie))
+    return all_slots
+
+
+def _get_balance_ratio_value(
+    sessioni: list[tuple[RuoloSessione, list[SlotSessione]]],
+    ratio_name: str,
+) -> float:
+    """Legge un rapporto biomeccanico calcolato sul piano corrente."""
+    return analyze_balance(_collect_plan_slots(sessioni)).rapporti[ratio_name]
+
+
+def _get_balance_ratio_upper_bound(ratio_name: str) -> float:
+    ratio = _BALANCE_RATIO_BY_NAME[ratio_name]
+    return ratio.target + ratio.tolleranza
+
+
+def _get_balance_ratio_lower_bound(ratio_name: str) -> float:
+    ratio = _BALANCE_RATIO_BY_NAME[ratio_name]
+    return ratio.target - ratio.tolleranza
+
+
+def _max_add_without_push_pull_drift(
+    sessioni: list[tuple[RuoloSessione, list[SlotSessione]]],
+    pattern: P,
+    max_add: int,
+) -> int:
+    """
+    Riduce il boost push se porterebbe il rapporto Push:Pull oltre la tolleranza.
+
+    Scientific rationale:
+    - il boost compound deve correggere deficit di volume senza degradare
+      un rapporto biomeccanico gia' sensibile per la spalla.
+    """
+    if pattern not in _PUSH_PATTERNS:
+        return max_add
+
+    upper_bound = _get_balance_ratio_upper_bound("Push : Pull")
+    trial_slots = _collect_plan_slots(sessioni)
+    for add in range(max_add, 0, -1):
+        trial_balance = analyze_balance([*trial_slots, (pattern, add)])
+        if trial_balance.rapporti["Push : Pull"] <= upper_bound:
+            return add
+    return 0
+
+
+def _needs_quad_balance_correction(
+    sessioni: list[tuple[RuoloSessione, list[SlotSessione]]],
+) -> bool:
+    """True se il rapporto quad:femorali e' sotto la soglia accettabile."""
+    ratio = _get_balance_ratio_value(sessioni, "Quad : Ham")
+    return ratio < _get_balance_ratio_lower_bound("Quad : Ham")
+
+
+def _prioritize_isolation_deficits(
+    deficits: list[tuple[M, float]],
+    sessioni: list[tuple[RuoloSessione, list[SlotSessione]]],
+) -> list[tuple[M, float]]:
+    """Ordina i deficit isolation con priorita' quad-specifica quando Quad:Ham e' basso."""
+    if not _needs_quad_balance_correction(sessioni):
+        return deficits
+
+    def sort_key(item: tuple[M, float]) -> tuple[int, float]:
+        muscolo, deficit = item
+        if muscolo == M.QUADRICIPITI:
+            return (0, -deficit)
+        if muscolo in _POSTERIOR_CHAIN_ISOLATION_MUSCLES:
+            return (2, -deficit)
+        return (1, -deficit)
+
+    return sorted(deficits, key=sort_key)
+
+
+def _apply_quad_balance_correction(
+    sessioni: list[tuple[RuoloSessione, list[SlotSessione]]],
+    obiettivo: Obiettivo,
+    livello: Livello,
+) -> None:
+    """
+    Aggiunge una piccola correzione quad-specifica se Quad:Ham resta troppo basso.
+
+    Rationale:
+    - il volume quad puo' essere "ottimale" in ipertrofia pesata ma ancora
+      insufficiente per il rapporto biomeccanico di stabilita' del ginocchio.
+    - la correzione e' limitata e si ferma se i quadricipiti sono gia' a fine MAV.
+    """
+    if not _needs_quad_balance_correction(sessioni):
+        return
+
+    current_volume = _compute_plan_hypertrophy_volume(sessioni)
+    target = get_scaled_volume_target(M.QUADRICIPITI, livello, obiettivo)
+    current_quad = current_volume.get(M.QUADRICIPITI, 0.0)
+    if current_quad >= target.mav_max:
+        return
+
+    serie_iso = PARAMETRI_CARICO[obiettivo].serie_isolation[0]
+    correction = min(max(1.0, target.mav_min - current_quad), float(serie_iso))
+    _add_isolation_slots(sessioni, [(M.QUADRICIPITI, correction)], obiettivo, livello)
 
 
 def _find_compound_deficits(
@@ -290,6 +401,9 @@ def _boost_compound_series(
                     _MAX_COMPOUND_BOOST_PER_SESSION - session_boosts,
                     _MAX_SERIE_PER_SLOT - slot.serie,
                 )
+                add = _max_add_without_push_pull_drift(sessioni, slot.pattern, add)
+                if add <= 0:
+                    continue
                 slot.serie += add
                 boosts_done += add
                 session_boosts += add
@@ -357,6 +471,8 @@ def _add_isolation_slots(
     for i, (_, slots) in enumerate(sessioni):
         iso_count[i] = sum(1 for s in slots if s.priorita == OP.ISOLATION)
         slot_count[i] = len(slots)
+
+    deficits = _prioritize_isolation_deficits(deficits, sessioni)
 
     for muscolo, deficit in deficits:
         pattern_iso = ISOLAMENTO_PER_MUSCOLO[muscolo]
@@ -499,6 +615,7 @@ def build_plan(
     iso_deficits = _find_isolation_deficits(volume, livello, obiettivo)
     if iso_deficits:
         _add_isolation_slots(sessioni, iso_deficits, obiettivo, livello)
+    _apply_quad_balance_correction(sessioni, obiettivo, livello)
 
     # ── FASE 4: Feedback loop ──
     for _ in range(_MAX_FEEDBACK_ITERATIONS):
@@ -515,6 +632,7 @@ def build_plan(
         iso_deficits = _find_isolation_deficits(volume, livello, obiettivo)
         if iso_deficits:
             _add_isolation_slots(sessioni, iso_deficits, obiettivo, livello)
+        _apply_quad_balance_correction(sessioni, obiettivo, livello)
 
     # ── Costruisci TemplatePiano ──
     template_sessioni: list[TemplateSessione] = []
