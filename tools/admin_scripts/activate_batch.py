@@ -72,7 +72,8 @@ MIN_COMPLEMENTARY = {"stretching": 3, "avviamento": 10, "mobilita": 5}
 
 # Categorie che possono essere attivate senza foto (bodyweight semplice o stretching statico)
 # Richiedono comunque il campo 'esecuzione' compilato
-PHOTO_OPTIONAL_CATEGORIES = {"avviamento", "mobilita", "stretching"}
+# cardio: corsa/nuoto/ciclismo sono dinamici, non hanno start/end position fotografabile
+PHOTO_OPTIONAL_CATEGORIES = {"avviamento", "mobilita", "stretching", "cardio"}
 
 
 # ================================================================

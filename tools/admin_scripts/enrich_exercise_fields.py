@@ -114,10 +114,15 @@ MUSCOLI SECONDARI: {muscles_sec}"""
 ISTRUZIONI ESECUZIONE (gia' validate — usa come riferimento, NON rigenerarle):
 {esecuzione[:800]}"""
 
+    esecuzione_field = (
+        '"esecuzione": "istruzioni passo-passo dettagliate per eseguire l\'esercizio (4-6 frasi)",'
+        if not esecuzione else ""
+    )
+
     if cat in STRETCH_CATS:
         json_template = """{
   "force_type": "static",
-  "lateral_pattern": "bilateral|unilateral",
+  "lateral_pattern": "bilateral|unilateral",""" + (f'\n  {esecuzione_field}' if esecuzione_field else '') + """
   "descrizione_anatomica": "2-3 frasi: strutture allungate (muscoli, tendini, fasce), catena cinetica coinvolta",
   "descrizione_biomeccanica": "2-3 frasi: articolazioni mobilizzate, ROM target, leve anatomiche",
   "setup": "posizione iniziale dettagliata, appoggi, allineamento in 2-3 frasi",
@@ -132,7 +137,7 @@ ISTRUZIONI ESECUZIONE (gia' validate — usa come riferimento, NON rigenerarle):
     elif cat in WARMUP_CATS:
         json_template = """{
   "force_type": "static|push|pull",
-  "lateral_pattern": "bilateral|unilateral|alternating",
+  "lateral_pattern": "bilateral|unilateral|alternating",""" + (f'\n  {esecuzione_field}' if esecuzione_field else '') + """
   "descrizione_anatomica": "2 frasi: muscoli attivati, catena cinetica",
   "descrizione_biomeccanica": "2 frasi: articolazioni mobilizzate, pattern di movimento",
   "setup": "posizione iniziale in 1-2 frasi",
@@ -147,7 +152,7 @@ ISTRUZIONI ESECUZIONE (gia' validate — usa come riferimento, NON rigenerarle):
     else:
         json_template = """{
   "force_type": "push|pull|static",
-  "lateral_pattern": "bilateral|unilateral|alternating",
+  "lateral_pattern": "bilateral|unilateral|alternating",""" + (f'\n  {esecuzione_field}' if esecuzione_field else '') + """
   "descrizione_anatomica": "2-3 frasi: muscoli primari e secondari, loro ruolo, catena cinetica",
   "descrizione_biomeccanica": "2-3 frasi: leve articolari, curva di resistenza, angoli di lavoro ottimali",
   "setup": "posizione iniziale dettagliata: presa, piedi, schiena, allineamento in 2-3 frasi",
@@ -161,6 +166,12 @@ ISTRUZIONI ESECUZIONE (gia' validate — usa come riferimento, NON rigenerarle):
   "controindicazioni": ["2-3 condizioni mediche in cui evitare (specifiche, non generiche)"]
 }"""
 
+    esecuzione_rule = (
+        "- esecuzione: istruzioni passo-passo dettagliate (4-6 frasi, usa verbi imperativi)"
+        if not esecuzione else
+        "- NON rigenerare il campo esecuzione (gia' presente)"
+    )
+
     prompt = f"""{context}
 
 Genera la scheda descrittiva professionale. Rispondi con un JSON con QUESTA struttura:
@@ -173,7 +184,7 @@ REGOLE:
 - Coaching cues: brevi, azionabili (es. "Spingi col tallone", "Scapole addotte")
 - Errori comuni: 2-3 errori con correzione pratica specifica per QUESTO esercizio
 - Controindicazioni: condizioni mediche SPECIFICHE (es. "Sindrome del tunnel carpale", "Ernia inguinale")
-- NON generare il campo esecuzione (gia' presente)
+- {esecuzione_rule}
 - SOLO JSON valido"""
 
     return system, prompt
@@ -312,7 +323,7 @@ def enrich_db(db_path: str, model: str, batch_size: int = 0, category: str | Non
             if lp in VALID_LATERAL_PATTERNS and not ex["lateral_pattern"]:
                 fields["lateral_pattern"] = lp
 
-            for text_field in ["descrizione_anatomica", "descrizione_biomeccanica",
+            for text_field in ["esecuzione", "descrizione_anatomica", "descrizione_biomeccanica",
                                "setup", "respirazione", "tempo_consigliato"]:
                 val = data.get(text_field)
                 if val and isinstance(val, str) and len(val) > 10 and not ex[text_field]:
