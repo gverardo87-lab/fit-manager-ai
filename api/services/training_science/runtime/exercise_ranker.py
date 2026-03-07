@@ -10,6 +10,7 @@ from api.schemas.training_science import (
     TSSlotCandidate,
 )
 from .exercise_catalog import RankableExercise
+from .feasibility_engine import FeasibilityReport, _BEGINNER_POWER_SKILL_TOKENS
 from .mappings import MUSCLE_GROUP_TO_CATALOG, PATTERN_TO_CATALOG_PATTERNS
 
 _SEVERITY_BUCKET = {
@@ -51,15 +52,6 @@ _OBJECTIVE_REP_RANGE_ATTR = {
     "dimagrimento": "rep_range_ipertrofia",
     "resistenza": "rep_range_resistenza",
 }
-_BEGINNER_POWER_SKILL_TOKENS = (
-    "jump",
-    "salto",
-    "muscle-up",
-    "muscle up",
-    "plyo",
-)
-
-
 @dataclass
 class RankerSelectionState:
     """Stato incrementale del ranking per introdurre feedback settimanale."""
@@ -152,26 +144,6 @@ def _objective_alignment_adjustment(
         rationale.append("beginner_power_skill_penalty")
 
     return -penalty, rationale
-
-
-def _is_beginner_unsuitable_exercise(
-    profile: TSScientificProfileResolved,
-    exercise: RankableExercise,
-) -> bool:
-    if profile.livello_workout != "beginner":
-        return False
-
-    lower_name = exercise.nome.lower()
-    if exercise.difficolta == "advanced":
-        return True
-    if any(token in lower_name for token in _BEGINNER_POWER_SKILL_TOKENS):
-        return True
-    if (
-        exercise.categoria == "cardio"
-        and profile.obiettivo_scientifico.value != "resistenza"
-    ):
-        return True
-    return False
 
 
 def _safety_adjustment(entry: ExerciseSafetyEntry | None) -> tuple[str | None, int, list[str], str | None]:
@@ -299,14 +271,20 @@ def rank_slot_candidates(
     excluded_exercise_ids: set[int],
     preferred_exercise_ids: set[int],
     pinned_exercise_id: int | None,
+    feasibility: FeasibilityReport | None = None,
     selection_state: RankerSelectionState | None = None,
     limit: int = 8,
 ) -> list[TSSlotCandidate]:
-    """Ordina i candidati per slot con tie-break stabile e zero random."""
-    compatible_beginner_options_exist = any(
+    """Ordina i candidati per slot con tie-break stabile e zero random.
+
+    Se ``feasibility`` e' fornito, gli esercizi ``infeasible_for_auto_draft``
+    vengono esclusi dal draft automatico (a meno che non siano pinned/preferred).
+    Il ranker non fa piu' gate autonomi sulla suitability.
+    """
+    has_feasible_pattern_options = feasibility is not None and any(
         exercise.id not in excluded_exercise_ids
         and _pattern_score(slot, exercise) > 0
-        and not _is_beginner_unsuitable_exercise(profile, exercise)
+        and feasibility.is_feasible(exercise.id)
         for exercise in exercises
     )
 
@@ -318,9 +296,11 @@ def rank_slot_candidates(
         pattern_score = _pattern_score(slot, exercise)
         if pattern_score <= 0:
             continue
+
         if (
-            compatible_beginner_options_exist
-            and _is_beginner_unsuitable_exercise(profile, exercise)
+            feasibility is not None
+            and has_feasible_pattern_options
+            and feasibility.get_verdict(exercise.id) == "infeasible_for_auto_draft"
             and pinned_exercise_id != exercise.id
             and exercise.id not in preferred_exercise_ids
         ):

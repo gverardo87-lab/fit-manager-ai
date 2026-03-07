@@ -157,6 +157,14 @@ class TSWorkoutProjection(BaseModel):
     slot_bindings: list[TSSlotBinding] = Field(default_factory=list)
 
 
+class TSFeasibilitySummary(BaseModel):
+    """Contatori sintetici del feasibility engine pre-ranking."""
+
+    feasible_count: int = Field(ge=0)
+    discouraged_count: int = Field(ge=0)
+    infeasible_count: int = Field(ge=0)
+
+
 class TSPlanPackageEngineInfo(BaseModel):
     """Versioni dei sottosistemi che hanno costruito il package."""
 
@@ -216,4 +224,5 @@ class TSPlanPackage(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     protocol: TSPlanPackageProtocolInfo
     constraint_evaluation: TSConstraintEvaluationReport
+    feasibility_summary: TSFeasibilitySummary
     engine: TSPlanPackageEngineInfo

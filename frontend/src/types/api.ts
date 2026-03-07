@@ -1803,6 +1803,13 @@ export interface TSWorkoutProjection {
   slot_bindings: TSSlotBinding[];
 }
 
+/** Contatori sintetici del feasibility engine pre-ranking */
+export interface TSFeasibilitySummary {
+  feasible_count: number;
+  discouraged_count: number;
+  infeasible_count: number;
+}
+
 /** Versioni dei sottosistemi del package */
 export interface TSPlanPackageEngineInfo {
   planner_version: string;
@@ -1872,6 +1879,7 @@ export interface TSPlanPackage {
   warnings: string[];
   protocol: TSPlanPackageProtocolInfo;
   constraint_evaluation: TSConstraintEvaluationReport;
+  feasibility_summary: TSFeasibilitySummary;
   engine: TSPlanPackageEngineInfo;
 }
 

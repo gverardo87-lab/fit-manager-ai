@@ -6,6 +6,7 @@ from api.schemas.training_science import (
     TSCanonicalSession,
     TSCanonicalSlot,
     TSConstraintEvaluationReport,
+    TSFeasibilitySummary,
     TSPlanPackage,
     TSPlanPackageEngineInfo,
     TSPlanPackageProtocolInfo,
@@ -21,6 +22,7 @@ from sqlmodel import Session
 
 from .exercise_catalog import load_rankable_exercises
 from .exercise_ranker import RankerSelectionState, rank_slot_candidates
+from .feasibility_engine import compute_feasibility
 from .profile_resolver import resolve_plan_context
 
 
@@ -116,6 +118,11 @@ def build_plan_package(
     exercise_lookup = {exercise.id: exercise for exercise in exercises}
 
     safety_entries = context.safety_map.entries if context.safety_map is not None else {}
+    feasibility = compute_feasibility(
+        exercises=exercises,
+        profile=context.scientific_profile,
+        safety_entries=safety_entries,
+    )
     excluded_ids = set(request.trainer_overrides.excluded_exercise_ids)
     preferred_ids = set(request.trainer_overrides.preferred_exercise_ids)
     selection_state = RankerSelectionState()
@@ -136,6 +143,7 @@ def build_plan_package(
                 excluded_exercise_ids=excluded_ids,
                 preferred_exercise_ids=preferred_ids,
                 pinned_exercise_id=request.trainer_overrides.pinned_exercise_ids_by_slot.get(slot.slot_id),
+                feasibility=feasibility,
                 selection_state=selection_state,
             )
             rankings[slot.slot_id] = ranked
@@ -209,9 +217,14 @@ def build_plan_package(
             selection_rationale=list(protocol_selection.selection_rationale),
         ),
         constraint_evaluation=constraint_evaluation,
+        feasibility_summary=TSFeasibilitySummary(
+            feasible_count=feasibility.feasible_count,
+            discouraged_count=feasibility.discouraged_count,
+            infeasible_count=feasibility.infeasible_count,
+        ),
         engine=TSPlanPackageEngineInfo(
             planner_version="ts-plan-v1",
-            ranking_version="ts-rank-v1-stateful",
+            ranking_version="ts-rank-v2-feasibility",
             profile_version="ts-profile-v1",
         ),
     )
