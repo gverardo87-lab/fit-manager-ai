@@ -110,12 +110,6 @@ def build_plan_package(
         context.scientific_profile.livello_scientifico,
     )
     canonical_plan = _build_canonical_plan(template_plan)
-    constraint_evaluation: TSConstraintEvaluationReport = evaluate_protocol_constraints(
-        protocol_selection=protocol_selection,
-        canonical_plan=canonical_plan,
-        analyzer=analyze_plan(template_plan),
-        requested_frequenza=request.preset.frequenza,
-    )
     exercises = load_rankable_exercises(session, trainer.id)
     exercise_lookup = {exercise.id: exercise for exercise in exercises}
 
@@ -124,6 +118,14 @@ def build_plan_package(
         exercises=exercises,
         profile=context.scientific_profile,
         safety_entries=safety_entries,
+        protocol_id=protocol_selection.protocol.protocol_id,
+    )
+    constraint_evaluation: TSConstraintEvaluationReport = evaluate_protocol_constraints(
+        protocol_selection=protocol_selection,
+        canonical_plan=canonical_plan,
+        analyzer=analyze_plan(template_plan),
+        requested_frequenza=request.preset.frequenza,
+        feasibility=feasibility,
     )
     excluded_ids = set(request.trainer_overrides.excluded_exercise_ids)
     preferred_ids = set(request.trainer_overrides.preferred_exercise_ids)
@@ -147,6 +149,7 @@ def build_plan_package(
                 pinned_exercise_id=request.trainer_overrides.pinned_exercise_ids_by_slot.get(slot.slot_id),
                 feasibility=feasibility,
                 selection_state=selection_state,
+                protocol_id=protocol_selection.protocol.protocol_id,
             )
             rankings[slot.slot_id] = ranked
             if not ranked:
@@ -223,6 +226,14 @@ def build_plan_package(
             feasible_count=feasibility.feasible_count,
             discouraged_count=feasibility.discouraged_count,
             infeasible_count=feasibility.infeasible_count,
+            demand_ceiling_violations=feasibility.demand_ceiling_violations,
+            demand_family_exclusions=feasibility.demand_family_exclusions,
+            demand_family_discouraged=feasibility.demand_family_discouraged,
+            infeasible_by_beginner_gate=feasibility.infeasible_by_beginner_gate,
+            infeasible_by_safety=feasibility.infeasible_by_safety,
+            infeasible_by_demand=feasibility.infeasible_by_demand,
+            discouraged_by_safety=feasibility.discouraged_by_safety,
+            discouraged_by_demand=feasibility.discouraged_by_demand,
         ),
         validation=TSValidationMetadata(
             **ValidationMetadata.build(
@@ -233,7 +244,7 @@ def build_plan_package(
         ),
         engine=TSPlanPackageEngineInfo(
             planner_version="ts-plan-v1",
-            ranking_version="ts-rank-v2-feasibility",
+            ranking_version="ts-rank-v2-feasibility-demand",
             profile_version="ts-profile-v1",
         ),
     )

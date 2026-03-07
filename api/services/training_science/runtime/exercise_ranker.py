@@ -9,8 +9,17 @@ from api.schemas.training_science import (
     TSCanonicalSlot,
     TSSlotCandidate,
 )
+from api.services.training_science.demand.demand_registry import (
+    get_default_demand_vector,
+    get_protocol_ceiling,
+)
+
 from .exercise_catalog import RankableExercise
-from .feasibility_engine import FeasibilityReport, _BEGINNER_POWER_SKILL_TOKENS
+from .feasibility_engine import (
+    FeasibilityReport,
+    _BEGINNER_POWER_SKILL_TOKENS,
+    _resolve_pattern,
+)
 from .mappings import MUSCLE_GROUP_TO_CATALOG, PATTERN_TO_CATALOG_PATTERNS
 
 _SEVERITY_BUCKET = {
@@ -262,6 +271,54 @@ def _uniqueness_adjustment(
     return -6, ["weekly_uniqueness_penalty"]
 
 
+_DEMAND_DIMENSIONS = (
+    "skill_demand", "coordination_demand", "stability_demand",
+    "ballistic_demand", "impact_demand", "axial_load_demand",
+    "shoulder_complex_demand", "lumbar_load_demand", "grip_demand",
+    "metabolic_demand",
+)
+_DEMAND_PROXIMITY_MAX = 15
+
+
+def _demand_proximity_score(
+    exercise: RankableExercise,
+    protocol_id: str | None,
+) -> tuple[int, list[str]]:
+    """Bonus proporzionale alla distanza dal ceiling (headroom).
+
+    Esercizi con piu' margine rispetto ai limiti del protocollo ricevono un
+    bonus fino a _DEMAND_PROXIMITY_MAX punti. Puro e deterministico.
+    """
+    if protocol_id is None:
+        return 0, []
+    ceiling = get_protocol_ceiling(protocol_id)
+    if ceiling is None:
+        return 0, []
+    pattern = _resolve_pattern(exercise)
+    if pattern is None:
+        return 0, []
+
+    vector = get_default_demand_vector(pattern, exercise.difficolta or "intermediate")
+    total_headroom = 0
+    constrained_dims = 0
+    for dim in _DEMAND_DIMENSIONS:
+        max_val = getattr(ceiling, f"max_{dim}", None)
+        if max_val is None:
+            continue
+        constrained_dims += 1
+        headroom = max_val - getattr(vector, dim)
+        total_headroom += max(0, headroom)
+
+    if constrained_dims == 0:
+        return 0, []
+
+    normalized = total_headroom / (constrained_dims * 4)
+    bonus = round(normalized * _DEMAND_PROXIMITY_MAX)
+    if bonus > 0:
+        return bonus, ["demand_headroom_bonus"]
+    return 0, []
+
+
 def rank_slot_candidates(
     *,
     slot: TSCanonicalSlot,
@@ -273,6 +330,7 @@ def rank_slot_candidates(
     pinned_exercise_id: int | None,
     feasibility: FeasibilityReport | None = None,
     selection_state: RankerSelectionState | None = None,
+    protocol_id: str | None = None,
     limit: int = 8,
 ) -> list[TSSlotCandidate]:
     """Ordina i candidati per slot con tie-break stabile e zero random.
@@ -280,6 +338,9 @@ def rank_slot_candidates(
     Se ``feasibility`` e' fornito, gli esercizi ``infeasible_for_auto_draft``
     vengono esclusi dal draft automatico (a meno che non siano pinned/preferred).
     Il ranker non fa piu' gate autonomi sulla suitability.
+
+    v2: ``protocol_id`` abilita il demand proximity bonus — esercizi con
+    piu' headroom rispetto al ceiling del protocollo ricevono un bonus.
     """
     has_feasible_pattern_options = feasibility is not None and any(
         exercise.id not in excluded_exercise_ids
@@ -321,6 +382,7 @@ def rank_slot_candidates(
         frequency_score, frequency_rationale = _frequency_adjustment(exercise, selection_state)
         recovery_score, recovery_rationale = _recovery_adjustment(exercise, selection_state)
         uniqueness_score, uniqueness_rationale = _uniqueness_adjustment(exercise, selection_state)
+        demand_score, demand_rationale = _demand_proximity_score(exercise, protocol_id)
 
         total_score = max(
             0,
@@ -335,6 +397,7 @@ def rank_slot_candidates(
             + frequency_score
             + recovery_score
             + uniqueness_score
+            + demand_score
             - safety_penalty,
         )
         bucket = _SEVERITY_BUCKET[severity]
@@ -352,6 +415,7 @@ def rank_slot_candidates(
         rationale.extend(frequency_rationale)
         rationale.extend(recovery_rationale)
         rationale.extend(uniqueness_rationale)
+        rationale.extend(demand_rationale)
 
         scored_payloads.append(
             {

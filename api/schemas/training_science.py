@@ -163,6 +163,14 @@ class TSFeasibilitySummary(BaseModel):
     feasible_count: int = Field(ge=0)
     discouraged_count: int = Field(ge=0)
     infeasible_count: int = Field(ge=0)
+    demand_ceiling_violations: int = Field(default=0, ge=0)
+    demand_family_exclusions: int = Field(default=0, ge=0)
+    demand_family_discouraged: int = Field(default=0, ge=0)
+    infeasible_by_beginner_gate: int = Field(default=0, ge=0)
+    infeasible_by_safety: int = Field(default=0, ge=0)
+    infeasible_by_demand: int = Field(default=0, ge=0)
+    discouraged_by_safety: int = Field(default=0, ge=0)
+    discouraged_by_demand: int = Field(default=0, ge=0)
 
 
 class TSValidationMetadata(BaseModel):

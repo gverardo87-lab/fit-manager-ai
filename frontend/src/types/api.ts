@@ -1808,6 +1808,14 @@ export interface TSFeasibilitySummary {
   feasible_count: number;
   discouraged_count: number;
   infeasible_count: number;
+  demand_ceiling_violations: number;
+  demand_family_exclusions: number;
+  demand_family_discouraged: number;
+  infeasible_by_beginner_gate: number;
+  infeasible_by_safety: number;
+  infeasible_by_demand: number;
+  discouraged_by_safety: number;
+  discouraged_by_demand: number;
 }
 
 /** Tracciabilita' completa: versioni sottosistemi + riferimenti benchmark */

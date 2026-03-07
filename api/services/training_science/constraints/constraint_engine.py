@@ -1,4 +1,12 @@
-"""Primo constraint adapter read-only per il planner legacy SMART."""
+"""Constraint adapter read-only per il planner legacy SMART.
+
+v2: accetta FeasibilityReport opzionale e produce demand findings
+    (ceiling violations, family exclusions, per-source diagnostics).
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from api.schemas.training_science import (
     TSCanonicalPlan,
@@ -9,7 +17,10 @@ from api.schemas.training_science import (
 from api.services.training_science import AnalisiPiano, TipoSplit
 from api.services.training_science.registry import ProtocolSelectionResult
 
-CONSTRAINT_ENGINE_VERSION = "smart-constraint-v1"
+if TYPE_CHECKING:
+    from api.services.training_science.runtime.feasibility_engine import FeasibilityReport
+
+CONSTRAINT_ENGINE_VERSION = "smart-constraint-v2"
 
 
 def _expected_split(protocol_split_family: str) -> TipoSplit | None:
@@ -41,14 +52,81 @@ def _build_summary(findings: list[TSConstraintFinding]) -> TSConstraintEvaluatio
     )
 
 
+def _append_demand_findings(
+    findings: list[TSConstraintFinding],
+    feasibility: FeasibilityReport,
+) -> None:
+    """Aggiunge demand findings dal feasibility report al constraint report."""
+    if feasibility.demand_ceiling_violations > 0:
+        findings.append(
+            TSConstraintFinding(
+                rule_id="demand_ceiling_violations",
+                severity="soft_warning",
+                scope="weekly_plan",
+                status="warn",
+                message=(
+                    f"{feasibility.demand_ceiling_violations} esercizi superano il demand ceiling "
+                    f"del protocollo (esclusi dal draft automatico)."
+                ),
+            )
+        )
+
+    if feasibility.demand_family_exclusions > 0:
+        findings.append(
+            TSConstraintFinding(
+                rule_id="demand_family_exclusions",
+                severity="soft_warning",
+                scope="weekly_plan",
+                status="warn",
+                message=(
+                    f"{feasibility.demand_family_exclusions} esercizi esclusi per "
+                    f"famiglia biomeccanica incompatibile col protocollo."
+                ),
+            )
+        )
+
+    if feasibility.demand_family_discouraged > 0:
+        findings.append(
+            TSConstraintFinding(
+                rule_id="demand_family_discouraged",
+                severity="optimization_target",
+                scope="weekly_plan",
+                status="warn",
+                message=(
+                    f"{feasibility.demand_family_discouraged} esercizi scoraggiati per "
+                    f"famiglia biomeccanica (ammessi ma penalizzati)."
+                ),
+            )
+        )
+
+    if feasibility.infeasible_by_demand > 0:
+        findings.append(
+            TSConstraintFinding(
+                rule_id="demand_infeasible_count",
+                severity="optimization_target",
+                scope="weekly_plan",
+                status="warn",
+                message=(
+                    f"{feasibility.infeasible_by_demand} esercizi classificati infeasible "
+                    f"dal demand layer (ceiling + family)."
+                ),
+            )
+        )
+
+
 def evaluate_protocol_constraints(
     *,
     protocol_selection: ProtocolSelectionResult,
     canonical_plan: TSCanonicalPlan,
     analyzer: AnalisiPiano,
     requested_frequenza: int,
+    feasibility: FeasibilityReport | None = None,
 ) -> TSConstraintEvaluationReport:
-    """Valuta il piano legacy rispetto al protocollo selezionato, senza enforcement."""
+    """Valuta il piano legacy rispetto al protocollo selezionato, senza enforcement.
+
+    v2: se ``feasibility`` e' fornito, aggiunge demand findings
+    (ceiling violations, family exclusions, diagnostica per-source).
+    """
     findings: list[TSConstraintFinding] = []
     protocol = protocol_selection.protocol
 
@@ -185,6 +263,9 @@ def evaluate_protocol_constraints(
                     message=warning,
                 )
             )
+
+    if feasibility is not None:
+        _append_demand_findings(findings, feasibility)
 
     return TSConstraintEvaluationReport(
         protocol_id=protocol.protocol_id,
