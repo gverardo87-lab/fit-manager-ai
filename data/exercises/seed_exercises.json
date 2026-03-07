@@ -555,7 +555,7 @@
     "nome": "Estensione Gambe",
     "nome_en": "Leg Extension",
     "categoria": "isolation",
-    "pattern_movimento": "squat",
+    "pattern_movimento": "leg_extension",
     "muscoli_primari": [
       "quadriceps"
     ],
@@ -997,7 +997,7 @@
     "nome": "Curl Gambe",
     "nome_en": "Leg Curl",
     "categoria": "isolation",
-    "pattern_movimento": "hinge",
+    "pattern_movimento": "leg_curl",
     "muscoli_primari": [
       "hamstrings"
     ],
@@ -1051,7 +1051,7 @@
     "nome": "Leg Curl Seduto",
     "nome_en": "Seated Leg Curl",
     "categoria": "isolation",
-    "pattern_movimento": "hinge",
+    "pattern_movimento": "leg_curl",
     "muscoli_primari": [
       "hamstrings"
     ],
@@ -1270,7 +1270,7 @@
     "nome": "Rialzi Sulle Punte",
     "nome_en": "Standing Calf Raises",
     "categoria": "isolation",
-    "pattern_movimento": "squat",
+    "pattern_movimento": "calf_raise",
     "muscoli_primari": [
       "calves"
     ],
@@ -1322,7 +1322,7 @@
     "nome": "Calf Raise Seduto",
     "nome_en": "Seated Calf Raises",
     "categoria": "isolation",
-    "pattern_movimento": "squat",
+    "pattern_movimento": "calf_raise",
     "muscoli_primari": [
       "calves"
     ],
@@ -2346,7 +2346,7 @@
     "nome": "Alzate Laterali",
     "nome_en": "Lateral Raises",
     "categoria": "isolation",
-    "pattern_movimento": "push_v",
+    "pattern_movimento": "lateral_raise",
     "muscoli_primari": [
       "shoulders"
     ],
@@ -2400,7 +2400,7 @@
     "nome": "Alzate Laterali Cavi",
     "nome_en": "Cable Lateral Raise",
     "categoria": "isolation",
-    "pattern_movimento": "push_v",
+    "pattern_movimento": "lateral_raise",
     "muscoli_primari": [
       "shoulders"
     ],
@@ -2454,7 +2454,7 @@
     "nome": "Alzate Posteriori",
     "nome_en": "Rear Delt Fly",
     "categoria": "isolation",
-    "pattern_movimento": "pull_h",
+    "pattern_movimento": "face_pull",
     "muscoli_primari": [
       "shoulders"
     ],
@@ -2507,7 +2507,7 @@
     "nome": "Pectoral Machine Inversa",
     "nome_en": "Reverse Pec Deck",
     "categoria": "isolation",
-    "pattern_movimento": "pull_h",
+    "pattern_movimento": "face_pull",
     "muscoli_primari": [
       "shoulders"
     ],
@@ -2830,7 +2830,7 @@
     "nome": "Alzate Frontali",
     "nome_en": "Front Raise",
     "categoria": "isolation",
-    "pattern_movimento": "push_v",
+    "pattern_movimento": "lateral_raise",
     "muscoli_primari": [
       "shoulders"
     ],
@@ -3318,7 +3318,7 @@
     "nome": "Face Pull Cavi",
     "nome_en": "Face Pull",
     "categoria": "isolation",
-    "pattern_movimento": "pull_v",
+    "pattern_movimento": "face_pull",
     "muscoli_primari": [
       "shoulders",
       "traps"
@@ -3588,7 +3588,7 @@
     "nome": "Curl Bilanciere",
     "nome_en": "Barbell Curl",
     "categoria": "isolation",
-    "pattern_movimento": "pull_h",
+    "pattern_movimento": "curl",
     "muscoli_primari": [
       "biceps"
     ],
@@ -3640,7 +3640,7 @@
     "nome": "Curl Manubri",
     "nome_en": "Dumbbell Curl",
     "categoria": "isolation",
-    "pattern_movimento": "pull_h",
+    "pattern_movimento": "curl",
     "muscoli_primari": [
       "biceps"
     ],
@@ -3694,7 +3694,7 @@
     "nome": "Curl Martello",
     "nome_en": "Hammer Curl",
     "categoria": "isolation",
-    "pattern_movimento": "pull_h",
+    "pattern_movimento": "curl",
     "muscoli_primari": [
       "biceps"
     ],
@@ -3747,7 +3747,7 @@
     "nome": "Curl Panca Scott",
     "nome_en": "Preacher Curl",
     "categoria": "isolation",
-    "pattern_movimento": "pull_h",
+    "pattern_movimento": "curl",
     "muscoli_primari": [
       "biceps"
     ],
@@ -3800,7 +3800,7 @@
     "nome": "Curl Cavi",
     "nome_en": "Cable Curl",
     "categoria": "isolation",
-    "pattern_movimento": "pull_h",
+    "pattern_movimento": "curl",
     "muscoli_primari": [
       "biceps"
     ],
@@ -3853,7 +3853,7 @@
     "nome": "Curl Manubri Panca Inclinata",
     "nome_en": "Incline Dumbbell Curl",
     "categoria": "isolation",
-    "pattern_movimento": "pull_h",
+    "pattern_movimento": "curl",
     "muscoli_primari": [
       "biceps"
     ],
@@ -3908,7 +3908,7 @@
     "nome": "Curl Concentrato",
     "nome_en": "Concentration Curl",
     "categoria": "isolation",
-    "pattern_movimento": "pull_h",
+    "pattern_movimento": "curl",
     "muscoli_primari": [
       "biceps"
     ],
@@ -3961,7 +3961,7 @@
     "nome": "Curl Barra EZ",
     "nome_en": "EZ Bar Curl",
     "categoria": "isolation",
-    "pattern_movimento": "pull_h",
+    "pattern_movimento": "curl",
     "muscoli_primari": [
       "biceps"
     ],
@@ -4015,7 +4015,7 @@
     "nome": "Spider Curl",
     "nome_en": "Spider Curl",
     "categoria": "isolation",
-    "pattern_movimento": "pull_h",
+    "pattern_movimento": "curl",
     "muscoli_primari": [
       "biceps"
     ],
@@ -4068,7 +4068,7 @@
     "nome": "French Press",
     "nome_en": "Skull Crusher",
     "categoria": "isolation",
-    "pattern_movimento": "push_h",
+    "pattern_movimento": "extension_tri",
     "muscoli_primari": [
       "triceps"
     ],
@@ -4121,7 +4121,7 @@
     "nome": "Estensione Tricipiti Sopra Testa",
     "nome_en": "Overhead Tricep Extension",
     "categoria": "isolation",
-    "pattern_movimento": "push_v",
+    "pattern_movimento": "extension_tri",
     "muscoli_primari": [
       "triceps"
     ],
@@ -4175,7 +4175,7 @@
     "nome": "Spinta Tricipiti Corda",
     "nome_en": "Rope Tricep Pushdown",
     "categoria": "isolation",
-    "pattern_movimento": "push_v",
+    "pattern_movimento": "extension_tri",
     "muscoli_primari": [
       "triceps"
     ],
@@ -4227,7 +4227,7 @@
     "nome": "Pushdown Cavi",
     "nome_en": "Cable Pushdown",
     "categoria": "isolation",
-    "pattern_movimento": "push_v",
+    "pattern_movimento": "extension_tri",
     "muscoli_primari": [
       "triceps"
     ],
@@ -4279,7 +4279,7 @@
     "nome": "Tricep Kickback",
     "nome_en": "Tricep Kickback",
     "categoria": "isolation",
-    "pattern_movimento": "push_h",
+    "pattern_movimento": "extension_tri",
     "muscoli_primari": [
       "triceps"
     ],
@@ -4332,7 +4332,7 @@
     "nome": "Estensione Overhead Cavi",
     "nome_en": "Cable Overhead Extension",
     "categoria": "isolation",
-    "pattern_movimento": "push_v",
+    "pattern_movimento": "extension_tri",
     "muscoli_primari": [
       "triceps"
     ],
@@ -4492,7 +4492,7 @@
     "nome": "Curl Polso",
     "nome_en": "Wrist Curl",
     "categoria": "isolation",
-    "pattern_movimento": "pull_h",
+    "pattern_movimento": "curl",
     "muscoli_primari": [
       "forearms"
     ],
@@ -4546,7 +4546,7 @@
     "nome": "Curl Polso Inverso",
     "nome_en": "Reverse Wrist Curl",
     "categoria": "isolation",
-    "pattern_movimento": "pull_h",
+    "pattern_movimento": "curl",
     "muscoli_primari": [
       "forearms"
     ],
@@ -6010,7 +6010,7 @@
     "nome": "Aperture Elastico",
     "nome_en": "Band Pull Apart",
     "categoria": "isolation",
-    "pattern_movimento": "pull_h",
+    "pattern_movimento": "face_pull",
     "muscoli_primari": [
       "shoulders",
       "back"
@@ -6066,7 +6066,7 @@
     "nome": "Face Pull Elastico",
     "nome_en": "Band Face Pull",
     "categoria": "isolation",
-    "pattern_movimento": "pull_v",
+    "pattern_movimento": "face_pull",
     "muscoli_primari": [
       "shoulders",
       "traps"
@@ -7843,7 +7843,7 @@
     "nome": "Calf Raise in Piedi al Bilanciere",
     "nome_en": "Standing Barbell Calf Raise",
     "categoria": "isolation",
-    "pattern_movimento": "squat",
+    "pattern_movimento": "calf_raise",
     "muscoli_primari": [
       "calves"
     ],
@@ -7896,7 +7896,7 @@
     "nome": "Calf Raise in Piedi ai Manubri",
     "nome_en": "Standing Dumbbell Calf Raise",
     "categoria": "isolation",
-    "pattern_movimento": "squat",
+    "pattern_movimento": "calf_raise",
     "muscoli_primari": [
       "calves"
     ],
@@ -7950,7 +7950,7 @@
     "nome": "Calf Raise alla Macchina in Piedi",
     "nome_en": "Standing Machine Calf Raise",
     "categoria": "isolation",
-    "pattern_movimento": "squat",
+    "pattern_movimento": "calf_raise",
     "muscoli_primari": [
       "calves"
     ],
@@ -8004,7 +8004,7 @@
     "nome": "Donkey Calf Raise",
     "nome_en": "Donkey Calf Raise",
     "categoria": "isolation",
-    "pattern_movimento": "squat",
+    "pattern_movimento": "calf_raise",
     "muscoli_primari": [
       "calves"
     ],
@@ -8058,7 +8058,7 @@
     "nome": "Calf Press alla Leg Press",
     "nome_en": "Calf Press on Leg Press",
     "categoria": "isolation",
-    "pattern_movimento": "squat",
+    "pattern_movimento": "calf_raise",
     "muscoli_primari": [
       "calves"
     ],
@@ -8110,7 +8110,7 @@
     "nome": "Calf Raise al Multipower",
     "nome_en": "Smith Machine Calf Raise",
     "categoria": "isolation",
-    "pattern_movimento": "squat",
+    "pattern_movimento": "calf_raise",
     "muscoli_primari": [
       "calves"
     ],
@@ -8162,7 +8162,7 @@
     "nome": "Adduzione con Elastico",
     "nome_en": "Band Hip Adduction",
     "categoria": "isolation",
-    "pattern_movimento": "squat",
+    "pattern_movimento": "adductor",
     "muscoli_primari": [
       "adductors"
     ],
@@ -8272,7 +8272,7 @@
     "nome": "Adduzione al Cavo Basso",
     "nome_en": "Cable Hip Adduction",
     "categoria": "isolation",
-    "pattern_movimento": "squat",
+    "pattern_movimento": "adductor",
     "muscoli_primari": [
       "adductors"
     ],
@@ -8325,7 +8325,7 @@
     "nome": "Adduzione Laterale a Terra",
     "nome_en": "Side-Lying Hip Adduction",
     "categoria": "isolation",
-    "pattern_movimento": "squat",
+    "pattern_movimento": "adductor",
     "muscoli_primari": [
       "adductors"
     ],
@@ -8986,7 +8986,7 @@
     "nome": "Curl Inverso Bilanciere",
     "nome_en": "Reverse Barbell Curl",
     "categoria": "isolation",
-    "pattern_movimento": "pull_h",
+    "pattern_movimento": "curl",
     "muscoli_primari": [
       "forearms",
       "biceps"
@@ -11429,7 +11429,7 @@
     "nome": "Curl a Martello Alternato",
     "nome_en": "Alternate Hammer Curl",
     "categoria": "isolation",
-    "pattern_movimento": "pull_h",
+    "pattern_movimento": "curl",
     "muscoli_primari": [
       "biceps"
     ],
@@ -11482,7 +11482,7 @@
     "nome": "Curl Inclinato Alternato a Manubrio",
     "nome_en": "Alternate Incline Dumbbell Curl",
     "categoria": "isolation",
-    "pattern_movimento": "pull_h",
+    "pattern_movimento": "curl",
     "muscoli_primari": [
       "biceps"
     ],
@@ -11646,7 +11646,7 @@
     "nome": "Elevazioni Laterali Alternata",
     "nome_en": "Alternating Deltoid Raise",
     "categoria": "isolation",
-    "pattern_movimento": "push_v",
+    "pattern_movimento": "lateral_raise",
     "muscoli_primari": [
       "shoulders"
     ],
@@ -12593,7 +12593,7 @@
     "nome": "Leg Curl con Palla Svizzera",
     "nome_en": "Ball Leg Curl",
     "categoria": "isolation",
-    "pattern_movimento": "hinge",
+    "pattern_movimento": "leg_curl",
     "muscoli_primari": [
       "hamstrings"
     ],
@@ -12704,7 +12704,7 @@
     "nome": "Addurrezioni con Band",
     "nome_en": "Band Hip Adductions",
     "categoria": "isolation",
-    "pattern_movimento": "core",
+    "pattern_movimento": "adductor",
     "muscoli_primari": [
       "adductors"
     ],
@@ -12757,7 +12757,7 @@
     "nome": "French Press a Banda",
     "nome_en": "Band Skull Crusher",
     "categoria": "isolation",
-    "pattern_movimento": "push_h",
+    "pattern_movimento": "extension_tri",
     "muscoli_primari": [
       "triceps"
     ],
@@ -12864,7 +12864,7 @@
     "nome": "Curl su Panca Inclinata",
     "nome_en": "Barbell Curls Lying Against An Incline",
     "categoria": "isolation",
-    "pattern_movimento": "pull_h",
+    "pattern_movimento": "curl",
     "muscoli_primari": [
       "biceps"
     ],
@@ -13365,7 +13365,7 @@
     "nome": "Alzate posteriori con manubri, testa sulla panca",
     "nome_en": "Bent Over Dumbbell Rear Delt Raise With Head On Bench",
     "categoria": "isolation",
-    "pattern_movimento": "pull_h",
+    "pattern_movimento": "face_pull",
     "muscoli_primari": [
       "shoulders"
     ],
@@ -13585,7 +13585,7 @@
     "nome": "Estensione Tricipiti",
     "nome_en": "Body Tricep Press",
     "categoria": "isolation",
-    "pattern_movimento": "push_h",
+    "pattern_movimento": "extension_tri",
     "muscoli_primari": [
       "triceps"
     ],
@@ -13800,7 +13800,7 @@
     "nome": "Curl Polsi al Cavo",
     "nome_en": "Cable Wrist Curl",
     "categoria": "isolation",
-    "pattern_movimento": "carry",
+    "pattern_movimento": "curl",
     "muscoli_primari": [
       "forearms"
     ],
@@ -14870,7 +14870,7 @@
     "nome": "Curl Pollici",
     "nome_en": "Finger Curls",
     "categoria": "isolation",
-    "pattern_movimento": "carry",
+    "pattern_movimento": "curl",
     "muscoli_primari": [
       "forearms"
     ],
@@ -16564,7 +16564,7 @@
     "nome": "Ponte Gluteo a Gamba Singola",
     "nome_en": "Single Leg Glute Bridge",
     "categoria": "isolation",
-    "pattern_movimento": "hinge",
+    "pattern_movimento": "hip_thrust",
     "muscoli_primari": [
       "glutes"
     ],

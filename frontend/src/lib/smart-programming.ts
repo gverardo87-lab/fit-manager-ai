@@ -1783,18 +1783,30 @@ export function computeSmartAnalysis(
  */
 function patternToMuscleRoles(pattern: string): { primari: string[]; secondari: string[] } {
   const map: Record<string, { primari: string[]; secondari: string[] }> = {
-    squat:    { primari: ["quadricipiti"],                  secondari: ["glutei", "femorali", "adduttori"] },
-    hinge:    { primari: ["femorali", "glutei"],           secondari: ["dorsali"] },
-    push_h:   { primari: ["petto"],                        secondari: ["tricipiti", "spalle"] },
-    push_v:   { primari: ["spalle"],                       secondari: ["tricipiti"] },
-    pull_h:   { primari: ["dorsali"],                      secondari: ["bicipiti", "trapezio"] },
-    pull_v:   { primari: ["dorsali"],                      secondari: ["bicipiti"] },
-    core:     { primari: ["core"],                         secondari: [] },
-    rotation: { primari: ["core"],                         secondari: ["spalle"] },
-    carry:    { primari: ["core", "avambracci"],           secondari: ["trapezio"] },
-    warmup:   { primari: [],                               secondari: [] },
-    stretch:  { primari: [],                               secondari: [] },
-    mobility: { primari: [],                               secondari: [] },
+    // Compound patterns
+    squat:         { primari: ["quadricipiti"],                  secondari: ["glutei", "femorali", "adduttori"] },
+    hinge:         { primari: ["femorali", "glutei"],           secondari: ["dorsali"] },
+    push_h:        { primari: ["petto"],                        secondari: ["tricipiti", "spalle"] },
+    push_v:        { primari: ["spalle"],                       secondari: ["tricipiti"] },
+    pull_h:        { primari: ["dorsali"],                      secondari: ["bicipiti", "trapezio"] },
+    pull_v:        { primari: ["dorsali"],                      secondari: ["bicipiti"] },
+    core:          { primari: ["core"],                         secondari: [] },
+    rotation:      { primari: ["core"],                         secondari: ["spalle"] },
+    carry:         { primari: ["core", "avambracci"],           secondari: ["trapezio"] },
+    // Isolation patterns
+    curl:          { primari: ["bicipiti"],                     secondari: ["avambracci"] },
+    extension_tri: { primari: ["tricipiti"],                    secondari: [] },
+    lateral_raise: { primari: ["spalle"],                       secondari: [] },
+    face_pull:     { primari: ["spalle"],                       secondari: ["trapezio"] },
+    calf_raise:    { primari: ["polpacci"],                     secondari: [] },
+    leg_curl:      { primari: ["femorali"],                     secondari: [] },
+    leg_extension: { primari: ["quadricipiti"],                 secondari: [] },
+    hip_thrust:    { primari: ["glutei"],                       secondari: ["femorali"] },
+    adductor:      { primari: ["adduttori"],                    secondari: [] },
+    // Non-training
+    warmup:        { primari: [],                               secondari: [] },
+    stretch:       { primari: [],                               secondari: [] },
+    mobility:      { primari: [],                               secondari: [] },
   };
   return map[pattern] ?? { primari: [], secondari: [] };
 }
