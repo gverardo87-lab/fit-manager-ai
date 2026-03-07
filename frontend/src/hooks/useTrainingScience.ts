@@ -23,6 +23,8 @@ import type {
   TSAnalisiPiano,
   TSMesociclo,
   TSParametriCarico,
+  TSPlanPackage,
+  TSPlanPackageRequest,
   TSVolumeTarget,
 } from "@/types/api";
 
@@ -47,6 +49,23 @@ export function useGenerateScientificPlan() {
     },
     onError: (error) => {
       toast.error(extractErrorMessage(error, "Errore nella generazione del piano"));
+    },
+  });
+}
+
+export function useGeneratePlanPackage() {
+  return useMutation<TSPlanPackage, Error, TSPlanPackageRequest>({
+    mutationFn: async (input) => {
+      const { data } = await apiClient.post<TSPlanPackage>(
+        "/training-science/plan-package",
+        input,
+      );
+      return data;
+    },
+    onError: (error) => {
+      toast.error(
+        extractErrorMessage(error, "Errore nella generazione del plan package"),
+      );
     },
   });
 }
