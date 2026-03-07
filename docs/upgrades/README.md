@@ -34,7 +34,12 @@ Esempio:
 - `rolled_back`
 - `superseded`
 
-## Ultimo allineamento (2026-03-06)
+## Ultimo allineamento (2026-03-07)
+
+- `UPG-2026-03-07-35`: Training Science Engine phase 1/2 con matrice EMG, volume model MEV/MAV/MRV, generatore piano 4 fasi e analizzatore 4D.
+- `UPG-2026-03-07-36`: periodizzazione a blocchi con progressione volume lineare e deload 50%, piu' modelli `SettimanaConfig`/`Mesociclo`.
+- `UPG-2026-03-07-37`: esposizione REST del motore scientifico con 5 endpoint JWT auth e zero dipendenza dal DB.
+- `UPG-2026-03-07-38`: riallineata la baseline progetto `.codex/config.toml` a `gpt-5.4` con profili CLI `quick/deep/safe`, mantenendo il file repo privo di preferenze macchina/personali.
 
 - `UPG-2026-03-04-01`: dual-DB + backup v2.0 bank-grade.
 - `UPG-2026-03-04-02`: export clinico schede (HTML locale -> PDF) con logo e foto embedded.
