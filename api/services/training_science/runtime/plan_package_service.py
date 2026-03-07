@@ -6,6 +6,7 @@ from api.schemas.training_science import (
     TSCanonicalSession,
     TSCanonicalSlot,
     TSConstraintEvaluationReport,
+    TSExerciseFeasibilityEntry,
     TSFeasibilitySummary,
     TSPlanPackage,
     TSPlanPackageEngineInfo,
@@ -235,6 +236,14 @@ def build_plan_package(
             discouraged_by_safety=feasibility.discouraged_by_safety,
             discouraged_by_demand=feasibility.discouraged_by_demand,
         ),
+        feasibility_details={
+            eid: TSExerciseFeasibilityEntry(
+                verdict=entry.verdict,
+                reason_codes=list(entry.reason_codes),
+            )
+            for eid, entry in feasibility.entries.items()
+            if entry.verdict != "feasible"
+        },
         validation=TSValidationMetadata(
             **ValidationMetadata.build(
                 protocol_id=protocol_selection.protocol.protocol_id,

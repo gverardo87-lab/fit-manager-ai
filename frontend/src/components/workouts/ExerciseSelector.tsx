@@ -29,7 +29,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 import { useExercises } from "@/hooks/useExercises";
 import { ExerciseDetailPanel } from "./ExerciseDetailPanel";
-import type { Exercise, ExerciseSafetyEntry } from "@/types/api";
+import type { Exercise, ExerciseSafetyEntry, TSExerciseFeasibilityEntry } from "@/types/api";
 import {
   MUSCLE_LABELS,
   EQUIPMENT_LABELS,
@@ -119,6 +119,8 @@ interface ExerciseSelectorProps {
   schedaId?: number;
   /** Set di exercise ID gia' presenti nella scheda (per badge "In scheda") */
   usedExerciseIds?: Set<number>;
+  /** Feasibility per-esercizio dal plan-package SMART (solo non-feasible) */
+  feasibilityDetails?: Record<number, TSExerciseFeasibilityEntry>;
 }
 
 // ── Chip labels compatte per pattern ──
@@ -170,6 +172,7 @@ export function ExerciseSelector({
   safetyMap,
   schedaId,
   usedExerciseIds,
+  feasibilityDetails,
 }: ExerciseSelectorProps) {
   // ── Filter state ──
   const [rawSearch, setRawSearch] = useState("");
@@ -687,6 +690,7 @@ export function ExerciseSelector({
                         onSelect={handleSelect}
                         onSelectById={handleSelectById}
                         exerciseMap={exerciseMap}
+                        feasibility={feasibilityDetails?.[exercise.id]}
                       />
                     ))}
                   </div>
@@ -709,6 +713,7 @@ export function ExerciseSelector({
                     onSelect={handleSelect}
                     onSelectById={handleSelectById}
                     exerciseMap={exerciseMap}
+                    feasibility={feasibilityDetails?.[exercise.id]}
                   />
                 ))}
               </div>
@@ -782,6 +787,7 @@ const ExerciseRow = memo(function ExerciseRow({
   onSelect,
   onSelectById,
   exerciseMap,
+  feasibility,
 }: {
   exercise: Exercise;
   safety?: ExerciseSafetyEntry;
@@ -795,6 +801,7 @@ const ExerciseRow = memo(function ExerciseRow({
   onSelect: (e: Exercise) => void;
   onSelectById?: (exerciseId: number) => void;
   exerciseMap: Map<number, Exercise>;
+  feasibility?: TSExerciseFeasibilityEntry;
 }) {
   // Muscoli in italiano
   const muscleLabel = exercise.muscoli_primari
@@ -833,6 +840,18 @@ const ExerciseRow = memo(function ExerciseRow({
             {isUsed && (
               <span className="shrink-0 inline-flex items-center rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary">
                 In scheda
+              </span>
+            )}
+            {feasibility && (
+              <span
+                className={`shrink-0 inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-medium leading-none ${
+                  feasibility.verdict === "infeasible_for_auto_draft"
+                    ? "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-400"
+                    : "bg-violet-100 text-violet-700 dark:bg-violet-950/50 dark:text-violet-400"
+                }`}
+                title={feasibility.reason_codes.join(", ")}
+              >
+                {feasibility.verdict === "infeasible_for_auto_draft" ? "Escluso" : "Scoraggiato"}
               </span>
             )}
             {safety && (

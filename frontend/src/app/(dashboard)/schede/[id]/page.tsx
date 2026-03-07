@@ -2022,6 +2022,7 @@ export default function SchedaDetailPage({
         safetyMap={safetyEntries}
         schedaId={id}
         usedExerciseIds={usedExerciseIds}
+        feasibilityDetails={smartPlanPackage?.feasibility_details}
       />
 
       {/* Save bar sticky: riduce frizione su schede lunghe (CTA sempre visibile). */}

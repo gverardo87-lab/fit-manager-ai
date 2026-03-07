@@ -157,6 +157,16 @@ class TSWorkoutProjection(BaseModel):
     slot_bindings: list[TSSlotBinding] = Field(default_factory=list)
 
 
+TSFeasibilityVerdict = Literal["feasible", "discouraged", "infeasible_for_auto_draft"]
+
+
+class TSExerciseFeasibilityEntry(BaseModel):
+    """Verdetto per-esercizio del feasibility engine (esposto al frontend)."""
+
+    verdict: TSFeasibilityVerdict
+    reason_codes: list[str] = Field(default_factory=list)
+
+
 class TSFeasibilitySummary(BaseModel):
     """Contatori sintetici del feasibility engine pre-ranking."""
 
@@ -246,5 +256,6 @@ class TSPlanPackage(BaseModel):
     protocol: TSPlanPackageProtocolInfo
     constraint_evaluation: TSConstraintEvaluationReport
     feasibility_summary: TSFeasibilitySummary
+    feasibility_details: dict[int, TSExerciseFeasibilityEntry] = Field(default_factory=dict)
     validation: TSValidationMetadata
     engine: TSPlanPackageEngineInfo

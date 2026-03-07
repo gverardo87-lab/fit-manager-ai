@@ -1803,6 +1803,14 @@ export interface TSWorkoutProjection {
   slot_bindings: TSSlotBinding[];
 }
 
+/** Verdetto feasibility per-esercizio (solo non-feasible esposti) */
+export type TSFeasibilityVerdict = "feasible" | "discouraged" | "infeasible_for_auto_draft";
+
+export interface TSExerciseFeasibilityEntry {
+  verdict: TSFeasibilityVerdict;
+  reason_codes: string[];
+}
+
 /** Contatori sintetici del feasibility engine pre-ranking */
 export interface TSFeasibilitySummary {
   feasible_count: number;
@@ -1900,6 +1908,7 @@ export interface TSPlanPackage {
   protocol: TSPlanPackageProtocolInfo;
   constraint_evaluation: TSConstraintEvaluationReport;
   feasibility_summary: TSFeasibilitySummary;
+  feasibility_details: Record<number, TSExerciseFeasibilityEntry>;
   validation: TSValidationMetadata;
   engine: TSPlanPackageEngineInfo;
 }
