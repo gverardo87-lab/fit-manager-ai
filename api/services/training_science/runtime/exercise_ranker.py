@@ -10,15 +10,13 @@ from api.schemas.training_science import (
     TSSlotCandidate,
 )
 from api.services.training_science.demand.demand_registry import (
-    get_default_demand_vector,
     get_protocol_ceiling,
 )
 
-from .exercise_catalog import RankableExercise
+from .exercise_catalog import RankableExercise, resolve_demand_vector
 from .feasibility_engine import (
     FeasibilityReport,
     _BEGINNER_POWER_SKILL_TOKENS,
-    _resolve_pattern,
 )
 from .mappings import MUSCLE_GROUP_TO_CATALOG, PATTERN_TO_CATALOG_PATTERNS
 
@@ -268,7 +266,7 @@ def _uniqueness_adjustment(
 ) -> tuple[int, list[str]]:
     if state is None or exercise.id not in state.selected_exercise_ids:
         return 0, []
-    return -6, ["weekly_uniqueness_penalty"]
+    return -25, ["weekly_uniqueness_penalty"]
 
 
 _DEMAND_DIMENSIONS = (
@@ -294,11 +292,7 @@ def _demand_proximity_score(
     ceiling = get_protocol_ceiling(protocol_id)
     if ceiling is None:
         return 0, []
-    pattern = _resolve_pattern(exercise)
-    if pattern is None:
-        return 0, []
-
-    vector = get_default_demand_vector(pattern, exercise.difficolta or "intermediate")
+    vector = resolve_demand_vector(exercise)
     total_headroom = 0
     constrained_dims = 0
     for dim in _DEMAND_DIMENSIONS:

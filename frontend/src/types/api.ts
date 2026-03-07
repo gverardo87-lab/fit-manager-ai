@@ -1011,6 +1011,18 @@ export interface Exercise {
   piano_movimento: string | null;
   tipo_contrazione: string | null;
 
+  // Demand Vector 10D — costo biomeccanico-funzionale (scala 0-4)
+  skill_demand: number | null;
+  coordination_demand: number | null;
+  stability_demand: number | null;
+  ballistic_demand: number | null;
+  impact_demand: number | null;
+  axial_load_demand: number | null;
+  shoulder_complex_demand: number | null;
+  lumbar_load_demand: number | null;
+  grip_demand: number | null;
+  metabolic_demand: number | null;
+
   muscle_map_url: string | null;
   is_builtin: boolean;
   created_at: string | null;

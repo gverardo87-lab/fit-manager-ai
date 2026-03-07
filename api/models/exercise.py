@@ -69,6 +69,20 @@ class Exercise(SQLModel, table=True):
     piano_movimento: Optional[str] = None       # sagittal, frontal, transverse, multi
     tipo_contrazione: Optional[str] = None      # concentric, eccentric, isometric, dynamic
 
+    # Demand Vector 10D — costo biomeccanico-funzionale (scala 0-4)
+    # None = usa default da demand_registry (pattern x difficolta)
+    # Fonte: NSCA 2016, Sahrmann 2002, Alentorn-Geli 2009
+    skill_demand: Optional[int] = None
+    coordination_demand: Optional[int] = None
+    stability_demand: Optional[int] = None
+    ballistic_demand: Optional[int] = None
+    impact_demand: Optional[int] = None
+    axial_load_demand: Optional[int] = None
+    shoulder_complex_demand: Optional[int] = None
+    lumbar_load_demand: Optional[int] = None
+    grip_demand: Optional[int] = None
+    metabolic_demand: Optional[int] = None
+
     # Media (v2)
     muscle_map_url: Optional[str] = None  # path relativo: /media/exercises/42/muscle-map.svg
 

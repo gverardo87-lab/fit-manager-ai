@@ -144,22 +144,30 @@ SESSIONI_PER_SPLIT: dict[tuple[TipoSplit, int], list[RuoloSessione]] = {
 # 2x/sett: A/B
 # 3x/sett: A/B/C
 #
-# A (orizzontale + squat): push_h, pull_h, squat, carry, calf_raise
-# B (verticale + posteriore): push_v, pull_v, hinge, rotation
-# C (rebalance): squat, hinge, push_h, push_v, pull_h, pull_v
+# INVARIANTE DI DESIGN: ogni pattern compound principale deve comparire
+# esattamente 2x nella settimana (Schoenfeld 2016: freq >= 2x ottimale).
 #
-# La variante C esiste per la frequenza 3x:
-# - riallinea i rapporti orizzontale/verticale
-# - porta la catena posteriore a 2 esposizioni/settimana
-# - riduce il rischio che A/B/A lasci push_v, pull_v e femorali a 1x
+# A (orizzontale + gambe bilaterali): push_h, pull_h, squat, hinge, calf_raise
+# B (verticale + gambe bilaterali): push_v, pull_v, squat, hinge
+# C (rebalance push/pull, no legs): push_h, push_v, pull_h, pull_v, calf_raise
+#
+# Frequenze risultanti (3x/sett):
+#   push_h=2x(A,C) push_v=2x(B,C) pull_h=2x(A,C) pull_v=2x(B,C)
+#   squat=2x(A,B) hinge=2x(A,B) calf_raise=2x(A,C)
+#
+# La variante C funge da giornata "upper emphasis" che:
+# - garantisce 2x a TUTTI i push/pull (petto, dorsali, deltoidi)
+# - concede alle gambe un giorno extra di recupero prima del ciclo A
+# - include calf_raise perche' i polpacci necessitano lavoro diretto
+#   (Schoenfeld 2019: contributo squat 0.2 = sotto soglia EMG 40% MVC)
 
 _FULL_BODY_VARIANTS: list[list[P]] = [
-    # Variante A — piani orizzontali + squat + carry funzionale
-    [P.PUSH_H, P.PULL_H, P.SQUAT, P.CARRY, P.CALF_RAISE],
-    # Variante B — piani verticali + hinge + rotazione trasversale
-    [P.PUSH_V, P.PULL_V, P.HINGE, P.ROTATION],
-    # Variante C — sessione mista per riequilibrare upper/lower su 3x
-    [P.SQUAT, P.HINGE, P.PULL_H, P.PULL_V, P.PUSH_H, P.PUSH_V],
+    # Variante A — piani orizzontali + gambe bilaterali + polpacci
+    [P.PUSH_H, P.PULL_H, P.SQUAT, P.HINGE, P.CALF_RAISE],
+    # Variante B — piani verticali + gambe bilaterali
+    [P.PUSH_V, P.PULL_V, P.SQUAT, P.HINGE],
+    # Variante C — rebalance push/pull (upper emphasis, gambe a riposo)
+    [P.PUSH_H, P.PUSH_V, P.PULL_H, P.PULL_V, P.CALF_RAISE],
 ]
 
 

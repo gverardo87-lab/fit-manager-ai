@@ -154,6 +154,16 @@ _MAX_ISOLATION_SESSIONE: dict[Livello, int] = {
 # delle ultime serie degrada significativamente).
 _MAX_SERIE_PER_SLOT = 6
 _MAX_COMPOUND_BOOST_PER_SESSION = 2
+
+# Volume ceiling settimanale per livello (serie totali per settimana).
+# Oltre questo limite, nessuna fase aggiunge ulteriori slot/serie.
+# Fonte: Israetel RP 2020 — principiante 25-35, intermedio 40-55, avanzato 55-75.
+_MAX_WEEKLY_SERIES: dict[Livello, int] = {
+    Livello.PRINCIPIANTE: 35,
+    Livello.INTERMEDIO: 55,
+    Livello.AVANZATO: 75,
+}
+
 _BALANCE_RATIO_BY_NAME = {ratio.nome: ratio for ratio in BALANCE_RATIOS}
 _PUSH_PATTERNS = {P.PUSH_H, P.PUSH_V}
 _POSTERIOR_CHAIN_ISOLATION_MUSCLES = {M.FEMORALI, M.GLUTEI}
@@ -235,6 +245,30 @@ def _collect_plan_slots(
         for slot in slots:
             all_slots.append((slot.pattern, slot.serie))
     return all_slots
+
+
+def _total_weekly_series(
+    sessioni: list[tuple[RuoloSessione, list[SlotSessione]]],
+) -> int:
+    """Conteggio totale serie settimanali."""
+    return sum(slot.serie for _, slots in sessioni for slot in slots)
+
+
+def _would_exceed_any_mav_max(
+    sessioni: list[tuple[RuoloSessione, list[SlotSessione]]],
+    pattern: P,
+    add_series: int,
+    livello: Livello,
+    obiettivo: Obiettivo,
+) -> bool:
+    """True se aggiungere add_series al pattern spingerebbe qualche muscolo oltre MAV_max."""
+    trial_slots = [*_collect_plan_slots(sessioni), (pattern, add_series)]
+    trial_volume = compute_hypertrophy_sets(trial_slots)
+    for muscolo in M:
+        target = get_scaled_volume_target(muscolo, livello, obiettivo)
+        if trial_volume.get(muscolo, 0.0) > target.mav_max * 1.15:
+            return True
+    return False
 
 
 def _get_balance_ratio_value(
@@ -520,16 +554,22 @@ def _find_compound_deficits(
 def _boost_compound_series(
     sessioni: list[tuple[RuoloSessione, list[SlotSessione]]],
     deficits: list[tuple[M, float]],
+    livello: Livello = Livello.INTERMEDIO,
+    obiettivo: Obiettivo = Obiettivo.TONIFICAZIONE,
 ) -> None:
     """
     Incrementa le serie dei compound che attivano i muscoli carenti.
 
     Per ogni muscolo in deficit, trova gli slot compound che lo attivano
     come motore primario e incrementa le serie di 1, rispettando i limiti.
+    Guarda MAV_max e volume ceiling settimanale.
 
     Modifica le sessioni in-place.
     """
+    weekly_cap = _MAX_WEEKLY_SERIES[livello]
     for muscolo, deficit in deficits:
+        if _total_weekly_series(sessioni) >= weekly_cap:
+            break
         target_patterns = COMPOUND_PER_MUSCOLO.get(muscolo, [])
         if not target_patterns:
             continue
@@ -564,9 +604,13 @@ def _boost_compound_series(
                     boosts_needed - boosts_done,
                     _MAX_COMPOUND_BOOST_PER_SESSION - session_boosts,
                     _MAX_SERIE_PER_SLOT - slot.serie,
+                    weekly_cap - _total_weekly_series(sessioni),
                 )
                 add = _max_add_without_push_pull_drift(sessioni, slot.pattern, add)
                 if add <= 0:
+                    continue
+                # MAV_max guard: don't push any muscle over MAV_max
+                if _would_exceed_any_mav_max(sessioni, slot.pattern, add, livello, obiettivo):
                     continue
                 slot.serie += add
                 boosts_done += add
@@ -636,9 +680,19 @@ def _add_isolation_slots(
         iso_count[i] = sum(1 for s in slots if s.priorita == OP.ISOLATION)
         slot_count[i] = len(slots)
 
+    weekly_cap = _MAX_WEEKLY_SERIES[livello]
     deficits = _prioritize_isolation_deficits(deficits, sessioni)
 
     for muscolo, deficit in deficits:
+        if _total_weekly_series(sessioni) >= weekly_cap:
+            break
+
+        # MAV_max guard: skip muscles already at or above MAV_max
+        volume_now = _compute_plan_hypertrophy_volume(sessioni)
+        target_check = get_scaled_volume_target(muscolo, livello, obiettivo)
+        if volume_now.get(muscolo, 0.0) >= target_check.mav_max:
+            continue
+
         pattern_iso = ISOLAMENTO_PER_MUSCOLO[muscolo]
         affinita = AFFINITA_ISOLAMENTO.get(pattern_iso, set())
 
@@ -772,7 +826,7 @@ def build_plan(
     volume = _compute_plan_hypertrophy_volume(sessioni)
     compound_deficits = _find_compound_deficits(volume, livello, obiettivo)
     if compound_deficits:
-        _boost_compound_series(sessioni, compound_deficits)
+        _boost_compound_series(sessioni, compound_deficits, livello, obiettivo)
 
     # ── FASE 3: Compensazione isolation ──
     _apply_beginner_full_body_frequency_corrections(sessioni, obiettivo, livello)
@@ -792,7 +846,7 @@ def build_plan(
         # Riprova compound boost + isolation
         compound_deficits = _find_compound_deficits(volume, livello, obiettivo)
         if compound_deficits:
-            _boost_compound_series(sessioni, compound_deficits)
+            _boost_compound_series(sessioni, compound_deficits, livello, obiettivo)
 
         _apply_beginner_full_body_frequency_corrections(sessioni, obiettivo, livello)
         volume = _compute_plan_hypertrophy_volume(sessioni)

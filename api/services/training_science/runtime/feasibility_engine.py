@@ -21,12 +21,11 @@ from api.services.training_science.demand.demand_policy import (
     check_demand_ceiling,
 )
 from api.services.training_science.demand.demand_registry import (
-    get_default_demand_vector,
     get_protocol_ceiling,
 )
 from api.services.training_science.types import PatternMovimento
 
-from .exercise_catalog import RankableExercise
+from .exercise_catalog import RankableExercise, resolve_demand_vector
 
 FEASIBILITY_ENGINE_VERSION = "smart-feasibility-v2"
 
@@ -136,12 +135,7 @@ def _classify_demand_ceiling(
     if ceiling is None:
         return "feasible", [], None
 
-    pattern = _resolve_pattern(exercise)
-    if pattern is None:
-        return "feasible", [], None
-
-    difficulty = exercise.difficolta or "intermediate"
-    vector = get_default_demand_vector(pattern, difficulty)
+    vector = resolve_demand_vector(exercise)
     policy_result = check_demand_ceiling(vector, ceiling)
 
     reasons: list[str] = []

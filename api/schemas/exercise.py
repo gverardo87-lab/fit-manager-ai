@@ -351,6 +351,18 @@ class ExerciseResponse(BaseModel):
     piano_movimento: Optional[str] = None
     tipo_contrazione: Optional[str] = None
 
+    # Demand Vector 10D — costo biomeccanico-funzionale (scala 0-4)
+    skill_demand: Optional[int] = None
+    coordination_demand: Optional[int] = None
+    stability_demand: Optional[int] = None
+    ballistic_demand: Optional[int] = None
+    impact_demand: Optional[int] = None
+    axial_load_demand: Optional[int] = None
+    shoulder_complex_demand: Optional[int] = None
+    lumbar_load_demand: Optional[int] = None
+    grip_demand: Optional[int] = None
+    metabolic_demand: Optional[int] = None
+
     muscle_map_url: Optional[str] = None
     is_builtin: bool = False
     created_at: Optional[datetime] = None

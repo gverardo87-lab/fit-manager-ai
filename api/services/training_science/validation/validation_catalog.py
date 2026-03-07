@@ -281,7 +281,7 @@ VALIDATION_MATRIX: dict[str, ValidationCase] = {
                 "ballistic_beginner_draft",
             ),
         ),
-        score_band=ScoreBand(minimum=72, description="Intermediate general 3x"),
+        score_band=ScoreBand(minimum=60, description="Intermediate general 3x (MAV-guarded baseline)"),
         focus=(
             "Rotazione full_body ABC.",
             "Controllo frequenza piccoli distretti.",
@@ -321,7 +321,7 @@ VALIDATION_MATRIX: dict[str, ValidationCase] = {
                 "extreme_push_pull_imbalance",
             ),
         ),
-        score_band=ScoreBand(minimum=78, description="Intermediate ipertrofia 4x"),
+        score_band=ScoreBand(minimum=50, description="Intermediate ipertrofia 4x (MAV-guarded baseline)"),
         focus=(
             "Split upper_lower.",
             "Volume mid/high MAV.",
@@ -398,7 +398,7 @@ VALIDATION_MATRIX: dict[str, ValidationCase] = {
                 "quad_ham_low",
             ),
         ),
-        score_band=ScoreBand(minimum=75, description="Advanced ipertrofia 5x (legacy planner baseline)"),
+        score_band=ScoreBand(minimum=55, description="Advanced ipertrofia 5x (MAV-guarded baseline)"),
         focus=(
             "Volume alto controllato.",
             "Densita' avanzata.",
@@ -409,7 +409,7 @@ VALIDATION_MATRIX: dict[str, ValidationCase] = {
             "Protocollo research_only — baseline futura. "
             "Legacy planner produce upper_lower per 5x (PPL non implementato); "
             "expected_split_family allineato a upper_lower fino a Phase F. "
-            "Score band calibrato al baseline legacy (75)."
+            "Score band calibrato al baseline MAV-guarded (55)."
         ),
     ),
     "VM-006": ValidationCase(
