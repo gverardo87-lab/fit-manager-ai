@@ -2,20 +2,24 @@
 "use client";
 
 /**
- * Pannello di analisi SMART per il builder schede allenamento.
+ * Pannello di analisi scientifica per il builder schede allenamento.
  *
- * Mostra 5 sezioni di analisi calcolate dal motore smart-programming.ts:
- * 1. Copertura Muscolare — set/muscolo/settimana vs target NSCA
- * 2. Volume Totale — set/settimana vs target per livello
- * 3. Varieta Biomeccanica — piani, catene, contrazioni
- * 4. Conflitti Recupero — overlap muscolare tra sessioni consecutive
- * 5. Score Sicurezza — % esercizi senza controindicazioni
+ * V2: consuma il Training Science Engine backend per analisi EMG-based.
+ * Mantiene biomeccanica e safety dal frontend (dati non disponibili nel backend).
  *
- * Pattern: Safety Overview Panel (Collapsible card nel builder).
+ * Sezioni:
+ * 1. Copertura Muscolare — EMG-based volume ipertrofico vs MEV/MAV/MRV (backend)
+ * 2. Rapporti Biomeccanici — 5 ratio con fonti scientifiche (backend)
+ * 3. Varieta Biomeccanica — piani, catene, contrazioni (frontend)
+ * 4. Warning Scientifici — frequenza, recupero, volume (backend)
+ * 5. Compatibilita Clinica — safety map anamnesi (frontend)
+ *
+ * Il bridge function converte esercizi builder -> TSTemplatePiano per l'endpoint
+ * POST /training-science/analyze che ritorna analisi 4D con score 0-100.
  */
 
-import { useMemo, useState } from "react";
-import { BarChart3, ChevronDown, AlertTriangle } from "lucide-react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import { BarChart3, ChevronDown, AlertTriangle, BookOpen, Scale } from "lucide-react";
 
 import {
   Collapsible,
@@ -25,17 +29,24 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Progress } from "@/components/ui/progress";
 
 import {
-  computeSmartAnalysis,
+  analyzeBiomechanics,
   computeSafetyBreakdown,
-  type SmartAnalysis,
+  type BiomechanicalVariety,
   type SafetyBreakdown,
-  type MuscleCoverage,
-  type FitnessLevel,
 } from "@/lib/smart-programming";
-import type { Exercise, ExerciseSafetyEntry } from "@/types/api";
+import { useAnalyzePlan } from "@/hooks/useTrainingScience";
+import type {
+  Exercise,
+  ExerciseSafetyEntry,
+  TSTemplatePiano,
+  TSObjective,
+  TSLevel,
+  TSPattern,
+  TSAnalisiPiano,
+  TSVolumeEffettivo,
+} from "@/types/api";
 
 // ════════════════════════════════════════════════════════════
 // PROPS
@@ -48,13 +59,101 @@ interface SmartAnalysisPanelProps {
   }>;
   exerciseMap: Map<number, Exercise>;
   livello: string;
+  obiettivo: string;
   sessioniPerSettimana: number;
   safetyMap: Record<number, ExerciseSafetyEntry> | null;
 }
 
 // ════════════════════════════════════════════════════════════
-// COVERAGE STATUS COLORS
+// BRIDGE — Workout exercises → TSTemplatePiano
 // ════════════════════════════════════════════════════════════
+
+const LIVELLO_MAP: Record<string, TSLevel> = {
+  beginner: "principiante",
+  principiante: "principiante",
+  intermedio: "intermedio",
+  avanzato: "avanzato",
+};
+
+const VALID_OBIETTIVI = new Set<TSObjective>([
+  "forza", "ipertrofia", "resistenza", "dimagrimento", "tonificazione",
+]);
+
+const VALID_PATTERNS = new Set<TSPattern>([
+  "push_h", "push_v", "squat", "hinge", "pull_h", "pull_v", "core", "rotation", "carry",
+  "hip_thrust", "curl", "extension_tri", "lateral_raise", "face_pull",
+  "calf_raise", "leg_curl", "leg_extension", "adductor",
+]);
+
+function buildTemplatePiano(
+  sessions: SmartAnalysisPanelProps["sessions"],
+  exerciseMap: Map<number, Exercise>,
+  livello: string,
+  obiettivo: string,
+  sessioniPerSettimana: number,
+): TSTemplatePiano | null {
+  const mappedLivello = LIVELLO_MAP[livello] ?? "intermedio";
+  const mappedObiettivo: TSObjective = VALID_OBIETTIVI.has(obiettivo as TSObjective)
+    ? (obiettivo as TSObjective)
+    : "ipertrofia";
+
+  const sessioni = sessions.map((s) => {
+    const slots = s.esercizi
+      .map((e) => {
+        const exercise = exerciseMap.get(e.id_esercizio);
+        if (!exercise) return null;
+        const pattern = exercise.pattern_movimento as TSPattern;
+        if (!VALID_PATTERNS.has(pattern)) return null;
+        return {
+          pattern,
+          priorita: 2 as const,
+          serie: e.serie,
+          rep_min: 8,
+          rep_max: 12,
+          riposo_sec: 90,
+          muscolo_target: null,
+          note: "",
+        };
+      })
+      .filter((s): s is NonNullable<typeof s> => s !== null);
+
+    return {
+      nome: s.nome_sessione,
+      ruolo: "full_body" as const,
+      focus: "",
+      slots,
+    };
+  });
+
+  const hasSlots = sessioni.some((s) => s.slots.length > 0);
+  if (!hasSlots) return null;
+
+  return {
+    frequenza: Math.max(2, Math.min(6, sessioniPerSettimana)),
+    obiettivo: mappedObiettivo,
+    livello: mappedLivello,
+    tipo_split: "full_body",
+    sessioni,
+    note_generazione: [],
+  };
+}
+
+// ════════════════════════════════════════════════════════════
+// VOLUME STATUS — Colori e label per stato backend
+// ════════════════════════════════════════════════════════════
+
+type VolumeStatusKey = "deficit" | "optimal" | "excess";
+
+function mapBackendStatus(stato: string): VolumeStatusKey {
+  switch (stato) {
+    case "sotto_mev": return "deficit";
+    case "in_mev_mav": return "optimal";
+    case "in_mav": return "optimal";
+    case "sopra_mav": return "excess";
+    case "sopra_mrv": return "excess";
+    default: return "optimal";
+  }
+}
 
 const STATUS_COLORS = {
   deficit: {
@@ -83,7 +182,9 @@ const STATUS_LABELS = {
 const MUSCLE_LABELS: Record<string, string> = {
   petto: "Petto",
   dorsali: "Dorsali",
-  spalle: "Spalle",
+  deltoide_anteriore: "Delt. Ant.",
+  deltoide_laterale: "Delt. Lat.",
+  deltoide_posteriore: "Delt. Post.",
   bicipiti: "Bicipiti",
   tricipiti: "Tricipiti",
   quadricipiti: "Quadricipiti",
@@ -96,6 +197,13 @@ const MUSCLE_LABELS: Record<string, string> = {
   avambracci: "Avambracci",
 };
 
+// Score color based on 0-100 range
+function getScoreColor(score: number): string {
+  if (score >= 75) return "text-emerald-600 dark:text-emerald-400";
+  if (score >= 50) return "text-amber-600 dark:text-amber-400";
+  return "text-red-600 dark:text-red-400";
+}
+
 // ════════════════════════════════════════════════════════════
 // COMPONENT
 // ════════════════════════════════════════════════════════════
@@ -104,58 +212,89 @@ export function SmartAnalysisPanel({
   sessions,
   exerciseMap,
   livello,
+  obiettivo,
   sessioniPerSettimana,
   safetyMap,
 }: SmartAnalysisPanelProps) {
   const [expanded, setExpanded] = useState(false);
+  const analyzeMutation = useAnalyzePlan();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const analysis = useMemo<SmartAnalysis | null>(() => {
-    // Serve almeno 1 esercizio per analizzare
-    const hasExercises = sessions.some(s => s.esercizi.length > 0);
-    if (!hasExercises) return null;
+  // Build TSTemplatePiano from workout exercises
+  const templatePiano = useMemo(
+    () => buildTemplatePiano(sessions, exerciseMap, livello, obiettivo, sessioniPerSettimana),
+    [sessions, exerciseMap, livello, obiettivo, sessioniPerSettimana],
+  );
 
-    const VALID_LEVELS: FitnessLevel[] = ["beginner", "intermedio", "avanzato"];
-    const validLivello: FitnessLevel = VALID_LEVELS.includes(livello as FitnessLevel)
-      ? (livello as FitnessLevel)
-      : "intermedio";
+  // Stable serialization key to detect real data changes
+  const pianoKey = useMemo(() => {
+    if (!templatePiano) return "";
+    return templatePiano.sessioni
+      .map((s) => s.slots.map((sl) => `${sl.pattern}:${sl.serie}`).join(","))
+      .join("|") + `|${templatePiano.livello}|${templatePiano.obiettivo}`;
+  }, [templatePiano]);
 
-    return computeSmartAnalysis(
-      sessions,
-      exerciseMap,
-      validLivello,
-      sessioniPerSettimana,
-      safetyMap,
-    );
-  }, [sessions, exerciseMap, livello, sessioniPerSettimana, safetyMap]);
+  // Trigger backend analysis on data change (debounced 600ms)
+  const triggerAnalysis = useCallback((piano: TSTemplatePiano) => {
+    analyzeMutation.mutate(piano);
+  }, [analyzeMutation.mutate]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const safetyBreakdown = useMemo<SafetyBreakdown>(() =>
-    computeSafetyBreakdown(sessions, safetyMap),
-  [sessions, safetyMap]);
+  useEffect(() => {
+    if (!templatePiano || !pianoKey) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      triggerAnalysis(templatePiano);
+    }, 600);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [pianoKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!analysis) return null;
+  // Frontend-only analysis (biomechanics variety + safety)
+  const biomechanics = useMemo<BiomechanicalVariety>(
+    () => analyzeBiomechanics(sessions, exerciseMap),
+    [sessions, exerciseMap],
+  );
 
-  // KPI riassuntivi
-  const deficitCount = analysis.coverage.filter(c => c.status === "deficit").length;
-  const optimalCount = analysis.coverage.filter(c => c.status === "optimal").length;
-  const conflictCount = analysis.recoveryConflicts.length;
+  const safetyBreakdown = useMemo<SafetyBreakdown>(
+    () => computeSafetyBreakdown(sessions, safetyMap),
+    [sessions, safetyMap],
+  );
 
-  // Colore bordo sinistro
-  const borderColor = deficitCount > 3 || conflictCount > 2
-    ? "border-l-amber-400"
-    : deficitCount === 0 && conflictCount === 0
+  const backendAnalysis: TSAnalisiPiano | null = analyzeMutation.data ?? null;
+
+  if (!templatePiano) return null;
+
+  // KPI from backend analysis
+  const volumeData = backendAnalysis?.volume;
+  const deficitCount = volumeData
+    ? volumeData.per_muscolo.filter((m) => mapBackendStatus(m.stato) === "deficit").length
+    : 0;
+  const optimalCount = volumeData
+    ? volumeData.per_muscolo.filter((m) => mapBackendStatus(m.stato) === "optimal").length
+    : 0;
+
+  const borderColor = backendAnalysis
+    ? backendAnalysis.score >= 75
       ? "border-l-emerald-400"
-      : "border-l-teal-400";
+      : backendAnalysis.score >= 50
+        ? "border-l-teal-400"
+        : "border-l-amber-400"
+    : "border-l-teal-400";
 
   return (
     <Collapsible open={expanded} onOpenChange={setExpanded}>
       <Card className={`border-l-4 ${borderColor} transition-all duration-200`}>
         <CardContent className="p-4 space-y-3">
-          {/* Header — sempre visibile */}
+          {/* Header */}
           <CollapsibleTrigger asChild>
             <button className="flex items-center justify-between w-full text-left group">
               <div className="flex items-center gap-2">
                 <BarChart3 className="h-4.5 w-4.5 text-teal-600 dark:text-teal-400" />
-                <span className="text-sm font-semibold">Analisi Smart</span>
+                <span className="text-sm font-semibold">Analisi Scientifica</span>
+                {analyzeMutation.isPending && (
+                  <span className="text-[10px] text-muted-foreground animate-pulse">analisi...</span>
+                )}
               </div>
               <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${expanded ? "rotate-180" : ""}`} />
             </button>
@@ -163,10 +302,19 @@ export function SmartAnalysisPanel({
 
           {/* KPI mini-row */}
           <div className="grid grid-cols-4 gap-2">
-            <div className="rounded-lg bg-muted/50 px-2 py-2 text-center">
-              <div className="text-lg font-extrabold tracking-tighter tabular-nums">{analysis.volume.totalSetsPerWeek}</div>
-              <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Set/Sett</div>
-            </div>
+            {backendAnalysis ? (
+              <div className="rounded-lg bg-muted/50 px-2 py-2 text-center">
+                <div className={`text-lg font-extrabold tracking-tighter tabular-nums ${getScoreColor(backendAnalysis.score)}`}>
+                  {Math.round(backendAnalysis.score)}
+                </div>
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Score</div>
+              </div>
+            ) : (
+              <div className="rounded-lg bg-muted/50 px-2 py-2 text-center">
+                <div className="text-lg font-extrabold tracking-tighter tabular-nums text-muted-foreground">—</div>
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Score</div>
+              </div>
+            )}
             <div className={`rounded-lg ${STATUS_COLORS.optimal.bg} px-2 py-2 text-center`}>
               <div className={`text-lg font-extrabold tracking-tighter tabular-nums ${STATUS_COLORS.optimal.text}`}>{optimalCount}</div>
               <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Ottimali</div>
@@ -203,82 +351,106 @@ export function SmartAnalysisPanel({
             </div>
           </div>
 
-          {/* Contenuto espanso */}
+          {/* Expanded content */}
           <CollapsibleContent className="space-y-4">
             <Separator />
 
-            {/* 1. Copertura Muscolare */}
-            <section>
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                Copertura Muscolare (set/settimana)
-              </div>
-              <div className="space-y-1.5">
-                {analysis.coverage
-                  .filter(c => c.setsPerWeek > 0 || c.status === "deficit")
-                  .map((cov) => (
-                    <CoverageRow key={cov.muscolo} coverage={cov} />
-                  ))}
-              </div>
-            </section>
-
-            {/* 2. Volume Totale */}
-            <section>
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                Volume Totale
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="flex-1">
-                  <Progress
-                    value={Math.min(100, (analysis.volume.totalSetsPerWeek / analysis.volume.targetRange.max) * 100)}
-                    className="h-2"
-                  />
+            {/* 1. Copertura Muscolare — EMG-based (backend) */}
+            {volumeData && (
+              <section>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Volume Muscolare (serie ipertrofiche/sett)
+                  </div>
+                  <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5 font-normal text-muted-foreground">
+                    EMG
+                  </Badge>
                 </div>
-                <span className={`text-xs font-medium ${STATUS_COLORS[analysis.volume.status].text}`}>
-                  {analysis.volume.totalSetsPerWeek}/{analysis.volume.targetRange.min}-{analysis.volume.targetRange.max}
-                </span>
-                <Badge variant="outline" className={`text-[10px] ${STATUS_COLORS[analysis.volume.status].text}`}>
-                  {STATUS_LABELS[analysis.volume.status]}
-                </Badge>
-              </div>
-            </section>
+                <div className="space-y-1.5">
+                  {volumeData.per_muscolo
+                    .filter((m) => m.serie_effettive > 0 || mapBackendStatus(m.stato) === "deficit")
+                    .map((m) => (
+                      <VolumeRow key={m.muscolo} data={m} />
+                    ))}
+                </div>
+                <div className="mt-2 flex items-center gap-3 text-[10px] text-muted-foreground">
+                  <span>Totale: <strong className="text-foreground">{volumeData.volume_totale_settimana}</strong> serie/sett</span>
+                  {volumeData.muscoli_sotto_mev.length > 0 && (
+                    <span className="text-red-600 dark:text-red-400">
+                      {volumeData.muscoli_sotto_mev.length} sotto MEV
+                    </span>
+                  )}
+                  {volumeData.muscoli_sopra_mrv.length > 0 && (
+                    <span className="text-amber-600 dark:text-amber-400">
+                      {volumeData.muscoli_sopra_mrv.length} sopra MRV
+                    </span>
+                  )}
+                </div>
+              </section>
+            )}
 
-            {/* 3. Varieta Biomeccanica */}
+            {/* 2. Rapporti Biomeccanici (backend) */}
+            {backendAnalysis?.balance && (
+              <section>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Scale className="h-3 w-3 text-muted-foreground" />
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Rapporti Biomeccanici
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  {Object.entries(backendAnalysis.balance.rapporti).map(([name, value]) => {
+                    const target = backendAnalysis.balance.target[name] ?? 1;
+                    const isBalanced = !backendAnalysis.balance.squilibri.some(
+                      (s) => s.startsWith(name),
+                    );
+                    return (
+                      <BalanceRow
+                        key={name}
+                        name={name}
+                        value={value}
+                        target={target}
+                        isBalanced={isBalanced}
+                      />
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* 3. Varieta Biomeccanica (frontend) */}
             <section>
               <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
                 Varieta Biomeccanica
               </div>
               <div className="grid grid-cols-3 gap-2">
-                <BiomechanicsChip label="Piani" data={analysis.biomechanics.planes} />
-                <BiomechanicsChip label="Catene" data={analysis.biomechanics.chains} />
-                <BiomechanicsChip label="Contrazioni" data={analysis.biomechanics.contractions} />
+                <BiomechanicsChip label="Piani" data={biomechanics.planes} />
+                <BiomechanicsChip label="Catene" data={biomechanics.chains} />
+                <BiomechanicsChip label="Contrazioni" data={biomechanics.contractions} />
               </div>
             </section>
 
-            {/* 4. Conflitti Recupero */}
-            {analysis.recoveryConflicts.length > 0 && (
+            {/* 4. Warning Scientifici (backend) */}
+            {backendAnalysis && backendAnalysis.warnings.length > 0 && (
               <section>
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                  Conflitti Recupero
+                <div className="flex items-center gap-1.5 mb-2">
+                  <BookOpen className="h-3 w-3 text-muted-foreground" />
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Note Scientifiche ({backendAnalysis.warnings.length})
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  {analysis.recoveryConflicts.map((conflict, i) => (
-                    <div key={i} className="flex items-start gap-2 text-xs">
-                      <AlertTriangle className={`h-3.5 w-3.5 shrink-0 mt-0.5 ${conflict.severity === "alert" ? "text-red-500" : "text-amber-500"}`} />
-                      <div>
-                        <span className="font-medium">{conflict.sessionA}</span>
-                        <span className="text-muted-foreground"> → </span>
-                        <span className="font-medium">{conflict.sessionB}</span>
-                        <div className="text-muted-foreground mt-0.5">
-                          {conflict.muscoli.join(", ")} — servono {conflict.oreNecessarie}h, disponibili {conflict.oreDisponibili}h
-                        </div>
-                      </div>
+                <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                  {backendAnalysis.warnings.map((warning, i) => (
+                    <div key={i} className="flex items-start gap-2 text-[11px]">
+                      <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5 text-amber-500" />
+                      <span className="text-muted-foreground">{warning}</span>
                     </div>
                   ))}
                 </div>
               </section>
             )}
 
-            {/* 5. Safety Breakdown */}
+            {/* 5. Compatibilita Clinica (frontend) */}
             {safetyBreakdown.hasConditions && (safetyBreakdown.avoid > 0 || safetyBreakdown.modify > 0 || safetyBreakdown.caution > 0) && (
               <section>
                 <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
@@ -309,6 +481,18 @@ export function SmartAnalysisPanel({
                 </div>
               </section>
             )}
+
+            {/* Score breakdown (backend) */}
+            {backendAnalysis && (
+              <section>
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                  Punteggio Composito
+                </div>
+                <div className="text-[10px] text-muted-foreground">
+                  Volume 40pt + Bilanciamento 25pt + Frequenza 20pt + Recupero 15pt
+                </div>
+              </section>
+            )}
           </CollapsibleContent>
         </CardContent>
       </Card>
@@ -320,26 +504,68 @@ export function SmartAnalysisPanel({
 // SUB-COMPONENTS
 // ════════════════════════════════════════════════════════════
 
-function CoverageRow({ coverage }: { coverage: MuscleCoverage }) {
-  const colors = STATUS_COLORS[coverage.status];
-  const pct = coverage.target.max > 0
-    ? Math.min(100, (coverage.setsPerWeek / coverage.target.max) * 100)
+function VolumeRow({ data }: { data: TSVolumeEffettivo }) {
+  const status = mapBackendStatus(data.stato);
+  const colors = STATUS_COLORS[status];
+  const pct = data.target_mrv > 0
+    ? Math.min(100, (data.serie_effettive / data.target_mrv) * 100)
     : 0;
+
+  // MEV..MAV range indicator as % of MRV
+  const mevPct = data.target_mrv > 0 ? (data.target_mev / data.target_mrv) * 100 : 0;
+  const mavMaxPct = data.target_mrv > 0 ? (data.target_mav_max / data.target_mrv) * 100 : 0;
 
   return (
     <div className="flex items-center gap-2">
       <span className="text-[11px] w-24 truncate text-right text-muted-foreground">
-        {MUSCLE_LABELS[coverage.muscolo] ?? coverage.muscolo}
+        {MUSCLE_LABELS[data.muscolo] ?? data.muscolo}
       </span>
-      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden relative">
+        {/* MEV..MAV optimal zone (subtle background) */}
         <div
-          className={`h-full rounded-full transition-all duration-300 ${colors.bar}`}
+          className="absolute top-0 h-full bg-emerald-200/30 dark:bg-emerald-800/20"
+          style={{ left: `${mevPct}%`, width: `${mavMaxPct - mevPct}%` }}
+        />
+        {/* Actual volume bar */}
+        <div
+          className={`h-full rounded-full transition-all duration-300 ${colors.bar} relative z-10`}
           style={{ width: `${pct}%` }}
         />
       </div>
       <span className={`text-[10px] font-medium tabular-nums w-8 text-right ${colors.text}`}>
-        {coverage.setsPerWeek}
+        {data.serie_effettive}
       </span>
+      <Badge variant="outline" className={`text-[8px] px-1 py-0 h-3.5 ${colors.text}`}>
+        {STATUS_LABELS[status]}
+      </Badge>
+    </div>
+  );
+}
+
+function BalanceRow({
+  name,
+  value,
+  target,
+  isBalanced,
+}: {
+  name: string;
+  value: number;
+  target: number;
+  isBalanced: boolean;
+}) {
+  const color = isBalanced
+    ? "text-emerald-600 dark:text-emerald-400"
+    : "text-amber-600 dark:text-amber-400";
+
+  return (
+    <div className="flex items-center gap-2 text-[11px]">
+      <div className={`h-2 w-2 rounded-full shrink-0 ${isBalanced ? "bg-emerald-500" : "bg-amber-500"}`} />
+      <span className="flex-1 text-muted-foreground">{name}</span>
+      <span className={`font-medium tabular-nums ${color}`}>{value.toFixed(2)}</span>
+      <span className="text-muted-foreground/60 tabular-nums">/ {target.toFixed(2)}</span>
+      <Badge variant="outline" className={`text-[8px] px-1 py-0 h-3.5 ${color}`}>
+        {isBalanced ? "OK" : "Squilibrio"}
+      </Badge>
     </div>
   );
 }

@@ -1545,3 +1545,147 @@ export interface AssistantCommitResponse {
   navigate_to: string | null;
 }
 
+// ════════════════════════════════════════════════════════════
+// TRAINING SCIENCE ENGINE (api/services/training_science/types.py + periodization.py)
+// ════════════════════════════════════════════════════════════
+
+/** Obiettivo di allenamento — determina tutti i parametri di carico */
+export const TS_OBIETTIVI = ["forza", "ipertrofia", "resistenza", "dimagrimento", "tonificazione"] as const;
+export type TSObjective = (typeof TS_OBIETTIVI)[number];
+
+/** Livello di esperienza — determina volume tollerabile (MEV/MAV/MRV) */
+export const TS_LIVELLI = ["principiante", "intermedio", "avanzato"] as const;
+export type TSLevel = (typeof TS_LIVELLI)[number];
+
+/** 15 gruppi muscolari funzionali (NSCA 2016, Contreras 2010) */
+export const TS_GRUPPI_MUSCOLARI = [
+  "petto", "dorsali", "deltoide_anteriore", "deltoide_laterale", "deltoide_posteriore",
+  "bicipiti", "tricipiti", "quadricipiti", "femorali", "glutei",
+  "polpacci", "trapezio", "core", "avambracci", "adduttori",
+] as const;
+export type TSMuscleGroup = (typeof TS_GRUPPI_MUSCOLARI)[number];
+
+/** Pattern di movimento — 9 compound + 9 isolation */
+export const TS_PATTERN = [
+  "push_h", "push_v", "squat", "hinge", "pull_h", "pull_v", "core", "rotation", "carry",
+  "hip_thrust", "curl", "extension_tri", "lateral_raise", "face_pull",
+  "calf_raise", "leg_curl", "leg_extension", "adductor",
+] as const;
+export type TSPattern = (typeof TS_PATTERN)[number];
+
+/** Tipo di split settimanale */
+export type TSSplitType = "full_body" | "upper_lower" | "push_pull_legs";
+
+/** Ruolo funzionale della sessione */
+export type TSSessionRole = "full_body" | "upper" | "lower" | "push" | "pull" | "legs";
+
+/** Priorita' di ordinamento nella sessione (NSCA: SNC-demanding first) */
+export type TSSlotPriority = 1 | 2 | 3 | 4 | 5 | 6;
+
+/** Parametri di carico per obiettivo (NSCA 2016, ACSM 2009, Schoenfeld 2017) */
+export interface TSParametriCarico {
+  obiettivo: TSObjective;
+  intensita_min: number;
+  intensita_max: number;
+  rep_min: number;
+  rep_max: number;
+  serie_compound: [number, number];
+  serie_isolation: [number, number];
+  riposo_compound: [number, number];
+  riposo_isolation: [number, number];
+  percentuale_compound: number;
+  freq_per_muscolo: [number, number];
+  fattore_volume: number;
+  fonte: string;
+}
+
+/** Volume target per gruppo muscolare (Israetel RP 2020, Schoenfeld 2017) */
+export interface TSVolumeTarget {
+  muscolo: TSMuscleGroup;
+  mev: number;
+  mav_min: number;
+  mav_max: number;
+  mrv: number;
+  note: string;
+}
+
+/** Slot in una sessione — "qui va un esercizio di questo tipo" */
+export interface TSSlotSessione {
+  pattern: TSPattern;
+  priorita: TSSlotPriority;
+  serie: number;
+  rep_min: number;
+  rep_max: number;
+  riposo_sec: number;
+  muscolo_target: TSMuscleGroup | null;
+  note: string;
+}
+
+/** Template sessione con slot tipizzati */
+export interface TSTemplateSessione {
+  nome: string;
+  ruolo: TSSessionRole;
+  focus: string;
+  slots: TSSlotSessione[];
+}
+
+/** Piano settimanale completo generato dal motore scientifico */
+export interface TSTemplatePiano {
+  frequenza: number;
+  obiettivo: TSObjective;
+  livello: TSLevel;
+  tipo_split: TSSplitType;
+  sessioni: TSTemplateSessione[];
+  note_generazione: string[];
+}
+
+/** Volume effettivo calcolato per un gruppo muscolare */
+export interface TSVolumeEffettivo {
+  muscolo: TSMuscleGroup;
+  serie_effettive: number;
+  target_mev: number;
+  target_mav_min: number;
+  target_mav_max: number;
+  target_mrv: number;
+  stato: "sotto_mev" | "in_mev_mav" | "in_mav" | "sopra_mav" | "sopra_mrv";
+}
+
+/** Analisi volume di un piano */
+export interface TSAnalisiVolume {
+  per_muscolo: TSVolumeEffettivo[];
+  volume_totale_settimana: number;
+  muscoli_sotto_mev: string[];
+  muscoli_sopra_mrv: string[];
+}
+
+/** Analisi rapporti biomeccanici */
+export interface TSAnalisiBalance {
+  rapporti: Record<string, number>;
+  target: Record<string, number>;
+  squilibri: string[];
+}
+
+/** Analisi completa 4D di un piano — score 0-100 */
+export interface TSAnalisiPiano {
+  volume: TSAnalisiVolume;
+  balance: TSAnalisiBalance;
+  warnings: string[];
+  score: number;
+}
+
+/** Configurazione singola settimana nel mesociclo */
+export interface TSSettimanaConfig {
+  numero: number;
+  fase: "accumulazione" | "intensificazione" | "overreaching" | "deload";
+  fattore_volume: number;
+  note: string;
+}
+
+/** Mesociclo completo — piano base + variazione volume nel tempo */
+export interface TSMesociclo {
+  piano_base: TSTemplatePiano;
+  settimane: TSSettimanaConfig[];
+  piani_settimanali: TSTemplatePiano[];
+  durata_settimane: number;
+}
+

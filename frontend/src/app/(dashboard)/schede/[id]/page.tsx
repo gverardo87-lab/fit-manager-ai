@@ -1865,6 +1865,7 @@ export default function SchedaDetailPage({
               }))}
               exerciseMap={exerciseMap}
               livello={plan.livello}
+              obiettivo={plan.obiettivo}
               sessioniPerSettimana={plan.sessioni_per_settimana}
               safetyMap={safetyEntries ?? null}
             />
