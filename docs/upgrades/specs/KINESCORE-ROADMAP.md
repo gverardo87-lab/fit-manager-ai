@@ -58,22 +58,45 @@ Vedi `docs/upgrades/specs/TRAINING-SCIENCE-SPEC.md`
 
 ---
 
-## Fase 0c: Integrazione Frontend (IN CORSO)
+## Fase 0c: Consolidamento SSoT Frontend/Backend (IN CORSO)
 
-> Il frontend consuma il backend scientifico via hook React Query.
-> `smart-programming.ts` si riduce a scoring esercizi + utility UI.
+> **ADR-001 (2026-03-07)**: Single Source of Truth Scientifica.
+> Il backend e' l'UNICA fonte di dati scientifici.
+> Il frontend consuma via API REST, mai duplica.
 
-### Obiettivi
-1. Hook frontend per i 5 endpoint training science
-2. SmartAnalysisPanel consuma dati backend (non hardcoded)
-3. MuscleMapPanel usa volume dal backend
-4. TemplateSelector "Scheda Smart" genera via API
-5. Workout builder integra analisi volume live
+### Principio guida
 
-### Cosa rimane nel frontend
-- Exercise scoring 14D (rapido, client-side, dati esercizio locale)
-- Safety Engine mapping (gia' backend, hook esistente)
-- UI componenti (SmartAnalysisPanel, MuscleMapPanel, ExerciseSelector)
+Se un numero ha una fonte bibliografica → vive SOLO in `api/services/training_science/`.
+Il frontend lo fetcha via `hooks/useTrainingScience.ts` e lo cacha con React Query.
+
+### Scope del refactoring
+
+**smart-programming.ts (1868 LOC monolite) → smart-programming/ (5 moduli, ~670 LOC)**
+
+| Step | Azione | File |
+|------|--------|------|
+| 1 | Creare `hooks/useTrainingScience.ts` con 5 hook per API backend | Nuovo |
+| 2 | Spezzare `smart-programming.ts` in 5 moduli (<300 LOC ciascuno) | Refactor |
+| 3 | Rimuovere costanti scientifiche duplicate (volume, blueprint, pattern→muscle) | Pulizia |
+| 4 | SmartAnalysisPanel → consuma `POST /training-science/analyze` | Migrazione |
+| 5 | TemplateSelector → genera via `POST /training-science/plan` | Migrazione |
+| 6 | MuscleMapPanel → consuma output di /analyze (coverage per muscolo) | Migrazione |
+
+### Cosa resta nel frontend (UI-only, latenza zero)
+- **Scoring 14D** per selezione esercizi live nel builder
+- **Profilo client aggregato** (composizione hook locali)
+- **Safety breakdown** (conteggio per display)
+- **Rendering** (barre, colori, pannelli — pura presentazione)
+
+### Cosa migra al backend (gia' implementato, da connettere)
+- Volume targets per muscolo → `GET /training-science/volume-targets`
+- Generazione piano → `POST /training-science/plan`
+- Analisi 4D (coverage/volume/recovery/balance) → `POST /training-science/analyze`
+- Blueprint/split logic → `training_science/split_logic.py`
+- Pattern→muscle mapping → `training_science/muscle_contribution.py` (matrice EMG 18×15)
+
+### Dettaglio tecnico
+Vedi `docs/upgrades/specs/TRAINING-SCIENCE-SPEC.md` sezione 5.
 
 ---
 
@@ -215,20 +238,70 @@ Feature-by-feature vs PT Distinction, Trainerize, Everfit, EvolutionFit, My PT H
 
 ---
 
+## Fase 5: Collaborazione Universitaria — Scienze Motorie
+
+> **Obiettivo**: validazione accademica del metodo KineScore + affinamento
+> dei coefficienti scientifici in collaborazione con universita' di scienze motorie.
+
+### 5.1 — Preparazione (pre-contatto)
+
+L'architettura SSoT e' progettata per questa fase:
+- **Backend Python**: i ricercatori lavorano su codice familiare
+- **Moduli indipendenti**: ogni modulo e' testabile e modificabile isolatamente
+- **Docstring con fonti**: ogni costante ha la referenza bibliografica
+- **Zero dipendenze UI**: i moduli scientifici sono puri (input → output, zero side effects)
+
+### 5.2 — Aree di ricerca congiunta
+
+| Area | Modulo backend | Stato attuale | Contributo accademico atteso |
+|------|---------------|---------------|------------------------------|
+| Matrice EMG | `muscle_contribution.py` | 18×15, 4 livelli da letteratura | Validazione/correzione con dati EMG reali |
+| Volume MEV/MAV/MRV | `volume_model.py` | 45 combinazioni da Israetel | Calibrazione per popolazione italiana |
+| Balance ratios | `balance_ratios.py` | 5 rapporti, tolleranze da NSCA | Raffinamento tolleranze per sesso/eta' |
+| Safety mapping | `condition_rules.py` | 80 pattern rules | Validazione clinica per condizioni specifiche |
+| Scoring 14D | Frontend `scorers.ts` | 14 pesi empirici | Ottimizzazione pesi tramite studio comparativo |
+| Periodizzazione | `periodization.py` | Blocchi lineari Helms/Israetel | Modelli DUP, ondulati, autoregolati |
+
+### 5.3 — Workflow collaborativo
+
+```
+Ricercatore (Python)                    Sviluppatore (Full-stack)
+  |                                        |
+  |  Modifica coefficiente in              |
+  |  volume_model.py con fonte             |
+  |                                        |
+  |  → Pull Request con:                   |  Review: fonte valida?
+  |    - Valore precedente                 |  Test: invariante rispettato?
+  |    - Valore nuovo + fonte              |  Deploy: zero impatto frontend
+  |    - Razionale scientifico             |  (SSoT: frontend fetcha da API)
+  |                                        |
+  v                                        v
+  Validazione su dati reali (anonimizzati)
+```
+
+### 5.4 — Deliverable accademici
+
+1. White paper KineScore (struttura in Fase 2.1)
+2. Dataset anonimizzato per riproduzione risultati
+3. Benchmark: piano KineScore vs piano esperto umano (5-10 casi)
+4. Poster/presentazione per convegno AICPE o SISMES
+
+---
+
 ## Roadmap Sintetica
 
 ```
 FASE 0  (DONE):  Motore frontend — dilution, bilanciamento, scoring
 FASE 0b (DONE):  Training Science Engine backend — 10 moduli + API
-FASE 0c (ORA):   Integrazione frontend — hook + UI consuma backend
-MESE 1:          Nome metodo + deposito marchio + inizio white paper
-MESE 2:          White paper completato + validazione dati reali
-MESE 3:          Deposito brevetto + RPE/RIR (P1)
-MESE 4:          Frequenza scorer + beta 10 chinesiologi
-MESE 5:          Pubblicazione + presentazione AICPE
-MESE 6:          Landing page + demo + lancio "v1.0 Scientific"
+FASE 0c (ORA):   Consolidamento SSoT — frontend consuma backend via API
+FASE 1:          Nome metodo + deposito marchio + inizio white paper
+FASE 2:          White paper completato + validazione dati reali
+FASE 3:          Deposito brevetto + posizionamento mercato
+FASE 4:          Evoluzione scientifica (RPE, fatigue, cardio, nutrition)
+FASE 5:          Collaborazione universita' scienze motorie
 ```
 
 ---
 
-*Questo piano e' la guida strategica. La Fase 0b e' il breakthrough architetturale.*
+*Questo piano e' la guida strategica. La Fase 0c (SSoT) e' il prerequisito
+per tutto il resto: senza architettura pulita, non si scala ne' si brevetta.*

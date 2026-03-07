@@ -332,11 +332,15 @@ useUpdateWorkout() → attivazione/modifica date
 File chiave: `lib/workout-monitoring.ts` (utility), `app/(dashboard)/allenamenti/page.tsx` (pagina),
 `api/models/workout_log.py` (modello), `api/routers/workout_logs.py` (4 endpoint).
 
-### Training Science Engine — Motore Scientifico Backend
+### Training Science Engine — Single Source of Truth Scientifica
 
 > **Filosofia: ogni numero ha una fonte bibliografica.** Zero inventato, zero approssimato.
 > Motore deterministico backend che genera piani di allenamento volume-driven
 > e li analizza su 4 dimensioni scientifiche.
+>
+> **Questo e' il CUORE SCIENTIFICO dell'intero prodotto.** Tutti i dati scientifici
+> (costanti, coefficienti, matrici, formule) vivono QUI e SOLO QUI.
+> Il frontend consuma via API — mai duplica. Vedi sezione SSoT.
 
 **Architettura a 10 moduli** (`api/services/training_science/`, ~2000 LOC):
 
@@ -384,69 +388,73 @@ Roadmap: `docs/upgrades/specs/KINESCORE-ROADMAP.md`
 
 File chiave: `api/services/training_science/` (10 moduli), `api/routers/training_science.py` (5 endpoint).
 
-### Smart Programming Engine — Motore 14 Dimensioni
+### Smart Programming — Layer Frontend (Consumer del Backend)
 
-> **Filosofia: INFORMARE, mai LIMITARE.** Zero Ollama. Tutto client-side deterministico.
-> Il motore incrocia 14 dimensioni per suggerire esercizi ottimali per ogni slot.
+> **Filosofia: INFORMARE, mai LIMITARE.** Il frontend consuma il Training Science Engine
+> backend via API REST e presenta i risultati. L'unica logica client-side e' il
+> **scoring 14D** per la selezione esercizi live nel builder.
 
-**Architettura a 3 layer** (pattern `clinical-analysis.ts`, `derived-metrics.ts`):
+**Architettura SSoT** (Single Source of Truth):
 
-1. **Core Engine** (`lib/smart-programming.ts`, ~1250 LOC):
-   - **ClientProfile**: profilo aggregato (tutto nullable per graceful degradation)
-   - **14 Scorer composabili**: safety (0.15), muscle_match (0.14), pattern_match (0.13),
-     difficulty (0.10), goal_alignment (0.08), strength_level (0.06), recovery_fit (0.06),
-     compound_priority (0.05), equipment_variety (0.04), uniqueness (0.05),
-     plane_variety (0.04), chain_variety (0.04), bilateral_balance (0.03), contraction_variety (0.03)
-   - **`scoreExercisesForSlot()`**: orchestra tutti i scorer, ritorna ExerciseScore[] ordinati
-   - **`generateSmartPlan()`**: genera struttura da sessioni/settimana (2-6) × livello (3).
-     **2-pass**: pass 1 genera pattern + warmup + stretching, pass 2 aggiunge accessori intelligenti
-     basati su deficit globale + affinita' sessione (`SESSION_ACCESSORY_AFFINITY`)
-   - **`fillSmartPlan()`**: assegna esercizi ottimali a ogni slot via scoring 14D
-   - **`assessFitnessLevel()`**: combina strength ratios NSCA + livello attivita anamnesi
-   - **`computeSmartAnalysis()`**: orchestratore analisi (coverage + volume + biomechanics + recovery + safety)
-   - **`computeSafetyBreakdown()`**: conteggio avoid/modify/caution per display actionable
-   - **SPLIT_PATTERNS bilanciati**: Lower usa `carry` (core+avambracci+trapezio), Upper usa `rotation` (core+spalle, piano trasversale). Zero `"core"` esplicito — coperto da carry/rotation funzionali
-   - **Naming split auto-detect**: PPL rilevato da pattern content (no overlap tra sessioni tranne core/carry/rotation)
-   - **scoreMuscleMatch v3**: coverage ratio + normalizzazione EN→IT + **pattern floor**: se pattern esatto, score min 0.5
-     (esercizi carry/rotation con muscoli DB specifici non vengono penalizzati rispetto allo schema stimato)
-   - **normalizeDifficulty()**: bridge EN→IT per `difficultyDistance()` (beginner→principiante)
-   - **Senza client**: dim. safety/strength/bilateral → neutral (0.5). Funziona anche senza dati client.
-   - **Generation pipeline 3-pass + fill 2-phase**:
-     - Pass 2: accessori per deficit con affinita' sessione (crediti 1.0/0.35, maxAcc: beginner 2, intermedio 3, avanzato 4)
-     - Pass 3: validazione + auto-correzione (< 80% in range → slot correttivi, max 2 iter)
-     - **fillSmartPlan Fase 1**: greedy fill (14D scoring per slot)
-     - **fillSmartPlan Fase 2**: coverage-aware swap optimization — `computeRealCoverage()` sui muscoli
-       REALI degli esercizi assegnati (non stimati), swap con top-5 alternative se deficit > 20%,
-       min score ratio 0.60, max 3 pass (1 swap/pass per stabilita')
-   - **ACCESSORY_VOLUME**: serie/rep differenziate per gruppo muscolare (NSCA/Schoenfeld 2017).
-     Grandi (petto/dorsali/quadricipiti): 3×8-12. Piccoli (bicipiti/tricipiti/avambracci): 2×10-15.
-     Polpacci: 4×15-20 (alta frequenza). Usato da pass 2 e pass 3.
-   - **patternToMuscleRoles()**: mappa pattern→{primari, secondari} differenziati.
-     Core RIMOSSO da squat/hinge secondari. Previene inflazione hub muscles.
-   - **Slot muscoli_target**: solo PRIMARI. `scoreMuscleMatch` con pattern floor.
-   - **Credito secondario diluted** (computeMuscleCoverage + computeRealCoverage): budget 1.0/N, max 0.5.
+```
+Training Science Engine (backend, fonte unica)
+  POST /training-science/plan      → genera piano volume-driven
+  POST /training-science/analyze   → analisi 4D (volume, balance, freq, recovery)
+  POST /training-science/mesocycle → periodizzazione a blocchi
+  GET  /training-science/parameters/{obj} → parametri carico NSCA/ACSM
+  GET  /training-science/volume-targets   → target MEV/MAV/MRV per livello
+       |
+       | React Query (useTrainingScience hooks)
+       v
+Smart Programming (frontend, UI + scoring)
+  lib/smart-programming/
+    types.ts       — interfacce (mirror backend)
+    scorers.ts     — 14 scorer composabili per selezione esercizi
+    helpers.ts     — profilo client, normalizzazione, utility
+    analysis.ts    — orchestratore che chiama API backend
+    index.ts       — re-export pubblico
+```
 
-2. **Hook** (`hooks/useSmartProgramming.ts`, ~60 LOC):
-   - Aggrega 5 hook esistenti: useClient + useExerciseSafetyMap + useLatestMeasurement + useClientMeasurements + useClientGoals
-   - Calcola: strength ratios (NSCA), simmetria bilaterale (deficit da ClinicalReport), fitness level
-   - Zero nuove API — composizione di dati esistenti
+**Cosa vive nel frontend** (logica UI-only):
+- **14 Scorer composabili** per selezione esercizi live nel builder:
+  safety (0.15), muscle_match (0.14), pattern_match (0.13), difficulty (0.10),
+  goal_alignment (0.08), slot_fit (0.09), strength_level (0.06), recovery_fit (0.06),
+  equipment_variety (0.04), uniqueness (0.05), plane_variety (0.03),
+  chain_variety (0.03), bilateral_balance (0.02), contraction_variety (0.02)
+- **`scoreExercisesForSlot()`**: orchestra tutti i scorer, ritorna `ExerciseScore[]` ordinati
+- **`assessFitnessLevel()`**: combina strength ratios NSCA + livello attivita' anamnesi
+- **`buildClientProfile()`**: aggrega dati client da hook eterogenei
+- **`computeSafetyBreakdown()`**: conteggio avoid/modify/caution per display actionable
 
-3. **UI**:
-   - **Card "Scheda Smart"** in TemplateSelector — pannello teal con configurazione inline:
-     3 Select (sessioni/sett 2-6, obiettivo, livello auto/manuale) + bottone "Genera" teal.
-     Badge dinamici: safety-aware, N obiettivi, bilaterale. Funziona anche senza cliente.
-   - **SmartAnalysisPanel** nel builder (`components/workouts/SmartAnalysisPanel.tsx`, ~290 LOC) —
-     Collapsible card (pattern Safety Overview Panel) con 5 sezioni:
-     1. Copertura Muscolare — barre colorate per 13 gruppi muscolari vs target NSCA scalati per sessioni/sett
-     2. Volume Totale — set/settimana vs target con Progress bar
-     3. Varieta Biomeccanica — distribuzione piani/catene/contrazioni
-     4. Conflitti Recupero — overlap muscolare tra sessioni consecutive
-     5. Compatibilita Clinica — conteggio avoid (rosso) / modify (ambra) / caution (blu), no % fuorviante
+**Cosa vive nel backend** (dati scientifici — vedi sezione Training Science Engine):
+- Generazione piano (4 fasi volume-driven + feedback loop)
+- Analisi 4D (volume per muscolo, balance ratios, frequenza, recupero)
+- Matrice EMG 18×15, volume MEV/MAV/MRV, parametri carico
+- Split logic, session ordering, periodizzazione
 
-**Volume targets NSCA** (set/muscolo/settimana base): beginner 10-12, intermedio 14-18, avanzato 18-25.
-Scalati per sessioni/sett via `getScaledVolumeTargets()`: fattore 0.6 (2gg) → 0.8 (3gg) → 1.0 (4gg) → 1.2 (6gg).
+**Hook** (`hooks/useSmartProgramming.ts`, ~60 LOC):
+- Aggrega 5 hook: useClient + useExerciseSafetyMap + useLatestMeasurement + useClientMeasurements + useClientGoals
+- Calcola: strength ratios (NSCA), simmetria bilaterale, fitness level
+- Zero duplicazione di costanti scientifiche
 
-File chiave: `lib/smart-programming.ts` (engine), `hooks/useSmartProgramming.ts` (aggregatore),
+**Hook** (`hooks/useTrainingScience.ts`):
+- `useGeneratePlan(freq, obiettivo, livello)` → `POST /training-science/plan`
+- `useAnalyzePlan(piano)` → `POST /training-science/analyze` (debounce 300ms)
+- `useVolumeTargets(livello, obiettivo)` → `GET /training-science/volume-targets`
+- `useTrainingParameters(obiettivo)` → `GET /training-science/parameters/{obj}`
+
+**UI**:
+- **Card "Scheda Smart"** in TemplateSelector — configurazione inline (sessioni/sett, obiettivo, livello).
+  Genera piano via `POST /training-science/plan`, riempie slot via scoring 14D client-side.
+- **SmartAnalysisPanel** nel builder — 5 sezioni con dati da `POST /training-science/analyze`:
+  1. Copertura Muscolare — barre colorate per gruppo vs target MEV/MAV/MRV
+  2. Volume Totale — set/settimana con dual volume (effective vs hypertrophy)
+  3. Varieta Biomeccanica — distribuzione piani/catene/contrazioni
+  4. Conflitti Recupero — overlap muscolare tra sessioni consecutive
+  5. Compatibilita Clinica — conteggio avoid/modify/caution (no % fuorviante)
+
+File chiave: `lib/smart-programming/` (5 moduli, <300 LOC ciascuno),
+`hooks/useSmartProgramming.ts` (profilo client), `hooks/useTrainingScience.ts` (API backend),
 `components/workouts/SmartAnalysisPanel.tsx` (pannello), `components/workouts/TemplateSelector.tsx` (card Smart).
 
 ### Exercise Quality Engine — Pipeline Dati
@@ -822,6 +830,39 @@ File chiave: `api/database.py` (dual engine), `api/config.py` (CATALOG_DATABASE_
 `api/` e `core/` sono **completamente indipendenti**. Operano sullo stesso DB con ORM diversi.
 Il frontend comunica col backend SOLO via HTTP.
 
+### Single Source of Truth Scientifica (SSoT)
+
+> **Principio fondante: se un numero ha una fonte bibliografica, vive SOLO nel backend.**
+> Il frontend lo consuma via API. Zero duplicazione di costanti, coefficienti o formule scientifiche.
+
+Questo principio nasce dalla necessita' di:
+1. **Manutenibilita'**: un coefficiente si aggiorna in UN posto, non in due
+2. **Brevettabilita'**: l'algoritmo scientifico e' nel backend (protetto), il frontend e' UI
+3. **Collaborazione accademica**: ricercatori lavorano su Python (backend), non TypeScript
+4. **Determinismo**: una sola implementazione = zero rischio di divergenza
+
+**Dove vive cosa**:
+
+| Responsabilita' | Layer | Perche' |
+|-----------------|-------|---------|
+| Matrice EMG, volume MEV/MAV/MRV | Backend (`training_science/`) | Dati scientifici con fonte |
+| Parametri carico (NSCA/ACSM) | Backend (`training_science/`) | Costanti evidence-based |
+| Generazione piano allenamento | Backend (`POST /training-science/plan`) | Algoritmo proprietario |
+| Analisi 4D (volume/balance/freq/recovery) | Backend (`POST /training-science/analyze`) | Calcolo scientifico |
+| Periodizzazione mesociclo | Backend (`POST /training-science/mesocycle`) | Modello Israetel/Helms |
+| Split ottimale per frequenza | Backend (`training_science/split_logic.py`) | Regole NSCA |
+| Scoring 14D selezione esercizi | Frontend (`smart-programming/scorers.ts`) | UX real-time nel builder |
+| Safety engine mapping | Backend (`safety_engine.py`) | Dati clinici |
+| Profilo client aggregato | Frontend (`smart-programming/helpers.ts`) | Composizione hook locali |
+| Rendering analisi (barre, colori) | Frontend (`SmartAnalysisPanel.tsx`) | Presentazione UI |
+
+**Pattern di consumo**: il frontend chiama le API backend via React Query hook (`useTrainingScience`),
+cacha i risultati, e li presenta nei componenti UI. Per analisi real-time nel builder,
+il frontend invia la scheda corrente a `POST /training-science/analyze` con debounce (300ms).
+
+**Regola ferrea**: MAI duplicare una costante scientifica nel frontend.
+Se serve un valore (es. volume target per muscolo), fetcharlo da `GET /training-science/volume-targets`.
+
 ---
 
 ## Design Pattern Universali
@@ -888,6 +929,8 @@ Se cambi uno, DEVI aggiornare l'altro. File: `api/schemas/` ↔ `frontend/src/ty
 6. **any** — TypeScript: mai `any`. Definire interfacce in `types/api.ts`.
 7. **N+1 queries** — Batch fetch con `IN (...)` o `selectinload`. Mai loop di query.
 8. **Mass Assignment** — Input schema SENZA campi protetti (trainer_id, id dal JWT).
+9. **File monolite** — Max **300 LOC** per file di logica (funzioni, componenti, hook). File di puri dati/configurazione (tabelle, costanti, blueprint) possono arrivare a **400 LOC**. Oltre → spezzare in moduli coerenti con `index.ts` per re-export. Questo e' un COMANDAMENTO SACRO: un file lungo e' un file non manutenibile.
+10. **Scienza duplicata** — MAI duplicare costanti scientifiche (volume target, coefficienti EMG, parametri carico) tra backend e frontend. Il backend e' la Single Source of Truth (vedi sezione SSoT). Il frontend fetcha via API.
 
 ### 6. Chiavi Univoche per Selezione UI (Frontend)
 Quando un `Set<string>` gestisce selezione multipla, la chiave DEVE essere univoca per item.

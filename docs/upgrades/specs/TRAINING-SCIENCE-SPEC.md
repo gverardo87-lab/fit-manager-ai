@@ -266,32 +266,94 @@ Output: Mesociclo con N piani settimanali scalati
 
 ---
 
-## 5. Integrazione Frontend (Prossima Fase)
+## 5. Integrazione Frontend — Architettura SSoT
 
-### Cosa rimane nel frontend
-- Exercise scoring 14D (`smart-programming.ts`) — rapido, client-side
-- `SmartAnalysisPanel` — UI pannello analisi
-- `MuscleMapPanel` — silhouette anatomica
-- `ExerciseSelector` — selettore esercizi
+> **Decisione architetturale ADR-001 (2026-03-07)**: il Training Science Engine backend
+> e' la Single Source of Truth (SSoT) per TUTTI i dati scientifici. Il frontend consuma
+> via API REST, mai duplica costanti o coefficienti.
 
-### Cosa migra al backend
-- `generateSmartPlan()` -> `POST /training-science/plan`
-- `computeSmartAnalysis()` -> `POST /training-science/analyze`
-- `BASE_VOLUME_TARGETS` -> `GET /training-science/volume-targets`
-- `SESSION_BLUEPRINTS` (400 LOC hardcoded) -> generati dal backend
-- Mesociclo (nuovo) -> `POST /training-science/mesocycle`
+### 5.1 Cosa resta nel frontend (logica UI-only)
 
-### Nuovi hook frontend
-- `useGeneratePlan(frequenza, obiettivo, livello)` -> `POST /plan`
-- `useAnalyzePlan(piano)` -> `POST /analyze`
-- `useGenerateMesocycle(piano)` -> `POST /mesocycle`
-- `useVolumeTargets(livello, obiettivo)` -> `GET /volume-targets`
-- `useLoadParameters(obiettivo)` -> `GET /parameters/{obiettivo}`
+| Modulo | LOC | Responsabilita' |
+|--------|-----|----------------|
+| `smart-programming/types.ts` | ~120 | Interfacce mirror backend |
+| `smart-programming/scorers.ts` | ~280 | 14 scorer composabili per selezione esercizi live |
+| `smart-programming/helpers.ts` | ~150 | Profilo client, normalizzazione, utility |
+| `smart-programming/analysis.ts` | ~100 | Orchestratore che chiama API backend |
+| `smart-programming/index.ts` | ~20 | Re-export pubblico |
 
-### Impatto su smart-programming.ts
-- Da ~1300 LOC a ~400 LOC (solo scoring esercizi + utility UI)
-- I dati scientifici vengono dal backend, non sono hardcoded
-- `computeSmartAnalysis()` delega al backend via hook
+**Rationale**: lo scoring 14D serve latenza zero per UX (selezione esercizio nel builder).
+Non contiene dati scientifici — solo logica di ranking basata su proprieta' dell'esercizio.
+
+### 5.2 Cosa migra al backend (gia' implementato)
+
+| Frontend (RIMOSSO) | Backend (SSoT) | Endpoint |
+|--------------------|----------------|----------|
+| `BASE_VOLUME_TARGETS` (hardcoded) | `volume_model.py` (MEV/MAV/MRV) | `GET /volume-targets` |
+| `SESSION_BLUEPRINTS` (400 LOC) | `split_logic.py` + `plan_builder.py` | `POST /plan` |
+| `computeMuscleCoverage()` | `plan_analyzer.py` | `POST /analyze` |
+| `computeVolumeAnalysis()` | `plan_analyzer.py` | `POST /analyze` |
+| `analyzeBiomechanics()` | `plan_analyzer.py` | `POST /analyze` |
+| `analyzeRecovery()` | `plan_analyzer.py` | `POST /analyze` |
+| `patternToMuscleRoles()` | `muscle_contribution.py` (matrice EMG) | Dentro /plan e /analyze |
+| `MUSCLE_TARGET_TIER` | `volume_model.py` | `GET /volume-targets` |
+
+### 5.3 Hook frontend per API backend
+
+```typescript
+// hooks/useTrainingScience.ts
+useGeneratePlan(freq, obiettivo, livello)    // POST /training-science/plan
+useAnalyzePlan(piano)                        // POST /training-science/analyze (debounce 300ms)
+useGenerateMesocycle(piano)                  // POST /training-science/mesocycle
+useVolumeTargets(livello, obiettivo)         // GET /training-science/volume-targets
+useTrainingParameters(obiettivo)             // GET /training-science/parameters/{obj}
+```
+
+### 5.4 Flusso dati — Generazione piano nel builder
+
+```
+Utente: sceglie freq=4, obiettivo=ipertrofia, livello=intermedio
+  |
+  v
+TemplateSelector → POST /training-science/plan
+  → Backend: split_logic → plan_builder (4 fasi) → session_order
+  → Ritorna: TemplatePiano con sessioni + slot tipizzati
+  |
+  v
+fillSmartPlan() (client-side, scoring 14D)
+  → Per ogni slot: scoreExercisesForSlot() con 14 dimensioni
+  → Assegna esercizio con score piu' alto
+  → Coverage swap optimization (3 pass)
+  |
+  v
+Builder: scheda pronta, utente puo' modificare
+  |
+  v (onChange, debounce 300ms)
+SmartAnalysisPanel → POST /training-science/analyze
+  → Backend: plan_analyzer.py (dual volume, balance, recovery)
+  → Ritorna: AnalisiPiano con coverage per muscolo + score
+  → Frontend: renderizza barre colorate + badge
+```
+
+### 5.5 Impatto su smart-programming.ts
+
+- Da ~1868 LOC monolite → 5 moduli in `smart-programming/` (~670 LOC totali)
+- **RIMOSSI**: `BASE_VOLUME_TARGETS`, `MUSCLE_TARGET_TIER`, `SESSION_BLUEPRINTS` (370 LOC),
+  `SLOT_VOLUME`, `computeMuscleCoverage()`, `computeVolumeAnalysis()`, `analyzeBiomechanics()`,
+  `analyzeRecovery()`, `computeSafetyScore()`, `computeBlueprintCoverage()`, `computeRealCoverage()`,
+  `patternToMuscleRoles()`, `generateSmartPlan()`, `fillSmartPlan()`
+- **TENUTI**: 14 scorer functions, `scoreExercisesForSlot()`, `assessFitnessLevel()`,
+  `buildClientProfile()`, `computeSafetyBreakdown()`, `parseAvgReps()`
+- **AGGIUNTI**: orchestratore API in `analysis.ts`, tipi mirror backend in `types.ts`
+
+### 5.6 Collaborazione Accademica
+
+L'architettura SSoT e' progettata per la collaborazione con universita' di scienze motorie:
+- I ricercatori lavorano su Python (`api/services/training_science/`)
+- Ogni modulo e' indipendente e testabile isolatamente
+- I coefficienti hanno fonte bibliografica nel docstring
+- Il frontend non richiede competenze scientifiche (solo UI/UX)
+- Il white paper KineScore documenta la metodologia completa
 
 ---
 

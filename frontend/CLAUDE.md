@@ -55,17 +55,24 @@ frontend/src/
 │   │                        TemplateSelector, WorkoutPreview, ExportButtons, ExerciseDetailPanel,
 │   │                        SmartAnalysisPanel, MuscleMapPanel, RiskBodyMap
 │   └── ui/                  shadcn/ui (33 primitives + AnimatedNumber + Skeleton shimmer + LogoIcon)
-├── hooks/                   React Query hooks — 17 moduli
+├── hooks/                   React Query hooks — 18 moduli
 │   ├── useAgenda, useClients, useContracts, useRates, useMovements
 │   ├── useExercises, useWorkouts, useMeasurements, useGoals
 │   ├── useRecurringExpenses, useTodos, useDashboard, useBackup
 │   ├── useAssistant, useSmartProgramming, useUnsavedChanges, useGuideProgress
-├── lib/                     23 utility/engine
+│   ├── useTrainingScience   Hook per 5 endpoint Training Science Engine backend
+├── lib/                     25 utility/engine
 │   ├── api-client.ts        Axios + JWT interceptor + runtime API URL detection
 │   ├── auth.ts, format.ts, utils.ts, url-state.ts, providers.tsx, media.ts
 │   ├── clinical-analysis.ts, derived-metrics.ts, normative-ranges.ts
 │   ├── measurement-analytics.ts, metric-correlations.ts
-│   ├── smart-programming.ts (~1250 LOC), workout-templates.ts, workout-monitoring.ts
+│   ├── smart-programming/   Motore scoring 14D (consumer del backend SSoT)
+│   │   ├── types.ts         Interfacce mirror backend (~120 LOC)
+│   │   ├── scorers.ts       14 scorer composabili + orchestratore (~280 LOC)
+│   │   ├── helpers.ts       Profilo client, normalizzazione, utility (~150 LOC)
+│   │   ├── analysis.ts      Orchestratore che chiama API backend (~100 LOC)
+│   │   └── index.ts         Re-export pubblico (~20 LOC)
+│   ├── workout-templates.ts, workout-monitoring.ts
 │   ├── muscle-map-utils.ts, exercise-replacement.ts, confetti.ts
 │   ├── page-reveal.ts (staggered reveal animations)
 │   ├── guide-tours.ts (dati tour, FAQ, shortcuts)
@@ -305,6 +312,8 @@ Approccio mobile-first con breakpoints Tailwind (`sm:`, `md:`, `lg:`). Zero libr
 - Icone: lucide-react (consistente con shadcn/ui)
 - Toast: sonner (`toast.success`, `toast.error`)
 - Date: date-fns con locale `it` per display, `toISOLocal()` per payload API (MAI `toISOString()`)
+- **Max file size**: 300 LOC per file di logica, 400 LOC per file di puri dati/configurazione. Oltre → spezzare in moduli con `index.ts` per re-export. COMANDAMENTO SACRO.
+- **SSoT scientifica**: MAI duplicare costanti scientifiche nel frontend. Il backend (`api/services/training_science/`) e' l'unica fonte. Il frontend fetcha via `hooks/useTrainingScience.ts`. Vedi root `CLAUDE.md` sezione SSoT.
 
 ## Auth (3 layer)
 
