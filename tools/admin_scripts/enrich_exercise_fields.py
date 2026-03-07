@@ -34,7 +34,7 @@ import requests
 
 BASE_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data")
 OLLAMA_URL = "http://localhost:11434/api/generate"
-DEFAULT_MODEL = "Mixtral:latest"
+DEFAULT_MODEL = "gemma2:9b"
 OLLAMA_TIMEOUT = 300
 
 VALID_FORCE_TYPES = {"push", "pull", "static"}
