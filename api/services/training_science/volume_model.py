@@ -40,78 +40,109 @@ from .muscle_contribution import compute_effective_sets
 #
 # Fonte primaria: Israetel (RP), cross-validato con Schoenfeld 2017.
 
+# ── NOTA CALIBRAZIONE ──
+# I target sono calibrati per i pesi ipertrofici corretti:
+#   primario (1.0 EMG) = 1.0 set, sinergista (0.7) = 0.5 set,
+#   sinergista minore (0.4) = 0.25 set, stabilizzatore (0.2) = 0.0.
+# Israetel RP 2020: "count indirect volume as roughly half a set".
+# I valori riflettono il volume EFFETTIVO contato da compute_hypertrophy_sets().
+#
+# Muscoli con solo volume primario (petto, quadricipiti, polpacci):
+#   target dipende dal numero di slot diretti nel piano.
+# Muscoli con forte volume indiretto (trapezio, core, avambracci, delt_ant):
+#   MEV=0, target piu' bassi perche' il peso 0.5 riduce il conteggio.
+
 _VOLUME_TABLE: dict[M, dict[Livello, tuple[float, float, float, float, str]]] = {
     M.PETTO: {
-        Livello.PRINCIPIANTE: (6, 8, 10, 14, ""),
-        Livello.INTERMEDIO: (6, 12, 16, 20, ""),
-        Livello.AVANZATO: (6, 16, 22, 22, ""),
+        # Solo push_h (1.0). Piano 4x: 2 upper × 5set = 10 diretto.
+        Livello.PRINCIPIANTE: (4, 6, 8, 12, ""),
+        Livello.INTERMEDIO: (4, 8, 12, 16, ""),
+        Livello.AVANZATO: (6, 12, 16, 20, ""),
     },
     M.DORSALI: {
-        Livello.PRINCIPIANTE: (6, 8, 10, 16, "Include lat + romboidi"),
-        Livello.INTERMEDIO: (6, 14, 18, 22, ""),
-        Livello.AVANZATO: (6, 18, 24, 25, ""),
+        # pull_h(1.0) + pull_v(1.0) + hinge(0.25). Piano 4x: 2×(4+3) + 2×3×0.25 = 15.5
+        # MRV alto: 2 pattern primari (pull_h + pull_v), dorsali tollerano volume
+        # elevato (Israetel RP 2020: intermedio 18-22, avanzato 20-25).
+        Livello.PRINCIPIANTE: (4, 6, 10, 16, "Include lat + romboidi"),
+        Livello.INTERMEDIO: (4, 10, 16, 23, ""),
+        Livello.AVANZATO: (6, 14, 20, 26, ""),
     },
     M.DELT_ANT: {
+        # push_v(1.0) + push_h(0.5). Volume indiretto dominante.
         Livello.PRINCIPIANTE: (0, 0, 4, 8, "Volume indiretto da push sufficiente"),
-        Livello.INTERMEDIO: (0, 0, 6, 14, "MRV alto: muscolo piccolo, recupero rapido (Israetel RP 2020)"),
-        Livello.AVANZATO: (0, 0, 8, 16, "MRV alto: muscolo piccolo, recupero rapido (Israetel RP 2020)"),
+        Livello.INTERMEDIO: (0, 0, 8, 14, "Riceve push_h(0.5) + push_v(1.0)"),
+        Livello.AVANZATO: (0, 0, 10, 16, ""),
     },
     M.DELT_LAT: {
-        Livello.PRINCIPIANTE: (6, 8, 10, 16, "Richiede isolamento diretto"),
-        Livello.INTERMEDIO: (6, 14, 18, 22, ""),
-        Livello.AVANZATO: (6, 18, 24, 26, "Tollerano molto volume"),
+        # lateral_raise(1.0) + push_v(0.5). Piano 4x: 2×3 + 2×3×0.5 = 9.
+        Livello.PRINCIPIANTE: (4, 6, 8, 12, "Richiede isolamento diretto"),
+        Livello.INTERMEDIO: (4, 8, 12, 16, ""),
+        Livello.AVANZATO: (6, 10, 16, 20, ""),
     },
     M.DELT_POST: {
-        Livello.PRINCIPIANTE: (0, 6, 8, 14, "Volume indiretto da pull"),
-        Livello.INTERMEDIO: (0, 10, 14, 18, ""),
-        Livello.AVANZATO: (0, 14, 18, 22, ""),
+        # face_pull(1.0) + pull_h(0.5) + pull_v(0.25) + rotation(0.25).
+        Livello.PRINCIPIANTE: (0, 4, 6, 10, "Volume indiretto da pull"),
+        Livello.INTERMEDIO: (0, 6, 10, 14, ""),
+        Livello.AVANZATO: (0, 8, 14, 18, ""),
     },
     M.BICIPITI: {
-        Livello.PRINCIPIANTE: (4, 6, 8, 14, ""),
-        Livello.INTERMEDIO: (4, 10, 14, 20, ""),
-        Livello.AVANZATO: (4, 14, 20, 26, "Tollerano molto volume"),
+        # curl(1.0) + pull_h(0.5) + pull_v(0.5). Piano 4x: 3 + (4+3)×0.5×2 = 10.
+        Livello.PRINCIPIANTE: (4, 5, 8, 12, ""),
+        Livello.INTERMEDIO: (4, 8, 12, 16, ""),
+        Livello.AVANZATO: (4, 10, 16, 20, ""),
     },
     M.TRICIPITI: {
-        Livello.PRINCIPIANTE: (4, 4, 6, 10, "Volume indiretto da push significativo"),
-        Livello.INTERMEDIO: (4, 8, 12, 14, ""),
-        Livello.AVANZATO: (4, 10, 16, 18, ""),
+        # extension(1.0) + push_h(0.5) + push_v(0.5). Volume indiretto da push.
+        Livello.PRINCIPIANTE: (2, 4, 6, 10, "Volume indiretto da push significativo"),
+        Livello.INTERMEDIO: (2, 6, 10, 14, ""),
+        Livello.AVANZATO: (4, 8, 14, 18, ""),
     },
     M.QUADRICIPITI: {
-        Livello.PRINCIPIANTE: (6, 8, 10, 14, ""),
-        Livello.INTERMEDIO: (6, 12, 16, 18, ""),
-        Livello.AVANZATO: (6, 16, 22, 24, "MRV alto: avanzati tollerano volume elevato (Israetel RP 2020)"),
+        # squat(1.0) + leg_extension(1.0). Piano 4x: 2×4 + 3 = 11.
+        Livello.PRINCIPIANTE: (4, 6, 8, 12, ""),
+        Livello.INTERMEDIO: (4, 8, 14, 18, ""),
+        Livello.AVANZATO: (6, 12, 18, 22, ""),
     },
     M.FEMORALI: {
+        # hinge(1.0) + leg_curl(1.0) + squat(0.25). Piano 4x: 2×3 + 2 + 2×4×0.25 = 10.
         Livello.PRINCIPIANTE: (4, 6, 8, 12, ""),
-        Livello.INTERMEDIO: (4, 10, 14, 16, ""),
-        Livello.AVANZATO: (4, 12, 18, 20, "MRV = MAV_max + 2 (buffer standard Israetel RP 2020)"),
+        Livello.INTERMEDIO: (4, 8, 12, 16, ""),
+        Livello.AVANZATO: (4, 10, 16, 20, ""),
     },
     M.GLUTEI: {
+        # hinge(1.0) + squat(0.5) + hip_thrust(1.0). Volume indiretto forte.
         Livello.PRINCIPIANTE: (0, 4, 6, 10, "Volume indiretto da squat/hinge"),
         Livello.INTERMEDIO: (0, 6, 10, 14, ""),
-        Livello.AVANZATO: (0, 8, 14, 16, ""),
+        Livello.AVANZATO: (0, 8, 14, 18, ""),
     },
     M.POLPACCI: {
-        Livello.PRINCIPIANTE: (6, 8, 10, 14, "Richiedono alta frequenza e rep"),
-        Livello.INTERMEDIO: (6, 10, 14, 16, ""),
-        Livello.AVANZATO: (6, 12, 16, 16, ""),
+        # calf_raise(1.0) solo. Piano 4x: 2×(3-6) = 6-12.
+        Livello.PRINCIPIANTE: (4, 6, 8, 12, "Richiedono alta frequenza e rep"),
+        Livello.INTERMEDIO: (4, 8, 12, 16, ""),
+        Livello.AVANZATO: (6, 10, 14, 18, ""),
     },
     M.TRAPEZIO: {
-        Livello.PRINCIPIANTE: (0, 4, 6, 14, "Volume indiretto da pull/hinge"),
-        Livello.INTERMEDIO: (0, 8, 12, 20, ""),
-        Livello.AVANZATO: (0, 12, 18, 26, "Tollerano molto volume"),
+        # pull_h(0.5) + carry(0.5) + push_v/pull_v/hinge(0.25). Hub muscle.
+        Livello.PRINCIPIANTE: (0, 4, 6, 10, "Volume indiretto da pull/hinge/carry"),
+        Livello.INTERMEDIO: (0, 6, 10, 16, ""),
+        Livello.AVANZATO: (0, 8, 14, 20, ""),
     },
     M.CORE: {
-        Livello.PRINCIPIANTE: (0, 4, 8, 14, "Volume indiretto da compound"),
-        Livello.INTERMEDIO: (0, 8, 12, 16, ""),
-        Livello.AVANZATO: (0, 10, 16, 20, ""),
+        # rotation(0.5) + carry(0.5) + squat/hinge(0.25). Hub muscle.
+        Livello.PRINCIPIANTE: (0, 4, 6, 10, "Volume indiretto da compound"),
+        Livello.INTERMEDIO: (0, 6, 10, 14, ""),
+        Livello.AVANZATO: (0, 8, 14, 18, ""),
     },
     M.AVAMBRACCI: {
-        Livello.PRINCIPIANTE: (0, 2, 4, 8, "Volume indiretto da pull/carry"),
-        Livello.INTERMEDIO: (0, 4, 6, 10, ""),
-        Livello.AVANZATO: (0, 4, 8, 12, ""),
+        # carry(1.0) + pull_h/pull_v/curl(0.25). Carry = primario.
+        # MRV piu' alto: avambracci hanno alta densita' fibre lente,
+        # recuperano piu' velocemente (Israetel RP 2020).
+        Livello.PRINCIPIANTE: (0, 2, 4, 10, "Volume indiretto da pull/carry"),
+        Livello.INTERMEDIO: (0, 4, 8, 12, "Carry conta come volume primario (Israetel RP 2020)"),
+        Livello.AVANZATO: (0, 6, 10, 14, "Carry conta come volume primario (Israetel RP 2020)"),
     },
     M.ADDUTTORI: {
+        # adductor(1.0) + squat(0.25). Volume indiretto minimo.
         Livello.PRINCIPIANTE: (0, 2, 4, 8, "Volume indiretto da squat"),
         Livello.INTERMEDIO: (0, 4, 8, 10, ""),
         Livello.AVANZATO: (0, 6, 10, 12, ""),

@@ -240,7 +240,7 @@ class VolumeEffettivo(BaseModel):
     target_mav_min: float
     target_mav_max: float
     target_mrv: float
-    stato: str = Field(description="sotto_mev | in_mev_mav | in_mav | sopra_mav | sopra_mrv")
+    stato: str = Field(description="sotto_mev | mev_mav | ottimale | sopra_mav | sopra_mrv")
 
 
 class AnalisiVolume(BaseModel):

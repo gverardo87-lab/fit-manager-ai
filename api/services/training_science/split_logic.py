@@ -136,7 +136,39 @@ SESSIONI_PER_SPLIT: dict[tuple[TipoSplit, int], list[RuoloSessione]] = {
 # the program includes heavy compounds." Se il core risultasse
 # sotto MAV, il plan_builder lo compensera' con isolamento (Fase 3).
 
+# ── FULL BODY A/B ALTERNATION ──
+# 9 pattern in UNA sessione full body = troppe (NSCA 2016: 5-6 esercizi
+# per sessione per principiante). Soluzione scientifica standard
+# (Helms 2019): alternare A/B con copertura complementare.
+#
+# A (orizzontale + gambe): push_h, pull_h, squat, carry, calf_raise (5)
+# B (verticale + catena post.): push_v, pull_v, hinge, rotation (4)
+#
+# Ogni muscolo ha freq >= 1x per pattern. Con 3x (A/B/A), i pattern A
+# hanno freq 2x e i B freq 1x. Fase 3 compensa eventuali deficit.
+
+_FULL_BODY_VARIANTS: list[list[P]] = [
+    # Variante A — piani orizzontali + squat + carry funzionale
+    [P.PUSH_H, P.PULL_H, P.SQUAT, P.CARRY, P.CALF_RAISE],
+    # Variante B — piani verticali + hinge + rotazione trasversale
+    [P.PUSH_V, P.PULL_V, P.HINGE, P.ROTATION],
+]
+
+
+def get_full_body_patterns(session_index: int) -> list[P]:
+    """
+    Ritorna i pattern per la sessione full body N-esima (0-indexed).
+
+    Alterna A/B per distribuire i 9 pattern su sessioni diverse.
+    Helms 2019: "Alternating A/B full body sessions allow adequate
+    frequency (2x/muscle/week) without excessive per-session volume."
+    """
+    return _FULL_BODY_VARIANTS[session_index % len(_FULL_BODY_VARIANTS)]
+
+
 PATTERN_COMPOUND_PER_RUOLO: dict[RuoloSessione, list[P]] = {
+    # Master list: tutti i pattern possibili per full body.
+    # Il plan_builder usa get_full_body_patterns() per il subset A/B.
     RuoloSessione.FULL_BODY: [
         P.PUSH_H, P.PUSH_V, P.PULL_H, P.PULL_V,
         P.SQUAT, P.HINGE, P.ROTATION, P.CARRY,
@@ -313,8 +345,13 @@ def compute_frequency_per_muscle(
     roles = get_session_roles(frequenza)
     freq: dict[M, int] = {m: 0 for m in M}
 
+    fb_index = 0
     for ruolo in roles:
-        patterns = PATTERN_COMPOUND_PER_RUOLO[ruolo]
+        if ruolo == RuoloSessione.FULL_BODY:
+            patterns = get_full_body_patterns(fb_index)
+            fb_index += 1
+        else:
+            patterns = PATTERN_COMPOUND_PER_RUOLO[ruolo]
         muscoli_stimolati: set[M] = set()
 
         for pattern in patterns:

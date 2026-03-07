@@ -142,13 +142,13 @@ function buildTemplatePiano(
 // VOLUME STATUS — Colori e label per stato backend
 // ════════════════════════════════════════════════════════════
 
-type VolumeStatusKey = "deficit" | "optimal" | "excess";
+type VolumeStatusKey = "deficit" | "suboptimal" | "optimal" | "excess";
 
 function mapBackendStatus(stato: string): VolumeStatusKey {
   switch (stato) {
     case "sotto_mev": return "deficit";
-    case "in_mev_mav": return "optimal";
-    case "in_mav": return "optimal";
+    case "mev_mav": return "suboptimal";
+    case "ottimale": return "optimal";
     case "sopra_mav": return "excess";
     case "sopra_mrv": return "excess";
     default: return "optimal";
@@ -160,6 +160,11 @@ const STATUS_COLORS = {
     bg: "bg-red-100 dark:bg-red-950/40",
     text: "text-red-700 dark:text-red-400",
     bar: "bg-red-500",
+  },
+  suboptimal: {
+    bg: "bg-sky-100 dark:bg-sky-950/40",
+    text: "text-sky-700 dark:text-sky-400",
+    bar: "bg-sky-500",
   },
   optimal: {
     bg: "bg-emerald-100 dark:bg-emerald-950/40",
@@ -175,6 +180,7 @@ const STATUS_COLORS = {
 
 const STATUS_LABELS = {
   deficit: "Deficit",
+  suboptimal: "Sub-ottimale",
   optimal: "Ottimale",
   excess: "Eccesso",
 } as const;
@@ -270,9 +276,14 @@ export function SmartAnalysisPanel({
   const deficitCount = volumeData
     ? volumeData.per_muscolo.filter((m) => mapBackendStatus(m.stato) === "deficit").length
     : 0;
+  const suboptimalCount = volumeData
+    ? volumeData.per_muscolo.filter((m) => mapBackendStatus(m.stato) === "suboptimal").length
+    : 0;
   const optimalCount = volumeData
     ? volumeData.per_muscolo.filter((m) => mapBackendStatus(m.stato) === "optimal").length
     : 0;
+  // KPI "Deficit" card shows both sotto_mev + mev_mav (both need more volume)
+  const needsAttentionCount = deficitCount + suboptimalCount;
 
   const borderColor = backendAnalysis
     ? backendAnalysis.score >= 75
@@ -319,9 +330,9 @@ export function SmartAnalysisPanel({
               <div className={`text-lg font-extrabold tracking-tighter tabular-nums ${STATUS_COLORS.optimal.text}`}>{optimalCount}</div>
               <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Ottimali</div>
             </div>
-            <div className={`rounded-lg ${STATUS_COLORS.deficit.bg} px-2 py-2 text-center`}>
-              <div className={`text-lg font-extrabold tracking-tighter tabular-nums ${STATUS_COLORS.deficit.text}`}>{deficitCount}</div>
-              <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Deficit</div>
+            <div className={`rounded-lg ${needsAttentionCount > 0 ? STATUS_COLORS.deficit.bg : "bg-muted/50"} px-2 py-2 text-center`}>
+              <div className={`text-lg font-extrabold tracking-tighter tabular-nums ${needsAttentionCount > 0 ? STATUS_COLORS.deficit.text : "text-muted-foreground"}`}>{needsAttentionCount}</div>
+              <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Carenti</div>
             </div>
             <div className="rounded-lg bg-muted/50 px-2 py-2 text-center">
               {safetyBreakdown.hasConditions ? (

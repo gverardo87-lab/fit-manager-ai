@@ -59,6 +59,7 @@ from .split_logic import (
     get_split,
     get_session_roles,
     clamp_frequenza,
+    get_full_body_patterns,
     PATTERN_COMPOUND_PER_RUOLO,
     NOMI_SESSIONE,
     FOCUS_SESSIONE,
@@ -283,9 +284,15 @@ def _boost_compound_series(
                 if contrib < 0.7:
                     continue
 
-                slot.serie += 1
-                boosts_done += 1
-                session_boosts += 1
+                # Calcola quante serie aggiungere in un colpo (non solo +1)
+                add = min(
+                    boosts_needed - boosts_done,
+                    _MAX_COMPOUND_BOOST_PER_SESSION - session_boosts,
+                    _MAX_SERIE_PER_SLOT - slot.serie,
+                )
+                slot.serie += add
+                boosts_done += add
+                session_boosts += add
 
 
 # ════════════════════════════════════════════════════════════
@@ -363,11 +370,24 @@ def _add_isolation_slots(
                 break
             if ruolo not in affinita:
                 continue
+
+            # Se il pattern e' gia' presente (es. calf_raise dalla Fase 1),
+            # boost le serie dello slot esistente invece di aggiungere un duplicato.
+            existing = next((s for s in slots if s.pattern == pattern_iso), None)
+            if existing is not None:
+                if existing.serie < _MAX_SERIE_PER_SLOT:
+                    boost = min(
+                        serie_iso,
+                        _MAX_SERIE_PER_SLOT - existing.serie,
+                        max(1, round(deficit - aggiunte * serie_iso)),
+                    )
+                    existing.serie += boost
+                    aggiunte += 1
+                continue
+
             if iso_count[i] >= max_iso:
                 continue
             if slot_count[i] >= max_slot:
-                continue
-            if any(s.pattern == pattern_iso for s in slots):
                 continue
 
             serie_da_aggiungere = min(
@@ -455,9 +475,16 @@ def build_plan(
     roles = get_session_roles(frequenza)
 
     # ── FASE 1: Compound base ──
+    # Per full body: A/B alternation (Helms 2019) — subset di pattern
+    # per sessione, non tutti e 9. Riduce volume per-sessione da 9 a 4-5.
     sessioni: list[tuple[RuoloSessione, list[SlotSessione]]] = []
+    fb_index = 0
     for ruolo in roles:
-        patterns = PATTERN_COMPOUND_PER_RUOLO[ruolo]
+        if ruolo == RuoloSessione.FULL_BODY:
+            patterns = get_full_body_patterns(fb_index)
+            fb_index += 1
+        else:
+            patterns = PATTERN_COMPOUND_PER_RUOLO[ruolo]
         compound_slots = _build_compound_slots(patterns, obiettivo)
         sessioni.append((ruolo, compound_slots))
 

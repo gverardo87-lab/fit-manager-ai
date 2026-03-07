@@ -1300,6 +1300,29 @@ export function fillSmartPlan(
       } else if (slot.slotType === "compound_primary" || slot.slotType === "compound_secondary") {
         const preferred = candidates.filter(e => e.categoria === "compound" || e.categoria === "bodyweight");
         if (preferred.length >= 3) candidates = preferred;
+
+        // ── Pattern gate: impedisce gambe in upper body, pull in push day ──
+        // pattern_match (0.13) da solo non basta vs altri scorer combinati.
+        // Senza questo gate, un barbell row puo' battere una bench press
+        // in uno slot push_h se ha score migliore su safety/equipment/uniqueness.
+        const hint = slot.pattern_hint;
+        if (hint && !["warmup", "stretch", "mobility", "accessory"].includes(hint)) {
+          // 1. Prova pattern esatto (push_h → solo esercizi push_h)
+          const exact = candidates.filter(e => e.pattern_movimento === hint);
+          if (exact.length >= 2) {
+            candidates = exact;
+          } else {
+            // 2. Fallback: stessa famiglia di movimento
+            //    push_h/push_v condividono "push", pull_h/pull_v condividono "pull"
+            //    squat/hinge/core/carry/rotation restano isolati (no "_" o famiglia unica)
+            const family = hint.split("_")[0];
+            const familyMatch = candidates.filter(e => {
+              const exFamily = e.pattern_movimento.split("_")[0];
+              return exFamily === family;
+            });
+            if (familyMatch.length >= 2) candidates = familyMatch;
+          }
+        }
       }
 
       const scores = scoreExercisesForSlot(

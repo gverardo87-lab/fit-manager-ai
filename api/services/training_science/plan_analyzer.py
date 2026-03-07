@@ -296,10 +296,22 @@ def _compute_score(
     total_muscles = len(volume.per_muscolo)
 
     # Volume coverage (40 punti)
-    # Muscoli con stato "ottimale" o "sopra_mav" contano come coperti
+    # Peso differenziato per qualita' della copertura:
+    #   "ottimale"  = 1.0 — nel range MAV, stimolo ideale
+    #   "sopra_mav" = 0.8 — sopra MAV ma sotto MRV, volume alto ma recuperabile
+    #   "mev_mav"   = 0.5 — sopra MEV, stimolo presente ma sub-ottimale
+    #   "sotto_mev" = 0.0 — nessuno stimolo
+    #   "sopra_mrv" = 0.0 — overtraining, penalizzato (non e' copertura utile)
+    _COVERAGE_WEIGHT = {
+        "ottimale": 1.0,
+        "sopra_mav": 0.8,
+        "mev_mav": 0.5,
+        "sotto_mev": 0.0,
+        "sopra_mrv": 0.0,
+    }
     covered = sum(
-        1 for v in volume.per_muscolo
-        if v.stato in ("ottimale", "sopra_mav")
+        _COVERAGE_WEIGHT.get(v.stato, 0.0)
+        for v in volume.per_muscolo
     )
     volume_score = (covered / total_muscles) * 40 if total_muscles > 0 else 0
 

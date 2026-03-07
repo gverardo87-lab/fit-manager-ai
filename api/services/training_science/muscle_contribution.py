@@ -201,11 +201,17 @@ def compute_effective_sets(
 # Israetel (RP 2020): il volume indiretto da stabilizzazione
 # "conta poco o nulla" verso il volume totale per l'ipertrofia.
 #
-# Pesi per qualita' di contribuzione:
-#   1.0 (primario):           peso 1.0 — stimolo pieno
-#   0.7 (sinergista maggiore): peso 1.0 — stimolo pieno (sopra 40% MVC)
-#   0.4 (sinergista minore):   peso 0.5 — stimolo parziale
+# Pesi per qualita' di contribuzione (Israetel RP 2020, "half a set" rule):
+#   1.0 (primario):           peso 1.0 — stimolo pieno (motore primario)
+#   0.7 (sinergista maggiore): peso 0.5 — mezzo set (volume indiretto, ~half a set)
+#   0.4 (sinergista minore):   peso 0.25 — quarto di set (contributo marginale)
 #   0.2 (stabilizzatore):      peso 0.0 — sotto soglia ipertrofica
+#
+# Rationale: Israetel RP 2020 — "count indirect volume as roughly half a set".
+# Un sinergista maggiore (0.7 EMG) NON riceve lo stesso stimolo ipertrofico
+# del motore primario. Esempio: bicipiti durante pull-up ricevono ~0.5 set
+# per ogni set di pull-up, NON 1.0 set pieno. Senza questo sconto, muscoli
+# hub (trapezio, core, avambracci) accumulano volume fantasma e sfondano MRV.
 #
 # IMPORTANTE: compute_effective_sets() resta invariato per i calcoli
 # di balance ratio e recupero, dove il lavoro meccanico conta tutto.
@@ -213,8 +219,8 @@ def compute_effective_sets(
 
 _HYPERTROPHY_WEIGHT: dict[float, float] = {
     1.0: 1.0,   # motore primario: stimolo pieno
-    0.7: 1.0,   # sinergista maggiore: stimolo pieno (EMG > 40% MVC)
-    0.4: 0.5,   # sinergista minore: stimolo parziale
+    0.7: 0.5,   # sinergista maggiore: mezzo set (Israetel "half a set" rule)
+    0.4: 0.25,  # sinergista minore: quarto di set (contributo marginale)
     0.2: 0.0,   # stabilizzatore: sotto soglia ipertrofica
 }
 
@@ -230,9 +236,9 @@ def _get_hypertrophy_weight(contributo: float) -> float:
         return _HYPERTROPHY_WEIGHT[contributo]
     # Fallback per valori non standard: proporzionale
     if contributo >= 0.7:
-        return 1.0
-    if contributo >= 0.4:
         return 0.5
+    if contributo >= 0.4:
+        return 0.25
     return 0.0
 
 
@@ -243,27 +249,38 @@ def compute_hypertrophy_sets(
     Calcola il volume IPERTROFICO per muscolo (serie che contano per la crescita).
 
     A differenza di compute_effective_sets(), questa funzione sconta il volume
-    da stabilizzazione (contributo 0.2 → peso 0) e riduce il volume da
-    sinergismo minore (contributo 0.4 → peso 0.5).
+    indiretto secondo la "half a set" rule (Israetel RP 2020).
+
+    Il weight SOSTITUISCE il contributo EMG, non lo moltiplica:
+      - contributo 1.0 (primario)    → weight 1.0  → serie × 1.0  = 1 serie piena
+      - contributo 0.7 (sinergista+) → weight 0.5  → serie × 0.5  = mezzo set
+      - contributo 0.4 (sinergista-) → weight 0.25 → serie × 0.25 = quarto di set
+      - contributo 0.2 (stabiliz.)   → weight 0.0  → serie × 0.0  = zero
+    Rationale: il contributo EMG classifica il LIVELLO di attivazione,
+    il weight e' il fattore ipertrofico RISULTANTE. Un sinergista maggiore
+    (es. bicipiti durante pull-up) riceve ~mezzo set di stimolo ipertrofico
+    per ogni set dell'esercizio (Israetel RP 2020: "count indirect volume
+    as roughly half a set"). Senza questo sconto, muscoli hub (trapezio,
+    core, avambracci) accumulano volume fantasma e sfondano sistematicamente MRV.
 
     USARE PER: confronto con target MEV/MAV/MRV (soglie di volume ipertrofico).
     NON USARE PER: rapporti biomeccanici e recupero (usare compute_effective_sets).
 
     Esempio (squat, 4 serie):
       compute_effective_sets:   core = 4 × 0.4 = 1.6
-      compute_hypertrophy_sets: core = 4 × 0.4 × 0.5 = 0.8
-                                polpacci = 4 × 0.2 × 0.0 = 0.0
+      compute_hypertrophy_sets: core = 4 × 0.25 = 1.0 (quarter-set rule)
+                                polpacci = 4 × 0.0 = 0.0 (sotto soglia)
 
     Fonti:
       - Schoenfeld 2017: soglia EMG 40% MVC per stimolo ipertrofico
-      - Israetel RP 2020: volume indiretto non conta verso MRV
+      - Israetel RP 2020: volume indiretto conta "roughly half a set"
     """
     hypertrophy: dict[M, float] = {}
     for pattern, serie in slots:
         for muscolo, contributo in get_contribution(pattern).items():
             weight = _get_hypertrophy_weight(contributo)
             if weight > 0:
-                volume = serie * contributo * weight
+                volume = serie * weight
                 hypertrophy[muscolo] = hypertrophy.get(muscolo, 0.0) + volume
     return hypertrophy
 

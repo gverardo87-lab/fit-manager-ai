@@ -1647,7 +1647,7 @@ export interface TSVolumeEffettivo {
   target_mav_min: number;
   target_mav_max: number;
   target_mrv: number;
-  stato: "sotto_mev" | "in_mev_mav" | "in_mav" | "sopra_mav" | "sopra_mrv";
+  stato: "sotto_mev" | "mev_mav" | "ottimale" | "sopra_mav" | "sopra_mrv";
 }
 
 /** Analisi volume di un piano */
