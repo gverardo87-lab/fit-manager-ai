@@ -70,9 +70,9 @@ MAX_PER_CATEGORY = 15
 MAX_PER_PATTERN = 8
 MIN_COMPLEMENTARY = {"stretching": 3, "avviamento": 10, "mobilita": 5}
 
-# Categorie che possono essere attivate senza foto (bodyweight semplice)
+# Categorie che possono essere attivate senza foto (bodyweight semplice o stretching statico)
 # Richiedono comunque il campo 'esecuzione' compilato
-PHOTO_OPTIONAL_CATEGORIES = {"avviamento", "mobilita"}
+PHOTO_OPTIONAL_CATEGORIES = {"avviamento", "mobilita", "stretching"}
 
 
 # ================================================================
@@ -442,8 +442,9 @@ def enrich_single(conn: sqlite3.Connection, ex: dict, model: str) -> tuple[bool,
     eid = ex["id"]
     nome = ex["nome"]
 
-    # Check quali campi servono
-    needs_enrich = not field_filled(ex.get("descrizione_anatomica"))
+    # Check quali campi servono (Ollama fill: tutti i REQUIRED tranne note_sicurezza)
+    ENRICH_REQUIRED = [f for f in REQUIRED_TEXT_FIELDS if f != "note_sicurezza"]
+    needs_enrich = not all(field_filled(ex.get(f)) for f in ENRICH_REQUIRED)
     needs_safety = not field_filled(ex.get("note_sicurezza"))
 
     if not needs_enrich and not needs_safety:
@@ -531,7 +532,9 @@ def phase_enrich(db_path: str, selected_ids: list[int], model: str, dry_run: boo
         print("  [DRY-RUN] Nessun enrichment.")
         return {}
 
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path, timeout=60)
+    conn.execute("PRAGMA busy_timeout = 60000")
+    conn.execute("PRAGMA journal_mode = WAL")
     conn.row_factory = sqlite3.Row
 
     # Load selected exercises
@@ -551,11 +554,8 @@ def phase_enrich(db_path: str, selected_ids: list[int], model: str, dry_run: boo
         eid = ex["id"]
         nome = ex["nome"]
 
-        # Skip se gia' completo
-        needs_work = (
-            not field_filled(ex["descrizione_anatomica"])
-            or not field_filled(ex["note_sicurezza"])
-        )
+        # Skip se gia' completo (tutti i campi required sono presenti)
+        needs_work = not all(field_filled(ex_dict.get(f)) for f in REQUIRED_TEXT_FIELDS)
         if not needs_work:
             skipped += 1
             continue
@@ -653,7 +653,7 @@ def fill_tempo_consigliato(db_path: str, selected_ids: list[int]) -> int:
 # FASE 5: VERIFY
 # ================================================================
 
-def phase_verify(db_path: str, selected_ids: list[int]) -> list[int]:
+def phase_verify(db_path: str, selected_ids: list[int], force_no_photo: bool = False) -> list[int]:
     """Quick quality check on newly activated exercises.
     Returns list of IDs that FAILED and should be deactivated."""
 
@@ -684,9 +684,9 @@ def phase_verify(db_path: str, selected_ids: list[int]) -> list[int]:
             if not field_filled(ex[f]):
                 issues.append(f"{f}: vuoto")
 
-        # Foto (double-check — skip per categorie photo-optional)
+        # Foto (double-check — skip per categorie photo-optional o --force-no-photo)
         cat = ex["categoria"] or ""
-        if not has_photos(eid) and cat not in PHOTO_OPTIONAL_CATEGORIES:
+        if not has_photos(eid) and cat not in PHOTO_OPTIONAL_CATEGORIES and not force_no_photo:
             issues.append("foto: mancanti")
 
         # Esecuzione (campo critico)
@@ -787,6 +787,10 @@ def main():
     VALID_CATEGORIES = ["compound", "isolation", "bodyweight", "cardio", "stretching", "mobilita", "avviamento"]
     parser.add_argument("--prefer", default=None, choices=VALID_CATEGORIES,
                         help="Categoria da preferire nella selezione (es. bodyweight, stretching)")
+    parser.add_argument("--ids", default=None,
+                        help="Comma-separated IDs da attivare direttamente (bypassa Fase 2 SELECT)")
+    parser.add_argument("--force-no-photo", action="store_true",
+                        help="Attiva esercizi senza foto (segnalati come 'needs photo' ma non bloccati)")
     args = parser.parse_args()
 
     print("=" * 60)
@@ -796,6 +800,10 @@ def main():
     print(f"  Model: {args.model} | Skip enrich: {args.skip_enrich}")
     if args.prefer:
         print(f"  Preferenza categoria: {args.prefer}")
+    if args.ids:
+        print(f"  Modalita' --ids: selezione esplicita (bypassa Phase 2)")
+    if args.force_no_photo:
+        print(f"  --force-no-photo: esercizi senza foto saranno attivati (photo debt segnalato)")
 
     db_paths = get_db_paths(args.db)
     if not db_paths:
@@ -809,29 +817,62 @@ def main():
     # ── Fase 0: Audit (primo DB come riferimento per selezione) ──
     audit_data = phase_audit(db_paths[0])
 
-    # ── Fase 1: Deactivate ──
-    ids_to_deactivate = audit_data["active_no_photos_ids"]
-    for db_path in db_paths:
-        phase_deactivate(db_path, ids_to_deactivate, args.dry_run)
+    # ── Fase 1: Deactivate (saltata se --ids: non tocchiamo gli attivi correnti) ──
+    if not args.ids:
+        ids_to_deactivate = audit_data["active_no_photos_ids"]
+        for db_path in db_paths:
+            phase_deactivate(db_path, ids_to_deactivate, args.dry_run)
 
     # ── Fase 2: Select ──
-    # Merge photo candidates + photo-optional (avviamento/mobilita con esecuzione)
-    all_candidates = audit_data["archived_with_photos"] + audit_data["archived_photo_optional"]
-    # Deduplica per id (photo-optional non dovrebbe sovrapporre, ma safety check)
-    seen_ids = set()
-    unique_candidates = []
-    for c in all_candidates:
-        if c["id"] not in seen_ids:
-            unique_candidates.append(c)
-            seen_ids.add(c["id"])
+    if args.ids:
+        # Modalita' --ids: bypassa selezione automatica, usa IDs espliciti
+        explicit_ids = [int(x.strip()) for x in args.ids.split(",") if x.strip()]
+        # Carica i record dal primo DB per reporting
+        conn_ref = sqlite3.connect(db_paths[0])
+        conn_ref.row_factory = sqlite3.Row
+        ph = ",".join("?" * len(explicit_ids))
+        explicit_rows = conn_ref.execute(
+            f"SELECT * FROM esercizi WHERE id IN ({ph})", explicit_ids
+        ).fetchall()
+        conn_ref.close()
 
-    selected = phase_select(
-        audit_data["active_with_photos"],
-        unique_candidates,
-        args.batch_size,
-        prefer_category=args.prefer,
-    )
-    selected_ids = [e["id"] for e in selected]
+        # Verifica che tutti gli ID esistano
+        found_ids = {r["id"] for r in explicit_rows}
+        missing = set(explicit_ids) - found_ids
+        if missing:
+            print(f"\n  ATTENZIONE: IDs non trovati nel DB: {sorted(missing)}")
+        selected_ids = [r["id"] for r in explicit_rows]
+
+        print(f"\n{'=' * 60}")
+        print(f"  FASE 2 — SELECT: modalita' --ids ({len(selected_ids)} esercizi espliciti)")
+        print(f"{'=' * 60}")
+        for r in explicit_rows:
+            foto_ok = has_photos(r["id"])
+            foto_status = "OK" if foto_ok else ("OPTIONAL" if r["categoria"] in PHOTO_OPTIONAL_CATEGORIES else "MANCANTE")
+            print(f"    [{r['id']}] {r['categoria']}/{r['pattern_movimento']}/{r['difficolta']} | foto:{foto_status} | {r['nome']}")
+        if args.force_no_photo:
+            no_photo = [r for r in explicit_rows if not has_photos(r["id"]) and r["categoria"] not in PHOTO_OPTIONAL_CATEGORIES]
+            if no_photo:
+                print(f"\n  Photo debt ({len(no_photo)} esercizi senza foto — da completare in seguito):")
+                for r in no_photo:
+                    print(f"    [{r['id']}] {r['nome']}")
+    else:
+        # Modalita' standard: selezione automatica per copertura
+        all_candidates = audit_data["archived_with_photos"] + audit_data["archived_photo_optional"]
+        seen_ids: set[int] = set()
+        unique_candidates = []
+        for c in all_candidates:
+            if c["id"] not in seen_ids:
+                unique_candidates.append(c)
+                seen_ids.add(c["id"])
+
+        selected = phase_select(
+            audit_data["active_with_photos"],
+            unique_candidates,
+            args.batch_size,
+            prefer_category=args.prefer,
+        )
+        selected_ids = [e["id"] for e in selected]
 
     if not selected_ids:
         print("\nNessun candidato selezionato. Fine.")
@@ -862,7 +903,7 @@ def main():
     # Collect ALL failed IDs across DBs — rollback union to keep DBs symmetric
     all_failed: set[int] = set()
     for db_path in db_paths:
-        failed = phase_verify(db_path, selected_ids)
+        failed = phase_verify(db_path, selected_ids, force_no_photo=args.force_no_photo)
         all_failed.update(failed)
 
     if all_failed:

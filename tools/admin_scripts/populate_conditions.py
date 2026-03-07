@@ -527,6 +527,231 @@ PATTERN_CONDITION_RULES: list[tuple[dict, int, str, str]] = [
     # ── Diabete T1 (44) ──
     ({"categoria": "cardio"}, 44, "caution",
      "Cardio + diabete T1: rischio ipoglicemia. Zuccheri rapidi a portata."),
+
+    # ═══════════════════════════════════════════════════════════
+    # HIP THRUST — Pattern critico per donne
+    # Referenze: Contreras 2016 (glute activation), Sahrmann 2002 (pelvi)
+    # ═══════════════════════════════════════════════════════════
+
+    # ── Ernia lombare (1) ──
+    ({"pattern_movimento": "hip_thrust"}, 1, "caution",
+     "Hip thrust con ernia lombare: eccellente alternativa allo squat se spine neutral. Monitorare irradiazione."),
+
+    # ── Scoliosi (3) ──
+    ({"pattern_movimento": "hip_thrust"}, 3, "modify",
+     "Hip thrust con scoliosi: monitorare allineamento pelvico simmetrico. Preferire bilaterale."),
+
+    # ── Spondilolistesi (5) ──
+    ({"pattern_movimento": "hip_thrust"}, 5, "modify",
+     "Hip thrust con spondilolistesi: ridurre ROM, mantenere spine neutral. Evitare iperestensione lombare."),
+
+    # ── Coxartrosi (14) ──
+    ({"pattern_movimento": "hip_thrust"}, 14, "caution",
+     "Hip thrust con coxartrosi: monitorare dolore all'anca. Ridurre ROM se necessario."),
+
+    # ── Conflitto femoro-acetabolare (15) ──
+    ({"pattern_movimento": "hip_thrust"}, 15, "modify",
+     "Hip thrust con FAI: limitare profondita' flessione anca. Evitare impingement anteriore."),
+
+    # ── Osteoporosi (24) ──
+    ({"pattern_movimento": "hip_thrust"}, 24, "caution",
+     "Hip thrust con osteoporosi: benefico per stimolo osseo (carico compressivo anca). Progressione graduale."),
+
+    # ── Gravidanza (29) ──
+    ({"pattern_movimento": "hip_thrust"}, 29, "modify",
+     "Hip thrust in gravidanza: sicuro nel 1° trimestre. Adattare posizione supina da 2° trimestre (cuneo sotto anca destra)."),
+
+    # ── Diastasi (30) ──
+    ({"pattern_movimento": "hip_thrust"}, 30, "caution",
+     "Hip thrust con diastasi: generalmente sicuro — non aumenta IAP come crunch. Pattern respiratorio corretto essenziale."),
+
+    # ── Lombalgia (39) ──
+    ({"pattern_movimento": "hip_thrust"}, 39, "caution",
+     "Hip thrust con lombalgia: esercizio terapeutico di elezione per stabilizzazione lombo-pelvica. Tecnica precisa."),
+
+    # ── Esiti post-traumatici anca (35) ──
+    ({"pattern_movimento": "hip_thrust"}, 35, "modify",
+     "Hip thrust post-trauma anca: progressione graduale. Partire con Glute Bridge bodyweight, poi aggiungere carico."),
+
+    # ── Esiti post-traumatici colonna (36) ──
+    ({"pattern_movimento": "hip_thrust"}, 36, "caution",
+     "Hip thrust post-trauma colonna: monitorare dolore lombare. Spine neutral obbligatorio."),
+
+    # ── Sciatica (26) ──
+    ({"pattern_movimento": "hip_thrust"}, 26, "caution",
+     "Hip thrust con sciatica: generalmente sicuro. Monitorare irradiazione. Evitare se aggrava sintomi."),
+
+    # ── Sindrome piriforme (27) ──
+    ({"pattern_movimento": "hip_thrust"}, 27, "caution",
+     "Hip thrust con piriforme: monitorare dolore al gluteo. Varianti unilaterali possono aggravare — preferire bilaterale."),
+
+    # ═══════════════════════════════════════════════════════════
+    # ADDUCTOR — Pattern critico per stabilita' pelvica
+    # Referenze: NSCA 2016, Sahrmann 2002 (pelvic floor)
+    # ═══════════════════════════════════════════════════════════
+
+    # ── LCA (10) ──
+    ({"pattern_movimento": "adductor"}, 10, "caution",
+     "Adduzione con LCA: monitorare allineamento ginocchio. Evitare valgismo dinamico sotto carico."),
+
+    # ── Menisco (11) ──
+    ({"pattern_movimento": "adductor"}, 11, "caution",
+     "Adduzione con menisco: carico isometrico-moderato. Evitare flessione profonda ginocchio durante adduzione."),
+
+    # ── Femoro-rotulea (12) ──
+    ({"pattern_movimento": "adductor"}, 12, "caution",
+     "Adduzione con femoro-rotulea: generalmente sicuro. Monitorare dolore rotuleo con macchina adduttori."),
+
+    # ── Gonartrosi (13) ──
+    ({"pattern_movimento": "adductor"}, 13, "modify",
+     "Adduzione con gonartrosi: ridurre carico. Evitare adduzione a ginocchio flesso sotto carico pesante."),
+
+    # ── Coxartrosi (14) ──
+    ({"pattern_movimento": "adductor"}, 14, "modify",
+     "Adduzione con coxartrosi: ridurre ROM in flessione anca. Carichi moderati, evitare fine-ROM doloroso."),
+
+    # ── Conflitto femoro-acetabolare (15) ──
+    ({"pattern_movimento": "adductor"}, 15, "modify",
+     "Adduzione con FAI: limitare flessione anca a 90 gradi. Evitare adduzione + rotazione interna combinata."),
+
+    # ── Gravidanza (29) ──
+    ({"pattern_movimento": "adductor"}, 29, "modify",
+     "Adduzione in gravidanza: sicura nelle prime settimane. Preferire isometrica con palla. Ridurre carico nel 3° trimestre."),
+
+    # ── Diastasi (30) ──
+    ({"pattern_movimento": "adductor"}, 30, "caution",
+     "Adduzione con diastasi: monitorare IAP negli isometrici intensi. Coordinare con respirazione."),
+
+    # ── Esiti post-traumatici ginocchio (32) ──
+    ({"pattern_movimento": "adductor"}, 32, "modify",
+     "Adduzione post-trauma ginocchio: progressione graduale, monitorare dolore e allineamento articolare."),
+
+    # ── Esiti post-traumatici anca (35) ──
+    ({"pattern_movimento": "adductor"}, 35, "modify",
+     "Adduzione post-trauma anca: carichi leggeri inizialmente, ROM funzionale progressivo."),
+
+    # ── Ipermobilita' (41) ──
+    ({"pattern_movimento": "adductor"}, 41, "caution",
+     "Adduzione con ipermobilita': evitare fine-ROM. Enfatizzare contrazione attiva, non passiva."),
+
+    # ═══════════════════════════════════════════════════════════
+    # LEG CURL — Hamstrings / catena posteriore
+    # Referenze: Alentorn-Geli 2009 (LCA), NSCA 2016
+    # ═══════════════════════════════════════════════════════════
+
+    # ── LCA (10) ──
+    ({"pattern_movimento": "leg_curl"}, 10, "modify",
+     "Leg curl con LCA: fondamentale come agonista hamstrings. Preferire curl seduto nelle fasi acute. Progressione graduale."),
+
+    # ── Menisco (11) ──
+    ({"pattern_movimento": "leg_curl"}, 11, "modify",
+     "Leg curl con menisco: evitare flessione oltre 90 gradi sotto carico. ROM controllato, carico moderato."),
+
+    # ── Femoro-rotulea (12) ──
+    ({"pattern_movimento": "leg_curl"}, 12, "caution",
+     "Leg curl con femoro-rotulea: generalmente sicuro. Monitorare tracking rotuleo a fine ROM di flessione."),
+
+    # ── Gonartrosi (13) ──
+    ({"pattern_movimento": "leg_curl"}, 13, "modify",
+     "Leg curl con gonartrosi: ridurre carico e ROM. Preferire curl seduto, evitare flessione massima."),
+
+    # ── Esiti post-traumatici ginocchio (32) ──
+    ({"pattern_movimento": "leg_curl"}, 32, "modify",
+     "Leg curl post-trauma ginocchio: progressione graduale. Monitorare dolore e ROM. Curl seduto prima di prono."),
+
+    # ── Sciatica (26) ──
+    ({"pattern_movimento": "leg_curl"}, 26, "caution",
+     "Leg curl prono con sciatica: monitorare irradiazione. Curl seduto preferibile nelle fasi acute."),
+
+    # ═══════════════════════════════════════════════════════════
+    # ROTATION — Cuffia dei rotatori e spalla posturale
+    # Referenze: NSCA 2016, Sahrmann 2002 (scapular stability)
+    # ═══════════════════════════════════════════════════════════
+
+    # ── Conflitto sub-acromiale (6) ──
+    ({"pattern_movimento": "rotation"}, 6, "caution",
+     "Rotazione spalla con impingement: evitare rotazione esterna resistita >60 gradi di abduzione."),
+
+    # ── Cuffia dei rotatori (7) ──
+    ({"pattern_movimento": "rotation"}, 7, "modify",
+     "Rotazione spalla con lesione cuffia: cardine della riabilitazione. Carichi leggeri 1-3kg, ROM controllato."),
+
+    # ── Instabilita' gleno-omerale (8) ──
+    ({"pattern_movimento": "rotation"}, 8, "caution",
+     "Rotazione spalla con instabilita': evitare fine-ROM di rotazione esterna. Enfatizzare stabilizzazione scapolare."),
+
+    # ── Capsulite adesiva (9) ──
+    ({"pattern_movimento": "rotation"}, 9, "modify",
+     "Rotazione spalla con capsulite: mobilizzazione progressiva nel ROM disponibile. Non forzare."),
+
+    # ── Esiti post-traumatici spalla (33) ──
+    ({"pattern_movimento": "rotation"}, 33, "caution",
+     "Rotazione post-trauma spalla: progressione molto graduale. Iniziare isometrico, poi isotonico leggero."),
+
+    # ── Cervicalgia (38) ──
+    ({"pattern_movimento": "rotation"}, 38, "caution",
+     "Rotazione spalla con cervicalgia: monitorare tensione cervicale. Evitare posizioni che aggravano il collo."),
+
+    # ── Artrosi spalla (46) ──
+    ({"pattern_movimento": "rotation"}, 46, "modify",
+     "Rotazione spalla con artrosi: range ridotto, carichi leggeri. Benefico per mantenimento ROM articolare."),
+
+    # ── Fibromialgia (40) ──
+    ({"pattern_movimento": "rotation"}, 40, "caution",
+     "Rotazione spalla con fibromialgia: carichi molto leggeri. Monitorare dolore muscolare post-sessione."),
+
+    # ═══════════════════════════════════════════════════════════
+    # FACE PULL — Stabilizzatori scapolari e postura
+    # ═══════════════════════════════════════════════════════════
+
+    # ── Conflitto sub-acromiale (6) ──
+    ({"pattern_movimento": "face_pull"}, 6, "caution",
+     "Face pull con impingement: monitorare ROM di abduzione. Ridurre altezza del pull se necessario."),
+
+    # ── Cuffia dei rotatori (7) ──
+    ({"pattern_movimento": "face_pull"}, 7, "caution",
+     "Face pull con lesione cuffia: generalmente sicuro con carico leggero. Ottimo per stabilizzatori scapolari."),
+
+    # ── Esiti post-traumatici spalla (33) ──
+    ({"pattern_movimento": "face_pull"}, 33, "caution",
+     "Face pull post-trauma spalla: progressione graduale. Preferire da seduto per ridurre compensi."),
+
+    # ── Cervicalgia (38) ──
+    ({"pattern_movimento": "face_pull"}, 38, "caution",
+     "Face pull con cervicalgia: monitorare tensione cervicale. Evitare retrazione eccessiva del collo."),
+
+    # ── Artrosi spalla (46) ──
+    ({"pattern_movimento": "face_pull"}, 46, "caution",
+     "Face pull con artrosi spalla: carico leggero, ROM controllato. Benefico per stabilizzatori scapolari."),
+
+    # ── Instabilita' gleno-omerale (8) ──
+    ({"pattern_movimento": "face_pull"}, 8, "caution",
+     "Face pull con instabilita' gleno-omerale: ottimo per stabilizzazione scapolare. ROM controllato."),
+
+    # ═══════════════════════════════════════════════════════════
+    # DIASTASI — Espansione copertura pattern (30)
+    # Referenze: Lee & Hodges 2016 (IAP diastasi), Mota 2015
+    # ═══════════════════════════════════════════════════════════
+
+    # ── Diastasi + hinge ──
+    ({"pattern_movimento": "hinge"}, 30, "modify",
+     "Hinge con diastasi: possibile se coordinazione respiro-core corretta. Evitare carichi pesanti nelle fasi acute."),
+
+    # ── Diastasi + squat ──
+    ({"pattern_movimento": "squat"}, 30, "modify",
+     "Squat con diastasi: sicuro se postura corretta e respirazione coordinata. Evitare Valsalva."),
+
+    # ── Diastasi + carry ──
+    ({"pattern_movimento": "carry"}, 30, "modify",
+     "Carry con diastasi: sicuro se core ben attivato. Iniziare con carichi leggeri, coordinare respirazione."),
+
+    # ── Diastasi + rotation ──
+    ({"pattern_movimento": "rotation"}, 30, "caution",
+     "Rotazione con diastasi: evitare torsioni sotto carico nelle fasi acute. ROM ridotto, respiro coordinato."),
+
+    # ── Diastasi + push_h ──
+    ({"pattern_movimento": "push_h"}, 30, "caution",
+     "Push orizzontale con diastasi: possibile se core pre-attivato. Evitare push-up su punta piedi nelle fasi acute."),
 ]
 
 

@@ -261,7 +261,7 @@ Editor strutturato per creare schede allenamento professionali. Layout split: ed
 - **Blocchi Strutturati** (circuit/superset/tabata/amrap/emom/for_time): layout format-specific in builder, preview e export. `BLOCK_EXERCISE_CONFIG` (esportata da `SortableExerciseRow.tsx`) governa griglia, colonne Rip/Kg, notazione (A1/A2 superset, 1./2. altri, nessuna tabata). `BlockPreview` in preview con `border-l-4` + sfondo header colorato per tipo (`BLOCK_TYPE_PREVIEW_CONFIG`). Export: `addBlockExerciseCard()` con header colorato (`BLOCK_TYPE_HEADER_COLORS` scuri, testo bianco) + Rip ±Kg condizionali (tabata = solo nome). No Serie/Riposo per-esercizio nei blocchi (sono parametri del blocco). Notazione A1/A2 per superset in export (viola scuro).
 - **Client linkage**: assegnazione/riassegnazione cliente inline (Select + `"__none__"` sentinel), filtro cliente nella lista, tab "Schede" nel profilo cliente, cross-link bidirezionale
 - **TemplateSelector**: dialog con selezione cliente integrata (`selectedClientId` state, pre-compilato da contesto)
-- **269 esercizi attivi** (87 compound, 69 isolation, 41 stretching, 31 bodyweight, 17 mobilita, 14 avviamento, 10 cardio) + 790 archiviati
+- **344 esercizi attivi** (98 compound, 85 isolation, 54 stretching, 48 bodyweight, 30 mobilita, 19 avviamento, 10 cardio) + 724 archiviati
 - Tassonomia completa: muscoli FK (3,370 righe), articolazioni FK (858), condizioni mediche FK (1,280), relazioni (460)
 - Categorie: `compound`, `isolation`, `bodyweight`, `cardio`, `stretching`, `mobilita`, `avviamento`
 - Pattern: 9 forza (`squat`, `hinge`, `push_h/v`, `pull_h/v`, `core`, `rotation`, `carry`) + 3 complementari (`warmup`, `stretch`, `mobility`)
@@ -462,9 +462,13 @@ File chiave: `lib/smart-programming/` (5 moduli, <300 LOC ciascuno),
 > **Filosofia: l'allenamento e' un sottoramo della medicina.** Il database esercizi e' il nucleo del prodotto.
 > Contenuti imprecisi possono causare infortuni. Zero approssimazione.
 
-**Strategia "Database 269"**: 269 esercizi attivi (`in_subset=True`): 87 compound, 69 isolation, 41 stretching,
-31 bodyweight, 17 mobilita, 14 avviamento, 10 cardio. Avviamento/mobilita photo-optional (semplici bodyweight).
-790 esercizi archiviati (`in_subset=False`) reinseribili via `activate_batch.py`.
+**Strategia "Database 344"**: 344 esercizi attivi (`in_subset=True`): 98 compound, 85 isolation, 54 stretching,
+48 bodyweight, 30 mobilita, 19 avviamento, 10 cardio. Avviamento/mobilita/stretching photo-optional (semplici bodyweight).
+724 esercizi archiviati (`in_subset=False`) reinseribili via `activate_batch.py`.
+
+**Target demografico Batch 3**: donne 18-50 anni con problematiche posturali o infortuni pregressi.
+8 esercizi creati ad hoc (`seed_women_exercises_b3.py`): Monster Walk Elastico, Fire Hydrant, Wall Angel,
+Chin Tuck, TVA Activation, 90/90 Hip Stretch, Foam Roller Thoracic Extension, Glute Bridge Elastico.
 
 Pipeline idempotente, dual-DB (`--db dev|prod|both`), script in `tools/admin_scripts/`:
 
@@ -786,11 +790,11 @@ core/              Moduli AI (dormant, non esposti via API — prossima fase)
 1. Auto-backup business DB (solo prod, max 5 auto-backup)
 2. `create_db_and_tables()` — business tables
 3. `create_catalog_tables()` — fallback se catalog.db assente
-4. Seed esercizi builtin (311 esercizi + 426 relazioni + 494 media, idempotente, FK guard)
+4. Seed esercizi builtin (344 esercizi + 426 relazioni + 494 media, idempotente, FK guard)
 5. `PRAGMA integrity_check` su entrambi i DB
 
 **Seed data** (`data/exercises/`):
-- `seed_exercises.json` — 311 esercizi attivi (`in_subset=1`) con ID preservati per FK
+- `seed_exercises.json` — 344 esercizi attivi (`in_subset=1`) con ID preservati per FK
 - `seed_exercise_relations.json` — 426 relazioni (progressioni/regressioni/varianti)
 - `seed_exercise_media.json` — 494 media (foto inizio/fine movimento)
 - Inclusi nell'installer e nel bundle PyInstaller (`fitmanager.spec` datas)
@@ -992,7 +996,12 @@ Errori reali trovati e corretti. MAI ripeterli.
 | `useCreateContract`/`useDeleteContract` invalidazione incompleta | Invalidavano solo `["contracts"]` e `["dashboard"]`. Mancavano contract detail, clients, movements, aging | Aggiunte 6 invalidazioni: `["contract"]`, `["clients"]`, `["client"]`, `["movements"]`, `["movement-stats"]`, `["aging-report"]` |
 | SQLAlchemy subquery cross-join | `select(func.sum(case(CashMovement.tipo...))).select_from(query.subquery())` — i riferimenti `CashMovement.*` non vengono adattati alle colonne del subquery → cross-join implicito con tabella originale → somma enorme | Usare `subq = query.subquery()` poi `subq.c.tipo`, `subq.c.importo` nelle espressioni. MAI `CashMovement.*` con `select_from(subquery)` |
 | `activate_batch.py` verify rollback asimmetrico | Verify per-DB: DB-A rollbacka 5, DB-B rollbacka 3 → delta silenzioso tra DB. Anche: verify PRIMA di fill_tempo → 43/50 rollbackati per campo auto-fillable | 3 safeguard: (1) pre-check sync (union), (2) fill_tempo_consigliato pre-verify, (3) rollback union (se fallisce su QUALSIASI DB → rollback su TUTTI) |
-| `populate_exercise_relations` chain IDs stale | Chain IDs puntano a esercizi disattivati (57/91 stale) → 21% copertura relazioni | Aggiornare chains ad OGNI batch activation. Riscrittura completa chains da 186→269 esercizi |
+| `populate_exercise_relations` chain IDs stale | Chain IDs puntano a esercizi disattivati (57/91 stale) → 21% copertura relazioni | Aggiornare chains ad OGNI batch activation. Riscrittura completa chains da 186→344 esercizi |
+| `activate_batch.py` enrich skip troppo aggressivo | `needs_work` in `phase_enrich` e `enrich_single` controllava solo `descrizione_anatomica` + `note_sicurezza` → esercizi con questi 2 campi presenti ma altri REQUIRED vuoti venivano skippati silenziosamente → VERIFY FAIL | `phase_enrich`: `needs_work = not all(field_filled(ex_dict.get(f)) for f in REQUIRED_TEXT_FIELDS)`. `enrich_single`: `ENRICH_REQUIRED = [f for f in REQUIRED_TEXT_FIELDS if f != "note_sicurezza"]`, `needs_enrich = not all(...)` |
+| `seed_women_exercises_b3.py` formato muscoli errato | `muscoli_primari`/`muscoli_secondari` scritti come testo libero (es. `"Medio gluteo, Piccolo gluteo"`) invece di JSON array di group slug (es. `["glutes"]`) → colonna muscoli vuota nel frontend | SEMPRE usare `json.dumps(["slug1", "slug2"])`. Slug validi: chest, lats, traps, back, shoulders, biceps, triceps, forearms, core, glutes, hip_flexors, quadriceps, hamstrings, adductors, calves |
+| `activate_batch.py --ids` su esercizi senza `esecuzione` | Mobilita/mobilita esercizi con `esecuzione` vuoto superano ENRICH (descrizione_anatomica gia' presente) ma falliscono VERIFY → rollback | Patch `esecuzione` e `setup` PRIMA di `activate_batch`. Poi enrich completo con flag `--force-no-photo` |
+| `build_catalog.py --source crm_dev` produce catalog vuoto | `crm_dev.db` non ha cataloghi muscoli/articolazioni/condizioni (solo in crm.db) → catalog.db con 0 record tassonomia | Usare sempre `build_catalog --source crm` per il catalog scientifico. `crm_dev.db` ha solo dati business |
+| `PHOTO_OPTIONAL_CATEGORIES` troppo restrittivo | Solo avviamento+mobilita → stretching senza foto (Stretching Piriforme, Stretching Trapezio) non attivabili | Aggiunto `"stretching"` a `PHOTO_OPTIONAL_CATEGORIES` in `activate_batch.py` |
 | Filtri persistenti confondono utente | `loadFilters()` ripristinava filtri su OGNI mount, anche navigazione fresca (sidebar). `popstate`+`nav:back` flag inaffidabile con Next.js App Router | **Sidebar `clearPageState()` onClick** cancella sessionStorage prima della navigazione. Back-nav non passa dalla Sidebar → stato intatto → ripristinato. Zero dipendenza da `popstate` |
 | Scroll restoration non funziona | `min-h-screen` su wrapper esterno → `<main>` cresce oltre viewport → scroll avviene su `window`, non su `<main>`. Listener e restore su `mainRef` senza effetto | `h-screen` + `overflow-hidden` su wrapper → `<main>` diventa il vero scroll container. Salvataggio continuo via scroll event (rAF). Restore con retry [0-2000ms]. Sidebar cancella `scroll:` onClick |
 | `useEffect([queryData])` sovrascrive form | Mutation inline (cambio obiettivo/livello) invalida query → refetch → useEffect riscrive stato locale con dati server vecchi → TUTTE le modifiche non salvate perse silenziosamente | Guard `isDirtyRef.current` (schede builder), `userHasEdited` state (impostazioni), `initializedEditId` ref (misurazioni). MAI useEffect incondizionato su dati React Query che alimentano form editabili |
@@ -1386,7 +1395,7 @@ sqlite3 data/catalog.db ".tables"
 - **core/**: ~10,300 LOC Python — moduli AI (RAG, exercise archive) in attesa di API endpoints
 - **tools/admin_scripts/**: ~3,200 LOC Python — 16 script (import, quality engine, taxonomy, seed, test, QA clinica)
 - **DB**: Dual-DB SQLite (22 business + 7 catalog), WAL mode, FK enforced, multi-tenant via trainer_id
-- **Esercizi**: 311 attivi (tassonomia completa, seed JSON incluso in installer) + 790 archiviati (reinserimento graduale)
+- **Esercizi**: 344 attivi (tassonomia completa, seed JSON incluso in installer) + 724 archiviati (reinserimento graduale)
 - **Test**: 63 pytest + 67 E2E + 69 vitest (data protection)
 - **Sicurezza**: JWT auth, bcrypt, Deep Relational IDOR, 3-layer route protection
 - **Cloud**: 0 dipendenze, 0 dati verso terzi
