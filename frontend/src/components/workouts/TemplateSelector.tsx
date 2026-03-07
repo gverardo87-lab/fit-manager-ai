@@ -35,22 +35,20 @@ import {
 import {
   WORKOUT_TEMPLATES,
   SECTION_CATEGORIES,
-  getSmartDefaults,
-  getSectionForCategory,
   type WorkoutTemplate,
   type TemplateExerciseSlot,
 } from "@/lib/workout-templates";
-import {
-  generateSmartPlan,
-  fillSmartPlan,
-  assessFitnessLevel,
-  type FitnessLevel,
-} from "@/lib/smart-programming";
 import { useCreateWorkout } from "@/hooks/useWorkouts";
 import { useExercises } from "@/hooks/useExercises";
 import { useClients } from "@/hooks/useClients";
-import { useSmartProgramming } from "@/hooks/useSmartProgramming";
-import type { Exercise, WorkoutSessionInput, WorkoutExerciseInput } from "@/types/api";
+import { useGeneratePlanPackage } from "@/hooks/useTrainingScience";
+import type {
+  Exercise,
+  TSBuilderLevelChoice,
+  TSBuilderObjective,
+  WorkoutSessionInput,
+  WorkoutExerciseInput,
+} from "@/types/api";
 
 // ════════════════════════════════════════════════════════════
 // MATCHING BASE
@@ -190,6 +188,7 @@ export function TemplateSelector(props: TemplateSelectorProps) {
 function TemplateSelectorDialog({ open, onOpenChange, clientId }: TemplateSelectorProps) {
   const router = useRouter();
   const createWorkout = useCreateWorkout();
+  const generatePlanPackage = useGeneratePlanPackage();
   const { data: exerciseData } = useExercises();
   const exercises = useMemo(() => exerciseData?.items ?? [], [exerciseData]);
   const { data: clientsData } = useClients();
@@ -200,11 +199,10 @@ function TemplateSelectorDialog({ open, onOpenChange, clientId }: TemplateSelect
 
   // State configurazione Smart
   const [smartSessions, setSmartSessions] = useState<number>(4);
-  const [smartObiettivo, setSmartObiettivo] = useState<string>("generale");
-  const [smartLivello, setSmartLivello] = useState<string>("auto");
+  const [smartObiettivo, setSmartObiettivo] = useState<TSBuilderObjective>("generale");
+  const [smartLivello, setSmartLivello] = useState<TSBuilderLevelChoice>("auto");
 
   // Smart programming — profile client per scoring potenziato
-  const { profile: smartProfile } = useSmartProgramming(selectedClientId);
 
   const handleSelectTemplate = useCallback(
     (template: WorkoutTemplate) => {
@@ -337,72 +335,42 @@ function TemplateSelectorDialog({ open, onOpenChange, clientId }: TemplateSelect
 
   // ── Handler: Scheda Smart (generazione automatica 14 dimensioni) ──
   const handleSmartTemplate = useCallback(() => {
-    if (exercises.length === 0) return;
-
-    const livello: FitnessLevel = smartLivello === "auto"
-      ? (smartProfile ? assessFitnessLevel(smartProfile) : "intermedio")
-      : smartLivello as FitnessLevel;
-
-    // Genera struttura smart
-    const smartPlan = generateSmartPlan(smartSessions, livello, smartObiettivo);
-
-    // Riempi slot con scoring 14 dimensioni
-    const filledMap = fillSmartPlan(smartPlan, exercises, smartProfile);
-
-    // Converti in formato API
-    const sessioni: WorkoutSessionInput[] = smartPlan.sessioni.map((sess, si) => {
-      const slotScores = filledMap.get(si);
-
-      return {
-        nome_sessione: sess.nome_sessione,
-        focus_muscolare: sess.focus_muscolare,
-        durata_minuti: sess.durata_minuti,
-        esercizi: sess.slots.map((slot, sli): WorkoutExerciseInput => {
-          const scores = slotScores?.get(sli);
-          const bestScore = scores?.[0];
-          const bestExercise = bestScore
-            ? exercises.find(e => e.id === bestScore.exerciseId)
-            : undefined;
-
-          // Fallback: esercizio della sezione corretta (mai compound in slot avviamento)
-          const exerciseToUse = bestExercise
-            ?? exercises.find(e => SECTION_CATEGORIES[slot.sezione]?.includes(e.categoria))
-            ?? exercises[0];
-          const sezione = getSectionForCategory(exerciseToUse.categoria);
-          const defaults = getSmartDefaults(exerciseToUse, smartObiettivo, sezione);
-
-          return {
-            id_esercizio: exerciseToUse.id,
-            ordine: sli + 1,
-            serie: slot.serie ?? defaults.serie,
-            ripetizioni: slot.ripetizioni ?? defaults.ripetizioni,
-            tempo_riposo_sec: slot.tempo_riposo_sec ?? defaults.tempo_riposo_sec,
-            note: slot.label,
-          };
-        }),
-      };
-    });
-
-    createWorkout.mutate(
+    generatePlanPackage.mutate(
       {
-        nome: smartPlan.nome,
-        obiettivo: smartPlan.obiettivo,
-        livello: smartPlan.livello,
-        sessioni_per_settimana: smartPlan.sessioni_per_settimana,
-        durata_settimane: smartPlan.durata_settimane,
-        id_cliente: selectedClientId,
-        sessioni,
+        client_id: selectedClientId,
+        preset: {
+          frequenza: smartSessions,
+          obiettivo_builder: smartObiettivo,
+          livello_choice: smartLivello,
+        },
       },
       {
-        onSuccess: (plan) => {
-          onOpenChange(false);
-          router.push(`/schede/${plan.id}`);
+        onSuccess: (planPackage) => {
+          createWorkout.mutate(
+            planPackage.workout_projection.draft,
+            {
+              onSuccess: (plan) => {
+                onOpenChange(false);
+                router.push(`/schede/${plan.id}`);
+              },
+            },
+          );
         },
       },
     );
-  }, [createWorkout, selectedClientId, smartProfile, smartSessions, smartObiettivo, smartLivello, onOpenChange, router, exercises]);
+  }, [
+    createWorkout,
+    generatePlanPackage,
+    selectedClientId,
+    smartSessions,
+    smartObiettivo,
+    smartLivello,
+    onOpenChange,
+    router,
+  ]);
 
-  const isLoading = !exerciseData || exercises.length === 0;
+  const isTemplateLoading = !exerciseData || exercises.length === 0;
+  const isSmartPending = generatePlanPackage.isPending || createWorkout.isPending;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -441,14 +409,12 @@ function TemplateSelectorDialog({ open, onOpenChange, clientId }: TemplateSelect
             <div className="flex items-center gap-2">
               <Brain className="h-6 w-6 text-teal-600 dark:text-teal-400" />
               <h3 className="font-semibold text-sm">Scheda Smart</h3>
-              {smartProfile && (
-                <Badge variant="secondary" className="text-[10px] bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300">
-                  {smartProfile.strengthLevel ?? "auto"}
-                </Badge>
-              )}
+              <Badge variant="secondary" className="text-[10px] bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300">
+                Backend-first
+              </Badge>
             </div>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Genera una scheda ottimizzata su 14 dimensioni: safety, muscoli, pattern, recupero, obiettivi e biomeccanica.
+              Genera una scheda dal profilo cliente reale con piano scientifico canonico e ranking esercizi deterministico lato backend.
             </p>
 
             {/* Configurazione Smart */}
@@ -488,7 +454,7 @@ function TemplateSelectorDialog({ open, onOpenChange, clientId }: TemplateSelect
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="auto">Auto {smartProfile?.strengthLevel ? `(${smartProfile.strengthLevel})` : ""}</SelectItem>
+                    <SelectItem value="auto">Auto (backend)</SelectItem>
                     <SelectItem value="beginner">Principiante</SelectItem>
                     <SelectItem value="intermedio">Intermedio</SelectItem>
                     <SelectItem value="avanzato">Avanzato</SelectItem>
@@ -500,34 +466,25 @@ function TemplateSelectorDialog({ open, onOpenChange, clientId }: TemplateSelect
             {/* Badge profilo + Genera */}
             <div className="flex items-center justify-between">
               <div className="flex flex-wrap gap-1">
-                {selectedClientId && smartProfile && (
+                {selectedClientId && (
                   <>
-                    {smartProfile.safetyMap && Object.keys(smartProfile.safetyMap).length > 0 && (
-                      <Badge variant="outline" className="text-[10px] border-teal-300 dark:border-teal-700">
-                        Safety-aware
-                      </Badge>
-                    )}
-                    {smartProfile.goals.length > 0 && (
-                      <Badge variant="outline" className="text-[10px] border-teal-300 dark:border-teal-700">
-                        {smartProfile.goals.length} obiettiv{smartProfile.goals.length === 1 ? "o" : "i"}
-                      </Badge>
-                    )}
-                    {smartProfile.symmetryDeficits.length > 0 && (
-                      <Badge variant="outline" className="text-[10px] border-teal-300 dark:border-teal-700">
-                        Bilaterale
-                      </Badge>
-                    )}
+                    <Badge variant="outline" className="text-[10px] border-teal-300 dark:border-teal-700">
+                      Cliente collegato
+                    </Badge>
+                    <Badge variant="outline" className="text-[10px] border-teal-300 dark:border-teal-700">
+                      Ranking deterministico
+                    </Badge>
                   </>
                 )}
               </div>
               <Button
                 size="sm"
                 onClick={handleSmartTemplate}
-                disabled={createWorkout.isPending || isLoading}
+                disabled={isSmartPending}
                 className="bg-teal-600 hover:bg-teal-700 text-white gap-1.5"
               >
                 <Sparkles className="h-3.5 w-3.5" />
-                Genera
+                {generatePlanPackage.isPending ? "Genero..." : "Genera"}
               </Button>
             </div>
           </div>
@@ -537,7 +494,7 @@ function TemplateSelectorDialog({ open, onOpenChange, clientId }: TemplateSelect
             <button
               key={template.id}
               onClick={() => handleSelectTemplate(template)}
-              disabled={createWorkout.isPending || isLoading}
+              disabled={createWorkout.isPending || isTemplateLoading}
               className={`group rounded-xl border bg-gradient-to-br ${TEMPLATE_GRADIENTS[template.livello] ?? ""} p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50`}
             >
               <div className="flex items-center gap-2">
@@ -566,7 +523,7 @@ function TemplateSelectorDialog({ open, onOpenChange, clientId }: TemplateSelect
         <div className="mt-2 grid grid-cols-2 gap-2">
           <button
             onClick={handleBlankSheet}
-            disabled={createWorkout.isPending || isLoading}
+            disabled={createWorkout.isPending || isTemplateLoading}
             className="flex items-start gap-3 rounded-xl border border-dashed p-4 text-left transition-colors hover:bg-muted/50 disabled:opacity-50"
           >
             <FileText className="h-5 w-5 mt-0.5 text-muted-foreground shrink-0" />
@@ -580,7 +537,7 @@ function TemplateSelectorDialog({ open, onOpenChange, clientId }: TemplateSelect
 
           <button
             onClick={handleBlankSheetHybrid}
-            disabled={createWorkout.isPending || isLoading}
+            disabled={createWorkout.isPending || isTemplateLoading}
             className="flex items-start gap-3 rounded-xl border border-dashed p-4 text-left transition-colors hover:bg-muted/50 disabled:opacity-50"
           >
             <Layers className="h-5 w-5 mt-0.5 text-muted-foreground shrink-0" />
