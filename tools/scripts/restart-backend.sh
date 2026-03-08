@@ -35,10 +35,18 @@ echo "=== Restart backend $ENV (porta $PORT) ==="
 bash tools/scripts/kill-port.sh "$PORT"
 
 # Step 2: Avvia nuovo uvicorn
+# PROD: senza --reload (dati reali, zero downtime durante sviluppo)
+# DEV:  con --reload (hot reload per sviluppo)
 echo ""
-echo "  Avvio uvicorn su porta $PORT..."
-DATABASE_URL="$DB_URL" venv/Scripts/uvicorn api.main:app \
-    --reload --host 0.0.0.0 --port "$PORT" &
+if [ "$ENV" = "prod" ]; then
+    echo "  Avvio uvicorn PROD su porta $PORT (no reload)..."
+    DATABASE_URL="$DB_URL" venv/Scripts/uvicorn api.main:app \
+        --host 0.0.0.0 --port "$PORT" &
+else
+    echo "  Avvio uvicorn DEV su porta $PORT (reload attivo)..."
+    DATABASE_URL="$DB_URL" venv/Scripts/uvicorn api.main:app \
+        --reload --host 0.0.0.0 --port "$PORT" &
+fi
 
 # Step 3: Attendi e verifica
 sleep 3

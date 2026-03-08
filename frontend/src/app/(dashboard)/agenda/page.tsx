@@ -306,7 +306,11 @@ export default function AgendaPage() {
       {!isLoading && <div className={revealClass(100)} style={revealStyle(100)}><RangeStatsBar stats={rangeStats} label={rangeLabel} /></div>}
 
       {/* ── Contenuto: 3-state rendering ── */}
-      <div className={revealClass(150)} style={revealStyle(150)}>
+      {/* Calendar container: NO transform-gpu / page-reveal animation.
+           transform-gpu creates a GPU compositing layer that breaks
+           react-big-calendar DnD resize position calculations in production
+           (getBoundingClientRect offsets shift inside transformed parents). */}
+      <div>
         {isLoading && <CalendarSkeleton />}
 
         {isError && (

@@ -27,6 +27,13 @@
 .rbc-time-slot { min-height: 25px; }
 .rbc-event { transition: box-shadow 0.15s, transform 0.1s; }
 .rbc-event:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.15); transform: translateY(-1px); }
+/* During DnD resize/drag, disable ALL transforms — they break getBoundingClientRect
+   position calculations in production (GPU compositing layer offsets). */
+.rbc-addons-dnd-resizing,
+.rbc-addons-dnd-dragged-event,
+.rbc-addons-dnd-is-dragging { transform: none !important; transition: none !important; }
+.rbc-addons-dnd-resizing .rbc-event,
+.rbc-addons-dnd-dragged-event .rbc-event { transform: none !important; transition: none !important; }
 .rbc-today { background-color: oklch(0.97 0.01 250) !important; }
 .dark .rbc-today { background-color: oklch(0.22 0.01 250) !important; }
 

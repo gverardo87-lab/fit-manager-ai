@@ -83,12 +83,12 @@ class EventCreate(BaseModel):
 
     @model_validator(mode="after")
     def validate_temporal(self):
-        """data_fine deve essere strettamente dopo data_inizio, max 4 ore."""
+        """data_fine deve essere strettamente dopo data_inizio, max 12 ore."""
         if self.data_fine <= self.data_inizio:
             raise ValueError("data_fine deve essere dopo data_inizio")
         duration_hours = (self.data_fine - self.data_inizio).total_seconds() / 3600
-        if duration_hours > 4:
-            raise ValueError("La durata massima di un evento e' 4 ore")
+        if duration_hours > 12:
+            raise ValueError("La durata massima di un evento e' 12 ore")
         return self
 
 
@@ -122,8 +122,8 @@ class EventUpdate(BaseModel):
             if self.data_fine <= self.data_inizio:
                 raise ValueError("data_fine deve essere dopo data_inizio")
             duration_hours = (self.data_fine - self.data_inizio).total_seconds() / 3600
-            if duration_hours > 4:
-                raise ValueError("La durata massima di un evento e' 4 ore")
+            if duration_hours > 12:
+                raise ValueError("La durata massima di un evento e' 12 ore")
         return self
 
 
@@ -541,10 +541,10 @@ def update_event(
             detail="data_fine deve essere dopo data_inizio",
         )
     duration_hours = (new_fine - new_inizio).total_seconds() / 3600
-    if duration_hours > 4:
+    if duration_hours > 12:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="La durata massima di un evento e' 4 ore",
+            detail="La durata massima di un evento e' 12 ore",
         )
 
     # Bouncer 3: Anti-Overlapping (se le date sono cambiate)
