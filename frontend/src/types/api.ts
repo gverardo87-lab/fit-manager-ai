@@ -1677,12 +1677,59 @@ export interface TSAnalisiBalance {
   squilibri: string[];
 }
 
-/** Analisi completa 4D di un piano — score 0-100 */
+/** Volume ipertrofico di un singolo esercizio su un muscolo */
+export interface TSContributoEsercizio {
+  nome_esercizio: string;
+  pattern: TSPattern;
+  serie: number;
+  contributo_emg: number;
+  serie_ipertrofiche: number;
+}
+
+/** Dettaglio completo per un muscolo — drill-down nella tab analisi */
+export interface TSDettaglioMuscolo {
+  muscolo: TSMuscleGroup;
+  serie_effettive: number;
+  target_mev: number;
+  target_mav_min: number;
+  target_mav_max: number;
+  target_mrv: number;
+  stato: "sotto_mev" | "mev_mav" | "ottimale" | "sopra_mav" | "sopra_mrv";
+  frequenza: number;
+  contributi: TSContributoEsercizio[];
+}
+
+/** Dettaglio di un rapporto biomeccanico con volume per lato */
+export interface TSDettaglioRapporto {
+  nome: string;
+  valore: number;
+  target: number;
+  tolleranza: number;
+  in_tolleranza: boolean;
+  volume_numeratore: number;
+  volume_denominatore: number;
+  fonte: string;
+}
+
+/** Overlap muscolare tra due sessioni consecutive */
+export interface TSDettaglioRecovery {
+  sessione_a: string;
+  sessione_b: string;
+  muscoli_overlap: string[];
+  serie_overlap_a: Record<string, number>;
+  serie_overlap_b: Record<string, number>;
+}
+
+/** Analisi completa 4D di un piano — score 0-100 + dati strutturati */
 export interface TSAnalisiPiano {
   volume: TSAnalisiVolume;
   balance: TSAnalisiBalance;
   warnings: string[];
   score: number;
+  dettaglio_muscoli: TSDettaglioMuscolo[];
+  dettaglio_rapporti: TSDettaglioRapporto[];
+  frequenza_per_muscolo: Record<string, number>;
+  recovery_overlaps: TSDettaglioRecovery[];
 }
 
 /** Configurazione singola settimana nel mesociclo */

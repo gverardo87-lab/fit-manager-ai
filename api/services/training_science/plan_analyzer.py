@@ -28,10 +28,19 @@ from .types import (
     AnalisiBalance,
     AnalisiPiano,
     VolumeEffettivo,
+    ContributoEsercizio,
+    DettaglioMuscolo,
+    DettaglioRapporto,
+    DettaglioRecovery,
 )
-from .muscle_contribution import compute_effective_sets, compute_hypertrophy_sets
+from .muscle_contribution import (
+    compute_effective_sets,
+    compute_hypertrophy_sets,
+    get_contribution,
+    _get_hypertrophy_weight,
+)
 from .volume_model import get_scaled_volume_target, classify_volume
-from .balance_ratios import analyze_balance as _analyze_balance
+from .balance_ratios import analyze_balance as _analyze_balance, BALANCE_RATIOS
 
 
 # ════════════════════════════════════════════════════════════
@@ -54,7 +63,7 @@ def analyze_plan(
     Analisi completa di un piano di allenamento su 4 dimensioni.
 
     Input: TemplatePiano (generato o manuale)
-    Output: AnalisiPiano con volume, balance, warnings, score
+    Output: AnalisiPiano con volume, balance, warnings, score + dati strutturati
     """
     warnings: list[str] = []
 
@@ -65,19 +74,37 @@ def analyze_plan(
     balance_analysis = _analyze_plan_balance(piano, warnings)
 
     # 3. Analisi Frequenza
-    _analyze_frequency(piano, warnings)
+    freq = _analyze_frequency(piano, warnings)
 
     # 4. Analisi Recupero
-    _analyze_recovery(piano, warnings)
+    overlaps = _analyze_recovery(piano, warnings)
 
     # Score composito
     score = _compute_score(volume_analysis, balance_analysis, warnings)
+
+    # ── Dati strutturati per Scientific Analysis Tab ──
+
+    # Contributi per esercizio per muscolo (drill-down)
+    dettaglio_muscoli = _build_dettaglio_muscoli(piano, volume_analysis, freq)
+
+    # Dettaglio rapporti biomeccanici
+    dettaglio_rapporti = _build_dettaglio_rapporti(piano)
+
+    # Frequenza come dict[str, int]
+    frequenza_dict = {m.value: f for m, f in freq.items()}
+
+    # Recovery overlaps strutturati
+    recovery_overlaps = _build_recovery_overlaps(piano, overlaps)
 
     return AnalisiPiano(
         volume=volume_analysis,
         balance=balance_analysis,
         warnings=warnings,
         score=score,
+        dettaglio_muscoli=dettaglio_muscoli,
+        dettaglio_rapporti=dettaglio_rapporti,
+        frequenza_per_muscolo=frequenza_dict,
+        recovery_overlaps=recovery_overlaps,
     )
 
 
@@ -266,6 +293,158 @@ def _analyze_recovery(
             )
 
     return overlaps
+
+
+# ════════════════════════════════════════════════════════════
+# DATI STRUTTURATI — Scientific Analysis Tab
+# ════════════════════════════════════════════════════════════
+
+
+def _build_dettaglio_muscoli(
+    piano: TemplatePiano,
+    volume_analysis: AnalisiVolume,
+    freq: dict[M, int],
+) -> list[DettaglioMuscolo]:
+    """
+    Costruisce il dettaglio per muscolo con breakdown dei contributi per esercizio.
+
+    Per ogni muscolo mostra quali esercizi (slot) contribuiscono al volume
+    ipertrofico, con il contributo EMG e le serie ipertrofiche risultanti.
+    """
+    # Raccogli tutti gli slot con nome leggibile
+    named_slots: list[tuple[str, P, int]] = []
+    for sessione in piano.sessioni:
+        for idx, slot in enumerate(sessione.slots, 1):
+            nome = f"{sessione.nome} — {slot.pattern.value} #{idx}"
+            named_slots.append((nome, slot.pattern, slot.serie))
+
+    dettagli: list[DettaglioMuscolo] = []
+
+    for ve in volume_analysis.per_muscolo:
+        muscolo = ve.muscolo
+        contributi: list[ContributoEsercizio] = []
+
+        for nome, pattern, serie in named_slots:
+            contribution_map = get_contribution(pattern)
+            emg = contribution_map.get(muscolo, 0.0)
+            if emg <= 0:
+                continue
+
+            weight = _get_hypertrophy_weight(emg)
+            serie_ipertrofiche = round(serie * weight, 2)
+
+            contributi.append(ContributoEsercizio(
+                nome_esercizio=nome,
+                pattern=pattern,
+                serie=serie,
+                contributo_emg=emg,
+                serie_ipertrofiche=serie_ipertrofiche,
+            ))
+
+        dettagli.append(DettaglioMuscolo(
+            muscolo=muscolo,
+            serie_effettive=ve.serie_effettive,
+            target_mev=ve.target_mev,
+            target_mav_min=ve.target_mav_min,
+            target_mav_max=ve.target_mav_max,
+            target_mrv=ve.target_mrv,
+            stato=ve.stato,
+            frequenza=freq.get(muscolo, 0),
+            contributi=contributi,
+        ))
+
+    return dettagli
+
+
+def _build_dettaglio_rapporti(
+    piano: TemplatePiano,
+) -> list[DettaglioRapporto]:
+    """
+    Costruisce il dettaglio per ogni rapporto biomeccanico con volume per lato.
+
+    Espone i dati interni di balance_ratios.py in formato strutturato
+    per il drill-down nella tab analisi.
+    """
+    all_slots: list[tuple[P, int]] = []
+    for sessione in piano.sessioni:
+        for slot in sessione.slots:
+            all_slots.append((slot.pattern, slot.serie))
+
+    effective = compute_effective_sets(all_slots)
+    dettagli: list[DettaglioRapporto] = []
+
+    for ratio in BALANCE_RATIOS:
+        is_pattern_ratio = ratio.numeratore[0] in {p.value for p in P}
+
+        if is_pattern_ratio:
+            num_patterns = {P(v) for v in ratio.numeratore if v in {p.value for p in P}}
+            den_patterns = {P(v) for v in ratio.denominatore if v in {p.value for p in P}}
+            num_val = sum(s for p, s in all_slots if p in num_patterns)
+            den_val = sum(s for p, s in all_slots if p in den_patterns)
+        else:
+            num_val = sum(
+                effective.get(m, 0.0)
+                for m in M
+                if m.value in ratio.numeratore
+            )
+            den_val = sum(
+                effective.get(m, 0.0)
+                for m in M
+                if m.value in ratio.denominatore
+            )
+
+        if den_val > 0:
+            valore = round(num_val / den_val, 2)
+        elif num_val > 0:
+            valore = 99.0
+        else:
+            valore = ratio.target
+
+        dettagli.append(DettaglioRapporto(
+            nome=ratio.nome,
+            valore=valore,
+            target=ratio.target,
+            tolleranza=ratio.tolleranza,
+            in_tolleranza=abs(valore - ratio.target) <= ratio.tolleranza,
+            volume_numeratore=round(num_val, 1),
+            volume_denominatore=round(den_val, 1),
+            fonte=ratio.fonte,
+        ))
+
+    return dettagli
+
+
+def _build_recovery_overlaps(
+    piano: TemplatePiano,
+    overlaps: list[tuple[str, str, list[str]]],
+) -> list[DettaglioRecovery]:
+    """
+    Costruisce i dettagli di recovery overlap con serie per muscolo in ogni sessione.
+    """
+    # Pre-calcola volume per sessione
+    session_volumes: dict[str, dict[M, float]] = {}
+    for sessione in piano.sessioni:
+        slots = [(s.pattern, s.serie) for s in sessione.slots]
+        session_volumes[sessione.nome] = compute_effective_sets(slots)
+
+    dettagli: list[DettaglioRecovery] = []
+    for sess_a_name, sess_b_name, muscles in overlaps:
+        vol_a = session_volumes.get(sess_a_name, {})
+        vol_b = session_volumes.get(sess_b_name, {})
+
+        dettagli.append(DettaglioRecovery(
+            sessione_a=sess_a_name,
+            sessione_b=sess_b_name,
+            muscoli_overlap=muscles,
+            serie_overlap_a={
+                m: round(vol_a.get(M(m), 0.0), 1) for m in muscles
+            },
+            serie_overlap_b={
+                m: round(vol_b.get(M(m), 0.0), 1) for m in muscles
+            },
+        ))
+
+    return dettagli
 
 
 # ════════════════════════════════════════════════════════════

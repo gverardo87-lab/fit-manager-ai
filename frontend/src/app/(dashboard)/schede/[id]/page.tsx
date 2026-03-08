@@ -73,7 +73,6 @@ import {
   type Exercise,
   type SafetyConditionDetail,
   type BlockType,
-  type TSAnalisiPiano,
   type TSPlanPackage,
 } from "@/types/api";
 import {
@@ -83,8 +82,7 @@ import {
   type TemplateSection,
 } from "@/lib/workout-templates";
 import { RiskBodyMap } from "@/components/workouts/RiskBodyMap";
-import { SmartAnalysisPanel } from "@/components/workouts/SmartAnalysisPanel";
-import { MuscleMapPanel } from "@/components/workouts/MuscleMapPanel";
+import { ScientificAnalysisTab } from "@/components/workouts/ScientificAnalysisTab";
 
 // ════════════════════════════════════════════════════════════
 // LABELS
@@ -478,7 +476,6 @@ export default function SchedaDetailPage({
   const [sessions, setSessions] = useState<SessionCardData[]>([]);
   const [isDirty, setIsDirty] = useState(false);
   const [smartPlanPackage, setSmartPlanPackage] = useState<TSPlanPackage | null>(null);
-  const [smartBackendAnalysis, setSmartBackendAnalysis] = useState<TSAnalisiPiano | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [saveIssues, setSaveIssues] = useState<SaveIssue[]>([]);
   const [saveIssuesExpanded, setSaveIssuesExpanded] = useState(false);
@@ -541,6 +538,7 @@ export default function SchedaDetailPage({
   const [editValue, setEditValue] = useState("");
 
   // Exercise selector
+  const [activeView, setActiveView] = useState<"sessioni" | "analisi">("sessioni");
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [selectorContext, setSelectorContext] = useState<{
     sessionId: number;
@@ -1919,20 +1917,79 @@ export default function SchedaDetailPage({
             </Collapsible>
           )}
 
-          {/* Muscle Map Panel — silhouette anatomica con muscoli illuminati live */}
+          {/* Tab switch: Sessioni / Analisi Scientifica */}
           {sessions.length > 0 && (
-            <MuscleMapPanel
-              sessions={sessions}
-              exerciseMap={exerciseMap}
-              livello={plan.livello}
-              sessioniPerSettimana={plan.sessioni_per_settimana}
-              backendAnalysis={smartBackendAnalysis}
-            />
+            <div className="flex items-center gap-1 rounded-lg bg-muted/50 p-0.5">
+              <button
+                type="button"
+                onClick={() => setActiveView("sessioni")}
+                className={`flex-1 text-xs font-medium py-1.5 px-3 rounded-md transition-all ${
+                  activeView === "sessioni"
+                    ? "bg-background shadow-sm text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Sessioni
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveView("analisi")}
+                className={`flex-1 text-xs font-medium py-1.5 px-3 rounded-md transition-all ${
+                  activeView === "analisi"
+                    ? "bg-background shadow-sm text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Analisi Scientifica
+              </button>
+            </div>
           )}
 
-          {/* Smart Analysis Panel — analisi copertura muscolare, volume, biomeccanica */}
-          {sessions.length > 0 && (
-            <SmartAnalysisPanel
+          {activeView === "sessioni" && (
+            <>
+              {sessions.map((session) => (
+                <SessionCard
+                  key={session.id}
+                  session={session}
+                  safetyMap={safetyEntries}
+                  exerciseMap={exerciseMap}
+                  schedaId={id}
+                  parentFrom={fromParam}
+                  oneRMByPattern={oneRMByPattern}
+                  onUpdateSession={handleUpdateSession}
+                  onDeleteSession={handleDeleteSession}
+                  onDuplicateSession={handleDuplicateSession}
+                  onAddExercise={handleAddExercise}
+                  onUpdateExercise={handleUpdateExercise}
+                  onDeleteExercise={handleDeleteExercise}
+                  onReplaceExercise={handleReplaceExercise}
+                  onQuickReplace={handleQuickReplace}
+                  onAddBlock={handleAddBlock}
+                  onUpdateBlock={handleUpdateBlock}
+                  onDeleteBlock={handleDeleteBlock}
+                  onDuplicateBlock={handleDuplicateBlock}
+                  onAddExerciseToBlock={handleAddExerciseToBlock}
+                  onUpdateExerciseInBlock={handleUpdateExerciseInBlock}
+                  onDeleteExerciseFromBlock={handleDeleteExerciseFromBlock}
+                  onReplaceExerciseInBlock={handleReplaceExerciseInBlock}
+                  onQuickReplaceInBlock={handleQuickReplaceInBlock}
+                  onClearSection={handleClearSection}
+                />
+              ))}
+
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={handleAddSession}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Aggiungi Sessione
+              </Button>
+            </>
+          )}
+
+          {activeView === "analisi" && sessions.length > 0 && (
+            <ScientificAnalysisTab
               sessions={sessions.map(s => ({
                 nome_sessione: s.nome_sessione,
                 esercizi: s.esercizi.map(e => ({
@@ -1945,51 +2002,8 @@ export default function SchedaDetailPage({
               obiettivo={plan.obiettivo}
               sessioniPerSettimana={plan.sessioni_per_settimana}
               safetyMap={safetyEntries ?? null}
-              smartPlanPackage={smartPlanPackage}
-              safetyConditionCount={safetyConditionStats.detected}
-              impactedConditionCount={safetyConditionStats.planImpacted}
-              onBackendAnalysisChange={setSmartBackendAnalysis}
             />
           )}
-
-          {sessions.map((session) => (
-            <SessionCard
-              key={session.id}
-              session={session}
-              safetyMap={safetyEntries}
-              exerciseMap={exerciseMap}
-              schedaId={id}
-              parentFrom={fromParam}
-              oneRMByPattern={oneRMByPattern}
-              onUpdateSession={handleUpdateSession}
-              onDeleteSession={handleDeleteSession}
-              onDuplicateSession={handleDuplicateSession}
-              onAddExercise={handleAddExercise}
-              onUpdateExercise={handleUpdateExercise}
-              onDeleteExercise={handleDeleteExercise}
-              onReplaceExercise={handleReplaceExercise}
-              onQuickReplace={handleQuickReplace}
-              onAddBlock={handleAddBlock}
-              onUpdateBlock={handleUpdateBlock}
-              onDeleteBlock={handleDeleteBlock}
-              onDuplicateBlock={handleDuplicateBlock}
-              onAddExerciseToBlock={handleAddExerciseToBlock}
-              onUpdateExerciseInBlock={handleUpdateExerciseInBlock}
-              onDeleteExerciseFromBlock={handleDeleteExerciseFromBlock}
-              onReplaceExerciseInBlock={handleReplaceExerciseInBlock}
-              onQuickReplaceInBlock={handleQuickReplaceInBlock}
-              onClearSection={handleClearSection}
-            />
-          ))}
-
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={handleAddSession}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Aggiungi Sessione
-          </Button>
         </div>
 
         {/* Preview (destra, solo desktop + stampa) */}

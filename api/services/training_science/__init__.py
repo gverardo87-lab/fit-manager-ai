@@ -47,6 +47,10 @@ from .types import (
     AnalisiBalance,
     AnalisiPiano,
     RapportoBiomeccanico,
+    ContributoEsercizio,
+    DettaglioMuscolo,
+    DettaglioRapporto,
+    DettaglioRecovery,
 )
 from .principles import (
     get_parametri,
@@ -122,6 +126,10 @@ __all__ = [
     "AnalisiBalance",
     "AnalisiPiano",
     "RapportoBiomeccanico",
+    "ContributoEsercizio",
+    "DettaglioMuscolo",
+    "DettaglioRapporto",
+    "DettaglioRecovery",
     # Principles
     "get_parametri",
     "get_serie_per_slot",

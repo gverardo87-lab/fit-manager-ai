@@ -260,6 +260,56 @@ class AnalisiBalance(BaseModel):
     squilibri: list[str] = Field(description="Rapporti fuori tolleranza")
 
 
+class ContributoEsercizio(BaseModel):
+    """Volume ipertrofico di un singolo esercizio su un muscolo."""
+
+    nome_esercizio: str = Field(description="Nome dello slot (pattern + indice)")
+    pattern: PatternMovimento
+    serie: int
+    contributo_emg: float = Field(ge=0.0, le=1.0, description="Contributo EMG 0-1")
+    serie_ipertrofiche: float = Field(description="serie × peso ipertrofico")
+
+
+class DettaglioMuscolo(BaseModel):
+    """Dettaglio completo per un muscolo — drill-down nella tab analisi."""
+
+    muscolo: GruppoMuscolare
+    serie_effettive: float
+    target_mev: float
+    target_mav_min: float
+    target_mav_max: float
+    target_mrv: float
+    stato: str = Field(description="sotto_mev | mev_mav | ottimale | sopra_mav | sopra_mrv")
+    frequenza: int = Field(description="Sessioni/settimana che stimolano questo muscolo")
+    contributi: list[ContributoEsercizio] = Field(
+        default_factory=list,
+        description="Breakdown volume per esercizio (drill-down)",
+    )
+
+
+class DettaglioRapporto(BaseModel):
+    """Dettaglio di un rapporto biomeccanico con volume per lato."""
+
+    nome: str
+    valore: float
+    target: float
+    tolleranza: float
+    in_tolleranza: bool
+    volume_numeratore: float = Field(description="Volume totale lato numeratore")
+    volume_denominatore: float = Field(description="Volume totale lato denominatore")
+    fonte: str
+
+
+class DettaglioRecovery(BaseModel):
+    """Overlap muscolare tra due sessioni consecutive."""
+
+    sessione_a: str
+    sessione_b: str
+    muscoli_overlap: list[str]
+    serie_overlap_a: dict[str, float] = Field(description="muscolo → serie nella sessione A")
+    serie_overlap_b: dict[str, float] = Field(description="muscolo → serie nella sessione B")
+
+
 class AnalisiPiano(BaseModel):
     """Analisi completa di un piano di allenamento."""
 
@@ -267,3 +317,9 @@ class AnalisiPiano(BaseModel):
     balance: AnalisiBalance
     warnings: list[str] = Field(default_factory=list)
     score: float = Field(ge=0, le=100, description="Punteggio globale 0-100")
+
+    # Dati strutturati per la Scientific Analysis Tab (v2)
+    dettaglio_muscoli: list[DettaglioMuscolo] = Field(default_factory=list)
+    dettaglio_rapporti: list[DettaglioRapporto] = Field(default_factory=list)
+    frequenza_per_muscolo: dict[str, int] = Field(default_factory=dict)
+    recovery_overlaps: list[DettaglioRecovery] = Field(default_factory=list)
