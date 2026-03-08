@@ -2117,6 +2117,97 @@ export interface TSPlanPackage {
 }
 
 
+// ════════════════════════════════════════════════════════════
+// PROJECTION ENGINE (api/schemas/projection.py)
+// ════════════════════════════════════════════════════════════
+
+/** Trend OLS per una singola metrica */
+export interface MetricTrendResponse {
+  metric_id: number;
+  metric_name: string;
+  unit: string;
+  weekly_rate: number;
+  r_squared: number;
+  n_points: number;
+  span_days: number;
+  current_value: number;
+  current_date: string;
+  confidence: "insufficient" | "unstable" | "moderate" | "good";
+}
+
+/** Proiezione per un singolo goal */
+export interface GoalProjectionResponse {
+  goal_id: number;
+  metric_name: string;
+  unit: string;
+  status: "projected" | "insufficient_data" | "wrong_direction" | "plateau" | "unreachable";
+  message: string | null;
+  weekly_rate: number | null;
+  current_value: number | null;
+  target_value: number | null;
+  eta: string | null;
+  eta_perfect: string | null;
+  days_saved: number | null;
+  days_per_missed_session: number | null;
+  r_squared: number | null;
+  confidence: string | null;
+  on_track: boolean | null;
+  goal_deadline: string | null;
+}
+
+/** Stimolo cumulativo nel periodo attivo del piano */
+export interface VolumeAccumulationResponse {
+  weekly_volume_planned: number;
+  weekly_volume_effective: number;
+  weeks_active: number;
+  total_volume_planned: number;
+  total_volume_effective: number;
+  total_volume_missed: number;
+}
+
+/** Punto per il chart predittivo */
+export interface ProjectionPointResponse {
+  date: string;
+  value: number;
+  is_projection: boolean;
+}
+
+/** Dati per un singolo chart predittivo (una metrica) */
+export interface ProjectionChartResponse {
+  metric_id: number;
+  metric_name: string;
+  unit: string;
+  historical: ProjectionPointResponse[];
+  projected: ProjectionPointResponse[];
+  target_value: number | null;
+  eta: string | null;
+}
+
+/** Flag di rischio per il cliente */
+export interface RiskFlagResponse {
+  severity: "alert" | "warning";
+  code: string;
+  message: string;
+  metric_id: number | null;
+}
+
+/** GET /api/training-methodology/projection/{client_id} */
+export interface ClientProjectionResponse {
+  client_id: number;
+  client_nome: string;
+  client_cognome: string;
+  volume: VolumeAccumulationResponse | null;
+  trends: MetricTrendResponse[];
+  projections: GoalProjectionResponse[];
+  charts: ProjectionChartResponse[];
+  risk_flags: RiskFlagResponse[];
+  compliance_pct: number;
+  plan_name: string | null;
+  has_active_plan: boolean;
+  has_measurements: boolean;
+  has_goals: boolean;
+}
+
 // ── Portale Clienti Self-Service (UPG-2026-03-06-01) ────────────────────────
 
 export interface ShareTokenResponse {

@@ -17,6 +17,7 @@ import type {
   ClinicalReadinessResponse,
   ClinicalReadinessWorklistResponse,
   ClinicalPriority,
+  ClientProjectionResponse,
   Event,
   ListResponse,
   OverdueRateItem,
@@ -199,5 +200,27 @@ export function useTrainingMethodologyWorklist(
     },
     refetchInterval: 60_000,
     enabled,
+  });
+}
+
+/**
+ * Proiezione 3-layer per un cliente.
+ *
+ * GET /api/training-methodology/projection/{clientId}
+ * Layer 1: Volume accumulation (se piano attivo)
+ * Layer 2: Metric trends (se misurazioni)
+ * Layer 3: Goal projections (se goal + trend)
+ */
+export function useClientProjection(clientId: number | null) {
+  return useQuery<ClientProjectionResponse>({
+    queryKey: ["projection", clientId],
+    queryFn: async () => {
+      const { data } = await apiClient.get<ClientProjectionResponse>(
+        `/training-methodology/projection/${clientId}`,
+      );
+      return data;
+    },
+    enabled: !!clientId,
+    staleTime: 60_000,
   });
 }

@@ -64,6 +64,7 @@ import { GoalFormDialog } from "@/components/clients/GoalFormDialog";
 import { InteractiveBodyMap } from "@/components/clients/InteractiveBodyMap";
 import { MeasurementChart } from "@/components/clients/MeasurementChart";
 import { ClinicalAnalysisPanel } from "@/components/clients/ClinicalAnalysisPanel";
+import { ProjectionPanel } from "@/components/clients/ProjectionPanel";
 import { SessionComparison } from "@/components/clients/SessionComparison";
 import {
   useClientMeasurements,
@@ -370,6 +371,9 @@ export function ProgressiTab({ clientId, sesso, dataNascita }: ProgressiTabProps
           dataNascita={dataNascita}
           goals={goalsData?.items}
         />
+
+        {/* ── 2c. Proiezione Obiettivi ── */}
+        <ProjectionPanel clientId={clientId} />
 
         {/* ── 3. KPI Cards (dinamici) ── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

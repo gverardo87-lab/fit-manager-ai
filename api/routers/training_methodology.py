@@ -13,21 +13,39 @@ import logging
 import unicodedata
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, func, select
 
-from api.database import get_session
+from api.database import get_catalog_session, get_session
 from api.dependencies import get_current_trainer
 from api.models.client import Client
 from api.models.exercise import Exercise
+from api.models.goal import ClientGoal
+from api.models.measurement import ClientMeasurement, MeasurementValue, Metric
 from api.models.trainer import Trainer
 from api.models.workout import WorkoutExercise, WorkoutPlan, WorkoutSession
 from api.models.workout_log import WorkoutLog
+from api.schemas.projection import (
+    ClientProjectionResponse,
+    GoalProjectionResponse,
+    MetricTrendResponse,
+    ProjectionChartResponse,
+    ProjectionPointResponse,
+    RiskFlagResponse,
+    VolumeAccumulationResponse,
+)
 from api.schemas.training_methodology import (
     SessionComplianceItem,
     TrainingMethodologyPlanItem,
     TrainingMethodologySummary,
     TrainingMethodologyWorklistResponse,
+)
+from api.services.projection_engine import (
+    compute_goal_projection,
+    compute_metric_trend,
+    compute_risk_flags,
+    compute_volume_accumulation,
+    generate_projection_points,
 )
 from api.services.training_science.plan_analyzer import analyze_plan
 from api.services.training_science.plan_converter import (
@@ -641,4 +659,386 @@ def get_training_methodology_worklist(
         total=total,
         page=page,
         page_size=page_size,
+    )
+
+
+# ════════════════════════════════════════════════════════════
+# Projection endpoint
+# ════════════════════════════════════════════════════════════
+
+
+@router.get(
+    "/projection/{client_id}",
+    response_model=ClientProjectionResponse,
+)
+def get_client_projection(
+    client_id: int,
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+    catalog: Session = Depends(get_catalog_session),
+):
+    """
+    Proiezione 3-layer per un cliente.
+
+    Layer 1: Accumulo stimolo (volume × compliance × tempo) — se piano attivo
+    Layer 2: Trend metriche (OLS regression) — se misurazioni
+    Layer 3: Proiezione goal (ETA + fear of loss) — se goal + trend
+    """
+    # ── Bouncer ──
+    client = session.exec(
+        select(Client).where(
+            Client.id == client_id,
+            Client.trainer_id == trainer.id,
+        )
+    ).first()
+    if not client:
+        raise HTTPException(404, "Cliente non trovato")
+
+    today = date.today()
+
+    # ── 1. Piano attivo + compliance ──
+    active_plan = session.exec(
+        select(WorkoutPlan).where(
+            WorkoutPlan.id_cliente == client_id,
+            WorkoutPlan.trainer_id == trainer.id,
+            WorkoutPlan.deleted_at.is_(None),  # type: ignore[union-attr]
+        )
+    ).all()
+
+    # Trova piano attivo (da date)
+    plan: WorkoutPlan | None = None
+    for p in active_plan:
+        if _get_plan_status(p) == "attivo":
+            plan = p
+            break
+
+    plan_name: str | None = None
+    compliance_pct = 0
+    volume_resp: VolumeAccumulationResponse | None = None
+    weeks_active = 0
+
+    if plan:
+        plan_name = plan.nome
+        plan_status = "attivo"
+
+        # Compliance
+        log_count_row = session.exec(
+            select(func.count(WorkoutLog.id)).where(
+                WorkoutLog.id_scheda == plan.id,
+                WorkoutLog.deleted_at.is_(None),  # type: ignore[union-attr]
+            )
+        ).one()
+        log_count = log_count_row or 0
+
+        expected, completed, compliance_pct = _compute_compliance(
+            plan, plan_status, log_count
+        )
+
+        # Weeks active
+        try:
+            d_inizio = (
+                date.fromisoformat(plan.data_inizio)
+                if isinstance(plan.data_inizio, str)
+                else plan.data_inizio
+            )
+        except (ValueError, TypeError):
+            d_inizio = today
+        weeks_active = max(1, ((today - d_inizio).days // 7) + 1)
+
+        # Layer 1: Volume accumulation
+        plan_sessions = session.exec(
+            select(WorkoutSession).where(
+                WorkoutSession.id_scheda == plan.id,
+            )
+        ).all()
+
+        session_ids = [s.id for s in plan_sessions]
+        plan_exercises: list[WorkoutExercise] = []
+        if session_ids:
+            plan_exercises = list(session.exec(
+                select(WorkoutExercise).where(
+                    WorkoutExercise.id_sessione.in_(session_ids),
+                )
+            ).all())
+
+        ex_by_session: dict[int, list[WorkoutExercise]] = {}
+        ref_ids: set[int] = set()
+        for e in plan_exercises:
+            ex_by_session.setdefault(e.id_sessione, []).append(e)
+            ref_ids.add(e.id_esercizio)
+
+        exercise_catalog: dict[int, Exercise] = {}
+        if ref_ids:
+            refs = session.exec(
+                select(Exercise).where(Exercise.id.in_(list(ref_ids)))
+            ).all()
+            exercise_catalog = {r.id: r for r in refs}
+
+        template = convert_plan_to_template(
+            plan=plan,
+            sessions=list(plan_sessions),
+            exercises_by_session={
+                s.id: ex_by_session.get(s.id, []) for s in plan_sessions
+            },
+            exercise_catalog=exercise_catalog,
+            client_sesso=client.sesso,
+            client_data_nascita=(
+                date.fromisoformat(client.data_nascita)
+                if isinstance(client.data_nascita, str) and client.data_nascita
+                else client.data_nascita
+                if isinstance(client.data_nascita, date)
+                else None
+            ),
+        )
+
+        weekly_volume = 0.0
+        if template:
+            try:
+                analysis = analyze_plan(template)
+                weekly_volume = analysis.volume.volume_totale_settimana
+            except Exception:
+                logger.warning(
+                    "analyze_plan failed for projection plan %s", plan.id,
+                    exc_info=True,
+                )
+
+        if weekly_volume > 0:
+            vol = compute_volume_accumulation(
+                weekly_volume, compliance_pct, weeks_active,
+            )
+            volume_resp = VolumeAccumulationResponse(
+                weekly_volume_planned=vol.weekly_volume_planned,
+                weekly_volume_effective=vol.weekly_volume_effective,
+                weeks_active=vol.weeks_active,
+                total_volume_planned=vol.total_volume_planned,
+                total_volume_effective=vol.total_volume_effective,
+                total_volume_missed=vol.total_volume_missed,
+            )
+
+    # ── 2. Misurazioni — fetch da business DB + metrica da catalog ──
+    measurements = session.exec(
+        select(ClientMeasurement).where(
+            ClientMeasurement.id_cliente == client_id,
+            ClientMeasurement.trainer_id == trainer.id,
+            ClientMeasurement.deleted_at.is_(None),  # type: ignore[union-attr]
+        )
+    ).all()
+
+    has_measurements = len(measurements) > 0
+    measurement_ids = [m.id for m in measurements]
+
+    # Raggruppa valori per metrica: {metric_id: [(date, value), ...]}
+    metric_values: dict[int, list[tuple[date, float]]] = {}
+    if measurement_ids:
+        values = session.exec(
+            select(MeasurementValue).where(
+                MeasurementValue.id_misurazione.in_(measurement_ids),
+            )
+        ).all()
+
+        # Build measurement date map
+        meas_date_map: dict[int, date] = {}
+        for m in measurements:
+            d = m.data_misurazione
+            if isinstance(d, str):
+                try:
+                    d = date.fromisoformat(d)
+                except (ValueError, TypeError):
+                    continue
+            meas_date_map[m.id] = d
+
+        for v in values:
+            d = meas_date_map.get(v.id_misurazione)
+            if d is not None:
+                metric_values.setdefault(v.id_metrica, []).append((d, v.valore))
+
+    # Fetch metric catalog info
+    metric_ids_needed = list(metric_values.keys())
+    metric_catalog: dict[int, Metric] = {}
+    if metric_ids_needed:
+        metrics = catalog.exec(
+            select(Metric).where(Metric.id.in_(metric_ids_needed))
+        ).all()
+        metric_catalog = {m.id: m for m in metrics}
+
+    # Layer 2: Compute trends
+    trends_internal: dict[int, object] = {}  # metric_id -> MetricTrend
+    trends_resp: list[MetricTrendResponse] = []
+
+    for mid, vals in metric_values.items():
+        if len(vals) < 2:
+            continue
+        trend = compute_metric_trend(vals)
+        if trend is None:
+            continue
+
+        met = metric_catalog.get(mid)
+        if not met:
+            continue
+
+        trends_internal[mid] = trend
+        trends_resp.append(MetricTrendResponse(
+            metric_id=mid,
+            metric_name=met.nome,
+            unit=met.unita_misura,
+            weekly_rate=trend.weekly_rate,
+            r_squared=trend.r_squared,
+            n_points=trend.n_points,
+            span_days=trend.span_days,
+            current_value=trend.current_value,
+            current_date=str(trend.current_date),
+            confidence=trend.confidence,
+        ))
+
+    # ── 3. Goals — fetch attivi per questo cliente ──
+    goals = session.exec(
+        select(ClientGoal).where(
+            ClientGoal.id_cliente == client_id,
+            ClientGoal.trainer_id == trainer.id,
+            ClientGoal.stato == "attivo",
+            ClientGoal.deleted_at.is_(None),  # type: ignore[union-attr]
+        )
+    ).all()
+
+    has_goals = len(goals) > 0
+
+    # Layer 3: Proiezioni goal
+    projections_resp: list[GoalProjectionResponse] = []
+    charts_resp: list[ProjectionChartResponse] = []
+
+    for goal in goals:
+        met = metric_catalog.get(goal.id_metrica)
+        if not met:
+            # Fetch from catalog if not yet loaded
+            m = catalog.exec(
+                select(Metric).where(Metric.id == goal.id_metrica)
+            ).first()
+            if m:
+                metric_catalog[m.id] = m
+                met = m
+
+        met_name = met.nome if met else f"Metrica {goal.id_metrica}"
+        met_unit = met.unita_misura if met else ""
+
+        trend = trends_internal.get(goal.id_metrica)
+        if not trend:
+            projections_resp.append(GoalProjectionResponse(
+                goal_id=goal.id,
+                metric_name=met_name,
+                unit=met_unit,
+                status="insufficient_data",
+                message="Servono almeno 2 misurazioni per proiettare",
+            ))
+            continue
+
+        deadline = None
+        if goal.data_scadenza:
+            try:
+                deadline = (
+                    date.fromisoformat(goal.data_scadenza)
+                    if isinstance(goal.data_scadenza, str)
+                    else goal.data_scadenza
+                )
+            except (ValueError, TypeError):
+                pass
+
+        proj = compute_goal_projection(
+            trend=trend,
+            target=goal.valore_target or 0,
+            direction=goal.direzione,
+            compliance_pct=compliance_pct or 50,
+            goal_deadline=deadline,
+        )
+
+        if proj is None:
+            continue
+
+        projections_resp.append(GoalProjectionResponse(
+            goal_id=goal.id,
+            metric_name=met_name,
+            unit=met_unit,
+            status=proj.status,
+            message=proj.message,
+            weekly_rate=proj.weekly_rate,
+            current_value=proj.current_value,
+            target_value=proj.target_value,
+            eta=str(proj.eta) if proj.eta else None,
+            eta_perfect=str(proj.eta_perfect) if proj.eta_perfect else None,
+            days_saved=proj.days_saved,
+            days_per_missed_session=proj.days_per_missed_session,
+            r_squared=proj.r_squared,
+            confidence=proj.confidence,
+            on_track=proj.on_track,
+            goal_deadline=str(proj.goal_deadline) if proj.goal_deadline else None,
+        ))
+
+        # Chart data for goals with projections
+        if proj.status == "projected" and trend and goal.valore_target:
+            chart_points = generate_projection_points(
+                trend=trend,
+                target=goal.valore_target,
+                eta=proj.eta,
+            )
+
+            # Historical points
+            hist_vals = metric_values.get(goal.id_metrica, [])
+            historical = [
+                ProjectionPointResponse(
+                    date=str(d), value=round(v, 2), is_projection=False,
+                )
+                for d, v in sorted(hist_vals, key=lambda x: x[0])
+            ]
+
+            projected = [
+                ProjectionPointResponse(
+                    date=str(p.date), value=p.value, is_projection=True,
+                )
+                for p in chart_points
+                if p.is_projection
+            ]
+
+            charts_resp.append(ProjectionChartResponse(
+                metric_id=goal.id_metrica,
+                metric_name=met_name,
+                unit=met_unit,
+                historical=historical,
+                projected=projected,
+                target_value=goal.valore_target,
+                eta=str(proj.eta) if proj.eta else None,
+            ))
+
+    # ── Risk flags ──
+    goal_dicts = [
+        {
+            "id_metrica": g.id_metrica,
+            "direzione": g.direzione,
+            "valore_target": g.valore_target,
+        }
+        for g in goals
+    ]
+    risk_flags_internal = compute_risk_flags(trends_internal, goal_dicts)
+    risk_flags_resp = [
+        RiskFlagResponse(
+            severity=f.severity,
+            code=f.code,
+            message=f.message,
+            metric_id=f.metric_id,
+        )
+        for f in risk_flags_internal
+    ]
+
+    return ClientProjectionResponse(
+        client_id=client.id,
+        client_nome=client.nome,
+        client_cognome=client.cognome,
+        volume=volume_resp,
+        trends=trends_resp,
+        projections=projections_resp,
+        charts=charts_resp,
+        risk_flags=risk_flags_resp,
+        compliance_pct=compliance_pct,
+        plan_name=plan_name,
+        has_active_plan=plan is not None,
+        has_measurements=has_measurements,
+        has_goals=has_goals,
     )
