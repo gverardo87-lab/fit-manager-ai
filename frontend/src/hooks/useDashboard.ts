@@ -22,6 +22,7 @@ import type {
   OverdueRateItem,
   ExpiringContractItem,
   InactiveClientItem,
+  TrainingMethodologyWorklistResponse,
 } from "@/types/api";
 
 export function useDashboard() {
@@ -157,6 +158,46 @@ export function useInactiveClients(enabled = true) {
       );
       return data;
     },
+    enabled,
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+// TRAINING METHODOLOGY — MyTrainer
+// ════════════════════════════════════════════════════════════
+
+export interface TrainingMethodologyWorklistQuery {
+  page?: number;
+  page_size?: number;
+  view?: "all" | "issues" | "excellent";
+  sort_by?: "priority" | "science_score" | "compliance";
+  plan_status?: "attivo" | "da_attivare" | "completato";
+  search?: string;
+}
+
+export function useTrainingMethodologyWorklist(
+  query: TrainingMethodologyWorklistQuery = {},
+  enabled = true,
+) {
+  const params = {
+    page: query.page ?? 1,
+    page_size: query.page_size ?? 24,
+    view: query.view ?? "all",
+    sort_by: query.sort_by ?? "priority",
+    plan_status: query.plan_status,
+    search: query.search?.trim() || undefined,
+  };
+
+  return useQuery<TrainingMethodologyWorklistResponse>({
+    queryKey: ["training-methodology", "worklist", params],
+    queryFn: async () => {
+      const { data } = await apiClient.get<TrainingMethodologyWorklistResponse>(
+        "/training-methodology/worklist",
+        { params },
+      );
+      return data;
+    },
+    refetchInterval: 60_000,
     enabled,
   });
 }

@@ -756,6 +756,65 @@ export interface ClinicalReadinessWorklistResponse {
 }
 
 // ════════════════════════════════════════════════════════════
+// TRAINING METHODOLOGY — MyTrainer (api/schemas/training_methodology.py)
+// ════════════════════════════════════════════════════════════
+
+/** Singolo piano nella worklist MyTrainer */
+export interface TrainingMethodologyPlanItem {
+  plan_id: number;
+  plan_nome: string;
+  client_id: number;
+  client_nome: string;
+  client_cognome: string;
+  obiettivo: string;
+  livello: string;
+  status: string;
+  sessioni_count: number;
+  data_inizio: string | null;
+  data_fine: string | null;
+  science_score: number;
+  sotto_mev_count: number;
+  sopra_mrv_count: number;
+  ottimali_count: number;
+  squilibri_count: number;
+  warning_count: number;
+  volume_totale: number;
+  compliance_pct: number;
+  sessions_expected: number;
+  sessions_completed: number;
+  training_score: number;
+  priority: string;
+  priority_score: number;
+  next_action_code: string;
+  next_action_label: string;
+  next_action_href: string;
+  analyzable: boolean;
+}
+
+/** KPI aggregati MyTrainer hero */
+export interface TrainingMethodologySummary {
+  total_plans: number;
+  active_plans: number;
+  avg_science_score: number;
+  avg_compliance: number;
+  avg_training_score: number;
+  plans_with_issues: number;
+  plans_excellent: number;
+  high_priority: number;
+  medium_priority: number;
+  low_priority: number;
+}
+
+/** GET /api/training-methodology/worklist */
+export interface TrainingMethodologyWorklistResponse {
+  summary: TrainingMethodologySummary;
+  items: TrainingMethodologyPlanItem[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+// ════════════════════════════════════════════════════════════
 // TODO (api/routers/todos.py — inline schemas)
 // ════════════════════════════════════════════════════════════
 

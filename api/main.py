@@ -48,6 +48,7 @@ from api.routers.workout_logs import router as workout_logs_router
 from api.routers.assistant import router as assistant_router
 from api.routers.public_portal import router as public_portal_router
 from api.routers.training_science import router as training_science_router
+from api.routers.training_methodology import router as training_methodology_router
 
 logger = logging.getLogger("fitmanager.api")
 
@@ -264,6 +265,7 @@ app.include_router(workout_logs_router, prefix=API_PREFIX)
 app.include_router(assistant_router, prefix=API_PREFIX)
 app.include_router(public_portal_router, prefix=API_PREFIX)
 app.include_router(training_science_router, prefix=API_PREFIX)
+app.include_router(training_methodology_router, prefix=API_PREFIX)
 
 
 @app.get("/health")

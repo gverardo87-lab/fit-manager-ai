@@ -25,6 +25,7 @@ import {
   ClipboardList,
   Activity,
   HeartPulse,
+  Target,
   Search,
 } from "lucide-react";
 
@@ -84,6 +85,7 @@ const NAV_TOP: NavEntry[] = [
       { href: "/esercizi", label: "Esercizi", icon: Dumbbell },
       { href: "/schede", label: "Schede", icon: ClipboardList, guideId: "sidebar-schede" },
       { href: "/allenamenti", label: "Monitoraggio", icon: Activity },
+      { href: "/allenamenti/mytrainer", label: "MyTrainer", icon: Target },
     ],
   },
 ];
