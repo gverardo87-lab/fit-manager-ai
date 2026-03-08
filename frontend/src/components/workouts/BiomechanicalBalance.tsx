@@ -30,6 +30,7 @@ import {
   type DemandProfile,
   type PrimaryDimension,
 } from "@/lib/demand-aggregation";
+import { PatternRadarChart } from "./PatternRadarChart";
 import type { Exercise, TSAnalisiPiano, TSDettaglioRapporto } from "@/types/api";
 
 // ════════════════════════════════════════════════════════════
@@ -177,6 +178,10 @@ function DemandProfileSection({
         </span>
       </div>
 
+      {/* Radar Chart */}
+      <PatternRadarChart profile={profile} concentrations={concentrations} />
+
+      {/* Barre dettaglio con serie */}
       <div className="space-y-1">
         {PRIMARY_DIMENSIONS.map((dim) => {
           const pct = profile.distribution[dim];
