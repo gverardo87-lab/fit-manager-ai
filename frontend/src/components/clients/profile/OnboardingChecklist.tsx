@@ -12,7 +12,6 @@
 
 import Link from "next/link";
 import { Check, ChevronRight, Rocket } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import type { OnboardingStep } from "@/hooks/useClientReadiness";
 
 interface OnboardingChecklistProps {
@@ -103,10 +102,11 @@ function HeroCardInner({ step, color }: { step: OnboardingStep; color: typeof ST
           <p className="text-base font-bold tracking-tight">{step.label}</p>
           <p className="text-xs text-muted-foreground">{step.description}</p>
         </div>
-        <Button size="sm" className="shrink-0 gap-1.5 shadow-sm">
+        {/* div styled come bottone — MAI <Button> qui: wrapper puo' essere <button> (onAction) */}
+        <div className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-sm">
           Inizia
           <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-        </Button>
+        </div>
       </div>
     </div>
   );
