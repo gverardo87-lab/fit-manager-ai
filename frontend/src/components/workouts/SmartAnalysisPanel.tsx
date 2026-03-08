@@ -120,6 +120,7 @@ function buildTemplatePiano(
           riposo_sec: 90,
           muscolo_target: null,
           note: "",
+          carico_kg: null,
         };
       })
       .filter((s): s is NonNullable<typeof s> => s !== null);
@@ -164,6 +165,7 @@ function buildTemplatePianoFromCanonical(planPackage: TSPlanPackage): TSTemplate
         riposo_sec: slot.riposo_sec,
         muscolo_target: slot.muscolo_target,
         note: slot.note,
+        carico_kg: null,
       })),
     })),
     note_generazione: planPackage.canonical_plan.note_generazione,

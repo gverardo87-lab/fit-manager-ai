@@ -152,10 +152,13 @@ def generate_mesocycle(
 
     Periodizzazione ondulata a blocchi (Israetel RP 2020, Bompa 2019):
     - Progressione volume lineare (base -> picco)
-    - Deload finale a ~50% (Helms 2019)
+    - Progressione intensita' per fase (RPE/RIR target, Zourdos 2016)
+    - Deload finale: volume a ~50%, intensita' mantenuta (Helms 2019)
     - Durata per livello: principiante 4, intermedio 5, avanzato 6 settimane
 
-    Il piano base viene scalato nelle serie (non nell'intensita').
+    Ogni settimana include:
+    - fattore_volume: moltiplicatore serie (scala il volume)
+    - intensita: prescrizione RPE/RIR + %1RM + zona NSCA
     """
     return build_mesocycle(data.piano_base)
 

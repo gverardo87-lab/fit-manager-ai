@@ -1631,6 +1631,8 @@ export interface TSSlotSessione {
   riposo_sec: number;
   muscolo_target: TSMuscleGroup | null;
   note: string;
+  /** Carico in kg (opzionale). Abilita tonnellaggio e intensità relativa. NSCA 2016. */
+  carico_kg: number | null;
 }
 
 /** Template sessione con slot tipizzati */
@@ -1720,6 +1722,31 @@ export interface TSDettaglioRecovery {
   serie_overlap_b: Record<string, number>;
 }
 
+/** Tonnellaggio calcolato per un singolo slot con carico assegnato */
+export interface TSTonnellaggioSlotAnalisi {
+  pattern: string;
+  sessione: string;
+  serie: number;
+  rep_medie: number;
+  carico_kg: number;
+  /** serie × rep_medie × carico_kg (Haff & Triplett, NSCA 2016) */
+  tonnellaggio: number;
+  /** %1RM se 1RM noto (Kraemer & Ratamess 2004) */
+  intensita_relativa: number | null;
+  /** Zona NSCA (massimale/sub_massimale/ipertrofia/resistenza/attivazione) */
+  zona_intensita: string | null;
+}
+
+/** Analisi Volume-Load — disponibile solo con carico_kg. NSCA 2016, McBride 2009. */
+export interface TSAnalisiTonnellaggio {
+  tonnellaggio_totale: number;
+  tonnellaggio_per_sessione: Record<string, number>;
+  intensita_media_ponderata: number | null;
+  slot_detail: TSTonnellaggioSlotAnalisi[];
+  zona_prevalente: string | null;
+  fonte: string;
+}
+
 /** Analisi completa 4D di un piano — score 0-100 + dati strutturati */
 export interface TSAnalisiPiano {
   volume: TSAnalisiVolume;
@@ -1730,6 +1757,21 @@ export interface TSAnalisiPiano {
   dettaglio_rapporti: TSDettaglioRapporto[];
   frequenza_per_muscolo: Record<string, number>;
   recovery_overlaps: TSDettaglioRecovery[];
+  /** Volume-Load (v3) — presente solo se almeno uno slot ha carico_kg. NSCA 2016. */
+  tonnellaggio: TSAnalisiTonnellaggio | null;
+}
+
+/** Prescrizione di intensità per una settimana del mesociclo (Zourdos 2016, NSCA 2016) */
+export interface TSIntensityPrescription {
+  rpe_min: number;
+  rpe_max: number;
+  rir_min: number;
+  rir_max: number;
+  pct_1rm_min: number;
+  pct_1rm_max: number;
+  /** Zona NSCA prevalente (massimale/sub_massimale/ipertrofia/resistenza/attivazione) */
+  zona: string;
+  nota: string;
 }
 
 /** Configurazione singola settimana nel mesociclo */
@@ -1737,6 +1779,8 @@ export interface TSSettimanaConfig {
   numero: number;
   fase: "accumulazione" | "intensificazione" | "overreaching" | "deload";
   fattore_volume: number;
+  /** Prescrizione intensità: RPE/RIR + %1RM + zona NSCA (Zourdos 2016, Helms 2019) */
+  intensita: TSIntensityPrescription;
   note: string;
 }
 

@@ -1995,6 +1995,7 @@ export default function SchedaDetailPage({
                 esercizi: s.esercizi.map(e => ({
                   id_esercizio: e.id_esercizio,
                   serie: e.serie,
+                  carico_kg: e.carico_kg,
                 })),
               }))}
               exerciseMap={exerciseMap}

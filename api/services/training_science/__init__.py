@@ -46,6 +46,8 @@ from .types import (
     AnalisiVolume,
     AnalisiBalance,
     AnalisiPiano,
+    AnalisiTonnellaggio,
+    TonnellaggioSlotAnalisi,
     RapportoBiomeccanico,
     ContributoEsercizio,
     DettaglioMuscolo,
@@ -106,9 +108,18 @@ from .periodization import (
     Mesociclo,
     SettimanaConfig,
 )
+from .load_model import (
+    IntensityPrescription,
+    compute_tonnage,
+    get_intensity_for_reps,
+    get_intensity_prescription,
+    classify_intensity_zone,
+    rpe_to_rir,
+    rir_to_rpe,
+)
 
 __all__ = [
-    # Types
+    # Types (core)
     "Obiettivo",
     "Livello",
     "GruppoMuscolare",
@@ -130,6 +141,9 @@ __all__ = [
     "DettaglioMuscolo",
     "DettaglioRapporto",
     "DettaglioRecovery",
+    # Types (volume-load)
+    "AnalisiTonnellaggio",
+    "TonnellaggioSlotAnalisi",
     # Principles
     "get_parametri",
     "get_serie_per_slot",
@@ -175,4 +189,12 @@ __all__ = [
     "get_weekly_config",
     "Mesociclo",
     "SettimanaConfig",
+    # Load Model
+    "IntensityPrescription",
+    "compute_tonnage",
+    "get_intensity_for_reps",
+    "get_intensity_prescription",
+    "classify_intensity_zone",
+    "rpe_to_rir",
+    "rir_to_rpe",
 ]

@@ -27,6 +27,8 @@ from .types import (
     AnalisiVolume,
     AnalisiBalance,
     AnalisiPiano,
+    AnalisiTonnellaggio,
+    TonnellaggioSlotAnalisi,
     VolumeEffettivo,
     ContributoEsercizio,
     DettaglioMuscolo,
@@ -41,6 +43,7 @@ from .muscle_contribution import (
 )
 from .volume_model import get_scaled_volume_target, classify_volume
 from .balance_ratios import analyze_balance as _analyze_balance, BALANCE_RATIOS
+from .load_model import compute_tonnage, classify_intensity_zone
 
 
 # ════════════════════════════════════════════════════════════
@@ -79,6 +82,9 @@ def analyze_plan(
     # 4. Analisi Recupero
     overlaps = _analyze_recovery(piano, warnings)
 
+    # 5. Analisi Tonnellaggio (opzionale — solo con carico_kg)
+    tonnellaggio = _analyze_tonnage(piano)
+
     # Score composito
     score = _compute_score(volume_analysis, balance_analysis, warnings)
 
@@ -105,6 +111,7 @@ def analyze_plan(
         dettaglio_rapporti=dettaglio_rapporti,
         frequenza_per_muscolo=frequenza_dict,
         recovery_overlaps=recovery_overlaps,
+        tonnellaggio=tonnellaggio,
     )
 
 
@@ -445,6 +452,103 @@ def _build_recovery_overlaps(
         ))
 
     return dettagli
+
+
+# ════════════════════════════════════════════════════════════
+# 5. ANALISI TONNELLAGGIO (Volume-Load)
+# ════════════════════════════════════════════════════════════
+#
+# Il tonnellaggio e' la metrica gold standard per quantificare il
+# carico di allenamento totale (Haff & Triplett, NSCA 2016):
+#
+#   Tonnellaggio = Σ(serie × rep_medie × carico_kg)
+#
+# Questa analisi e' OPZIONALE: si attiva solo quando almeno uno
+# slot nel piano ha carico_kg compilato. Se nessuno slot ha peso,
+# ritorna None e il frontend non mostra la sezione.
+#
+# L'intensita' relativa (% 1RM) richiede conoscenza del 1RM del
+# soggetto. Senza 1RM, vengono comunque calcolati il tonnellaggio
+# e le zone NSCA basate sulla tabella NSCA_REP_MAX_PCT.
+#
+# Fonti:
+#   - Haff & Triplett (NSCA 2016) cap. 15 — Volume-Load definition
+#   - McBride et al. (2009) — Tonnage as training load metric
+#   - Kraemer & Ratamess (2004) — Relative intensity
+
+
+def _analyze_tonnage(piano: TemplatePiano) -> AnalisiTonnellaggio | None:
+    """
+    Calcola tonnellaggio e intensita' per slot con carico_kg.
+
+    Ritorna None se nessuno slot ha carico_kg compilato.
+    """
+    # Raccoglie slot con carico
+    has_load = any(
+        slot.carico_kg is not None and slot.carico_kg > 0
+        for sessione in piano.sessioni
+        for slot in sessione.slots
+    )
+    if not has_load:
+        return None
+
+    slot_details: list[TonnellaggioSlotAnalisi] = []
+    tonnellaggio_per_sessione: dict[str, float] = {}
+    tonnellaggio_totale = 0.0
+
+    # Contatori per zona prevalente
+    zone_counts: dict[str, int] = {}
+
+    for sessione in piano.sessioni:
+        session_tonnage = 0.0
+        for slot in sessione.slots:
+            if slot.carico_kg is None or slot.carico_kg <= 0:
+                continue
+
+            rep_medie = (slot.rep_min + slot.rep_max) / 2
+            tonnage = compute_tonnage(
+                slot.serie, slot.rep_min, slot.rep_max, slot.carico_kg
+            )
+            session_tonnage += tonnage
+            tonnellaggio_totale += tonnage
+
+            # Zona intensita' basata su rep range medio + assunzione RPE 8-9
+            # (senza 1RM individuale, usiamo la tabella NSCA per le rep massimali
+            #  con aggiustamento RIR=1-2 come caso tipico di allenamento)
+            avg_reps = round(rep_medie)
+            # Tabella NSCA: rep_max → %1RM (failure). RIR 1-2 = -2.5-5%
+            # Usiamo la stima conservativa (RIR=2 → -5%)
+            from .load_model import get_intensity_for_reps
+            estimated_pct = get_intensity_for_reps(avg_reps, rir=2.0)
+            zona_nome, _ = classify_intensity_zone(estimated_pct)
+
+            zone_counts[zona_nome] = zone_counts.get(zona_nome, 0) + slot.serie
+
+            slot_details.append(TonnellaggioSlotAnalisi(
+                pattern=slot.pattern.value,
+                sessione=sessione.nome,
+                serie=slot.serie,
+                rep_medie=round(rep_medie, 1),
+                carico_kg=slot.carico_kg,
+                tonnellaggio=tonnage,
+                intensita_relativa=None,  # Richiede 1RM individuale
+                zona_intensita=zona_nome,
+            ))
+
+        tonnellaggio_per_sessione[sessione.nome] = round(session_tonnage, 1)
+
+    # Zona prevalente (per numero di serie)
+    zona_prevalente = None
+    if zone_counts:
+        zona_prevalente = max(zone_counts, key=zone_counts.get)  # type: ignore[arg-type]
+
+    return AnalisiTonnellaggio(
+        tonnellaggio_totale=round(tonnellaggio_totale, 1),
+        tonnellaggio_per_sessione=tonnellaggio_per_sessione,
+        intensita_media_ponderata=None,  # Richiede 1RM individuali
+        slot_detail=slot_details,
+        zona_prevalente=zona_prevalente,
+    )
 
 
 # ════════════════════════════════════════════════════════════

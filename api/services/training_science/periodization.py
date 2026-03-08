@@ -39,6 +39,7 @@ from .types import (
     SlotSessione,
     TemplateSessione,
 )
+from .load_model import IntensityPrescription, get_intensity_prescription
 from pydantic import BaseModel, Field
 
 
@@ -124,12 +125,27 @@ FATTORI_VOLUME: dict[Livello, dict[str, float]] = {
 
 
 class SettimanaConfig(BaseModel):
-    """Configurazione di una settimana nel mesociclo."""
+    """
+    Configurazione di una settimana nel mesociclo.
+
+    Combina la progressione VOLUME (fattore_volume, serie scalate)
+    con la progressione INTENSITA' (RPE target, %1RM di riferimento).
+
+    Principio: volume e intensita' non si muovono sempre nella stessa
+    direzione. Il deload riduce il volume mantenendo l'intensita'.
+    Fonte: Israetel RP 2020, Helms 2019.
+    """
 
     numero: int = Field(ge=1, description="Numero settimana (1-based)")
     fase: str = Field(description="accumulazione | intensificazione | overreaching | deload")
     fattore_volume: float = Field(
         description="Moltiplicatore serie rispetto al piano base (1.0 = piano base invariato)"
+    )
+    intensita: IntensityPrescription = Field(
+        description=(
+            "Prescrizione di intensita' per la settimana: RPE/RIR target + "
+            "%1RM di riferimento + zona NSCA. Fonte: Zourdos 2016, NSCA 2016."
+        ),
     )
     note: str = Field(default="", description="Nota descrittiva della fase")
 
@@ -337,6 +353,7 @@ def get_weekly_config(livello: Livello) -> list[SettimanaConfig]:
             numero=i + 1,
             fase=fase,
             fattore_volume=factor,
+            intensita=get_intensity_prescription(fase),
             note=_NOTE_FASE[fase],
         ))
 

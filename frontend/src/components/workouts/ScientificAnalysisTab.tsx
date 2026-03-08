@@ -20,6 +20,7 @@ import { Loader2 } from "lucide-react";
 import { useAnalyzePlan } from "@/hooks/useTrainingScience";
 import { MuscleCoverageSection } from "./MuscleCoverageSection";
 import { BiomechanicalBalance } from "./BiomechanicalBalance";
+import { TonnageSection } from "./TonnageSection";
 import { ClinicalSafetySection } from "./ClinicalSafetySection";
 import { ActionableSummary } from "./ActionableSummary";
 import type {
@@ -38,7 +39,7 @@ import type {
 interface ScientificAnalysisTabProps {
   sessions: Array<{
     nome_sessione: string;
-    esercizi: Array<{ id_esercizio: number; serie: number }>;
+    esercizi: Array<{ id_esercizio: number; serie: number; carico_kg?: number | null }>;
   }>;
   exerciseMap: Map<number, Exercise>;
   livello: string;
@@ -96,6 +97,7 @@ function buildTemplatePiano(
           riposo_sec: 90,
           muscolo_target: null,
           note: "",
+          carico_kg: e.carico_kg ?? null,
         };
       })
       .filter((s): s is NonNullable<typeof s> => s !== null);
@@ -141,7 +143,7 @@ export function ScientificAnalysisTab({
     if (!templatePiano) return "";
     return JSON.stringify(
       templatePiano.sessioni.map((s) =>
-        s.slots.map((sl) => `${sl.pattern}:${sl.serie}`).join(","),
+        s.slots.map((sl) => `${sl.pattern}:${sl.serie}:${sl.carico_kg ?? ""}`).join(","),
       ),
     );
   }, [templatePiano]);
@@ -197,6 +199,11 @@ export function ScientificAnalysisTab({
         sessions={sessions}
         exerciseMap={exerciseMap}
       />
+
+      {/* Sezione 2.5: Volume-Load (solo con carico assegnato) */}
+      {analysis.tonnellaggio && (
+        <TonnageSection tonnellaggio={analysis.tonnellaggio} />
+      )}
 
       {/* Sezione 3: Profilo Clinico-Safety */}
       <ClinicalSafetySection

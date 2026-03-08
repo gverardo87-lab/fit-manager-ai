@@ -206,6 +206,16 @@ class SlotSessione(BaseModel):
         description="Se specificato, lo slot mira a questo muscolo (isolation). Altrimenti segue il pattern."
     )
     note: str = Field(default="", description="Nota per il trainer (es. 'enfasi eccentrica')")
+    carico_kg: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        le=500.0,
+        description=(
+            "Carico in kg (opzionale). Se presente, abilita il calcolo del "
+            "tonnellaggio (serie × rep × kg) e dell'intensita' relativa (% 1RM). "
+            "Fonte: Haff & Triplett (NSCA 2016) cap. 15."
+        ),
+    )
 
 
 class TemplateSessione(BaseModel):
@@ -310,6 +320,57 @@ class DettaglioRecovery(BaseModel):
     serie_overlap_b: dict[str, float] = Field(description="muscolo → serie nella sessione B")
 
 
+class TonnellaggioSlotAnalisi(BaseModel):
+    """Tonnellaggio calcolato per un singolo slot con carico assegnato."""
+
+    pattern: str = Field(description="Pattern di movimento")
+    sessione: str = Field(description="Nome della sessione")
+    serie: int
+    rep_medie: float = Field(description="Media rep range (rep_min+rep_max)/2")
+    carico_kg: float = Field(description="Carico in kg")
+    tonnellaggio: float = Field(
+        description="serie × rep_medie × carico_kg (Haff & Triplett, NSCA 2016)"
+    )
+    intensita_relativa: Optional[float] = Field(
+        default=None,
+        description="%1RM se 1RM noto (carico_kg / 1RM). Kraemer & Ratamess 2004.",
+    )
+    zona_intensita: Optional[str] = Field(
+        default=None,
+        description="Zona NSCA (massimale/sub_massimale/ipertrofia/resistenza/attivazione)",
+    )
+
+
+class AnalisiTonnellaggio(BaseModel):
+    """
+    Analisi volume-load di un piano con carichi assegnati.
+
+    Il tonnellaggio (Volume-Load) e' la metrica gold standard per
+    quantificare il carico di allenamento totale (Haff & Triplett, NSCA 2016).
+    Disponibile solo quando almeno uno slot ha carico_kg compilato.
+    """
+
+    tonnellaggio_totale: float = Field(description="Σ(serie × rep × kg) settimanale")
+    tonnellaggio_per_sessione: dict[str, float] = Field(
+        description="Tonnellaggio per nome sessione"
+    )
+    intensita_media_ponderata: Optional[float] = Field(
+        default=None,
+        description="Media %1RM pesata per tonnellaggio (se 1RM disponibili)",
+    )
+    slot_detail: list[TonnellaggioSlotAnalisi] = Field(
+        default_factory=list,
+        description="Dettaglio per ogni slot con carico",
+    )
+    zona_prevalente: Optional[str] = Field(
+        default=None,
+        description="Zona NSCA prevalente (per serie)",
+    )
+    fonte: str = Field(
+        default="Haff & Triplett (NSCA 2016) cap. 15; McBride et al. (2009)",
+    )
+
+
 class AnalisiPiano(BaseModel):
     """Analisi completa di un piano di allenamento."""
 
@@ -323,3 +384,12 @@ class AnalisiPiano(BaseModel):
     dettaglio_rapporti: list[DettaglioRapporto] = Field(default_factory=list)
     frequenza_per_muscolo: dict[str, int] = Field(default_factory=dict)
     recovery_overlaps: list[DettaglioRecovery] = Field(default_factory=list)
+
+    # Volume-Load (v3) — disponibile solo con carico_kg
+    tonnellaggio: Optional[AnalisiTonnellaggio] = Field(
+        default=None,
+        description=(
+            "Analisi tonnellaggio (Volume-Load). Presente solo se almeno "
+            "uno slot ha carico_kg compilato. Fonte: NSCA 2016."
+        ),
+    )
