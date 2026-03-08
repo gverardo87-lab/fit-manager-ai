@@ -47,6 +47,14 @@ export function computeOnboardingSteps(
 
   return [
     {
+      key: "contratto",
+      label: "Contratto",
+      description: "Pacchetto e piano pagamento — da qui parte tutto",
+      completed: ctx.hasContracts,
+      href: `/contratti?new=1&cliente=${clientId}`,
+      icon: FileText,
+    },
+    {
       key: "anamnesi",
       label: "Anamnesi",
       description: "Questionario clinico e stile di vita",
@@ -77,14 +85,6 @@ export function computeOnboardingSteps(
       completed: ctx.hasEvents,
       href: `/agenda?newEvent=1&clientId=${clientId}`,
       icon: Calendar,
-    },
-    {
-      key: "contratto",
-      label: "Contratto",
-      description: "Pacchetto e piano pagamento",
-      completed: ctx.hasContracts,
-      href: `/contratti?new=1&cliente=${clientId}`,
-      icon: FileText,
     },
   ];
 }

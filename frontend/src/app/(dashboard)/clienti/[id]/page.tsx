@@ -6,8 +6,7 @@
  *
  * Layout:
  * - ProfileHeader (persistente): avatar, nome, contatti, stato, modifica
- * - NextActionHero: prossima azione suggerita (da clinical readiness)
- * - OnboardingChecklist: stepper 5 step (solo se profilo incompleto)
+ * - OnboardingChecklist: hero CTA + stepper 5 step (solo se profilo incompleto)
  * - ProfileKpi: 4 card KPI
  * - Quick Access: 3 card navigazione rapida (Portale, Progressi, Anamnesi)
  * - Tabs: Panoramica | Contratti | Sessioni | Movimenti | Schede
@@ -29,7 +28,6 @@ import { ClientProfileHeader } from "@/components/clients/ClientProfileHeader";
 import { ClientProfileKpi } from "@/components/clients/ClientProfileKpi";
 import { ClientSheet } from "@/components/clients/ClientSheet";
 import { TemplateSelector } from "@/components/workouts/TemplateSelector";
-import { NextActionHero } from "@/components/clients/profile/NextActionHero";
 import { OnboardingChecklist } from "@/components/clients/profile/OnboardingChecklist";
 import { PanoramicaTab } from "@/components/clients/profile/PanoramicaTab";
 import { ContrattiTab } from "@/components/clients/profile/ContrattiTab";
@@ -150,10 +148,7 @@ export default function ClientProfilePage({
     <div className="space-y-4">
       <ClientProfileHeader client={client} onEdit={() => setSheetOpen(true)} />
 
-      {/* Next Action Hero — prossimo passo suggerito */}
-      {readiness && <NextActionHero readiness={readiness} />}
-
-      {/* Onboarding Checklist — solo se profilo incompleto */}
+      {/* Onboarding Checklist — hero CTA + stepper (solo se profilo incompleto) */}
       <OnboardingChecklist steps={onboardingSteps} />
 
       <ClientProfileKpi client={client} />
