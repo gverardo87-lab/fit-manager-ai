@@ -188,16 +188,24 @@ Bottone aggiunto in tutti e 3 gli stati della pagina anamnesi (empty, legacy, st
 - `next.config.ts`: rewrite `/api/:path*` → backend (era solo `/api/public/:path*`)
 - `middleware.ts`: `/api` aggiunto a `PUBLIC_ROUTES` (il middleware non blocca piu' le API proxiate)
 
+### PUBLIC_BASE_URL (2026-03-08)
+- `public_portal.py`: `create_share_token` legge `PUBLIC_BASE_URL` da env → se presente, genera URL assoluto
+- `anamnesi/page.tsx`: `ShareAnamnesiDialog` rileva URL assoluto (`http*`) → non prepende `window.location.origin`
+- Warning localhost nascosto se `PUBLIC_BASE_URL` configurato (il link e' gia' corretto)
+- Permette al trainer di lavorare da `localhost:3000` e generare link Funnel validi
+
 ---
 
-## Stato Feature Flag
+## Stato Feature Flag e Configurazione
 
 ```env
 # data/.env
 PUBLIC_PORTAL_ENABLED=true
+PUBLIC_BASE_URL=https://<nome-macchina>.<tailnet>.ts.net
 ```
 
-Default: `false`. Attivare esplicitamente in `data/.env` per abilitare il portale.
+- `PUBLIC_PORTAL_ENABLED`: default `false`. Attivare per abilitare il portale.
+- `PUBLIC_BASE_URL`: default vuoto. Se configurato, i link anamnesi usano questo dominio.
 
 ---
 

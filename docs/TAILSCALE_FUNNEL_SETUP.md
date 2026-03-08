@@ -215,16 +215,31 @@ tailscale funnel status
 
 ---
 
-## Feature Flag
+## Feature Flag e Configurazione
 
 ```env
 # data/.env
 PUBLIC_PORTAL_ENABLED=true    # Abilita endpoint pubblici anamnesi
+PUBLIC_BASE_URL=https://giacomo.tail8a3bc3.ts.net   # Dominio Funnel per link anamnesi
 ```
 
+### PUBLIC_PORTAL_ENABLED
 Default: `false`. Se disabilitato, tutti gli endpoint `/api/public/*` ritornano 404.
 Il Funnel continuera' a funzionare per il login trainer (utile per accesso remoto),
 ma i link anamnesi per i clienti non saranno generabili.
+
+### PUBLIC_BASE_URL
+Default: vuoto (URL relativo). Se configurato, i link anamnesi generati usano questo
+dominio come base — il trainer puo' lavorare da `localhost:3000` normalmente e i link
+generati saranno comunque accessibili dal cliente via Funnel.
+
+**Senza** `PUBLIC_BASE_URL`: il link usa `window.location.origin` — se il trainer
+accede da localhost, il link sara' `http://localhost:3000/public/anamnesi/{token}`
+(non raggiungibile dal cliente).
+
+**Con** `PUBLIC_BASE_URL`: il link sara' sempre
+`https://<nome>.ts.net/public/anamnesi/{token}` indipendentemente da come il trainer
+accede al CRM.
 
 ---
 

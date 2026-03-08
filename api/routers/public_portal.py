@@ -171,9 +171,14 @@ def create_share_token(
         trainer.id, client_id,
     )
 
+    # Se PUBLIC_BASE_URL è configurato, genera URL assoluto (es. https://nome.ts.net)
+    # Altrimenti URL relativo — il frontend prepende window.location.origin
+    base_url = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
+    path = f"/public/anamnesi/{share.token}"
+
     return ShareTokenResponse(
         token=share.token,
-        url=f"/public/anamnesi/{share.token}",
+        url=f"{base_url}{path}" if base_url else path,
         expires_at=share.expires_at,
         client_name=f"{client.nome} {client.cognome}",
     )

@@ -249,7 +249,9 @@ function ShareAnamnesiDialog({
   }, [createToken]);
 
   const fullUrl = result
-    ? `${typeof window !== "undefined" ? window.location.origin : ""}${result.url}`
+    ? result.url.startsWith("http")
+      ? result.url
+      : `${typeof window !== "undefined" ? window.location.origin : ""}${result.url}`
     : "";
 
   const handleCopy = useCallback(() => {
@@ -280,8 +282,8 @@ function ShareAnamnesiDialog({
         </DialogHeader>
 
         <div className="space-y-4 pt-2">
-          {/* Warning localhost — link non funziona dal cellulare */}
-          {isLocalhost && (
+          {/* Warning localhost — link non funziona dal cellulare (nascosto se PUBLIC_BASE_URL configurato) */}
+          {isLocalhost && !(result?.url.startsWith("http")) && (
             <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 p-3 text-xs text-amber-800 dark:text-amber-300">
               <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
               <div className="space-y-1">
