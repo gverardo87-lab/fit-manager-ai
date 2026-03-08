@@ -1760,8 +1760,8 @@ export default function SchedaDetailPage({
         </div>
       )}
 
-      {/* ── Split Layout ── */}
-      <div className="grid gap-6 lg:grid-cols-2 print:block">
+      {/* ── Split Layout (2 col in sessioni, full-width in analisi) ── */}
+      <div className={`grid gap-6 print:block ${activeView === "sessioni" ? "lg:grid-cols-2" : ""}`}>
         {/* Editor (sinistra) */}
         <div className="space-y-3" data-print-hide>
           {/* Safety Overview Panel — dashboard clinica collapsibile */}
@@ -2007,8 +2007,8 @@ export default function SchedaDetailPage({
           )}
         </div>
 
-        {/* Preview (destra, solo desktop + stampa) */}
-        <div className="hidden lg:block print:block space-y-4 sticky top-6 workout-preview-container">
+        {/* Preview (destra, solo desktop + stampa — nascosta in analisi) */}
+        <div className={`print:block space-y-4 sticky top-6 workout-preview-container ${activeView === "sessioni" ? "hidden lg:block" : "hidden print:block"}`}>
           <WorkoutPreview
             nome={plan.nome}
             obiettivo={plan.obiettivo}
