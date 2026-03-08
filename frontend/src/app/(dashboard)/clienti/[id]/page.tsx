@@ -104,16 +104,16 @@ export default function ClientProfilePage({
       <ClientProfileHeader client={client} onEdit={() => setSheetOpen(true)} />
       <ClientProfileKpi client={client} />
 
-      {/* ── Quick Access: MyPortal + Progressi + Anamnesi ── */}
+      {/* ── Quick Access: Portale Clinico + Progressi + Anamnesi ── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <Link href={`/clienti/myportal/${clientId}`}>
+        <Link href={`/monitoraggio/${clientId}`}>
           <Card className="group cursor-pointer border-l-4 border-l-violet-500 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
             <CardContent className="flex items-center gap-4 p-4">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-900/30">
                 <ClipboardList className="h-5 w-5 text-violet-600 dark:text-violet-400" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold">MyPortal</p>
+                <p className="text-sm font-semibold">Portale Clinico</p>
                 <p className="text-xs text-muted-foreground">
                   Portale clinico 360°
                 </p>

@@ -130,7 +130,7 @@ export function ReadinessClientCard({ item }: ReadinessClientCardProps) {
       {/* Header: nome + priorità */}
       <div className="flex items-start justify-between gap-2">
         <Link
-          href={`/clienti/myportal/${item.client_id}`}
+          href={`/monitoraggio/${item.client_id}`}
           className="text-sm font-semibold hover:underline"
         >
           {item.client_cognome} {item.client_nome}
@@ -169,7 +169,7 @@ export function ReadinessClientCard({ item }: ReadinessClientCardProps) {
       {/* CTA */}
       <div className="mt-3 flex justify-end">
         {isReady ? (
-          <Link href={`/clienti/myportal/${item.client_id}`}>
+          <Link href={`/monitoraggio/${item.client_id}`}>
             <Button size="sm" variant="outline" className="gap-1 text-xs">
               Portale
               <ArrowRight className="h-3 w-3" />

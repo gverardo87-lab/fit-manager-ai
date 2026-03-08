@@ -99,10 +99,10 @@ export function PortalHeader({
     <div className="space-y-4">
       {/* Back nav */}
       <div className="flex items-center gap-2">
-        <Link href="/clienti/myportal">
+        <Link href="/monitoraggio">
           <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground">
             <ArrowLeft className="h-4 w-4" />
-            MyPortal
+            Monitoraggio
           </Button>
         </Link>
         <span className="text-muted-foreground/40">/</span>

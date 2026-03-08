@@ -121,7 +121,7 @@ export function ProgramSection({
                       </Badge>
                     </div>
                   </div>
-                  <Link href={`/schede/${activeProgram.id}?from=myportal-${clientId}`}>
+                  <Link href={`/schede/${activeProgram.id}?from=monitoraggio-${clientId}`}>
                     <Button size="sm" variant="ghost" className="gap-1 text-xs">
                       <Eye className="h-3.5 w-3.5" />
                       Vedi

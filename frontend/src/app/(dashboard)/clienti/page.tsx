@@ -275,10 +275,10 @@ export default function ClientiPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Link href="/clienti/myportal">
+          <Link href="/monitoraggio">
             <Button variant="outline">
               <Eye className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">MyPortal</span>
+              <span className="hidden sm:inline">Monitoraggio</span>
             </Button>
           </Link>
           <Button data-guide="clienti-new-button" onClick={handleNewClient}>

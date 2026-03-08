@@ -24,8 +24,7 @@ import {
   Dumbbell,
   ClipboardList,
   Activity,
-  HeartPulse,
-  Target,
+  BarChart3,
   Search,
 } from "lucide-react";
 
@@ -69,11 +68,10 @@ const NAV_TOP: NavEntry[] = [
         activeMatch: (pathname) =>
           pathname === "/clienti" || /^\/clienti\/\d+(\/|$)/.test(pathname),
       },
-      { href: "/clienti/myportal", label: "MyPortal", icon: HeartPulse },
     ],
   },
   {
-    section: "Contabilità",
+    section: "Contabilita",
     items: [
       { href: "/contratti", label: "Contratti", icon: FileText },
       { href: "/cassa", label: "Cassa", icon: Wallet },
@@ -84,8 +82,18 @@ const NAV_TOP: NavEntry[] = [
     items: [
       { href: "/esercizi", label: "Esercizi", icon: Dumbbell },
       { href: "/schede", label: "Schede", icon: ClipboardList, guideId: "sidebar-schede" },
-      { href: "/allenamenti", label: "Monitoraggio", icon: Activity },
-      { href: "/allenamenti/mytrainer", label: "MyTrainer", icon: Target },
+    ],
+  },
+  {
+    section: "Monitoraggio",
+    items: [
+      {
+        href: "/monitoraggio",
+        label: "Panoramica",
+        icon: BarChart3,
+        activeMatch: (pathname) => pathname === "/monitoraggio",
+      },
+      { href: "/allenamenti", label: "Compliance", icon: Activity },
     ],
   },
 ];
