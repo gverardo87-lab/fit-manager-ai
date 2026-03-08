@@ -538,7 +538,7 @@ export default function SchedaDetailPage({
   const [editValue, setEditValue] = useState("");
 
   // Exercise selector
-  const [activeView, setActiveView] = useState<"sessioni" | "analisi">("sessioni");
+  const [activeView, setActiveView] = useState<"sessioni" | "analisi" | "anteprima">("sessioni");
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [selectorContext, setSelectorContext] = useState<{
     sessionId: number;
@@ -1760,8 +1760,8 @@ export default function SchedaDetailPage({
         </div>
       )}
 
-      {/* ── Split Layout (2 col in sessioni, full-width in analisi) ── */}
-      <div className={`grid gap-6 print:block ${activeView === "sessioni" ? "lg:grid-cols-2" : ""}`}>
+      {/* ── Layout adattivo: sessioni board full-width, anteprima 2-col, analisi full-width ── */}
+      <div className={`grid gap-6 print:block ${activeView === "anteprima" ? "lg:grid-cols-2" : ""}`}>
         {/* Editor (sinistra) */}
         <div className="space-y-3" data-print-hide>
           {/* Safety Overview Panel — dashboard clinica collapsibile */}
@@ -1917,65 +1917,62 @@ export default function SchedaDetailPage({
             </Collapsible>
           )}
 
-          {/* Tab switch: Sessioni / Analisi Scientifica */}
+          {/* Tab switch: Sessioni / Analisi Scientifica / Anteprima */}
           {sessions.length > 0 && (
             <div className="flex items-center gap-1 rounded-lg bg-muted/50 p-0.5">
-              <button
-                type="button"
-                onClick={() => setActiveView("sessioni")}
-                className={`flex-1 text-xs font-medium py-1.5 px-3 rounded-md transition-all ${
-                  activeView === "sessioni"
-                    ? "bg-background shadow-sm text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Sessioni
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveView("analisi")}
-                className={`flex-1 text-xs font-medium py-1.5 px-3 rounded-md transition-all ${
-                  activeView === "analisi"
-                    ? "bg-background shadow-sm text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Analisi Scientifica
-              </button>
+              {(["sessioni", "analisi", "anteprima"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setActiveView(tab)}
+                  className={`flex-1 text-xs font-medium py-1.5 px-3 rounded-md transition-all ${
+                    activeView === tab
+                      ? "bg-background shadow-sm text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {tab === "sessioni" ? "Sessioni" : tab === "analisi" ? "Analisi Scientifica" : "Anteprima"}
+                </button>
+              ))}
             </div>
           )}
 
           {activeView === "sessioni" && (
             <>
-              {sessions.map((session) => (
-                <SessionCard
-                  key={session.id}
-                  session={session}
-                  safetyMap={safetyEntries}
-                  exerciseMap={exerciseMap}
-                  schedaId={id}
-                  parentFrom={fromParam}
-                  oneRMByPattern={oneRMByPattern}
-                  onUpdateSession={handleUpdateSession}
-                  onDeleteSession={handleDeleteSession}
-                  onDuplicateSession={handleDuplicateSession}
-                  onAddExercise={handleAddExercise}
-                  onUpdateExercise={handleUpdateExercise}
-                  onDeleteExercise={handleDeleteExercise}
-                  onReplaceExercise={handleReplaceExercise}
-                  onQuickReplace={handleQuickReplace}
-                  onAddBlock={handleAddBlock}
-                  onUpdateBlock={handleUpdateBlock}
-                  onDeleteBlock={handleDeleteBlock}
-                  onDuplicateBlock={handleDuplicateBlock}
-                  onAddExerciseToBlock={handleAddExerciseToBlock}
-                  onUpdateExerciseInBlock={handleUpdateExerciseInBlock}
-                  onDeleteExerciseFromBlock={handleDeleteExerciseFromBlock}
-                  onReplaceExerciseInBlock={handleReplaceExerciseInBlock}
-                  onQuickReplaceInBlock={handleQuickReplaceInBlock}
-                  onClearSection={handleClearSection}
-                />
-              ))}
+              {/* Board layout: sessioni affiancate come colonne */}
+              <div className="flex gap-3 overflow-x-auto pb-2">
+                {sessions.map((session) => (
+                  <div key={session.id} className="min-w-[340px] max-w-[460px] flex-1">
+                    <SessionCard
+                      session={session}
+                      boardView
+                      safetyMap={safetyEntries}
+                      exerciseMap={exerciseMap}
+                      schedaId={id}
+                      parentFrom={fromParam}
+                      oneRMByPattern={oneRMByPattern}
+                      onUpdateSession={handleUpdateSession}
+                      onDeleteSession={handleDeleteSession}
+                      onDuplicateSession={handleDuplicateSession}
+                      onAddExercise={handleAddExercise}
+                      onUpdateExercise={handleUpdateExercise}
+                      onDeleteExercise={handleDeleteExercise}
+                      onReplaceExercise={handleReplaceExercise}
+                      onQuickReplace={handleQuickReplace}
+                      onAddBlock={handleAddBlock}
+                      onUpdateBlock={handleUpdateBlock}
+                      onDeleteBlock={handleDeleteBlock}
+                      onDuplicateBlock={handleDuplicateBlock}
+                      onAddExerciseToBlock={handleAddExerciseToBlock}
+                      onUpdateExerciseInBlock={handleUpdateExerciseInBlock}
+                      onDeleteExerciseFromBlock={handleDeleteExerciseFromBlock}
+                      onReplaceExerciseInBlock={handleReplaceExerciseInBlock}
+                      onQuickReplaceInBlock={handleQuickReplaceInBlock}
+                      onClearSection={handleClearSection}
+                    />
+                  </div>
+                ))}
+              </div>
 
               <Button
                 variant="outline"
@@ -2007,8 +2004,8 @@ export default function SchedaDetailPage({
           )}
         </div>
 
-        {/* Preview (destra, solo desktop + stampa — nascosta in analisi) */}
-        <div className={`print:block space-y-4 sticky top-6 workout-preview-container ${activeView === "sessioni" ? "hidden lg:block" : "hidden print:block"}`}>
+        {/* Preview (destra in anteprima, nascosta in sessioni/analisi — sempre visibile in stampa) */}
+        <div className={`print:block space-y-4 sticky top-6 workout-preview-container ${activeView === "anteprima" ? "hidden lg:block" : "hidden print:block"}`}>
           <WorkoutPreview
             nome={plan.nome}
             obiettivo={plan.obiettivo}

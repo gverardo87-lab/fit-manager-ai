@@ -62,6 +62,8 @@ export interface SessionCardData {
 
 interface SessionCardProps {
   session: SessionCardData;
+  /** Layout board (colonne affiancate): esercizi compatti su 2 righe */
+  boardView?: boolean;
   /** Safety map per-esercizio (da anamnesi cliente). Informativo, mai bloccante. */
   safetyMap?: Record<number, ExerciseSafetyEntry>;
   /** Mappa esercizi completi per pannello dettaglio inline */
@@ -209,6 +211,7 @@ export function parseAvgReps(reps: string): number {
 
 export function SessionCard({
   session,
+  boardView = false,
   safetyMap,
   exerciseMap,
   schedaId,
@@ -473,24 +476,26 @@ export function SessionCard({
                   {/* Exercise rows */}
                   {exercises.length > 0 && (
                     <>
-                      {/* Column header — allineato ai nuovi grid */}
-                      <div className={`grid ${isPrincipale
-                        ? "grid-cols-[20px_14px_1fr_44px_52px_52px_44px_24px]"
-                        : "grid-cols-[20px_14px_1fr_44px_52px_24px]"
-                      } gap-1 px-1 pb-0.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider`}>
-                        <span />
-                        <span />
-                        <span>Esercizio</span>
-                        <span className="text-center">Serie</span>
-                        <span className="text-center">Rip</span>
-                        {isPrincipale && (
-                          <>
-                            <span className="text-center">Kg</span>
-                            <span className="text-center">Riposo</span>
-                          </>
-                        )}
-                        <span />
-                      </div>
+                      {/* Column header — nascosto in board view (spazio troppo stretto) */}
+                      {!boardView && (
+                        <div className={`grid ${isPrincipale
+                          ? "grid-cols-[20px_14px_1fr_44px_52px_52px_44px_24px]"
+                          : "grid-cols-[20px_14px_1fr_44px_52px_24px]"
+                        } gap-1 px-1 pb-0.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider`}>
+                          <span />
+                          <span />
+                          <span>Esercizio</span>
+                          <span className="text-center">Serie</span>
+                          <span className="text-center">Rip</span>
+                          {isPrincipale && (
+                            <>
+                              <span className="text-center">Kg</span>
+                              <span className="text-center">Riposo</span>
+                            </>
+                          )}
+                          <span />
+                        </div>
+                      )}
 
                       <SortableContext
                         items={exercises.map((e) => e.id)}
@@ -502,6 +507,7 @@ export function SessionCard({
                               key={exercise.id}
                               exercise={exercise}
                               compact={!isPrincipale}
+                              boardView={boardView}
                               safety={safetyMap?.[exercise.id_esercizio]}
                               safetyEntries={safetyMap}
                               exerciseData={exerciseMap?.get(exercise.id_esercizio)}

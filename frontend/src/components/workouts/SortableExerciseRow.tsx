@@ -59,6 +59,8 @@ interface SortableExerciseRowProps {
   exercise: WorkoutExerciseRow;
   /** Layout compatto per avviamento/stretching */
   compact?: boolean;
+  /** Layout board (colonne affiancate): 2 righe — nome sopra, parametri sotto */
+  boardView?: boolean;
   /** Safety entry da anamnesi cliente (informativo) */
   safety?: ExerciseSafetyEntry;
   /** Full safety entries per filtrare alternative sicure */
@@ -254,6 +256,7 @@ function PositionBadge({
 export function SortableExerciseRow({
   exercise,
   compact = false,
+  boardView = false,
   safety,
   safetyEntries,
   exerciseData,
@@ -304,6 +307,100 @@ export function SortableExerciseRow({
 
   // Indicatore contenuto secondario (nota o tempo compilati)
   const hasSecondaryContent = !!exercise.note || !!exercise.tempo_esecuzione;
+
+  // ── Layout board (colonne affiancate): 2 righe compatte ──
+  if (boardView && blockType === undefined) {
+    return (
+      <div ref={setNodeRef} style={style} data-workout-exercise-id={exercise.id}>
+        <div
+          className={`group/row rounded-md px-1 py-0.5 hover:bg-muted/40 transition-colors ${safetyBg}`}
+        >
+          {/* Riga 1: grip + safety + nome + dot + delete */}
+          <div className="flex items-center gap-1 min-w-0">
+            <button
+              {...attributes}
+              {...listeners}
+              className="shrink-0 flex items-center justify-center cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground"
+            >
+              <GripVertical className="h-3 w-3" />
+            </button>
+            {safety && (
+              <SafetyPopover
+                safety={safety}
+                exerciseName={exercise.esercizio_nome}
+                exerciseId={exercise.id_esercizio}
+                iconSize="h-3 w-3"
+                safetyEntries={safetyEntries}
+                sourceExercise={exerciseData}
+                exerciseMap={exerciseMap}
+                onQuickReplace={onQuickReplace}
+              />
+            )}
+            <button
+              onClick={onReplace}
+              className="flex-1 text-left text-xs truncate hover:text-primary transition-colors"
+              title={`${exercise.esercizio_nome} — clicca per sostituire`}
+            >
+              {exercise.esercizio_nome}
+            </button>
+            {hasSecondaryContent && (
+              <span className="shrink-0 h-1.5 w-1.5 rounded-full bg-primary/60" />
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-4 w-4 shrink-0 text-muted-foreground/0 group-hover/row:text-muted-foreground/50 hover:!text-destructive transition-colors"
+              onClick={onDelete}
+            >
+              <Trash2 className="h-2.5 w-2.5" />
+            </Button>
+          </div>
+          {/* Riga 2: serie + rip + kg + riposo (solo principale) */}
+          <div className="flex items-center gap-1 ml-4 mt-0.5">
+            <Input
+              type="number"
+              value={exercise.serie}
+              onChange={(e) => onUpdate({ serie: parseInt(e.target.value) || 1 })}
+              min={1}
+              max={10}
+              className="h-5 text-center text-[10px] px-0.5 w-10"
+            />
+            <Input
+              value={exercise.ripetizioni}
+              onChange={(e) => onUpdate({ ripetizioni: e.target.value })}
+              className="h-5 text-center text-[10px] px-0.5 w-12"
+              placeholder={compact ? "30s" : "8-12"}
+            />
+            {!compact && (
+              <>
+                <Input
+                  type="number"
+                  value={exercise.carico_kg ?? ""}
+                  onChange={(e) => onUpdate({
+                    carico_kg: e.target.value ? parseFloat(e.target.value) : null,
+                  })}
+                  min={0}
+                  max={500}
+                  step={0.5}
+                  className="h-5 text-center text-[10px] px-0.5 w-12"
+                  placeholder="kg"
+                />
+                <Input
+                  type="number"
+                  value={exercise.tempo_riposo_sec}
+                  onChange={(e) => onUpdate({ tempo_riposo_sec: parseInt(e.target.value) || 0 })}
+                  min={0}
+                  max={300}
+                  step={15}
+                  className="h-5 text-center text-[10px] px-0.5 w-10"
+                />
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ── Layout blocco strutturato ──
   if (blockType !== undefined) {
