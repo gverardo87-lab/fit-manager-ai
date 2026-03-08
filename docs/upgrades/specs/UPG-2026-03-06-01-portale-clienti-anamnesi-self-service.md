@@ -55,7 +55,7 @@ Questa separazione previene che un trainer loggato che clicca il link kiosk veng
 | `api/database.py` | Modifica | Import `ShareToken` in `create_db_and_tables()` |
 | `api/main.py` | Modifica | Import + registrazione `public_portal_router`, `/api/public/*` in `LICENSE_EXEMPT_PATHS` |
 | `alembic/versions/ecf22d7823a8_*.py` | Nuovo | Migrazione Alembic `share_tokens` table |
-| `frontend/src/app/public/anamnesi/[token]/page.tsx` | Nuovo | Pagina kiosk mobile-first (fuori da `(dashboard)`) — wizard 4 step riusa `AnamnesiSteps` |
+| `frontend/src/app/public/anamnesi/[token]/page.tsx` | Nuovo | Pagina kiosk mobile-first (fuori da `(dashboard)`) — wizard 6 step riusa `AnamnesiSteps` + `AnamnesiStepsSalute` |
 | `frontend/src/hooks/useClients.ts` | Modifica | Aggiunto `useCreateShareToken(clientId)` |
 | `frontend/src/types/api.ts` | Modifica | Aggiunte `ShareTokenResponse`, `AnamnesiValidateResponse` |
 | `frontend/src/middleware.ts` | Modifica | Separazione `PUBLIC_ROUTES` + `AUTH_ONLY_PAGES`, aggiunto `/api/public` |
@@ -119,7 +119,7 @@ Layout fuori da `(dashboard)` — nessun sidebar, nessun AuthGuard. Stile login 
 
 **Flusso UI**:
 1. Mount → `GET /api/public/anamnesi/validate?token=X`
-2. Token valido → wizard 4 step (riusa `AnamnesiSteps` senza modifiche)
+2. Token valido → wizard 6 step (riusa `AnamnesiSteps` + `AnamnesiStepsSalute`)
 3. Submit → `POST /api/public/anamnesi/submit`
 4. Successo → pagina "Grazie" con check verde
 5. Errori: "Link scaduto", "Link gia' utilizzato", "Link non valido"

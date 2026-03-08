@@ -30,7 +30,7 @@ ANAMNESI_KEYWORD_RULES: list[tuple[list[str], int]] = [
     # ═══════════════════════════════════════════════════════
 
     # ── SCHIENA / LOMBARE ──
-    (["ernia", "hernia discale"], 1),
+    (["ernia", "ernie", "hernia discale"], 1),
     (["lombare"], 1),
     (["scoliosi"], 3),
     (["stenosi spinale"], 4),
@@ -69,7 +69,7 @@ ANAMNESI_KEYWORD_RULES: list[tuple[list[str], int]] = [
       "lassita caviglia"], 19),
 
     # ── CARDIOVASCOLARE ──
-    (["ipertensione", "pressione sanguigna"], 20),
+    (["ipertensione", "pressione sanguigna", "pressione"], 20),
     (["cardiopatia", "cardiaci gravi", "cardiovascol"], 21),
     (["problemi cardiaci"], 20),
     (["insufficienza cardiaca", "scompenso cardiaco", "scompenso"], 22),
@@ -84,7 +84,7 @@ ANAMNESI_KEYWORD_RULES: list[tuple[list[str], int]] = [
     (["piriforme"], 27),
 
     # ── RESPIRATORIO ──
-    (["asma"], 28),
+    (["asma", "respiratori"], 28),
 
     # ── SPECIAL ──
     (["gravidanza"], 29),
@@ -137,7 +137,7 @@ ANAMNESI_KEYWORD_RULES: list[tuple[list[str], int]] = [
     # ── Caviglia/Piede (34) ──
     (["frattura caviglia", "frattura piede", "frattura metatarso",
       "distorsione grave caviglia", "intervento caviglia"], 34),
-    (["caviglia", "achille", "piede"], 34),
+    (["caviglia", "caviglie", "achille", "piede"], 34),
 
     # ── Anca (35) ──
     (["frattura femore", "frattura anca", "protesi anca",
@@ -163,7 +163,7 @@ ANAMNESI_KEYWORD_RULES: list[tuple[list[str], int]] = [
 
     # ── Lombalgia (39) ──
     (["lombalgia", "mal di schiena", "dolore lombare",
-      "rigidita' lombare"], 39),
+      "rigidita' lombare", "schiena"], 39),
 ]
 
 # ═══════════════════════════════════════════════════════════════

@@ -41,12 +41,18 @@ logger = logging.getLogger(__name__)
 _SEVERITY_ORDER = {"caution": 0, "modify": 1, "avoid": 2}
 
 # Campi AnamnesiData con struttura {presente: bool, dettaglio: str|null}
+# Include sia v2 (questionario Chiara) che v1 (backward compat).
+# Se un campo non esiste nel JSON, .get() ritorna None → skippato.
 _QUESTION_FIELDS = [
+    # v2 (questionario Chiara)
+    "infortuni_importanti",
+    "patologie",
+    "limitazioni_mediche",
+    # v1 (backward compat — dati esistenti)
     "infortuni_attuali",
     "infortuni_pregressi",
     "interventi_chirurgici",
     "dolori_cronici",
-    "patologie",
     "farmaci",
     "problemi_cardiovascolari",
     "problemi_respiratori",
@@ -54,11 +60,24 @@ _QUESTION_FIELDS = [
 ]
 
 # Campi AnamnesiData con testo libero (str|null)
-# NOTA: obiettivi_specifici ESCLUSO — contiene goal ("migliorare spalle"),
-# non condizioni mediche. Includerlo causa falsi positivi.
+# NOTA: obiettivi/goal ESCLUSI — contengono goal ("migliorare spalle"),
+# non condizioni mediche. Includerli causa falsi positivi.
 _FREE_TEXT_FIELDS = [
+    # v2
+    "dolori_attuali_altro",
+    "patologie_altro",
+    "farmaci_dettaglio",
+    "note_finali",
+    # v1 (backward compat)
     "limitazioni_funzionali",
     "note",
+]
+
+# Campi v2 che contengono liste di stringhe (es. ["schiena", "cervicale"]).
+# Vengono uniti in testo per keyword matching.
+_ARRAY_TEXT_FIELDS = [
+    "dolori_attuali",
+    "patologie_lista",
 ]
 
 
@@ -108,6 +127,14 @@ def extract_client_conditions(anamnesi_json: Optional[str]) -> set[int]:
         if value and isinstance(value, str):
             all_texts.append(value)
 
+    # Testi dai campi array (v2: dolori_attuali, patologie_lista)
+    for field_name in _ARRAY_TEXT_FIELDS:
+        arr = anamnesi.get(field_name)
+        if isinstance(arr, list):
+            for item in arr:
+                if isinstance(item, str) and item.strip():
+                    all_texts.append(item)
+
     # Matching
     full_text = " ".join(all_texts)
     if full_text.strip():
@@ -136,13 +163,23 @@ def extract_medication_flags(anamnesi_json: Optional[str]) -> list[MedicationFla
     if not isinstance(anamnesi, dict):
         return []
 
-    # Estrai testo farmaci
-    farmaci_data = anamnesi.get("farmaci")
-    if not isinstance(farmaci_data, dict):
-        return []
+    # Estrai testo farmaci — v1: farmaci.dettaglio, v2: farmaci_dettaglio
+    dettaglio = None
 
-    dettaglio = farmaci_data.get("dettaglio")
-    if not dettaglio or not isinstance(dettaglio, str):
+    # v1: campo farmaci con struttura {presente, dettaglio}
+    farmaci_data = anamnesi.get("farmaci")
+    if isinstance(farmaci_data, dict):
+        d = farmaci_data.get("dettaglio")
+        if d and isinstance(d, str):
+            dettaglio = d
+
+    # v2: campo farmaci_dettaglio (testo libero)
+    if not dettaglio:
+        d2 = anamnesi.get("farmaci_dettaglio")
+        if d2 and isinstance(d2, str):
+            dettaglio = d2
+
+    if not dettaglio:
         return []
 
     flags: list[MedicationFlag] = []

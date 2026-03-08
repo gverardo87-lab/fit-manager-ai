@@ -2,12 +2,15 @@
 "use client";
 
 /**
- * 4 step del questionario anamnesi + sub-componente QuestionToggle riusabile.
- * Ogni step riceve la porzione di dati rilevante + callback onChange.
+ * Step 1-3 del questionario anamnesi v2 (Chiara).
+ * Step 1: Stile di Vita — Step 2: Obiettivo — Step 3: Esperienza Sportiva.
+ *
+ * Step 4-6 in AnamnesiStepsSalute.tsx per rispettare il limite 300 LOC.
  */
 
-import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -15,258 +18,264 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { AnamnesiData, AnamnesiQuestion } from "@/types/api";
+import type { AnamnesiData } from "@/types/api";
 import {
-  LIVELLI_ATTIVITA,
-  LIVELLI_ATTIVITA_LABELS,
-  ORE_SONNO,
-  ORE_SONNO_LABELS,
-  LIVELLI_STRESS,
-  LIVELLI_STRESS_LABELS,
+  ORE_SEDUTO, ORE_SEDUTO_LABELS,
+  SPOSTAMENTO, SPOSTAMENTO_LABELS,
+  ORE_SONNO, ORE_SONNO_LABELS,
+  QUALITA_SONNO, QUALITA_SONNO_LABELS,
+  FUMO_OPTIONS, FUMO_LABELS,
+  ALCOL_OPTIONS, ALCOL_LABELS,
+  OBIETTIVI_PRINCIPALI, OBIETTIVI_PRINCIPALI_LABELS,
+  FREQUENZA_SETTIMANALE, FREQUENZA_LABELS,
+  LUOGO_ALLENAMENTO, LUOGO_LABELS,
+  ESPERIENZA_DURATA, ESPERIENZA_LABELS,
 } from "@/types/api";
 
-// ════════════════════════════════════════════════════════════
-// QUESTION TOGGLE (riusabile per ogni domanda si/no + dettaglio)
-// ════════════════════════════════════════════════════════════
-
-function QuestionToggle({
-  label,
-  value,
-  onChange,
-  placeholder,
-}: {
-  label: string;
-  value: AnamnesiQuestion;
-  onChange: (v: AnamnesiQuestion) => void;
-  placeholder?: string;
-}) {
-  return (
-    <div className="space-y-2 rounded-lg border p-3">
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-sm font-medium leading-snug">{label}</span>
-        <Switch
-          checked={value.presente}
-          onCheckedChange={(checked) =>
-            onChange({ presente: checked, dettaglio: checked ? value.dettaglio : null })
-          }
-        />
-      </div>
-      {value.presente && (
-        <Textarea
-          value={value.dettaglio ?? ""}
-          onChange={(e) => onChange({ ...value, dettaglio: e.target.value || null })}
-          placeholder={placeholder ?? "Descrivi nel dettaglio..."}
-          rows={2}
-          className="mt-1 text-sm"
-        />
-      )}
-    </div>
-  );
-}
+// Re-export step 4-6 from sibling file
+export {
+  StepSalute,
+  StepAlimentazione,
+  StepLogistica,
+} from "./AnamnesiStepsSalute";
 
 // ════════════════════════════════════════════════════════════
-// STEP PROPS
+// SHARED SUB-COMPONENTS
 // ════════════════════════════════════════════════════════════
 
-interface StepProps {
+export interface StepProps {
   data: AnamnesiData;
   onChange: (updates: Partial<AnamnesiData>) => void;
 }
 
-// ════════════════════════════════════════════════════════════
-// STEP 1: MUSCOLOSCHELETRICO
-// ════════════════════════════════════════════════════════════
-
-export function StepMuscoloscheletrico({ data, onChange }: StepProps) {
+function SelectField({ label, value, onValueChange, options, labels }: {
+  label: string;
+  value: string;
+  onValueChange: (v: string) => void;
+  options: readonly string[];
+  labels: Record<string, string>;
+}) {
   return (
-    <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">
-        Informazioni su infortuni, interventi chirurgici e dolori cronici.
-      </p>
-      <QuestionToggle
-        label="Hai infortuni attuali?"
-        value={data.infortuni_attuali}
-        onChange={(v) => onChange({ infortuni_attuali: v })}
-        placeholder="Es. distorsione caviglia destra, tendinite spalla sinistra..."
+    <div className="space-y-1.5">
+      <label className="text-sm font-medium">{label}</label>
+      <Select value={value} onValueChange={onValueChange}>
+        <SelectTrigger>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent position="popper" sideOffset={4}>
+          {options.map((o) => (
+            <SelectItem key={o} value={o}>{labels[o]}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+function SliderField({ label, value, onChange, min, max, hint }: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  min: number;
+  max: number;
+  hint?: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <label className="text-sm font-medium">{label}</label>
+        <span className="text-sm font-semibold text-primary">{value}/{max}</span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full accent-primary"
       />
-      <QuestionToggle
-        label="Hai avuto infortuni pregressi?"
-        value={data.infortuni_pregressi}
-        onChange={(v) => onChange({ infortuni_pregressi: v })}
-        placeholder="Es. frattura polso destro 2020, frattura ginocchio sinistro, strappo quadricipite..."
-      />
-      <QuestionToggle
-        label="Hai subito interventi chirurgici?"
-        value={data.interventi_chirurgici}
-        onChange={(v) => onChange({ interventi_chirurgici: v })}
-        placeholder="Es. artroscopia ginocchio destro 2019, ernia discale lombare..."
-      />
-      <QuestionToggle
-        label="Hai dolori cronici?"
-        value={data.dolori_cronici}
-        onChange={(v) => onChange({ dolori_cronici: v })}
-        placeholder="Es. lombalgia cronica, cervicalgia, gonalgia ginocchio destro..."
-      />
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   );
 }
 
 // ════════════════════════════════════════════════════════════
-// STEP 2: CONDIZIONI MEDICHE
-// ════════════════════════════════════════════════════════════
-
-export function StepCondizioniMediche({ data, onChange }: StepProps) {
-  return (
-    <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">
-        Patologie diagnosticate, farmaci e condizioni cardiovascolari/respiratorie.
-      </p>
-      <QuestionToggle
-        label="Hai patologie diagnosticate?"
-        value={data.patologie}
-        onChange={(v) => onChange({ patologie: v })}
-        placeholder="Es. diabete tipo 2, ipertensione, artrosi..."
-      />
-      <QuestionToggle
-        label="Assumi farmaci regolarmente?"
-        value={data.farmaci}
-        onChange={(v) => onChange({ farmaci: v })}
-        placeholder="Es. antipertensivi, antinfiammatori, integratori prescritti..."
-      />
-      <QuestionToggle
-        label="Hai problemi cardiovascolari?"
-        value={data.problemi_cardiovascolari}
-        onChange={(v) => onChange({ problemi_cardiovascolari: v })}
-        placeholder="Es. aritmia, ipertensione, cardiopatia..."
-      />
-      <QuestionToggle
-        label="Hai problemi respiratori?"
-        value={data.problemi_respiratori}
-        onChange={(v) => onChange({ problemi_respiratori: v })}
-        placeholder="Es. asma, BPCO, apnea notturna..."
-      />
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════
-// STEP 3: STILE DI VITA
+// STEP 1: STILE DI VITA
 // ════════════════════════════════════════════════════════════
 
 export function StepStileVita({ data, onChange }: StepProps) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Abitudini quotidiane che influenzano la programmazione dell&apos;allenamento.
+        Informazioni sulla tua quotidianita' e abitudini.
       </p>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        {/* Livello attivita' */}
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium">Livello di attivita&apos; fisica</label>
-          <Select
-            value={data.livello_attivita}
-            onValueChange={(v) => onChange({ livello_attivita: v })}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent position="popper" sideOffset={4}>
-              {LIVELLI_ATTIVITA.map((l) => (
-                <SelectItem key={l} value={l}>{LIVELLI_ATTIVITA_LABELS[l]}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Ore sonno */}
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium">Ore di sonno medie</label>
-          <Select
-            value={data.ore_sonno}
-            onValueChange={(v) => onChange({ ore_sonno: v })}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent position="popper" sideOffset={4}>
-              {ORE_SONNO.map((o) => (
-                <SelectItem key={o} value={o}>{ORE_SONNO_LABELS[o]}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Livello stress */}
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium">Livello di stress percepito</label>
-          <Select
-            value={data.livello_stress}
-            onValueChange={(v) => onChange({ livello_stress: v })}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent position="popper" sideOffset={4}>
-              {LIVELLI_STRESS.map((s) => (
-                <SelectItem key={s} value={s}>{LIVELLI_STRESS_LABELS[s]}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium">Professione</label>
+        <Input
+          value={data.professione ?? ""}
+          onChange={(e) => onChange({ professione: e.target.value || null })}
+          placeholder="Es. impiegata, insegnante, libera professionista..."
+        />
       </div>
 
-      <QuestionToggle
-        label="Segui una dieta particolare?"
-        value={data.dieta_particolare}
-        onChange={(v) => onChange({ dieta_particolare: v })}
-        placeholder="Es. vegana, chetogenica, ipocalorica prescritta..."
-      />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <SelectField label="Ore seduto/a al giorno" value={data.ore_seduto}
+          onValueChange={(v) => onChange({ ore_seduto: v })}
+          options={ORE_SEDUTO} labels={ORE_SEDUTO_LABELS} />
+        <SelectField label="Come ti sposti" value={data.spostamento}
+          onValueChange={(v) => onChange({ spostamento: v })}
+          options={SPOSTAMENTO} labels={SPOSTAMENTO_LABELS} />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <SelectField label="Ore di sonno medie" value={data.ore_sonno}
+          onValueChange={(v) => onChange({ ore_sonno: v })}
+          options={ORE_SONNO} labels={ORE_SONNO_LABELS} />
+        <SelectField label="Qualita' del sonno" value={data.qualita_sonno}
+          onValueChange={(v) => onChange({ qualita_sonno: v })}
+          options={QUALITA_SONNO} labels={QUALITA_SONNO_LABELS} />
+      </div>
+
+      <SliderField label="Livello di stress percepito" value={data.livello_stress}
+        onChange={(v) => onChange({ livello_stress: v })} min={1} max={5}
+        hint="1 = molto basso, 5 = molto alto" />
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <SelectField label="Fumo" value={data.fumo}
+          onValueChange={(v) => onChange({ fumo: v })}
+          options={FUMO_OPTIONS} labels={FUMO_LABELS} />
+        <SelectField label="Alcol" value={data.alcol}
+          onValueChange={(v) => onChange({ alcol: v })}
+          options={ALCOL_OPTIONS} labels={ALCOL_LABELS} />
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium">Passi giornalieri (stima)</label>
+        <Input
+          value={data.passi_giornalieri ?? ""}
+          onChange={(e) => onChange({ passi_giornalieri: e.target.value || null })}
+          placeholder="Es. 3000, 5000-8000..."
+        />
+      </div>
     </div>
   );
 }
 
 // ════════════════════════════════════════════════════════════
-// STEP 4: OBIETTIVI E LIMITAZIONI
+// STEP 2: OBIETTIVO E MOTIVAZIONE
 // ════════════════════════════════════════════════════════════
 
-export function StepObiettivi({ data, onChange }: StepProps) {
+export function StepObiettivo({ data, onChange }: StepProps) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Obiettivi del cliente e limitazioni da considerare nella programmazione.
+        Cosa ti ha portato qui e cosa vorresti ottenere.
       </p>
 
+      <SelectField label="Obiettivo principale" value={data.obiettivo_principale}
+        onValueChange={(v) => onChange({ obiettivo_principale: v })}
+        options={OBIETTIVI_PRINCIPALI} labels={OBIETTIVI_PRINCIPALI_LABELS} />
+
       <div className="space-y-1.5">
-        <label className="text-sm font-medium">Obiettivi specifici</label>
+        <label className="text-sm font-medium">Obiettivi secondari</label>
         <Textarea
-          value={data.obiettivi_specifici ?? ""}
-          onChange={(e) => onChange({ obiettivi_specifici: e.target.value || null })}
-          placeholder="Es. perdere 5kg, migliorare postura, preparazione maratona..."
-          rows={3}
+          value={data.obiettivi_secondari ?? ""}
+          onChange={(e) => onChange({ obiettivi_secondari: e.target.value || null })}
+          placeholder="Hai altri obiettivi oltre a quello principale?"
+          rows={2}
         />
       </div>
 
       <div className="space-y-1.5">
-        <label className="text-sm font-medium">Limitazioni funzionali note</label>
+        <label className="text-sm font-medium">Perche' proprio adesso?</label>
         <Textarea
-          value={data.limitazioni_funzionali ?? ""}
-          onChange={(e) => onChange({ limitazioni_funzionali: e.target.value || null })}
-          placeholder="Es. non puo' fare squat profondi, evitare carichi sopra la testa..."
-          rows={3}
+          value={data.perche_adesso ?? ""}
+          onChange={(e) => onChange({ perche_adesso: e.target.value || null })}
+          placeholder="Cosa ti ha spinto a iniziare questo percorso?"
+          rows={2}
         />
       </div>
 
       <div className="space-y-1.5">
-        <label className="text-sm font-medium">Note aggiuntive</label>
+        <label className="text-sm font-medium">Come ti vedi tra 3 mesi?</label>
         <Textarea
-          value={data.note ?? ""}
-          onChange={(e) => onChange({ note: e.target.value || null })}
-          placeholder="Altre informazioni utili per la programmazione..."
-          rows={3}
+          value={data.cosa_3_mesi ?? ""}
+          onChange={(e) => onChange({ cosa_3_mesi: e.target.value || null })}
+          placeholder="Descrivi il risultato che vorresti raggiungere..."
+          rows={2}
         />
       </div>
+
+      <SliderField label="Impegno che puoi dedicare" value={data.impegno}
+        onChange={(v) => onChange({ impegno: v })} min={1} max={10}
+        hint="1 = il minimo, 10 = il massimo possibile" />
     </div>
   );
 }
 
+// ════════════════════════════════════════════════════════════
+// STEP 3: ESPERIENZA SPORTIVA
+// ════════════════════════════════════════════════════════════
+
+export function StepEsperienza({ data, onChange }: StepProps) {
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        La tua esperienza con l&apos;allenamento.
+      </p>
+
+      <div className="flex items-center justify-between rounded-lg border p-3">
+        <span className="text-sm font-medium">Ti alleni attualmente?</span>
+        <Switch
+          checked={data.si_allena}
+          onCheckedChange={(v) => onChange({ si_allena: v })}
+        />
+      </div>
+
+      {data.si_allena && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <SelectField label="Quante volte a settimana?" value={data.frequenza_settimanale}
+            onValueChange={(v) => onChange({ frequenza_settimanale: v })}
+            options={FREQUENZA_SETTIMANALE} labels={FREQUENZA_LABELS} />
+          <SelectField label="Dove ti alleni?" value={data.luogo_allenamento}
+            onValueChange={(v) => onChange({ luogo_allenamento: v })}
+            options={LUOGO_ALLENAMENTO} labels={LUOGO_LABELS} />
+        </div>
+      )}
+
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium">Tipo di allenamento preferito</label>
+        <Input
+          value={data.tipo_preferito ?? ""}
+          onChange={(e) => onChange({ tipo_preferito: e.target.value || null })}
+          placeholder="Es. pesi, corsa, yoga, nuoto, crossfit..."
+        />
+      </div>
+
+      <SelectField label="Da quanto tempo ti alleni?" value={data.esperienza_durata}
+        onValueChange={(v) => onChange({ esperienza_durata: v })}
+        options={ESPERIENZA_DURATA} labels={ESPERIENZA_LABELS} />
+
+      <div className="flex items-center justify-between rounded-lg border p-3">
+        <span className="text-sm font-medium">Hai mai avuto un personal trainer?</span>
+        <Switch
+          checked={data.esperienza_pt}
+          onCheckedChange={(v) => onChange({ esperienza_pt: v })}
+        />
+      </div>
+
+      {data.esperienza_pt && (
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">Com&apos;e' stata l&apos;esperienza?</label>
+          <Textarea
+            value={data.feedback_pt ?? ""}
+            onChange={(e) => onChange({ feedback_pt: e.target.value || null })}
+            placeholder="Cosa ti e' piaciuto e cosa no?"
+            rows={2}
+          />
+        </div>
+      )}
+    </div>
+  );
+}

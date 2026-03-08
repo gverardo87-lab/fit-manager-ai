@@ -132,6 +132,24 @@ export function patternToLabel(pattern: string): string {
   return map[pattern] ?? capitalizeFirst(pattern);
 }
 
+// ── Derive livello attivita' da anamnesi v2 ──
+
+function deriveLivelloAttivita(anamnesi: AnamnesiData | null): string | null {
+  if (!anamnesi) return null;
+  // v1 compat: campo diretto
+  if ("livello_attivita" in anamnesi) {
+    return (anamnesi as unknown as Record<string, string>).livello_attivita ?? null;
+  }
+  // v2: derivato da si_allena + frequenza + esperienza
+  if (!anamnesi.si_allena) return "sedentario";
+  const freq = anamnesi.frequenza_settimanale;
+  const exp = anamnesi.esperienza_durata;
+  if (exp === "mai" || exp === "<3m") return "leggero";
+  if (freq === "3+" && (exp === ">1a" || exp === "6-12m")) return "intenso";
+  if (freq === "3" || exp === "6-12m" || exp === ">1a") return "moderato";
+  return "leggero";
+}
+
 // ── Livello attivita' → FitnessLevel ──
 
 function activityToLevel(livello: string | null): FitnessLevel | null {
@@ -186,7 +204,7 @@ export function buildClientProfile(
   if (!client) return null;
 
   const eta = client.data_nascita ? computeAge(client.data_nascita) : null;
-  const livelloAttivita = client.anamnesi?.livello_attivita ?? null;
+  const livelloAttivita = deriveLivelloAttivita(client.anamnesi);
 
   const profile: ClientProfile = {
     sesso: client.sesso,

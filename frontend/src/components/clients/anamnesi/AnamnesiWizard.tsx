@@ -4,17 +4,19 @@
 /**
  * Wizard multi-step per compilazione anamnesi cliente.
  *
- * 4 step: Muscoloscheletrico → Condizioni Mediche → Stile di Vita → Obiettivi.
+ * 6 step: Stile di Vita → Obiettivo → Esperienza → Salute → Alimentazione → Logistica.
  * Stepper progress + navigazione Indietro/Avanti/Salva.
  * Pre-popolamento se anamnesi esistente (modifica).
  */
 
 import { useState, useCallback, useRef } from "react";
 import {
-  Bone,
-  Stethoscope,
   Heart,
   Target,
+  Dumbbell,
+  ShieldCheck,
+  Apple,
+  MapPin,
   ArrowLeft,
   ArrowRight,
   Save,
@@ -33,10 +35,12 @@ import { useUpdateAnamnesi } from "@/hooks/useClients";
 import type { AnamnesiData } from "@/types/api";
 import { getEmptyAnamnesi } from "./anamnesi-helpers";
 import {
-  StepMuscoloscheletrico,
-  StepCondizioniMediche,
   StepStileVita,
-  StepObiettivi,
+  StepObiettivo,
+  StepEsperienza,
+  StepSalute,
+  StepAlimentazione,
+  StepLogistica,
 } from "./AnamnesiSteps";
 
 // ════════════════════════════════════════════════════════════
@@ -44,17 +48,21 @@ import {
 // ════════════════════════════════════════════════════════════
 
 const STEPS = [
-  { title: "Muscoloscheletrico", icon: Bone },
-  { title: "Condizioni Mediche", icon: Stethoscope },
   { title: "Stile di Vita", icon: Heart },
-  { title: "Obiettivi", icon: Target },
+  { title: "Obiettivo", icon: Target },
+  { title: "Esperienza", icon: Dumbbell },
+  { title: "Salute", icon: ShieldCheck },
+  { title: "Alimentazione", icon: Apple },
+  { title: "Logistica", icon: MapPin },
 ] as const;
 
 const STEP_COMPONENTS = [
-  StepMuscoloscheletrico,
-  StepCondizioniMediche,
   StepStileVita,
-  StepObiettivi,
+  StepObiettivo,
+  StepEsperienza,
+  StepSalute,
+  StepAlimentazione,
+  StepLogistica,
 ];
 
 // ════════════════════════════════════════════════════════════

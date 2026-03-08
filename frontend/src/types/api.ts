@@ -115,7 +115,7 @@ export interface ClientUpdate {
   note_interne?: string | null;
 }
 
-// ── Anamnesi (struttura questionario a step) ──
+// ── Anamnesi v2 (questionario Chiara — 6 step) ──
 
 /** Singola domanda anamnesi con toggle si/no + dettaglio testuale */
 export interface AnamnesiQuestion {
@@ -123,45 +123,182 @@ export interface AnamnesiQuestion {
   dettaglio: string | null;
 }
 
-/** Struttura completa anamnesi cliente — 4 step del wizard */
+/** Struttura completa anamnesi cliente — 6 step del wizard (v2, allineata al questionario Chiara) */
 export interface AnamnesiData {
-  // Step 1: Muscoloscheletrico
-  infortuni_attuali: AnamnesiQuestion;
-  infortuni_pregressi: AnamnesiQuestion;
-  interventi_chirurgici: AnamnesiQuestion;
-  dolori_cronici: AnamnesiQuestion;
-  // Step 2: Condizioni Mediche
-  patologie: AnamnesiQuestion;
-  farmaci: AnamnesiQuestion;
-  problemi_cardiovascolari: AnamnesiQuestion;
-  problemi_respiratori: AnamnesiQuestion;
-  // Step 3: Stile di Vita
-  livello_attivita: string;
+  // ── Step 1: Stile di Vita ──
+  professione: string | null;
+  ore_seduto: string;
+  spostamento: string;
   ore_sonno: string;
-  livello_stress: string;
-  dieta_particolare: AnamnesiQuestion;
-  // Step 4: Obiettivi e Limitazioni
-  obiettivi_specifici: string | null;
-  limitazioni_funzionali: string | null;
-  note: string | null;
-  // Metadata
+  qualita_sonno: string;
+  livello_stress: number;
+  fumo: string;
+  alcol: string;
+  passi_giornalieri: string | null;
+  // ── Step 2: Obiettivo e Motivazione ──
+  obiettivo_principale: string;
+  obiettivi_secondari: string | null;
+  perche_adesso: string | null;
+  cosa_3_mesi: string | null;
+  impegno: number;
+  // ── Step 3: Esperienza Sportiva ──
+  si_allena: boolean;
+  frequenza_settimanale: string;
+  luogo_allenamento: string;
+  tipo_preferito: string | null;
+  esperienza_durata: string;
+  esperienza_pt: boolean;
+  feedback_pt: string | null;
+  // ── Step 4: Salute e Sicurezza ── (safety engine scansiona questi campi)
+  dolori_attuali: string[];
+  dolori_attuali_altro: string | null;
+  infortuni_importanti: AnamnesiQuestion;
+  patologie: AnamnesiQuestion;
+  patologie_lista: string[];
+  patologie_altro: string | null;
+  farmaci_risposta: string;
+  farmaci_dettaglio: string | null;
+  limitazioni_mediche: AnamnesiQuestion;
+  certificato_sportivo: string;
+  // ── Step 5: Alimentazione ──
+  tipo_alimentazione: string;
+  intolleranze: string | null;
+  serenita_cibo: number;
+  messaggio_alimentazione: string | null;
+  rapporto_complesso_alimentazione: string;
+  // ── Step 6: Logistica e Note ──
+  preferenza_luogo: string;
+  sedute_settimana: string;
+  giorni_orari_preferiti: string | null;
+  freni_passato: string[];
+  freni_altro: string | null;
+  consenso_privacy: boolean;
+  note_finali: string | null;
+  // ── Metadata ──
   data_compilazione: string;
   data_ultimo_aggiornamento: string;
 }
 
-export const LIVELLI_ATTIVITA = ["sedentario", "leggero", "moderato", "intenso"] as const;
-export const LIVELLI_ATTIVITA_LABELS: Record<string, string> = {
-  sedentario: "Sedentario", leggero: "Leggero", moderato: "Moderato", intenso: "Intenso",
+// ── Costanti anamnesi (opzioni select/multi-select) ──
+
+export const ORE_SEDUTO = ["<3", "3-6", "6-9", ">9"] as const;
+export const ORE_SEDUTO_LABELS: Record<string, string> = {
+  "<3": "Meno di 3 ore", "3-6": "3-6 ore", "6-9": "6-9 ore", ">9": "Oltre 9 ore",
 };
 
-export const ORE_SONNO = ["<5", "5-6", "6-7", "7-8", "8+"] as const;
+export const SPOSTAMENTO = ["auto", "mezzi", "a_piedi"] as const;
+export const SPOSTAMENTO_LABELS: Record<string, string> = {
+  auto: "Auto", mezzi: "Mezzi pubblici", a_piedi: "A piedi / bici",
+};
+
+export const ORE_SONNO = ["<6", "6-7", "7-8", ">8"] as const;
 export const ORE_SONNO_LABELS: Record<string, string> = {
-  "<5": "Meno di 5h", "5-6": "5-6 ore", "6-7": "6-7 ore", "7-8": "7-8 ore", "8+": "Oltre 8h",
+  "<6": "Meno di 6 ore", "6-7": "6-7 ore", "7-8": "7-8 ore", ">8": "Oltre 8 ore",
 };
 
-export const LIVELLI_STRESS = ["basso", "medio", "alto"] as const;
-export const LIVELLI_STRESS_LABELS: Record<string, string> = {
-  basso: "Basso", medio: "Medio", alto: "Alto",
+export const QUALITA_SONNO = ["agitato", "riposante", "varia"] as const;
+export const QUALITA_SONNO_LABELS: Record<string, string> = {
+  agitato: "Agitato / difficile", riposante: "Riposante", varia: "Varia",
+};
+
+export const FUMO_OPTIONS = ["no", "si", "occasionalmente"] as const;
+export const FUMO_LABELS: Record<string, string> = {
+  no: "No", si: "Si", occasionalmente: "Occasionalmente",
+};
+
+export const ALCOL_OPTIONS = ["mai", "1-2_sett", "3+_sett", "occasionalmente"] as const;
+export const ALCOL_LABELS: Record<string, string> = {
+  mai: "Mai", "1-2_sett": "1-2 volte a settimana", "3+_sett": "3+ volte a settimana", occasionalmente: "Occasionalmente",
+};
+
+export const OBIETTIVI_PRINCIPALI = [
+  "dimagrimento", "tonificazione", "massa_muscolare", "salute_generale",
+  "postura", "riabilitazione", "performance", "altro",
+] as const;
+export const OBIETTIVI_PRINCIPALI_LABELS: Record<string, string> = {
+  dimagrimento: "Dimagrimento / perdita di peso",
+  tonificazione: "Tonificazione",
+  massa_muscolare: "Aumento massa muscolare",
+  salute_generale: "Salute generale e benessere",
+  postura: "Miglioramento postura",
+  riabilitazione: "Riabilitazione / recupero post-infortunio",
+  performance: "Performance sportiva",
+  altro: "Altro",
+};
+
+export const FREQUENZA_SETTIMANALE = ["1", "2", "3", "3+"] as const;
+export const FREQUENZA_LABELS: Record<string, string> = {
+  "1": "1 volta", "2": "2 volte", "3": "3 volte", "3+": "Oltre 3 volte",
+};
+
+export const LUOGO_ALLENAMENTO = ["palestra", "casa", "outdoor", "mix"] as const;
+export const LUOGO_LABELS: Record<string, string> = {
+  palestra: "Palestra", casa: "A casa", outdoor: "All'aperto", mix: "Mix",
+};
+
+export const ESPERIENZA_DURATA = ["<3m", "3-6m", "6-12m", ">1a", "mai"] as const;
+export const ESPERIENZA_LABELS: Record<string, string> = {
+  "<3m": "Meno di 3 mesi", "3-6m": "3-6 mesi", "6-12m": "6-12 mesi", ">1a": "Oltre 1 anno", mai: "Mai con continuita'",
+};
+
+export const DOLORI_OPTIONS = [
+  "schiena", "cervicale", "spalle", "ginocchia", "anche", "caviglie",
+] as const;
+export const DOLORI_LABELS: Record<string, string> = {
+  schiena: "Schiena", cervicale: "Cervicale / collo", spalle: "Spalle",
+  ginocchia: "Ginocchia", anche: "Anche", caviglie: "Caviglie",
+};
+
+export const PATOLOGIE_OPTIONS = [
+  "pressione", "diabete", "tiroide", "respiratori", "ernie", "articolari",
+] as const;
+export const PATOLOGIE_OPTION_LABELS: Record<string, string> = {
+  pressione: "Problemi di pressione", diabete: "Diabete",
+  tiroide: "Problemi alla tiroide", respiratori: "Problemi respiratori",
+  ernie: "Ernie", articolari: "Problemi articolari",
+};
+
+export const FARMACI_OPTIONS = ["no", "si", "preferisco_non_indicarlo"] as const;
+export const FARMACI_LABELS: Record<string, string> = {
+  no: "No", si: "Si", preferisco_non_indicarlo: "Preferisco non indicarlo",
+};
+
+export const CERTIFICATO_OPTIONS = ["si", "no", "in_programma"] as const;
+export const CERTIFICATO_LABELS: Record<string, string> = {
+  si: "Si", no: "No", in_programma: "In programma",
+};
+
+export const ALIMENTAZIONE_OPTIONS = [
+  "equilibrata", "non_seguo", "vegetariana", "vegana", "chetogenica", "altro",
+] as const;
+export const ALIMENTAZIONE_LABELS: Record<string, string> = {
+  equilibrata: "Equilibrata e varia", non_seguo: "Non seguo un'alimentazione precisa",
+  vegetariana: "Vegetariana", vegana: "Vegana",
+  chetogenica: "Chetogenica / low-carb", altro: "Altro",
+};
+
+export const RAPPORTO_CIBO_OPTIONS = ["no", "si", "preferisco_non_rispondere"] as const;
+export const RAPPORTO_CIBO_LABELS: Record<string, string> = {
+  no: "No", si: "Si", preferisco_non_rispondere: "Preferisco non rispondere",
+};
+
+export const PREFERENZA_LUOGO = ["palestra", "casa", "online"] as const;
+export const PREFERENZA_LUOGO_LABELS: Record<string, string> = {
+  palestra: "In palestra / studio", casa: "A casa", online: "Online",
+};
+
+export const SEDUTE_OPTIONS = ["1", "2", "3", "3+"] as const;
+export const SEDUTE_LABELS: Record<string, string> = {
+  "1": "1 a settimana", "2": "2 a settimana", "3": "3 a settimana", "3+": "Oltre 3 a settimana",
+};
+
+export const FRENI_OPTIONS = [
+  "tempo", "motivazione", "dolori", "risultati", "alimentazione", "ansia",
+] as const;
+export const FRENI_LABELS: Record<string, string> = {
+  tempo: "Mancanza di tempo", motivazione: "Mancanza di motivazione",
+  dolori: "Dolori / infortuni", risultati: "Non vedevo risultati",
+  alimentazione: "Problemi alimentari", ansia: "Ansia / disagio in palestra",
 };
 
 /** ClientResponse — restituito da GET/POST/PUT */

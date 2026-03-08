@@ -2,7 +2,7 @@
 "use client";
 
 /**
- * Portale Clienti — Anamnesi Self-Service.
+ * Portale Clienti — Anamnesi Self-Service (v2).
  *
  * Pagina kiosk pubblica: nessun sidebar, nessuna auth.
  * Il cliente riceve il link via WhatsApp, compila il questionario
@@ -10,7 +10,7 @@
  *
  * Flusso:
  *   1. Mount → GET /api/public/anamnesi/validate?token=X
- *   2. Token valido → wizard 4 step (riusa AnamnesiSteps)
+ *   2. Token valido → wizard 6 step (riusa AnamnesiSteps)
  *   3. Submit → POST /api/public/anamnesi/submit
  *   4. Successo → pagina "Grazie"
  *   5. Errore → messaggio descrittivo (token scaduto / usato / non trovato)
@@ -22,14 +22,16 @@
 
 import { use, useCallback, useEffect, useRef, useState } from "react";
 import {
-  Bone,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  HeartPulse,
-  Save,
-  Stethoscope,
+  Heart,
   Target,
+  Dumbbell,
+  ShieldCheck,
+  Apple,
+  MapPin,
+  Save,
   XCircle,
 } from "lucide-react";
 
@@ -37,10 +39,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LogoIcon } from "@/components/ui/logo";
 import {
-  StepCondizioniMediche,
-  StepMuscoloscheletrico,
-  StepObiettivi,
   StepStileVita,
+  StepObiettivo,
+  StepEsperienza,
+  StepSalute,
+  StepAlimentazione,
+  StepLogistica,
 } from "@/components/clients/anamnesi/AnamnesiSteps";
 import { getEmptyAnamnesi } from "@/components/clients/anamnesi/anamnesi-helpers";
 import type { AnamnesiData, AnamnesiValidateResponse } from "@/types/api";
@@ -48,17 +52,21 @@ import type { AnamnesiData, AnamnesiValidateResponse } from "@/types/api";
 // ── Step definitions ─────────────────────────────────────────────────────────
 
 const STEPS = [
-  { title: "Muscoloscheletrico", icon: Bone },
-  { title: "Condizioni Mediche", icon: Stethoscope },
-  { title: "Stile di Vita", icon: HeartPulse },
-  { title: "Obiettivi", icon: Target },
+  { title: "Stile di Vita", icon: Heart },
+  { title: "Obiettivo", icon: Target },
+  { title: "Esperienza", icon: Dumbbell },
+  { title: "Salute", icon: ShieldCheck },
+  { title: "Alimentazione", icon: Apple },
+  { title: "Logistica", icon: MapPin },
 ] as const;
 
 const STEP_COMPONENTS = [
-  StepMuscoloscheletrico,
-  StepCondizioniMediche,
   StepStileVita,
-  StepObiettivi,
+  StepObiettivo,
+  StepEsperienza,
+  StepSalute,
+  StepAlimentazione,
+  StepLogistica,
 ];
 
 // ── API helpers (fetch relativo — Next.js proxy → backend) ───────────────────

@@ -95,7 +95,8 @@ export default function MonitoraggioClientDetailPage({
       const parsed = typeof client.anamnesi === "string"
         ? JSON.parse(client.anamnesi)
         : client.anamnesi;
-      if (parsed && "infortuni_attuali" in parsed && "data_compilazione" in parsed) {
+      if (parsed && "data_compilazione" in parsed &&
+          "obiettivo_principale" in parsed) {
         return "structured";
       }
       return "legacy";

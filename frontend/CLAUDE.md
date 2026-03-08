@@ -42,7 +42,8 @@ frontend/src/
 │   ├── agenda/              AgendaCalendar, CustomEvent, CustomToolbar, EventHoverCard, EventSheet, calendar-setup
 │   ├── clients/             ClientsTable, ClientSheet, ClientForm, ClientProfileHeader/Kpi,
 │   │                        ClinicalAnalysisPanel, GoalFormDialog, GoalsSummary, MeasurementChart,
-│   │                        ProgressiTab, AnamnesiWizard, InteractiveBodyMap, SessionComparison
+│   │                        ProgressiTab, AnamnesiWizard (6-step v2), AnamnesiStepsSalute,
+│   │                        InteractiveBodyMap, SessionComparison
 │   ├── contracts/           ContractsTable, ContractSheet, ContractForm, ContractFinancialHero,
 │   │                        PaymentPlanTab (RateCard, PayRateForm, PaymentHistory, AddRateForm),
 │   │                        RateEditDialog, RateUnpayDialog

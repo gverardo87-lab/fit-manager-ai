@@ -664,7 +664,9 @@ def _get_anamnesi_state(anamnesi_json: str | None) -> str:
     except (TypeError, json.JSONDecodeError):
         return "legacy"
 
-    if isinstance(data, dict) and "infortuni_attuali" in data and "data_compilazione" in data:
+    if isinstance(data, dict) and "data_compilazione" in data and (
+        "obiettivo_principale" in data
+    ):
         return "structured"
 
     return "legacy"

@@ -52,26 +52,34 @@ function extractFlags(anamnesi: Record<string, unknown> | null): AnamnesiFlag[] 
   if (!anamnesi) return [];
   const flags: AnamnesiFlag[] = [];
 
-  const boolFields: [string, string][] = [
-    ["infortuni_attuali", "Infortuni attuali"],
-    ["patologie_croniche", "Patologie croniche"],
-    ["farmaci_uso_regolare", "Farmaci regolari"],
-    ["problemi_cardiovascolari", "Problemi cardiovascolari"],
-    ["problemi_respiratori", "Problemi respiratori"],
-    ["dolori_articolari", "Dolori articolari"],
-    ["gravidanza", "Gravidanza"],
-    ["interventi_chirurgici", "Interventi chirurgici"],
-    ["problemi_posturali", "Problemi posturali"],
+  // v2 fields (questionario Chiara) — checked first
+  const v2Fields: [string, string][] = [
+    ["dolori_attuali", "Dolori attuali"],
+    ["infortuni_importanti", "Infortuni importanti"],
+    ["patologie", "Patologie"],
+    ["limitazioni_mediche", "Limitazioni mediche"],
   ];
 
-  for (const [key, label] of boolFields) {
+  // v1 fields (legacy structured) — fallback
+  const v1Fields: [string, string][] = [
+    ["infortuni_attuali", "Infortuni attuali"],
+    ["problemi_cardiovascolari", "Problemi cardiovascolari"],
+    ["problemi_respiratori", "Problemi respiratori"],
+    ["interventi_chirurgici", "Interventi chirurgici"],
+  ];
+
+  const fieldsToCheck = "obiettivo_principale" in anamnesi ? v2Fields : v1Fields;
+
+  for (const [key, label] of fieldsToCheck) {
     if (key in anamnesi) {
       const value = anamnesi[key];
       const present = typeof value === "boolean"
         ? value
-        : typeof value === "string"
-          ? value.length > 0 && value !== "no" && value !== "nessuno"
-          : Array.isArray(value) ? value.length > 0 : !!value;
+        : typeof value === "object" && value !== null && !Array.isArray(value)
+          ? !!(value as Record<string, unknown>).presente
+          : typeof value === "string"
+            ? value.length > 0 && value !== "no" && value !== "nessuno"
+            : Array.isArray(value) ? value.length > 0 : !!value;
       flags.push({ label, present });
     }
   }
