@@ -202,7 +202,10 @@ export function ScientificAnalysisTab({
 
       {/* Sezione 2.5: Volume-Load (solo con carico assegnato) */}
       {analysis.tonnellaggio && (
-        <TonnageSection tonnellaggio={analysis.tonnellaggio} />
+        <TonnageSection
+          tonnellaggio={analysis.tonnellaggio}
+          dettaglioMuscoli={analysis.dettaglio_muscoli}
+        />
       )}
 
       {/* Sezione 3: Profilo Clinico-Safety */}

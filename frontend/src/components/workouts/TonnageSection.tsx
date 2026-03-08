@@ -4,15 +4,15 @@
 /**
  * Sezione 2.5: Profilo Biomeccanico Volume-Load.
  *
- * Vista primaria: tensione meccanica per gruppo muscolare (tonnage × EMG).
- * Vista secondaria (collapsible): tonnellaggio grezzo per sessione + dettaglio slot.
+ * Vista primaria: tensione meccanica per gruppo muscolare (tonnage × EMG),
+ * colorata per stato volume (deficit/ottimale/eccesso) dalla Sezione 1.
+ * Il colore contestualizza il dato: non solo "quanto carico" ma "e' appropriato?".
  *
  * Formula: tensione[M] = Σ(tonnage_slot × contribution[pattern][M])
  * dove contribution = coefficiente attivazione EMG dalla matrice 18×15.
  *
- * Fonti: Haff & Triplett (NSCA 2016) cap. 15 — Volume-Load,
- *        Schoenfeld (2010) — Mechanical tension as hypertrophy driver,
- *        Contreras (2010) — EMG analysis, Israetel RP 2020.
+ * Fonti: Schoenfeld 2010 (mechanical tension), Contreras 2010 (EMG),
+ *        Israetel RP 2020 (half-set rule), Haff & Triplett NSCA 2016.
  */
 
 import { useState, useMemo } from "react";
@@ -24,7 +24,12 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import type { TSAnalisiTonnellaggio, TSTonnellaggioSlotAnalisi } from "@/types/api";
+import { mapBackendVolumeStatus } from "@/lib/training-science-display";
+import type {
+  TSAnalisiTonnellaggio,
+  TSTonnellaggioSlotAnalisi,
+  TSDettaglioMuscolo,
+} from "@/types/api";
 
 // ════════════════════════════════════════════════════════════
 // COSTANTI
@@ -46,6 +51,43 @@ const MUSCLE_LABELS: Record<string, string> = {
   core: "Core",
   avambracci: "Avambracci",
   adduttori: "Adduttori",
+};
+
+/** Colori per stato volume — allineati a MuscleCoverageSection */
+const STATUS_BAR_COLORS: Record<string, { bar: string; barHyp: string; text: string; badge: string }> = {
+  deficit: {
+    bar: "bg-red-400/50",
+    barHyp: "bg-red-500/80",
+    text: "text-red-700 dark:text-red-400",
+    badge: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
+  },
+  suboptimal: {
+    bar: "bg-blue-400/50",
+    barHyp: "bg-blue-500/80",
+    text: "text-blue-700 dark:text-blue-400",
+    badge: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300",
+  },
+  optimal: {
+    bar: "bg-emerald-400/50",
+    barHyp: "bg-emerald-500/80",
+    text: "text-emerald-700 dark:text-emerald-400",
+    badge: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
+  },
+  excess: {
+    bar: "bg-amber-400/50",
+    barHyp: "bg-amber-500/80",
+    text: "text-amber-700 dark:text-amber-400",
+    badge: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
+  },
+};
+
+const FALLBACK_COLORS = STATUS_BAR_COLORS.optimal;
+
+const STATUS_LABELS: Record<string, string> = {
+  deficit: "Deficit",
+  suboptimal: "Sotto-ottimale",
+  optimal: "Ottimale",
+  excess: "Eccesso",
 };
 
 const ZONE_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
@@ -76,13 +118,14 @@ function formatKg(value: number): string {
 
 interface TonnageSectionProps {
   tonnellaggio: TSAnalisiTonnellaggio;
+  dettaglioMuscoli: TSDettaglioMuscolo[];
 }
 
 // ════════════════════════════════════════════════════════════
 // COMPONENTE PRINCIPALE
 // ════════════════════════════════════════════════════════════
 
-export function TonnageSection({ tonnellaggio }: TonnageSectionProps) {
+export function TonnageSection({ tonnellaggio, dettaglioMuscoli }: TonnageSectionProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [showRaw, setShowRaw] = useState(false);
 
@@ -90,6 +133,15 @@ export function TonnageSection({ tonnellaggio }: TonnageSectionProps) {
   const zoneConfig = tonnellaggio.zona_prevalente
     ? ZONE_CONFIG[tonnellaggio.zona_prevalente]
     : null;
+
+  // Mappa muscolo → stato volume per colorare le barre
+  const volumeStatusMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const d of dettaglioMuscoli) {
+      map.set(d.muscolo, mapBackendVolumeStatus(d.stato));
+    }
+    return map;
+  }, [dettaglioMuscoli]);
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -125,7 +177,7 @@ export function TonnageSection({ tonnellaggio }: TonnageSectionProps) {
             {/* KPI riga */}
             <div className="flex items-center gap-4 text-xs text-muted-foreground">
               <span>
-                Tonnellaggio:{" "}
+                Volume-Load:{" "}
                 <span className="font-semibold text-foreground tabular-nums">
                   {formatKg(tonnellaggio.tonnellaggio_totale)}
                 </span>
@@ -145,6 +197,7 @@ export function TonnageSection({ tonnellaggio }: TonnageSectionProps) {
               <MuscleTensionBars
                 tensioneMeccanica={tonnellaggio.tensione_per_muscolo}
                 tensioneIpertrofica={tonnellaggio.tensione_ipertrofica_per_muscolo}
+                volumeStatusMap={volumeStatusMap}
               />
             )}
 
@@ -190,11 +243,12 @@ export function TonnageSection({ tonnellaggio }: TonnageSectionProps) {
 function MuscleTensionBars({
   tensioneMeccanica,
   tensioneIpertrofica,
+  volumeStatusMap,
 }: {
   tensioneMeccanica: Record<string, number>;
   tensioneIpertrofica: Record<string, number>;
+  volumeStatusMap: Map<string, string>;
 }) {
-  // Ordina per tensione meccanica decrescente
   const sorted = useMemo(() => {
     return Object.entries(tensioneMeccanica)
       .filter(([, v]) => v > 0)
@@ -202,8 +256,22 @@ function MuscleTensionBars({
   }, [tensioneMeccanica]);
 
   const maxTension = sorted.length > 0 ? sorted[0][1] : 1;
+  const totalTension = useMemo(
+    () => sorted.reduce((acc, [, v]) => acc + v, 0),
+    [sorted],
+  );
 
   if (sorted.length === 0) return null;
+
+  // Conta stati per legenda
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const [muscolo] of sorted) {
+      const status = volumeStatusMap.get(muscolo) ?? "optimal";
+      counts[status] = (counts[status] ?? 0) + 1;
+    }
+    return counts;
+  }, [sorted, volumeStatusMap]);
 
   return (
     <div className="space-y-1.5">
@@ -214,22 +282,30 @@ function MuscleTensionBars({
         </span>
       </div>
 
-      {/* Legenda */}
-      <div className="flex items-center gap-3 text-[10px] text-muted-foreground mb-1">
-        <span className="flex items-center gap-1">
-          <span className="inline-block w-2.5 h-2.5 rounded-sm bg-violet-500" />
-          Meccanica
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="inline-block w-2.5 h-2.5 rounded-sm bg-fuchsia-500" />
-          Ipertrofica
-        </span>
+      {/* Legenda: stati volume */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground mb-1">
+        {(["optimal", "suboptimal", "deficit", "excess"] as const).map(
+          (status) =>
+            (statusCounts[status] ?? 0) > 0 && (
+              <span key={status} className="flex items-center gap-1">
+                <span
+                  className={`inline-block w-2.5 h-2.5 rounded-sm ${
+                    STATUS_BAR_COLORS[status]?.barHyp ?? "bg-zinc-400"
+                  }`}
+                />
+                {STATUS_LABELS[status]} ({statusCounts[status]})
+              </span>
+            ),
+        )}
       </div>
 
       {sorted.map(([muscolo, mech]) => {
         const hyp = tensioneIpertrofica[muscolo] ?? 0;
         const mechPct = (mech / maxTension) * 100;
         const hypPct = (hyp / maxTension) * 100;
+        const distPct = totalTension > 0 ? (mech / totalTension) * 100 : 0;
+        const status = volumeStatusMap.get(muscolo) ?? "optimal";
+        const colors = STATUS_BAR_COLORS[status] ?? FALLBACK_COLORS;
 
         return (
           <div key={muscolo} className="flex items-center gap-2">
@@ -239,25 +315,23 @@ function MuscleTensionBars({
             <div className="flex-1 relative h-4 bg-muted/30 rounded overflow-hidden">
               {/* Barra meccanica (sfondo) */}
               <div
-                className="absolute inset-y-0 left-0 rounded bg-violet-400/40 transition-all"
+                className={`absolute inset-y-0 left-0 rounded ${colors.bar} transition-all`}
                 style={{ width: `${Math.round(mechPct)}%` }}
               />
               {/* Barra ipertrofica (primo piano) */}
               {hyp > 0 && (
                 <div
-                  className="absolute inset-y-0 left-0 rounded bg-fuchsia-500/70 transition-all"
+                  className={`absolute inset-y-0 left-0 rounded ${colors.barHyp} transition-all`}
                   style={{ width: `${Math.round(hypPct)}%` }}
                 />
               )}
             </div>
-            <span className="text-[10px] font-mono tabular-nums w-16 text-right shrink-0 text-foreground font-semibold">
+            <span className={`text-[10px] font-mono tabular-nums w-14 text-right shrink-0 font-semibold ${colors.text}`}>
               {formatKg(mech)}
             </span>
-            {hyp > 0 && hyp < mech && (
-              <span className="text-[9px] font-mono tabular-nums w-14 text-right shrink-0 text-fuchsia-600 dark:text-fuchsia-400">
-                {formatKg(hyp)}
-              </span>
-            )}
+            <span className="text-[9px] font-mono tabular-nums w-10 text-right shrink-0 text-muted-foreground">
+              {distPct.toFixed(0)}%
+            </span>
           </div>
         );
       })}
