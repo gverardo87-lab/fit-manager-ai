@@ -44,6 +44,8 @@ frontend/src/
 │   │                        ClinicalAnalysisPanel, GoalFormDialog, GoalsSummary, MeasurementChart,
 │   │                        ProgressiTab, AnamnesiWizard (6-step v2), AnamnesiStepsSalute,
 │   │                        InteractiveBodyMap, SessionComparison
+│   │   └── profile/         NextActionHero, OnboardingChecklist, PanoramicaTab, ContrattiTab,
+│   │                        SessioniTab, MovimentiTab, SchedeTab, ProfileShared (skeletons+empty)
 │   ├── contracts/           ContractsTable, ContractSheet, ContractForm, ContractFinancialHero,
 │   │                        PaymentPlanTab (RateCard, PayRateForm, PaymentHistory, AddRateForm),
 │   │                        RateEditDialog, RateUnpayDialog
@@ -56,12 +58,13 @@ frontend/src/
 │   │                        TemplateSelector, WorkoutPreview, ExportButtons, ExerciseDetailPanel,
 │   │                        SmartAnalysisPanel, MuscleMapPanel, RiskBodyMap
 │   └── ui/                  shadcn/ui (33 primitives + AnimatedNumber + Skeleton shimmer + LogoIcon)
-├── hooks/                   React Query hooks — 18 moduli
+├── hooks/                   React Query hooks — 19 moduli
 │   ├── useAgenda, useClients, useContracts, useRates, useMovements
 │   ├── useExercises, useWorkouts, useMeasurements, useGoals
 │   ├── useRecurringExpenses, useTodos, useDashboard, useBackup
 │   ├── useAssistant, useSmartProgramming, useUnsavedChanges, useGuideProgress
 │   ├── useTrainingScience   Hook per 5 endpoint Training Science Engine backend
+│   ├── useClientReadiness   Readiness singolo cliente (wraps useClinicalReadiness) + computeOnboardingSteps
 ├── lib/                     25 utility/engine
 │   ├── api-client.ts        Axios + JWT interceptor + runtime API URL detection
 │   ├── auth.ts, format.ts, utils.ts, url-state.ts, providers.tsx, media.ts
@@ -85,7 +88,7 @@ frontend/src/
 ## Pattern Obbligatori
 
 ### Hook per dominio
-17 moduli hook, uno per dominio. Struttura:
+19 moduli hook, uno per dominio. Struttura:
 ```typescript
 // useClients.ts
 export function useClients() { return useQuery({...}) }            // READ (tutti, filtro client-side)
@@ -97,7 +100,8 @@ Ogni mutation: `invalidateQueries` sulle key correlate + `toast.success/error`.
 
 Moduli: useAgenda, useClients, useContracts, useRates, useMovements, useExercises, useWorkouts,
 useMeasurements, useGoals, useRecurringExpenses, useTodos, useDashboard, useBackup,
-useAssistant, useSmartProgramming, useUnsavedChanges, useGuideProgress.
+useAssistant, useSmartProgramming, useUnsavedChanges, useGuideProgress,
+useTrainingScience, useClientReadiness.
 
 ### Query Key Convention
 ```typescript

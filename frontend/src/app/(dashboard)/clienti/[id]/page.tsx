@@ -2,64 +2,86 @@
 "use client";
 
 /**
- * Scheda Cliente — pagina profilo full-page.
+ * Profilo Cliente — Hub Operativo.
  *
  * Layout:
- * - ProfileHeader (persistente): avatar, nome, contatti, badge stato, modifica
- * - ProfileKpi (persistente): 4 card (crediti, contratti, finanze, ultimo evento)
- * - CTA Cards: Progressi Fisici + Anamnesi (pagine dedicate)
+ * - ProfileHeader (persistente): avatar, nome, contatti, stato, modifica
+ * - NextActionHero: prossima azione suggerita (da clinical readiness)
+ * - OnboardingChecklist: stepper 5 step (solo se profilo incompleto)
+ * - ProfileKpi: 4 card KPI
+ * - Quick Access: 3 card navigazione rapida (Portale, Progressi, Anamnesi)
  * - Tabs: Panoramica | Contratti | Sessioni | Movimenti | Schede
- *
- * Primo dynamic route dell'app. Params unwrapped con React 19 use().
+ *   con dot di completamento sui tab label
  */
 
-import { use, useState, useCallback, useEffect, useRef } from "react";
-import { format } from "date-fns";
-import { it } from "date-fns/locale";
+import { use, useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowRight,
-  FileText,
-  Calendar,
-  Wallet,
-  User,
-  AlertTriangle,
-  ClipboardList,
-  HeartPulse,
-  Plus,
-  TrendingUp,
+  ArrowRight, FileText, Calendar, Wallet, User,
+  ClipboardList, HeartPulse, TrendingUp,
 } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
-import { Button } from "@/components/ui/button";
 import { ClientProfileHeader } from "@/components/clients/ClientProfileHeader";
 import { ClientProfileKpi } from "@/components/clients/ClientProfileKpi";
 import { ClientSheet } from "@/components/clients/ClientSheet";
 import { TemplateSelector } from "@/components/workouts/TemplateSelector";
+import { NextActionHero } from "@/components/clients/profile/NextActionHero";
+import { OnboardingChecklist } from "@/components/clients/profile/OnboardingChecklist";
+import { PanoramicaTab } from "@/components/clients/profile/PanoramicaTab";
+import { ContrattiTab } from "@/components/clients/profile/ContrattiTab";
+import { SessioniTab } from "@/components/clients/profile/SessioniTab";
+import { MovimentiTab } from "@/components/clients/profile/MovimentiTab";
+import { SchedeTab } from "@/components/clients/profile/SchedeTab";
+import { ProfileSkeleton, NotFoundState } from "@/components/clients/profile/ProfileShared";
+
 import { useClient } from "@/hooks/useClients";
 import { useClientContracts } from "@/hooks/useContracts";
-import { useClientEvents, type EventHydrated } from "@/hooks/useAgenda";
-import { useClientWorkouts } from "@/hooks/useWorkouts";
-import { useMovements } from "@/hooks/useMovements";
-import { formatCurrency } from "@/lib/format";
-import { getProgramStatus, STATUS_LABELS, STATUS_COLORS } from "@/lib/workout-monitoring";
-import type { ContractListItem, CashMovement, WorkoutPlan } from "@/types/api";
+import { useClientEvents } from "@/hooks/useAgenda";
+import { useClientReadiness, computeOnboardingSteps } from "@/hooks/useClientReadiness";
 
 // ════════════════════════════════════════════════════════════
-// PAGE COMPONENT
+// QUICK ACCESS CARDS CONFIG
+// ════════════════════════════════════════════════════════════
+
+const QUICK_CARDS = [
+  {
+    key: "portale",
+    href: (id: number) => `/monitoraggio/${id}`,
+    icon: ClipboardList,
+    label: "Portale Clinico",
+    description: "Portale clinico 360°",
+    borderClass: "border-l-violet-500",
+    bgClass: "bg-violet-100 dark:bg-violet-900/30",
+    iconClass: "text-violet-600 dark:text-violet-400",
+  },
+  {
+    key: "progressi",
+    href: (id: number) => `/clienti/${id}/progressi`,
+    icon: TrendingUp,
+    label: "Progressi Fisici",
+    description: "Misurazioni, obiettivi e analisi",
+    borderClass: "border-l-teal-500",
+    bgClass: "bg-teal-100 dark:bg-teal-900/30",
+    iconClass: "text-teal-600 dark:text-teal-400",
+  },
+  {
+    key: "anamnesi",
+    href: (id: number) => `/clienti/${id}/anamnesi`,
+    icon: HeartPulse,
+    label: "Anamnesi",
+    description: "Questionario clinico e stile di vita",
+    borderClass: "border-l-rose-500",
+    bgClass: "bg-rose-100 dark:bg-rose-900/30",
+    iconClass: "text-rose-600 dark:text-rose-400",
+  },
+] as const;
+
+// ════════════════════════════════════════════════════════════
+// PAGE
 // ════════════════════════════════════════════════════════════
 
 export default function ClientProfilePage({
@@ -71,6 +93,10 @@ export default function ClientProfilePage({
   const clientId = parseInt(id, 10);
 
   const { data: client, isLoading } = useClient(clientId);
+  const { readiness } = useClientReadiness(clientId);
+  const { data: contractsData } = useClientContracts(clientId);
+  const { data: eventsData } = useClientEvents(clientId);
+
   const [sheetOpen, setSheetOpen] = useState(false);
   const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
   const autoOpenSchedaConsumedRef = useRef(false);
@@ -81,6 +107,7 @@ export default function ClientProfilePage({
   const router = useRouter();
   const activeTab = searchParams.get("tab") ?? "panoramica";
   const shouldAutoOpenScheda = searchParams.get("startScheda") === "1";
+
   const handleTabChange = useCallback((value: string) => {
     const params = new URLSearchParams(searchParams.toString());
     if (value === "panoramica") params.delete("tab");
@@ -89,73 +116,69 @@ export default function ClientProfilePage({
     router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
   }, [searchParams, pathname, router]);
 
+  // Auto-open scheda template selector
+  useEffect(() => {
+    if (!shouldAutoOpenScheda || autoOpenSchedaConsumedRef.current) return;
+    autoOpenSchedaConsumedRef.current = true;
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("startScheda");
+    const qs = params.toString();
+    router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+    const rafId = requestAnimationFrame(() => setTemplateSelectorOpen(true));
+    return () => cancelAnimationFrame(rafId);
+  }, [shouldAutoOpenScheda, searchParams, router, pathname]);
+
+  // Onboarding steps from real data
+  const onboardingSteps = useMemo(() => {
+    return computeOnboardingSteps(clientId, readiness, {
+      hasContracts: (contractsData?.items?.length ?? 0) > 0,
+      hasEvents: (eventsData?.items?.length ?? 0) > 0,
+    });
+  }, [clientId, readiness, contractsData, eventsData]);
+
+  // Tab completion dots
+  const tabComplete = useMemo(() => ({
+    contratti: (contractsData?.items?.length ?? 0) > 0,
+    sessioni: (eventsData?.items?.length ?? 0) > 0,
+    schede: readiness?.has_workout_plan ?? false,
+  }), [contractsData, eventsData, readiness]);
+
   if (isLoading) return <ProfileSkeleton />;
-  if (!client) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-3 py-20">
-        <AlertTriangle className="h-12 w-12 text-muted-foreground/30" />
-        <p className="text-lg font-medium">Cliente non trovato</p>
-      </div>
-    );
-  }
+  if (!client) return <NotFoundState />;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <ClientProfileHeader client={client} onEdit={() => setSheetOpen(true)} />
+
+      {/* Next Action Hero — prossimo passo suggerito */}
+      {readiness && <NextActionHero readiness={readiness} />}
+
+      {/* Onboarding Checklist — solo se profilo incompleto */}
+      <OnboardingChecklist steps={onboardingSteps} />
+
       <ClientProfileKpi client={client} />
 
-      {/* ── Quick Access: Portale Clinico + Progressi + Anamnesi ── */}
+      {/* Quick Access Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <Link href={`/monitoraggio/${clientId}`}>
-          <Card className="group cursor-pointer border-l-4 border-l-violet-500 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-900/30">
-                <ClipboardList className="h-5 w-5 text-violet-600 dark:text-violet-400" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold">Portale Clinico</p>
-                <p className="text-xs text-muted-foreground">
-                  Portale clinico 360°
-                </p>
-              </div>
-              <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href={`/clienti/${clientId}/progressi`}>
-          <Card className="group cursor-pointer border-l-4 border-l-teal-500 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-100 dark:bg-teal-900/30">
-                <TrendingUp className="h-5 w-5 text-teal-600 dark:text-teal-400" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold">Progressi Fisici</p>
-                <p className="text-xs text-muted-foreground">
-                  Misurazioni, obiettivi e analisi clinica
-                </p>
-              </div>
-              <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href={`/clienti/${clientId}/anamnesi`}>
-          <Card className="group cursor-pointer border-l-4 border-l-rose-500 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-rose-100 dark:bg-rose-900/30">
-                <HeartPulse className="h-5 w-5 text-rose-600 dark:text-rose-400" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold">Anamnesi</p>
-                <p className="text-xs text-muted-foreground">
-                  Questionario clinico e stile di vita
-                </p>
-              </div>
-              <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-            </CardContent>
-          </Card>
-        </Link>
+        {QUICK_CARDS.map((card) => (
+          <Link key={card.key} href={card.href(clientId)}>
+            <Card className={`group cursor-pointer border-l-4 ${card.borderClass} transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg`}>
+              <CardContent className="flex items-center gap-4 p-4">
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${card.bgClass}`}>
+                  <card.icon className={`h-5 w-5 ${card.iconClass}`} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold">{card.label}</p>
+                  <p className="text-xs text-muted-foreground">{card.description}</p>
+                </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
       </div>
 
+      {/* Tabs con completion dots */}
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList className="w-full overflow-x-auto">
           <TabsTrigger value="panoramica">
@@ -165,10 +188,12 @@ export default function ClientProfilePage({
           <TabsTrigger value="contratti">
             <FileText className="mr-2 h-4 w-4" />
             Contratti
+            {tabComplete.contratti && <CompletionDot />}
           </TabsTrigger>
           <TabsTrigger value="sessioni">
             <Calendar className="mr-2 h-4 w-4" />
             Sessioni
+            {tabComplete.sessioni && <CompletionDot />}
           </TabsTrigger>
           <TabsTrigger value="movimenti">
             <Wallet className="mr-2 h-4 w-4" />
@@ -177,25 +202,22 @@ export default function ClientProfilePage({
           <TabsTrigger value="schede">
             <ClipboardList className="mr-2 h-4 w-4" />
             Schede
+            {tabComplete.schede && <CompletionDot />}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="panoramica" className="mt-4">
           <PanoramicaTab client={client} />
         </TabsContent>
-
         <TabsContent value="contratti" className="mt-4">
           <ContrattiTab clientId={clientId} />
         </TabsContent>
-
         <TabsContent value="sessioni" className="mt-4">
           <SessioniTab clientId={clientId} />
         </TabsContent>
-
         <TabsContent value="movimenti" className="mt-4">
           <MovimentiTab clientId={clientId} />
         </TabsContent>
-
         <TabsContent value="schede" className="mt-4">
           <SchedeTab clientId={clientId} onNewScheda={() => setTemplateSelectorOpen(true)} />
         </TabsContent>
@@ -206,7 +228,6 @@ export default function ClientProfilePage({
         onOpenChange={setTemplateSelectorOpen}
         clientId={clientId}
       />
-
       <ClientSheet
         open={sheetOpen}
         onOpenChange={setSheetOpen}
@@ -216,376 +237,9 @@ export default function ClientProfilePage({
   );
 }
 
-// ════════════════════════════════════════════════════════════
-// TAB: Panoramica
-// ════════════════════════════════════════════════════════════
-
-function PanoramicaTab({ client }: { client: { data_nascita: string | null; sesso: string | null; note_interne: string | null } }) {
+/** Dot verde accanto al label tab — indica che il tab ha contenuto. */
+function CompletionDot() {
   return (
-    <div className="grid gap-4 md:grid-cols-2">
-      {/* Info personali */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium">Informazioni personali</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Data di nascita</span>
-            <span className="font-medium">
-              {client.data_nascita
-                ? format(new Date(client.data_nascita + "T00:00:00"), "dd MMMM yyyy", { locale: it })
-                : "—"}
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Sesso</span>
-            <span className="font-medium">{client.sesso ?? "—"}</span>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Note interne */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium">Note interne</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {client.note_interne ? (
-            <p className="whitespace-pre-line text-sm">{client.note_interne}</p>
-          ) : (
-            <p className="text-sm italic text-muted-foreground">Nessuna nota</p>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════
-// TAB: Contratti
-// ════════════════════════════════════════════════════════════
-
-function ContrattiTab({ clientId }: { clientId: number }) {
-  const router = useRouter();
-  const { data, isLoading } = useClientContracts(clientId);
-
-  if (isLoading) return <TabSkeleton />;
-
-  const contracts = data?.items ?? [];
-
-  if (contracts.length === 0) {
-    return <EmptyTab message="Nessun contratto per questo cliente" />;
-  }
-
-  return (
-    <div className="rounded-lg border bg-white dark:bg-zinc-900">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Pacchetto</TableHead>
-            <TableHead>Finanze</TableHead>
-            <TableHead className="text-center">Crediti</TableHead>
-            <TableHead>Stato</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {contracts.map((c: ContractListItem) => {
-            const prezzo = c.prezzo_totale ?? 0;
-            return (
-              <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => router.push(`/contratti/${c.id}?from=clienti-${clientId}`)}>
-                <TableCell className="font-medium">{c.tipo_pacchetto ?? "—"}</TableCell>
-                <TableCell>
-                  {prezzo > 0 ? (
-                    <span className="text-sm tabular-nums">
-                      {formatCurrency(c.totale_versato)} / {formatCurrency(prezzo)}
-                    </span>
-                  ) : "—"}
-                </TableCell>
-                <TableCell className="text-center">
-                  <span className="font-mono text-sm">{c.crediti_usati}/{c.crediti_totali ?? 0}</span>
-                </TableCell>
-                <TableCell>
-                  {c.chiuso ? (
-                    <Badge variant="secondary">Chiuso</Badge>
-                  ) : c.ha_rate_scadute ? (
-                    <Badge className="bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400">
-                      Rate in Ritardo
-                    </Badge>
-                  ) : (
-                    <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400">
-                      Attivo
-                    </Badge>
-                  )}
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════
-// TAB: Sessioni
-// ════════════════════════════════════════════════════════════
-
-function SessioniTab({ clientId }: { clientId: number }) {
-  const { data, isLoading } = useClientEvents(clientId);
-
-  if (isLoading) return <TabSkeleton />;
-
-  const events = data?.items ?? [];
-
-  if (events.length === 0) {
-    return <EmptyTab message="Nessuna sessione per questo cliente" />;
-  }
-
-  // Ordina per data decrescente (piu' recente prima)
-  const sorted = [...events].sort(
-    (a, b) => b.data_inizio.getTime() - a.data_inizio.getTime()
-  );
-
-  return (
-    <div className="rounded-lg border bg-white dark:bg-zinc-900">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Data</TableHead>
-            <TableHead>Titolo</TableHead>
-            <TableHead>Categoria</TableHead>
-            <TableHead>Stato</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {sorted.map((e: EventHydrated) => (
-            <TableRow key={e.id}>
-              <TableCell className="tabular-nums">
-                {format(e.data_inizio, "dd MMM yyyy HH:mm", { locale: it })}
-              </TableCell>
-              <TableCell className="font-medium">{e.titolo ?? "—"}</TableCell>
-              <TableCell>
-                <Badge variant="outline">{e.categoria}</Badge>
-              </TableCell>
-              <TableCell>
-                <Badge
-                  variant="secondary"
-                  className={
-                    e.stato === "Completato"
-                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                      : e.stato === "Cancellato"
-                      ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                      : ""
-                  }
-                >
-                  {e.stato}
-                </Badge>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════
-// TAB: Movimenti
-// ════════════════════════════════════════════════════════════
-
-function MovimentiTab({ clientId }: { clientId: number }) {
-  const { data, isLoading } = useMovements({ id_cliente: clientId });
-
-  if (isLoading) return <TabSkeleton />;
-
-  const movements = data?.items ?? [];
-
-  if (movements.length === 0) {
-    return <EmptyTab message="Nessun movimento per questo cliente" />;
-  }
-
-  return (
-    <div className="rounded-lg border bg-white dark:bg-zinc-900">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Data</TableHead>
-            <TableHead>Tipo</TableHead>
-            <TableHead>Importo</TableHead>
-            <TableHead>Metodo</TableHead>
-            <TableHead className="hidden sm:table-cell">Note</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {movements.map((m: CashMovement) => (
-            <TableRow key={m.id}>
-              <TableCell className="tabular-nums">
-                {m.data_effettiva
-                  ? format(new Date(m.data_effettiva + "T00:00:00"), "dd MMM yyyy", { locale: it })
-                  : "—"}
-              </TableCell>
-              <TableCell>
-                <Badge
-                  variant="outline"
-                  className={
-                    m.tipo === "ENTRATA"
-                      ? "border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400"
-                      : "border-red-300 text-red-700 dark:border-red-700 dark:text-red-400"
-                  }
-                >
-                  {m.tipo}
-                </Badge>
-              </TableCell>
-              <TableCell className="font-medium tabular-nums">
-                {formatCurrency(m.importo)}
-              </TableCell>
-              <TableCell className="text-sm text-muted-foreground">
-                {m.metodo ?? "—"}
-              </TableCell>
-              <TableCell className="hidden sm:table-cell text-sm text-muted-foreground truncate max-w-[200px]">
-                {m.note ?? "—"}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════
-// TAB: Schede Allenamento
-// ════════════════════════════════════════════════════════════
-
-function SchedeTab({ clientId, onNewScheda }: { clientId: number; onNewScheda: () => void }) {
-  const router = useRouter();
-  const { data, isLoading } = useClientWorkouts(clientId);
-
-  if (isLoading) return <TabSkeleton />;
-
-  const workouts = data?.items ?? [];
-
-  if (workouts.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-12">
-        <ClipboardList className="h-10 w-10 text-muted-foreground/30" />
-        <p className="text-sm text-muted-foreground">Nessuna scheda per questo cliente</p>
-        <Button variant="outline" size="sm" onClick={onNewScheda}>
-          <Plus className="mr-2 h-4 w-4" />
-          Crea Scheda
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      <div className="flex justify-end">
-        <Button variant="outline" size="sm" onClick={onNewScheda}>
-          <Plus className="mr-2 h-4 w-4" />
-          Nuova Scheda
-        </Button>
-      </div>
-      <div className="rounded-lg border bg-white dark:bg-zinc-900">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>Obiettivo</TableHead>
-              <TableHead className="hidden sm:table-cell">Livello</TableHead>
-              <TableHead className="text-center hidden sm:table-cell">Sessioni</TableHead>
-              <TableHead className="hidden sm:table-cell">Stato</TableHead>
-              <TableHead className="hidden md:table-cell">Data</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {workouts.map((w: WorkoutPlan) => (
-              <TableRow
-                key={w.id}
-                className="cursor-pointer hover:bg-muted/50"
-                onClick={() => router.push(`/schede/${w.id}?from=clienti-${clientId}`)}
-              >
-                <TableCell className="font-medium">{w.nome}</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className="text-xs">{w.obiettivo}</Badge>
-                </TableCell>
-                <TableCell className="hidden sm:table-cell">
-                  <Badge variant="outline" className="text-xs">{w.livello}</Badge>
-                </TableCell>
-                <TableCell className="text-center hidden sm:table-cell tabular-nums">
-                  {w.sessioni.length}
-                </TableCell>
-                <TableCell className="hidden sm:table-cell">
-                  {(() => {
-                    const status = getProgramStatus(w);
-                    return (
-                      <Badge className={`text-xs ${STATUS_COLORS[status]}`}>
-                        {STATUS_LABELS[status]}
-                      </Badge>
-                    );
-                  })()}
-                </TableCell>
-                <TableCell className="hidden md:table-cell text-sm text-muted-foreground tabular-nums">
-                  {w.created_at
-                    ? format(new Date(w.created_at), "dd MMM yyyy", { locale: it })
-                    : "—"}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-      <div className="flex justify-end">
-        <Link
-          href={`/allenamenti?idCliente=${clientId}`}
-          className="text-xs text-primary hover:underline"
-        >
-          Vedi monitoraggio →
-        </Link>
-      </div>
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════
-// SHARED UI
-// ════════════════════════════════════════════════════════════
-
-function EmptyTab({ message }: { message: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12">
-      <p className="text-sm text-muted-foreground">{message}</p>
-    </div>
-  );
-}
-
-function TabSkeleton() {
-  return (
-    <div className="space-y-3">
-      <Skeleton className="h-10 w-full" />
-      <Skeleton className="h-10 w-full" />
-      <Skeleton className="h-10 w-full" />
-    </div>
-  );
-}
-
-function ProfileSkeleton() {
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Skeleton className="h-9 w-9 rounded-lg" />
-        <Skeleton className="h-12 w-12 rounded-full" />
-        <div className="space-y-2">
-          <Skeleton className="h-6 w-48" />
-          <Skeleton className="h-4 w-32" />
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-20 w-full rounded-lg" />
-        ))}
-      </div>
-      <Skeleton className="h-64 w-full rounded-lg" />
-    </div>
+    <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
   );
 }

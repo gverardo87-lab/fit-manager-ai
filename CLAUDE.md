@@ -792,7 +792,7 @@ tutte le 6 pagine filtri (esercizi, clienti, contratti, schede, cassa, allenamen
 
 ```
 frontend/          Next.js 16 + React 19 + TypeScript
-  src/hooks/       React Query (server state) — 17 hook modules
+  src/hooks/       React Query (server state) — 19 hook modules
   src/components/  shadcn/ui + componenti dominio — ~80 componenti
   src/types/       Interfacce TypeScript (mirror Pydantic)
        |
@@ -1489,7 +1489,7 @@ sqlite3 data/catalog.db ".tables"
 ## Metriche Progetto
 
 - **api/**: ~17,000 LOC Python — 19 modelli ORM, 16 router, 8 schema modules, 6 services + 1 parser (18 moduli)
-- **frontend/**: ~18,000 LOC TypeScript — ~80 componenti, 17 hook modules, 21 pagine
+- **frontend/**: ~18,000 LOC TypeScript — ~80 componenti, 19 hook modules, 21 pagine
 - **core/**: ~10,300 LOC Python — moduli AI (RAG, exercise archive) in attesa di API endpoints
 - **tools/admin_scripts/**: ~3,200 LOC Python — 16 script (import, quality engine, taxonomy, seed, test, QA clinica)
 - **DB**: Dual-DB SQLite (22 business + 7 catalog), WAL mode, FK enforced, multi-tenant via trainer_id

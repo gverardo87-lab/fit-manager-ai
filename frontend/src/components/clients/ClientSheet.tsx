@@ -26,9 +26,11 @@ interface ClientSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   client?: Client | null;
+  /** Callback dopo creazione — usata per navigare al profilo del nuovo cliente */
+  onCreated?: (client: Client) => void;
 }
 
-export function ClientSheet({ open, onOpenChange, client }: ClientSheetProps) {
+export function ClientSheet({ open, onOpenChange, client, onCreated }: ClientSheetProps) {
   const isEdit = !!client;
   const createMutation = useCreateClient();
   const updateMutation = useUpdateClient();
@@ -54,7 +56,7 @@ export function ClientSheet({ open, onOpenChange, client }: ClientSheetProps) {
       );
     } else {
       createMutation.mutate(values, {
-        onSuccess: () => { dirtyRef.current = false; onOpenChange(false); },
+        onSuccess: (created) => { dirtyRef.current = false; onOpenChange(false); onCreated?.(created); },
       });
     }
   };

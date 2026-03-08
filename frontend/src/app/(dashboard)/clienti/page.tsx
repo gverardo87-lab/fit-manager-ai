@@ -15,7 +15,7 @@
 
 import { useState, useCallback, useMemo, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { loadFilters, saveFilters, getUrlParams, syncUrlParams } from "@/lib/url-state";
 import { usePageReveal } from "@/lib/page-reveal";
 import {
@@ -138,6 +138,7 @@ export default function ClientiPage() {
   const [initialDeepLink] = useState(getInitialDeepLinkState);
   // ── URL-backed filter state ──
   const pathname = usePathname();
+  const router = useRouter();
 
   const [sheetOpen, setSheetOpen] = useState(() => initialDeepLink.openFromDeepLink);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -385,6 +386,7 @@ export default function ClientiPage() {
         open={sheetOpen}
         onOpenChange={setSheetOpen}
         client={selectedClient}
+        onCreated={(client) => router.push(`/clienti/${client.id}`)}
       />
 
       {/* ── Dialog elimina ── */}
