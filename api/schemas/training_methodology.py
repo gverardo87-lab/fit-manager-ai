@@ -70,6 +70,24 @@ class TrainingMethodologyPlanItem(BaseModel):
         description="True se gap compliance tra sessioni > 30pp",
     )
 
+    # ── Analisi effettiva (pesata per compliance reale per sessione) ──
+    effective_score: Optional[float] = Field(
+        default=None,
+        description="Score scientifico effettivo (pesato per sessioni eseguite)",
+    )
+    effective_sotto_mev: int = Field(
+        default=0,
+        description="Muscoli sotto MEV nel piano effettivo",
+    )
+    effective_squilibri: int = Field(
+        default=0,
+        description="Squilibri biomeccanici nel piano effettivo",
+    )
+    score_delta: Optional[float] = Field(
+        default=None,
+        description="Delta planned - effective (negativo = perdita qualita')",
+    )
+
     # ── Score combinato ──
     training_score: int = Field(
         default=0,
@@ -98,6 +116,7 @@ class TrainingMethodologySummary(BaseModel):
     avg_science_score: float = 0.0
     avg_compliance: float = 0.0
     avg_training_score: float = 0.0
+    avg_effective_score: float = 0.0
     plans_with_issues: int = 0  # science_score < 60
     plans_excellent: int = 0  # training_score >= 80
     high_priority: int = 0

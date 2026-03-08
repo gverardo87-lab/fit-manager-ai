@@ -794,6 +794,11 @@ export interface TrainingMethodologyPlanItem {
   session_compliance: SessionComplianceItem[];
   worst_session_name: string | null;
   session_imbalance: boolean;
+  // Analisi effettiva (pesata per compliance reale per sessione)
+  effective_score: number | null;
+  effective_sotto_mev: number;
+  effective_squilibri: number;
+  score_delta: number | null;
   training_score: number;
   priority: string;
   priority_score: number;
@@ -810,6 +815,7 @@ export interface TrainingMethodologySummary {
   avg_science_score: number;
   avg_compliance: number;
   avg_training_score: number;
+  avg_effective_score: number;
   plans_with_issues: number;
   plans_excellent: number;
   high_priority: number;

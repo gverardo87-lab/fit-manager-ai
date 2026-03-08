@@ -16,6 +16,7 @@ import {
   TrendingDown,
   Scale,
   SkipForward,
+  Zap,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -176,6 +177,13 @@ export function TrainingPlanCard({ item }: TrainingPlanCardProps) {
               icon={Activity}
             />
           )}
+          {item.effective_score != null && (
+            <ScoreBar
+              label="Effettiva"
+              value={Math.round(item.effective_score)}
+              icon={Zap}
+            />
+          )}
         </div>
       ) : (
         <div className="mt-3 rounded-md bg-zinc-50 px-3 py-2 text-xs text-muted-foreground dark:bg-zinc-800/50">
@@ -259,13 +267,20 @@ export function TrainingPlanCard({ item }: TrainingPlanCardProps) {
         </div>
       )}
 
-      {/* Training score + CTA */}
+      {/* Training score + delta + CTA */}
       <div className="mt-3 flex items-center justify-between">
         {item.analyzable && (
-          <span className="text-lg font-extrabold tabular-nums text-foreground">
-            {item.training_score}
-            <span className="text-xs font-normal text-muted-foreground">/100</span>
-          </span>
+          <div className="flex items-baseline gap-2">
+            <span className="text-lg font-extrabold tabular-nums text-foreground">
+              {item.training_score}
+              <span className="text-xs font-normal text-muted-foreground">/100</span>
+            </span>
+            {item.score_delta != null && item.score_delta > 0 && (
+              <span className="text-[10px] font-semibold tabular-nums text-red-600 dark:text-red-400">
+                −{item.score_delta} pts persi
+              </span>
+            )}
+          </div>
         )}
         {!item.analyzable && <span />}
         <Link href={item.next_action_href}>

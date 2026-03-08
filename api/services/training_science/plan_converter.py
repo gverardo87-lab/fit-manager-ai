@@ -168,3 +168,73 @@ def convert_plan_to_template(
         sesso=client_sesso,
         eta=_compute_age(client_data_nascita),
     )
+
+
+# ════════════════════════════════════════════════════════════
+# Template effettivo (pesato per compliance reale)
+# ════════════════════════════════════════════════════════════
+
+
+def create_effective_template(
+    template: TemplatePiano,
+    session_weights: dict[str, float],
+) -> TemplatePiano | None:
+    """
+    Crea un TemplatePiano "effettivo" dove le serie di ogni sessione
+    sono scalate per la compliance reale di quella sessione.
+
+    session_weights: {nome_sessione: compliance_ratio (0.0-1.0)}
+    Se una sessione ha compliance 0%, i suoi slot hanno serie=0 e vengono esclusi.
+    Se una sessione ha compliance 60%, le serie sono scalate al 60%.
+
+    Ritorna None se il template effettivo non ha slot analizzabili.
+    """
+    effective_sessions: list[TemplateSessione] = []
+
+    for sess in template.sessioni:
+        weight = session_weights.get(sess.nome, 0.0)
+        if weight <= 0.0:
+            # Sessione mai eseguita → esclusa dal template effettivo
+            continue
+
+        scaled_slots: list[SlotSessione] = []
+        for slot in sess.slots:
+            scaled_serie = max(1, round(slot.serie * weight))
+            scaled_slots.append(
+                SlotSessione(
+                    pattern=slot.pattern,
+                    priorita=slot.priorita,
+                    serie=scaled_serie,
+                    rep_min=slot.rep_min,
+                    rep_max=slot.rep_max,
+                    riposo_sec=slot.riposo_sec,
+                    carico_kg=slot.carico_kg,
+                )
+            )
+
+        if scaled_slots:
+            effective_sessions.append(
+                TemplateSessione(
+                    nome=sess.nome,
+                    ruolo=sess.ruolo,
+                    focus=sess.focus,
+                    slots=scaled_slots,
+                )
+            )
+
+    if not effective_sessions:
+        return None
+
+    # Frequenza effettiva: conta solo sessioni realmente eseguite
+    effective_freq = max(2, min(6, len(effective_sessions)))
+
+    return TemplatePiano(
+        frequenza=effective_freq,
+        obiettivo=template.obiettivo,
+        livello=template.livello,
+        tipo_split=template.tipo_split,
+        sessioni=effective_sessions,
+        note_generazione=[],
+        sesso=template.sesso,
+        eta=template.eta,
+    )

@@ -30,7 +30,10 @@ from api.schemas.training_methodology import (
     TrainingMethodologyWorklistResponse,
 )
 from api.services.training_science.plan_analyzer import analyze_plan
-from api.services.training_science.plan_converter import convert_plan_to_template
+from api.services.training_science.plan_converter import (
+    convert_plan_to_template,
+    create_effective_template,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -416,6 +419,40 @@ def _compute_training_methodology_data(
             if best.compliance_pct - worst.compliance_pct > 30:
                 session_imbalance = True
 
+        # ── Analisi effettiva (pesata per compliance sessione) ──
+        effective_score_val: float | None = None
+        effective_sotto_mev = 0
+        effective_squilibri = 0
+        score_delta: float | None = None
+
+        if (
+            template
+            and analyzable
+            and plan_status == "attivo"
+            and sess_compliance_items
+        ):
+            # Costruisci pesi: {nome_sessione: compliance_ratio 0.0-1.0}
+            session_weights = {
+                sc.session_name: sc.compliance_pct / 100.0
+                for sc in sess_compliance_items
+            }
+            eff_template = create_effective_template(template, session_weights)
+            if eff_template:
+                try:
+                    eff_analysis = analyze_plan(eff_template)
+                    effective_score_val = round(eff_analysis.score, 1)
+                    effective_sotto_mev = len(
+                        eff_analysis.volume.muscoli_sotto_mev
+                    )
+                    effective_squilibri = len(eff_analysis.balance.squilibri)
+                    score_delta = round(science_score - eff_analysis.score, 1)
+                except Exception:
+                    logger.warning(
+                        "effective analyze_plan failed for plan %s",
+                        plan.id,
+                        exc_info=True,
+                    )
+
         # Training score combinato
         training_score = round(science_score * 0.6 + compliance_pct * 0.4)
 
@@ -454,6 +491,10 @@ def _compute_training_methodology_data(
             session_compliance=sess_compliance_items,
             worst_session_name=worst_session_name,
             session_imbalance=session_imbalance,
+            effective_score=effective_score_val,
+            effective_sotto_mev=effective_sotto_mev,
+            effective_squilibri=effective_squilibri,
+            score_delta=score_delta,
         )
 
         # CTA
@@ -484,6 +525,15 @@ def _compute_training_methodology_data(
         avg_training_score=(
             round(sum(i.training_score for i in analyzable_items) / len(analyzable_items), 1)
             if analyzable_items
+            else 0.0
+        ),
+        avg_effective_score=(
+            round(
+                sum(i.effective_score for i in active_items if i.effective_score is not None)
+                / max(1, sum(1 for i in active_items if i.effective_score is not None)),
+                1,
+            )
+            if any(i.effective_score is not None for i in active_items)
             else 0.0
         ),
         plans_with_issues=sum(1 for i in analyzable_items if i.science_score < 60),

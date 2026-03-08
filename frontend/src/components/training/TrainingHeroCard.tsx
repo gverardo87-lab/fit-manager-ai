@@ -29,7 +29,7 @@ export function TrainingHeroCard({ summary }: TrainingHeroCardProps) {
         </div>
 
         {/* KPI grid */}
-        <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-5">
           <div className="rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2 dark:border-amber-900/40 dark:bg-amber-950/20">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               Con problemi
@@ -63,6 +63,17 @@ export function TrainingHeroCard({ summary }: TrainingHeroCardProps) {
               <span className="text-base">%</span>
             </p>
           </div>
+          {summary.avg_effective_score > 0 && (
+            <div className="rounded-lg border border-violet-200 bg-violet-50/80 px-3 py-2 dark:border-violet-900/40 dark:bg-violet-950/20">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Effettivo medio
+              </p>
+              <p className="mt-1 text-2xl font-extrabold leading-none tabular-nums text-violet-700 dark:text-violet-300">
+                <AnimatedNumber value={Math.round(summary.avg_effective_score)} />
+                <span className="text-base">%</span>
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>
