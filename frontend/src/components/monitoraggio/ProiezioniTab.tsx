@@ -12,7 +12,7 @@
  * Il parent accumula i sommari in un Map e calcola i KPI aggregati.
  */
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -58,12 +58,13 @@ function ProjectionClientCard({ clientId, nome, cognome, onSummary }: {
   const { data, isLoading } = useClientProjection(clientId);
   const reportedRef = useRef<string>("");
 
-  // Report summary to parent when data changes
+  // Report summary to parent via useEffect (not during render)
   const dataKey = data
     ? `${data.has_measurements}-${data.has_goals}-${data.projections.length}-${data.risk_flags.length}-${data.compliance_pct}`
     : "none";
 
-  if (dataKey !== reportedRef.current) {
+  useEffect(() => {
+    if (dataKey === reportedRef.current) return;
     reportedRef.current = dataKey;
     if (!data || (!data.has_measurements && !data.has_goals)) {
       onSummary(clientId, null);
@@ -82,7 +83,7 @@ function ProjectionClientCard({ clientId, nome, cognome, onSummary }: {
         complianceLow: data.has_active_plan && data.compliance_pct < 60,
       });
     }
-  }
+  }, [dataKey, data, clientId, onSummary]);
 
   if (isLoading) {
     return <Skeleton className="h-36 rounded-xl" />;
