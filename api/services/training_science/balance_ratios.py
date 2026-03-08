@@ -18,7 +18,7 @@ from .types import (
     RapportoBiomeccanico,
     AnalisiBalance,
 )
-from .muscle_contribution import compute_effective_sets
+from .muscle_contribution import compute_hypertrophy_sets
 
 
 # ════════════════════════════════════════════════════════════
@@ -26,50 +26,106 @@ from .muscle_contribution import compute_effective_sets
 # ════════════════════════════════════════════════════════════
 
 BALANCE_RATIOS: list[RapportoBiomeccanico] = [
+    # ── 1. Push : Pull ──────────────────────────────────────
+    # Evidenza: FORTE — prescrizione diretta da 3 testi madre.
     RapportoBiomeccanico(
         nome="Push : Pull",
         numeratore=["push_h", "push_v"],
         denominatore=["pull_h", "pull_v"],
         target=1.0,
         tolleranza=0.15,
-        fonte="NSCA 2016, Sahrmann 2002 — equilibrio articolazione spalla",
+        fonte="NSCA 2016 cap. 21: il principio agonista-antagonista richiede "
+        "volume bilanciato tra pushing e pulling per salute articolare. "
+        "Sahrmann 2002: la upper crossed syndrome origina da dominanza "
+        "della catena anteriore (pettorali, deltoide anteriore) rispetto "
+        "alla posteriore (romboidi, trapezio medio/basso). "
+        "Janda 1983: lo squilibrio push-pull guida i pattern di "
+        "compensazione posturale. Range [0.85, 1.15].",
     ),
+    # ── 2. Push Orizzontale : Push Verticale ────────────────
+    # Evidenza: MODERATA — ragionamento biomeccanico convergente,
+    # nessuna fonte prescrive un rapporto numerico specifico.
     RapportoBiomeccanico(
         nome="Push Orizz : Push Vert",
         numeratore=["push_h"],
         denominatore=["push_v"],
         target=1.5,
-        tolleranza=0.40,
-        fonte="Schoenfeld 2020 — distribuzione push tra piano sagittale e frontale. "
-        "Tolleranza ampia: l'evidenza su rapporto ottimale e' limitata, "
-        "il target 1.5 riflette la maggiore massa muscolare del petto vs deltoidi (NSCA 2016)",
+        tolleranza=1.0,
+        fonte="Sahrmann 2002: il deltoide anteriore e' classificato come "
+        "'overactive' nella upper crossed syndrome — push_v lo usa come "
+        "motore primario (EMG ~100%% MVC), push_h come sinergista (~70%% MVC). "
+        "Preferire push_h riduce l'iperattivazione del deltoide anteriore. "
+        "Boettcher et al. 2008: la posizione overhead aumenta il rischio "
+        "di impingement subacromiale — limitare il volume push_v e' protettivo. "
+        "Schoenfeld 2010: bench press (push_h) produce attivazione del "
+        "pectoralis major superiore all'overhead press. "
+        "Target 1.5: preferenza moderata orizzontale. "
+        "Tolleranza ampia [0.5, 2.5] — nessuna fonte prescrive un rapporto "
+        "specifico, la tolleranza riflette il livello di evidenza.",
     ),
+    # ── 3. Pull Orizzontale : Pull Verticale ────────────────
+    # Evidenza: MODERATA — Sahrmann raccomanda rows ma senza
+    # quantificare il rapporto ideale.
     RapportoBiomeccanico(
         nome="Pull Orizz : Pull Vert",
         numeratore=["pull_h"],
         denominatore=["pull_v"],
-        target=1.0,
-        tolleranza=0.35,
-        fonte="NSCA — dorsali: spessore (row) + larghezza (pulldown). "
-        "Tolleranza ampia: pull_h recluta piu' massa muscolare (trapezio 0.7 vs 0.4), "
-        "squilibrio lieve e' fisiologico (Sahrmann 2002)",
+        target=1.2,
+        tolleranza=0.80,
+        fonte="Sahrmann 2002: gli esercizi di row sono raccomandati "
+        "specificamente per il rinforzo della retrazione scapolare "
+        "(trapezio medio/basso, romboidi) — correttivo primario della "
+        "upper crossed syndrome. La trazione orizzontale attiva il "
+        "deltoide posteriore come sinergista maggiore (EMG ~70%% MVC, "
+        "Contreras 2010), contro il ~40%% della trazione verticale. "
+        "NSCA 2016: entrambi i pattern sono 'core exercises' senza "
+        "prescrizione volumetrica reciproca. "
+        "Target 1.2: leggera preferenza orizzontale (Sahrmann). "
+        "Tolleranza ampia [0.4, 2.0] — riflette evidenza limitata.",
     ),
+    # ── 4. Quadricipiti : Femorali ──────────────────────────
+    # Evidenza: MODERATA-FORTE — derivazione algebrica dalla matrice
+    # EMG combinata con il principio di bilanciamento squat/hinge.
     RapportoBiomeccanico(
         nome="Quad : Ham",
         numeratore=["quadricipiti"],
         denominatore=["femorali"],
-        target=1.25,
+        target=0.80,
         tolleranza=0.30,
-        fonte="Alentorn-Geli 2009 — stabilita' ginocchio, prevenzione ACL. "
-        "Range 1.0-1.5 accettabile (NSCA 2016: rapporto altamente individuale)",
+        fonte="NSCA 2016 cap. 21: il lower body richiede pattern squat "
+        "(knee-dominant) e hinge (hip-dominant) in equilibrio. "
+        "Alentorn-Geli 2009: il rapporto H:Q < 0.6 (forza isocinetica) "
+        "e' fattore di rischio ACL — principio tradotto in volume: i femorali "
+        "necessitano volume adeguato rispetto ai quadricipiti. "
+        "Israetel RP 2020: serie dirette quadricipiti e femorali approssimativamente "
+        "pari per sviluppo bilanciato. "
+        "Target 0.80: derivazione algebrica dalla matrice EMG con programmazione "
+        "squat:hinge bilanciata — squat contribuisce quad 1.0 + ham 0.25 (hyp), "
+        "hinge contribuisce ham 1.0, dunque quad:ham = n/(0.25n+n) = 0.80. "
+        "Nota: il rapporto FORZA isocinetico (H:Q ~0.6, Alentorn-Geli 2009) "
+        "e' un concetto diverso dal rapporto VOLUME ipertrofico. "
+        "Range [0.50, 1.10].",
     ),
+    # ── 5. Catena Anteriore : Catena Posteriore ─────────────
+    # Evidenza: FORTE — prescrizione clinica diretta.
     RapportoBiomeccanico(
         nome="Anteriore : Posteriore",
         numeratore=["petto", "deltoide_anteriore", "quadricipiti"],
         denominatore=["dorsali", "deltoide_posteriore", "femorali"],
-        target=0.85,
-        tolleranza=0.15,
-        fonte="Sahrmann 2002, Janda 1983 — prevenzione upper/lower cross syndrome",
+        target=0.80,
+        tolleranza=0.25,
+        fonte="Sahrmann 2002: upper crossed syndrome (pettorali + deltoide "
+        "anteriore iperattivi) e lower crossed syndrome (flessori anca + "
+        "quadricipiti iperattivi) sono i due pattern principali di disfunzione "
+        "posturale — la catena posteriore necessita volume pari o superiore. "
+        "Janda 1983: i muscoli 'tonici' (catena anteriore) tendono ad "
+        "accorciarsi e ipertivarsi, i muscoli 'fasici' (catena posteriore) "
+        "tendono a indebolirsi — il volume deve favorire la catena posteriore. "
+        "NSCA 2016: i compound posteriori (hinge, pull) accumulano "
+        "naturalmente piu' volume muscolo-specifico per sinergie "
+        "multi-articolari. Target 0.80: la catena anteriore e' ~80%% della "
+        "posteriore (Sahrmann/Janda: posteriore >= anteriore). "
+        "Range [0.55, 1.05].",
     ),
 ]
 
@@ -121,7 +177,13 @@ def analyze_balance(
     vengono pesate per intensita' nei calcoli dei rapporti.
     Output: rapporti calcolati vs target, con lista squilibri.
     """
-    effective = compute_effective_sets(slots, intensity_weights)
+    # Volume ipertrofico per rapporti muscolari (Quad:Ham, Ant:Post).
+    # Il volume meccanico (compute_effective_sets) gonfia i denominatori
+    # con contributi indiretti EMG < 40% MVC che non producono stimolo
+    # ipertrofico (Schoenfeld 2017), rendendo i target irraggiungibili.
+    # Il volume ipertrofico (compute_hypertrophy_sets) sconta i contributi
+    # sotto soglia — allineato alla stessa metrica usata per l'analisi volume.
+    hypertrophy = compute_hypertrophy_sets(slots, intensity_weights)
     rapporti: dict[str, float] = {}
     target: dict[str, float] = {}
     squilibri: list[str] = []
@@ -136,8 +198,8 @@ def analyze_balance(
             num_val = _sum_pattern_sets(slots, num_patterns, intensity_weights)
             den_val = _sum_pattern_sets(slots, den_patterns, intensity_weights)
         else:
-            num_val = _sum_muscle_sets(effective, ratio.numeratore)
-            den_val = _sum_muscle_sets(effective, ratio.denominatore)
+            num_val = _sum_muscle_sets(hypertrophy, ratio.numeratore)
+            den_val = _sum_muscle_sets(hypertrophy, ratio.denominatore)
 
         if den_val > 0:
             computed = round(num_val / den_val, 2)

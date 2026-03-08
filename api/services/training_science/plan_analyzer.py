@@ -525,7 +525,8 @@ def _build_dettaglio_rapporti(
         for slot in sessione.slots:
             all_slots.append((slot.pattern, slot.serie))
 
-    effective = compute_effective_sets(all_slots, intensity_weights)
+    # Volume ipertrofico per rapporti muscolari — allineato a balance_ratios.py
+    hypertrophy = compute_hypertrophy_sets(all_slots, intensity_weights)
     dettagli: list[DettaglioRapporto] = []
 
     for ratio in BALANCE_RATIOS:
@@ -546,12 +547,12 @@ def _build_dettaglio_rapporti(
                 den_val = sum(s for p, s in all_slots if p in den_patterns)
         else:
             num_val = sum(
-                effective.get(m, 0.0)
+                hypertrophy.get(m, 0.0)
                 for m in M
                 if m.value in ratio.numeratore
             )
             den_val = sum(
-                effective.get(m, 0.0)
+                hypertrophy.get(m, 0.0)
                 for m in M
                 if m.value in ratio.denominatore
             )
