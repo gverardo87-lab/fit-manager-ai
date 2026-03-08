@@ -1737,13 +1737,20 @@ export interface TSTonnellaggioSlotAnalisi {
   zona_intensita: string | null;
 }
 
-/** Analisi Volume-Load — disponibile solo con carico_kg. NSCA 2016, McBride 2009. */
+/** Analisi biomeccanica Volume-Load — tonnage + tensione meccanica per muscolo.
+ * NSCA 2016, McBride 2009, Schoenfeld 2010 (mechanical tension), Contreras 2010 (EMG). */
 export interface TSAnalisiTonnellaggio {
   tonnellaggio_totale: number;
   tonnellaggio_per_sessione: Record<string, number>;
   intensita_media_ponderata: number | null;
   slot_detail: TSTonnellaggioSlotAnalisi[];
   zona_prevalente: string | null;
+  /** Tensione meccanica per gruppo muscolare (kg) — tonnage × EMG coefficient.
+   * Schoenfeld 2010: mechanical tension = primary hypertrophy driver. */
+  tensione_per_muscolo: Record<string, number>;
+  /** Tensione ipertrofica per muscolo (kg) — pesata con hypertrophy weights.
+   * Israetel RP 2020 half-set rule, soglia EMG 40% MVC (Schoenfeld 2017). */
+  tensione_ipertrofica_per_muscolo: Record<string, number>;
   fonte: string;
 }
 

@@ -343,11 +343,28 @@ class TonnellaggioSlotAnalisi(BaseModel):
 
 class AnalisiTonnellaggio(BaseModel):
     """
-    Analisi volume-load di un piano con carichi assegnati.
+    Analisi biomeccanica volume-load di un piano con carichi assegnati.
 
-    Il tonnellaggio (Volume-Load) e' la metrica gold standard per
-    quantificare il carico di allenamento totale (Haff & Triplett, NSCA 2016).
-    Disponibile solo quando almeno uno slot ha carico_kg compilato.
+    Due livelli di analisi:
+
+    1. **Tonnellaggio grezzo** — Σ(serie × rep × kg) per slot e sessione.
+       Metrica gold standard per carico totale (Haff & Triplett, NSCA 2016).
+
+    2. **Tensione meccanica per muscolo** — tonnellaggio × coefficiente EMG
+       dalla matrice di contribuzione muscolare. Questo e' il dato biomeccanico
+       reale: la forza meccanica che ogni gruppo muscolare sostiene, pesata
+       per il suo livello di attivazione in ciascun pattern.
+
+       Formula: tensione[M] = Σ(tonnage_slot × contribution[pattern][M])
+
+       La tensione meccanica e' il driver primario dell'ipertrofia
+       (Schoenfeld 2010, "mechanical tension hypothesis").
+
+    Fonti:
+      - Haff & Triplett (NSCA 2016) cap. 15 — Volume-Load definition
+      - McBride et al. (2009) — Tonnage as training load metric
+      - Schoenfeld (2010) — Mechanical tension as hypertrophy driver
+      - Contreras (2010) — EMG analysis of resistance exercises
     """
 
     tonnellaggio_totale: float = Field(description="Σ(serie × rep × kg) settimanale")
@@ -366,8 +383,30 @@ class AnalisiTonnellaggio(BaseModel):
         default=None,
         description="Zona NSCA prevalente (per serie)",
     )
+
+    # ── Biomeccanica muscolare ──
+    tensione_per_muscolo: dict[str, float] = Field(
+        default_factory=dict,
+        description=(
+            "Tensione meccanica per gruppo muscolare (kg). "
+            "tonnage × EMG activation coefficient per pattern. "
+            "Schoenfeld 2010, Contreras 2010."
+        ),
+    )
+    tensione_ipertrofica_per_muscolo: dict[str, float] = Field(
+        default_factory=dict,
+        description=(
+            "Tensione ipertrofica per muscolo (kg) — pesata con "
+            "hypertrophy weights (Israetel RP 2020 half-set rule). "
+            "Esclude lavoro sotto soglia EMG 40% MVC."
+        ),
+    )
+
     fonte: str = Field(
-        default="Haff & Triplett (NSCA 2016) cap. 15; McBride et al. (2009)",
+        default=(
+            "Haff & Triplett (NSCA 2016) cap. 15; McBride (2009); "
+            "Schoenfeld (2010) mechanical tension; Contreras (2010) EMG"
+        ),
     )
 
 

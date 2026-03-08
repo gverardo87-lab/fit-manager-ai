@@ -479,11 +479,35 @@ def _build_recovery_overlaps(
 
 def _analyze_tonnage(piano: TemplatePiano) -> AnalisiTonnellaggio | None:
     """
-    Calcola tonnellaggio e intensita' per slot con carico_kg.
+    Analisi biomeccanica volume-load con tensione meccanica per muscolo.
+
+    Due livelli:
+    1. Tonnellaggio grezzo per slot/sessione — Σ(serie × rep × kg)
+    2. Tensione meccanica per muscolo — tonnage × coefficiente EMG
+
+    La tensione meccanica e' il dato biomeccanico reale: quanto carico
+    attraversa ogni gruppo muscolare, pesato per il suo livello di
+    attivazione in ciascun pattern di movimento.
+
+    Formula per muscolo M:
+      tensione[M] = Σ over slots with load:
+          (serie × rep_medie × carico_kg) × contribution[pattern][M]
+
+    Esempio: Squat 100kg × 3s × 10r = 3000 kg tonnellaggio grezzo
+      - Quadricipiti (EMG 1.0): 3000 × 1.0 = 3000 kg tensione meccanica
+      - Glutei (EMG 0.7):       3000 × 0.7 = 2100 kg
+      - Core (EMG 0.4):         3000 × 0.4 = 1200 kg
+      - Polpacci (EMG 0.2):     3000 × 0.2 =  600 kg
+
+    Fonti:
+      - Schoenfeld (2010): tensione meccanica = driver primario ipertrofia
+      - Contreras (2010): coefficienti EMG per pattern
+      - Haff & Triplett (NSCA 2016): definizione volume-load
 
     Ritorna None se nessuno slot ha carico_kg compilato.
     """
-    # Raccoglie slot con carico
+    from .load_model import get_intensity_for_reps
+
     has_load = any(
         slot.carico_kg is not None and slot.carico_kg > 0
         for sessione in piano.sessioni
@@ -495,9 +519,11 @@ def _analyze_tonnage(piano: TemplatePiano) -> AnalisiTonnellaggio | None:
     slot_details: list[TonnellaggioSlotAnalisi] = []
     tonnellaggio_per_sessione: dict[str, float] = {}
     tonnellaggio_totale = 0.0
-
-    # Contatori per zona prevalente
     zone_counts: dict[str, int] = {}
+
+    # Accumulatori tensione muscolare
+    tensione_meccanica: dict[M, float] = {}
+    tensione_ipertrofica: dict[M, float] = {}
 
     for sessione in piano.sessioni:
         session_tonnage = 0.0
@@ -512,16 +538,29 @@ def _analyze_tonnage(piano: TemplatePiano) -> AnalisiTonnellaggio | None:
             session_tonnage += tonnage
             tonnellaggio_totale += tonnage
 
-            # Zona intensita' basata su rep range medio + assunzione RPE 8-9
-            # (senza 1RM individuale, usiamo la tabella NSCA per le rep massimali
-            #  con aggiustamento RIR=1-2 come caso tipico di allenamento)
+            # ── Tensione meccanica per muscolo ──
+            # tonnage × coefficiente EMG = forza meccanica sul muscolo
+            contribution_map = get_contribution(slot.pattern)
+            for muscolo, emg_coeff in contribution_map.items():
+                # Tensione meccanica: tonnage × EMG (tutto il lavoro meccanico)
+                mech = tonnage * emg_coeff
+                tensione_meccanica[muscolo] = (
+                    tensione_meccanica.get(muscolo, 0.0) + mech
+                )
+
+                # Tensione ipertrofica: tonnage × hypertrophy weight
+                # (sconta stabilizzatori sotto soglia EMG 40% MVC)
+                hyp_weight = _get_hypertrophy_weight(emg_coeff)
+                if hyp_weight > 0:
+                    hyp = tonnage * hyp_weight
+                    tensione_ipertrofica[muscolo] = (
+                        tensione_ipertrofica.get(muscolo, 0.0) + hyp
+                    )
+
+            # Zona intensita' — tabella NSCA con RIR=2 assumption
             avg_reps = round(rep_medie)
-            # Tabella NSCA: rep_max → %1RM (failure). RIR 1-2 = -2.5-5%
-            # Usiamo la stima conservativa (RIR=2 → -5%)
-            from .load_model import get_intensity_for_reps
             estimated_pct = get_intensity_for_reps(avg_reps, rir=2.0)
             zona_nome, _ = classify_intensity_zone(estimated_pct)
-
             zone_counts[zona_nome] = zone_counts.get(zona_nome, 0) + slot.serie
 
             slot_details.append(TonnellaggioSlotAnalisi(
@@ -531,13 +570,12 @@ def _analyze_tonnage(piano: TemplatePiano) -> AnalisiTonnellaggio | None:
                 rep_medie=round(rep_medie, 1),
                 carico_kg=slot.carico_kg,
                 tonnellaggio=tonnage,
-                intensita_relativa=None,  # Richiede 1RM individuale
+                intensita_relativa=None,
                 zona_intensita=zona_nome,
             ))
 
         tonnellaggio_per_sessione[sessione.nome] = round(session_tonnage, 1)
 
-    # Zona prevalente (per numero di serie)
     zona_prevalente = None
     if zone_counts:
         zona_prevalente = max(zone_counts, key=zone_counts.get)  # type: ignore[arg-type]
@@ -545,9 +583,15 @@ def _analyze_tonnage(piano: TemplatePiano) -> AnalisiTonnellaggio | None:
     return AnalisiTonnellaggio(
         tonnellaggio_totale=round(tonnellaggio_totale, 1),
         tonnellaggio_per_sessione=tonnellaggio_per_sessione,
-        intensita_media_ponderata=None,  # Richiede 1RM individuali
+        intensita_media_ponderata=None,
         slot_detail=slot_details,
         zona_prevalente=zona_prevalente,
+        tensione_per_muscolo={
+            m.value: round(v, 1) for m, v in tensione_meccanica.items()
+        },
+        tensione_ipertrofica_per_muscolo={
+            m.value: round(v, 1) for m, v in tensione_ipertrofica.items()
+        },
     )
 
 
