@@ -14,6 +14,8 @@ Endpoint:
 Autenticazione JWT obbligatoria (il motore e' una feature del prodotto).
 """
 
+from typing import Optional
+
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlmodel import Session
@@ -185,13 +187,16 @@ def get_load_parameters(
 def get_volume_targets(
     livello: Livello,
     obiettivo: Obiettivo,
+    sesso: Optional[str] = None,
+    eta: Optional[int] = None,
     trainer: Trainer = Depends(get_current_trainer),
 ):
     """
     Target di volume (MEV/MAV/MRV) per tutti i 15 gruppi muscolari.
 
-    I target sono scalati per obiettivo (fattore_volume da principles.py).
-    Fonte: Israetel RP 2020, Schoenfeld 2017, Krieger 2010.
+    I target sono scalati per obiettivo + profilo demografico (sesso/eta').
+    Fonte: Israetel RP 2020, Schoenfeld 2017, Vingren 2010,
+           Hakkinen 2001, Peterson 2011.
     """
-    targets = get_all_volume_targets(livello, obiettivo)
+    targets = get_all_volume_targets(livello, obiettivo, sesso, eta)
     return list(targets.values())

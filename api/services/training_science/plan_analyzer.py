@@ -329,7 +329,7 @@ def _analyze_frequency(
     for muscolo, f in freq.items():
         if f < 2:
             # Muscoli secondari con MEV=0 possono avere freq < 2 senza problemi
-            target = get_scaled_volume_target(muscolo, piano.livello, piano.obiettivo)
+            target = get_scaled_volume_target(muscolo, piano.livello, piano.obiettivo, piano.sesso, piano.eta)
             if target.mev > 0:
                 warnings.append(
                     f"Frequenza bassa: {muscolo.value} stimolato solo {f}x/settimana. "

@@ -46,8 +46,11 @@ from .muscle_contribution import compute_effective_sets
 # L'eta' riduce la capacita' di recupero (Häkkinen 2001) e la risposta
 # anabolica (Peterson 2011). La sarcopenia accelera dopo i 45 anni.
 #
-# Questi fattori scalano solo MAV_min e MAV_max (il range ottimale).
-# MEV e MRV restano invariati: sono soglie fisiologiche assolute.
+# Questi fattori scalano MAV_min, MAV_max e MRV.
+# MEV scala solo per obiettivo (non demografico): lo stimolo minimo
+# e' relativamente universale (Schoenfeld 2017).
+# MRV scala per demografico: la capacita' di recupero e' direttamente
+# influenzata da testosterone e eta' (Hakkinen 2001, Peterson 2011).
 
 _SEX_FACTOR: dict[str, float] = {
     "M": 1.0,   # Maschio — baseline (riferimento letteratura)
@@ -71,7 +74,7 @@ def get_demographic_factor(
     Calcola il fattore di scaling demografico combinato.
 
     Moltiplica sex_factor × age_factor. Se entrambi sono None, ritorna 1.0.
-    Il fattore finale scala MAV_min e MAV_max (non MEV/MRV).
+    Il fattore finale scala MAV_min, MAV_max e MRV.
 
     Esempi:
       Uomo 25 → 1.0 × 1.0 = 1.0
@@ -248,10 +251,13 @@ def get_scaled_volume_target(
     1. fattore_volume (obiettivo): Ipertrofia=1.0, Forza=0.7, Resistenza=0.6
     2. fattore_demografico (sesso × eta'): Donna 50y → 0.85 × 0.85 = 0.72
 
-    Il fattore composto scala MAV_min e MAV_max (il range dove "devi stare").
-    MEV e MRV rimangono invariati (sono soglie fisiologiche assolute):
-    - MEV: sotto questa soglia zero stimolo, indipendente dal sesso/eta'
-    - MRV: oltre questa soglia overtraining, limite fisiologico universale
+    Cosa scala cosa:
+    - MEV: solo fattore obiettivo (lo stimolo minimo e' relativamente universale,
+      ma cambia per tipo di allenamento — Schoenfeld 2017)
+    - MAV_min/MAV_max: fattore obiettivo × fattore demografico (range ottimale)
+    - MRV: fattore obiettivo × fattore demografico (la capacita' di recupero
+      e' direttamente influenzata da testosterone e invecchiamento —
+      Hakkinen 2001, Peterson 2011, Vingren 2010)
 
     Fonti: Israetel RP 2020, Schoenfeld 2017, Vingren 2010,
            Häkkinen 2001, Peterson 2011.
@@ -263,10 +269,10 @@ def get_scaled_volume_target(
 
     return VolumeTarget(
         muscolo=muscolo,
-        mev=base.mev,
+        mev=round(base.mev * obj_factor, 1),
         mav_min=round(base.mav_min * combined, 1),
         mav_max=round(base.mav_max * combined, 1),
-        mrv=base.mrv,
+        mrv=round(base.mrv * combined, 1),
         note=base.note,
     )
 
