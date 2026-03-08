@@ -1072,23 +1072,34 @@ Errori reali trovati e corretti. MAI ripeterli.
 
 ## Tailscale Funnel — Accesso Pubblico al Portale
 
-> **Guida operativa completa**: `docs/TAILSCALE_FUNNEL_SETUP.md`
+> **Guida operativa completa + runbook installazione**: `docs/TAILSCALE_FUNNEL_SETUP.md`
 
 Tailscale Funnel espone il frontend (porta 3000) su internet con HTTPS automatico.
 Il cliente finale apre un link nel browser senza installare nulla.
 
-**URL pubblico**: `https://<nome-macchina>.<tailnet>.ts.net/`
-**Setup attuale**: `https://giacomo.tail8a3bc3.ts.net/` (dev gvera)
+### Metodologia operativa definitiva
 
-**Come funziona**:
-1. `tailscale funnel 3000` — espone il frontend Next.js su HTTPS pubblico
+| Chi | Come accede | URL |
+|-----|-------------|-----|
+| Trainer (PC) | Browser locale | `http://localhost:3000` |
+| Trainer (tablet) | Stesso Wi-Fi o Tailscale VPN | `http://192.168.x.x:3000` o `http://100.x.x.x:3000` |
+| Cliente (anamnesi) | Link monouso WhatsApp | `https://nome.ts.net/public/anamnesi/{token}` |
+
+### Come funziona
+1. `tailscale funnel --bg 3000` — espone il frontend Next.js su HTTPS pubblico (persistente)
 2. Next.js proxya `/api/*` a `localhost:8000` via rewrite (il backend non e' esposto)
 3. `getApiBaseUrl()` rileva HTTPS → usa URL relativi → le chiamate passano dal proxy
 4. Middleware Next.js lascia passare `/api` (nelle `PUBLIC_ROUTES`) — auth JWT nel backend
+5. `PUBLIC_BASE_URL` in `data/.env` → link anamnesi generati con dominio Funnel anche da localhost
 
-**Requisiti admin console**: MagicDNS ON, HTTPS Certificates ON, ACL funnel attribute.
+### Configurazione `data/.env` (richiesta)
+```env
+PUBLIC_PORTAL_ENABLED=true
+PUBLIC_BASE_URL=https://<nome-macchina>.<tailnet>.ts.net
+```
 
-**Persistente**: `tailscale funnel --bg 3000` (sopravvive a riavvii, richiede Tailscale v1.56+).
+### Requisiti admin console Tailscale
+MagicDNS ON, HTTPS Certificates ON, ACL funnel attribute (target: email trainer).
 
 ---
 
@@ -1289,16 +1300,24 @@ Il frontend deduce l'API URL da `window.location` a runtime:
 
 ### Accesso remoto — Tailscale VPN + Funnel
 
-**VPN (Trainer)**: Chiara accede da qualsiasi rete tramite Tailscale (WireGuard P2P).
-- PC gvera: `100.127.28.16` — Tailscale sempre attivo
-- iPad Chiara: stesso account Tailscale
-- Privacy: dati P2P crittografati, zero transito su server terzi
+**3 modalita' di accesso** (tutte coesistono):
 
-**Funnel (Clienti)**: accesso pubblico HTTPS senza installare Tailscale.
-- `tailscale funnel 3000` → `https://giacomo.tail8a3bc3.ts.net/`
-- Persistente: `tailscale funnel --bg 3000` (sopravvive a riavvii)
-- Usato per: link anamnesi WhatsApp, accesso remoto trainer HTTPS
-- Guida completa: `docs/TAILSCALE_FUNNEL_SETUP.md`
+| Modalita' | Chi | Requisito | URL |
+|-----------|-----|-----------|-----|
+| **Locale** | Trainer (PC) | Nulla | `http://localhost:3000` |
+| **LAN** | Trainer (tablet, stesso Wi-Fi) | Stesso Wi-Fi | `http://192.168.x.x:3000` |
+| **VPN** | Trainer (qualsiasi rete) | App Tailscale su tablet | `http://100.x.x.x:3000` |
+| **Funnel** | Cliente finale (anamnesi) | Solo browser | `https://nome.ts.net/public/anamnesi/{token}` |
+
+**VPN (Trainer)**: Tailscale (WireGuard P2P), dati P2P crittografati, zero transito su server terzi.
+**Funnel (Clienti)**: HTTPS pubblico senza installazioni, `tailscale funnel --bg 3000` (persistente).
+
+**Setup attuale (dev gvera)**:
+- PC: `100.127.28.16` (giacomo), LAN: `192.168.1.23`
+- Funnel: `https://giacomo.tail8a3bc3.ts.net/`
+- iPad: `100.77.229.76`, iPhone: `100.116.68.114`
+
+**Guida completa + runbook installazione**: `docs/TAILSCALE_FUNNEL_SETUP.md`
 
 ### Script di gestione (`tools/scripts/`)
 ```bash
@@ -1365,7 +1384,7 @@ Source (Git privato)
     crm.db            Database SQLite
     media/            Foto esercizi
     license.key       JWT firmato RSA
-    .env              Configurazione locale (JWT_SECRET auto-generato)
+    .env              Configurazione locale (JWT_SECRET, PUBLIC_BASE_URL, PUBLIC_PORTAL_ENABLED)
 ```
 
 **Formula porte**: `frontend_port - 3000 + 8000 = backend_port`
@@ -1387,8 +1406,11 @@ Source (Git privato)
 - [x] Smoke test: install → login page funzionante — S3.4 DONE
 - [x] Fix post-smoke-test: path PyInstaller, seed media/relazioni, backup restore — S3.5 DONE
 - [x] Installer testato: install → login → esercizi con foto → backup/restore — 83MB
+- [x] Tailscale Funnel: accesso pubblico HTTPS per anamnesi clienti — DONE
+- [x] PUBLIC_BASE_URL: link anamnesi con dominio Funnel anche da localhost — DONE
+- [x] Runbook installazione cliente: checklist 6 fasi in `docs/TAILSCALE_FUNNEL_SETUP.md` — DONE
 - [ ] `__version__` visibile in UI Impostazioni
-- [ ] Flusso E2E completo: install → licenza → setup → cliente → contratto → agenda
+- [ ] Flusso E2E completo: install → licenza → setup → Tailscale → cliente → anamnesi
 
 Tracking dettagliato: `docs/upgrades/specs/UPG-2026-03-04-06-launch-market-readiness-roadmap.md`
 

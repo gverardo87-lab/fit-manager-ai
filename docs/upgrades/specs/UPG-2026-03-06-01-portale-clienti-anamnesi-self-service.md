@@ -3,7 +3,7 @@
 **Data**: 2026-03-07
 **Branch**: `codex_02`
 **Owner**: Claude Code
-**Stato**: DONE (ruff + next build green, E2E Tailscale testato)
+**Stato**: DONE (ruff + next build green, E2E Tailscale testato, PUBLIC_BASE_URL configurato)
 
 ---
 
