@@ -29,12 +29,13 @@ const nextConfig: NextConfig = {
         source: "/media/:path*",
         destination: `${backendBase}/media/:path*`,
       },
-      // Proxy /api/public/* al backend — indispensabile per Tailscale Funnel.
-      // Il browser chiama URL relativo same-origin, Next.js proxya server-side.
+      // Proxy TUTTE le chiamate /api/* al backend FastAPI.
+      // Indispensabile per Tailscale Funnel: il browser chiama URL relativi
+      // same-origin, Next.js proxya server-side a localhost.
       // Zero CORS, zero mixed content (HTTPS frontend → HTTP backend localhost).
       {
-        source: "/api/public/:path*",
-        destination: `${backendBase}/api/public/:path*`,
+        source: "/api/:path*",
+        destination: `${backendBase}/api/:path*`,
       },
     ];
   },

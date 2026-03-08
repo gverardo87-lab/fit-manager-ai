@@ -1065,6 +1065,30 @@ Errori reali trovati e corretti. MAI ripeterli.
 | Middleware Next.js intercetta prima dei rewrite | `fetch('/api/public/*')` senza cookie JWT viene bloccato dal middleware prima che il rewrite lo proxyi al backend → `307 /login` → client riceve HTML invece di JSON (404 o parse error) | Separare `PUBLIC_ROUTES` (accessibili senza auth) da `AUTH_ONLY_PAGES` (solo le pagine che redirectano utenti autenticati). Aggiungere `/api/public` a `PUBLIC_ROUTES` esplicitamente |
 | Link kiosk generato da localhost inutilizzabile su altri device | `window.location.origin = "http://localhost:3000"` → link non raggiungibile da smartphone su rete diversa | Il trainer deve accedere al CRM via IP LAN o Tailscale quando genera il link. Rilevare `hostname === "localhost"` e mostrare warning amber nel dialog |
 | `alembic upgrade head` su tabella gia' creata da `create_db_and_tables()` | SQLModel crea le tabelle al startup prima di Alembic → migrazione fallisce con "table already exists" | `alembic stamp <revision>` per marcare la migrazione come applicata senza eseguire il DDL |
+| API proxiate via Funnel bloccate dal middleware | Rewrite `/api/*` al backend funziona, ma middleware intercetta prima → 307 /login per chiamate senza cookie JWT (es. login, health) | `/api` aggiunto a `PUBLIC_ROUTES` in middleware.ts. Auth JWT gestita dal backend FastAPI, non dal middleware Next.js |
+| `getApiBaseUrl()` costruisce URL con porta su Funnel | `https://nome.ts.net` → `window.location.port = ""` → `parseInt("") = NaN` → `apiPort = NaN` → chiamate API falliscono | Detect: se HTTPS o no porta esplicita → ritorna `/api` (URL relativo, proxy Next.js). Altrimenti → mapping porta diretto |
+
+---
+
+## Tailscale Funnel — Accesso Pubblico al Portale
+
+> **Guida operativa completa**: `docs/TAILSCALE_FUNNEL_SETUP.md`
+
+Tailscale Funnel espone il frontend (porta 3000) su internet con HTTPS automatico.
+Il cliente finale apre un link nel browser senza installare nulla.
+
+**URL pubblico**: `https://<nome-macchina>.<tailnet>.ts.net/`
+**Setup attuale**: `https://giacomo.tail8a3bc3.ts.net/` (dev gvera)
+
+**Come funziona**:
+1. `tailscale funnel 3000` — espone il frontend Next.js su HTTPS pubblico
+2. Next.js proxya `/api/*` a `localhost:8000` via rewrite (il backend non e' esposto)
+3. `getApiBaseUrl()` rileva HTTPS → usa URL relativi → le chiamate passano dal proxy
+4. Middleware Next.js lascia passare `/api` (nelle `PUBLIC_ROUTES`) — auth JWT nel backend
+
+**Requisiti admin console**: MagicDNS ON, HTTPS Certificates ON, ACL funnel attribute.
+
+**Persistente**: `tailscale funnel --bg 3000` (sopravvive a riavvii, richiede Tailscale v1.56+).
 
 ---
 
@@ -1263,11 +1287,18 @@ Il frontend deduce l'API URL da `window.location` a runtime:
 - Logica: `frontend/src/lib/api-client.ts` → `getApiBaseUrl()`
 - CORS: regex in `api/main.py` accetta localhost, LAN (192.168.x.x), Tailscale (100.x.x.x)
 
-### Accesso remoto — Tailscale VPN
-Chiara accede da **qualsiasi rete** (lavoro, 4G) tramite Tailscale (WireGuard P2P).
+### Accesso remoto — Tailscale VPN + Funnel
+
+**VPN (Trainer)**: Chiara accede da qualsiasi rete tramite Tailscale (WireGuard P2P).
 - PC gvera: `100.127.28.16` — Tailscale sempre attivo
 - iPad Chiara: stesso account Tailscale
 - Privacy: dati P2P crittografati, zero transito su server terzi
+
+**Funnel (Clienti)**: accesso pubblico HTTPS senza installare Tailscale.
+- `tailscale funnel 3000` → `https://giacomo.tail8a3bc3.ts.net/`
+- Persistente: `tailscale funnel --bg 3000` (sopravvive a riavvii)
+- Usato per: link anamnesi WhatsApp, accesso remoto trainer HTTPS
+- Guida completa: `docs/TAILSCALE_FUNNEL_SETUP.md`
 
 ### Script di gestione (`tools/scripts/`)
 ```bash

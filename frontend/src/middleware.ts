@@ -18,8 +18,10 @@ import type { NextRequest } from "next/server";
 // Nome del cookie JWT (deve combaciare con api-client.ts e auth.ts)
 const TOKEN_COOKIE = "fitmanager_token";
 
-// Rotte pubbliche — accessibili senza autenticazione (pagine + API pubbliche)
-const PUBLIC_ROUTES = ["/login", "/register", "/licenza", "/setup", "/public", "/api/public"];
+// Rotte pubbliche — accessibili senza autenticazione (pagine + API pubbliche).
+// /api è incluso perché le API sono proxiate via Next.js rewrite al backend FastAPI
+// che gestisce autonomamente l'auth JWT. Il middleware non deve interferire.
+const PUBLIC_ROUTES = ["/login", "/register", "/licenza", "/setup", "/public", "/api"];
 
 // Rotte da cui ridirigere gli utenti già autenticati (solo pagine auth, non API)
 const AUTH_ONLY_PAGES = ["/login", "/register", "/licenza", "/setup"];

@@ -31,16 +31,28 @@ export const TOKEN_COOKIE = "fitmanager_token";
 /**
  * Deriva l'URL del backend dall'hostname e porta del frontend.
  *
- * Mapping:
- *   http://192.168.1.23:3000  → http://192.168.1.23:8000/api   (LAN casa)
- *   http://100.64.0.1:3000    → http://100.64.0.1:8000/api     (Tailscale)
- *   http://localhost:3001     → http://localhost:8001/api       (dev)
+ * 3 modalita':
+ *   https://giacomo.tail8a3bc3.ts.net  → /api  (Tailscale Funnel — proxy Next.js)
+ *   http://192.168.1.23:3000           → http://192.168.1.23:8000/api  (LAN)
+ *   http://localhost:3001              → http://localhost:8001/api      (dev)
+ *
+ * Logica: se HTTPS o nessuna porta esplicita → siamo dietro un reverse proxy
+ * (Funnel/nginx). Le chiamate passano come URL relativi, Next.js proxya al backend.
+ * Altrimenti: mapping diretto porta frontend → porta backend.
  *
  * Fallback SSR: NEXT_PUBLIC_API_URL (per eventuale server-side rendering).
  */
 function getApiBaseUrl(): string {
   if (typeof window !== "undefined") {
-    const { hostname, port } = window.location;
+    const { protocol, hostname, port } = window.location;
+
+    // Tailscale Funnel / reverse proxy: HTTPS o nessuna porta esplicita
+    // → URL relativo, Next.js rewrite proxya al backend localhost
+    if (protocol === "https:" || !port) {
+      return "/api";
+    }
+
+    // Accesso diretto con porta esplicita (LAN, localhost, Tailscale VPN)
     // Mapping generico: 3000→8000, 3001→8001, 3002→8002, ecc.
     const frontPort = parseInt(port) || 3000;
     const apiPort = frontPort - 3000 + 8000;

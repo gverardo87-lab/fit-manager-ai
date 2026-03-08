@@ -160,8 +160,9 @@ Bottone aggiunto in tutti e 3 gli stati della pagina anamnesi (empty, legacy, st
 
 ## Test E2E Eseguito
 
+### Test 1 — Tailscale VPN (2026-03-07)
 1. Backend su porta 8000 (`crm.db`) + Frontend su porta 3000
-2. Trainer accede via `http://100.127.28.16:3000` (Tailscale)
+2. Trainer accede via `http://100.127.28.16:3000` (Tailscale VPN)
 3. Naviga su profilo cliente → anamnesi → "Invia Questionario"
 4. Genera link → copia URL `http://100.127.28.16:3000/public/anamnesi/{token}`
 5. Apre URL su smartphone (4G roaming via Tailscale) → form visibile
@@ -169,7 +170,23 @@ Bottone aggiunto in tutti e 3 gli stati della pagina anamnesi (empty, legacy, st
 7. Stesso link riaperto → "Link gia' utilizzato"
 8. Profilo cliente nel CRM → anamnesi aggiornata
 
-**Risultato**: Tutto OK. `ruff check api/` + `npx next build` green.
+**Risultato**: OK. Richiede Tailscale installato sullo smartphone (limitante).
+
+### Test 2 — Tailscale Funnel (2026-03-08)
+1. Backend su porta 8000 + Frontend su porta 3000 (production build)
+2. `tailscale funnel 3000` → `https://giacomo.tail8a3bc3.ts.net/`
+3. Da smartphone 4G **senza Tailscale**:
+   - `https://giacomo.tail8a3bc3.ts.net/login` → pagina login visibile
+   - Login con credenziali → accesso completo al CRM via HTTPS
+   - Generazione link anamnesi → URL con dominio `.ts.net`
+   - Cliente compila da qualsiasi browser → dati nel DB locale
+
+**Risultato**: OK. Zero installazioni richieste al cliente. HTTPS automatico.
+
+### Modifiche per Funnel (2026-03-08)
+- `api-client.ts`: `getApiBaseUrl()` rileva HTTPS/no-port → ritorna `/api` (URL relativo)
+- `next.config.ts`: rewrite `/api/:path*` → backend (era solo `/api/public/:path*`)
+- `middleware.ts`: `/api` aggiunto a `PUBLIC_ROUTES` (il middleware non blocca piu' le API proxiate)
 
 ---
 
@@ -181,3 +198,11 @@ PUBLIC_PORTAL_ENABLED=true
 ```
 
 Default: `false`. Attivare esplicitamente in `data/.env` per abilitare il portale.
+
+---
+
+## Documentazione Collegata
+
+- **Setup completo Funnel**: `docs/TAILSCALE_FUNNEL_SETUP.md`
+- **ADR architetturale**: `docs/adr/0001-client-portal-tailscale-funnel.md` (branch `arch-client-portal-tailscale-*`)
+- **Pitfalls**: root `CLAUDE.md` sezione Pitfalls (middleware, localhost, API proxy)
