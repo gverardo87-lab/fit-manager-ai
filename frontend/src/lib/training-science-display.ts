@@ -1,4 +1,14 @@
-import type { TSAnalisiPiano, TSAnalisiVolume } from "@/types/api";
+import type { TSAnalisiPiano, TSAnalisiVolume, TSPattern } from "@/types/api";
+
+/**
+ * Pattern di movimento validi per il Training Science Engine.
+ * Unica fonte frontend — importare da qui, mai duplicare.
+ */
+export const VALID_PATTERNS = new Set<TSPattern>([
+  "push_h", "push_v", "squat", "hinge", "pull_h", "pull_v", "core", "rotation", "carry",
+  "hip_thrust", "curl", "extension_tri", "lateral_raise", "face_pull",
+  "calf_raise", "leg_curl", "leg_extension", "adductor",
+]);
 
 export type BackendVolumeStatusKey = "deficit" | "suboptimal" | "optimal" | "excess";
 

@@ -36,7 +36,7 @@ import {
   type BiomechanicalVariety,
   type SafetyBreakdown,
 } from "@/lib/smart-programming";
-import { getBackendVolumeCounts, mapBackendVolumeStatus } from "@/lib/training-science-display";
+import { getBackendVolumeCounts, mapBackendVolumeStatus, VALID_PATTERNS } from "@/lib/training-science-display";
 import { useAnalyzePlan } from "@/hooks/useTrainingScience";
 import { ProtocolSection, FeasibilitySection, ConstraintSection } from "./SmartProtocolSection";
 import type {
@@ -84,12 +84,6 @@ const LIVELLO_MAP: Record<string, TSLevel> = {
 
 const VALID_OBIETTIVI = new Set<TSObjective>([
   "forza", "ipertrofia", "resistenza", "dimagrimento", "tonificazione",
-]);
-
-const VALID_PATTERNS = new Set<TSPattern>([
-  "push_h", "push_v", "squat", "hinge", "pull_h", "pull_v", "core", "rotation", "carry",
-  "hip_thrust", "curl", "extension_tri", "lateral_raise", "face_pull",
-  "calf_raise", "leg_curl", "leg_extension", "adductor",
 ]);
 
 function buildTemplatePiano(
@@ -183,9 +177,9 @@ const STATUS_COLORS = {
     bar: "bg-red-500",
   },
   suboptimal: {
-    bg: "bg-sky-100 dark:bg-sky-950/40",
-    text: "text-sky-700 dark:text-sky-400",
-    bar: "bg-sky-500",
+    bg: "bg-blue-100 dark:bg-blue-950/40",
+    text: "text-blue-700 dark:text-blue-400",
+    bar: "bg-blue-500",
   },
   optimal: {
     bg: "bg-emerald-100 dark:bg-emerald-950/40",

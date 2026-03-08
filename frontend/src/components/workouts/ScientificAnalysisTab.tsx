@@ -18,6 +18,7 @@ import { useMemo, useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
 
 import { useAnalyzePlan } from "@/hooks/useTrainingScience";
+import { VALID_PATTERNS } from "@/lib/training-science-display";
 import { MuscleCoverageSection } from "./MuscleCoverageSection";
 import { BiomechanicalBalance } from "./BiomechanicalBalance";
 import { ClinicalSafetySection } from "./ClinicalSafetySection";
@@ -67,11 +68,6 @@ const VALID_OBIETTIVI = new Set<TSObjective>([
   "forza", "ipertrofia", "resistenza", "dimagrimento", "tonificazione",
 ]);
 
-const VALID_PATTERNS = new Set<TSPattern>([
-  "push_h", "push_v", "squat", "hinge", "pull_h", "pull_v", "core", "rotation", "carry",
-  "hip_thrust", "curl", "extension_tri", "lateral_raise", "face_pull",
-  "calf_raise", "leg_curl", "leg_extension", "adductor",
-]);
 
 function computeAge(dataNascita: string | null | undefined): number | null {
   if (!dataNascita) return null;

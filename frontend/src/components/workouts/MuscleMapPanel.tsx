@@ -245,7 +245,7 @@ export function MuscleMapPanel({
                     {isStatusMode ? "Ottimale" : "Primari"}
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className={`inline-block h-2.5 w-2.5 rounded-full ${isStatusMode ? "bg-sky-500" : "bg-teal-200 dark:bg-teal-700"}`} />
+                    <span className={`inline-block h-2.5 w-2.5 rounded-full ${isStatusMode ? "bg-blue-500" : "bg-teal-200 dark:bg-teal-700"}`} />
                     {isStatusMode ? "Sub-ottimale" : "Secondari"}
                   </span>
                   {isStatusMode && (

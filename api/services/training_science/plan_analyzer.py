@@ -42,7 +42,7 @@ from .muscle_contribution import (
     get_contribution,
     _get_hypertrophy_weight,
 )
-from .volume_model import get_scaled_volume_target, classify_volume
+from .volume_model import get_scaled_volume_target, classify_volume, get_demographic_factor
 from .balance_ratios import analyze_balance as _analyze_balance, BALANCE_RATIOS
 from .load_model import compute_tonnage, classify_intensity_zone
 
@@ -55,9 +55,12 @@ from .load_model import compute_tonnage, classify_intensity_zone
 # Se due sessioni consecutive sollecitano gli stessi muscoli
 # con volume significativo, c'e' rischio di recupero incompleto.
 #
-# Soglia: se un muscolo riceve >= 3 serie effettive in entrambe
-# le sessioni consecutive, genera un warning di recupero.
-_RECOVERY_OVERLAP_THRESHOLD = 3.0
+# Logica cumulativa: un muscolo e' a rischio se riceve almeno
+# 2 serie in CIASCUNA sessione E il totale cumulativo >= 5 serie.
+# Questo cattura casi come tricipiti 3.5 + 2.0 = 5.5 serie in 48h
+# che la vecchia soglia per-sessione (>= 3 in entrambe) mancava.
+_RECOVERY_MIN_PER_SESSION = 2.0   # minimo per sessione per essere rilevante
+_RECOVERY_CUMULATIVE_THRESHOLD = 5.0  # totale cumulativo a rischio
 
 
 def analyze_plan(
@@ -90,7 +93,7 @@ def analyze_plan(
     # 2. Analisi Bilanciamento (pesata per carico se disponibile)
     balance_analysis = _analyze_plan_balance(piano, warnings, weights)
 
-    # 3. Analisi Frequenza
+    # 3. Analisi Frequenza (demografica-aware)
     freq = _analyze_frequency(piano, warnings)
 
     # 4. Analisi Recupero
@@ -255,6 +258,35 @@ def _analyze_volume(
                 f"Fonte: Israetel RP 2020."
             )
 
+    # Check muscoli MEV=0 con zero volume: il volume indiretto atteso
+    # dai compound potrebbe mancare se il piano non include quei pattern.
+    # Esempio: delt_ant (MEV=0) assume push_h/push_v presenti.
+    _MEV0_COMPOUND_DEPS: dict[M, list[str]] = {
+        M.DELT_ANT: ["push_h", "push_v"],
+        M.DELT_POST: ["pull_h", "pull_v"],
+        M.GLUTEI: ["hinge", "squat"],
+        M.TRAPEZIO: ["pull_h", "hinge"],
+        M.CORE: ["squat", "hinge", "carry"],
+        M.AVAMBRACCI: ["pull_h", "pull_v", "carry"],
+        M.ADDUTTORI: ["squat"],
+    }
+    plan_patterns = {slot.pattern for sessione in piano.sessioni for slot in sessione.slots}
+    for muscolo, deps in _MEV0_COMPOUND_DEPS.items():
+        target = get_scaled_volume_target(
+            muscolo, piano.livello, piano.obiettivo, sesso, eta,
+        )
+        if target.mev > 0:
+            continue  # non e' un muscolo MEV=0
+        serie = round(hypertrophy.get(muscolo, 0.0), 1)
+        if serie == 0:
+            missing = [d for d in deps if P(d) not in plan_patterns]
+            if missing:
+                warnings.append(
+                    f"Copertura indiretta assente: {muscolo.value} (MEV=0) riceve "
+                    f"zero stimolo perche' mancano i compound attesi "
+                    f"({', '.join(missing)}). Valuta di aggiungere almeno un esercizio."
+                )
+
     return AnalisiVolume(
         per_muscolo=per_muscolo,
         volume_totale_settimana=round(volume_totale, 1),
@@ -306,14 +338,21 @@ def _analyze_frequency(
     Conta quante sessioni stimolano ogni muscolo.
 
     Un muscolo e' considerato "stimolato" in una sessione se riceve
-    >= 2 serie effettive (soglia minima per contare come stimolo,
-    Krieger 2010).
+    serie ipertrofiche >= soglia minima scalata per profilo demografico.
+
+    Soglia base: 2.0 serie (Krieger 2010).
+    La soglia scala con il fattore demografico: una donna 50y con
+    fattore 0.72 ha soglia 1.44, riflettendo la minore responsivita'
+    allo stimolo (Hakkinen 2001, Peterson 2011).
 
     Fonte: Schoenfeld 2016 — freq >= 2x/settimana superiore a 1x
     per ipertrofia.
     """
     freq: dict[M, int] = {m: 0 for m in M}
-    min_series_for_stimulus = 2.0
+
+    # Soglia minima scalata per profilo demografico
+    demo_factor = get_demographic_factor(piano.sesso, piano.eta)
+    min_series_for_stimulus = 2.0 * demo_factor
 
     for sessione in piano.sessioni:
         session_slots: list[tuple[P, int]] = [
@@ -329,7 +368,9 @@ def _analyze_frequency(
     for muscolo, f in freq.items():
         if f < 2:
             # Muscoli secondari con MEV=0 possono avere freq < 2 senza problemi
-            target = get_scaled_volume_target(muscolo, piano.livello, piano.obiettivo, piano.sesso, piano.eta)
+            target = get_scaled_volume_target(
+                muscolo, piano.livello, piano.obiettivo, piano.sesso, piano.eta,
+            )
             if target.mev > 0:
                 warnings.append(
                     f"Frequenza bassa: {muscolo.value} stimolato solo {f}x/settimana. "
@@ -372,7 +413,11 @@ def _analyze_recovery(
         for muscolo in M:
             a = vol_a.get(muscolo, 0.0)
             b = vol_b.get(muscolo, 0.0)
-            if a >= _RECOVERY_OVERLAP_THRESHOLD and b >= _RECOVERY_OVERLAP_THRESHOLD:
+            if (
+                a >= _RECOVERY_MIN_PER_SESSION
+                and b >= _RECOVERY_MIN_PER_SESSION
+                and a + b >= _RECOVERY_CUMULATIVE_THRESHOLD
+            ):
                 overlap_muscles.append(muscolo.value)
 
         if overlap_muscles:
@@ -731,7 +776,22 @@ def _compute_score(
     Ogni componente ha un peso preciso e trasparente.
     Il punteggio e' DETERMINATO dai dati — zero soggettivita'.
     """
-    total_muscles = len(volume.per_muscolo)
+    # ── Importanza muscolare ──
+    # I muscoli primari (grandi gruppi motori) pesano di piu' nel punteggio
+    # rispetto ai muscoli accessori. Fonte: NSCA 2016 cap. 17 — i compound
+    # multi-articolari sui grandi gruppi sono il fondamento di ogni programma.
+    #
+    # Tier 1 (1.0): grandi gruppi motori — petto, dorsali, quadricipiti, femorali
+    # Tier 2 (0.7): medi — deltoidi, glutei, bicipiti, tricipiti
+    # Tier 3 (0.4): accessori — trapezio, core, polpacci, avambracci, adduttori
+    _MUSCLE_IMPORTANCE: dict[M, float] = {
+        M.PETTO: 1.0, M.DORSALI: 1.0, M.QUADRICIPITI: 1.0, M.FEMORALI: 1.0,
+        M.DELT_ANT: 0.7, M.DELT_LAT: 0.7, M.DELT_POST: 0.7,
+        M.GLUTEI: 0.7, M.BICIPITI: 0.7, M.TRICIPITI: 0.7,
+        M.TRAPEZIO: 0.4, M.CORE: 0.4, M.POLPACCI: 0.4,
+        M.AVAMBRACCI: 0.4, M.ADDUTTORI: 0.4,
+    }
+    total_importance = sum(_MUSCLE_IMPORTANCE.get(v.muscolo, 0.5) for v in volume.per_muscolo)
 
     # Volume coverage (40 punti)
     # Peso differenziato per qualita' della copertura:
@@ -748,10 +808,10 @@ def _compute_score(
         "sopra_mrv": 0.0,
     }
     covered = sum(
-        _COVERAGE_WEIGHT.get(v.stato, 0.0)
+        _COVERAGE_WEIGHT.get(v.stato, 0.0) * _MUSCLE_IMPORTANCE.get(v.muscolo, 0.5)
         for v in volume.per_muscolo
     )
-    volume_score = (covered / total_muscles) * 40 if total_muscles > 0 else 0
+    volume_score = (covered / total_importance) * 40 if total_importance > 0 else 0
 
     # Balance (25 punti)
     total_ratios = len(balance.rapporti)

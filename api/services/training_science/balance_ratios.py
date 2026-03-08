@@ -39,8 +39,10 @@ BALANCE_RATIOS: list[RapportoBiomeccanico] = [
         numeratore=["push_h"],
         denominatore=["push_v"],
         target=1.5,
-        tolleranza=0.30,
-        fonte="Pratica clinica — petto e spalle bilanciati",
+        tolleranza=0.40,
+        fonte="Schoenfeld 2020 — distribuzione push tra piano sagittale e frontale. "
+        "Tolleranza ampia: l'evidenza su rapporto ottimale e' limitata, "
+        "il target 1.5 riflette la maggiore massa muscolare del petto vs deltoidi (NSCA 2016)",
     ),
     RapportoBiomeccanico(
         nome="Pull Orizz : Pull Vert",
