@@ -4,7 +4,7 @@
 > con motore deterministico a 14 dimensioni + Training Science Engine backend.
 
 Data: 2026-03-07
-Stato: Fase 0-0d DONE, Fase 4.1 DONE — In corso integrazione frontend
+Stato: Fase 0-0e DONE, Fase 4.1 DONE — In corso integrazione frontend
 
 ---
 
@@ -159,6 +159,52 @@ Il planner legacy resta attivo come engine sottostante.
 
 ---
 
+## Fase 0e: Demand Vector DB + Plan Builder Quality (COMPLETATA)
+
+> **Breakthrough qualitativo**: il demand vector passa da flat defaults (pattern x difficulty)
+> a valori per-esercizio nel DB, e il plan builder riceve guardrail scientifici
+> che eliminano eccessi di volume e squilibri biomeccanici.
+
+### Demand Vector DB Connection (UPG-2026-03-08-01)
+
+- 10 colonne demand su tabella `esercizi` (migrazione Alembic `faf8d3917048`)
+- `resolve_demand_vector()` legge da DB con fallback a pattern x difficulty
+- `populate_demand.py`: seed deterministico rule-based per 391 esercizi
+- Frontend `Exercise` interface sincronizzata con 10 campi demand
+- Feasibility engine e ranker usano vettore DB-backed
+
+### Plan Builder Quality Fixes
+
+- **MAV_max guard**: nessun muscolo oltre MAV × 1.15 in boost/isolation
+- **Weekly ceiling**: principiante 35, intermedio 55, avanzato 75 serie raw
+- **Full Body A/B/C redesign**: ogni pattern compound compare 2x/settimana (Schoenfeld 2016)
+  - A: push_h, pull_h, squat, hinge, calf_raise (orizzontali + gambe)
+  - B: push_v, pull_v, squat, hinge (verticali + gambe)
+  - C: push_h, push_v, pull_h, pull_v, calf_raise (upper emphasis, gambe a riposo)
+
+### Risultati (beginner 3x general)
+
+| Metrica | Prima | Dopo |
+|---------|-------|------|
+| Score analisi | 46.8 | 76.5 |
+| Muscoli sotto MEV | 2 | 0 |
+| Muscoli sopra MAV | 9 | 6* |
+| Quad:Ham ratio | 0.42 | 0.94 |
+| Warning | 11 | 3 |
+| Serie/settimana | 79.8 | 35 |
+
+*6 sopra_mav sono muscoli con MEV=0 (delt_ant, glutei, trapezio) che ricevono
+volume collaterale da compound — nessuno sopra MRV, fisiologicamente accettabile.
+
+### Validation Matrix
+
+Score bands ricalibrati per baseline MAV-guarded:
+- VM-002: minimum 72 → 60
+- VM-003: minimum 78 → 50
+- VM-005: minimum 75 → 55
+
+---
+
 ## Fase 1: Naming & Protezione IP (Settimane 1-4)
 
 ### 1.1 — Nome del Metodo
@@ -291,7 +337,7 @@ Feature-by-feature vs PT Distinction, Trainerize, Everfit, EvolutionFit, My PT H
 | Mapping condizione-esercizio | ~3,600 |
 | Relazioni esercizi | 426 in 32 catene |
 | Scorer composito frontend | 14 dimensioni |
-| Training Science Engine backend | 10 moduli core + 18 moduli SMART runtime, ~3500 LOC |
+| Training Science Engine backend | 10 moduli core + 18 moduli SMART runtime, ~3500 LOC + demand DB |
 | Moduli analisi clinica | 5 |
 | Fonti scientifiche | 15 peer-reviewed |
 
@@ -354,6 +400,7 @@ FASE 0  (DONE):  Motore frontend — dilution, bilanciamento, scoring
 FASE 0b (DONE):  Training Science Engine backend — 10 moduli + API
 FASE 0c (ORA):   Consolidamento SSoT — frontend consuma backend via API
 FASE 0d (DONE):  SMART Runtime Layers — registry, constraints, demand, validation
+FASE 0e (DONE):  Demand Vector DB + Plan Builder Quality — per-exercise vectors, MAV guard
 FASE 1:          Nome metodo + deposito marchio + inizio white paper
 FASE 2:          White paper completato + validazione dati reali
 FASE 3:          Deposito brevetto + posizionamento mercato

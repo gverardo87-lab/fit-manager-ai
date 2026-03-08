@@ -3,10 +3,11 @@
 > *"Un esercizio non e' solo pattern e muscolo.
 > E' anche coordinazione, skill, impatto, carico assiale e costo tessutale."*
 
-**Data**: 2026-03-07  
-**Stato**: ANALYSIS SPEC  
-**Ambito**: SMART backend, KineScore, Protocol Engine, Exercise Suitability  
+**Data**: 2026-03-07
+**Stato**: IMPLEMENTED (DB-backed, UPG-2026-03-08-01)
+**Ambito**: SMART backend, KineScore, Protocol Engine, Exercise Suitability
 **Dipende da**: `UPG-2026-03-07-55`, `UPG-2026-03-07-56`, `UPG-2026-03-07-57`, `UPG-2026-03-07-58`
+**Implementato in**: `api/models/exercise.py` (10 colonne), `api/services/training_science/runtime/exercise_catalog.py` (`resolve_demand_vector()`), `tools/admin_scripts/populate_demand.py` (seed 391 esercizi)
 
 ---
 

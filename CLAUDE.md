@@ -394,13 +394,23 @@ File chiave: `api/services/training_science/` (10 moduli core), `api/routers/tra
 |-----------|------|-----------------|
 | `registry/` | 5 file | 6 protocolli PRT-001..006 + evidence anchors + selettore deterministico |
 | `constraints/` | 3 file | Constraint adapter read-only: valuta piano vs vincoli protocollo |
-| `demand/` | 4 file | Vettore biomeccanico 10D (18 pattern x 3 diff) + 6 ceiling + policy engine |
-| `runtime/` | +3 file | Feasibility engine + validation metadata + mappings |
+| `demand/` | 4 file | Vettore biomeccanico 10D, DB-backed (10 colonne su `esercizi`) + 6 ceiling + policy engine |
+| `runtime/` | +3 file | Feasibility engine + validation metadata + mappings + exercise_catalog + exercise_ranker |
 | `validation/` | 3 file | 6 benchmark (VM-001..006) + 22 check functions + runner |
 
 Strategia: adapter-first / strangler pattern. Il planner legacy resta engine sottostante.
 Ogni layer entra read-only, poi diventa runtime dependency.
 Phase F (sostituzione legacy) deferred fino a matrice verde su dati reali.
+
+**Demand Vector DB** (Phase 0e, UPG-2026-03-08-01):
+- 10 colonne demand su tabella `esercizi` (`skill_demand`..`metabolic_demand`, scala 0..4)
+- `resolve_demand_vector()` legge da DB con fallback a pattern x difficulty
+- `populate_demand.py`: seed deterministico rule-based per 391 esercizi
+
+**Plan Builder Quality Fixes** (Phase 0e):
+- MAV_max guard: nessun muscolo oltre MAV × 1.15 in boost/isolation
+- Weekly ceiling: principiante 35, intermedio 55, avanzato 75 serie raw
+- Full Body A/B/C: ogni pattern compound 2x/settimana (Schoenfeld 2016)
 
 Spec: `UPG-2026-03-07-64` (Runtime Translation Plan), `UPG-65..70` (implementazione).
 
