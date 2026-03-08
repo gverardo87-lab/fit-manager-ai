@@ -759,6 +759,15 @@ export interface ClinicalReadinessWorklistResponse {
 // TRAINING METHODOLOGY — MyTrainer (api/schemas/training_methodology.py)
 // ════════════════════════════════════════════════════════════
 
+/** Compliance per singola sessione di un piano */
+export interface SessionComplianceItem {
+  session_id: number;
+  session_name: string;
+  expected: number;
+  completed: number;
+  compliance_pct: number;
+}
+
 /** Singolo piano nella worklist MyTrainer */
 export interface TrainingMethodologyPlanItem {
   plan_id: number;
@@ -782,6 +791,9 @@ export interface TrainingMethodologyPlanItem {
   compliance_pct: number;
   sessions_expected: number;
   sessions_completed: number;
+  session_compliance: SessionComplianceItem[];
+  worst_session_name: string | null;
+  session_imbalance: boolean;
   training_score: number;
   priority: string;
   priority_score: number;

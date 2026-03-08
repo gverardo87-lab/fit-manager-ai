@@ -11,6 +11,16 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 
 
+class SessionComplianceItem(BaseModel):
+    """Compliance per singola sessione di un piano."""
+
+    session_id: int
+    session_name: str
+    expected: int = 0
+    completed: int = 0
+    compliance_pct: int = Field(default=0, ge=0, le=100)
+
+
 class TrainingMethodologyPlanItem(BaseModel):
     """Singolo piano nella worklist MyTrainer."""
 
@@ -45,6 +55,20 @@ class TrainingMethodologyPlanItem(BaseModel):
     compliance_pct: int = Field(default=0, ge=0, le=100, description="Aderenza 0-100%")
     sessions_expected: int = Field(default=0, description="Sessioni attese nel periodo")
     sessions_completed: int = Field(default=0, description="Sessioni completate")
+
+    # ── Compliance per sessione ──
+    session_compliance: List[SessionComplianceItem] = Field(
+        default_factory=list,
+        description="Breakdown compliance per singola sessione",
+    )
+    worst_session_name: Optional[str] = Field(
+        default=None,
+        description="Nome sessione piu' saltata (compliance piu' bassa)",
+    )
+    session_imbalance: bool = Field(
+        default=False,
+        description="True se gap compliance tra sessioni > 30pp",
+    )
 
     # ── Score combinato ──
     training_score: int = Field(

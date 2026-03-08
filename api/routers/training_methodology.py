@@ -24,6 +24,7 @@ from api.models.trainer import Trainer
 from api.models.workout import WorkoutExercise, WorkoutPlan, WorkoutSession
 from api.models.workout_log import WorkoutLog
 from api.schemas.training_methodology import (
+    SessionComplianceItem,
     TrainingMethodologyPlanItem,
     TrainingMethodologySummary,
     TrainingMethodologyWorklistResponse,
@@ -120,6 +121,7 @@ def _compute_priority(
     compliance_pct: int,
     plan_status: str,
     analyzable: bool,
+    session_imbalance: bool = False,
 ) -> tuple[str, int]:
     """
     Calcola priorita' e priority_score deterministico.
@@ -145,6 +147,10 @@ def _compute_priority(
         score += 40
     elif compliance_pct < 70 and plan_status == "attivo":
         score += 15
+
+    # Sessioni saltate sistematicamente → segnale di squilibrio esecutivo
+    if session_imbalance and plan_status == "attivo":
+        score += 20
 
     if score >= 70:
         return "high", score
@@ -183,6 +189,13 @@ def _compute_cta(
             "fix_balance",
             "Correggi equilibrio",
             f"/schede/{item.plan_id}",
+        )
+
+    if item.session_imbalance and item.status == "attivo":
+        return (
+            "fix_imbalance",
+            "Sessioni sbilanciate",
+            f"/allenamenti?idCliente={item.client_id}",
         )
 
     if item.compliance_pct < 50 and item.status == "attivo":
@@ -283,19 +296,27 @@ def _compute_training_methodology_data(
         ).all()
         exercise_catalog = {r.id: r for r in refs}
 
-    # 6. Log allenamenti raggruppati per piano (batch)
+    # 6. Log allenamenti raggruppati per (piano, sessione) (batch)
+    # Struttura: {plan_id: {session_id: count}}
+    log_by_plan_session: dict[int, dict[int, int]] = {}
     log_counts: dict[int, int] = {}
     if plan_ids:
         log_rows = session.exec(
             select(
                 WorkoutLog.id_scheda,
+                WorkoutLog.id_sessione,
                 func.count(WorkoutLog.id),
             )
-            .where(WorkoutLog.id_scheda.in_(plan_ids))
-            .group_by(WorkoutLog.id_scheda)
+            .where(
+                WorkoutLog.id_scheda.in_(plan_ids),
+                WorkoutLog.deleted_at.is_(None),  # type: ignore[union-attr]
+            )
+            .group_by(WorkoutLog.id_scheda, WorkoutLog.id_sessione)
         ).all()
         for row in log_rows:
-            log_counts[row[0]] = row[1]
+            pid, sid, cnt = row[0], row[1], row[2]
+            log_by_plan_session.setdefault(pid, {})[sid] = cnt
+            log_counts[pid] = log_counts.get(pid, 0) + cnt
 
     # ── Build items ──
     items: list[TrainingMethodologyPlanItem] = []
@@ -356,18 +377,52 @@ def _compute_training_methodology_data(
                 )
                 analyzable = False
 
-        # Compliance
+        # Compliance aggregata
         lc = log_counts.get(plan.id, 0)
         expected, completed, compliance_pct = _compute_compliance(
             plan, plan_status, lc
         )
+
+        # Compliance per sessione
+        session_logs = log_by_plan_session.get(plan.id, {})
+        sess_compliance_items: list[SessionComplianceItem] = []
+        if plan_sessions and plan_status != "da_attivare":
+            # expected_per_session: quante volte OGNI sessione avrebbe dovuto
+            # essere eseguita (settimane trascorse o totali)
+            weeks = expected // max(1, len(plan_sessions)) if expected > 0 else 0
+            for ps in plan_sessions:
+                sc = session_logs.get(ps.id, 0)
+                sp = min(100, round((sc / weeks) * 100)) if weeks > 0 else 0
+                sess_compliance_items.append(
+                    SessionComplianceItem(
+                        session_id=ps.id,
+                        session_name=ps.nome_sessione,
+                        expected=weeks,
+                        completed=sc,
+                        compliance_pct=sp,
+                    )
+                )
+
+        # Sessione piu' saltata + imbalance
+        worst_session_name = None
+        session_imbalance = False
+        if len(sess_compliance_items) >= 2:
+            by_pct = sorted(sess_compliance_items, key=lambda s: s.compliance_pct)
+            worst = by_pct[0]
+            best = by_pct[-1]
+            if worst.compliance_pct < best.compliance_pct:
+                worst_session_name = worst.session_name
+            # Gap > 30 punti percentuali = squilibrio aderenza tra sessioni
+            if best.compliance_pct - worst.compliance_pct > 30:
+                session_imbalance = True
 
         # Training score combinato
         training_score = round(science_score * 0.6 + compliance_pct * 0.4)
 
         # Priorita'
         priority, priority_score = _compute_priority(
-            science_score, compliance_pct, plan_status, analyzable
+            science_score, compliance_pct, plan_status, analyzable,
+            session_imbalance=session_imbalance,
         )
 
         item = TrainingMethodologyPlanItem(
@@ -396,6 +451,9 @@ def _compute_training_methodology_data(
             priority=priority,
             priority_score=priority_score,
             analyzable=analyzable,
+            session_compliance=sess_compliance_items,
+            worst_session_name=worst_session_name,
+            session_imbalance=session_imbalance,
         )
 
         # CTA

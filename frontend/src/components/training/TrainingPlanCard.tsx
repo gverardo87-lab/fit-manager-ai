@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   TrendingDown,
   Scale,
+  SkipForward,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -182,8 +183,46 @@ export function TrainingPlanCard({ item }: TrainingPlanCardProps) {
         </div>
       )}
 
+      {/* Per-session compliance breakdown */}
+      {item.session_compliance.length >= 2 && item.status !== "da_attivare" && (
+        <div className="mt-2.5 space-y-1">
+          <p className="text-[10px] font-medium text-muted-foreground">
+            Aderenza per sessione
+          </p>
+          {item.session_compliance.map((sc) => {
+            const barColor =
+              sc.compliance_pct >= 70
+                ? "bg-emerald-400"
+                : sc.compliance_pct >= 40
+                  ? "bg-amber-400"
+                  : "bg-red-400";
+            const isWorst =
+              item.session_imbalance &&
+              sc.session_name === item.worst_session_name;
+            return (
+              <div key={sc.session_id} className="flex items-center gap-1.5">
+                <span
+                  className={`w-20 shrink-0 truncate text-[10px] ${isWorst ? "font-semibold text-red-600 dark:text-red-400" : "text-muted-foreground"}`}
+                >
+                  {sc.session_name}
+                </span>
+                <div className="h-1 flex-1 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+                    style={{ width: `${sc.compliance_pct}%` }}
+                  />
+                </div>
+                <span className="w-6 text-right text-[10px] tabular-nums text-muted-foreground">
+                  {sc.completed}/{sc.expected}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Issue indicators */}
-      {hasIssues && item.analyzable && (
+      {(hasIssues || item.session_imbalance) && item.analyzable && (
         <div className="mt-2.5 flex flex-wrap gap-1.5">
           {item.sotto_mev_count > 0 && (
             <div className="flex items-center gap-1 rounded-md bg-red-50 px-2 py-0.5 dark:bg-red-950/30">
@@ -206,6 +245,14 @@ export function TrainingPlanCard({ item }: TrainingPlanCardProps) {
               <AlertTriangle className="h-3 w-3 text-orange-500" />
               <span className="text-[10px] font-medium text-orange-700 dark:text-orange-300">
                 {item.warning_count} warning
+              </span>
+            </div>
+          )}
+          {item.session_imbalance && item.worst_session_name && (
+            <div className="flex items-center gap-1 rounded-md bg-violet-50 px-2 py-0.5 dark:bg-violet-950/30">
+              <SkipForward className="h-3 w-3 text-violet-500" />
+              <span className="text-[10px] font-medium text-violet-700 dark:text-violet-300">
+                {item.worst_session_name} saltata
               </span>
             </div>
           )}
