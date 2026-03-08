@@ -28,6 +28,8 @@ export interface OnboardingStep {
   completed: boolean;
   href: string;
   icon: LucideIcon;
+  /** Se presente, il click esegue questa azione invece di navigare a href. */
+  onAction?: () => void;
 }
 
 interface OnboardingContext {

@@ -64,26 +64,7 @@ export function OnboardingChecklist({ steps }: OnboardingChecklistProps) {
       {/* ── Hero CTA — prossimo step ── */}
       {nextStep && (
         <div className="px-5 pb-4">
-          <Link href={nextStep.href} className="group block">
-            <div className={`relative overflow-hidden rounded-xl border ${nextColor.ring} ring-1 ring-inset ${nextColor.heroBg} p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md`}>
-              <div className="flex items-center gap-4">
-                <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${nextColor.bg}`}>
-                  <nextStep.icon className={`h-6 w-6 ${nextColor.text}`} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Prossimo passo
-                  </p>
-                  <p className="text-base font-bold tracking-tight">{nextStep.label}</p>
-                  <p className="text-xs text-muted-foreground">{nextStep.description}</p>
-                </div>
-                <Button size="sm" className="shrink-0 gap-1.5 shadow-sm">
-                  Inizia
-                  <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-                </Button>
-              </div>
-            </div>
-          </Link>
+          <HeroCard step={nextStep} color={nextColor} />
         </div>
       )}
 
@@ -105,6 +86,44 @@ export function OnboardingChecklist({ steps }: OnboardingChecklistProps) {
         </div>
       </div>
     </div>
+  );
+}
+
+function HeroCardInner({ step, color }: { step: OnboardingStep; color: typeof STEP_COLORS[number] }) {
+  return (
+    <div className={`relative overflow-hidden rounded-xl border ${color.ring} ring-1 ring-inset ${color.heroBg} p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md`}>
+      <div className="flex items-center gap-4">
+        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${color.bg}`}>
+          <step.icon className={`h-6 w-6 ${color.text}`} />
+        </div>
+        <div className="min-w-0 flex-1 text-left">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Prossimo passo
+          </p>
+          <p className="text-base font-bold tracking-tight">{step.label}</p>
+          <p className="text-xs text-muted-foreground">{step.description}</p>
+        </div>
+        <Button size="sm" className="shrink-0 gap-1.5 shadow-sm">
+          Inizia
+          <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function HeroCard({ step, color }: { step: OnboardingStep; color: typeof STEP_COLORS[number] }) {
+  if (step.onAction) {
+    return (
+      <button type="button" onClick={step.onAction} className="group block w-full text-left">
+        <HeroCardInner step={step} color={color} />
+      </button>
+    );
+  }
+  return (
+    <Link href={step.href} className="group block">
+      <HeroCardInner step={step} color={color} />
+    </Link>
   );
 }
 

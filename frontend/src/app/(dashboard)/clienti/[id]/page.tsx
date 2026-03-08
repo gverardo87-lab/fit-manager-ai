@@ -27,6 +27,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClientProfileHeader } from "@/components/clients/ClientProfileHeader";
 import { ClientProfileKpi } from "@/components/clients/ClientProfileKpi";
 import { ClientSheet } from "@/components/clients/ClientSheet";
+import { ContractSheet } from "@/components/contracts/ContractSheet";
 import { TemplateSelector } from "@/components/workouts/TemplateSelector";
 import { OnboardingChecklist } from "@/components/clients/profile/OnboardingChecklist";
 import { PanoramicaTab } from "@/components/clients/profile/PanoramicaTab";
@@ -96,6 +97,7 @@ export default function ClientProfilePage({
   const { data: eventsData } = useClientEvents(clientId);
 
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [contractSheetOpen, setContractSheetOpen] = useState(false);
   const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
   const autoOpenSchedaConsumedRef = useRef(false);
 
@@ -126,12 +128,18 @@ export default function ClientProfilePage({
     return () => cancelAnimationFrame(rafId);
   }, [shouldAutoOpenScheda, searchParams, router, pathname]);
 
-  // Onboarding steps from real data
+  // Onboarding steps from real data — contratto opens sheet inline
   const onboardingSteps = useMemo(() => {
-    return computeOnboardingSteps(clientId, readiness, {
+    const steps = computeOnboardingSteps(clientId, readiness, {
       hasContracts: (contractsData?.items?.length ?? 0) > 0,
       hasEvents: (eventsData?.items?.length ?? 0) > 0,
     });
+    // Contratto step: apre la ContractSheet precompilata invece di navigare
+    const contrattoStep = steps.find((s) => s.key === "contratto");
+    if (contrattoStep && !contrattoStep.completed) {
+      contrattoStep.onAction = () => setContractSheetOpen(true);
+    }
+    return steps;
   }, [clientId, readiness, contractsData, eventsData]);
 
   // Tab completion dots
@@ -227,6 +235,11 @@ export default function ClientProfilePage({
         open={sheetOpen}
         onOpenChange={setSheetOpen}
         client={client}
+      />
+      <ContractSheet
+        open={contractSheetOpen}
+        onOpenChange={setContractSheetOpen}
+        defaultClientId={clientId}
       />
     </div>
   );
