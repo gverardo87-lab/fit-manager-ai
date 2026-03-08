@@ -236,13 +236,19 @@ File chiave: `frontend/src/app/(dashboard)/clienti/myportal/page.tsx` (~490 LOC)
 
 ### Workout Template Builder — Schede Allenamento
 
-Editor strutturato per creare schede allenamento professionali. Layout split: editor (sinistra) + preview live (destra, desktop).
+Editor strutturato per creare schede allenamento professionali.
+
+**Layout 3-tab**: switcher `activeView` con 3 tab:
+- **Sessioni** (board layout): sessioni affiancate orizzontalmente come colonne Kanban (`min-w-[340px] max-w-[460px] flex-1`). Esercizi in layout 2 righe compatto (`boardView` prop): riga 1 = grip + info + safety + nome + dot + delete; riga 2 = serie + rip + kg + riposo.
+- **Analisi Scientifica**: `ScientificAnalysisTab` full-width con 4 sezioni (copertura muscolare, equilibrio biomeccanico, profilo clinico-safety, riepilogo operativo). Usa `POST /training-science/analyze` con debounce 1s.
+- **Anteprima**: `WorkoutPreview` con layout stampa.
 
 **Backend**: 3 tabelle (`schede_allenamento`, `sessioni_scheda`, `esercizi_sessione`) con Deep IDOR chain: `EsercizioSessione → SessioneScheda → SchedaAllenamento.trainer_id`. CRUD completo + duplicate + full-replace sessioni (atomico). `id_cliente` FK opzionale per collegare schede a clienti (riassegnabile via PUT con bouncer check).
 
 **Frontend**: 3 sezioni per sessione — Avviamento, Principale, Stretching & Mobilita.
-- **Grid compatto**: principale 7 colonne `[grip_20|info_14|nome_1fr|serie_44|rip_52|riposo_44|del_24]`, compact 6 colonne (senza riposo). Tempo esecuzione e note NON in griglia — accessibili via espansione unificata (Info icon)
-- **Espansione unificata**: click Info → riga con nota input + tempo esecuzione input + ExerciseDetailPanel. Un solo toggle, non 3 separati
+- **Grid compatto** (layout classico): principale 7 colonne `[grip_20|info_14|nome_1fr|serie_44|rip_52|riposo_44|del_24]`, compact 6 colonne (senza riposo). Tempo esecuzione e note NON in griglia — accessibili via espansione unificata (Info icon)
+- **Board view** (layout colonne): 2 righe flex per esercizio con Info icon, pannello espandibile sotto con nota + tempo + ExerciseDetailPanel
+- **Espansione unificata**: click Info → riga con nota input + tempo esecuzione input + ExerciseDetailPanel. Un solo toggle, non 3 separati. Presente in TUTTI i layout (classico, board, compact)
 - **Dot indicator**: teal dot accanto al nome se esercizio ha note/tempo compilati
 - **Delete hover-reveal**: bottone elimina semi-trasparente, visibile pieno su hover riga (`group/row`)
 - **Session overflow menu**: azioni sessione (note, duplica, elimina) in DropdownMenu (⋮) invece di 3 bottoni icon
@@ -358,6 +364,11 @@ File chiave: `lib/workout-monitoring.ts` (utility), `app/(dashboard)/allenamenti
 | Phase 3 | `periodization.py` | Mesociclo (progressione volume lineare + deload) |
 
 **Concetti chiave**:
+- **Dose-response model unificato**: `dose[muscle] = Σ(EMG × serie × intensity_weight)`.
+  Senza carico: `intensity_weight = 1.0` (degenera in set counting classico).
+  Con carico: `intensity_weight = tonnage_per_set / avg_tonnage_per_set` (normalizzazione plan-relative).
+  `compute_intensity_weights()` in `muscle_contribution.py` calcola i pesi.
+  Volume, copertura muscolare e balance ratios usano tutti gli stessi pesi — zero duplicazione.
 - **Dual volume computation**: `compute_effective_sets()` (meccanico, per balance/recovery) vs
   `compute_hypertrophy_sets()` (pesato, per MEV/MAV/MRV — soglia EMG 40% MVC, Schoenfeld 2017)
 - **Volume model**: MEV (sotto = zero stimolo), MAV (range ottimale), MRV (oltre = overtraining).

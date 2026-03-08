@@ -457,6 +457,19 @@ export default function SchedaDetailPage({
   const { data: safetyMap } = useExerciseSafetyMap(plan?.id_cliente ?? null);
   const safetyEntries = safetyMap?.entries;
 
+  // Demografica cliente per analisi scientifica (sesso + eta)
+  const assignedClient = useMemo(
+    () => (plan?.id_cliente ? clients.find(c => c.id === plan.id_cliente) : undefined),
+    [clients, plan?.id_cliente],
+  );
+  const clientSesso = useMemo(() => {
+    const s = assignedClient?.sesso;
+    if (s === "Uomo") return "M";
+    if (s === "Donna") return "F";
+    return null;
+  }, [assignedClient?.sesso]);
+  const clientDataNascita = assignedClient?.data_nascita ?? null;
+
   // 1RM: ultima misurazione forza cliente (lazy, solo con cliente assegnato)
   const { data: latestMeasurement } = useLatestMeasurement(plan?.id_cliente ?? null);
   const oneRMByPattern = useMemo(() => {
@@ -2000,6 +2013,8 @@ export default function SchedaDetailPage({
               obiettivo={plan.obiettivo}
               sessioniPerSettimana={plan.sessioni_per_settimana}
               safetyMap={safetyEntries ?? null}
+              clientSesso={clientSesso}
+              clientDataNascita={clientDataNascita}
             />
           )}
         </div>

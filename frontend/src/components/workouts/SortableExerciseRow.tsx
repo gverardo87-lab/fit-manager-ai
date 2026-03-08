@@ -315,7 +315,7 @@ export function SortableExerciseRow({
         <div
           className={`group/row rounded-md px-1 py-0.5 hover:bg-muted/40 transition-colors ${safetyBg}`}
         >
-          {/* Riga 1: grip + safety + nome + dot + delete */}
+          {/* Riga 1: grip + info + safety + nome + dot + delete */}
           <div className="flex items-center gap-1 min-w-0">
             <button
               {...attributes}
@@ -323,6 +323,13 @@ export function SortableExerciseRow({
               className="shrink-0 flex items-center justify-center cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground"
             >
               <GripVertical className="h-3 w-3" />
+            </button>
+            {/* Info icon — espande pannello unificato */}
+            <button
+              onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+              className={`shrink-0 flex items-center justify-center transition-colors ${expanded ? "text-primary" : "text-muted-foreground/40 hover:text-muted-foreground"}`}
+            >
+              <Info className="h-3 w-3" />
             </button>
             {safety && (
               <SafetyPopover
@@ -398,6 +405,42 @@ export function SortableExerciseRow({
             )}
           </div>
         </div>
+
+        {/* Pannello espandibile unificato: nota + tempo + dettagli */}
+        {expanded && (
+          <div className="mx-1 mt-0.5 mb-1 space-y-1.5">
+            {/* Nota + Tempo inline */}
+            <div className="flex gap-1">
+              <Input
+                value={exercise.note ?? ""}
+                onChange={(e) => onUpdate({ note: e.target.value || null })}
+                placeholder="Nota..."
+                className="h-5 text-[10px] flex-1"
+              />
+              {!compact && (
+                <Input
+                  value={exercise.tempo_esecuzione ?? ""}
+                  onChange={(e) => onUpdate({ tempo_esecuzione: e.target.value || null })}
+                  className="h-5 text-[10px] text-center w-16"
+                  placeholder="3-1-2-0"
+                />
+              )}
+            </div>
+            {/* Detail panel */}
+            {exerciseData && (
+              <ExerciseDetailPanel
+                exercise={exerciseData}
+                exerciseId={exercise.id_esercizio}
+                safety={safety}
+                safetyEntries={safetyEntries}
+                exerciseMap={exerciseMap}
+                schedaId={schedaId}
+                parentFrom={parentFrom}
+                onQuickReplace={onQuickReplace}
+              />
+            )}
+          </div>
+        )}
       </div>
     );
   }

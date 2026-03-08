@@ -240,17 +240,48 @@ class TemplatePiano(BaseModel):
         description="Note e warning dal processo di generazione (es. frequenza clampata)",
     )
 
+    # ── Profilo demografico (opzionale) ──
+    # Se presenti, i target di volume vengono scalati per sesso ed eta'.
+    # Fonti: Vingren (2010) testosterone sex differences,
+    #        Häkkinen (2001) age-related recovery, Peterson (2011) dose-response aging.
+    sesso: Optional[str] = Field(
+        default=None,
+        description=(
+            "Sesso biologico del cliente ('M' o 'F'). Se presente, scala i target MAV: "
+            "le donne hanno ~15x meno testosterone (Vingren 2010), rispondono ~85% "
+            "dello stimolo maschile a parita' di volume relativo (Schoenfeld 2017)."
+        ),
+    )
+    eta: Optional[int] = Field(
+        default=None,
+        ge=10,
+        le=100,
+        description=(
+            "Eta' del cliente in anni. Se presente, scala i target MAV per capacita' "
+            "di recupero: under 30 = 1.0, 30-45 = 0.95, 45-60 = 0.85, 60+ = 0.75. "
+            "Fonti: Häkkinen (2001), Peterson (2011)."
+        ),
+    )
+
 
 class VolumeEffettivo(BaseModel):
     """Volume effettivo calcolato per un gruppo muscolare."""
 
     muscolo: GruppoMuscolare
-    serie_effettive: float = Field(description="Serie dirette effettive/settimana")
+    serie_effettive: float = Field(description="Serie dirette effettive/settimana (pesate per carico se disponibile)")
     target_mev: float
     target_mav_min: float
     target_mav_max: float
     target_mrv: float
     stato: str = Field(description="sotto_mev | mev_mav | ottimale | sopra_mav | sopra_mrv")
+    tensione_kg: Optional[float] = Field(
+        default=None,
+        description=(
+            "Tensione meccanica in kg (tonnage x EMG). "
+            "Presente solo se almeno uno slot ha carico_kg. "
+            "Schoenfeld 2010: mechanical tension = driver primario ipertrofia."
+        ),
+    )
 
 
 class AnalisiVolume(BaseModel):
@@ -260,6 +291,22 @@ class AnalisiVolume(BaseModel):
     volume_totale_settimana: float
     muscoli_sotto_mev: list[str]
     muscoli_sopra_mrv: list[str]
+    has_load_data: bool = Field(
+        default=False,
+        description=(
+            "True se almeno uno slot ha carico_kg compilato. "
+            "Quando True, le serie_effettive sono pesate per intensita' "
+            "(dose-response model: Israetel RP 2020, NSCA 2016)."
+        ),
+    )
+    tonnellaggio_totale: Optional[float] = Field(
+        default=None,
+        description="Volume-Load totale settimanale in kg (NSCA 2016). Presente solo con carico.",
+    )
+    zona_prevalente: Optional[str] = Field(
+        default=None,
+        description="Zona NSCA prevalente (massimale/sub_massimale/ipertrofia/resistenza/attivazione).",
+    )
 
 
 class AnalisiBalance(BaseModel):
@@ -278,6 +325,10 @@ class ContributoEsercizio(BaseModel):
     serie: int
     contributo_emg: float = Field(ge=0.0, le=1.0, description="Contributo EMG 0-1")
     serie_ipertrofiche: float = Field(description="serie × peso ipertrofico")
+    carico_kg: Optional[float] = Field(
+        default=None,
+        description="Carico in kg dello slot (se presente nel piano)",
+    )
 
 
 class DettaglioMuscolo(BaseModel):
@@ -294,6 +345,10 @@ class DettaglioMuscolo(BaseModel):
     contributi: list[ContributoEsercizio] = Field(
         default_factory=list,
         description="Breakdown volume per esercizio (drill-down)",
+    )
+    tensione_kg: Optional[float] = Field(
+        default=None,
+        description="Tensione meccanica in kg (Schoenfeld 2010). Presente solo con carico.",
     )
 
 

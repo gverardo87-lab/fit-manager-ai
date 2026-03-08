@@ -79,10 +79,17 @@ interface MuscleCoverageSectionProps {
   analysis: TSAnalisiPiano;
 }
 
+function formatKg(value: number): string {
+  return value >= 1000
+    ? `${(value / 1000).toFixed(1).replace(/\.0$/, "")} t`
+    : `${Math.round(value)} kg`;
+}
+
 export function MuscleCoverageSection({ analysis }: MuscleCoverageSectionProps) {
   const [isOpen, setIsOpen] = useState(true);
   const dettagli = analysis.dettaglio_muscoli;
   const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const hasLoad = analysis.volume.has_load_data;
 
   // KPI rapidi
   const optimal = dettagli.filter((m) => mapBackendVolumeStatus(m.stato) === "optimal").length;
@@ -128,6 +135,11 @@ export function MuscleCoverageSection({ analysis }: MuscleCoverageSectionProps) 
                     {deficit} deficit
                   </Badge>
                 )}
+                {hasLoad && analysis.volume.tonnellaggio_totale != null && (
+                  <Badge className="text-xs tabular-nums bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300">
+                    {formatKg(analysis.volume.tonnellaggio_totale)}
+                  </Badge>
+                )}
               </div>
               <ChevronDown
                 className={`h-4 w-4 text-muted-foreground transition-transform ${
@@ -158,8 +170,10 @@ export function MuscleCoverageSection({ analysis }: MuscleCoverageSectionProps) 
             </div>
 
             <p className="text-[10px] text-muted-foreground pt-2">
-              Volume ipertrofico pesato (Israetel RP 2020, Schoenfeld 2017).
-              Soglia EMG 40% MVC per stimolo ipertrofico.
+              {hasLoad
+                ? "Dose-response: serie pesate per intensita' relativa (NSCA 2016, Israetel RP 2020)."
+                : "Volume ipertrofico pesato (Israetel RP 2020, Schoenfeld 2017). Soglia EMG 40% MVC."
+              }
             </p>
           </CardContent>
         </CollapsibleContent>
@@ -232,6 +246,13 @@ const MuscleRow = forwardRef<HTMLDivElement, { muscolo: TSDettaglioMuscolo }>(
           {muscolo.serie_effettive.toFixed(1)}s
         </span>
 
+        {/* Tensione in kg (se presente) */}
+        {muscolo.tensione_kg != null && (
+          <span className="text-[10px] font-mono tabular-nums text-violet-600 dark:text-violet-400 w-14 text-right shrink-0">
+            {formatKg(muscolo.tensione_kg)}
+          </span>
+        )}
+
         {/* Frequenza */}
         <span className="text-[10px] text-muted-foreground w-8 text-right shrink-0">
           {muscolo.frequenza}x
@@ -266,6 +287,11 @@ const MuscleRow = forwardRef<HTMLDivElement, { muscolo: TSDettaglioMuscolo }>(
                   <span className="truncate flex-1 text-muted-foreground">
                     {c.nome_esercizio.split(" — ")[1] ?? c.nome_esercizio}
                   </span>
+                  {c.carico_kg != null && (
+                    <span className="font-mono tabular-nums text-violet-600 dark:text-violet-400 shrink-0">
+                      {c.carico_kg}kg
+                    </span>
+                  )}
                   <span className="font-mono tabular-nums text-muted-foreground shrink-0">
                     {c.serie}s x {c.contributo_emg.toFixed(1)}
                   </span>

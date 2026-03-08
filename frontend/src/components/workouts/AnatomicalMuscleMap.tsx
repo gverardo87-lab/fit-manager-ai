@@ -173,7 +173,7 @@ export function AnatomicalMuscleMap({
       {/* Body views side by side */}
       <div className="flex justify-center gap-2">
         {/* Front view */}
-        <div className="flex-1 max-w-[200px]">
+        <div className="flex-1 max-w-[180px]">
           <p className="text-[10px] text-center text-muted-foreground mb-1 font-medium">
             Anteriore
           </p>
@@ -191,7 +191,7 @@ export function AnatomicalMuscleMap({
         </div>
 
         {/* Back view */}
-        <div className="flex-1 max-w-[200px]">
+        <div className="flex-1 max-w-[180px]">
           <p className="text-[10px] text-center text-muted-foreground mb-1 font-medium">
             Posteriore
           </p>

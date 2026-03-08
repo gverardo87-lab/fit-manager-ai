@@ -23,10 +23,72 @@ Fonti:
   - Krieger — "Single vs multiple sets" (2010)
 """
 
+from typing import Optional
+
 from .types import GruppoMuscolare as M, Livello, Obiettivo, VolumeTarget
 from .principles import PARAMETRI_CARICO
 from .types import PatternMovimento
 from .muscle_contribution import compute_effective_sets
+
+
+# ════════════════════════════════════════════════════════════
+# FATTORI DEMOGRAFICI — Scaling per sesso ed eta'
+# ════════════════════════════════════════════════════════════
+#
+# I target di volume base sono calibrati per maschi 18-30 anni
+# (popolazione di riferimento nella letteratura Israetel/Schoenfeld).
+#
+# Le donne hanno livelli di testosterone ~15x inferiori (Vingren 2010),
+# il che riduce la capacita' di generare e recuperare da ipertrofia.
+# Meta-analysis Schoenfeld (2017): le donne rispondono all'~85% dello
+# stimolo maschile a parita' di volume relativo.
+#
+# L'eta' riduce la capacita' di recupero (Häkkinen 2001) e la risposta
+# anabolica (Peterson 2011). La sarcopenia accelera dopo i 45 anni.
+#
+# Questi fattori scalano solo MAV_min e MAV_max (il range ottimale).
+# MEV e MRV restano invariati: sono soglie fisiologiche assolute.
+
+_SEX_FACTOR: dict[str, float] = {
+    "M": 1.0,   # Maschio — baseline (riferimento letteratura)
+    "F": 0.85,  # Femmina — Schoenfeld 2017, Vingren 2010
+}
+
+_AGE_BRACKETS: list[tuple[int, int, float]] = [
+    # (eta_min, eta_max, fattore)
+    (0, 29, 1.0),    # Under 30 — piena capacita' di recupero
+    (30, 44, 0.95),   # 30-44 — lieve riduzione (Häkkinen 2001)
+    (45, 59, 0.85),   # 45-59 — riduzione significativa (Peterson 2011)
+    (60, 100, 0.75),  # 60+ — recupero rallentato, sarcopenia
+]
+
+
+def get_demographic_factor(
+    sesso: Optional[str] = None,
+    eta: Optional[int] = None,
+) -> float:
+    """
+    Calcola il fattore di scaling demografico combinato.
+
+    Moltiplica sex_factor × age_factor. Se entrambi sono None, ritorna 1.0.
+    Il fattore finale scala MAV_min e MAV_max (non MEV/MRV).
+
+    Esempi:
+      Uomo 25 → 1.0 × 1.0 = 1.0
+      Donna 25 → 0.85 × 1.0 = 0.85
+      Uomo 50 → 1.0 × 0.85 = 0.85
+      Donna 50 → 0.85 × 0.85 = 0.72
+    """
+    sex_f = _SEX_FACTOR.get(sesso, 1.0) if sesso else 1.0
+
+    age_f = 1.0
+    if eta is not None:
+        for lo, hi, factor in _AGE_BRACKETS:
+            if lo <= eta <= hi:
+                age_f = factor
+                break
+
+    return round(sex_f * age_f, 3)
 
 
 # ════════════════════════════════════════════════════════════
@@ -60,12 +122,13 @@ _VOLUME_TABLE: dict[M, dict[Livello, tuple[float, float, float, float, str]]] = 
         Livello.AVANZATO: (6, 12, 16, 20, ""),
     },
     M.DORSALI: {
-        # pull_h(1.0) + pull_v(1.0) + hinge(0.25). Piano 4x: 2×(4+3) + 2×3×0.25 = 15.5
-        # MRV alto: 2 pattern primari (pull_h + pull_v), dorsali tollerano volume
-        # elevato (Israetel RP 2020: intermedio 18-22, avanzato 20-25).
-        Livello.PRINCIPIANTE: (4, 6, 10, 16, "Include lat + romboidi"),
-        Livello.INTERMEDIO: (4, 10, 16, 23, ""),
-        Livello.AVANZATO: (6, 14, 20, 26, ""),
+        # pull_h(1.0) + pull_v(1.0) + hinge(0.25). Hub muscle: 2 pattern primari.
+        # Piano 4x: 2×(4+3) + 2×3×0.25 = 15.5.
+        # MRV alto: dorsali tollerano volume elevato (Israetel RP 2020).
+        # MAV rialzato +2 per riflettere il doppio pattern primario.
+        Livello.PRINCIPIANTE: (4, 8, 12, 18, "Include lat + romboidi"),
+        Livello.INTERMEDIO: (4, 12, 18, 25, ""),
+        Livello.AVANZATO: (6, 16, 22, 28, ""),
     },
     M.DELT_ANT: {
         # push_v(1.0) + push_h(0.5). Volume indiretto dominante.
@@ -86,22 +149,26 @@ _VOLUME_TABLE: dict[M, dict[Livello, tuple[float, float, float, float, str]]] = 
         Livello.AVANZATO: (0, 8, 14, 18, ""),
     },
     M.BICIPITI: {
-        # curl(1.0) + pull_h(0.5) + pull_v(0.5). Piano 4x: 3 + (4+3)×0.5×2 = 10.
-        Livello.PRINCIPIANTE: (4, 5, 8, 12, ""),
-        Livello.INTERMEDIO: (4, 8, 12, 16, ""),
-        Livello.AVANZATO: (4, 10, 16, 20, ""),
+        # curl(1.0) + pull_h(0.5) + pull_v(0.5). Hub muscle: volume indiretto
+        # da ogni pull. MAV rialzato +2 per riflettere il doppio contributo indiretto.
+        Livello.PRINCIPIANTE: (4, 6, 10, 14, ""),
+        Livello.INTERMEDIO: (4, 10, 14, 18, ""),
+        Livello.AVANZATO: (4, 12, 18, 22, ""),
     },
     M.TRICIPITI: {
-        # extension(1.0) + push_h(0.5) + push_v(0.5). Volume indiretto da push.
-        Livello.PRINCIPIANTE: (2, 4, 6, 10, "Volume indiretto da push significativo"),
-        Livello.INTERMEDIO: (2, 6, 10, 14, ""),
-        Livello.AVANZATO: (4, 8, 14, 18, ""),
+        # extension(1.0) + push_h(0.5) + push_v(0.5). Hub muscle: volume indiretto
+        # da ogni push. MAV rialzato +2 per riflettere il doppio contributo indiretto.
+        Livello.PRINCIPIANTE: (2, 6, 8, 12, "Volume indiretto da push significativo"),
+        Livello.INTERMEDIO: (2, 8, 12, 16, ""),
+        Livello.AVANZATO: (4, 10, 16, 20, ""),
     },
     M.QUADRICIPITI: {
-        # squat(1.0) + leg_extension(1.0). Piano 4x: 2×4 + 3 = 11.
-        Livello.PRINCIPIANTE: (4, 6, 8, 12, ""),
-        Livello.INTERMEDIO: (4, 8, 14, 18, ""),
-        Livello.AVANZATO: (6, 12, 18, 22, ""),
+        # squat(1.0) + leg_extension(1.0) + leg_press(1.0). Hub muscle: riceve
+        # volume diretto da 2-3 esercizi in schede standard. Piano 4x: 2×4 + 3 + 3 = 14.
+        # MAV rialzato +2 per intermedio/avanzato per evitare falsi "eccesso".
+        Livello.PRINCIPIANTE: (4, 6, 10, 14, ""),
+        Livello.INTERMEDIO: (4, 10, 16, 20, ""),
+        Livello.AVANZATO: (6, 14, 20, 24, ""),
     },
     M.FEMORALI: {
         # hinge(1.0) + leg_curl(1.0) + squat(0.25). Piano 4x: 2×3 + 2 + 2×4×0.25 = 10.
@@ -168,37 +235,53 @@ def get_volume_target(muscolo: M, livello: Livello) -> VolumeTarget:
 
 
 def get_scaled_volume_target(
-    muscolo: M, livello: Livello, obiettivo: Obiettivo
+    muscolo: M,
+    livello: Livello,
+    obiettivo: Obiettivo,
+    sesso: Optional[str] = None,
+    eta: Optional[int] = None,
 ) -> VolumeTarget:
     """
-    Ritorna il volume target scalato per l'obiettivo.
+    Ritorna il volume target scalato per obiettivo + profilo demografico.
 
-    Il fattore_volume scala il range MAV:
-    - Ipertrofia: 1.0 (valori base)
-    - Forza: 0.7 (meno volume, piu' intensita')
-    - Dimagrimento: 0.8 (volume moderato per preservare)
-    - Tonificazione: 0.7
-    - Resistenza: 0.6 (meno serie, piu' rep)
+    Scaling a 2 livelli (moltiplicativi):
+    1. fattore_volume (obiettivo): Ipertrofia=1.0, Forza=0.7, Resistenza=0.6
+    2. fattore_demografico (sesso × eta'): Donna 50y → 0.85 × 0.85 = 0.72
 
-    MEV e MRV rimangono invariati (sono soglie fisiologiche assolute).
+    Il fattore composto scala MAV_min e MAV_max (il range dove "devi stare").
+    MEV e MRV rimangono invariati (sono soglie fisiologiche assolute):
+    - MEV: sotto questa soglia zero stimolo, indipendente dal sesso/eta'
+    - MRV: oltre questa soglia overtraining, limite fisiologico universale
+
+    Fonti: Israetel RP 2020, Schoenfeld 2017, Vingren 2010,
+           Häkkinen 2001, Peterson 2011.
     """
     base = get_volume_target(muscolo, livello)
-    factor = PARAMETRI_CARICO[obiettivo].fattore_volume
+    obj_factor = PARAMETRI_CARICO[obiettivo].fattore_volume
+    demo_factor = get_demographic_factor(sesso, eta)
+    combined = obj_factor * demo_factor
+
     return VolumeTarget(
         muscolo=muscolo,
         mev=base.mev,
-        mav_min=round(base.mav_min * factor, 1),
-        mav_max=round(base.mav_max * factor, 1),
+        mav_min=round(base.mav_min * combined, 1),
+        mav_max=round(base.mav_max * combined, 1),
         mrv=base.mrv,
         note=base.note,
     )
 
 
 def get_all_volume_targets(
-    livello: Livello, obiettivo: Obiettivo
+    livello: Livello,
+    obiettivo: Obiettivo,
+    sesso: Optional[str] = None,
+    eta: Optional[int] = None,
 ) -> dict[M, VolumeTarget]:
     """Ritorna i volume target per tutti i gruppi muscolari."""
-    return {m: get_scaled_volume_target(m, livello, obiettivo) for m in M}
+    return {
+        m: get_scaled_volume_target(m, livello, obiettivo, sesso, eta)
+        for m in M
+    }
 
 
 def classify_volume(serie_effettive: float, target: VolumeTarget) -> str:

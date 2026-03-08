@@ -68,6 +68,7 @@ from .muscle_contribution import (
     is_compound,
     compute_effective_sets,
     compute_hypertrophy_sets,
+    compute_intensity_weights,
     resolve_pattern,
 )
 from .volume_model import (
@@ -157,6 +158,7 @@ __all__ = [
     "is_compound",
     "compute_effective_sets",
     "compute_hypertrophy_sets",
+    "compute_intensity_weights",
     "resolve_pattern",
     # Volume Model
     "get_volume_target",

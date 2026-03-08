@@ -1651,6 +1651,10 @@ export interface TSTemplatePiano {
   tipo_split: TSSplitType;
   sessioni: TSTemplateSessione[];
   note_generazione: string[];
+  /** Sesso biologico ('M' o 'F'). Scala target MAV per differenze ormonali. */
+  sesso?: string | null;
+  /** Eta' in anni. Scala target MAV per capacita' di recupero. */
+  eta?: number | null;
 }
 
 /** Volume effettivo calcolato per un gruppo muscolare */
@@ -1662,6 +1666,8 @@ export interface TSVolumeEffettivo {
   target_mav_max: number;
   target_mrv: number;
   stato: "sotto_mev" | "mev_mav" | "ottimale" | "sopra_mav" | "sopra_mrv";
+  /** Tensione meccanica in kg (tonnage × EMG). Presente solo con carico. Schoenfeld 2010. */
+  tensione_kg: number | null;
 }
 
 /** Analisi volume di un piano */
@@ -1670,6 +1676,12 @@ export interface TSAnalisiVolume {
   volume_totale_settimana: number;
   muscoli_sotto_mev: string[];
   muscoli_sopra_mrv: string[];
+  /** True se almeno uno slot ha carico_kg. Le serie sono pesate per intensità (dose-response). */
+  has_load_data: boolean;
+  /** Volume-Load totale settimanale in kg (NSCA 2016). Presente solo con carico. */
+  tonnellaggio_totale: number | null;
+  /** Zona NSCA prevalente. Presente solo con carico. */
+  zona_prevalente: string | null;
 }
 
 /** Analisi rapporti biomeccanici */
@@ -1686,6 +1698,8 @@ export interface TSContributoEsercizio {
   serie: number;
   contributo_emg: number;
   serie_ipertrofiche: number;
+  /** Carico in kg dello slot (se presente nel piano) */
+  carico_kg: number | null;
 }
 
 /** Dettaglio completo per un muscolo — drill-down nella tab analisi */
@@ -1699,6 +1713,8 @@ export interface TSDettaglioMuscolo {
   stato: "sotto_mev" | "mev_mav" | "ottimale" | "sopra_mav" | "sopra_mrv";
   frequenza: number;
   contributi: TSContributoEsercizio[];
+  /** Tensione meccanica in kg (Schoenfeld 2010). Presente solo con carico. */
+  tensione_kg: number | null;
 }
 
 /** Dettaglio di un rapporto biomeccanico con volume per lato */

@@ -82,10 +82,16 @@ _PULL_PATTERNS = {P.PULL_H, P.PULL_V}
 
 
 def _sum_pattern_sets(
-    slots: list[tuple[P, int]], patterns: set[P]
+    slots: list[tuple[P, int]],
+    patterns: set[P],
+    intensity_weights: list[float] | None = None,
 ) -> float:
-    """Somma le serie per un gruppo di pattern."""
-    return sum(s for p, s in slots if p in patterns)
+    """Somma le serie (pesate per intensita' se disponibile) per un gruppo di pattern."""
+    if intensity_weights is None:
+        return sum(s for p, s in slots if p in patterns)
+    return sum(
+        s * w for (p, s), w in zip(slots, intensity_weights) if p in patterns
+    )
 
 
 def _sum_muscle_sets(
@@ -103,14 +109,17 @@ def _sum_muscle_sets(
 
 def analyze_balance(
     slots: list[tuple[P, int]],
+    intensity_weights: list[float] | None = None,
 ) -> AnalisiBalance:
     """
     Analizza i rapporti biomeccanici di un piano settimanale.
 
     Input: lista di (pattern, serie) per l'intera settimana.
+    Se intensity_weights e' fornito (dose-response model), le serie
+    vengono pesate per intensita' nei calcoli dei rapporti.
     Output: rapporti calcolati vs target, con lista squilibri.
     """
-    effective = compute_effective_sets(slots)
+    effective = compute_effective_sets(slots, intensity_weights)
     rapporti: dict[str, float] = {}
     target: dict[str, float] = {}
     squilibri: list[str] = []
@@ -122,8 +131,8 @@ def analyze_balance(
         if is_pattern_ratio:
             num_patterns = {P(v) for v in ratio.numeratore if v in {p.value for p in P}}
             den_patterns = {P(v) for v in ratio.denominatore if v in {p.value for p in P}}
-            num_val = _sum_pattern_sets(slots, num_patterns)
-            den_val = _sum_pattern_sets(slots, den_patterns)
+            num_val = _sum_pattern_sets(slots, num_patterns, intensity_weights)
+            den_val = _sum_pattern_sets(slots, den_patterns, intensity_weights)
         else:
             num_val = _sum_muscle_sets(effective, ratio.numeratore)
             den_val = _sum_muscle_sets(effective, ratio.denominatore)

@@ -160,8 +160,79 @@ def is_compound(pattern: P) -> bool:
     return sum(1 for c in get_contribution(pattern).values() if c >= 0.4) >= 3
 
 
+def compute_intensity_weights(
+    slots_with_load: list[tuple[P, int, float, float | None]],
+) -> list[float]:
+    """
+    Compute plan-relative intensity weights from load data.
+
+    Dose-Response Model (Israetel RP 2020, Haff & Triplett NSCA 2016):
+      DOSE = VOLUME x INTENSITY
+
+    Quando il carico (kg) e' presente, la "dose" di una serie viene
+    modulata dalla sua intensita' relativa alla media del piano.
+    Questo crea una metrica unificata: serie pesate per intensita'.
+
+    Formula:
+      tonnage_per_set[i] = rep_avg[i] x carico_kg[i]
+      intensity_weight[i] = tonnage_per_set[i] / avg_tonnage_per_set
+
+    Comportamento:
+      - Slot SENZA carico: weight = 1.0 (degenera in conteggio serie)
+      - Slot CON carico: weight = intensita' relativa (plan-normalized)
+      - Se NESSUNO slot ha carico: tutti i pesi = 1.0
+
+    Proprieta':
+      - Media(pesi degli slot con carico) ≈ 1.0 (normalizzazione relativa)
+      - Totale serie pesate ≈ totale serie grezze (conservazione)
+      - Slot pesanti: weight > 1.0 — contano PIU' delle serie grezze
+      - Slot leggeri: weight < 1.0 — contano MENO delle serie grezze
+
+    Input: lista di (pattern, serie, rep_avg, carico_kg).
+      rep_avg e carico_kg possono essere None (slot senza carico).
+
+    Output: lista di float con un peso per ogni slot (stessa lunghezza).
+
+    Fonti:
+      - Haff & Triplett (NSCA 2016) cap. 15 — Volume-Load definition
+      - Israetel RP 2020 — Dose-response relationship
+      - McBride et al. (2009) — Tonnage as training load metric
+    """
+    # Raccogli tonnage-per-set per gli slot con carico
+    tonnages_per_set: list[float] = []
+    for _, _, rep_avg, carico_kg in slots_with_load:
+        if (
+            carico_kg is not None
+            and carico_kg > 0
+            and rep_avg is not None
+            and rep_avg > 0
+        ):
+            tonnages_per_set.append(rep_avg * carico_kg)
+
+    # Nessun carico nel piano → tutti i pesi = 1.0 (set counting puro)
+    if not tonnages_per_set:
+        return [1.0] * len(slots_with_load)
+
+    avg_tonnage = sum(tonnages_per_set) / len(tonnages_per_set)
+
+    weights: list[float] = []
+    for _, _, rep_avg, carico_kg in slots_with_load:
+        if (
+            carico_kg is not None
+            and carico_kg > 0
+            and rep_avg is not None
+            and rep_avg > 0
+        ):
+            weights.append((rep_avg * carico_kg) / avg_tonnage)
+        else:
+            weights.append(1.0)
+
+    return weights
+
+
 def compute_effective_sets(
     slots: list[tuple[P, int]],
+    intensity_weights: list[float] | None = None,
 ) -> dict[M, float]:
     """
     Calcola il volume effettivo per muscolo da una lista di (pattern, serie).
@@ -169,7 +240,13 @@ def compute_effective_sets(
     Questo e' il volume MECCANICO totale — usato per rapporti biomeccanici
     e analisi di recupero dove conta il lavoro reale svolto dal muscolo.
 
-    Esempio:
+    Se intensity_weights e' fornito (dose-response model), ogni serie
+    viene moltiplicata per il peso di intensita' corrispondente:
+      volume[M] = Σ(serie × intensity_weight × contributo_EMG)
+
+    Senza intensity_weights (default): degenera nel conteggio serie puro.
+
+    Esempio (senza pesi):
         slots = [(P.PUSH_H, 4), (P.PUSH_V, 3), (P.CURL, 3)]
         result = {
             M.PETTO: 4.0,          # 4 × 1.0
@@ -181,9 +258,10 @@ def compute_effective_sets(
         }
     """
     effective: dict[M, float] = {}
-    for pattern, serie in slots:
+    for i, (pattern, serie) in enumerate(slots):
+        w = intensity_weights[i] if intensity_weights else 1.0
         for muscolo, contributo in get_contribution(pattern).items():
-            effective[muscolo] = effective.get(muscolo, 0.0) + serie * contributo
+            effective[muscolo] = effective.get(muscolo, 0.0) + serie * w * contributo
     return effective
 
 
@@ -244,6 +322,7 @@ def _get_hypertrophy_weight(contributo: float) -> float:
 
 def compute_hypertrophy_sets(
     slots: list[tuple[P, int]],
+    intensity_weights: list[float] | None = None,
 ) -> dict[M, float]:
     """
     Calcola il volume IPERTROFICO per muscolo (serie che contano per la crescita).
@@ -251,36 +330,33 @@ def compute_hypertrophy_sets(
     A differenza di compute_effective_sets(), questa funzione sconta il volume
     indiretto secondo la "half a set" rule (Israetel RP 2020).
 
-    Il weight SOSTITUISCE il contributo EMG, non lo moltiplica:
+    Il hypertrophy_weight SOSTITUISCE il contributo EMG, non lo moltiplica:
       - contributo 1.0 (primario)    → weight 1.0  → serie × 1.0  = 1 serie piena
       - contributo 0.7 (sinergista+) → weight 0.5  → serie × 0.5  = mezzo set
       - contributo 0.4 (sinergista-) → weight 0.25 → serie × 0.25 = quarto di set
       - contributo 0.2 (stabiliz.)   → weight 0.0  → serie × 0.0  = zero
-    Rationale: il contributo EMG classifica il LIVELLO di attivazione,
-    il weight e' il fattore ipertrofico RISULTANTE. Un sinergista maggiore
-    (es. bicipiti durante pull-up) riceve ~mezzo set di stimolo ipertrofico
-    per ogni set dell'esercizio (Israetel RP 2020: "count indirect volume
-    as roughly half a set"). Senza questo sconto, muscoli hub (trapezio,
-    core, avambracci) accumulano volume fantasma e sfondano sistematicamente MRV.
+
+    Se intensity_weights e' fornito (dose-response model), ogni serie
+    viene ulteriormente moltiplicata per il peso di intensita':
+      volume[M] = Σ(serie × intensity_weight × hypertrophy_weight)
+
+    Senza intensity_weights (default): degenera nel conteggio serie puro.
 
     USARE PER: confronto con target MEV/MAV/MRV (soglie di volume ipertrofico).
     NON USARE PER: rapporti biomeccanici e recupero (usare compute_effective_sets).
 
-    Esempio (squat, 4 serie):
-      compute_effective_sets:   core = 4 × 0.4 = 1.6
-      compute_hypertrophy_sets: core = 4 × 0.25 = 1.0 (quarter-set rule)
-                                polpacci = 4 × 0.0 = 0.0 (sotto soglia)
-
     Fonti:
       - Schoenfeld 2017: soglia EMG 40% MVC per stimolo ipertrofico
       - Israetel RP 2020: volume indiretto conta "roughly half a set"
+      - Haff & Triplett NSCA 2016: dose-response (con intensity_weights)
     """
     hypertrophy: dict[M, float] = {}
-    for pattern, serie in slots:
+    for i, (pattern, serie) in enumerate(slots):
+        w = intensity_weights[i] if intensity_weights else 1.0
         for muscolo, contributo in get_contribution(pattern).items():
-            weight = _get_hypertrophy_weight(contributo)
-            if weight > 0:
-                volume = serie * weight
+            hyp_weight = _get_hypertrophy_weight(contributo)
+            if hyp_weight > 0:
+                volume = serie * w * hyp_weight
                 hypertrophy[muscolo] = hypertrophy.get(muscolo, 0.0) + volume
     return hypertrophy
 

@@ -20,9 +20,9 @@ import { Loader2 } from "lucide-react";
 import { useAnalyzePlan } from "@/hooks/useTrainingScience";
 import { MuscleCoverageSection } from "./MuscleCoverageSection";
 import { BiomechanicalBalance } from "./BiomechanicalBalance";
-import { TonnageSection } from "./TonnageSection";
 import { ClinicalSafetySection } from "./ClinicalSafetySection";
 import { ActionableSummary } from "./ActionableSummary";
+import { Badge } from "@/components/ui/badge";
 import type {
   Exercise,
   ExerciseSafetyEntry,
@@ -46,6 +46,10 @@ interface ScientificAnalysisTabProps {
   obiettivo: string;
   sessioniPerSettimana: number;
   safetyMap: Record<number, ExerciseSafetyEntry> | null;
+  /** Sesso del cliente ('M' o 'F') — scala target volume per differenze ormonali */
+  clientSesso?: string | null;
+  /** Data di nascita del cliente — calcola eta' per scaling volume */
+  clientDataNascita?: string | null;
 }
 
 // ════════════════════════════════════════════════════════════
@@ -69,12 +73,25 @@ const VALID_PATTERNS = new Set<TSPattern>([
   "calf_raise", "leg_curl", "leg_extension", "adductor",
 ]);
 
+function computeAge(dataNascita: string | null | undefined): number | null {
+  if (!dataNascita) return null;
+  const birth = new Date(dataNascita);
+  if (isNaN(birth.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return age >= 10 && age <= 100 ? age : null;
+}
+
 function buildTemplatePiano(
   sessions: ScientificAnalysisTabProps["sessions"],
   exerciseMap: Map<number, Exercise>,
   livello: string,
   obiettivo: string,
   sessioniPerSettimana: number,
+  clientSesso?: string | null,
+  clientDataNascita?: string | null,
 ): TSTemplatePiano | null {
   const mappedLivello = LIVELLO_MAP[livello] ?? "intermedio";
   const mappedObiettivo: TSObjective = VALID_OBIETTIVI.has(obiettivo as TSObjective)
@@ -107,6 +124,8 @@ function buildTemplatePiano(
 
   if (!sessioni.some((s) => s.slots.length > 0)) return null;
 
+  const eta = computeAge(clientDataNascita);
+
   return {
     frequenza: Math.max(2, Math.min(6, sessioniPerSettimana)),
     obiettivo: mappedObiettivo,
@@ -114,6 +133,8 @@ function buildTemplatePiano(
     tipo_split: "full_body",
     sessioni,
     note_generazione: [],
+    sesso: clientSesso || null,
+    eta,
   };
 }
 
@@ -128,24 +149,28 @@ export function ScientificAnalysisTab({
   obiettivo,
   sessioniPerSettimana,
   safetyMap,
+  clientSesso,
+  clientDataNascita,
 }: ScientificAnalysisTabProps) {
   const analyzeMutation = useAnalyzePlan();
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Bridge: converti esercizi builder -> TSTemplatePiano
   const templatePiano = useMemo(
-    () => buildTemplatePiano(sessions, exerciseMap, livello, obiettivo, sessioniPerSettimana),
-    [sessions, exerciseMap, livello, obiettivo, sessioniPerSettimana],
+    () => buildTemplatePiano(
+      sessions, exerciseMap, livello, obiettivo, sessioniPerSettimana,
+      clientSesso, clientDataNascita,
+    ),
+    [sessions, exerciseMap, livello, obiettivo, sessioniPerSettimana, clientSesso, clientDataNascita],
   );
 
   // Fingerprint per debounce: cambia solo quando cambia la composizione reale
   const fingerprint = useMemo(() => {
     if (!templatePiano) return "";
-    return JSON.stringify(
-      templatePiano.sessioni.map((s) =>
-        s.slots.map((sl) => `${sl.pattern}:${sl.serie}:${sl.carico_kg ?? ""}`).join(","),
-      ),
-    );
+    const slotsKey = templatePiano.sessioni.map((s) =>
+      s.slots.map((sl) => `${sl.pattern}:${sl.serie}:${sl.carico_kg ?? ""}`).join(","),
+    ).join("|");
+    return `${slotsKey}|${templatePiano.sesso ?? ""}|${templatePiano.eta ?? ""}`;
   }, [templatePiano]);
 
   // Analisi con debounce 1s
@@ -182,11 +207,18 @@ export function ScientificAnalysisTab({
 
   return (
     <div className="space-y-4">
-      {/* Score badge */}
+      {/* Score badge + load indicator */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-          Analisi Scientifica
-        </h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            Analisi Scientifica
+          </h3>
+          {analysis.volume.has_load_data && (
+            <Badge className="text-[10px] px-1.5 py-0 bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300">
+              Dose-Response
+            </Badge>
+          )}
+        </div>
         <ScoreBadge score={analysis.score} />
       </div>
 
@@ -199,14 +231,6 @@ export function ScientificAnalysisTab({
         sessions={sessions}
         exerciseMap={exerciseMap}
       />
-
-      {/* Sezione 2.5: Volume-Load (solo con carico assegnato) */}
-      {analysis.tonnellaggio && (
-        <TonnageSection
-          tonnellaggio={analysis.tonnellaggio}
-          dettaglioMuscoli={analysis.dettaglio_muscoli}
-        />
-      )}
 
       {/* Sezione 3: Profilo Clinico-Safety */}
       <ClinicalSafetySection

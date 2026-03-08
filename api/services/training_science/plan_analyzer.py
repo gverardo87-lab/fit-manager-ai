@@ -38,6 +38,7 @@ from .types import (
 from .muscle_contribution import (
     compute_effective_sets,
     compute_hypertrophy_sets,
+    compute_intensity_weights,
     get_contribution,
     _get_hypertrophy_weight,
 )
@@ -67,14 +68,27 @@ def analyze_plan(
 
     Input: TemplatePiano (generato o manuale)
     Output: AnalisiPiano con volume, balance, warnings, score + dati strutturati
+
+    Dose-Response Model (quando carico presente):
+      Le serie vengono pesate per intensita' relativa (plan-normalized).
+      Un unico flusso: copertura, equilibrio e tonnellaggio usano la stessa
+      formula — nessuna contraddizione tra sezioni.
+      Senza carico: degenera nel conteggio serie puro (backward-compatible).
     """
     warnings: list[str] = []
 
-    # 1. Analisi Volume
-    volume_analysis = _analyze_volume(piano, warnings)
+    # ── Pre-calcolo: slots + intensity weights ──
+    all_slots_basic, all_slots_extended, weights = _extract_slots_with_weights(piano)
+    has_load = any(w != 1.0 for w in weights)
 
-    # 2. Analisi Bilanciamento
-    balance_analysis = _analyze_plan_balance(piano, warnings)
+    # 1. Analisi Volume (pesata per carico se disponibile)
+    volume_analysis = _analyze_volume(
+        piano, warnings, weights, has_load,
+        sesso=piano.sesso, eta=piano.eta,
+    )
+
+    # 2. Analisi Bilanciamento (pesata per carico se disponibile)
+    balance_analysis = _analyze_plan_balance(piano, warnings, weights)
 
     # 3. Analisi Frequenza
     freq = _analyze_frequency(piano, warnings)
@@ -85,16 +99,22 @@ def analyze_plan(
     # 5. Analisi Tonnellaggio (opzionale — solo con carico_kg)
     tonnellaggio = _analyze_tonnage(piano)
 
+    # Merge tensione dal tonnellaggio nel volume analysis
+    if tonnellaggio and has_load:
+        _enrich_volume_with_tension(volume_analysis, tonnellaggio)
+
     # Score composito
     score = _compute_score(volume_analysis, balance_analysis, warnings)
 
     # ── Dati strutturati per Scientific Analysis Tab ──
 
     # Contributi per esercizio per muscolo (drill-down)
-    dettaglio_muscoli = _build_dettaglio_muscoli(piano, volume_analysis, freq)
+    dettaglio_muscoli = _build_dettaglio_muscoli(
+        piano, volume_analysis, freq, weights, tonnellaggio,
+    )
 
     # Dettaglio rapporti biomeccanici
-    dettaglio_rapporti = _build_dettaglio_rapporti(piano)
+    dettaglio_rapporti = _build_dettaglio_rapporti(piano, weights)
 
     # Frequenza come dict[str, int]
     frequenza_dict = {m.value: f for m, f in freq.items()}
@@ -116,12 +136,64 @@ def analyze_plan(
 
 
 # ════════════════════════════════════════════════════════════
+# PRE-CALCOLO — Estrazione slots + intensity weights
+# ════════════════════════════════════════════════════════════
+
+
+def _extract_slots_with_weights(
+    piano: TemplatePiano,
+) -> tuple[list[tuple[P, int]], list[tuple[P, int, float, float | None]], list[float]]:
+    """
+    Estrae tutti gli slot dal piano in due formati e calcola i pesi di intensita'.
+
+    Ritorna:
+      - basic_slots: [(pattern, serie), ...] — formato legacy
+      - extended_slots: [(pattern, serie, rep_avg, carico_kg), ...] — con carico
+      - weights: [float, ...] — peso intensita' per slot (1.0 se senza carico)
+    """
+    basic: list[tuple[P, int]] = []
+    extended: list[tuple[P, int, float, float | None]] = []
+    for sessione in piano.sessioni:
+        for slot in sessione.slots:
+            basic.append((slot.pattern, slot.serie))
+            rep_avg = (slot.rep_min + slot.rep_max) / 2
+            extended.append((slot.pattern, slot.serie, rep_avg, slot.carico_kg))
+
+    weights = compute_intensity_weights(extended)
+    return basic, extended, weights
+
+
+def _enrich_volume_with_tension(
+    volume: AnalisiVolume,
+    tonnellaggio: AnalisiTonnellaggio,
+) -> None:
+    """
+    Arricchisce VolumeEffettivo con la tensione meccanica dal tonnellaggio.
+
+    Muta in-place: aggiunge tensione_kg a ogni muscolo in per_muscolo.
+    Aggiunge anche tonnellaggio_totale e zona_prevalente ad AnalisiVolume.
+    """
+    volume.tonnellaggio_totale = tonnellaggio.tonnellaggio_totale
+    volume.zona_prevalente = tonnellaggio.zona_prevalente
+
+    for ve in volume.per_muscolo:
+        tension = tonnellaggio.tensione_per_muscolo.get(ve.muscolo.value)
+        if tension is not None and tension > 0:
+            ve.tensione_kg = round(tension, 1)
+
+
+# ════════════════════════════════════════════════════════════
 # 1. ANALISI VOLUME
 # ════════════════════════════════════════════════════════════
 
 
 def _analyze_volume(
-    piano: TemplatePiano, warnings: list[str]
+    piano: TemplatePiano,
+    warnings: list[str],
+    intensity_weights: list[float] | None = None,
+    has_load: bool = False,
+    sesso: str | None = None,
+    eta: int | None = None,
 ) -> AnalisiVolume:
     """
     Calcola il volume IPERTROFICO per ogni muscolo e confronta con target.
@@ -130,15 +202,21 @@ def _analyze_volume(
     e riduce il sinergismo minore (0.4 → 50%), basandosi sulla soglia EMG
     del 40% MVC per lo stimolo ipertrofico (Schoenfeld 2017, Israetel 2020).
 
-    Questo evita di contare volume "fantasma" da stabilizzazione che non
-    contribuisce alla crescita muscolare ma infiava i conteggi MRV.
+    Se intensity_weights e' fornito (dose-response model), le serie
+    vengono pesate per intensita' relativa. Una formula unificata:
+      dose[M] = Σ(hyp_weight × serie × intensity_weight)
+
+    Senza carico: intensity_weight = 1.0 → conteggio serie puro.
+
+    Se sesso/eta sono forniti, i target MAV vengono scalati per profilo
+    demografico (Vingren 2010, Häkkinen 2001, Peterson 2011).
     """
     all_slots: list[tuple[P, int]] = []
     for sessione in piano.sessioni:
         for slot in sessione.slots:
             all_slots.append((slot.pattern, slot.serie))
 
-    hypertrophy = compute_hypertrophy_sets(all_slots)
+    hypertrophy = compute_hypertrophy_sets(all_slots, intensity_weights)
     volume_totale = sum(hypertrophy.values())
 
     per_muscolo: list[VolumeEffettivo] = []
@@ -146,7 +224,9 @@ def _analyze_volume(
     sopra_mrv: list[str] = []
 
     for muscolo in M:
-        target = get_scaled_volume_target(muscolo, piano.livello, piano.obiettivo)
+        target = get_scaled_volume_target(
+            muscolo, piano.livello, piano.obiettivo, sesso, eta,
+        )
         serie = round(hypertrophy.get(muscolo, 0.0), 1)
         stato = classify_volume(serie, target)
 
@@ -180,6 +260,7 @@ def _analyze_volume(
         volume_totale_settimana=round(volume_totale, 1),
         muscoli_sotto_mev=sotto_mev,
         muscoli_sopra_mrv=sopra_mrv,
+        has_load_data=has_load,
     )
 
 
@@ -189,20 +270,23 @@ def _analyze_volume(
 
 
 def _analyze_plan_balance(
-    piano: TemplatePiano, warnings: list[str]
+    piano: TemplatePiano,
+    warnings: list[str],
+    intensity_weights: list[float] | None = None,
 ) -> AnalisiBalance:
     """
     Verifica i rapporti biomeccanici del piano.
 
-    I rapporti fuori tolleranza generano warning con fonte e
-    indicazione della direzione dello squilibrio.
+    Se intensity_weights e' fornito (dose-response model), i rapporti
+    sono calcolati sulle serie pesate per intensita'. I rapporti fuori
+    tolleranza generano warning con fonte e direzione dello squilibrio.
     """
     all_slots: list[tuple[P, int]] = []
     for sessione in piano.sessioni:
         for slot in sessione.slots:
             all_slots.append((slot.pattern, slot.serie))
 
-    balance = _analyze_balance(all_slots)
+    balance = _analyze_balance(all_slots, intensity_weights)
 
     for squilibrio in balance.squilibri:
         warnings.append(f"Squilibrio biomeccanico: {squilibrio}")
@@ -311,19 +395,31 @@ def _build_dettaglio_muscoli(
     piano: TemplatePiano,
     volume_analysis: AnalisiVolume,
     freq: dict[M, int],
+    intensity_weights: list[float] | None = None,
+    tonnellaggio: AnalisiTonnellaggio | None = None,
 ) -> list[DettaglioMuscolo]:
     """
     Costruisce il dettaglio per muscolo con breakdown dei contributi per esercizio.
 
     Per ogni muscolo mostra quali esercizi (slot) contribuiscono al volume
     ipertrofico, con il contributo EMG e le serie ipertrofiche risultanti.
+    Se intensity_weights fornito, le serie_ipertrofiche riflettono il carico.
     """
     # Raccogli tutti gli slot con nome leggibile
-    named_slots: list[tuple[str, P, int]] = []
+    named_slots: list[tuple[str, P, int, float, float | None]] = []
+    slot_idx = 0
     for sessione in piano.sessioni:
         for idx, slot in enumerate(sessione.slots, 1):
             nome = f"{sessione.nome} — {slot.pattern.value} #{idx}"
-            named_slots.append((nome, slot.pattern, slot.serie))
+            w = intensity_weights[slot_idx] if intensity_weights else 1.0
+            kg = slot.carico_kg if hasattr(slot, "carico_kg") else None
+            named_slots.append((nome, slot.pattern, slot.serie, w, kg))
+            slot_idx += 1
+
+    # Tensione per muscolo dal tonnellaggio (se disponibile)
+    tension_map: dict[str, float] = {}
+    if tonnellaggio:
+        tension_map = tonnellaggio.tensione_per_muscolo
 
     dettagli: list[DettaglioMuscolo] = []
 
@@ -331,14 +427,14 @@ def _build_dettaglio_muscoli(
         muscolo = ve.muscolo
         contributi: list[ContributoEsercizio] = []
 
-        for nome, pattern, serie in named_slots:
+        for nome, pattern, serie, w, kg in named_slots:
             contribution_map = get_contribution(pattern)
             emg = contribution_map.get(muscolo, 0.0)
             if emg <= 0:
                 continue
 
-            weight = _get_hypertrophy_weight(emg)
-            serie_ipertrofiche = round(serie * weight, 2)
+            hyp_weight = _get_hypertrophy_weight(emg)
+            serie_ipertrofiche = round(serie * w * hyp_weight, 2)
 
             contributi.append(ContributoEsercizio(
                 nome_esercizio=nome,
@@ -346,7 +442,11 @@ def _build_dettaglio_muscoli(
                 serie=serie,
                 contributo_emg=emg,
                 serie_ipertrofiche=serie_ipertrofiche,
+                carico_kg=kg,
             ))
+
+        tensione = tension_map.get(muscolo.value)
+        tensione_kg = round(tensione, 1) if tensione and tensione > 0 else None
 
         dettagli.append(DettaglioMuscolo(
             muscolo=muscolo,
@@ -358,6 +458,7 @@ def _build_dettaglio_muscoli(
             stato=ve.stato,
             frequenza=freq.get(muscolo, 0),
             contributi=contributi,
+            tensione_kg=tensione_kg,
         ))
 
     return dettagli
@@ -365,19 +466,21 @@ def _build_dettaglio_muscoli(
 
 def _build_dettaglio_rapporti(
     piano: TemplatePiano,
+    intensity_weights: list[float] | None = None,
 ) -> list[DettaglioRapporto]:
     """
     Costruisce il dettaglio per ogni rapporto biomeccanico con volume per lato.
 
     Espone i dati interni di balance_ratios.py in formato strutturato
     per il drill-down nella tab analisi.
+    Se intensity_weights fornito, i volumi riflettono il carico.
     """
     all_slots: list[tuple[P, int]] = []
     for sessione in piano.sessioni:
         for slot in sessione.slots:
             all_slots.append((slot.pattern, slot.serie))
 
-    effective = compute_effective_sets(all_slots)
+    effective = compute_effective_sets(all_slots, intensity_weights)
     dettagli: list[DettaglioRapporto] = []
 
     for ratio in BALANCE_RATIOS:
@@ -386,8 +489,16 @@ def _build_dettaglio_rapporti(
         if is_pattern_ratio:
             num_patterns = {P(v) for v in ratio.numeratore if v in {p.value for p in P}}
             den_patterns = {P(v) for v in ratio.denominatore if v in {p.value for p in P}}
-            num_val = sum(s for p, s in all_slots if p in num_patterns)
-            den_val = sum(s for p, s in all_slots if p in den_patterns)
+            if intensity_weights:
+                num_val = sum(
+                    s * w for (p, s), w in zip(all_slots, intensity_weights) if p in num_patterns
+                )
+                den_val = sum(
+                    s * w for (p, s), w in zip(all_slots, intensity_weights) if p in den_patterns
+                )
+            else:
+                num_val = sum(s for p, s in all_slots if p in num_patterns)
+                den_val = sum(s for p, s in all_slots if p in den_patterns)
         else:
             num_val = sum(
                 effective.get(m, 0.0)
