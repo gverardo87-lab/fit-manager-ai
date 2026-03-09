@@ -304,7 +304,7 @@ export function prepareSessionsInputForSave(
       nome_sessione: nomeSessione,
       focus_muscolare: trimOrNull(s.focus_muscolare, 200),
       durata_minuti: durataMinuti,
-      notes: trimOrNull(s.note, 500),
+      note: trimOrNull(s.note, 500),
       esercizi,
       blocchi,
     };
