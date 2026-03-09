@@ -379,6 +379,14 @@ export function TrainingPlanRow({ item, expanded, onToggle }: TrainingPlanRowPro
             >
               Apri scheda →
             </Link>
+            {item.status !== "da_attivare" && (
+              <Link
+                href={`/allenamenti?idCliente=${item.client_id}`}
+                className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+              >
+                Vedi aderenza →
+              </Link>
+            )}
             <Link
               href={`/clienti/${item.client_id}`}
               className="text-xs text-muted-foreground hover:text-foreground hover:underline"

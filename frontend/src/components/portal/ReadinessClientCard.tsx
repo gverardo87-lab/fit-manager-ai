@@ -171,14 +171,14 @@ export function ReadinessClientRow({ item, expanded, onToggle }: ReadinessClient
           </Badge>
         )}
 
-        {/* CTA */}
+        {/* CTA — always shows next_action_label; when ready → Portale */}
         <Link
           href={isReady ? `/monitoraggio/${item.client_id}` : item.next_action_href}
           onClick={(e) => e.stopPropagation()}
           className="shrink-0"
         >
           <Button size="sm" variant={isReady ? "outline" : "default"} className="gap-1 text-xs">
-            <span className="hidden sm:inline">{isReady ? "Portale" : item.next_action_label}</span>
+            <span className="hidden sm:inline">{isReady ? "Vedi portale" : item.next_action_label}</span>
             <ArrowRight className="h-3 w-3" />
           </Button>
         </Link>

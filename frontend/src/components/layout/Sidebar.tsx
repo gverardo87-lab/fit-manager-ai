@@ -93,7 +93,7 @@ const NAV_TOP: NavEntry[] = [
         icon: BarChart3,
         activeMatch: (pathname) => pathname === "/monitoraggio",
       },
-      { href: "/allenamenti", label: "Compliance", icon: Activity },
+      { href: "/allenamenti", label: "Aderenza", icon: Activity },
     ],
   },
 ];

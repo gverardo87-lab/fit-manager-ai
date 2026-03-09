@@ -82,7 +82,7 @@ export function ProgramSection({
           <button type="button" className="flex w-full items-center justify-between p-4 text-left">
             <div className="flex items-center gap-2">
               <Dumbbell className="h-4 w-4 text-teal-500" />
-              <h2 className="text-sm font-semibold">Programma & Compliance</h2>
+              <h2 className="text-sm font-semibold">Programma Attivo</h2>
               {activeProgram && (
                 <Badge variant="outline" className={`text-[10px] ${STATUS_COLORS.attivo}`}>
                   {STATUS_LABELS.attivo}
@@ -218,7 +218,7 @@ export function ProgramSection({
               <Link href={`/allenamenti?idCliente=${clientId}`}>
                 <Button size="sm" variant="outline" className="gap-1.5">
                   <ClipboardList className="h-3.5 w-3.5" />
-                  Monitoraggio
+                  Vedi aderenza
                 </Button>
               </Link>
               <Link href={`/clienti/${clientId}?tab=schede&startScheda=1`}>
