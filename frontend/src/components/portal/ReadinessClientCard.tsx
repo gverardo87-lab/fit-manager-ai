@@ -143,10 +143,12 @@ export function ReadinessClientRow({ item, expanded, onToggle }: ReadinessClient
       }`}
     >
       {/* ── Compact Row ── */}
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         onClick={onToggle}
-        className="flex w-full items-center gap-3 p-3 text-left sm:px-4"
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(); } }}
+        className="flex w-full cursor-pointer items-center gap-3 p-3 text-left sm:px-4"
       >
         {/* Readiness score dot */}
         <div className={`h-2 w-2 shrink-0 rounded-full ${
@@ -179,14 +181,14 @@ export function ReadinessClientRow({ item, expanded, onToggle }: ReadinessClient
           </Badge>
         )}
 
-        {/* CTA — always shows next_action_label; when ready → Portale */}
+        {/* CTA — always shows next_action_label; when ready → Monitoraggio */}
         <Link
           href={isReady ? `/monitoraggio/${item.client_id}?from=monitoraggio` : item.next_action_href}
           onClick={(e) => e.stopPropagation()}
           className="shrink-0"
         >
           <Button size="sm" variant={isReady ? "outline" : "default"} className="gap-1 text-xs">
-            <span className="hidden sm:inline">{isReady ? "Vedi portale" : item.next_action_label}</span>
+            <span className="hidden sm:inline">{isReady ? "Vedi monitoraggio" : item.next_action_label}</span>
             <ArrowRight className="h-3 w-3" />
           </Button>
         </Link>
@@ -197,7 +199,7 @@ export function ReadinessClientRow({ item, expanded, onToggle }: ReadinessClient
             expanded ? "rotate-180" : ""
           }`}
         />
-      </button>
+      </div>
 
       {/* ── Expanded Drill-Down ── */}
       {expanded && (

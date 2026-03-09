@@ -61,7 +61,7 @@ export default function AnamnesiPage({
   const backNav = useMemo(() => {
     if (fromParam?.startsWith("monitoraggio-")) {
       const cId = fromParam.replace("monitoraggio-", "");
-      return { href: `/monitoraggio/${cId}`, label: "Portale Cliente" };
+      return { href: `/monitoraggio/${cId}`, label: "Monitoraggio" };
     }
     return { href: `/clienti/${clientId}`, label: "Profilo" };
   }, [fromParam, clientId]);

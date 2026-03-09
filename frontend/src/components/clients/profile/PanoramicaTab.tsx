@@ -94,10 +94,10 @@ const JOURNEY_PHASES: JourneyPhase[] = [
 
 const QUICK_ACCESS = [
   {
-    key: "portale",
+    key: "monitoraggio",
     href: (id: number) => `/monitoraggio/${id}?from=clienti-${id}`,
     icon: ClipboardList,
-    label: "Portale Cliente",
+    label: "Monitoraggio",
     description: "Panoramica 360° con tracking completo",
     borderClass: "border-l-violet-500",
     bgClass: "bg-violet-100 dark:bg-violet-900/30",

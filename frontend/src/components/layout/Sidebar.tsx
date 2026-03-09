@@ -71,6 +71,12 @@ const NAV_TOP: NavEntry[] = [
         activeMatch: (pathname) =>
           pathname === "/clienti" || /^\/clienti\/\d+(\/|$)/.test(pathname),
       },
+      {
+        href: "/monitoraggio",
+        label: "Monitoraggio",
+        icon: BarChart3,
+        activeMatch: (pathname) => pathname.startsWith("/monitoraggio"),
+      },
     ],
   },
   {
@@ -86,17 +92,6 @@ const NAV_TOP: NavEntry[] = [
     items: [
       { href: "/esercizi", label: "Esercizi", icon: Dumbbell },
       { href: "/schede", label: "Schede", icon: ClipboardList, guideId: "sidebar-schede" },
-    ],
-  },
-  {
-    section: "Portale Cliente",
-    items: [
-      {
-        href: "/monitoraggio",
-        label: "Portale",
-        icon: BarChart3,
-        activeMatch: (pathname) => pathname === "/monitoraggio",
-      },
       { href: "/allenamenti", label: "Aderenza", icon: Activity },
     ],
   },

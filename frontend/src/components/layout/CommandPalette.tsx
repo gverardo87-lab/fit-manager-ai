@@ -34,6 +34,7 @@ import {
   CalendarCheck,
   CreditCard,
   Activity,
+  BarChart3,
   Scale,
   HeartPulse,
   Sparkles,
@@ -90,7 +91,8 @@ const NAV_ITEMS = [
   { id: "nav-contratti", href: "/contratti", label: "Contratti", icon: FileText },
   { id: "nav-esercizi", href: "/esercizi", label: "Esercizi", icon: Dumbbell },
   { id: "nav-schede", href: "/schede", label: "Schede Allenamento", icon: Dumbbell },
-  { id: "nav-allenamenti", href: "/allenamenti", label: "Monitoraggio Allenamenti", icon: Activity },
+  { id: "nav-monitoraggio", href: "/monitoraggio", label: "Monitoraggio Clienti", icon: BarChart3 },
+  { id: "nav-allenamenti", href: "/allenamenti", label: "Aderenza Allenamenti", icon: Activity },
   { id: "nav-cassa", href: "/cassa", label: "Cassa", icon: Wallet },
   { id: "nav-guida", href: "/guida", label: "Guida", icon: BookOpen },
   { id: "nav-impostazioni", href: "/impostazioni", label: "Impostazioni", icon: Settings },
@@ -975,7 +977,7 @@ export function CommandPalette() {
                         onSelect={() => navigate(`/monitoraggio/${contextClient.id}?from=clienti-${contextClient.id}`)}
                       >
                         <TrendingUp className="mr-2 h-4 w-4 text-muted-foreground" />
-                        Portale Cliente di {contextClient.nome}
+                        Monitoraggio di {contextClient.nome}
                       </CommandItem>
                       <CommandItem
                         value={`ctx-anamnesi-${contextClient.id}`}

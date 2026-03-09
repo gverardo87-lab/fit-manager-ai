@@ -107,7 +107,7 @@ export function PortalHeader({
         <Link href={backHref ?? "/monitoraggio"}>
           <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground">
             <ArrowLeft className="h-4 w-4" />
-            {backLabel ?? "Portale"}
+            {backLabel ?? "Monitoraggio"}
           </Button>
         </Link>
         <span className="text-muted-foreground/40">/</span>
