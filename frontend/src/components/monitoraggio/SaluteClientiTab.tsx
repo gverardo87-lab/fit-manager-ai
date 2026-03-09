@@ -5,10 +5,10 @@
  * Tab Salute Clienti — Worklist readiness clinica.
  *
  * Hero con HealthScoreRing, filtri semplificati con ricerca debounced,
- * card grid paginata.
+ * righe espandibili full-width.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Filter,
   Search,
@@ -22,7 +22,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HealthScoreRing } from "@/components/portal/HealthScoreRing";
-import { ReadinessClientCard } from "@/components/portal/ReadinessClientCard";
+import { ReadinessClientRow } from "@/components/portal/ReadinessClientCard";
 import { useClinicalReadinessWorklist } from "@/hooks/useDashboard";
 
 // ── Types ──
@@ -93,11 +93,11 @@ function HeroSkeleton() {
   );
 }
 
-function CardGridSkeleton() {
+function RowListSkeleton() {
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="space-y-2">
       {Array.from({ length: 6 }).map((_, i) => (
-        <Skeleton key={i} className="h-44 rounded-xl" />
+        <Skeleton key={i} className="h-14 rounded-xl" />
       ))}
     </div>
   );
@@ -110,9 +110,10 @@ export function SaluteClientiTab() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filter, setFilter] = useState<PortalFilter>("todo");
   const [page, setPage] = useState(1);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Debounce search: input updates immediately, query fires after delay
+  // Debounce search
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
@@ -148,7 +149,11 @@ export function SaluteClientiTab() {
     return Math.round((summary.ready_clients / summary.total_clients) * 100);
   }, [summary]);
 
-  const handleFilterChange = (next: PortalFilter) => { setFilter(next); setPage(1); };
+  const handleFilterChange = (next: PortalFilter) => { setFilter(next); setPage(1); setExpandedId(null); };
+
+  const handleToggle = useCallback((clientId: number) => {
+    setExpandedId((prev) => (prev === clientId ? null : clientId));
+  }, []);
 
   if (isError) {
     return (
@@ -166,7 +171,7 @@ export function SaluteClientiTab() {
       <div className="space-y-5">
         <HeroSkeleton />
         <Skeleton className="h-14 w-full rounded-xl" />
-        <CardGridSkeleton />
+        <RowListSkeleton />
       </div>
     );
   }
@@ -183,7 +188,7 @@ export function SaluteClientiTab() {
         readyPct={readyPct}
       />
 
-      {/* FilterBar — pills + search, no advanced selects */}
+      {/* FilterBar */}
       <div className="rounded-xl border bg-white p-3 shadow-sm dark:bg-zinc-900">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -216,7 +221,7 @@ export function SaluteClientiTab() {
         </p>
       </div>
 
-      {/* Card Grid or Empty */}
+      {/* Row List or Empty */}
       {pagedItems.length === 0 ? (
         <EmptyState
           icon={Filter}
@@ -225,9 +230,14 @@ export function SaluteClientiTab() {
         />
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="space-y-2">
             {pagedItems.map((item) => (
-              <ReadinessClientCard key={item.client_id} item={item} />
+              <ReadinessClientRow
+                key={item.client_id}
+                item={item}
+                expanded={expandedId === item.client_id}
+                onToggle={() => handleToggle(item.client_id)}
+              />
             ))}
           </div>
 
