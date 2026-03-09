@@ -31,11 +31,10 @@ import {
   ClipboardList,
   CalendarDays,
   Check,
+  ChevronDown,
   Trash2,
   Plus,
   User,
-  Target,
-  BarChart3,
   AlertTriangle,
   type LucideIcon,
 } from "lucide-react";
@@ -421,6 +420,7 @@ export default function AllenamentiPage() {
 function ProgramCard({ plan }: { plan: WorkoutPlan }) {
   const status = getProgramStatus(plan);
   const [activateOpen, setActivateOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const { data: logsData } = useWorkoutLogs(plan.id);
   const logs = logsData?.items ?? [];
 
@@ -439,7 +439,6 @@ function ProgramCard({ plan }: { plan: WorkoutPlan }) {
     [logs, weeks, sessionIds],
   );
 
-  // Compliance (con logica precisa per settimana corrente)
   const expected = computeExpected(weeks, plan.sessioni.length);
   const completed = logGrid.size;
   const compliance = computeCompliance(expected, completed);
@@ -447,6 +446,9 @@ function ProgramCard({ plan }: { plan: WorkoutPlan }) {
   const clientName = plan.client_nome && plan.client_cognome
     ? `${plan.client_nome} ${plan.client_cognome}`
     : "—";
+
+  // "da_attivare" non ha griglia — layout semplice senza collapsible
+  const hasGrid = status !== "da_attivare" && weeks.length > 0;
 
   return (
     <>
@@ -459,64 +461,93 @@ function ProgramCard({ plan }: { plan: WorkoutPlan }) {
               ? "bg-zinc-50/50 dark:bg-zinc-900/50"
               : `border-l-4 ${STATUS_CARD_BORDER[status]} bg-white dark:bg-zinc-900`
       }`}>
-        {/* Header */}
-        <div className="p-4 pb-3 sm:p-5 sm:pb-3">
-          <div className="flex items-start justify-between gap-2">
-            <div className="space-y-1.5 min-w-0">
+        {/* ── Compact header (sempre visibile, clickable per espandere) ── */}
+        <button
+          type="button"
+          className="w-full text-left p-3 sm:p-4"
+          onClick={() => hasGrid && setExpanded((v) => !v)}
+          style={{ cursor: hasGrid ? "pointer" : "default" }}
+        >
+          <div className="flex items-center gap-3">
+            {/* Info principale */}
+            <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-lg font-bold tracking-tight">{plan.nome}</h3>
-                <Badge className={STATUS_COLORS[status]}>
+                <h3 className="text-sm font-bold tracking-tight truncate">{plan.nome}</h3>
+                <Badge className={`text-[10px] ${STATUS_COLORS[status]}`}>
                   {STATUS_LABELS[status]}
                 </Badge>
               </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
-                <span className="flex items-center gap-1">
-                  <User className="h-3 w-3" />
-                  <Link
-                    href={`/clienti/${plan.id_cliente}`}
-                    className="text-primary hover:underline font-medium"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {clientName}
-                  </Link>
-                </span>
-                <span className="text-muted-foreground/40">•</span>
-                <span className="flex items-center gap-1">
-                  <Target className="h-3 w-3" />
-                  <span className="capitalize">{plan.obiettivo}</span>
-                </span>
-                <span className="text-muted-foreground/40">•</span>
-                <span className="flex items-center gap-1">
-                  <BarChart3 className="h-3 w-3" />
-                  <span className="capitalize">{plan.livello}</span>
-                </span>
+              <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground">
+                <User className="h-3 w-3 shrink-0" />
+                <Link
+                  href={`/clienti/${plan.id_cliente}`}
+                  className="text-primary hover:underline font-medium truncate"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {clientName}
+                </Link>
+                <span className="text-muted-foreground/40 hidden sm:inline">•</span>
+                <span className="hidden sm:inline capitalize">{plan.obiettivo}</span>
+                <span className="text-muted-foreground/40 hidden sm:inline">•</span>
+                <span className="hidden sm:inline capitalize">{plan.livello}</span>
               </div>
-              {plan.data_inizio && plan.data_fine && (
-                <p className="flex items-center gap-1 text-xs text-muted-foreground tabular-nums">
-                  <CalendarDays className="h-3 w-3" />
-                  {formatDateRange(plan.data_inizio, plan.data_fine)}
-                  <span className="text-muted-foreground/50 ml-1">
-                    ({weeks.length} sett.)
-                  </span>
-                </p>
-              )}
             </div>
-          </div>
-        </div>
 
-        {/* Content */}
-        <div className="px-4 pb-4 space-y-4 sm:px-5 sm:pb-5">
-          {/* Griglia solo per piani attivati */}
-          {status !== "da_attivare" && weeks.length > 0 && (
+            {/* Compliance mini-bar (solo per piani con griglia) */}
+            {hasGrid && (
+              <div className="flex items-center gap-2.5 shrink-0">
+                <div className="hidden sm:flex items-center gap-2 w-28">
+                  <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${getComplianceColor(compliance)}`}
+                      style={{ width: `${compliance}%` }}
+                    />
+                  </div>
+                  <span className={`text-xs font-bold tabular-nums ${getComplianceTextColor(compliance)}`}>
+                    {compliance}%
+                  </span>
+                </div>
+                <ChevronDown className={`h-4 w-4 text-muted-foreground/50 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`} />
+              </div>
+            )}
+
+            {/* CTA per "da_attivare" (inline, senza drill-down) */}
+            {status === "da_attivare" && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs shrink-0"
+                onClick={(e) => { e.stopPropagation(); setActivateOpen(true); }}
+              >
+                <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
+                Attiva
+              </Button>
+            )}
+          </div>
+        </button>
+
+        {/* ── Expanded content (drill-down) ── */}
+        {expanded && hasGrid && (
+          <div className="border-t px-3 pb-3 pt-3 space-y-4 sm:px-4 sm:pb-4">
+            {/* Date range */}
+            {plan.data_inizio && plan.data_fine && (
+              <p className="flex items-center gap-1 text-xs text-muted-foreground tabular-nums">
+                <CalendarDays className="h-3 w-3" />
+                {formatDateRange(plan.data_inizio, plan.data_fine)}
+                <span className="text-muted-foreground/50 ml-1">
+                  ({weeks.length} sett.)
+                </span>
+              </p>
+            )}
+
+            {/* Griglia */}
             <ComplianceGrid
               plan={plan}
               weeks={weeks}
               logGrid={logGrid}
             />
-          )}
 
-          {/* Barra compliance */}
-          {status !== "da_attivare" && (
+            {/* Barra compliance dettagliata */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-medium text-muted-foreground">Aderenza</span>
@@ -534,26 +565,26 @@ function ProgramCard({ plan }: { plan: WorkoutPlan }) {
                 {completed} di {expected} sessioni completate
               </div>
             </div>
-          )}
 
-          {/* Azioni */}
-          <div className="flex items-center justify-between pt-1">
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs"
-              onClick={() => setActivateOpen(true)}
-            >
-              <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
-              {status === "da_attivare" ? "Attiva programma" : "Modifica date"}
-            </Button>
-            <Link href={`/schede/${plan.id}?from=allenamenti`}>
-              <Button variant="ghost" size="sm" className="text-xs text-primary">
-                Vai alla Scheda →
+            {/* Azioni */}
+            <div className="flex items-center justify-between pt-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                onClick={() => setActivateOpen(true)}
+              >
+                <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
+                Modifica date
               </Button>
-            </Link>
+              <Link href={`/schede/${plan.id}?from=allenamenti`}>
+                <Button variant="ghost" size="sm" className="text-xs text-primary">
+                  Vai alla Scheda →
+                </Button>
+              </Link>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <ActivateDialog
