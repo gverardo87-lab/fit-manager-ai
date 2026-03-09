@@ -7,13 +7,30 @@ del chinesiologo (anamnesi, misurazioni, schede, monitoraggio).
 """
 
 from datetime import date
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel
 
 
+class ClinicalFreshnessSignal(BaseModel):
+    """Stato unificato di freshness per misurazioni e schede."""
+
+    domain: Literal["measurements", "workout"]
+    status: Literal["missing", "ok", "warning", "critical"] = "missing"
+    label: str
+    cta_label: str
+    cta_href: str
+    timeline_status: str = "none"        # overdue | today | upcoming_7d | upcoming_14d | future | none
+    reason_code: Optional[str] = None
+    due_date: Optional[date] = None
+    last_recorded_date: Optional[date] = None
+    days_to_due: Optional[int] = None
+    days_since_last: Optional[int] = None
+
+
 class ClinicalReadinessClientItem(BaseModel):
     """Singolo cliente nella coda readiness clinica."""
+
     client_id: int
     client_nome: str
     client_cognome: str
@@ -31,6 +48,9 @@ class ClinicalReadinessClientItem(BaseModel):
     days_to_due: Optional[int] = None
     timeline_status: str = "none"        # overdue | today | upcoming_7d | upcoming_14d | future | none
     timeline_reason: Optional[str] = None
+    timeline_label: Optional[str] = None
+    measurement_freshness: ClinicalFreshnessSignal
+    workout_freshness: ClinicalFreshnessSignal
 
 
 class ClinicalReadinessSummary(BaseModel):

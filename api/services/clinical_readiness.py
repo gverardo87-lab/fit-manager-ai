@@ -17,7 +17,13 @@ from api.models.measurement import ClientMeasurement
 from api.models.workout import WorkoutPlan
 from api.schemas.clinical import (
     ClinicalReadinessClientItem,
+    ClinicalFreshnessSignal,
     ClinicalReadinessSummary,
+)
+from api.services.client_freshness import (
+    build_measurement_freshness,
+    build_workout_freshness,
+    parse_reference_date,
 )
 
 
@@ -38,24 +44,6 @@ def _get_anamnesi_state(anamnesi_json: str | None) -> str:
     return "legacy"
 
 
-def _parse_iso_date(value: str | date | datetime | None) -> date | None:
-    if not value:
-        return None
-    if isinstance(value, datetime):
-        return value.date()
-    if isinstance(value, date):
-        return value
-
-    normalized = value.strip()
-    if not normalized:
-        return None
-
-    try:
-        return date.fromisoformat(normalized[:10])
-    except ValueError:
-        return None
-
-
 def _extract_anamnesi_reference_date(anamnesi_json: str | None) -> date | None:
     if not anamnesi_json:
         return None
@@ -68,64 +56,119 @@ def _extract_anamnesi_reference_date(anamnesi_json: str | None) -> date | None:
     if not isinstance(data, dict):
         return None
 
-    updated = _parse_iso_date(data.get("data_ultimo_aggiornamento"))
+    updated = parse_reference_date(data.get("data_ultimo_aggiornamento"))
     if updated:
         return updated
-    return _parse_iso_date(data.get("data_compilazione"))
+    return parse_reference_date(data.get("data_compilazione"))
+
+
+def _timeline_status(days_to_due: int | None) -> str:
+    if days_to_due is None:
+        return "none"
+    if days_to_due < 0:
+        return "overdue"
+    if days_to_due == 0:
+        return "today"
+    if days_to_due <= 7:
+        return "upcoming_7d"
+    if days_to_due <= 14:
+        return "upcoming_14d"
+    return "future"
+
+
+def _build_anamnesi_timeline(
+    *,
+    anamnesi_state: str,
+    anamnesi_reference_date: date | None,
+    reference_date: date,
+) -> tuple[date | None, int | None, str, str | None, str | None]:
+    if anamnesi_state == "missing":
+        return reference_date, 0, "today", "anamnesi_missing", "Anamnesi mancante"
+
+    if anamnesi_state == "legacy":
+        return reference_date, 0, "today", "anamnesi_legacy", "Anamnesi legacy da rivedere"
+
+    if anamnesi_reference_date is None:
+        return None, None, "none", None, None
+
+    due_date = anamnesi_reference_date + timedelta(days=180)
+    days_to_due = (due_date - reference_date).days
+    return (
+        due_date,
+        days_to_due,
+        _timeline_status(days_to_due),
+        "anamnesi_review",
+        "Review anamnesi programmata",
+    )
 
 
 def _compute_timeline_due(
     *,
-    reference_date: date,
-    anamnesi_state: str,
-    has_measurements: bool,
-    has_workout_plan: bool,
-    latest_measurement_date: date | None,
-    latest_workout_updated_at: str | date | datetime | None,
-    anamnesi_reference_date: date | None,
-) -> tuple[date | None, int | None, str, str | None]:
-    if anamnesi_state == "missing":
-        return reference_date, 0, "today", "anamnesi_missing"
+    anamnesi_timeline: tuple[date | None, int | None, str, str | None, str | None],
+    measurement_freshness: ClinicalFreshnessSignal,
+    workout_freshness: ClinicalFreshnessSignal,
+) -> tuple[date | None, int | None, str, str | None, str | None]:
+    if anamnesi_timeline[0] is not None and anamnesi_timeline[3] in {"anamnesi_missing", "anamnesi_legacy"}:
+        return anamnesi_timeline
 
-    if anamnesi_state == "legacy":
-        return reference_date, 0, "today", "anamnesi_legacy"
+    if measurement_freshness.status == "missing":
+        return (
+            measurement_freshness.due_date,
+            measurement_freshness.days_to_due,
+            measurement_freshness.timeline_status,
+            "baseline_missing",
+            measurement_freshness.label,
+        )
 
-    if not has_measurements:
-        return reference_date, 0, "today", "baseline_missing"
+    if workout_freshness.status == "missing":
+        return (
+            workout_freshness.due_date,
+            workout_freshness.days_to_due,
+            workout_freshness.timeline_status,
+            "workout_missing",
+            workout_freshness.label,
+        )
 
-    if not has_workout_plan:
-        return reference_date, 0, "today", "workout_missing"
+    candidates: list[tuple[date, int, str, str | None, str | None]] = []
 
-    candidates: list[tuple[date, str]] = []
+    if measurement_freshness.due_date is not None and measurement_freshness.days_to_due is not None:
+        candidates.append(
+            (
+                measurement_freshness.due_date,
+                measurement_freshness.days_to_due,
+                measurement_freshness.timeline_status,
+                measurement_freshness.reason_code,
+                measurement_freshness.label,
+            )
+        )
 
-    if latest_measurement_date is not None:
-        candidates.append((latest_measurement_date + timedelta(days=30), "measurement_review"))
+    if workout_freshness.due_date is not None and workout_freshness.days_to_due is not None:
+        candidates.append(
+            (
+                workout_freshness.due_date,
+                workout_freshness.days_to_due,
+                workout_freshness.timeline_status,
+                workout_freshness.reason_code,
+                workout_freshness.label,
+            )
+        )
 
-    latest_workout_date = _parse_iso_date(latest_workout_updated_at)
-    if latest_workout_date is not None:
-        candidates.append((latest_workout_date + timedelta(days=21), "workout_review"))
-
-    if anamnesi_reference_date is not None:
-        candidates.append((anamnesi_reference_date + timedelta(days=180), "anamnesi_review"))
+    if anamnesi_timeline[0] is not None and anamnesi_timeline[1] is not None:
+        candidates.append(
+            (
+                anamnesi_timeline[0],
+                anamnesi_timeline[1],
+                anamnesi_timeline[2],
+                anamnesi_timeline[3],
+                anamnesi_timeline[4],
+            )
+        )
 
     if not candidates:
-        return None, None, "none", "monitoring"
+        return None, None, "none", "monitoring", None
 
-    due_date, reason = min(candidates, key=lambda item: item[0])
-    days_to_due = (due_date - reference_date).days
-
-    if days_to_due < 0:
-        status = "overdue"
-    elif days_to_due == 0:
-        status = "today"
-    elif days_to_due <= 7:
-        status = "upcoming_7d"
-    elif days_to_due <= 14:
-        status = "upcoming_14d"
-    else:
-        status = "future"
-
-    return due_date, days_to_due, status, reason
+    due_date, days_to_due, status, reason, label = min(candidates, key=lambda item: item[0])
+    return due_date, days_to_due, status, reason, label
 
 
 def _build_clinical_readiness_item(
@@ -196,14 +239,25 @@ def _build_clinical_readiness_item(
     else:
         priority = "low"
 
-    next_due_date, days_to_due, timeline_status, timeline_reason = _compute_timeline_due(
-        reference_date=reference_date,
-        anamnesi_state=anamnesi_state,
-        has_measurements=has_measurements,
-        has_workout_plan=has_workout_plan,
+    measurement_freshness = build_measurement_freshness(
+        client_id=client_id,
         latest_measurement_date=latest_measurement_date,
-        latest_workout_updated_at=latest_workout_updated_at,
+        reference_date=reference_date,
+    )
+    workout_freshness = build_workout_freshness(
+        client_id=client_id,
+        latest_workout_reference=latest_workout_updated_at,
+        reference_date=reference_date,
+    )
+    anamnesi_timeline = _build_anamnesi_timeline(
+        anamnesi_state=anamnesi_state,
         anamnesi_reference_date=anamnesi_reference_date,
+        reference_date=reference_date,
+    )
+    next_due_date, days_to_due, timeline_status, timeline_reason, timeline_label = _compute_timeline_due(
+        anamnesi_timeline=anamnesi_timeline,
+        measurement_freshness=measurement_freshness,
+        workout_freshness=workout_freshness,
     )
 
     return ClinicalReadinessClientItem(
@@ -224,6 +278,9 @@ def _build_clinical_readiness_item(
         days_to_due=days_to_due,
         timeline_status=timeline_status,
         timeline_reason=timeline_reason,
+        timeline_label=timeline_label,
+        measurement_freshness=measurement_freshness,
+        workout_freshness=workout_freshness,
     )
 
 

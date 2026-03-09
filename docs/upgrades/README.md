@@ -36,6 +36,8 @@ Esempio:
 
 ## Ultimo allineamento (2026-03-09)
 
+- `UPG-2026-03-09-10`: la freshness di `misurazioni` e `schede` ora nasce dal backend come policy condivisa (`measurement_freshness`, `workout_freshness`) ed e consumata da profilo cliente, portale clinico e worklist readiness senza piu soglie locali duplicate in frontend.
+- `UPG-2026-03-09-09`: definita la policy unica `signal -> family -> visibility -> promotion` per `Oggi`, con merge/soppressione e budget di densita, cosi` `misurazioni`, `anamnesi` e `schede` possano entrare nel workspace solo quando cambiano davvero l'azione del giorno.
 - `UPG-2026-03-09-08`: refactor di `Oggi` in chiave `stack + detail`: header minimo, agenda di supporto, queue a 3 sezioni e detail sticky, per differenziarla davvero dalla dashboard senza toccare `/`.
 - `UPG-2026-03-09-07`: primo shell frontend reale del workspace `Oggi` su route `/oggi`, con focus case, agenda live, queue per bucket, detail panel e link dedicato in sidebar, senza ancora sostituire la dashboard `/`.
 - `UPG-2026-03-09-06`: introdotto `GET /api/workspace/cases/{case_id}` con payload detail read-only (`signals`, `related_entities`, `activity_preview`), visibilita finance dipendente dal workspace e hook frontend `useWorkspaceCaseDetail()`.

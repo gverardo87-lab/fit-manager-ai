@@ -843,6 +843,23 @@ export type ClinicalNextActionCode =
   | "assign_workout"
   | "ready";
 
+export type ClinicalFreshnessDomain = "measurements" | "workout";
+export type ClinicalFreshnessStatus = "missing" | "ok" | "warning" | "critical";
+
+export interface ClinicalFreshnessSignal {
+  domain: ClinicalFreshnessDomain;
+  status: ClinicalFreshnessStatus;
+  label: string;
+  cta_label: string;
+  cta_href: string;
+  timeline_status: "overdue" | "today" | "upcoming_7d" | "upcoming_14d" | "future" | "none";
+  reason_code: string | null;
+  due_date: string | null;
+  last_recorded_date: string | null;
+  days_to_due: number | null;
+  days_since_last: number | null;
+}
+
 /** Singolo cliente nella coda readiness clinica */
 export interface ClinicalReadinessClientItem {
   client_id: number;
@@ -862,6 +879,9 @@ export interface ClinicalReadinessClientItem {
   days_to_due: number | null;
   timeline_status: "overdue" | "today" | "upcoming_7d" | "upcoming_14d" | "future" | "none";
   timeline_reason: string | null;
+  timeline_label: string | null;
+  measurement_freshness: ClinicalFreshnessSignal;
+  workout_freshness: ClinicalFreshnessSignal;
 }
 
 /** Contatori aggregati della coda readiness */

@@ -109,6 +109,12 @@ function formatDaysTo(days: number | null): string {
   return `tra ${days}gg`;
 }
 
+function freshnessToDotState(status: "missing" | "ok" | "warning" | "critical"): "ok" | "warn" | "missing" {
+  if (status === "missing") return "missing";
+  if (status === "warning" || status === "critical") return "warn";
+  return "ok";
+}
+
 // ── Main Component ──
 
 interface ReadinessClientRowProps {
@@ -122,6 +128,8 @@ export function ReadinessClientRow({ item, expanded, onToggle }: ReadinessClient
     item.anamnesi_state === "structured" ? "ok"
     : item.anamnesi_state === "legacy" ? "warn"
     : "missing";
+  const measurementState = freshnessToDotState(item.measurement_freshness.status);
+  const workoutState = freshnessToDotState(item.workout_freshness.status);
 
   const isReady = item.readiness_score >= 100;
   const isQuiet = item.priority === "low";
@@ -160,8 +168,8 @@ export function ReadinessClientRow({ item, expanded, onToggle }: ReadinessClient
         {/* Status dots compact (desktop) */}
         <div className="hidden shrink-0 items-center gap-2 md:flex">
           <StatusDot state={anamnesiState} label="Ana" />
-          <StatusDot state={item.has_measurements ? "ok" : "missing"} label="Mis" />
-          <StatusDot state={item.has_workout_plan ? "ok" : "missing"} label="Sch" />
+          <StatusDot state={measurementState} label="Mis" />
+          <StatusDot state={workoutState} label="Sch" />
         </div>
 
         {/* Timeline badge */}
@@ -206,8 +214,8 @@ export function ReadinessClientRow({ item, expanded, onToggle }: ReadinessClient
 
               <div className="flex flex-wrap gap-3">
                 <StatusDot state={anamnesiState} label="Anamnesi" />
-                <StatusDot state={item.has_measurements ? "ok" : "missing"} label="Misurazioni" />
-                <StatusDot state={item.has_workout_plan ? "ok" : "missing"} label="Scheda" />
+                <StatusDot state={measurementState} label="Misurazioni" />
+                <StatusDot state={workoutState} label="Scheda" />
               </div>
             </div>
 
@@ -244,8 +252,8 @@ export function ReadinessClientRow({ item, expanded, onToggle }: ReadinessClient
               )}
 
               {/* Timeline reason */}
-              {item.timeline_reason && (
-                <p className="text-xs text-muted-foreground">{item.timeline_reason}</p>
+              {(item.timeline_label ?? item.timeline_reason) && (
+                <p className="text-xs text-muted-foreground">{item.timeline_label ?? item.timeline_reason}</p>
               )}
             </div>
           </div>

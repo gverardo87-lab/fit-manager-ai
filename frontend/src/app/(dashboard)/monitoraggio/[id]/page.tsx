@@ -76,11 +76,11 @@ export default function MonitoraggioClientDetailPage({
   const { data: readinessData } = useClinicalReadiness();
 
   // Computed values
-  const measurements = measurementsData?.items ?? [];
-  const metrics = metricsData ?? [];
-  const goals = goalsData?.items ?? [];
-  const workouts = workoutsData?.items ?? [];
-  const workoutLogs = workoutLogsData?.items ?? [];
+  const measurements = useMemo(() => measurementsData?.items ?? [], [measurementsData?.items]);
+  const metrics = useMemo(() => metricsData ?? [], [metricsData]);
+  const goals = useMemo(() => goalsData?.items ?? [], [goalsData?.items]);
+  const workouts = useMemo(() => workoutsData?.items ?? [], [workoutsData?.items]);
+  const workoutLogs = useMemo(() => workoutLogsData?.items ?? [], [workoutLogsData?.items]);
 
   const sesso = client?.sesso ?? null;
   const dataNascita = client?.data_nascita ?? null;
@@ -217,6 +217,7 @@ export default function MonitoraggioClientDetailPage({
           sesso={sesso}
           dataNascita={dataNascita}
           clientId={clientId}
+          measurementFreshness={readinessItem?.measurement_freshness ?? null}
         />
       </section>
 
@@ -245,6 +246,7 @@ export default function MonitoraggioClientDetailPage({
           safetyData={safetyData ?? null}
           clientId={clientId}
           compliancePct={compliancePct}
+          workoutFreshness={readinessItem?.workout_freshness ?? null}
         />
       </section>
 

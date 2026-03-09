@@ -1,172 +1,59 @@
 /**
- * client-alerts.ts — Utility pure per alert scheda e misurazioni.
+ * client-alerts.ts — Mapping UI per alert readiness backend-first.
  *
- * Calcola "eta'" della scheda piu' recente e gap dall'ultima misurazione.
- * Soglie configurabili, severity 3 livelli (ok / warning / critical).
- * Zero dipendenze da React — puro TypeScript.
+ * La logica di soglia vive nel backend (`api/services/client_freshness.py`).
+ * Qui traduciamo solo i segnali gia calcolati dal payload readiness in banner/badge UI.
  */
 
-import type { WorkoutPlan, Measurement } from "@/types/api";
+import type { ClinicalFreshnessSignal, ClinicalReadinessClientItem } from "@/types/api";
 
-// ════════════════════════════════════════════════════════════
-// TYPES
-// ════════════════════════════════════════════════════════════
-
-export type AlertSeverity = "ok" | "warning" | "critical";
+export type AlertSeverity = "warning" | "critical";
 
 export interface ClientAlert {
   type: "scheda_age" | "measurement_gap";
   severity: AlertSeverity;
   daysElapsed: number;
   label: string;
-  /** CTA testuale per il banner */
   cta: string;
+  href: string;
 }
 
-// ════════════════════════════════════════════════════════════
-// THRESHOLDS (giorni)
-// ════════════════════════════════════════════════════════════
-
-/** Scheda: verde < 21d, ambra 21-35d, rosso > 35d */
-const SCHEDA_WARNING_DAYS = 21;
-const SCHEDA_CRITICAL_DAYS = 35;
-
-/** Misurazioni: verde < 25d, ambra 25-35d, rosso > 35d */
-const MEASUREMENT_WARNING_DAYS = 25;
-const MEASUREMENT_CRITICAL_DAYS = 35;
-
-// ════════════════════════════════════════════════════════════
-// HELPERS
-// ════════════════════════════════════════════════════════════
-
-function daysBetween(from: Date, to: Date): number {
-  const msPerDay = 86_400_000;
-  return Math.floor((to.getTime() - from.getTime()) / msPerDay);
-}
-
-function getSeverity(
-  days: number,
-  warningThreshold: number,
-  criticalThreshold: number,
-): AlertSeverity {
-  if (days >= criticalThreshold) return "critical";
-  if (days >= warningThreshold) return "warning";
-  return "ok";
-}
-
-// ════════════════════════════════════════════════════════════
-// SCHEDA AGE
-// ════════════════════════════════════════════════════════════
-
-/**
- * Data di riferimento della scheda piu' recente.
- * Priorita': updated_at > created_at > data_inizio.
- */
-function getLatestSchedaDate(workouts: WorkoutPlan[]): Date | null {
-  if (workouts.length === 0) return null;
-
-  let latest: Date | null = null;
-
-  for (const w of workouts) {
-    const candidates = [w.updated_at, w.created_at, w.data_inizio].filter(Boolean) as string[];
-    for (const c of candidates) {
-      const d = new Date(c.includes("T") ? c : c + "T00:00:00");
-      if (!latest || d > latest) latest = d;
-    }
+function toClientAlert(signal: ClinicalFreshnessSignal | null | undefined): ClientAlert | null {
+  if (!signal || (signal.status !== "warning" && signal.status !== "critical")) {
+    return null;
   }
 
-  return latest;
-}
-
-/**
- * Calcola l'eta' della scheda piu' recente.
- * Ritorna null se non ci sono schede.
- */
-export function computeSchedaAge(
-  workouts: WorkoutPlan[],
-  now: Date = new Date(),
-): ClientAlert | null {
-  const latestDate = getLatestSchedaDate(workouts);
-  if (!latestDate) return null;
-
-  const days = daysBetween(latestDate, now);
-  if (days < 0) return null; // data futura (edge case)
-
-  const severity = getSeverity(days, SCHEDA_WARNING_DAYS, SCHEDA_CRITICAL_DAYS);
-  if (severity === "ok") return null;
-
-  const weeksElapsed = Math.floor(days / 7);
+  const daysElapsed = signal.days_since_last ?? 0;
+  if (signal.domain === "measurements") {
+    return {
+      type: "measurement_gap",
+      severity: signal.status,
+      daysElapsed,
+      label: signal.label,
+      cta: signal.cta_label,
+      href: signal.cta_href,
+    };
+  }
 
   return {
     type: "scheda_age",
-    severity,
-    daysElapsed: days,
-    label:
-      severity === "critical"
-        ? `Scheda da aggiornare (${weeksElapsed} settimane)`
-        : `Scheda creata ${weeksElapsed} settimane fa`,
-    cta: "Aggiorna scheda",
+    severity: signal.status,
+    daysElapsed,
+    label: signal.label,
+    cta: signal.cta_label,
+    href: signal.cta_href,
   };
 }
 
-// ════════════════════════════════════════════════════════════
-// MEASUREMENT GAP
-// ════════════════════════════════════════════════════════════
-
-/**
- * Data dell'ultima misurazione.
- */
-function getLatestMeasurementDate(measurements: Measurement[]): Date | null {
-  if (measurements.length === 0) return null;
-
-  let latest: Date | null = null;
-  for (const m of measurements) {
-    const d = new Date(
-      m.data_misurazione.includes("T")
-        ? m.data_misurazione
-        : m.data_misurazione + "T00:00:00",
-    );
-    if (!latest || d > latest) latest = d;
-  }
-
-  return latest;
+export function buildReadinessAlerts(readiness: ClinicalReadinessClientItem | null): ClientAlert[] {
+  return [
+    toClientAlert(readiness?.workout_freshness),
+    toClientAlert(readiness?.measurement_freshness),
+  ].filter(Boolean) as ClientAlert[];
 }
-
-/**
- * Calcola il gap dall'ultima misurazione.
- * Ritorna null se non ci sono misurazioni.
- */
-export function computeMeasurementGap(
-  measurements: Measurement[],
-  now: Date = new Date(),
-): ClientAlert | null {
-  const latestDate = getLatestMeasurementDate(measurements);
-  if (!latestDate) return null;
-
-  const days = daysBetween(latestDate, now);
-  if (days < 0) return null;
-
-  const severity = getSeverity(days, MEASUREMENT_WARNING_DAYS, MEASUREMENT_CRITICAL_DAYS);
-  if (severity === "ok") return null;
-
-  return {
-    type: "measurement_gap",
-    severity,
-    daysElapsed: days,
-    label:
-      severity === "critical"
-        ? `Misurazioni da riprendere (${days} giorni)`
-        : `Ultima misurazione ${days} giorni fa`,
-    cta: "Nuova misurazione",
-  };
-}
-
-// ════════════════════════════════════════════════════════════
-// SEVERITY STYLES (consumati dai componenti UI)
-// ════════════════════════════════════════════════════════════
 
 export const ALERT_SEVERITY_STYLES: Record<
-  "warning" | "critical",
+  AlertSeverity,
   { border: string; bg: string; text: string; icon: string }
 > = {
   warning: {

@@ -14,10 +14,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { MeasurementChart } from "@/components/clients/MeasurementChart";
-import { computeMeasurementGap } from "@/lib/client-alerts";
 import type { ClinicalReport, Severity } from "@/lib/clinical-analysis";
 import type { CorrelationInsight } from "@/lib/metric-correlations";
-import type { Measurement, Metric } from "@/types/api";
+import type { ClinicalFreshnessSignal, Measurement, Metric } from "@/types/api";
 
 interface CompositionSectionProps {
   measurements: Measurement[];
@@ -27,6 +26,7 @@ interface CompositionSectionProps {
   sesso: string | null;
   dataNascita: string | null;
   clientId: number;
+  measurementFreshness: ClinicalFreshnessSignal | null;
 }
 
 const SEVERITY_BORDER: Record<Severity, string> = {
@@ -61,11 +61,15 @@ export function CompositionSection({
   sesso,
   dataNascita,
   clientId,
+  measurementFreshness,
 }: CompositionSectionProps) {
   const [open, setOpen] = useState(true);
   const { composition, derived } = clinicalReport;
   const hasData = measurements.length >= 2;
-  const measurementAlert = computeMeasurementGap(measurements);
+  const measurementAlert =
+    measurementFreshness && (measurementFreshness.status === "warning" || measurementFreshness.status === "critical")
+      ? measurementFreshness
+      : null;
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
@@ -87,13 +91,13 @@ export function CompositionSection({
                 <Badge
                   variant="outline"
                   className={`gap-1 text-[10px] ${
-                    measurementAlert.severity === "critical"
+                    measurementAlert.status === "critical"
                       ? "border-red-300 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300"
                       : "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
                   }`}
                 >
                   <AlertTriangle className="h-3 w-3" />
-                  {measurementAlert.daysElapsed}gg
+                  {measurementAlert.days_since_last ?? 0}gg
                 </Badge>
               )}
             </div>

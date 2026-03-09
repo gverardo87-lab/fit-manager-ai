@@ -21,9 +21,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { useClientWorkouts } from "@/hooks/useWorkouts";
-import { useClientMeasurements } from "@/hooks/useMeasurements";
-import { computeSchedaAge, computeMeasurementGap, ALERT_SEVERITY_STYLES } from "@/lib/client-alerts";
+import { ALERT_SEVERITY_STYLES, buildReadinessAlerts } from "@/lib/client-alerts";
 import type { ClientAlert } from "@/lib/client-alerts";
 import type { ClinicalReadinessClientItem } from "@/types/api";
 
@@ -62,7 +60,7 @@ const JOURNEY_PHASES: JourneyPhase[] = [
     label: "Contratto",
     icon: FileText,
     getCompleted: (p) => p.hasContracts,
-    getAction: (_p) => ({ type: "tab", tab: "contratti" }),
+    getAction: () => ({ type: "tab", tab: "contratti" }),
   },
   {
     key: "anamnesi",
@@ -83,7 +81,7 @@ const JOURNEY_PHASES: JourneyPhase[] = [
     label: "Scheda",
     icon: Dumbbell,
     getCompleted: (p) => p.readiness?.has_workout_plan ?? false,
-    getAction: (_p) => ({ type: "tab", tab: "schede" }),
+    getAction: () => ({ type: "tab", tab: "schede" }),
   },
   {
     key: "sessione",
@@ -135,13 +133,7 @@ export function PanoramicaTab(props: PanoramicaTabProps) {
   const { client, clientId, onTabChange } = props;
   const completedCount = JOURNEY_PHASES.filter((p) => p.getCompleted(props)).length;
   const allDone = completedCount === JOURNEY_PHASES.length;
-
-  // Alert data
-  const { data: workoutsData } = useClientWorkouts(clientId);
-  const { data: measurementsData } = useClientMeasurements(clientId);
-  const schedaAlert = computeSchedaAge(workoutsData?.items ?? []);
-  const measurementAlert = computeMeasurementGap(measurementsData?.items ?? []);
-  const activeAlerts = [schedaAlert, measurementAlert].filter(Boolean) as ClientAlert[];
+  const activeAlerts: ClientAlert[] = buildReadinessAlerts(props.readiness);
 
   return (
     <div className="space-y-5">
@@ -149,7 +141,7 @@ export function PanoramicaTab(props: PanoramicaTabProps) {
       {activeAlerts.length > 0 && (
         <div className="space-y-2">
           {activeAlerts.map((alert) => (
-            <AlertBanner key={alert.type} alert={alert} clientId={clientId} />
+            <AlertBanner key={alert.type} alert={alert} />
           ))}
         </div>
       )}
@@ -313,15 +305,11 @@ function PathBar({
 // ALERT BANNER — scheda age / measurement gap
 // ════════════════════════════════════════════════════════════
 
-function AlertBanner({ alert, clientId }: { alert: ClientAlert; clientId: number }) {
+function AlertBanner({ alert }: { alert: ClientAlert }) {
   const styles = ALERT_SEVERITY_STYLES[alert.severity as "warning" | "critical"];
-  const href =
-    alert.type === "scheda_age"
-      ? `/clienti/${clientId}?tab=schede&startScheda=1`
-      : `/clienti/${clientId}/progressi?from=clienti-${clientId}`;
 
   return (
-    <Link href={href}>
+    <Link href={alert.href}>
       <div
         className={`flex items-center gap-3 rounded-lg border-l-[3px] ${styles.border} ${styles.bg} px-4 py-3 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md`}
       >

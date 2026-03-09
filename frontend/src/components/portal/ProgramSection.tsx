@@ -11,8 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { getProgramStatus, STATUS_LABELS, STATUS_COLORS, getComplianceColor, getComplianceTextColor } from "@/lib/workout-monitoring";
-import { computeSchedaAge } from "@/lib/client-alerts";
-import type { WorkoutPlan, WorkoutLog, SafetyMapResponse } from "@/types/api";
+import type { ClinicalFreshnessSignal, WorkoutPlan, WorkoutLog, SafetyMapResponse } from "@/types/api";
 
 interface ProgramSectionProps {
   workouts: WorkoutPlan[];
@@ -20,6 +19,7 @@ interface ProgramSectionProps {
   safetyData: SafetyMapResponse | null;
   clientId: number;
   compliancePct: number | null;
+  workoutFreshness: ClinicalFreshnessSignal | null;
 }
 
 function countSafety(
@@ -51,11 +51,13 @@ export function ProgramSection({
   safetyData,
   clientId,
   compliancePct,
+  workoutFreshness,
 }: ProgramSectionProps) {
   const [open, setOpen] = useState(true);
-
-  // Scheda age alert
-  const schedaAlert = computeSchedaAge(workouts);
+  const schedaAlert =
+    workoutFreshness && (workoutFreshness.status === "warning" || workoutFreshness.status === "critical")
+      ? workoutFreshness
+      : null;
 
   // Active program
   const activeProgram = workouts.find((w) => getProgramStatus(w) === "attivo") ?? null;
@@ -96,13 +98,13 @@ export function ProgramSection({
                 <Badge
                   variant="outline"
                   className={`gap-1 text-[10px] ${
-                    schedaAlert.severity === "critical"
+                    schedaAlert.status === "critical"
                       ? "border-red-300 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300"
                       : "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
                   }`}
                 >
                   <AlertTriangle className="h-3 w-3" />
-                  {schedaAlert.daysElapsed}gg
+                  {schedaAlert.days_since_last ?? 0}gg
                 </Badge>
               )}
             </div>
