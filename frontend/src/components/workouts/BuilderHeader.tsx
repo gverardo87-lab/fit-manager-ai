@@ -7,7 +7,7 @@
  */
 
 import { useState, useCallback } from "react";
-import { ArrowLeft, Pencil, Check, X, Undo2, Redo2, Save } from "lucide-react";
+import { ArrowLeft, Pencil, Check, X, Undo2, Redo2, Save, FlaskConical } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +39,9 @@ interface BuilderHeaderProps {
   onNavigate: (href: string) => void;
   onUpdatePlan: (updates: Record<string, unknown>) => void;
   onLogoChange: (value: string | null) => void;
+  showAdvanced: boolean;
+  onToggleAdvanced: () => void;
+  hasSessions: boolean;
 }
 
 export function BuilderHeader({
@@ -46,6 +49,7 @@ export function BuilderHeader({
   isDirty, isSaving, lastSavedLabel, canUndo, canRedo,
   sessions, safetyExportData, exportLogoDataUrl, fromParam,
   onUndo, onRedo, onSave, onGoBack, onNavigate, onUpdatePlan, onLogoChange,
+  showAdvanced, onToggleAdvanced, hasSessions,
 }: BuilderHeaderProps) {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -125,6 +129,11 @@ export function BuilderHeader({
           {!isDirty && lastSavedLabel && <span className="hidden sm:inline text-xs text-muted-foreground">Salvata alle {lastSavedLabel}</span>}
           <Button variant="outline" size="icon" className="h-8 w-8" onClick={onUndo} disabled={!canUndo} title="Annulla (Ctrl/Cmd+Z)"><Undo2 className="h-4 w-4" /></Button>
           <Button variant="outline" size="icon" className="h-8 w-8" onClick={onRedo} disabled={!canRedo} title="Ripeti (Ctrl/Cmd+Shift+Z)"><Redo2 className="h-4 w-4" /></Button>
+          {hasSessions && (
+            <Button variant={showAdvanced ? "default" : "outline"} size="icon" className="h-8 w-8" onClick={onToggleAdvanced} title={showAdvanced ? "Nascondi analisi avanzata" : "Mostra analisi avanzata"}>
+              <FlaskConical className="h-4 w-4" />
+            </Button>
+          )}
           <ExportButtons nome={plan.nome} obiettivo={plan.obiettivo} livello={plan.livello} clientNome={clientNome} durata_settimane={plan.durata_settimane} sessioni_per_settimana={plan.sessioni_per_settimana} sessioni={sessions} safety={safetyExportData} logoDataUrl={exportLogoDataUrl} onLogoChange={onLogoChange} />
           {isDirty && (
             <Button onClick={onSave} disabled={isSaving}>

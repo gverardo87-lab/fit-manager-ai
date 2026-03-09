@@ -6,7 +6,7 @@
  * Compone i sotto-componenti e i custom hook estratti.
  */
 
-import { use, useState, useCallback, useMemo } from "react";
+import { use, useState, useCallback, useMemo, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 import { SessionCard, type SessionCardData } from "@/components/workouts/SessionCard";
 import { ExerciseSelector } from "@/components/workouts/ExerciseSelector";
-import { WorkoutPreview } from "@/components/workouts/WorkoutPreview";
 import { ScientificAnalysisTab } from "@/components/workouts/ScientificAnalysisTab";
 import { BuilderHeader } from "@/components/workouts/BuilderHeader";
 import { BuilderSafetyCard } from "@/components/workouts/BuilderSafetyCard";
@@ -102,7 +101,15 @@ export default function SchedaDetailPage({ params }: { params: Promise<{ id: str
   }, [router, builder.isDirtyRef]);
 
   // ── View state ──
-  const [activeView, setActiveView] = useState<"sessioni" | "analisi" | "anteprima">("sessioni");
+  const [activeView, setActiveView] = useState<"sessioni" | "analisi">("sessioni");
+  const [showAdvanced, setShowAdvanced] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("fitmanager.builder.showAdvanced") === "1";
+  });
+  useEffect(() => {
+    window.localStorage.setItem("fitmanager.builder.showAdvanced", showAdvanced ? "1" : "0");
+    if (!showAdvanced && activeView === "analisi") setActiveView("sessioni");
+  }, [showAdvanced, activeView]);
 
   // ── Safety computed data (for SafetyCard + ExportButtons) ──
   const { safetyStats, safetyConditionStats, groupedConditions, uniqueConditionsForMap } = useSafetyData(safetyEntries, safetyMap?.condition_count ?? 0, builder.sessions);
@@ -137,19 +144,19 @@ export default function SchedaDetailPage({ params }: { params: Promise<{ id: str
         onGoBack={goBack} onNavigate={guardedNavigate}
         onUpdatePlan={(updates) => updateWorkout.mutate({ id: plan.id, ...updates })}
         onLogoChange={builder.handleLogoChange}
+        showAdvanced={showAdvanced} onToggleAdvanced={() => setShowAdvanced((v) => !v)} hasSessions={builder.sessions.length > 0}
       />
 
-      <div className={`grid gap-6 print:block ${activeView === "anteprima" ? "lg:grid-cols-2" : ""}`}>
-        <div className="space-y-3" data-print-hide>
+      <div className="space-y-3">
           {safetyMap && safetyMap.condition_count > 0 && (
             <BuilderSafetyCard safetyMap={safetyMap} safetyStats={safetyStats} safetyConditionStats={safetyConditionStats} groupedConditions={groupedConditions} uniqueConditionsForMap={uniqueConditionsForMap} clientId={plan.id_cliente} onNavigateToClient={(cid) => guardedNavigate(`/clienti/${cid}`)} />
           )}
 
-          {builder.sessions.length > 0 && (
+          {builder.sessions.length > 0 && showAdvanced && (
             <div className="flex items-center gap-1 rounded-lg bg-muted/50 p-0.5">
-              {(["sessioni", "analisi", "anteprima"] as const).map((tab) => (
+              {(["sessioni", "analisi"] as const).map((tab) => (
                 <button key={tab} type="button" onClick={() => setActiveView(tab)} className={`flex-1 text-xs font-medium py-1.5 px-3 rounded-md transition-all ${activeView === tab ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
-                  {tab === "sessioni" ? "Sessioni" : tab === "analisi" ? "Analisi Scientifica" : "Anteprima"}
+                  {tab === "sessioni" ? "Sessioni" : "Analisi Scientifica"}
                 </button>
               ))}
             </div>
@@ -184,11 +191,6 @@ export default function SchedaDetailPage({ params }: { params: Promise<{ id: str
               clientSesso={clientSesso} clientDataNascita={clientDataNascita}
             />
           )}
-        </div>
-
-        <div className={`print:block space-y-4 sticky top-6 workout-preview-container ${activeView === "anteprima" ? "hidden lg:block" : "hidden print:block"}`}>
-          <WorkoutPreview nome={plan.nome} obiettivo={plan.obiettivo} livello={plan.livello} clientNome={clientNome} durata_settimane={plan.durata_settimane} sessioni_per_settimana={plan.sessioni_per_settimana} sessioni={builder.sessions} logoDataUrl={builder.exportLogoDataUrl} note={plan.note} exerciseMap={exerciseMap} />
-        </div>
       </div>
 
       <ExerciseSelector open={handlers.selectorOpen} onOpenChange={handlers.setSelectorOpen} onSelect={handlers.handleExerciseSelected}

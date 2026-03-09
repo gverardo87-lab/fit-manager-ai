@@ -16,7 +16,7 @@
 import { useState, useMemo } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Trash2, ShieldAlert, AlertTriangle, ArrowRightLeft, CheckCircle2, Info, RefreshCw } from "lucide-react";
+import { GripVertical, Trash2, ShieldAlert, AlertTriangle, ArrowRightLeft, CheckCircle2, Info, RefreshCw, Search } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -95,6 +95,7 @@ function SafetyPopover({
   sourceExercise,
   exerciseMap,
   onQuickReplace,
+  onResolve,
 }: {
   safety: ExerciseSafetyEntry;
   exerciseName: string;
@@ -104,6 +105,8 @@ function SafetyPopover({
   sourceExercise?: Exercise;
   exerciseMap?: Map<number, Exercise>;
   onQuickReplace?: (newExerciseId: number) => void;
+  /** Apre ExerciseSelector in modalità replace per cercare alternative */
+  onResolve?: () => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const { data: relations } = useExerciseRelations(isOpen ? exerciseId : null);
@@ -224,6 +227,27 @@ function SafetyPopover({
             </div>
           </>
         )}
+        {/* Risolvi CTA — apre ExerciseSelector in replace mode */}
+        {onResolve && (
+          <>
+            <Separator />
+            <div className="px-3 py-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-xs"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onResolve();
+                  setIsOpen(false);
+                }}
+              >
+                <Search className="h-3 w-3 mr-1.5" />
+                Cerca alternativa
+              </Button>
+            </div>
+          </>
+        )}
       </PopoverContent>
     </Popover>
   );
@@ -341,6 +365,7 @@ export function SortableExerciseRow({
                 sourceExercise={exerciseData}
                 exerciseMap={exerciseMap}
                 onQuickReplace={onQuickReplace}
+                onResolve={onReplace}
               />
             )}
             <button
@@ -477,6 +502,7 @@ export function SortableExerciseRow({
                 sourceExercise={exerciseData}
                 exerciseMap={exerciseMap}
                 onQuickReplace={onQuickReplace}
+                onResolve={onReplace}
               />
             )}
             <button
@@ -566,6 +592,7 @@ export function SortableExerciseRow({
                 sourceExercise={exerciseData}
                 exerciseMap={exerciseMap}
                 onQuickReplace={onQuickReplace}
+                onResolve={onReplace}
               />
             )}
             <button
