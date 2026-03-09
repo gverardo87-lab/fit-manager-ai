@@ -418,35 +418,41 @@ export default function RenewalsCashWorkspacePage() {
                 />
               ) : (
                 <>
-                  <FinanceQueueSection
-                    title="Critici"
-                    subtitle="Incassi gia in ritardo o casi che non dovrebbero aspettare."
-                    total={criticalTotal}
-                    items={criticalItems}
-                    selectedCaseId={selectedCaseId}
-                    onSelect={setRequestedCaseId}
-                    emptyMessage="Nessun caso economico critico."
-                  />
+                  {criticalTotal > 0 && (
+                    <FinanceQueueSection
+                      title="Critici"
+                      subtitle="Incassi gia in ritardo o casi che non dovrebbero aspettare."
+                      total={criticalTotal}
+                      items={criticalItems}
+                      selectedCaseId={selectedCaseId}
+                      onSelect={setRequestedCaseId}
+                      emptyMessage="Nessun caso economico critico."
+                    />
+                  )}
 
-                  <FinanceQueueSection
-                    title="Oggi"
-                    subtitle="Scadenze e rinnovi che conviene chiudere in questa giornata."
-                    total={todayTotal}
-                    items={todayItems}
-                    selectedCaseId={selectedCaseId}
-                    onSelect={setRequestedCaseId}
-                    emptyMessage="Nessun caso economico da chiudere oggi."
-                  />
+                  {todayTotal > 0 && (
+                    <FinanceQueueSection
+                      title="Oggi"
+                      subtitle="Scadenze e rinnovi che conviene chiudere in questa giornata."
+                      total={todayTotal}
+                      items={todayItems}
+                      selectedCaseId={selectedCaseId}
+                      onSelect={setRequestedCaseId}
+                      emptyMessage="Nessun caso economico da chiudere oggi."
+                    />
+                  )}
 
-                  <FinanceQueueSection
-                    title="Entro 7 giorni"
-                    subtitle="Pressione economica vicina che vuoi anticipare prima che diventi critica."
-                    total={upcomingTotal}
-                    items={upcomingItems}
-                    selectedCaseId={selectedCaseId}
-                    onSelect={setRequestedCaseId}
-                    emptyMessage="Nessun caso economico in arrivo nei prossimi 7 giorni."
-                  />
+                  {upcomingTotal > 0 && (
+                    <FinanceQueueSection
+                      title="Entro 7 giorni"
+                      subtitle="Pressione economica vicina che vuoi anticipare prima che diventi critica."
+                      total={upcomingTotal}
+                      items={upcomingItems}
+                      selectedCaseId={selectedCaseId}
+                      onSelect={setRequestedCaseId}
+                      emptyMessage="Nessun caso economico in arrivo nei prossimi 7 giorni."
+                    />
+                  )}
 
                   {waitingTotal > 0 && (
                     <section className="space-y-3">

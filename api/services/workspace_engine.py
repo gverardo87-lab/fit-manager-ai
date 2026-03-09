@@ -211,6 +211,8 @@ def _event_status(event: Event, reference_dt: datetime) -> str:
 
 
 def _event_bucket(event: Event, reference_dt: datetime) -> tuple[str, str]:
+    if event.data_fine < reference_dt:
+        return "waiting", "low"
     if event.data_inizio <= reference_dt <= event.data_fine:
         return "now", "critical"
     delta = event.data_inizio - reference_dt
@@ -436,6 +438,12 @@ def _case_matches_workspace(case: OperationalCase, workspace: str) -> bool:
     if workspace == "today":
         return case.bucket != "waiting" and case.case_kind not in _TODAY_EXCLUDED_CASE_KINDS
     return case.workspace == workspace
+
+
+def _apply_today_case_suppression(cases: list[OperationalCase]) -> list[OperationalCase]:
+    if not any(case.case_kind == "session_imminent" for case in cases):
+        return cases
+    return [case for case in cases if case.case_kind != "payment_overdue"]
 
 
 def _filter_cases(
@@ -669,6 +677,9 @@ def _build_session_cases(
     covered_client_ids: set[int] = set()
 
     for event, client in events:
+        status = _event_status(event, reference_dt)
+        if status == "past":
+            continue
         bucket, severity = _event_bucket(event, reference_dt)
         client_label = _full_name(client.nome, client.cognome) if client else None
         readiness_item = (
@@ -758,7 +769,7 @@ def _build_session_cases(
                 client_label=client_label,
                 title=title,
                 category=event.categoria,
-                status=_event_status(event, reference_dt),
+                status=status,
                 starts_at=event.data_inizio,
                 ends_at=event.data_fine,
                 href="/agenda",
@@ -2333,6 +2344,7 @@ def build_workspace_today(
         for case in all_cases
         if _case_matches_workspace(case, "today")
     ]
+    visible_cases = _apply_today_case_suppression(visible_cases)
 
     grouped: dict[str, list[OperationalCase]] = defaultdict(list)
     for case in visible_cases:
@@ -2390,6 +2402,10 @@ def build_workspace_case_list(
         session=session,
         reference_dt=reference_dt,
     )
+    if workspace == "today":
+        all_cases = _apply_today_case_suppression(
+            [case for case in all_cases if _case_matches_workspace(case, workspace)]
+        )
 
     workspace_cases = [
         _apply_finance_visibility(case, "full" if workspace == "renewals_cash" else "redacted")
@@ -2446,6 +2462,10 @@ def build_workspace_case_detail(
         session=session,
         reference_dt=reference_dt,
     )
+    if workspace == "today":
+        all_cases = _apply_today_case_suppression(
+            [case for case in all_cases if _case_matches_workspace(case, workspace)]
+        )
     visibility = "full" if workspace == "renewals_cash" else "redacted"
     selected_case = next(
         (

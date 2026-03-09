@@ -201,17 +201,10 @@ def test_workspace_today_aggregates_real_sources(client, auth_headers):
     assert "session_imminent" in case_kinds
     assert "onboarding_readiness" in case_kinds
     assert "todo_manual" in case_kinds
-    assert "payment_overdue" in case_kinds
     assert "client_reactivation" in case_kinds
 
     todo_case = next(case for case in all_cases if case["case_kind"] == "todo_manual")
     assert todo_case["root_entity"]["id"] == open_todo["id"]
-
-    overdue_case = next(case for case in all_cases if case["case_kind"] == "payment_overdue")
-    assert overdue_case["root_entity"]["id"] == contract["id"]
-    assert overdue_case["finance_context"]["visibility"] == "redacted"
-    assert overdue_case["finance_context"]["total_due_amount"] is None
-    assert overdue_case["signal_count"] == len(rates)
 
     onboarding_case = next(case for case in all_cases if case["case_kind"] == "onboarding_readiness")
     assert onboarding_case["root_entity"]["id"] == onboarding_client["id"]
@@ -223,16 +216,25 @@ def test_workspace_today_aggregates_real_sources(client, auth_headers):
     agenda_titles = [item["title"] for item in data["agenda"]["items"]]
     assert "Sessione premium" in agenda_titles
 
-    renewals_response = client.get(
+    today_overdue_response = client.get(
         "/api/workspace/cases",
-        params={"workspace": "renewals_cash", "case_kind": "contract_renewal_due", "page_size": 20},
+        params={"workspace": "today", "case_kind": "payment_overdue", "page_size": 20},
         headers=auth_headers,
     )
-    assert renewals_response.status_code == 200, renewals_response.text
-    renewal_items = renewals_response.json()["items"]
-    assert renewal_items
-    renewal_case = next(item for item in renewal_items if item["root_entity"]["id"] == contract["id"])
-    assert renewal_case["finance_context"]["visibility"] == "full"
+    assert today_overdue_response.status_code == 200, today_overdue_response.text
+    assert today_overdue_response.json()["total"] == 0
+
+    overdue_response = client.get(
+        "/api/workspace/cases",
+        params={"workspace": "renewals_cash", "case_kind": "payment_overdue", "page_size": 20},
+        headers=auth_headers,
+    )
+    assert overdue_response.status_code == 200, overdue_response.text
+    overdue_items = overdue_response.json()["items"]
+    assert overdue_items
+    overdue_case = next(item for item in overdue_items if item["root_entity"]["id"] == contract["id"])
+    assert overdue_case["finance_context"]["visibility"] == "full"
+    assert overdue_case["finance_context"]["total_due_amount"] == 600.0
 
 
 def test_workspace_renewals_cash_includes_payment_due_soon_but_keeps_it_out_of_today(client, auth_headers):
@@ -722,6 +724,159 @@ def test_workspace_today_orders_sessions_by_actual_start_time(client, auth_heade
         "PT Stefano Leone",
         "PT Matteo Barbieri",
     ]
+
+
+def test_workspace_today_keeps_payment_overdue_visible_without_session_pressure(
+    client,
+    auth_headers,
+    session,
+):
+    overdue_client = _create_client(
+        client,
+        auth_headers,
+        "Paolo",
+        "Scaduto",
+        anamnesi=_structured_anamnesi(),
+    )
+    contract, _rates = _create_contract_with_overdue_plan(
+        client,
+        auth_headers,
+        overdue_client["id"],
+    )
+
+    reference_dt = datetime(2026, 3, 9, 9, 0)
+    today_workspace = build_workspace_today(
+        trainer_id=_trainer_id(session),
+        session=session,
+        reference_dt=reference_dt,
+    )
+
+    visible_payment_ids = {
+        int(case.root_entity.id)
+        for section in today_workspace.sections
+        for case in section.items
+        if case.case_kind == "payment_overdue"
+    }
+    assert contract["id"] in visible_payment_ids
+
+    today_case_list = build_workspace_case_list(
+        trainer_id=_trainer_id(session),
+        session=session,
+        workspace="today",
+        case_kind="payment_overdue",
+        page_size=20,
+        reference_dt=reference_dt,
+    )
+    assert any(int(item.root_entity.id) == contract["id"] for item in today_case_list.items)
+
+
+def test_workspace_today_hides_payment_overdue_when_session_pressure_exists(
+    client,
+    auth_headers,
+    session,
+):
+    mixed_client = _create_client(
+        client,
+        auth_headers,
+        "Giulia",
+        "Mista",
+        anamnesi=_structured_anamnesi(),
+    )
+    contract, _rates = _create_contract_with_overdue_plan(
+        client,
+        auth_headers,
+        mixed_client["id"],
+    )
+    _create_event(
+        client,
+        auth_headers,
+        client_id=mixed_client["id"],
+        contract_id=contract["id"],
+        title="PT Giulia Mista",
+        start_at=datetime(2026, 3, 9, 10, 0),
+    )
+
+    reference_dt = datetime(2026, 3, 9, 9, 0)
+    today_workspace = build_workspace_today(
+        trainer_id=_trainer_id(session),
+        session=session,
+        reference_dt=reference_dt,
+    )
+
+    visible_case_kinds = {
+        case.case_kind
+        for section in today_workspace.sections
+        for case in section.items
+    }
+    assert "session_imminent" in visible_case_kinds
+    assert "payment_overdue" not in visible_case_kinds
+
+    today_case_list = build_workspace_case_list(
+        trainer_id=_trainer_id(session),
+        session=session,
+        workspace="today",
+        case_kind="payment_overdue",
+        page_size=20,
+        reference_dt=reference_dt,
+    )
+    assert today_case_list.total == 0
+
+    finance_case_list = build_workspace_case_list(
+        trainer_id=_trainer_id(session),
+        session=session,
+        workspace="renewals_cash",
+        case_kind="payment_overdue",
+        page_size=20,
+        reference_dt=reference_dt,
+    )
+    finance_case = next(item for item in finance_case_list.items if int(item.root_entity.id) == contract["id"])
+
+    detail_response = client.get(
+        f"/api/workspace/cases/{finance_case.case_id}",
+        params={"workspace": "today"},
+        headers=auth_headers,
+    )
+    assert detail_response.status_code == 404, detail_response.text
+
+
+def test_workspace_today_ignores_sessions_already_finished_earlier_in_the_day(
+    client,
+    auth_headers,
+    session,
+):
+    morning_client = _create_client(
+        client,
+        auth_headers,
+        "Mario",
+        "Mattina",
+        anamnesi=_structured_anamnesi(),
+    )
+    _create_event(
+        client,
+        auth_headers,
+        client_id=morning_client["id"],
+        title="PT Mattina",
+        start_at=datetime(2026, 3, 9, 10, 0),
+    )
+
+    reference_dt = datetime(2026, 3, 9, 21, 0)
+    today_workspace = build_workspace_today(
+        trainer_id=_trainer_id(session),
+        session=session,
+        reference_dt=reference_dt,
+    )
+
+    session_titles = [
+        case.title
+        for section in today_workspace.sections
+        for case in section.items
+        if case.case_kind == "session_imminent"
+    ]
+    agenda_titles = [item.title for item in today_workspace.agenda.items]
+
+    assert "PT Mattina" not in session_titles
+    assert "PT Mattina" not in agenda_titles
+    assert today_workspace.focus_case is None or today_workspace.focus_case.title != "PT Mattina"
 
 
 def test_workspace_today_applies_backend_viewport_budget_without_truncating_case_list(
