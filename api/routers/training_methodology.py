@@ -195,21 +195,21 @@ def _compute_cta(
         return (
             "add_exercises",
             "Aggiungi esercizi",
-            f"/schede/{item.plan_id}",
+            f"/schede/{item.plan_id}?from=monitoraggio",
         )
 
     if item.sotto_mev_count >= 3:
         return (
             "fix_volume",
             "Correggi volume",
-            f"/schede/{item.plan_id}",
+            f"/schede/{item.plan_id}?from=monitoraggio",
         )
 
     if item.squilibri_count >= 2:
         return (
             "fix_balance",
             "Correggi equilibrio",
-            f"/schede/{item.plan_id}",
+            f"/schede/{item.plan_id}?from=monitoraggio",
         )
 
     if item.session_imbalance and item.status == "attivo":
@@ -230,13 +230,13 @@ def _compute_cta(
         return (
             "excellent",
             "Eccellente",
-            f"/schede/{item.plan_id}",
+            f"/schede/{item.plan_id}?from=monitoraggio",
         )
 
     return (
         "review",
         "Rivedi piano",
-        f"/schede/{item.plan_id}",
+        f"/schede/{item.plan_id}?from=monitoraggio",
     )
 
 

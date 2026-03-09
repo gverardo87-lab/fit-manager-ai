@@ -104,7 +104,7 @@ export function SchedeTab({ clientId, onNewScheda }: SchedeTabProps) {
           href={`/allenamenti?idCliente=${clientId}`}
           className="text-xs text-primary hover:underline"
         >
-          Vedi monitoraggio →
+          Vedi aderenza allenamenti →
         </Link>
       </div>
     </div>
