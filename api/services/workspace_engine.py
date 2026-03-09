@@ -1234,6 +1234,7 @@ def _build_contract_renewal_cases(
     session: Session,
     reference_date: date,
     overdue_contract_ids: set[int] | None = None,
+    due_soon_contract_ids: set[int] | None = None,
 ) -> list[OperationalCase]:
     cases: list[OperationalCase] = []
     for contract, client, residual, days_left, due_date in _load_expiring_contract_rows(
@@ -1243,6 +1244,8 @@ def _build_contract_renewal_cases(
     ):
         bucket = _renewal_bucket(days_left)
         contract_id = contract.id or 0
+        if contract_id in (due_soon_contract_ids or set()):
+            continue
         if contract_id in (overdue_contract_ids or set()):
             bucket = "waiting"
         client_id = client.id or 0
@@ -2275,11 +2278,17 @@ def collect_workspace_snapshot(
         reference_date=today,
         overdue_contract_ids=overdue_contract_ids,
     )
+    due_soon_contract_ids = {
+        int(case.root_entity.id)
+        for case in due_soon_cases
+        if case.root_entity.type == "contract" and _coerce_entity_id(case.root_entity.id) is not None
+    }
     renewal_cases = _build_contract_renewal_cases(
         trainer_id=trainer_id,
         session=session,
         reference_date=today,
         overdue_contract_ids=overdue_contract_ids,
+        due_soon_contract_ids=due_soon_contract_ids,
     )
     recurring_expense_cases = _build_recurring_expense_due_cases(
         trainer_id=trainer_id,

@@ -264,6 +264,15 @@ def test_workspace_renewals_cash_includes_payment_due_soon_but_keeps_it_out_of_t
     assert due_soon_case["finance_context"]["total_due_amount"] == 600.0
     assert "scadenza" in due_soon_case["reason"].lower()
 
+    renewal_response = client.get(
+        "/api/workspace/cases",
+        params={"workspace": "renewals_cash", "case_kind": "contract_renewal_due", "page_size": 20},
+        headers=auth_headers,
+    )
+    assert renewal_response.status_code == 200, renewal_response.text
+    renewal_items = renewal_response.json()["items"]
+    assert not any(item["root_entity"]["id"] == contract["id"] for item in renewal_items)
+
     detail_response = client.get(
         f"/api/workspace/cases/{due_soon_case['case_id']}",
         params={"workspace": "renewals_cash"},
@@ -325,6 +334,32 @@ def test_workspace_renewals_cash_suppresses_payment_due_soon_when_contract_has_o
     assert due_soon_response.status_code == 200, due_soon_response.text
     due_soon_items = due_soon_response.json()["items"]
     assert not any(item["root_entity"]["id"] == contract["id"] for item in due_soon_items)
+
+
+def test_workspace_renewals_cash_keeps_contract_renewal_without_due_soon_overlap(client, auth_headers):
+    renewal_client = _create_client(
+        client,
+        auth_headers,
+        "Rita",
+        "Rinnovo",
+        anamnesi=_structured_anamnesi(),
+    )
+    contract, _rates = _create_contract_with_rate_plan(
+        client,
+        auth_headers,
+        renewal_client["id"],
+        first_due=date.today() + timedelta(days=14),
+        numero_rate=1,
+    )
+
+    renewal_response = client.get(
+        "/api/workspace/cases",
+        params={"workspace": "renewals_cash", "case_kind": "contract_renewal_due", "page_size": 20},
+        headers=auth_headers,
+    )
+    assert renewal_response.status_code == 200, renewal_response.text
+    renewal_items = renewal_response.json()["items"]
+    assert any(item["root_entity"]["id"] == contract["id"] for item in renewal_items)
 
 
 def test_workspace_renewals_cash_includes_recurring_expense_due_and_removes_it_after_confirm(
