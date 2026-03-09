@@ -4,10 +4,10 @@
 /**
  * Tab Qualita Programmi — Worklist analisi metodologica allenamento.
  *
- * Hero KPI + filtri semplificati con ricerca debounced + card grid paginata.
+ * Hero KPI + filtri semplificati con ricerca debounced + righe espandibili full-width.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Filter,
   Search,
@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TrainingHeroCard } from "@/components/training/TrainingHeroCard";
-import { TrainingPlanCard } from "@/components/training/TrainingPlanCard";
+import { TrainingPlanRow } from "@/components/training/TrainingPlanCard";
 import {
   useTrainingMethodologyWorklist,
   type TrainingMethodologyWorklistQuery,
@@ -49,11 +49,11 @@ function HeroSkeleton() {
   );
 }
 
-function CardGridSkeleton() {
+function RowListSkeleton() {
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="space-y-2">
       {Array.from({ length: 6 }).map((_, i) => (
-        <Skeleton key={i} className="h-52 rounded-xl" />
+        <Skeleton key={i} className="h-14 rounded-xl" />
       ))}
     </div>
   );
@@ -84,6 +84,7 @@ export function QualitaProgrammiTab() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [view, setView] = useState<ViewFilter>("all");
   const [page, setPage] = useState(1);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Debounce search: input updates immediately, query fires after delay
@@ -114,7 +115,11 @@ export function QualitaProgrammiTab() {
   const canGoPrev = page > 1;
   const canGoNext = page < totalPages;
 
-  const handleViewChange = (next: ViewFilter) => { setView(next); setPage(1); };
+  const handleViewChange = (next: ViewFilter) => { setView(next); setPage(1); setExpandedId(null); };
+
+  const handleToggle = useCallback((planId: number) => {
+    setExpandedId((prev) => (prev === planId ? null : planId));
+  }, []);
 
   if (isError) {
     return (
@@ -132,7 +137,7 @@ export function QualitaProgrammiTab() {
       <div className="space-y-5">
         <HeroSkeleton />
         <Skeleton className="h-14 w-full rounded-xl" />
-        <CardGridSkeleton />
+        <RowListSkeleton />
       </div>
     );
   }
@@ -144,7 +149,7 @@ export function QualitaProgrammiTab() {
       {/* Hero card */}
       <TrainingHeroCard summary={summary} />
 
-      {/* FilterBar — pills + search, no advanced selects */}
+      {/* FilterBar — pills + search */}
       <div className="rounded-xl border bg-white p-3 shadow-sm dark:bg-zinc-900">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -177,7 +182,7 @@ export function QualitaProgrammiTab() {
         </p>
       </div>
 
-      {/* Card Grid or Empty */}
+      {/* Row List or Empty */}
       {pagedItems.length === 0 ? (
         totalItems === 0 && view === "all" && !debouncedSearch ? (
           <EmptyStateCard
@@ -194,9 +199,14 @@ export function QualitaProgrammiTab() {
         )
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="space-y-2">
             {pagedItems.map((item) => (
-              <TrainingPlanCard key={item.plan_id} item={item} />
+              <TrainingPlanRow
+                key={item.plan_id}
+                item={item}
+                expanded={expandedId === item.plan_id}
+                onToggle={() => handleToggle(item.plan_id)}
+              />
             ))}
           </div>
 
