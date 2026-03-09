@@ -39,6 +39,10 @@ _SECTION_LABELS = {
     "upcoming_7d": "Entro 7 giorni",
     "waiting": "In attesa",
 }
+_TODAY_VIEWPORT_LIMITS = {
+    "now": 2,
+    "today": 4,
+}
 _SEVERITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3}
 _BUCKET_ORDER = {bucket: idx for idx, bucket in enumerate(_SECTION_ORDER)}
 _CASE_PRIORITY = {
@@ -98,11 +102,77 @@ def _max_severity(*values: str) -> str:
     return ranked
 
 
-def _todo_bucket(todo: Todo, today: date) -> tuple[str, int | None]:
+def _todo_due_delta_days(todo: Todo, today: date) -> int | None:
     if todo.data_scadenza is None:
-        return "today", None
+        return None
+    return (todo.data_scadenza - today).days
 
-    days = (todo.data_scadenza - today).days
+
+def _todo_created_local_datetime(todo: Todo) -> datetime:
+    if todo.created_at.tzinfo is not None:
+        return todo.created_at.astimezone().replace(tzinfo=None)
+    return todo.created_at
+
+
+def _todo_age_days(todo: Todo, today: date) -> int:
+    return (today - _todo_created_local_datetime(todo).date()).days
+
+
+def _todo_age_bonus(todo: Todo, today: date) -> int:
+    age_days = _todo_age_days(todo, today)
+    if age_days >= 21:
+        return 15
+    if age_days >= 14:
+        return 10
+    if age_days >= 7:
+        return 5
+    return 0
+
+
+def _todo_urgency_score(todo: Todo, today: date) -> int:
+    days = _todo_due_delta_days(todo, today)
+    if days is None or days > 7:
+        return 0
+    if days <= -7:
+        return 60
+    if days <= -1:
+        return 45
+    if days == 0:
+        return 35
+    if days <= 3:
+        return 20
+    return 10
+
+
+def _todo_score(todo: Todo, today: date) -> int:
+    return _todo_urgency_score(todo, today) + _todo_age_bonus(todo, today)
+
+
+def _todo_sort_key(todo: Todo, today: date) -> tuple[int, bool, date, datetime, int]:
+    return (
+        -_todo_score(todo, today),
+        todo.data_scadenza is None,
+        todo.data_scadenza or date.max,
+        _todo_created_local_datetime(todo),
+        todo.id or 0,
+    )
+
+
+def _todo_reason(todo: Todo, today: date) -> str:
+    days = _todo_due_delta_days(todo, today)
+    if days is None:
+        return "Promemoria senza scadenza"
+    if days < 0:
+        return f"Scaduto il {todo.data_scadenza.isoformat()}"
+    if days == 0:
+        return "Scade oggi"
+    return f"Scade il {todo.data_scadenza.isoformat()}"
+
+
+def _todo_bucket(todo: Todo, today: date) -> tuple[str, int | None]:
+    days = _todo_due_delta_days(todo, today)
+    if days is None:
+        return "waiting", None
     if days <= 0:
         return "today", days
     if days <= 3:
@@ -113,13 +183,12 @@ def _todo_bucket(todo: Todo, today: date) -> tuple[str, int | None]:
 
 
 def _todo_severity(todo: Todo, today: date) -> str:
-    if todo.data_scadenza is None:
+    days = _todo_due_delta_days(todo, today)
+    if days is None:
         return "low"
-
-    days = (todo.data_scadenza - today).days
-    if days < 0:
+    if days <= -7:
         return "high"
-    if days == 0:
+    if days <= 0:
         return "medium"
     return "low"
 
@@ -206,6 +275,14 @@ def _sort_case(case: OperationalCase) -> tuple[int, int, datetime, int, str] | t
             due_moment,
             _SEVERITY_ORDER.get(case.severity, 99),
             case.title.lower(),
+        )
+    if case.case_kind == "todo_manual":
+        return (
+            _CASE_PRIORITY.get(case.case_kind, 99),
+            _SEVERITY_ORDER.get(case.severity, 99),
+            _BUCKET_ORDER.get(case.bucket, 99),
+            due_moment,
+            "",
         )
     return (
         _CASE_PRIORITY.get(case.case_kind, 99),
@@ -298,6 +375,70 @@ def _sort_cases(cases: list[OperationalCase], *, sort_by: str) -> list[Operation
             ),
         )
     return sorted(cases, key=_sort_case)
+
+
+def _case_viewport_identity(case: OperationalCase) -> tuple[str, str]:
+    return (case.root_entity.type, str(case.root_entity.id))
+
+
+def _apply_today_viewport_budget(
+    grouped_cases: dict[str, list[OperationalCase]],
+) -> dict[str, list[OperationalCase]]:
+    visible_by_bucket: dict[str, list[OperationalCase]] = {}
+    seen_identities: set[tuple[str, str]] = set()
+    structural_now_count = sum(1 for case in grouped_cases.get("now", []) if case.case_kind != "todo_manual")
+    structural_today_count = sum(
+        1 for case in grouped_cases.get("today", []) if case.case_kind != "todo_manual"
+    )
+    manual_today_cap = _manual_today_cap(
+        structural_now_count=structural_now_count,
+        structural_today_count=structural_today_count,
+    )
+    visible_manual_today_count = 0
+
+    for bucket in _SECTION_ORDER:
+        items = grouped_cases.get(bucket, [])
+        limit = _TODAY_VIEWPORT_LIMITS.get(bucket)
+        if limit is None:
+            visible_by_bucket[bucket] = list(items)
+            continue
+
+        selected_items: list[OperationalCase] = []
+        for case in items:
+            if (
+                bucket == "today"
+                and case.case_kind == "todo_manual"
+                and visible_manual_today_count >= manual_today_cap
+            ):
+                continue
+            identity = _case_viewport_identity(case)
+            if identity in seen_identities:
+                continue
+            selected_items.append(case)
+            seen_identities.add(identity)
+            if bucket == "today" and case.case_kind == "todo_manual":
+                visible_manual_today_count += 1
+            if len(selected_items) >= limit:
+                break
+        visible_by_bucket[bucket] = selected_items
+
+    return visible_by_bucket
+
+
+def _manual_today_cap(*, structural_now_count: int, structural_today_count: int) -> int:
+    if structural_now_count >= 1:
+        return 0
+    if structural_today_count >= 2:
+        return 1
+    return 2
+
+
+def _first_visible_case(grouped_cases: dict[str, list[OperationalCase]]) -> OperationalCase | None:
+    for bucket in _SECTION_ORDER:
+        items = grouped_cases.get(bucket, [])
+        if items:
+            return items[0]
+    return None
 
 
 def _coerce_entity_id(value: int | str) -> int | None:
@@ -584,17 +725,12 @@ def _build_todo_cases(
     )
 
     cases: list[OperationalCase] = []
-    for todo in todos:
+    ordered_todos = sorted(todos, key=lambda todo: _todo_sort_key(todo, reference_date))
+    for todo in ordered_todos:
         bucket, days_to_due = _todo_bucket(todo, reference_date)
-        if bucket == "waiting":
-            continue
         severity = _todo_severity(todo, reference_date)
         case_id = f"case:todo_manual:todo:{todo.id}"
-        reason = (
-            f"Scade il {todo.data_scadenza.isoformat()}"
-            if todo.data_scadenza
-            else "Promemoria senza scadenza"
-        )
+        reason = _todo_reason(todo, reference_date)
         cases.append(
             OperationalCase(
                 case_id=case_id,
@@ -1633,13 +1769,14 @@ def build_workspace_today(
     grouped: dict[str, list[OperationalCase]] = defaultdict(list)
     for case in visible_cases:
         grouped[case.bucket].append(case)
+    visible_by_bucket = _apply_today_viewport_budget(grouped)
 
     sections = [
         WorkspaceTodaySection(
             bucket=bucket,
             label=_SECTION_LABELS[bucket],
             total=len(grouped[bucket]),
-            items=grouped[bucket],
+            items=visible_by_bucket.get(bucket, []),
         )
         for bucket in _SECTION_ORDER
     ]
@@ -1653,7 +1790,7 @@ def build_workspace_today(
 
     return WorkspaceTodayResponse(
         summary=summary,
-        focus_case=visible_cases[0] if visible_cases else None,
+        focus_case=_first_visible_case(visible_by_bucket),
         agenda=WorkspaceTodayAgenda(
             date=today,
             current_time=now_dt,

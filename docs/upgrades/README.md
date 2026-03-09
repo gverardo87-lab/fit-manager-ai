@@ -36,6 +36,9 @@ Esempio:
 
 ## Ultimo allineamento (2026-03-09)
 
+- `UPG-2026-03-09-16`: la policy dei promemoria manuali e ora runtime reale: i `todo` senza data non entrano piu in `today`, i reminder visibili sono capped dinamicamente in base alla pressione di sessioni/finanza/onboarding e l'ordine tra todo segue `urgenza + eta`, non il titolo.
+- `UPG-2026-03-09-15`: formalizzata la policy matematica dei promemoria manuali in `Oggi`: niente `todo` nel bucket `now`, niente `todo` senza scadenza in `today`, ranking solo su `scadenza + eta`, e cap dinamico dei promemoria visibili in base alla pressione dei casi strutturali della giornata.
+- `UPG-2026-03-09-14`: il budget della viewport di `Oggi` e ora canonico nel backend: `today` restituisce gia la coda visibile (`2 now / 4 today`), conserva i `total` reali di sezione e la pagina smette di fare slicing locale, riducendo finalmente la duplicazione logica tra engine e UI.
 - `UPG-2026-03-09-13`: corretto il trust bug temporale di `Oggi`: i case sessione ora espongono `due_at`, vengono ordinati per orario reale dell'evento invece che per titolo a parita di giorno, e il workspace usa il tempo locale naive del CRM invece di `utcnow()`, riallineando davvero `Adesso` e `Oggi` alla giornata del trainer.
 - `UPG-2026-03-09-12`: primo pass runtime della matrice workspace: `session_imminent` assorbe i blocker onboarding, `payment_overdue` smette di convivere in `today` con il rinnovo sullo stesso contratto, `client_reactivation` diventa meno aggressiva e `Oggi` impone un budget visivo `2 now / 4 today` con card piu compatte.
 - `UPG-2026-03-09-11`: formalizzata la matrice `ranking + dominance + viewport budget` di `Oggi`, con pipeline deterministica, regole hard di soppressione e verdetto sui 6 `case_kind` attuali, per fermare l'espansione del workspace finche non viene disciplinata davvero la selezione.

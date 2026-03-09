@@ -17,12 +17,9 @@ import { WORKSPACE_BUCKET_META } from "@/components/workspace/workspace-ui";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useWorkspaceCaseDetail, useWorkspaceCases, useWorkspaceToday } from "@/hooks/useWorkspace";
+import { useWorkspaceCaseDetail, useWorkspaceToday } from "@/hooks/useWorkspace";
 import { usePageReveal } from "@/lib/page-reveal";
 import type { OperationalCase } from "@/types/api";
-
-const MAX_NOW_VISIBLE = 2;
-const MAX_TODAY_VISIBLE = 4;
 
 function buildOggiBrief({
   nowCount,
@@ -70,6 +67,7 @@ function HeaderPill({
 function QueueSection({
   title,
   subtitle,
+  total,
   items,
   selectedCaseId,
   onSelect,
@@ -77,21 +75,27 @@ function QueueSection({
 }: {
   title: string;
   subtitle: string;
+  total: number;
   items: OperationalCase[];
   selectedCaseId: string;
   onSelect: (caseId: string) => void;
   emptyMessage?: string;
 }) {
+  const helperText =
+    total > items.length
+      ? `${subtitle} Ti mostro i primi ${items.length} su ${total}.`
+      : subtitle;
+
   return (
     <section className="space-y-3">
       <div>
         <div className="flex items-center gap-2">
           <h3 className="text-base font-semibold">{title}</h3>
           <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            {items.length}
+            {total}
           </span>
         </div>
-        <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{helperText}</p>
       </div>
 
       {items.length === 0 ? (
@@ -128,26 +132,24 @@ export default function OggiWorkspacePage() {
   const { revealClass, revealStyle } = usePageReveal();
   const todayQuery = useWorkspaceToday();
   const today = todayQuery.data;
-  const casesQuery = useWorkspaceCases(
-    {
-      workspace: "today",
-      page_size: 30,
-      sort_by: "priority",
-    },
-    Boolean(today),
-  );
 
   const [requestedCaseId, setRequestedCaseId] = useState("");
   const [showLater, setShowLater] = useState(false);
 
-  const queueItems = casesQuery.data?.items ?? [];
-  const nowItems = queueItems.filter((item) => item.bucket === "now");
-  const dueTodayItems = queueItems.filter((item) => item.bucket === "today");
-  const laterItems = queueItems.filter(
-    (item) => item.bucket === "upcoming_3d" || item.bucket === "upcoming_7d",
-  );
-  const visibleNowItems = nowItems.slice(0, MAX_NOW_VISIBLE);
-  const visibleTodayItems = dueTodayItems.slice(0, MAX_TODAY_VISIBLE);
+  const sectionsByBucket = new Map(today?.sections.map((section) => [section.bucket, section]) ?? []);
+  const nowSection = sectionsByBucket.get("now");
+  const todaySection = sectionsByBucket.get("today");
+  const upcoming3dSection = sectionsByBucket.get("upcoming_3d");
+  const upcoming7dSection = sectionsByBucket.get("upcoming_7d");
+  const queueItems = [
+    ...(nowSection?.items ?? []),
+    ...(todaySection?.items ?? []),
+    ...(upcoming3dSection?.items ?? []),
+    ...(upcoming7dSection?.items ?? []),
+  ];
+  const nowItems = nowSection?.items ?? [];
+  const dueTodayItems = todaySection?.items ?? [];
+  const laterItems = [...(upcoming3dSection?.items ?? []), ...(upcoming7dSection?.items ?? [])];
   const selectedCaseId =
     (requestedCaseId && queueItems.some((item) => item.case_id === requestedCaseId) && requestedCaseId) ||
     queueItems[0]?.case_id ||
@@ -202,7 +204,7 @@ export default function OggiWorkspacePage() {
   const brief = buildOggiBrief({
     nowCount: today.summary.now_count,
     todayCount: today.summary.today_count,
-    laterCount: laterItems.length,
+    laterCount: today.summary.upcoming_7d_count,
     criticalCount: today.summary.critical_count,
   });
 
@@ -274,16 +276,7 @@ export default function OggiWorkspacePage() {
               </div>
 
               <div className="space-y-5 p-5">
-                {casesQuery.isLoading ? (
-                  <QueueSkeleton />
-                ) : casesQuery.isError ? (
-                  <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-4">
-                    <p className="text-sm text-destructive">Impossibile caricare lo stack operativo.</p>
-                    <Button variant="outline" size="sm" className="mt-3" onClick={() => void casesQuery.refetch()}>
-                      Riprova
-                    </Button>
-                  </div>
-                ) : !hasOperationalCases ? (
+                {!hasOperationalCases ? (
                   <EmptyState
                     icon={SunMedium}
                     title="Nessun caso aperto"
@@ -294,7 +287,8 @@ export default function OggiWorkspacePage() {
                     <QueueSection
                       title={WORKSPACE_BUCKET_META.now.label}
                       subtitle="Quello che non dovrebbe aspettare."
-                      items={visibleNowItems}
+                      total={nowSection?.total ?? 0}
+                      items={nowItems}
                       selectedCaseId={selectedCaseId}
                       onSelect={setRequestedCaseId}
                       emptyMessage="Niente che richieda attenzione immediata."
@@ -303,7 +297,8 @@ export default function OggiWorkspacePage() {
                     <QueueSection
                       title={WORKSPACE_BUCKET_META.today.label}
                       subtitle="Quello che conviene chiudere in questa giornata."
-                      items={visibleTodayItems}
+                      total={todaySection?.total ?? 0}
+                      items={dueTodayItems}
                       selectedCaseId={selectedCaseId}
                       onSelect={setRequestedCaseId}
                       emptyMessage="Non hai altri casi da chiudere oggi."
@@ -320,7 +315,7 @@ export default function OggiWorkspacePage() {
                             <div className="flex items-center gap-2">
                               <h3 className="text-base font-semibold">Puo aspettare</h3>
                               <span className="rounded-full bg-background px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                {laterItems.length}
+                                {(upcoming3dSection?.total ?? 0) + (upcoming7dSection?.total ?? 0)}
                               </span>
                             </div>
                             <p className="mt-1 text-sm text-muted-foreground">

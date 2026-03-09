@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta
 from sqlmodel import select
 
 from api.models.trainer import Trainer
-from api.services.workspace_engine import build_workspace_today
+from api.services.workspace_engine import build_workspace_case_list, build_workspace_today
 
 
 def _structured_anamnesi():
@@ -294,6 +294,115 @@ def test_workspace_today_orders_sessions_by_actual_start_time(client, auth_heade
         "PT Stefano Leone",
         "PT Matteo Barbieri",
     ]
+
+
+def test_workspace_today_applies_backend_viewport_budget_without_truncating_case_list(
+    client,
+    auth_headers,
+    session,
+):
+    for index in range(5):
+        _create_todo(
+            client,
+            auth_headers,
+            f"Todo operativo {index + 1}",
+            date(2026, 3, 9),
+        )
+
+    reference_dt = datetime(2026, 3, 9, 9, 0)
+    today_workspace = build_workspace_today(
+        trainer_id=_trainer_id(session),
+        session=session,
+        reference_dt=reference_dt,
+    )
+    today_section = next(section for section in today_workspace.sections if section.bucket == "today")
+    assert today_section.total == 5
+    assert len(today_section.items) == 2
+    assert today_workspace.focus_case is not None
+    assert today_workspace.focus_case.case_id == today_section.items[0].case_id
+
+    case_list = build_workspace_case_list(
+        trainer_id=_trainer_id(session),
+        session=session,
+        workspace="today",
+        bucket="today",
+        case_kind="todo_manual",
+        page_size=20,
+        reference_dt=reference_dt,
+    )
+    assert case_list.total == 5
+    assert len(case_list.items) == 5
+
+
+def test_workspace_today_hides_due_today_manual_todos_when_now_has_structural_cases(
+    client,
+    auth_headers,
+    session,
+):
+    due_today_todo = _create_todo(client, auth_headers, "Richiama lead", date(2026, 3, 9))
+    session_client = _create_client(
+        client,
+        auth_headers,
+        "Now",
+        "Client",
+        anamnesi=_structured_anamnesi(),
+    )
+    _create_event(
+        client,
+        auth_headers,
+        client_id=session_client["id"],
+        title="PT adesso",
+        start_at=datetime(2026, 3, 9, 9, 30),
+    )
+
+    reference_dt = datetime(2026, 3, 9, 9, 45)
+    today_workspace = build_workspace_today(
+        trainer_id=_trainer_id(session),
+        session=session,
+        reference_dt=reference_dt,
+    )
+
+    now_section = next(section for section in today_workspace.sections if section.bucket == "now")
+    assert any(case.case_kind == "session_imminent" for case in now_section.items)
+
+    today_section = next(section for section in today_workspace.sections if section.bucket == "today")
+    assert today_section.total == 1
+    assert all(case.case_kind != "todo_manual" for case in today_section.items)
+
+    case_list = build_workspace_case_list(
+        trainer_id=_trainer_id(session),
+        session=session,
+        workspace="today",
+        bucket="today",
+        case_kind="todo_manual",
+        page_size=20,
+        reference_dt=reference_dt,
+    )
+    assert case_list.total == 1
+    assert case_list.items[0].root_entity.id == due_today_todo["id"]
+
+
+def test_workspace_today_undated_manual_todos_do_not_enter_today_case_list(
+    client,
+    auth_headers,
+    session,
+):
+    undated_todo = _create_todo(client, auth_headers, "Promemoria senza data")
+    due_today_todo = _create_todo(client, auth_headers, "Promemoria con data", date(2026, 3, 9))
+
+    reference_dt = datetime(2026, 3, 9, 9, 0)
+    case_list = build_workspace_case_list(
+        trainer_id=_trainer_id(session),
+        session=session,
+        workspace="today",
+        case_kind="todo_manual",
+        page_size=20,
+        reference_dt=reference_dt,
+    )
+
+    returned_ids = [int(item.root_entity.id) for item in case_list.items]
+    assert due_today_todo["id"] in returned_ids
+    assert undated_todo["id"] not in returned_ids
 
 
 def test_workspace_today_enforces_trainer_isolation(client, auth_headers):
