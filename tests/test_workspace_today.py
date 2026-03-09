@@ -2,6 +2,11 @@
 
 from datetime import date, datetime, timedelta
 
+from sqlmodel import select
+
+from api.models.trainer import Trainer
+from api.services.workspace_engine import build_workspace_today
+
 
 def _structured_anamnesi():
     return {
@@ -66,24 +71,32 @@ def _create_contract_with_overdue_plan(client, headers, client_id):
     return contract, rate_response.json()["items"]
 
 
-def _create_event(client, headers, *, client_id, contract_id, title):
-    start_at = datetime.utcnow() + timedelta(minutes=30)
+def _create_event(client, headers, *, client_id, contract_id=None, title, start_at=None):
+    start_at = start_at or (datetime.now() + timedelta(minutes=30))
     end_at = start_at + timedelta(hours=1)
+    payload = {
+        "data_inizio": start_at.isoformat(),
+        "data_fine": end_at.isoformat(),
+        "categoria": "PT",
+        "titolo": title,
+        "id_cliente": client_id,
+        "stato": "Programmato",
+    }
+    if contract_id is not None:
+        payload["id_contratto"] = contract_id
     response = client.post(
         "/api/events",
-        json={
-            "data_inizio": start_at.isoformat(),
-            "data_fine": end_at.isoformat(),
-            "categoria": "PT",
-            "titolo": title,
-            "id_cliente": client_id,
-            "id_contratto": contract_id,
-            "stato": "Programmato",
-        },
+        json=payload,
         headers=headers,
     )
     assert response.status_code == 201, response.text
     return response.json()
+
+
+def _trainer_id(session) -> int:
+    trainer = session.exec(select(Trainer).where(Trainer.email == "test@test.com")).one()
+    assert trainer.id is not None
+    return trainer.id
 
 
 def test_workspace_today_aggregates_real_sources(client, auth_headers):
@@ -143,7 +156,6 @@ def test_workspace_today_aggregates_real_sources(client, auth_headers):
     assert "onboarding_readiness" in case_kinds
     assert "todo_manual" in case_kinds
     assert "payment_overdue" in case_kinds
-    assert "contract_renewal_due" in case_kinds
     assert "client_reactivation" in case_kinds
 
     todo_case = next(case for case in all_cases if case["case_kind"] == "todo_manual")
@@ -155,10 +167,6 @@ def test_workspace_today_aggregates_real_sources(client, auth_headers):
     assert overdue_case["finance_context"]["total_due_amount"] is None
     assert overdue_case["signal_count"] == len(rates)
 
-    renewal_case = next(case for case in all_cases if case["case_kind"] == "contract_renewal_due")
-    assert renewal_case["root_entity"]["id"] == contract["id"]
-    assert renewal_case["finance_context"]["visibility"] == "redacted"
-
     onboarding_case = next(case for case in all_cases if case["case_kind"] == "onboarding_readiness")
     assert onboarding_case["root_entity"]["id"] == onboarding_client["id"]
     assert onboarding_case["signal_count"] >= 2
@@ -168,6 +176,124 @@ def test_workspace_today_aggregates_real_sources(client, auth_headers):
 
     agenda_titles = [item["title"] for item in data["agenda"]["items"]]
     assert "Sessione premium" in agenda_titles
+
+    renewals_response = client.get(
+        "/api/workspace/cases",
+        params={"workspace": "renewals_cash", "case_kind": "contract_renewal_due", "page_size": 20},
+        headers=auth_headers,
+    )
+    assert renewals_response.status_code == 200, renewals_response.text
+    renewal_items = renewals_response.json()["items"]
+    assert renewal_items
+    renewal_case = next(item for item in renewal_items if item["root_entity"]["id"] == contract["id"])
+    assert renewal_case["finance_context"]["visibility"] == "full"
+
+
+def test_workspace_today_session_absorbs_onboarding_blockers(client, auth_headers):
+    blocked_client = _create_client(
+        client,
+        auth_headers,
+        "Teresa",
+        "Bloccata",
+        anamnesi=_structured_anamnesi(),
+    )
+    event = _create_event(
+        client,
+        auth_headers,
+        client_id=blocked_client["id"],
+        title="Sessione con blocker",
+    )
+
+    today_response = client.get("/api/workspace/today", headers=auth_headers)
+    assert today_response.status_code == 200, today_response.text
+    sections = today_response.json()["sections"]
+    all_cases = [case for section in sections for case in section["items"]]
+
+    session_case = next(case for case in all_cases if case["case_kind"] == "session_imminent")
+    assert session_case["root_entity"]["id"] == event["id"]
+    assert session_case["secondary_entity"]["id"] == blocked_client["id"]
+    assert session_case["signal_count"] >= 3
+    assert "cliente da preparare" in session_case["reason"].lower()
+
+    assert not any(
+        case["case_kind"] == "onboarding_readiness" and case["root_entity"]["id"] == blocked_client["id"]
+        for case in all_cases
+    )
+
+    detail_response = client.get(
+        f"/api/workspace/cases/{session_case['case_id']}",
+        params={"workspace": "today"},
+        headers=auth_headers,
+    )
+    assert detail_response.status_code == 200, detail_response.text
+    detail = detail_response.json()
+    signal_codes = {signal["signal_code"] for signal in detail["signals"]}
+    assert {"baseline", "workout"}.issubset(signal_codes)
+
+
+def test_workspace_today_orders_sessions_by_actual_start_time(client, auth_headers, session):
+    first_client = _create_client(
+        client,
+        auth_headers,
+        "Riccardo",
+        "De Luca",
+        anamnesi=_structured_anamnesi(),
+    )
+    second_client = _create_client(
+        client,
+        auth_headers,
+        "Stefano",
+        "Leone",
+        anamnesi=_structured_anamnesi(),
+    )
+    third_client = _create_client(
+        client,
+        auth_headers,
+        "Matteo",
+        "Barbieri",
+        anamnesi=_structured_anamnesi(),
+    )
+
+    reference_dt = datetime(2026, 3, 9, 9, 0)
+    _create_event(
+        client,
+        auth_headers,
+        client_id=third_client["id"],
+        title="PT Matteo Barbieri",
+        start_at=datetime(2026, 3, 9, 16, 0),
+    )
+    _create_event(
+        client,
+        auth_headers,
+        client_id=first_client["id"],
+        title="PT Riccardo De Luca",
+        start_at=datetime(2026, 3, 9, 10, 0),
+    )
+    _create_event(
+        client,
+        auth_headers,
+        client_id=second_client["id"],
+        title="PT Stefano Leone",
+        start_at=datetime(2026, 3, 9, 11, 0),
+    )
+
+    workspace = build_workspace_today(
+        trainer_id=_trainer_id(session),
+        session=session,
+        reference_dt=reference_dt,
+    )
+
+    session_titles = [
+        case.title
+        for section in workspace.sections
+        for case in section.items
+        if case.case_kind == "session_imminent"
+    ]
+    assert session_titles[:3] == [
+        "PT Riccardo De Luca",
+        "PT Stefano Leone",
+        "PT Matteo Barbieri",
+    ]
 
 
 def test_workspace_today_enforces_trainer_isolation(client, auth_headers):

@@ -1009,6 +1009,7 @@ export interface OperationalCase {
   severity: CaseSeverity;
   bucket: CaseBucket;
   due_date: string | null;
+  due_at: string | null;
   days_to_due: number | null;
   root_entity: WorkspaceRootEntity;
   secondary_entity: WorkspaceRootEntity | null;

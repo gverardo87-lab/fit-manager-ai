@@ -49,10 +49,19 @@ _CASE_PRIORITY = {
     "client_reactivation": 4,
     "todo_manual": 5,
 }
+_SEVERITY_RANK = {"low": 0, "medium": 1, "high": 2, "critical": 3}
+_READINESS_SIGNAL_LABELS = {
+    "anamnesi_missing": "Anamnesi mancante",
+    "anamnesi_legacy": "Anamnesi legacy da rivedere",
+    "baseline": "Baseline misure mancante",
+    "workout": "Scheda mancante",
+}
 
 
-def _now_utc() -> datetime:
-    return datetime.utcnow()
+def _now_local() -> datetime:
+    # The CRM stores agenda datetimes as naive local values, so workspace ordering
+    # must use the same local-naive clock to avoid shifting the operational day.
+    return datetime.now()
 
 
 def _normalize_search_text(value: str | None) -> str:
@@ -82,6 +91,11 @@ def _link_action(action_id: str, label: str, href: str | None, *, primary: bool)
 
 def _full_name(nome: str | None, cognome: str | None) -> str:
     return " ".join(part for part in [nome, cognome] if part).strip()
+
+
+def _max_severity(*values: str) -> str:
+    ranked = max(values, key=lambda value: _SEVERITY_RANK.get(value, -1), default="low")
+    return ranked
 
 
 def _todo_bucket(todo: Todo, today: date) -> tuple[str, int | None]:
@@ -169,13 +183,35 @@ def _reactivation_severity(days_inactive: int) -> str:
     return "low"
 
 
-def _sort_case(case: OperationalCase) -> tuple[int, int, int, date, str]:
-    due_date = case.due_date or date.max
+def _reactivation_bucket(days_inactive: int) -> str:
+    if days_inactive >= 45:
+        return "today"
+    return "upcoming_7d"
+
+
+def _case_due_moment(case: OperationalCase) -> datetime | None:
+    if case.due_at is not None:
+        return case.due_at
+    if case.due_date is not None:
+        return datetime.combine(case.due_date, datetime.min.time())
+    return None
+
+
+def _sort_case(case: OperationalCase) -> tuple[int, int, datetime, int, str] | tuple[int, int, int, datetime, str]:
+    due_moment = _case_due_moment(case) or datetime.max
+    if case.case_kind == "session_imminent":
+        return (
+            _CASE_PRIORITY.get(case.case_kind, 99),
+            _BUCKET_ORDER.get(case.bucket, 99),
+            due_moment,
+            _SEVERITY_ORDER.get(case.severity, 99),
+            case.title.lower(),
+        )
     return (
         _CASE_PRIORITY.get(case.case_kind, 99),
         _SEVERITY_ORDER.get(case.severity, 99),
         _BUCKET_ORDER.get(case.bucket, 99),
-        due_date,
+        due_moment,
         case.title.lower(),
     )
 
@@ -254,8 +290,8 @@ def _sort_cases(cases: list[OperationalCase], *, sort_by: str) -> list[Operation
         return sorted(
             cases,
             key=lambda case: (
-                case.due_date is None,
-                case.due_date or date.max,
+                _case_due_moment(case) is None,
+                _case_due_moment(case) or datetime.max,
                 _CASE_PRIORITY.get(case.case_kind, 99),
                 _SEVERITY_ORDER.get(case.severity, 99),
                 case.title.lower(),
@@ -341,7 +377,8 @@ def _build_session_cases(
     trainer_id: int,
     session: Session,
     reference_dt: datetime,
-) -> tuple[list[OperationalCase], list[WorkspaceAgendaItem]]:
+    readiness_by_client: dict[int, ClinicalReadinessClientItem] | None = None,
+) -> tuple[list[OperationalCase], list[WorkspaceAgendaItem], set[int]]:
     start_dt, end_dt = _as_local_day_bounds(reference_dt)
     events = session.exec(
         select(Event, Client)
@@ -358,16 +395,50 @@ def _build_session_cases(
 
     cases: list[OperationalCase] = []
     agenda_items: list[WorkspaceAgendaItem] = []
+    covered_client_ids: set[int] = set()
 
     for event, client in events:
         bucket, severity = _event_bucket(event, reference_dt)
         client_label = _full_name(client.nome, client.cognome) if client else None
+        readiness_item = (
+            readiness_by_client.get(client.id)
+            if client and client.id is not None and readiness_by_client is not None
+            else None
+        )
+        blocked_readiness = readiness_item is not None and readiness_item.next_action_code != "ready"
         title = event.titolo or client_label or event.categoria
         reason = (
             f"{event.categoria} oggi alle {event.data_inizio.strftime('%H:%M')}"
             if event.data_inizio.date() == reference_dt.date()
             else f"{event.categoria} pianificato"
         )
+        preview_signals = [
+            WorkspaceSignal(
+                signal_code="event_today",
+                source="events",
+                label=event.categoria,
+                severity=severity,
+                due_date=event.data_inizio.date(),
+                reason=reason,
+            )
+        ]
+        signal_count = 1
+        if blocked_readiness and readiness_item is not None:
+            covered_client_ids.add(readiness_item.client_id)
+            severity = _max_severity(severity, _readiness_severity(readiness_item))
+            reason = f"{reason} - cliente da preparare"
+            preview_signals.extend(
+                WorkspaceSignal(
+                    signal_code=step,
+                    source="clinical_readiness",
+                    label=_READINESS_SIGNAL_LABELS.get(step, step),
+                    severity=_readiness_severity(readiness_item),
+                    due_date=readiness_item.next_due_date,
+                    reason=readiness_item.next_action_label,
+                )
+                for step in readiness_item.missing_steps[:2]
+            )
+            signal_count += len(readiness_item.missing_steps)
         case_id = f"case:session_imminent:event:{event.id}"
         actions = [_link_action("open-agenda", "Apri agenda", "/agenda", primary=True)]
         secondary_entity = None
@@ -393,6 +464,7 @@ def _build_session_cases(
                 severity=severity,
                 bucket=bucket,
                 due_date=event.data_inizio.date(),
+                due_at=event.data_inizio,
                 days_to_due=0,
                 root_entity=WorkspaceRootEntity(
                     type="event",
@@ -401,17 +473,8 @@ def _build_session_cases(
                     href="/agenda",
                 ),
                 secondary_entity=secondary_entity,
-                signal_count=1,
-                preview_signals=[
-                    WorkspaceSignal(
-                        signal_code="event_today",
-                        source="events",
-                        label=event.categoria,
-                        severity=severity,
-                        due_date=event.data_inizio.date(),
-                        reason=reason,
-                    )
-                ],
+                signal_count=signal_count,
+                preview_signals=preview_signals,
                 suggested_actions=actions,
                 source_refs=[f"event:{event.id}"],
             )
@@ -432,41 +495,28 @@ def _build_session_cases(
             )
         )
 
-    return cases, agenda_items
+    return cases, agenda_items, covered_client_ids
 
 
 def _build_readiness_cases(
     *,
-    trainer_id: int,
-    session: Session,
-    reference_date: date,
+    readiness_items: list[ClinicalReadinessClientItem],
+    session_blocked_client_ids: set[int] | None = None,
 ) -> list[OperationalCase]:
-    _, items = compute_clinical_readiness_data(
-        trainer_id=trainer_id,
-        session=session,
-        reference_date=reference_date,
-    )
-
     cases: list[OperationalCase] = []
-    for item in items:
+    for item in readiness_items:
         if item.next_action_code == "ready":
             continue
         bucket = _readiness_bucket(item)
-        if bucket == "waiting":
-            continue
+        if item.client_id in (session_blocked_client_ids or set()):
+            bucket = "waiting"
         client_label = _full_name(item.client_nome, item.client_cognome)
         case_id = f"case:onboarding_readiness:client:{item.client_id}"
-        signal_labels = {
-            "anamnesi_missing": "Anamnesi mancante",
-            "anamnesi_legacy": "Anamnesi legacy da rivedere",
-            "baseline": "Baseline misure mancante",
-            "workout": "Scheda mancante",
-        }
         signals = [
             WorkspaceSignal(
                 signal_code=step,
                 source="clinical_readiness",
-                label=signal_labels.get(step, step),
+                label=_READINESS_SIGNAL_LABELS.get(step, step),
                 severity=_readiness_severity(item),
                 due_date=item.next_due_date,
                 reason=item.next_action_label,
@@ -768,6 +818,7 @@ def _build_contract_renewal_cases(
     trainer_id: int,
     session: Session,
     reference_date: date,
+    overdue_contract_ids: set[int] | None = None,
 ) -> list[OperationalCase]:
     cases: list[OperationalCase] = []
     for contract, client, residual, days_left, due_date in _load_expiring_contract_rows(
@@ -776,9 +827,9 @@ def _build_contract_renewal_cases(
         reference_date=reference_date,
     ):
         bucket = _renewal_bucket(days_left)
-        if bucket == "waiting":
-            continue
         contract_id = contract.id or 0
+        if contract_id in (overdue_contract_ids or set()):
+            bucket = "waiting"
         client_id = client.id or 0
         client_label = _full_name(client.nome, client.cognome)
         case_id = f"case:contract_renewal_due:contract:{contract_id}"
@@ -905,6 +956,7 @@ def _build_reactivation_cases(
                 days_inactive = (reference_date - raw).days
         client_label = _full_name(nome, cognome)
         severity = _reactivation_severity(days_inactive)
+        bucket = _reactivation_bucket(days_inactive)
         case_id = f"case:client_reactivation:client:{client_id}"
         cases.append(
             OperationalCase(
@@ -915,7 +967,7 @@ def _build_reactivation_cases(
                 title=f"Cliente da riattivare: {client_label}",
                 reason=f"Nessuna sessione da {days_inactive} giorni",
                 severity=severity,
-                bucket="today",
+                bucket=bucket,
                 due_date=reference_date,
                 days_to_due=0,
                 root_entity=WorkspaceRootEntity(
@@ -1009,6 +1061,32 @@ def _build_session_case_detail(
                 reason=contract.tipo_pacchetto or f"Contratto {contract.id}",
             )
         )
+    if client and client.id is not None:
+        _summary, readiness_items = compute_clinical_readiness_data(
+            trainer_id=trainer_id,
+            session=session,
+            reference_date=event.data_inizio.date(),
+        )
+        readiness_item = next(
+            (
+                entry
+                for entry in readiness_items
+                if entry.client_id == client.id and entry.next_action_code != "ready"
+            ),
+            None,
+        )
+        if readiness_item is not None:
+            signals.extend(
+                WorkspaceSignal(
+                    signal_code=step,
+                    source="clinical_readiness",
+                    label=_READINESS_SIGNAL_LABELS.get(step, step),
+                    severity=_readiness_severity(readiness_item),
+                    due_date=readiness_item.next_due_date,
+                    reason=readiness_item.next_action_label,
+                )
+                for step in readiness_item.missing_steps
+            )
 
     related_entities = _dedupe_entities(
         case.root_entity,
@@ -1475,18 +1553,24 @@ def collect_workspace_snapshot(
     session: Session,
     reference_dt: datetime | None = None,
 ) -> tuple[list[OperationalCase], list[WorkspaceAgendaItem], int, datetime]:
-    now_dt = reference_dt or _now_utc()
+    now_dt = reference_dt or _now_local()
     today = now_dt.date()
-
-    session_cases, agenda_items = _build_session_cases(
-        trainer_id=trainer_id,
-        session=session,
-        reference_dt=now_dt,
-    )
-    onboarding_cases = _build_readiness_cases(
+    _readiness_summary, readiness_items = compute_clinical_readiness_data(
         trainer_id=trainer_id,
         session=session,
         reference_date=today,
+    )
+    readiness_by_client = {item.client_id: item for item in readiness_items}
+
+    session_cases, agenda_items, session_blocked_client_ids = _build_session_cases(
+        trainer_id=trainer_id,
+        session=session,
+        reference_dt=now_dt,
+        readiness_by_client=readiness_by_client,
+    )
+    onboarding_cases = _build_readiness_cases(
+        readiness_items=readiness_items,
+        session_blocked_client_ids=session_blocked_client_ids,
     )
     todo_cases, completed_today_count = _build_todo_cases(
         trainer_id=trainer_id,
@@ -1498,10 +1582,16 @@ def collect_workspace_snapshot(
         session=session,
         reference_date=today,
     )
+    overdue_contract_ids = {
+        int(case.root_entity.id)
+        for case in overdue_cases
+        if case.root_entity.type == "contract" and _coerce_entity_id(case.root_entity.id) is not None
+    }
     renewal_cases = _build_contract_renewal_cases(
         trainer_id=trainer_id,
         session=session,
         reference_date=today,
+        overdue_contract_ids=overdue_contract_ids,
     )
     reactivation_cases = _build_reactivation_cases(
         trainer_id=trainer_id,

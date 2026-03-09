@@ -21,6 +21,9 @@ import { useWorkspaceCaseDetail, useWorkspaceCases, useWorkspaceToday } from "@/
 import { usePageReveal } from "@/lib/page-reveal";
 import type { OperationalCase } from "@/types/api";
 
+const MAX_NOW_VISIBLE = 2;
+const MAX_TODAY_VISIBLE = 4;
+
 function buildOggiBrief({
   nowCount,
   todayCount,
@@ -115,7 +118,7 @@ function QueueSkeleton() {
   return (
     <div className="space-y-4">
       {Array.from({ length: 4 }).map((_, index) => (
-        <Skeleton key={index} className="h-40 rounded-3xl" />
+        <Skeleton key={index} className="h-32 rounded-3xl" />
       ))}
     </div>
   );
@@ -143,6 +146,8 @@ export default function OggiWorkspacePage() {
   const laterItems = queueItems.filter(
     (item) => item.bucket === "upcoming_3d" || item.bucket === "upcoming_7d",
   );
+  const visibleNowItems = nowItems.slice(0, MAX_NOW_VISIBLE);
+  const visibleTodayItems = dueTodayItems.slice(0, MAX_TODAY_VISIBLE);
   const selectedCaseId =
     (requestedCaseId && queueItems.some((item) => item.case_id === requestedCaseId) && requestedCaseId) ||
     queueItems[0]?.case_id ||
@@ -289,7 +294,7 @@ export default function OggiWorkspacePage() {
                     <QueueSection
                       title={WORKSPACE_BUCKET_META.now.label}
                       subtitle="Quello che non dovrebbe aspettare."
-                      items={nowItems}
+                      items={visibleNowItems}
                       selectedCaseId={selectedCaseId}
                       onSelect={setRequestedCaseId}
                       emptyMessage="Niente che richieda attenzione immediata."
@@ -298,7 +303,7 @@ export default function OggiWorkspacePage() {
                     <QueueSection
                       title={WORKSPACE_BUCKET_META.today.label}
                       subtitle="Quello che conviene chiudere in questa giornata."
-                      items={dueTodayItems}
+                      items={visibleTodayItems}
                       selectedCaseId={selectedCaseId}
                       onSelect={setRequestedCaseId}
                       emptyMessage="Non hai altri casi da chiudere oggi."

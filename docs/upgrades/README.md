@@ -36,6 +36,9 @@ Esempio:
 
 ## Ultimo allineamento (2026-03-09)
 
+- `UPG-2026-03-09-13`: corretto il trust bug temporale di `Oggi`: i case sessione ora espongono `due_at`, vengono ordinati per orario reale dell'evento invece che per titolo a parita di giorno, e il workspace usa il tempo locale naive del CRM invece di `utcnow()`, riallineando davvero `Adesso` e `Oggi` alla giornata del trainer.
+- `UPG-2026-03-09-12`: primo pass runtime della matrice workspace: `session_imminent` assorbe i blocker onboarding, `payment_overdue` smette di convivere in `today` con il rinnovo sullo stesso contratto, `client_reactivation` diventa meno aggressiva e `Oggi` impone un budget visivo `2 now / 4 today` con card piu compatte.
+- `UPG-2026-03-09-11`: formalizzata la matrice `ranking + dominance + viewport budget` di `Oggi`, con pipeline deterministica, regole hard di soppressione e verdetto sui 6 `case_kind` attuali, per fermare l'espansione del workspace finche non viene disciplinata davvero la selezione.
 - `UPG-2026-03-09-10`: la freshness di `misurazioni` e `schede` ora nasce dal backend come policy condivisa (`measurement_freshness`, `workout_freshness`) ed e consumata da profilo cliente, portale clinico e worklist readiness senza piu soglie locali duplicate in frontend.
 - `UPG-2026-03-09-09`: definita la policy unica `signal -> family -> visibility -> promotion` per `Oggi`, con merge/soppressione e budget di densita, cosi` `misurazioni`, `anamnesi` e `schede` possano entrare nel workspace solo quando cambiano davvero l'azione del giorno.
 - `UPG-2026-03-09-08`: refactor di `Oggi` in chiave `stack + detail`: header minimo, agenda di supporto, queue a 3 sezioni e detail sticky, per differenziarla davvero dalla dashboard senza toccare `/`.

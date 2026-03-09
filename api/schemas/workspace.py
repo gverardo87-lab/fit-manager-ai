@@ -94,6 +94,7 @@ class OperationalCase(BaseModel):
     severity: CaseSeverity
     bucket: CaseBucket
     due_date: date | None = None
+    due_at: datetime | None = None
     days_to_due: int | None = None
     root_entity: WorkspaceRootEntity
     secondary_entity: WorkspaceRootEntity | None = None
