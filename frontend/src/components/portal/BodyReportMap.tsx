@@ -61,13 +61,10 @@ type ZoneProgress = "improving" | "stable" | "worsening";
 
 function getProgress(delta: number | null, direzione?: "aumentare" | "diminuire" | "mantenere" | null): ZoneProgress {
   if (delta === null || delta === 0) return "stable";
-  // Senza obiettivo attivo → neutro (nessuna interpretazione)
-  if (!direzione) return "stable";
   if (direzione === "mantenere") return "stable";
-  // Con obiettivo: la direzione determina cosa è positivo
-  if (direzione === "diminuire") return delta < 0 ? "improving" : "worsening";
-  // "aumentare": aumento = miglioramento
-  return delta > 0 ? "improving" : "worsening";
+  if (direzione === "aumentare") return delta > 0 ? "improving" : "worsening";
+  // "diminuire" oppure nessun obiettivo → default: riduzione = miglioramento
+  return delta < 0 ? "improving" : "worsening";
 }
 
 function getIntensity(p: ZoneProgress, selected: boolean): number {
