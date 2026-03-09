@@ -25,6 +25,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 import { BodyReportMap } from "@/components/portal/BodyReportMap";
+import { ProjectionChart } from "@/components/portal/ProjectionChart";
 
 import { formatRate } from "@/lib/measurement-analytics";
 import type { ClientGoal, ClinicalFreshnessSignal, Measurement, Metric } from "@/types/api";
@@ -85,6 +86,7 @@ export function BodyOverviewSection({
 }: BodyOverviewSectionProps) {
   const router = useRouter();
   const [open, setOpen] = useState(true);
+  const [chartMetricId, setChartMetricId] = useState<number | null>(null);
 
   const hasMeasurements = measurements.length > 0;
 
@@ -208,7 +210,18 @@ export function BodyOverviewSection({
                   measurements={measurements}
                   metrics={metrics}
                   goals={goals}
+                  onSelectMetric={setChartMetricId}
                 />
+
+                {/* Projection chart — appare quando si clicca una zona */}
+                {chartMetricId !== null && (
+                  <ProjectionChart
+                    measurements={measurements}
+                    metrics={metrics}
+                    metricId={chartMetricId}
+                    goals={goals}
+                  />
+                )}
               </>
             )}
           </CardContent>

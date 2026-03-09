@@ -88,11 +88,12 @@ interface BodyReportMapProps {
   measurements: Measurement[];
   metrics: Metric[];
   goals?: ClientGoal[];
+  onSelectMetric?: (metricId: number | null) => void;
 }
 
 // ── Component ──
 
-export function BodyReportMap({ measurements, metrics, goals }: BodyReportMapProps) {
+export function BodyReportMap({ measurements, metrics, goals, onSelectMetric }: BodyReportMapProps) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const metricMap = useMemo(() => new Map(metrics.map(m => [m.id, m])), [metrics]);
 
@@ -151,7 +152,11 @@ export function BodyReportMap({ measurements, metrics, goals }: BodyReportMapPro
     return parts;
   }, [visible, selectedId, snapshots]);
 
-  const toggle = (mid: number) => setSelectedId(p => p === mid ? null : mid);
+  const toggle = (mid: number) => {
+    const next = selectedId === mid ? null : mid;
+    setSelectedId(next);
+    onSelectMetric?.(next);
+  };
   const handleBodyPress = (part: { slug?: string }) => {
     if (!part.slug) return;
     const mid = SLUG_TO_METRIC.get(part.slug);
