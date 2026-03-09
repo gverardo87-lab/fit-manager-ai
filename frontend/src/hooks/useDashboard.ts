@@ -9,7 +9,7 @@
  * Re-fetch automatico ogni 60 secondi.
  */
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
 import type {
   DashboardSummary,
@@ -107,6 +107,7 @@ export function useClinicalReadinessWorklist(
       return data;
     },
     refetchInterval: 60_000,
+    placeholderData: keepPreviousData,
     enabled,
   });
 }
@@ -199,6 +200,7 @@ export function useTrainingMethodologyWorklist(
       return data;
     },
     refetchInterval: 60_000,
+    placeholderData: keepPreviousData,
     enabled,
   });
 }

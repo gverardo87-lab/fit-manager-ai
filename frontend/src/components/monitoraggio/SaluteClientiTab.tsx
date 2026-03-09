@@ -4,16 +4,14 @@
 /**
  * Tab Salute Clienti — Worklist readiness clinica.
  *
- * Contenuto identico a MyPortal: hero con HealthScoreRing,
- * filtri avanzati, card grid paginata.
- * Estratto come componente tab riusabile.
+ * Hero con HealthScoreRing, filtri semplificati con ricerca debounced,
+ * card grid paginata.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Filter,
   Search,
-  RotateCcw,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -22,27 +20,17 @@ import { AnimatedNumber } from "@/components/ui/animated-number";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HealthScoreRing } from "@/components/portal/HealthScoreRing";
 import { ReadinessClientCard } from "@/components/portal/ReadinessClientCard";
 import { useClinicalReadinessWorklist } from "@/hooks/useDashboard";
-import type { ClinicalReadinessClientItem } from "@/types/api";
 
 // ── Types ──
 
 type PortalFilter = "all" | "todo" | "ready";
-type PriorityFilter = "all" | ClinicalReadinessClientItem["priority"];
-type DueFilter = "all" | Exclude<ClinicalReadinessClientItem["timeline_status"], "none">;
-type SortMode = "priority" | "due_date";
 
 const PAGE_SIZE = 24;
+const DEBOUNCE_MS = 400;
 
 // ── Hero Card ──
 
@@ -119,13 +107,20 @@ function CardGridSkeleton() {
 
 export function SaluteClientiTab() {
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filter, setFilter] = useState<PortalFilter>("todo");
-  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
-  const [dueFilter, setDueFilter] = useState<DueFilter>("all");
-  const [sortBy, setSortBy] = useState<SortMode>("priority");
   const [page, setPage] = useState(1);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const trimmedSearch = search.trim();
+  // Debounce search: input updates immediately, query fires after delay
+  useEffect(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      setPage(1);
+    }, DEBOUNCE_MS);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [search]);
 
   const {
     data,
@@ -137,10 +132,8 @@ export function SaluteClientiTab() {
     page,
     page_size: PAGE_SIZE,
     view: filter,
-    sort_by: sortBy,
-    priority: priorityFilter === "all" ? undefined : priorityFilter,
-    timeline_status: dueFilter === "all" ? undefined : dueFilter,
-    search: trimmedSearch || undefined,
+    sort_by: "priority",
+    search: debouncedSearch || undefined,
   });
 
   const summary = data?.summary;
@@ -155,17 +148,7 @@ export function SaluteClientiTab() {
     return Math.round((summary.ready_clients / summary.total_clients) * 100);
   }, [summary]);
 
-  const hasAdvancedFilters =
-    priorityFilter !== "all" || dueFilter !== "all" || sortBy !== "priority";
-
   const handleFilterChange = (next: PortalFilter) => { setFilter(next); setPage(1); };
-  const handleSearchChange = (v: string) => { setSearch(v); setPage(1); };
-  const handleResetAdvanced = () => {
-    setPriorityFilter("all");
-    setDueFilter("all");
-    setSortBy("priority");
-    setPage(1);
-  };
 
   if (isError) {
     return (
@@ -200,105 +183,37 @@ export function SaluteClientiTab() {
         readyPct={readyPct}
       />
 
-      {/* FilterBar */}
+      {/* FilterBar — pills + search, no advanced selects */}
       <div className="rounded-xl border bg-white p-3 shadow-sm dark:bg-zinc-900">
-        <div className="space-y-2">
-          {/* Row 1: pills + search */}
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-wrap items-center gap-1.5">
-              {(["todo", "all", "ready"] as const).map((f) => (
-                <Button
-                  key={f}
-                  type="button"
-                  size="sm"
-                  variant={filter === f ? "default" : "outline"}
-                  onClick={() => handleFilterChange(f)}
-                  className="h-8"
-                >
-                  {f === "todo" ? "Da completare" : f === "all" ? "Tutti" : "Pronti"}
-                </Button>
-              ))}
-            </div>
-            <div className="relative w-full sm:w-64">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="Cerca cliente..."
-                className="pl-9"
-              />
-            </div>
-          </div>
-
-          {/* Row 2: selects + reset */}
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="grid flex-1 gap-2 sm:grid-cols-3">
-              <Select
-                value={priorityFilter}
-                onValueChange={(v) => { setPriorityFilter(v as PriorityFilter); setPage(1); }}
-              >
-                <SelectTrigger size="sm" className="w-full">
-                  <SelectValue placeholder="Priorita" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Priorita: tutte</SelectItem>
-                  <SelectItem value="high">Priorita: alta</SelectItem>
-                  <SelectItem value="medium">Priorita: media</SelectItem>
-                  <SelectItem value="low">Priorita: bassa</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={dueFilter}
-                onValueChange={(v) => { setDueFilter(v as DueFilter); setPage(1); }}
-              >
-                <SelectTrigger size="sm" className="w-full">
-                  <SelectValue placeholder="Scadenza" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Scadenza: tutte</SelectItem>
-                  <SelectItem value="overdue">Scadute</SelectItem>
-                  <SelectItem value="today">Oggi</SelectItem>
-                  <SelectItem value="upcoming_7d">Entro 7 giorni</SelectItem>
-                  <SelectItem value="upcoming_14d">Entro 14 giorni</SelectItem>
-                  <SelectItem value="future">Pianificate</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={sortBy}
-                onValueChange={(v) => { setSortBy(v as SortMode); setPage(1); }}
-              >
-                <SelectTrigger size="sm" className="w-full">
-                  <SelectValue placeholder="Ordinamento" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="priority">Per priorita</SelectItem>
-                  <SelectItem value="due_date">Per scadenza</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {hasAdvancedFilters && (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {(["todo", "all", "ready"] as const).map((f) => (
               <Button
+                key={f}
                 type="button"
                 size="sm"
-                variant="ghost"
-                className="h-8 gap-1 shrink-0"
-                onClick={handleResetAdvanced}
+                variant={filter === f ? "default" : "outline"}
+                onClick={() => handleFilterChange(f)}
+                className="h-8"
               >
-                <RotateCcw className="h-3 w-3" />
-                Reset
+                {f === "todo" ? "Da completare" : f === "all" ? "Tutti" : "Pronti"}
               </Button>
-            )}
+            ))}
           </div>
-
-          {/* Counter */}
-          <p className="text-xs text-muted-foreground">
-            {totalItems} client{totalItems === 1 ? "e" : "i"} filtrat{totalItems === 1 ? "o" : "i"}
-            {isFetching && <span className="ml-1">(aggiornamento...)</span>}
-          </p>
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Cerca cliente..."
+              className="pl-9"
+            />
+          </div>
         </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          {totalItems} client{totalItems === 1 ? "e" : "i"} filtrat{totalItems === 1 ? "o" : "i"}
+          {isFetching && !isLoading && <span className="ml-1 text-muted-foreground/60">(aggiornamento...)</span>}
+        </p>
       </div>
 
       {/* Card Grid or Empty */}

@@ -4,15 +4,13 @@
 /**
  * Tab Qualita Programmi — Worklist analisi metodologica allenamento.
  *
- * Contenuto identico a MyTrainer: hero KPI + filtri + card grid paginata.
- * Estratto come componente tab riusabile.
+ * Hero KPI + filtri semplificati con ricerca debounced + card grid paginata.
  */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Filter,
   Search,
-  RotateCcw,
   ChevronLeft,
   ChevronRight,
   Dumbbell,
@@ -20,13 +18,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { TrainingHeroCard } from "@/components/training/TrainingHeroCard";
 import { TrainingPlanCard } from "@/components/training/TrainingPlanCard";
 import {
@@ -37,10 +28,9 @@ import {
 // ── Types ──
 
 type ViewFilter = "all" | "issues" | "excellent";
-type StatusFilter = "all" | "attivo" | "da_attivare" | "completato";
-type SortMode = "priority" | "science_score" | "compliance";
 
 const PAGE_SIZE = 24;
+const DEBOUNCE_MS = 400;
 
 // ── Skeletons ──
 
@@ -49,8 +39,8 @@ function HeroSkeleton() {
     <div className="rounded-xl border p-5">
       <div className="flex flex-col items-center gap-6 sm:flex-row">
         <Skeleton className="h-24 w-24 rounded-full" />
-        <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
+        <div className="grid w-full grid-cols-2 gap-3">
+          {Array.from({ length: 2 }).map((_, i) => (
             <Skeleton key={i} className="h-16 rounded-lg" />
           ))}
         </div>
@@ -91,20 +81,27 @@ function EmptyStateCard({
 
 export function QualitaProgrammiTab() {
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [view, setView] = useState<ViewFilter>("all");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [sortBy, setSortBy] = useState<SortMode>("priority");
   const [page, setPage] = useState(1);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const trimmedSearch = search.trim();
+  // Debounce search: input updates immediately, query fires after delay
+  useEffect(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      setPage(1);
+    }, DEBOUNCE_MS);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [search]);
 
   const query: TrainingMethodologyWorklistQuery = {
     page,
     page_size: PAGE_SIZE,
     view,
-    sort_by: sortBy,
-    plan_status: statusFilter === "all" ? undefined : statusFilter,
-    search: trimmedSearch || undefined,
+    sort_by: "priority",
+    search: debouncedSearch || undefined,
   };
 
   const { data, isLoading, isError, isFetching, refetch } =
@@ -117,16 +114,7 @@ export function QualitaProgrammiTab() {
   const canGoPrev = page > 1;
   const canGoNext = page < totalPages;
 
-  const hasAdvancedFilters =
-    statusFilter !== "all" || sortBy !== "priority";
-
   const handleViewChange = (next: ViewFilter) => { setView(next); setPage(1); };
-  const handleSearchChange = (v: string) => { setSearch(v); setPage(1); };
-  const handleResetAdvanced = () => {
-    setStatusFilter("all");
-    setSortBy("priority");
-    setPage(1);
-  };
 
   if (isError) {
     return (
@@ -156,94 +144,42 @@ export function QualitaProgrammiTab() {
       {/* Hero card */}
       <TrainingHeroCard summary={summary} />
 
-      {/* FilterBar */}
+      {/* FilterBar — pills + search, no advanced selects */}
       <div className="rounded-xl border bg-white p-3 shadow-sm dark:bg-zinc-900">
-        <div className="space-y-2">
-          {/* Row 1: pills + search */}
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-wrap items-center gap-1.5">
-              {(["all", "issues", "excellent"] as const).map((f) => (
-                <Button
-                  key={f}
-                  type="button"
-                  size="sm"
-                  variant={view === f ? "default" : "outline"}
-                  onClick={() => handleViewChange(f)}
-                  className="h-8"
-                >
-                  {f === "all" ? "Tutti" : f === "issues" ? "Con problemi" : "Eccellenti"}
-                </Button>
-              ))}
-            </div>
-            <div className="relative w-full sm:w-64">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="Cerca piano o cliente..."
-                className="pl-9"
-              />
-            </div>
-          </div>
-
-          {/* Row 2: selects + reset */}
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="grid flex-1 gap-2 sm:grid-cols-2">
-              <Select
-                value={statusFilter}
-                onValueChange={(v) => { setStatusFilter(v as StatusFilter); setPage(1); }}
-              >
-                <SelectTrigger size="sm" className="w-full">
-                  <SelectValue placeholder="Stato" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Stato: tutti</SelectItem>
-                  <SelectItem value="attivo">Attivi</SelectItem>
-                  <SelectItem value="da_attivare">Da attivare</SelectItem>
-                  <SelectItem value="completato">Completati</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={sortBy}
-                onValueChange={(v) => { setSortBy(v as SortMode); setPage(1); }}
-              >
-                <SelectTrigger size="sm" className="w-full">
-                  <SelectValue placeholder="Ordinamento" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="priority">Per priorita</SelectItem>
-                  <SelectItem value="science_score">Per score scientifico</SelectItem>
-                  <SelectItem value="compliance">Per aderenza</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {hasAdvancedFilters && (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {(["all", "issues", "excellent"] as const).map((f) => (
               <Button
+                key={f}
                 type="button"
                 size="sm"
-                variant="ghost"
-                className="h-8 gap-1 shrink-0"
-                onClick={handleResetAdvanced}
+                variant={view === f ? "default" : "outline"}
+                onClick={() => handleViewChange(f)}
+                className="h-8"
               >
-                <RotateCcw className="h-3 w-3" />
-                Reset
+                {f === "all" ? "Tutti" : f === "issues" ? "Con problemi" : "Eccellenti"}
               </Button>
-            )}
+            ))}
           </div>
-
-          {/* Counter */}
-          <p className="text-xs text-muted-foreground">
-            {totalItems} pian{totalItems === 1 ? "o" : "i"} filtrat{totalItems === 1 ? "o" : "i"}
-            {isFetching && <span className="ml-1">(aggiornamento...)</span>}
-          </p>
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Cerca piano o cliente..."
+              className="pl-9"
+            />
+          </div>
         </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          {totalItems} pian{totalItems === 1 ? "o" : "i"} filtrat{totalItems === 1 ? "o" : "i"}
+          {isFetching && !isLoading && <span className="ml-1 text-muted-foreground/60">(aggiornamento...)</span>}
+        </p>
       </div>
 
       {/* Card Grid or Empty */}
       {pagedItems.length === 0 ? (
-        totalItems === 0 && view === "all" && !trimmedSearch ? (
+        totalItems === 0 && view === "all" && !debouncedSearch ? (
           <EmptyStateCard
             icon={Dumbbell}
             title="Nessun piano con cliente assegnato"
