@@ -118,16 +118,6 @@ function QueueSection({
   );
 }
 
-function QueueSkeleton() {
-  return (
-    <div className="space-y-4">
-      {Array.from({ length: 4 }).map((_, index) => (
-        <Skeleton key={index} className="h-32 rounded-3xl" />
-      ))}
-    </div>
-  );
-}
-
 export default function OggiWorkspacePage() {
   const { revealClass, revealStyle } = usePageReveal();
   const todayQuery = useWorkspaceToday();
@@ -150,6 +140,7 @@ export default function OggiWorkspacePage() {
   const nowItems = nowSection?.items ?? [];
   const dueTodayItems = todaySection?.items ?? [];
   const laterItems = [...(upcoming3dSection?.items ?? []), ...(upcoming7dSection?.items ?? [])];
+  const laterTotal = (upcoming3dSection?.total ?? 0) + (upcoming7dSection?.total ?? 0);
   const selectedCaseId =
     (requestedCaseId && queueItems.some((item) => item.case_id === requestedCaseId) && requestedCaseId) ||
     queueItems[0]?.case_id ||
@@ -246,7 +237,7 @@ export default function OggiWorkspacePage() {
             />
             <HeaderPill
               label="Puo aspettare"
-              value={laterItems.length}
+              value={laterTotal}
               tone="border-blue-200 bg-blue-50/80 text-blue-700 dark:border-blue-900/40 dark:bg-blue-950/20 dark:text-blue-300"
             />
           </div>
@@ -256,7 +247,7 @@ export default function OggiWorkspacePage() {
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
         <div className="space-y-4">
           <div className={revealClass(70)} style={revealStyle(70)}>
-            <WorkspaceAgendaPanel agenda={today.agenda} maxItems={2} />
+            <WorkspaceAgendaPanel agenda={today.agenda} maxItems={1} />
           </div>
 
           <div className={revealClass(120)} style={revealStyle(120)}>
@@ -304,7 +295,7 @@ export default function OggiWorkspacePage() {
                       emptyMessage="Non hai altri casi da chiudere oggi."
                     />
 
-                    {laterItems.length > 0 && (
+                    {laterTotal > 0 && (
                       <section className="space-y-3">
                         <button
                           type="button"
@@ -315,7 +306,7 @@ export default function OggiWorkspacePage() {
                             <div className="flex items-center gap-2">
                               <h3 className="text-base font-semibold">Puo aspettare</h3>
                               <span className="rounded-full bg-background px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                {(upcoming3dSection?.total ?? 0) + (upcoming7dSection?.total ?? 0)}
+                                {laterTotal}
                               </span>
                             </div>
                             <p className="mt-1 text-sm text-muted-foreground">

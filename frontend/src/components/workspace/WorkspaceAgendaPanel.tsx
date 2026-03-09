@@ -13,18 +13,35 @@ interface WorkspaceAgendaPanelProps {
   maxItems?: number;
 }
 
+function parseWorkspaceDateTime(value: string | null): Date | null {
+  if (!value) {
+    return null;
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 export function WorkspaceAgendaPanel({
   agenda,
-  maxItems = 2,
+  maxItems = 1,
 }: WorkspaceAgendaPanelProps) {
-  const items = agenda.items.filter((item) => item.status !== "past").slice(0, maxItems);
+  const relevantItems = agenda.items.filter((item) => item.status !== "past");
+  const nextItem = relevantItems[0];
+  const currentTime = parseWorkspaceDateTime(agenda.current_time);
+  const nextStartsAt = parseWorkspaceDateTime(nextItem?.starts_at ?? null);
+  const minutesToNext =
+    currentTime && nextStartsAt ? Math.round((nextStartsAt.getTime() - currentTime.getTime()) / 60000) : null;
+  const shouldShow =
+    nextItem &&
+    (nextItem.status === "current" || minutesToNext === null || (minutesToNext >= 0 && minutesToNext <= 120));
+  const items = shouldShow ? relevantItems.slice(0, maxItems) : [];
 
   if (items.length === 0) {
     return null;
   }
 
   return (
-    <div className="rounded-3xl border border-border/70 bg-stone-50/90 p-4 shadow-sm dark:bg-zinc-900">
+    <div className="rounded-3xl border border-border/60 bg-stone-50/80 p-4 shadow-sm dark:bg-zinc-900">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-100 to-cyan-100 dark:from-sky-950/30 dark:to-cyan-950/30">
@@ -32,10 +49,10 @@ export function WorkspaceAgendaPanel({
           </div>
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-              Prossimi slot
+              Prossimo slot
             </p>
             <p className="text-sm text-muted-foreground">
-              Solo gli appuntamenti che possono impattare la giornata.
+              Lo metto qui solo quando puo cambiare quello che fai adesso.
             </p>
           </div>
         </div>
@@ -47,7 +64,7 @@ export function WorkspaceAgendaPanel({
         </Button>
       </div>
 
-      <div className="mt-4 grid gap-2 md:grid-cols-2">
+      <div className="mt-3 space-y-2">
         {items.map((item) => {
           const startsAtLabel = formatWorkspaceDateTime(item.starts_at) ?? item.starts_at;
 

@@ -326,8 +326,6 @@ def _reactivation_severity(days_inactive: int) -> str:
 
 
 def _reactivation_bucket(days_inactive: int) -> str:
-    if days_inactive >= 45:
-        return "today"
     return "upcoming_7d"
 
 
@@ -459,22 +457,28 @@ def _apply_today_viewport_budget(
 ) -> dict[str, list[OperationalCase]]:
     visible_by_bucket: dict[str, list[OperationalCase]] = {}
     seen_identities: set[tuple[str, str]] = set()
-    structural_now_count = sum(1 for case in grouped_cases.get("now", []) if case.case_kind != "todo_manual")
+    structural_now_count = sum(
+        1 for case in grouped_cases.get("now", []) if case.case_kind not in {"todo_manual", "client_reactivation"}
+    )
     structural_today_count = sum(
-        1 for case in grouped_cases.get("today", []) if case.case_kind != "todo_manual"
+        1
+        for case in grouped_cases.get("today", [])
+        if case.case_kind not in {"todo_manual", "client_reactivation"}
     )
     manual_today_cap = _manual_today_cap(
         structural_now_count=structural_now_count,
         structural_today_count=structural_today_count,
     )
     visible_manual_today_count = 0
+    reactivation_upcoming_cap = _reactivation_upcoming_cap(
+        structural_now_count=structural_now_count,
+        structural_today_count=structural_today_count,
+    )
+    visible_reactivation_upcoming_count = 0
 
     for bucket in _SECTION_ORDER:
         items = grouped_cases.get(bucket, [])
         limit = _TODAY_VIEWPORT_LIMITS.get(bucket)
-        if limit is None:
-            visible_by_bucket[bucket] = list(items)
-            continue
 
         selected_items: list[OperationalCase] = []
         for case in items:
@@ -484,6 +488,12 @@ def _apply_today_viewport_budget(
                 and visible_manual_today_count >= manual_today_cap
             ):
                 continue
+            if (
+                bucket == "upcoming_7d"
+                and case.case_kind == "client_reactivation"
+                and visible_reactivation_upcoming_count >= reactivation_upcoming_cap
+            ):
+                continue
             identity = _case_viewport_identity(case)
             if identity in seen_identities:
                 continue
@@ -491,7 +501,9 @@ def _apply_today_viewport_budget(
             seen_identities.add(identity)
             if bucket == "today" and case.case_kind == "todo_manual":
                 visible_manual_today_count += 1
-            if len(selected_items) >= limit:
+            if bucket == "upcoming_7d" and case.case_kind == "client_reactivation":
+                visible_reactivation_upcoming_count += 1
+            if limit is not None and len(selected_items) >= limit:
                 break
         visible_by_bucket[bucket] = selected_items
 
@@ -502,6 +514,12 @@ def _manual_today_cap(*, structural_now_count: int, structural_today_count: int)
     if structural_now_count >= 1:
         return 0
     if structural_today_count >= 2:
+        return 1
+    return 2
+
+
+def _reactivation_upcoming_cap(*, structural_now_count: int, structural_today_count: int) -> int:
+    if structural_now_count >= 1 or structural_today_count >= 3:
         return 1
     return 2
 

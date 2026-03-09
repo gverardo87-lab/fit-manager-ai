@@ -554,6 +554,62 @@ def test_workspace_today_hides_due_today_manual_todos_when_now_has_structural_ca
     assert case_list.items[0].root_entity.id == due_today_todo["id"]
 
 
+def test_workspace_today_pushes_reactivation_to_later_and_caps_visible_backlog(
+    client,
+    auth_headers,
+    session,
+):
+    for index in range(4):
+        _create_client(
+            client,
+            auth_headers,
+            f"Reactivation{index + 1}",
+            "Client",
+            anamnesi=_structured_anamnesi(),
+        )
+
+    session_client = _create_client(
+        client,
+        auth_headers,
+        "Session",
+        "Client",
+        anamnesi=_structured_anamnesi(),
+    )
+    _create_event(
+        client,
+        auth_headers,
+        client_id=session_client["id"],
+        title="PT adesso",
+        start_at=datetime(2026, 3, 9, 9, 30),
+    )
+
+    reference_dt = datetime(2026, 3, 9, 9, 45)
+    today_workspace = build_workspace_today(
+        trainer_id=_trainer_id(session),
+        session=session,
+        reference_dt=reference_dt,
+    )
+
+    today_section = next(section for section in today_workspace.sections if section.bucket == "today")
+    assert all(case.case_kind != "client_reactivation" for case in today_section.items)
+
+    upcoming_section = next(section for section in today_workspace.sections if section.bucket == "upcoming_7d")
+    assert upcoming_section.total == 4
+    assert len(upcoming_section.items) == 1
+    assert all(case.case_kind == "client_reactivation" for case in upcoming_section.items)
+
+    case_list = build_workspace_case_list(
+        trainer_id=_trainer_id(session),
+        session=session,
+        workspace="today",
+        case_kind="client_reactivation",
+        page_size=20,
+        reference_dt=reference_dt,
+    )
+    assert case_list.total == 4
+    assert len(case_list.items) == 4
+
+
 def test_workspace_today_undated_manual_todos_do_not_enter_today_case_list(
     client,
     auth_headers,
