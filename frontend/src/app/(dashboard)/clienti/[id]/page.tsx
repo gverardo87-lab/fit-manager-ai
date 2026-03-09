@@ -8,20 +8,17 @@
  * - ProfileHeader (persistente): avatar, nome, contatti, stato, modifica
  * - OnboardingChecklist: hero CTA + stepper 5 step (solo se profilo incompleto)
  * - ProfileKpi: 4 card KPI
- * - Quick Access: 3 card navigazione rapida (Portale, Progressi, Anamnesi)
- * - Tabs: Panoramica | Contratti | Sessioni | Movimenti | Schede
+ * - Tabs: Panoramica (Journey Hub) | Contratti | Sessioni | Movimenti | Schede
  *   con dot di completamento sui tab label
  */
 
 import { use, useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import Link from "next/link";
 import {
-  ArrowRight, FileText, Calendar, Wallet, User,
-  ClipboardList, HeartPulse, TrendingUp,
+  FileText, Calendar, Wallet, User,
+  ClipboardList,
 } from "lucide-react";
 
-import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { ClientProfileHeader } from "@/components/clients/ClientProfileHeader";
@@ -41,43 +38,6 @@ import { useClient } from "@/hooks/useClients";
 import { useClientContracts } from "@/hooks/useContracts";
 import { useClientEvents } from "@/hooks/useAgenda";
 import { useClientReadiness, computeOnboardingSteps } from "@/hooks/useClientReadiness";
-
-// ════════════════════════════════════════════════════════════
-// QUICK ACCESS CARDS CONFIG
-// ════════════════════════════════════════════════════════════
-
-const QUICK_CARDS = [
-  {
-    key: "portale",
-    href: (id: number) => `/monitoraggio/${id}`,
-    icon: ClipboardList,
-    label: "Portale Clinico",
-    description: "Portale clinico 360°",
-    borderClass: "border-l-violet-500",
-    bgClass: "bg-violet-100 dark:bg-violet-900/30",
-    iconClass: "text-violet-600 dark:text-violet-400",
-  },
-  {
-    key: "progressi",
-    href: (id: number) => `/clienti/${id}/progressi`,
-    icon: TrendingUp,
-    label: "Progressi Fisici",
-    description: "Misurazioni, obiettivi e analisi",
-    borderClass: "border-l-teal-500",
-    bgClass: "bg-teal-100 dark:bg-teal-900/30",
-    iconClass: "text-teal-600 dark:text-teal-400",
-  },
-  {
-    key: "anamnesi",
-    href: (id: number) => `/clienti/${id}/anamnesi`,
-    icon: HeartPulse,
-    label: "Anamnesi",
-    description: "Questionario clinico e stile di vita",
-    borderClass: "border-l-rose-500",
-    bgClass: "bg-rose-100 dark:bg-rose-900/30",
-    iconClass: "text-rose-600 dark:text-rose-400",
-  },
-] as const;
 
 // ════════════════════════════════════════════════════════════
 // PAGE
@@ -161,26 +121,6 @@ export default function ClientProfilePage({
 
       <ClientProfileKpi client={client} />
 
-      {/* Quick Access Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {QUICK_CARDS.map((card) => (
-          <Link key={card.key} href={card.href(clientId)}>
-            <Card className={`group cursor-pointer border-l-4 ${card.borderClass} transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg`}>
-              <CardContent className="flex items-center gap-4 p-4">
-                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${card.bgClass}`}>
-                  <card.icon className={`h-5 w-5 ${card.iconClass}`} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold">{card.label}</p>
-                  <p className="text-xs text-muted-foreground">{card.description}</p>
-                </div>
-                <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
-      </div>
-
       {/* Tabs con completion dots */}
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList className="w-full overflow-x-auto">
@@ -210,7 +150,14 @@ export default function ClientProfilePage({
         </TabsList>
 
         <TabsContent value="panoramica" className="mt-4">
-          <PanoramicaTab client={client} />
+          <PanoramicaTab
+            client={client}
+            clientId={clientId}
+            readiness={readiness}
+            hasContracts={(contractsData?.items?.length ?? 0) > 0}
+            hasEvents={(eventsData?.items?.length ?? 0) > 0}
+            onTabChange={handleTabChange}
+          />
         </TabsContent>
         <TabsContent value="contratti" className="mt-4">
           <ContrattiTab clientId={clientId} />
