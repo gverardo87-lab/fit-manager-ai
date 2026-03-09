@@ -92,7 +92,9 @@ function AnamnesiWizardDialog({
   existing,
 }: AnamnesiWizardProps) {
   const [step, setStep] = useState(0);
-  const [data, setData] = useState<AnamnesiData>(() => existing ?? getEmptyAnamnesi());
+  const [data, setData] = useState<AnamnesiData>(() =>
+    existing ? { ...getEmptyAnamnesi(), ...existing } : getEmptyAnamnesi(),
+  );
   const dirtyRef = useRef(false);
   const updateAnamnesi = useUpdateAnamnesi();
 

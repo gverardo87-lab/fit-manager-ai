@@ -35,7 +35,7 @@ import type { StepProps } from "./AnamnesiSteps";
 // SHARED SUB-COMPONENTS
 // ════════════════════════════════════════════════════════════
 
-function CheckboxGroup({ options, labels, selected, onChange, altroValue, onAltroChange }: {
+function CheckboxGroup({ options, labels, selected: selectedRaw, onChange, altroValue, onAltroChange }: {
   options: readonly string[];
   labels: Record<string, string>;
   selected: string[];
@@ -43,6 +43,7 @@ function CheckboxGroup({ options, labels, selected, onChange, altroValue, onAltr
   altroValue?: string | null;
   onAltroChange?: (v: string | null) => void;
 }) {
+  const selected = selectedRaw ?? [];
   const toggle = (opt: string) => {
     onChange(
       selected.includes(opt)
