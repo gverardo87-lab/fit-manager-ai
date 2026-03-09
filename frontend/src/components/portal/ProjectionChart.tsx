@@ -64,7 +64,6 @@ interface ChartDatum {
 function buildChartData(result: TrendProjectionResult): ChartDatum[] {
   const data: ChartDatum[] = [];
 
-  // Historical: raw + trend
   for (const tp of result.trendPoints) {
     data.push({
       date: tp.date,
@@ -82,7 +81,6 @@ function buildChartData(result: TrendProjectionResult): ChartDatum[] {
     data[data.length - 1].lower = last.trend;
   }
 
-  // Projected
   for (const pp of result.projectedPoints) {
     data.push({
       date: pp.date,
@@ -96,13 +94,53 @@ function buildChartData(result: TrendProjectionResult): ChartDatum[] {
   return data;
 }
 
+// ── Y-axis domain — tight around real data, not blown out by confidence bands ──
+
+function computeYDomain(chartData: ChartDatum[], targetValue: number | null): [number, number] {
+  const values: number[] = [];
+  for (const d of chartData) {
+    if (d.raw !== undefined) values.push(d.raw);
+    if (d.trend !== undefined) values.push(d.trend);
+    if (d.projected !== undefined) values.push(d.projected);
+  }
+  if (targetValue !== null) values.push(targetValue);
+  if (values.length === 0) return [0, 100];
+
+  const dataMin = Math.min(...values);
+  const dataMax = Math.max(...values);
+  const range = dataMax - dataMin;
+  // Padding: at least 15% of range, minimum 0.5 unit (for cm-scale metrics)
+  const pad = Math.max(range * 0.15, 0.5);
+  return [Math.floor((dataMin - pad) * 10) / 10, Math.ceil((dataMax + pad) * 10) / 10];
+}
+
+// ── Narrative-aware color palette ──
+
+type TrendTone = "positive" | "negative" | "neutral";
+
+function getTrendTone(narrative: NarrativeKey): TrendTone {
+  if (narrative === "on_track" || narrative === "ahead_of_schedule") return "positive";
+  if (narrative === "wrong_direction") return "negative";
+  return "neutral";
+}
+
+const TONE_COLORS: Record<TrendTone, { trend: string; projection: string; cone: string; rateText: string }> = {
+  positive: { trend: "#34d399", projection: "#6ee7b7", cone: "rgba(52,211,153,0.10)", rateText: "text-emerald-400" },
+  negative: { trend: "#fb7185", projection: "#fda4af", cone: "rgba(251,113,133,0.10)", rateText: "text-rose-400" },
+  neutral:  { trend: "#94a3b8", projection: "#cbd5e1", cone: "rgba(148,163,184,0.08)", rateText: "text-slate-400" },
+};
+
 // ── Custom Tooltip ──
 
-function ChartTooltipContent({ active, payload, label }: { active?: boolean; payload?: Array<{ dataKey: string; value?: number }>; label?: string }) {
+function ChartTooltipContent({ active, payload, label, unit, toneColors }: {
+  active?: boolean; payload?: Array<{ dataKey: string; value?: number }>; label?: string;
+  unit?: string; toneColors?: { trend: string; projection: string };
+}) {
   if (!active || !payload?.length) return null;
   const raw = payload.find(p => p.dataKey === "raw")?.value;
   const trend = payload.find(p => p.dataKey === "trend")?.value;
   const proj = payload.find(p => p.dataKey === "projected")?.value;
+  const u = unit ? ` ${unit}` : "";
 
   return (
     <div className="rounded-lg border border-slate-600 bg-slate-800/95 px-3 py-2 shadow-xl backdrop-blur">
@@ -111,21 +149,21 @@ function ChartTooltipContent({ active, payload, label }: { active?: boolean; pay
         <div className="flex items-center gap-1.5 text-xs">
           <div className="h-1.5 w-1.5 rounded-full bg-white/60" />
           <span className="text-slate-300">Misurato:</span>
-          <span className="font-bold tabular-nums text-white">{raw}</span>
+          <span className="font-bold tabular-nums text-white">{raw}{u}</span>
         </div>
       )}
       {trend !== undefined && (
         <div className="flex items-center gap-1.5 text-xs">
-          <div className="h-1.5 w-1.5 rounded-full bg-teal-400" />
+          <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: toneColors?.trend ?? "#2dd4bf" }} />
           <span className="text-slate-300">Trend:</span>
-          <span className="font-bold tabular-nums text-teal-300">{trend}</span>
+          <span className="font-bold tabular-nums" style={{ color: toneColors?.trend ?? "#2dd4bf" }}>{trend}{u}</span>
         </div>
       )}
       {proj !== undefined && (
         <div className="flex items-center gap-1.5 text-xs">
-          <div className="h-1.5 w-1.5 rounded-full bg-emerald-400/60" />
+          <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: toneColors?.projection ?? "#6ee7b7", opacity: 0.6 }} />
           <span className="text-slate-300">Proiezione:</span>
-          <span className="font-bold tabular-nums text-emerald-300">{proj}</span>
+          <span className="font-bold tabular-nums" style={{ color: toneColors?.projection ?? "#6ee7b7" }}>{proj}{u}</span>
         </div>
       )}
     </div>
@@ -154,8 +192,11 @@ export function ProjectionChart({ measurements, metrics, metricId, goals }: Proj
   if (!result || !metric) return null;
 
   const chartData = useMemo(() => buildChartData(result), [result]);
+  const yDomain = useMemo(() => computeYDomain(chartData, result.targetValue), [chartData, result.targetValue]);
   const narrativeCfg = NARRATIVE_CONFIG[result.narrative];
   const NarrIcon = narrativeCfg.icon;
+  const tone = getTrendTone(result.narrative);
+  const colors = TONE_COLORS[tone];
 
   // Rate icon
   const RateIcon = result.weeklyRate === null || Math.abs(result.weeklyRate) < 0.05
@@ -163,8 +204,8 @@ export function ProjectionChart({ measurements, metrics, metricId, goals }: Proj
 
   const chartConfig = {
     raw: { label: "Misurato", color: "rgba(255,255,255,0.5)" },
-    trend: { label: "Trend", color: "#2dd4bf" },
-    projected: { label: "Proiezione", color: "#6ee7b7" },
+    trend: { label: "Trend", color: colors.trend },
+    projected: { label: "Proiezione", color: colors.projection },
   };
 
   return (
@@ -179,8 +220,8 @@ export function ProjectionChart({ measurements, metrics, metricId, goals }: Proj
         </div>
         {result.weeklyRate !== null && (
           <div className="flex items-center gap-1 rounded-full bg-slate-800/80 px-2.5 py-1">
-            <RateIcon className={`h-3 w-3 ${result.weeklyRate < 0 ? "text-emerald-400" : result.weeklyRate > 0 ? "text-rose-400" : "text-slate-400"}`} />
-            <span className="text-[11px] font-bold tabular-nums text-slate-200">
+            <RateIcon className={`h-3 w-3 ${colors.rateText}`} />
+            <span className={`text-[11px] font-bold tabular-nums ${colors.rateText}`}>
               {result.weeklyRate > 0 ? "+" : ""}{result.weeklyRate} {result.unit}/sett
             </span>
           </div>
@@ -198,13 +239,13 @@ export function ProjectionChart({ measurements, metrics, metricId, goals }: Proj
             />
             <YAxis
               tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} width={40}
-              domain={["auto", "auto"]}
+              domain={yDomain} allowDataOverflow
             />
-            <Tooltip content={<ChartTooltipContent />} />
+            <Tooltip content={<ChartTooltipContent unit={result.unit} toneColors={colors} />} />
 
             {/* Confidence cone */}
             <Area
-              dataKey="upper" stroke="none" fill="rgba(45,212,191,0.06)"
+              dataKey="upper" stroke="none" fill={colors.cone}
               fillOpacity={1} isAnimationActive={false} dot={false} activeDot={false}
             />
             <Area
@@ -224,20 +265,20 @@ export function ProjectionChart({ measurements, metrics, metricId, goals }: Proj
             {result.etaDate !== null && (
               <ReferenceLine
                 x={format(parseISO(result.etaDate), "d MMM", { locale: it })}
-                stroke="#6ee7b7" strokeDasharray="4 4" strokeWidth={1}
+                stroke={colors.projection} strokeDasharray="4 4" strokeWidth={1}
               />
             )}
 
             {/* Projection line (dashed) */}
             <Line
-              dataKey="projected" type="monotone" stroke="#6ee7b7" strokeWidth={2}
+              dataKey="projected" type="monotone" stroke={colors.projection} strokeWidth={2}
               strokeDasharray="8 4" dot={false} isAnimationActive={false} connectNulls={false}
             />
 
             {/* EWMA trend line (bold) */}
             <Line
-              dataKey="trend" type="monotone" stroke="#2dd4bf" strokeWidth={2.5}
-              dot={false} activeDot={{ r: 4, fill: "#2dd4bf", stroke: "#0f172a", strokeWidth: 2 }}
+              dataKey="trend" type="monotone" stroke={colors.trend} strokeWidth={2.5}
+              dot={false} activeDot={{ r: 4, fill: colors.trend, stroke: "#0f172a", strokeWidth: 2 }}
               isAnimationActive={false}
             />
 
@@ -266,8 +307,8 @@ export function ProjectionChart({ measurements, metrics, metricId, goals }: Proj
       {/* Legend */}
       <div className="flex items-center justify-center gap-4 pb-3">
         <LegendItem color="rgba(255,255,255,0.5)" label="Misurato" dashed={false} />
-        <LegendItem color="#2dd4bf" label="Trend EWMA" dashed={false} />
-        <LegendItem color="#6ee7b7" label="Proiezione" dashed />
+        <LegendItem color={colors.trend} label="Trend EWMA" dashed={false} />
+        <LegendItem color={colors.projection} label="Proiezione" dashed />
         {result.targetValue !== null && <LegendItem color="#f472b6" label="Obiettivo" dashed />}
       </div>
     </div>
