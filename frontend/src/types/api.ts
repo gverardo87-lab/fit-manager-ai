@@ -906,6 +906,178 @@ export interface SessionComplianceItem {
 }
 
 /** Singolo piano nella worklist MyTrainer */
+export type WorkspaceId = "today" | "onboarding" | "programmi" | "renewals_cash";
+export type CaseSeverity = "critical" | "high" | "medium" | "low";
+export type CaseBucket = "now" | "today" | "upcoming_3d" | "upcoming_7d" | "waiting";
+export type AgendaStatus = "past" | "current" | "upcoming";
+export type RootEntityType =
+  | "client"
+  | "contract"
+  | "plan"
+  | "event"
+  | "todo"
+  | "expense"
+  | "portal_share"
+  | "system";
+export type CaseKind =
+  | "onboarding_readiness"
+  | "session_imminent"
+  | "followup_post_session"
+  | "todo_manual"
+  | "plan_activation"
+  | "plan_review_due"
+  | "plan_compliance_risk"
+  | "plan_cycle_closing"
+  | "payment_overdue"
+  | "payment_due_soon"
+  | "contract_renewal_due"
+  | "recurring_expense_due"
+  | "client_reactivation"
+  | "ops_anomaly"
+  | "portal_questionnaire_pending";
+export type WorkspaceActionKind =
+  | "navigate"
+  | "deep_link"
+  | "snooze_future"
+  | "mark_managed_future"
+  | "convert_todo_future";
+export type FinanceVisibility = "hidden" | "redacted" | "full";
+
+export interface WorkspaceRootEntity {
+  type: RootEntityType;
+  id: number | string;
+  label: string;
+  href: string | null;
+}
+
+export interface WorkspaceAction {
+  id: string;
+  label: string;
+  kind: WorkspaceActionKind;
+  href: string | null;
+  enabled: boolean;
+  availability_note: string | null;
+  is_primary: boolean;
+}
+
+export interface WorkspaceSignal {
+  signal_code: string;
+  source: string;
+  label: string;
+  severity: CaseSeverity;
+  due_date: string | null;
+  reason: string;
+}
+
+export interface WorkspaceFinanceContext {
+  visibility: FinanceVisibility;
+  due_date: string | null;
+  overdue_count: number | null;
+  currency: "EUR" | null;
+  total_due_amount: number | null;
+  total_residual_amount: number | null;
+  contract_id: number | null;
+}
+
+export interface OperationalCase {
+  case_id: string;
+  merge_key: string;
+  workspace: WorkspaceId;
+  case_kind: CaseKind;
+  title: string;
+  reason: string;
+  severity: CaseSeverity;
+  bucket: CaseBucket;
+  due_date: string | null;
+  days_to_due: number | null;
+  root_entity: WorkspaceRootEntity;
+  secondary_entity: WorkspaceRootEntity | null;
+  signal_count: number;
+  preview_signals: WorkspaceSignal[];
+  finance_context: WorkspaceFinanceContext | null;
+  suggested_actions: WorkspaceAction[];
+  source_refs: string[];
+}
+
+export interface WorkspaceAgendaItem {
+  event_id: number;
+  client_id: number | null;
+  client_label: string | null;
+  title: string;
+  category: string;
+  status: AgendaStatus;
+  starts_at: string;
+  ends_at: string | null;
+  href: string;
+  has_case_warning: boolean;
+}
+
+export interface WorkspaceSummary {
+  workspace: WorkspaceId;
+  generated_at: string;
+  critical_count: number;
+  now_count: number;
+  today_count: number;
+  upcoming_7d_count: number;
+  waiting_count: number;
+}
+
+export interface WorkspaceTodaySection {
+  bucket: CaseBucket;
+  label: string;
+  total: number;
+  items: OperationalCase[];
+}
+
+export interface WorkspaceTodayAgenda {
+  date: string;
+  current_time: string;
+  next_event_id: number | null;
+  items: WorkspaceAgendaItem[];
+}
+
+export interface WorkspaceTodayResponse {
+  summary: WorkspaceSummary;
+  focus_case: OperationalCase | null;
+  agenda: WorkspaceTodayAgenda;
+  sections: WorkspaceTodaySection[];
+  completed_today_count: number;
+  snoozed_count: number;
+}
+
+export type WorkspaceCaseSortBy = "priority" | "due_date";
+
+export interface WorkspaceCaseListFilters {
+  workspace: WorkspaceId;
+  bucket: CaseBucket | null;
+  severity: CaseSeverity | null;
+  case_kind: CaseKind | null;
+  search: string | null;
+  sort_by: WorkspaceCaseSortBy;
+}
+
+export interface WorkspaceCaseListResponse {
+  summary: WorkspaceSummary;
+  items: OperationalCase[];
+  total: number;
+  page: number;
+  page_size: number;
+  filters_applied: WorkspaceCaseListFilters;
+}
+
+export interface WorkspaceCaseActivityItem {
+  at: string;
+  label: string;
+  href: string | null;
+}
+
+export interface WorkspaceCaseDetailResponse {
+  case: OperationalCase;
+  signals: WorkspaceSignal[];
+  related_entities: WorkspaceRootEntity[];
+  activity_preview: WorkspaceCaseActivityItem[];
+}
+
 export interface TrainingMethodologyPlanItem {
   plan_id: number;
   plan_nome: string;

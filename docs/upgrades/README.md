@@ -36,6 +36,12 @@ Esempio:
 
 ## Ultimo allineamento (2026-03-09)
 
+- `UPG-2026-03-09-08`: refactor di `Oggi` in chiave `stack + detail`: header minimo, agenda di supporto, queue a 3 sezioni e detail sticky, per differenziarla davvero dalla dashboard senza toccare `/`.
+- `UPG-2026-03-09-07`: primo shell frontend reale del workspace `Oggi` su route `/oggi`, con focus case, agenda live, queue per bucket, detail panel e link dedicato in sidebar, senza ancora sostituire la dashboard `/`.
+- `UPG-2026-03-09-06`: introdotto `GET /api/workspace/cases/{case_id}` con payload detail read-only (`signals`, `related_entities`, `activity_preview`), visibilita finance dipendente dal workspace e hook frontend `useWorkspaceCaseDetail()`.
+- `UPG-2026-03-09-05`: lista casi `GET /api/workspace/cases` con paginazione e filtri server-side, snapshot condiviso con `today`, policy finance differenziata tra `today` e `renewals_cash`, e hook frontend `useWorkspaceCases()`.
+- `UPG-2026-03-09-04`: primo scaffold runtime del workspace con `GET /api/workspace/today`, type sync frontend, hook read-only e readiness condivisa estratta in service.
+- `UPG-2026-03-09-03`: contratto tecnico `Workspace v1` con endpoint read-only `/api/workspace/*`, tipi condivisi, merge keys e policy finance per `Oggi`.
 - `UPG-2026-03-09-02`: definizione prodotto del nuovo workspace operativo FitManager con home post-login `Oggi`, case engine, dual timeline e 4 viste native.
 - `UPG-2026-03-09-01`: profilo cliente trasformato in CRM hub operativo con onboarding checklist, path bar journey e tab rifiniti.
 - `UPG-2026-03-08-02`: anamnesi v2 riallineata al Google Form reale con 6 step, circa 45 campi e compat safety engine.

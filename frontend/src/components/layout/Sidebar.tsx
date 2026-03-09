@@ -26,6 +26,7 @@ import {
   Activity,
   BarChart3,
   Search,
+  SunMedium,
 } from "lucide-react";
 
 import { LogoIcon } from "@/components/ui/logo";
@@ -55,6 +56,7 @@ type NavSection = { section: string; items: NavLink[] };
 type NavEntry = NavLink | NavSection;
 
 const NAV_TOP: NavEntry[] = [
+  { href: "/oggi", label: "Oggi", icon: SunMedium },
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/agenda", label: "Agenda", icon: Calendar },
   {
