@@ -16,10 +16,15 @@ import { it } from "date-fns/locale";
 import {
   FileText, HeartPulse, Ruler, Dumbbell, Calendar,
   Check, ArrowRight, ClipboardList, TrendingUp,
+  AlertTriangle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { useClientWorkouts } from "@/hooks/useWorkouts";
+import { useClientMeasurements } from "@/hooks/useMeasurements";
+import { computeSchedaAge, computeMeasurementGap, ALERT_SEVERITY_STYLES } from "@/lib/client-alerts";
+import type { ClientAlert } from "@/lib/client-alerts";
 import type { ClinicalReadinessClientItem } from "@/types/api";
 
 // ════════════════════════════════════════════════════════════
@@ -131,8 +136,24 @@ export function PanoramicaTab(props: PanoramicaTabProps) {
   const completedCount = JOURNEY_PHASES.filter((p) => p.getCompleted(props)).length;
   const allDone = completedCount === JOURNEY_PHASES.length;
 
+  // Alert data
+  const { data: workoutsData } = useClientWorkouts(clientId);
+  const { data: measurementsData } = useClientMeasurements(clientId);
+  const schedaAlert = computeSchedaAge(workoutsData?.items ?? []);
+  const measurementAlert = computeMeasurementGap(measurementsData?.items ?? []);
+  const activeAlerts = [schedaAlert, measurementAlert].filter(Boolean) as ClientAlert[];
+
   return (
     <div className="space-y-5">
+      {/* ── Alert Banners (scheda age + measurement gap) ── */}
+      {activeAlerts.length > 0 && (
+        <div className="space-y-2">
+          {activeAlerts.map((alert) => (
+            <AlertBanner key={alert.type} alert={alert} clientId={clientId} />
+          ))}
+        </div>
+      )}
+
       {/* ── Sezione 1: Path Bar (Salesforce-style) ── */}
       <Card>
         <CardHeader className="pb-2">
@@ -285,5 +306,33 @@ function PathBar({
         );
       })}
     </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// ALERT BANNER — scheda age / measurement gap
+// ════════════════════════════════════════════════════════════
+
+function AlertBanner({ alert, clientId }: { alert: ClientAlert; clientId: number }) {
+  const styles = ALERT_SEVERITY_STYLES[alert.severity as "warning" | "critical"];
+  const href =
+    alert.type === "scheda_age"
+      ? `/clienti/${clientId}?tab=schede&startScheda=1`
+      : `/clienti/${clientId}/progressi?from=clienti-${clientId}`;
+
+  return (
+    <Link href={href}>
+      <div
+        className={`flex items-center gap-3 rounded-lg border-l-[3px] ${styles.border} ${styles.bg} px-4 py-3 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md`}
+      >
+        <AlertTriangle className={`h-4 w-4 shrink-0 ${styles.icon}`} />
+        <div className="min-w-0 flex-1">
+          <p className={`text-sm font-semibold ${styles.text}`}>{alert.label}</p>
+        </div>
+        <span className={`shrink-0 text-xs font-semibold ${styles.text}`}>
+          {alert.cta} →
+        </span>
+      </div>
+    </Link>
   );
 }

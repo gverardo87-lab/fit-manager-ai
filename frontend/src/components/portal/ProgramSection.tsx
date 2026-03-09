@@ -6,11 +6,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronDown, Dumbbell, Plus, Eye, ClipboardList, ShieldAlert, ShieldCheck, ShieldOff } from "lucide-react";
+import { ChevronDown, Dumbbell, Plus, Eye, ClipboardList, ShieldAlert, ShieldCheck, ShieldOff, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { getProgramStatus, STATUS_LABELS, STATUS_COLORS, getComplianceColor, getComplianceTextColor } from "@/lib/workout-monitoring";
+import { computeSchedaAge } from "@/lib/client-alerts";
 import type { WorkoutPlan, WorkoutLog, SafetyMapResponse } from "@/types/api";
 
 interface ProgramSectionProps {
@@ -53,6 +54,9 @@ export function ProgramSection({
 }: ProgramSectionProps) {
   const [open, setOpen] = useState(true);
 
+  // Scheda age alert
+  const schedaAlert = computeSchedaAge(workouts);
+
   // Active program
   const activeProgram = workouts.find((w) => getProgramStatus(w) === "attivo") ?? null;
   const hasPrograms = workouts.length > 0;
@@ -86,6 +90,19 @@ export function ProgramSection({
               {activeProgram && (
                 <Badge variant="outline" className={`text-[10px] ${STATUS_COLORS.attivo}`}>
                   {STATUS_LABELS.attivo}
+                </Badge>
+              )}
+              {schedaAlert && (
+                <Badge
+                  variant="outline"
+                  className={`gap-1 text-[10px] ${
+                    schedaAlert.severity === "critical"
+                      ? "border-red-300 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300"
+                      : "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+                  }`}
+                >
+                  <AlertTriangle className="h-3 w-3" />
+                  {schedaAlert.daysElapsed}gg
                 </Badge>
               )}
             </div>

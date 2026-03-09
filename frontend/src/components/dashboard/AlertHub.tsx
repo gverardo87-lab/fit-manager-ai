@@ -15,7 +15,9 @@ import {
   CheckCircle2,
   ChevronDown,
   CreditCard,
+  Dumbbell,
   Ghost,
+  Ruler,
   UserX,
   ArrowRight,
 } from "lucide-react";
@@ -30,6 +32,8 @@ const ALERT_ICON: Record<string, typeof Ghost> = {
   ghost_events: Ghost,
   expiring_contracts: CreditCard,
   inactive_clients: UserX,
+  stale_schede: Dumbbell,
+  stale_measurements: Ruler,
 };
 
 const SEVERITY_STYLES: Record<string, {
