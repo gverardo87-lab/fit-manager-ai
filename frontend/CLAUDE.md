@@ -44,8 +44,8 @@ frontend/src/
 │   │                        ClinicalAnalysisPanel, GoalFormDialog, GoalsSummary, MeasurementChart,
 │   │                        ProgressiTab, AnamnesiWizard (6-step v2), AnamnesiStepsSalute,
 │   │                        InteractiveBodyMap, SessionComparison
-│   │   └── profile/         NextActionHero, OnboardingChecklist, PanoramicaTab, ContrattiTab,
-│   │                        SessioniTab, MovimentiTab, SchedeTab, ProfileShared (skeletons+empty)
+│   │   └── profile/         OnboardingChecklist (5-step + hero CTA), PanoramicaTab (Journey Hub + Path Bar),
+│   │                        ContrattiTab, SessioniTab, MovimentiTab, SchedeTab, ProfileShared (skeletons+empty+CTA)
 │   ├── contracts/           ContractsTable, ContractSheet, ContractForm, ContractFinancialHero,
 │   │                        PaymentPlanTab (RateCard, PayRateForm, PaymentHistory, AddRateForm),
 │   │                        RateEditDialog, RateUnpayDialog
