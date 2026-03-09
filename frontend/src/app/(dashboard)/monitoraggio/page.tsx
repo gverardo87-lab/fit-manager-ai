@@ -73,8 +73,10 @@ const SECTION_CONTENT: Record<string, React.ComponentType> = {
 export default function MonitoraggioPage() {
   const { revealClass, revealStyle } = usePageReveal();
 
-  // All sections start expanded — user scrolls to scan
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // All sections start collapsed — user expands on demand
+  const [collapsed, setCollapsed] = useState<Set<string>>(
+    () => new Set(SECTIONS.map((s) => s.id)),
+  );
 
   const toggleSection = (id: string) => {
     setCollapsed((prev) => {
