@@ -34,10 +34,11 @@ Esempio:
 - `rolled_back`
 - `superseded`
 
-## Ultimo allineamento (2026-03-07)
+## Ultimo allineamento (2026-03-09)
 
-- `UPG-2026-03-07-35`: Training Science Engine phase 1/2 con matrice EMG, volume model MEV/MAV/MRV, generatore piano 4 fasi e analizzatore 4D.
-- `UPG-2026-03-07-36`: periodizzazione a blocchi con progressione volume lineare e deload 50%, piu' modelli `SettimanaConfig`/`Mesociclo`.
+- `UPG-2026-03-09-02`: definizione prodotto del nuovo workspace operativo FitManager con home post-login `Oggi`, case engine, dual timeline e 4 viste native.
+- `UPG-2026-03-09-01`: profilo cliente trasformato in CRM hub operativo con onboarding checklist, path bar journey e tab rifiniti.
+- `UPG-2026-03-08-02`: anamnesi v2 riallineata al Google Form reale con 6 step, circa 45 campi e compat safety engine.
 - `UPG-2026-03-07-37`: esposizione REST del motore scientifico con 5 endpoint JWT auth e zero dipendenza dal DB.
 - `UPG-2026-03-07-40`: creato il primo scaffold backend-first del `plan-package` SMART con runtime layer DB-aware separato dal core puro, endpoint additivo `/training-science/plan-package`, mirror TypeScript e hook `useGeneratePlanPackage()`, senza ancora tagliare il flusso UI legacy.
 - `UPG-2026-03-07-41`: `TemplateSelector` smart ora usa davvero il `plan-package` backend-first e salva il draft restituito dal backend, chiudendo il vecchio path locale di generazione nel flusso utente principale.
