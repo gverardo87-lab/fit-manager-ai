@@ -21,7 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { FRONT_SLUGS } from "@/lib/muscle-map-utils";
 import { computeWeeklyRate, formatRate } from "@/lib/measurement-analytics";
 import { getLatestValue } from "@/lib/derived-metrics";
-import type { Measurement, Metric } from "@/types/api";
+import type { ClientGoal, Measurement, Metric } from "@/types/api";
 
 // ── Annotation positions (tuned for scale 0.85) ──
 
@@ -59,9 +59,15 @@ const SCAN_DEFAULT = "#1e293b";
 
 type ZoneProgress = "improving" | "stable" | "worsening";
 
-function getProgress(delta: number | null): ZoneProgress {
+function getProgress(delta: number | null, direzione?: "aumentare" | "diminuire" | "mantenere" | null): ZoneProgress {
   if (delta === null || delta === 0) return "stable";
-  return delta < 0 ? "improving" : "worsening";
+  // Senza obiettivo attivo → neutro (nessuna interpretazione)
+  if (!direzione) return "stable";
+  if (direzione === "mantenere") return "stable";
+  // Con obiettivo: la direzione determina cosa è positivo
+  if (direzione === "diminuire") return delta < 0 ? "improving" : "worsening";
+  // "aumentare": aumento = miglioramento
+  return delta > 0 ? "improving" : "worsening";
 }
 
 function getIntensity(p: ZoneProgress, selected: boolean): number {
@@ -84,13 +90,24 @@ interface MetricSnapshot {
 interface BodyReportMapProps {
   measurements: Measurement[];
   metrics: Metric[];
+  goals?: ClientGoal[];
 }
 
 // ── Component ──
 
-export function BodyReportMap({ measurements, metrics }: BodyReportMapProps) {
+export function BodyReportMap({ measurements, metrics, goals }: BodyReportMapProps) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const metricMap = useMemo(() => new Map(metrics.map(m => [m.id, m])), [metrics]);
+
+  // Mappa metricId → direzione obiettivo attivo
+  const goalDirMap = useMemo(() => {
+    const map = new Map<number, "aumentare" | "diminuire" | "mantenere">();
+    if (!goals) return map;
+    for (const g of goals) {
+      if (g.stato === "attivo" && g.id_metrica) map.set(g.id_metrica, g.direzione);
+    }
+    return map;
+  }, [goals]);
 
   const snapshots = useMemo(() => {
     const map = new Map<number, MetricSnapshot>();
@@ -111,10 +128,11 @@ export function BodyReportMap({ measurements, metrics }: BodyReportMapProps) {
       let totalDelta: number | null = null;
       if (hist.length >= 2) totalDelta = Math.round((hist[hist.length - 1].value - hist[0].value) * 10) / 10;
       const rate = computeWeeklyRate(measurements, mid);
-      map.set(mid, { value: latest, unit: m.unita_misura, delta, totalDelta, rate, progress: getProgress(delta), history: hist });
+      const direzione = goalDirMap.get(mid) ?? null;
+      map.set(mid, { value: latest, unit: m.unita_misura, delta, totalDelta, rate, progress: getProgress(delta, direzione), history: hist });
     }
     return map;
-  }, [measurements, metricMap]);
+  }, [measurements, metricMap, goalDirMap]);
 
   const visible = useMemo(() => ANNOTATIONS.filter(a => snapshots.has(a.metricId)), [snapshots]);
   const leftAnns = visible.filter(a => a.side === "left");

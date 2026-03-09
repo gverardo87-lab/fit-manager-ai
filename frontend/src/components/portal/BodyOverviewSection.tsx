@@ -27,7 +27,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { BodyReportMap } from "@/components/portal/BodyReportMap";
 
 import { formatRate } from "@/lib/measurement-analytics";
-import type { ClinicalFreshnessSignal, Measurement, Metric } from "@/types/api";
+import type { ClientGoal, ClinicalFreshnessSignal, Measurement, Metric } from "@/types/api";
 
 // ── Constants ──
 
@@ -40,6 +40,7 @@ const LOWER_IS_BETTER = new Set([ID_PESO, ID_GRASSO_PCT, ID_BMI]);
 interface BodyOverviewSectionProps {
   measurements: Measurement[];
   metrics: Metric[];
+  goals?: ClientGoal[];
   sesso: string | null;
   dataNascita: string | null;
   clientId: number;
@@ -70,6 +71,7 @@ function getLatestDelta(
 export function BodyOverviewSection({
   measurements,
   metrics,
+  goals,
   sesso,
   dataNascita,
   clientId,
@@ -205,6 +207,7 @@ export function BodyOverviewSection({
                 <BodyReportMap
                   measurements={measurements}
                   metrics={metrics}
+                  goals={goals}
                 />
               </>
             )}

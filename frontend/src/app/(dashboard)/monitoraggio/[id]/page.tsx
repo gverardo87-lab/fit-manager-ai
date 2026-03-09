@@ -217,6 +217,7 @@ export default function MonitoraggioClientDetailPage({
         <BodyOverviewSection
           measurements={measurements}
           metrics={metrics}
+          goals={goals}
           sesso={sesso}
           dataNascita={dataNascita}
           clientId={clientId}
