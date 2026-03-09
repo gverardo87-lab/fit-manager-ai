@@ -65,7 +65,7 @@ function ReadinessHeroCard({
         <div className="shrink-0">
           <HealthScoreRing score={readyPct} size={96} strokeWidth={8} />
         </div>
-        <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid w-full grid-cols-2 gap-3">
           <div className="rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2 dark:border-amber-900/40 dark:bg-amber-950/20">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               Da completare
@@ -74,28 +74,12 @@ function ReadinessHeroCard({
               <AnimatedNumber value={actionable} />
             </p>
           </div>
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50/80 px-3 py-2 dark:border-emerald-900/40 dark:bg-emerald-950/20">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Pronti
-            </p>
-            <p className="mt-1 text-2xl font-extrabold leading-none tabular-nums text-emerald-700 dark:text-emerald-300">
-              <AnimatedNumber value={readyClients} />
-            </p>
-          </div>
           <div className="rounded-lg border border-red-200 bg-red-50/80 px-3 py-2 dark:border-red-900/40 dark:bg-red-950/20">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               Alta priorita
             </p>
             <p className="mt-1 text-2xl font-extrabold leading-none tabular-nums text-red-700 dark:text-red-300">
               <AnimatedNumber value={highPriority} />
-            </p>
-          </div>
-          <div className="rounded-lg border border-teal-200 bg-teal-50/80 px-3 py-2 dark:border-teal-900/40 dark:bg-teal-950/20">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Score medio
-            </p>
-            <p className="mt-1 text-2xl font-extrabold leading-none tabular-nums text-teal-700 dark:text-teal-300">
-              <AnimatedNumber value={readyPct} /><span className="text-base">%</span>
             </p>
           </div>
         </div>
@@ -111,8 +95,8 @@ function HeroSkeleton() {
     <div className="rounded-xl border p-5">
       <div className="flex flex-col items-center gap-6 sm:flex-row">
         <Skeleton className="h-24 w-24 rounded-full" />
-        <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
+        <div className="grid w-full grid-cols-2 gap-3">
+          {Array.from({ length: 2 }).map((_, i) => (
             <Skeleton key={i} className="h-16 rounded-lg" />
           ))}
         </div>

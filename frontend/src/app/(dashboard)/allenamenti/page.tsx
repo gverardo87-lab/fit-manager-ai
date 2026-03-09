@@ -36,9 +36,7 @@ import {
   User,
   Target,
   BarChart3,
-  CheckCircle2,
   AlertTriangle,
-  Users,
   type LucideIcon,
 } from "lucide-react";
 
@@ -117,7 +115,7 @@ interface MonitoringKpiDef {
 const MONITORING_KPI: MonitoringKpiDef[] = [
   {
     key: "attivi",
-    label: "Attivi",
+    label: "Programmi Attivi",
     icon: Activity,
     borderColor: "border-l-emerald-500",
     gradient: "from-emerald-50/80 to-white dark:from-emerald-950/40 dark:to-zinc-900",
@@ -134,26 +132,6 @@ const MONITORING_KPI: MonitoringKpiDef[] = [
     iconBg: "bg-amber-100 dark:bg-amber-900/30",
     iconColor: "text-amber-600 dark:text-amber-400",
     valueColor: "text-amber-700 dark:text-amber-400",
-  },
-  {
-    key: "completati",
-    label: "Completati",
-    icon: CheckCircle2,
-    borderColor: "border-l-zinc-400",
-    gradient: "from-zinc-50/80 to-white dark:from-zinc-900/40 dark:to-zinc-900",
-    iconBg: "bg-zinc-100 dark:bg-zinc-800/30",
-    iconColor: "text-zinc-500 dark:text-zinc-400",
-    valueColor: "text-zinc-700 dark:text-zinc-400",
-  },
-  {
-    key: "clienti",
-    label: "Clienti Seguiti",
-    icon: Users,
-    borderColor: "border-l-blue-500",
-    gradient: "from-blue-50/80 to-white dark:from-blue-950/40 dark:to-zinc-900",
-    iconBg: "bg-blue-100 dark:bg-blue-900/30",
-    iconColor: "text-blue-600 dark:text-blue-400",
-    valueColor: "text-blue-700 dark:text-blue-400",
   },
 ];
 
@@ -248,18 +226,10 @@ export default function AllenamentiPage() {
     return counts;
   }, [plansWithClient]);
 
-  // Clienti unici con programma
-  const uniqueClientCount = useMemo(() => {
-    const ids = new Set(plansWithClient.map((p) => p.id_cliente));
-    return ids.size;
-  }, [plansWithClient]);
-
   // KPI values
   const kpiValues: Record<string, number> = {
     attivi: statusCounts.attivo,
     da_attivare: statusCounts.da_attivare,
-    completati: statusCounts.completato,
-    clienti: uniqueClientCount,
   };
 
   // Filtro client-side
@@ -303,8 +273,8 @@ export default function AllenamentiPage() {
             <p className="text-sm text-muted-foreground">Monitora aderenza e progresso dei programmi</p>
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
+        <div className="grid grid-cols-2 gap-4">
+          {Array.from({ length: 2 }).map((_, i) => (
             <Skeleton key={i} className="h-24 rounded-xl" />
           ))}
         </div>
@@ -344,7 +314,7 @@ export default function AllenamentiPage() {
       )}
 
       {/* ── KPI Hero Cards ── */}
-      <div className={revealClass(50, "grid grid-cols-2 gap-4 lg:grid-cols-4")} style={revealStyle(50)}>
+      <div className={revealClass(50, "grid grid-cols-2 gap-4")} style={revealStyle(50)}>
         {MONITORING_KPI.map((kpi) => {
           const Icon = kpi.icon;
           return (
@@ -480,7 +450,15 @@ function ProgramCard({ plan }: { plan: WorkoutPlan }) {
 
   return (
     <>
-      <div className={`rounded-xl border border-l-4 ${STATUS_CARD_BORDER[status]} bg-gradient-to-br ${STATUS_CARD_GRADIENT[status]} shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg`}>
+      <div className={`rounded-xl border transition-all duration-200 ${
+        status === "da_attivare"
+          ? `border-l-4 ${STATUS_CARD_BORDER[status]} bg-gradient-to-br ${STATUS_CARD_GRADIENT[status]} shadow-sm hover:-translate-y-0.5 hover:shadow-lg`
+          : status === "attivo" && compliance < 60
+            ? `border-l-4 border-l-red-400 bg-gradient-to-br from-red-50/20 to-white dark:from-red-950/10 dark:to-zinc-900 shadow-sm hover:-translate-y-0.5 hover:shadow-lg`
+            : status === "completato"
+              ? "bg-zinc-50/50 dark:bg-zinc-900/50"
+              : `border-l-4 ${STATUS_CARD_BORDER[status]} bg-white dark:bg-zinc-900`
+      }`}>
         {/* Header */}
         <div className="p-4 pb-3 sm:p-5 sm:pb-3">
           <div className="flex items-start justify-between gap-2">

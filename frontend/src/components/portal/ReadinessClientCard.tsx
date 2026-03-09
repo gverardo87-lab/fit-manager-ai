@@ -17,7 +17,7 @@ import type { ClinicalReadinessClientItem } from "@/types/api";
 const PRIORITY_BORDER: Record<string, string> = {
   high: "border-l-red-500",
   medium: "border-l-amber-500",
-  low: "border-l-emerald-500",
+  low: "",
 };
 
 const PRIORITY_BADGE: Record<string, string> = {
@@ -122,12 +122,17 @@ export function ReadinessClientCard({ item }: ReadinessClientCardProps) {
     : "missing";
 
   const isReady = item.readiness_score >= 100;
+  const isQuiet = item.priority === "low";
 
   return (
     <div
-      className={`rounded-xl border border-l-4 ${PRIORITY_BORDER[item.priority]} bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:bg-zinc-900`}
+      className={`rounded-xl border p-4 transition-all duration-200 dark:bg-zinc-900 ${
+        isQuiet
+          ? "bg-zinc-50/50 dark:bg-zinc-900/50"
+          : `border-l-4 ${PRIORITY_BORDER[item.priority]} bg-white shadow-sm hover:-translate-y-0.5 hover:shadow-lg`
+      }`}
     >
-      {/* Header: nome + priorità */}
+      {/* Header: nome + priorità (badge solo per high/medium) */}
       <div className="flex items-start justify-between gap-2">
         <Link
           href={`/monitoraggio/${item.client_id}`}
@@ -135,9 +140,11 @@ export function ReadinessClientCard({ item }: ReadinessClientCardProps) {
         >
           {item.client_cognome} {item.client_nome}
         </Link>
-        <Badge variant="outline" className={`shrink-0 text-[10px] font-semibold uppercase ${PRIORITY_BADGE[item.priority]}`}>
-          {PRIORITY_LABEL[item.priority]}
-        </Badge>
+        {!isQuiet && (
+          <Badge variant="outline" className={`shrink-0 text-[10px] font-semibold uppercase ${PRIORITY_BADGE[item.priority]}`}>
+            {PRIORITY_LABEL[item.priority]}
+          </Badge>
+        )}
       </div>
 
       {/* Readiness bar */}
