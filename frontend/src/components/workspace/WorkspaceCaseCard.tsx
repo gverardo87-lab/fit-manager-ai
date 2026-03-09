@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import type { OperationalCase } from "@/types/api";
 
 import {
+  getFinanceSummary,
   getCaseDueLabel,
   WORKSPACE_CASE_KIND_META,
   WORKSPACE_SEVERITY_META,
@@ -17,12 +18,19 @@ interface WorkspaceCaseCardProps {
   item: OperationalCase;
   selected: boolean;
   onSelect: () => void;
+  showFinanceSummary?: boolean;
 }
 
-export function WorkspaceCaseCard({ item, selected, onSelect }: WorkspaceCaseCardProps) {
+export function WorkspaceCaseCard({
+  item,
+  selected,
+  onSelect,
+  showFinanceSummary = false,
+}: WorkspaceCaseCardProps) {
   const severityMeta = WORKSPACE_SEVERITY_META[item.severity];
   const kindMeta = WORKSPACE_CASE_KIND_META[item.case_kind];
   const primaryAction = item.suggested_actions.find((action) => action.is_primary) ?? item.suggested_actions[0];
+  const financeSummary = showFinanceSummary ? getFinanceSummary(item) : null;
 
   return (
     <div
@@ -66,6 +74,7 @@ export function WorkspaceCaseCard({ item, selected, onSelect }: WorkspaceCaseCar
 
           <h3 className="mt-3 text-base font-semibold leading-tight text-foreground">{item.title}</h3>
           <p className="mt-1 text-sm text-muted-foreground">{item.reason}</p>
+          {financeSummary && <p className="mt-2 text-sm font-medium text-foreground/85">{financeSummary}</p>}
 
           <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span className="rounded-full bg-muted px-2.5 py-1">{getCaseDueLabel(item)}</span>

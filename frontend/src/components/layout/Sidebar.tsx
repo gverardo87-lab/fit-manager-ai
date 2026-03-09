@@ -27,6 +27,7 @@ import {
   BarChart3,
   Search,
   SunMedium,
+  HandCoins,
 } from "lucide-react";
 
 import { LogoIcon } from "@/components/ui/logo";
@@ -76,6 +77,7 @@ const NAV_TOP: NavEntry[] = [
     section: "Contabilita",
     items: [
       { href: "/contratti", label: "Contratti", icon: FileText },
+      { href: "/rinnovi-incassi", label: "Rinnovi & Incassi", icon: HandCoins },
       { href: "/cassa", label: "Cassa", icon: Wallet },
     ],
   },

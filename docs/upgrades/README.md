@@ -36,6 +36,7 @@ Esempio:
 
 ## Ultimo allineamento (2026-03-09)
 
+- `UPG-2026-03-09-21`: introdotto il primo shell frontend di `Rinnovi & Incassi` su `/rinnovi-incassi`, basato solo sul contratto `renewals_cash` gia esistente. La pagina resta volutamente stretta: filtri leggeri, queue per bucket, detail panel sticky e riepilogo importi opt-in nelle card, senza nuove API o mutation.
 - `UPG-2026-03-09-20`: formalizzata la spec tecnica di `Rinnovi & Incassi`: il prossimo workspace finance non nasce come seconda `/cassa`, ma come shell operativa additiva sopra `workspace=renewals_cash`. MVP stretto su `payment_overdue` + `contract_renewal_due`, con estensione successiva a `payment_due_soon` e `recurring_expense_due`. Decisione chiave: nessun KPI monetario globale deve essere derivato da una lista paginata parziale.
 - `UPG-2026-03-09-19`: `Oggi` comprime ora il backlog `client_reactivation` invece di lasciarlo competere con sessioni e incassi: i casi vivono tutti in `upcoming_7d`, la viewport ne mostra al massimo 1-2 in base alla pressione strutturale e la lista completa resta disponibile via `workspace/cases`. Il pannello agenda diventa subordinato: massimo un solo slot, solo se `current` o entro 120 minuti.
 - `UPG-2026-03-09-18`: `Oggi` promuove ora `onboarding_readiness` solo con pressione operativa reale: evento pianificato entro 7 giorni o contratto attivo recente. Gli onboarding vecchi senza pressione scendono a `waiting`. Il pass e coperto da nuovi test; l'euristica iniziale sulla sola recency cliente e stata rimossa dopo verifica reale su `8001`.
