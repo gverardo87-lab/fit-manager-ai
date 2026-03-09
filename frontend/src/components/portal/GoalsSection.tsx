@@ -212,10 +212,10 @@ export function GoalsSection({
 
             {/* CTAs */}
             <div className="flex flex-wrap justify-end gap-2">
-              <Link href={`/clienti/${clientId}/progressi?from=monitoraggio-${clientId}`}>
+              <Link href={`/clienti/${clientId}/misurazioni?from=monitoraggio-${clientId}`}>
                 <Button size="sm" variant="outline" className="gap-1.5">
                   <TrendingUp className="h-3.5 w-3.5" />
-                  Vedi Progressi
+                  Nuova Misurazione
                 </Button>
               </Link>
               <Button size="sm" variant="outline" className="gap-1.5" onClick={handleNewGoal}>

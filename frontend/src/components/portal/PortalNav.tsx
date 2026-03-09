@@ -5,14 +5,16 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Scale, Heart, Ruler, Dumbbell, Target, ClipboardList } from "lucide-react";
+import { User, Target, Activity, Dumbbell, Scale, TrendingUp, Ruler, ClipboardList } from "lucide-react";
 
 const SECTIONS = [
-  { id: "composizione", label: "Composizione", icon: Scale },
-  { id: "cardiovascolare", label: "Cardiovascolare", icon: Heart },
-  { id: "simmetria", label: "Simmetria", icon: Ruler },
-  { id: "programma", label: "Programma", icon: Dumbbell },
+  { id: "panoramica", label: "Panoramica", icon: User },
   { id: "obiettivi", label: "Obiettivi", icon: Target },
+  { id: "misurazioni", label: "Misurazioni", icon: Activity },
+  { id: "programma", label: "Programma", icon: Dumbbell },
+  { id: "composizione", label: "Composizione", icon: Scale },
+  { id: "progressi", label: "Progressi", icon: TrendingUp },
+  { id: "simmetria", label: "Simmetria", icon: Ruler },
   { id: "anamnesi", label: "Anamnesi", icon: ClipboardList },
 ] as const;
 

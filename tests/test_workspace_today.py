@@ -4,7 +4,11 @@ from datetime import date, datetime, timedelta
 
 from sqlmodel import select
 
+from api.models.client import Client
+from api.models.contract import Contract
+from api.models.measurement import ClientMeasurement
 from api.models.trainer import Trainer
+from api.models.workout import WorkoutPlan
 from api.services.workspace_engine import build_workspace_case_list, build_workspace_today
 
 
@@ -229,6 +233,174 @@ def test_workspace_today_session_absorbs_onboarding_blockers(client, auth_header
     detail = detail_response.json()
     signal_codes = {signal["signal_code"] for signal in detail["signals"]}
     assert {"baseline", "workout"}.issubset(signal_codes)
+
+
+def test_workspace_today_degrades_complete_legacy_anamnesi_out_of_today(
+    client,
+    auth_headers,
+    session,
+):
+    trainer_id = _trainer_id(session)
+    legacy_client = _create_client(
+        client,
+        auth_headers,
+        "Anamnesi",
+        "Legacy",
+        anamnesi={"note": "legacy"},
+    )
+
+    session.add(
+        ClientMeasurement(
+            id_cliente=legacy_client["id"],
+            trainer_id=trainer_id,
+            data_misurazione=date(2026, 3, 2),
+        )
+    )
+    session.add(
+        WorkoutPlan(
+            trainer_id=trainer_id,
+            id_cliente=legacy_client["id"],
+            nome="Scheda attiva",
+            obiettivo="generale",
+            livello="beginner",
+            created_at="2026-03-01",
+            updated_at="2026-03-01",
+        )
+    )
+    session.commit()
+
+    reference_dt = datetime(2026, 3, 9, 9, 0)
+    today_workspace = build_workspace_today(
+        trainer_id=trainer_id,
+        session=session,
+        reference_dt=reference_dt,
+    )
+    visible_today_ids = {
+        int(case.root_entity.id)
+        for section in today_workspace.sections
+        if section.bucket in {"now", "today", "upcoming_3d", "upcoming_7d"}
+        for case in section.items
+        if case.case_kind == "onboarding_readiness"
+    }
+    assert legacy_client["id"] not in visible_today_ids
+
+    waiting_section = next(section for section in today_workspace.sections if section.bucket == "waiting")
+    waiting_case = next(
+        case
+        for case in waiting_section.items
+        if case.case_kind == "onboarding_readiness" and int(case.root_entity.id) == legacy_client["id"]
+    )
+    assert waiting_case.title == "Anamnesi da rivedere: Anamnesi Legacy"
+    assert waiting_case.severity == "low"
+
+    today_case_list = build_workspace_case_list(
+        trainer_id=trainer_id,
+        session=session,
+        workspace="today",
+        case_kind="onboarding_readiness",
+        page_size=20,
+        reference_dt=reference_dt,
+    )
+    today_ids = [int(item.root_entity.id) for item in today_case_list.items]
+    assert legacy_client["id"] not in today_ids
+
+    onboarding_case_list = build_workspace_case_list(
+        trainer_id=trainer_id,
+        session=session,
+        workspace="onboarding",
+        case_kind="onboarding_readiness",
+        page_size=20,
+        reference_dt=reference_dt,
+    )
+    onboarding_case = next(item for item in onboarding_case_list.items if int(item.root_entity.id) == legacy_client["id"])
+    assert onboarding_case.bucket == "waiting"
+    assert onboarding_case.title == "Anamnesi da rivedere: Anamnesi Legacy"
+
+
+def test_workspace_today_degrades_stale_incomplete_onboarding_without_operational_pressure(
+    client,
+    auth_headers,
+    session,
+):
+    trainer_id = _trainer_id(session)
+    stale_client = _create_client(
+        client,
+        auth_headers,
+        "Stale",
+        "Onboarding",
+        anamnesi={"note": "legacy"},
+    )
+    client_row = session.get(Client, stale_client["id"])
+    assert client_row is not None
+    client_row.data_creazione = datetime(2025, 12, 1, 9, 0)
+    session.add(client_row)
+    session.commit()
+
+    reference_dt = datetime(2026, 3, 9, 9, 0)
+    today_case_list = build_workspace_case_list(
+        trainer_id=trainer_id,
+        session=session,
+        workspace="today",
+        case_kind="onboarding_readiness",
+        page_size=20,
+        reference_dt=reference_dt,
+    )
+    today_ids = [int(item.root_entity.id) for item in today_case_list.items]
+    assert stale_client["id"] not in today_ids
+
+    onboarding_case_list = build_workspace_case_list(
+        trainer_id=trainer_id,
+        session=session,
+        workspace="onboarding",
+        case_kind="onboarding_readiness",
+        page_size=20,
+        reference_dt=reference_dt,
+    )
+    onboarding_case = next(item for item in onboarding_case_list.items if int(item.root_entity.id) == stale_client["id"])
+    assert onboarding_case.bucket == "waiting"
+    assert onboarding_case.severity == "high"
+
+
+def test_workspace_today_keeps_incomplete_onboarding_visible_with_recent_contract(
+    client,
+    auth_headers,
+    session,
+):
+    trainer_id = _trainer_id(session)
+    recent_client = _create_client(
+        client,
+        auth_headers,
+        "Recent",
+        "Onboarding",
+        anamnesi={"note": "legacy"},
+    )
+    session.add(
+        Contract(
+            trainer_id=trainer_id,
+            id_cliente=recent_client["id"],
+            tipo_pacchetto="Starter",
+            data_vendita=date(2026, 3, 8),
+            data_inizio=date(2026, 3, 9),
+            data_scadenza=date(2026, 4, 9),
+            crediti_totali=8,
+            totale_versato=0.0,
+            chiuso=False,
+        )
+    )
+    session.commit()
+
+    reference_dt = datetime(2026, 3, 9, 9, 0)
+    today_case_list = build_workspace_case_list(
+        trainer_id=trainer_id,
+        session=session,
+        workspace="today",
+        case_kind="onboarding_readiness",
+        page_size=20,
+        reference_dt=reference_dt,
+    )
+    recent_case = next(item for item in today_case_list.items if int(item.root_entity.id) == recent_client["id"])
+    assert recent_case.bucket == "today"
+    assert recent_case.severity == "high"
 
 
 def test_workspace_today_orders_sessions_by_actual_start_time(client, auth_headers, session):

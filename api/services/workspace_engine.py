@@ -43,6 +43,8 @@ _TODAY_VIEWPORT_LIMITS = {
     "now": 2,
     "today": 4,
 }
+_READINESS_UPCOMING_EVENT_WINDOW_DAYS = 7
+_READINESS_RECENT_CONTRACT_WINDOW_DAYS = 7
 _SEVERITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3}
 _BUCKET_ORDER = {bucket: idx for idx, bucket in enumerate(_SECTION_ORDER)}
 _CASE_PRIORITY = {
@@ -211,6 +213,8 @@ def _event_bucket(event: Event, reference_dt: datetime) -> tuple[str, str]:
 
 
 def _readiness_bucket(item: ClinicalReadinessClientItem) -> str:
+    if _is_readiness_maintenance_only(item):
+        return "waiting"
     if item.timeline_status in {"overdue", "today", "none"}:
         return "today"
     if item.timeline_status == "upcoming_7d":
@@ -219,11 +223,80 @@ def _readiness_bucket(item: ClinicalReadinessClientItem) -> str:
 
 
 def _readiness_severity(item: ClinicalReadinessClientItem) -> str:
+    if _is_readiness_maintenance_only(item):
+        return "low"
     if item.priority == "high":
         return "high"
     if item.priority == "medium":
         return "medium"
     return "low"
+
+
+def _is_readiness_maintenance_only(item: ClinicalReadinessClientItem) -> bool:
+    return (
+        item.anamnesi_state == "legacy"
+        and item.has_measurements
+        and item.has_workout_plan
+        and set(item.missing_steps) == {"anamnesi_legacy"}
+    )
+
+
+def _readiness_case_title(item: ClinicalReadinessClientItem, client_label: str) -> str:
+    if _is_readiness_maintenance_only(item):
+        return f"Anamnesi da rivedere: {client_label}"
+    return f"Onboarding da completare: {client_label}"
+
+
+def _recent_readiness_contract_client_ids(
+    *,
+    trainer_id: int,
+    session: Session,
+    client_ids: set[int],
+    reference_dt: datetime,
+) -> set[int]:
+    if not client_ids:
+        return set()
+
+    recent_threshold = reference_dt.date() - timedelta(days=_READINESS_RECENT_CONTRACT_WINDOW_DAYS)
+    contracts = session.exec(
+        select(Contract).where(
+            Contract.trainer_id == trainer_id,
+            Contract.deleted_at == None,
+            Contract.chiuso == False,
+            Contract.id_cliente.in_(client_ids),
+        )
+    ).all()
+    recent_ids: set[int] = set()
+    for contract in contracts:
+        contract_reference = contract.data_inizio or contract.data_vendita
+        if contract_reference is not None and contract_reference >= recent_threshold:
+            recent_ids.add(contract.id_cliente)
+    return recent_ids
+
+
+def _upcoming_readiness_event_client_ids(
+    *,
+    trainer_id: int,
+    session: Session,
+    client_ids: set[int],
+    reference_dt: datetime,
+) -> set[int]:
+    if not client_ids:
+        return set()
+
+    deadline = reference_dt + timedelta(days=_READINESS_UPCOMING_EVENT_WINDOW_DAYS)
+    rows = session.exec(
+        select(Event.id_cliente).where(
+            Event.trainer_id == trainer_id,
+            Event.deleted_at == None,
+            Event.stato != "Cancellato",
+            Event.id_cliente != None,
+            Event.id_cliente.in_(client_ids),
+            Event.data_inizio >= reference_dt,
+            Event.data_inizio <= deadline,
+        )
+    ).all()
+    return {client_id for client_id in rows if client_id is not None}
 
 
 def _renewal_bucket(days_left: int) -> str:
@@ -641,15 +714,32 @@ def _build_session_cases(
 
 def _build_readiness_cases(
     *,
+    trainer_id: int,
+    session: Session,
+    reference_dt: datetime,
     readiness_items: list[ClinicalReadinessClientItem],
     session_blocked_client_ids: set[int] | None = None,
 ) -> list[OperationalCase]:
+    readiness_client_ids = {item.client_id for item in readiness_items}
+    operational_pressure_client_ids = _upcoming_readiness_event_client_ids(
+        trainer_id=trainer_id,
+        session=session,
+        client_ids=readiness_client_ids,
+        reference_dt=reference_dt,
+    ) | _recent_readiness_contract_client_ids(
+        trainer_id=trainer_id,
+        session=session,
+        client_ids=readiness_client_ids,
+        reference_dt=reference_dt,
+    )
     cases: list[OperationalCase] = []
     for item in readiness_items:
         if item.next_action_code == "ready":
             continue
         bucket = _readiness_bucket(item)
         if item.client_id in (session_blocked_client_ids or set()):
+            bucket = "waiting"
+        elif bucket == "today" and item.client_id not in operational_pressure_client_ids:
             bucket = "waiting"
         client_label = _full_name(item.client_nome, item.client_cognome)
         case_id = f"case:onboarding_readiness:client:{item.client_id}"
@@ -670,7 +760,7 @@ def _build_readiness_cases(
                 merge_key=case_id,
                 workspace="onboarding",
                 case_kind="onboarding_readiness",
-                title=f"Onboarding da completare: {client_label}",
+                title=_readiness_case_title(item, client_label),
                 reason=item.next_action_label,
                 severity=_readiness_severity(item),
                 bucket=bucket,
@@ -1705,6 +1795,9 @@ def collect_workspace_snapshot(
         readiness_by_client=readiness_by_client,
     )
     onboarding_cases = _build_readiness_cases(
+        trainer_id=trainer_id,
+        session=session,
+        reference_dt=now_dt,
         readiness_items=readiness_items,
         session_blocked_client_ids=session_blocked_client_ids,
     )

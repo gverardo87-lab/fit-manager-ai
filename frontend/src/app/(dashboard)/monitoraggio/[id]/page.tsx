@@ -2,12 +2,13 @@
 "use client";
 
 /**
- * Portale Clinico 360° del Chinesiologo.
+ * Portale Cliente 360° — Pagina scrollabile singola.
  *
- * Pagina scrollabile singola con 6 sezioni cliniche + header con Health Score.
  * Orchestratore dati: 9 hook, 3 engine client-side, zero nuovi endpoint.
  *
- * Sezioni: Composizione | Cardiovascolare | Simmetria | Programma | Obiettivi | Anamnesi
+ * Sezioni (ordinate per valore cliente → strumenti PT):
+ * Panoramica Corpo | Obiettivi | Misurazioni | Programma |
+ * Composizione | Cardiovascolare | Simmetria | Anamnesi
  */
 
 import { use, useMemo } from "react";
@@ -15,11 +16,13 @@ import { useSearchParams } from "next/navigation";
 
 import { PortalHeader } from "@/components/portal/PortalHeader";
 import { PortalNav } from "@/components/portal/PortalNav";
-import { CompositionSection } from "@/components/portal/CompositionSection";
-import { CardiovascularSection } from "@/components/portal/CardiovascularSection";
-import { SymmetrySection } from "@/components/portal/SymmetrySection";
-import { ProgramSection } from "@/components/portal/ProgramSection";
+import { BodyOverviewSection } from "@/components/portal/BodyOverviewSection";
 import { GoalsSection } from "@/components/portal/GoalsSection";
+import { MeasurementsSection } from "@/components/portal/MeasurementsSection";
+import { ProgramSection } from "@/components/portal/ProgramSection";
+import { CompositionSection } from "@/components/portal/CompositionSection";
+import { ProgressiSection } from "@/components/portal/ProgressiSection";
+import { SymmetrySection } from "@/components/portal/SymmetrySection";
 import { AnamnesiSection } from "@/components/portal/AnamnesiSection";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -208,34 +211,44 @@ export default function MonitoraggioClientDetailPage({
         <PortalNav />
       </div>
 
-      <section id="composizione" className={revealClass(70)} style={revealStyle(70)}>
-        <CompositionSection
+      {/* ── Sezioni cliente (valore immediato) ── */}
+
+      <section id="panoramica" className={revealClass(70)} style={revealStyle(70)}>
+        <BodyOverviewSection
           measurements={measurements}
           metrics={metrics}
-          clinicalReport={clinicalReport}
-          correlations={correlations}
           sesso={sesso}
           dataNascita={dataNascita}
           clientId={clientId}
           measurementFreshness={readinessItem?.measurement_freshness ?? null}
+          pesoAttuale={pesoAttuale}
+          pesoRate={pesoRate}
+          grassoPct={grassoPct}
+          grassoClassifica={grassoClassifica}
+          bmiValue={bmiValue}
+          bmiClassifica={bmiClassifica}
         />
       </section>
 
-      <section id="cardiovascolare" className={revealClass(110)} style={revealStyle(110)}>
-        <CardiovascularSection
+      <section id="obiettivi" className={revealClass(110)} style={revealStyle(110)}>
+        <GoalsSection
+          clientId={clientId}
+          goals={goals}
+          latestMeasurement={latestMeasurement ?? null}
+          metrics={metrics}
+          sesso={sesso}
+          dataNascita={dataNascita}
+        />
+      </section>
+
+      <section id="misurazioni" className={revealClass(150)} style={revealStyle(150)}>
+        <MeasurementsSection
           measurements={measurements}
           metrics={metrics}
-          riskProfile={clinicalReport.riskProfile}
           sesso={sesso}
           dataNascita={dataNascita}
           clientId={clientId}
-        />
-      </section>
-
-      <section id="simmetria" className={revealClass(150)} style={revealStyle(150)}>
-        <SymmetrySection
-          symmetry={clinicalReport.symmetry}
-          clientId={clientId}
+          measurementFreshness={readinessItem?.measurement_freshness ?? null}
         />
       </section>
 
@@ -250,18 +263,37 @@ export default function MonitoraggioClientDetailPage({
         />
       </section>
 
-      <section id="obiettivi" className={revealClass(230)} style={revealStyle(230)}>
-        <GoalsSection
-          clientId={clientId}
-          goals={goals}
-          latestMeasurement={latestMeasurement ?? null}
+      {/* ── Sezioni cliniche (strumenti PT) ── */}
+
+      <section id="composizione" className={revealClass(230)} style={revealStyle(230)}>
+        <CompositionSection
+          measurements={measurements}
           metrics={metrics}
+          clinicalReport={clinicalReport}
+          correlations={correlations}
           sesso={sesso}
           dataNascita={dataNascita}
+          clientId={clientId}
+          measurementFreshness={readinessItem?.measurement_freshness ?? null}
         />
       </section>
 
-      <section id="anamnesi" className={revealClass(270)} style={revealStyle(270)}>
+      <section id="progressi" className={revealClass(270)} style={revealStyle(270)}>
+        <ProgressiSection
+          measurements={measurements}
+          clinicalReport={clinicalReport}
+          clientId={clientId}
+        />
+      </section>
+
+      <section id="simmetria" className={revealClass(310)} style={revealStyle(310)}>
+        <SymmetrySection
+          symmetry={clinicalReport.symmetry}
+          clientId={clientId}
+        />
+      </section>
+
+      <section id="anamnesi" className={revealClass(350)} style={revealStyle(350)}>
         <AnamnesiSection
           client={client}
           anamnesiState={anamnesiState}

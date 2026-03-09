@@ -36,6 +36,8 @@ Esempio:
 
 ## Ultimo allineamento (2026-03-09)
 
+- `UPG-2026-03-09-18`: `Oggi` promuove ora `onboarding_readiness` solo con pressione operativa reale: evento pianificato entro 7 giorni o contratto attivo recente. Gli onboarding vecchi senza pressione scendono a `waiting`. Il pass e coperto da nuovi test; l'euristica iniziale sulla sola recency cliente e stata rimossa dopo verifica reale su `8001`.
+- `UPG-2026-03-09-17`: `Oggi` non tratta piu il backlog `anamnesi_legacy` dei clienti gia completi come lavoro giornaliero. Nel workspace questi casi scendono a `waiting` con severita bassa e titolo `Anamnesi da rivedere`, mentre restano visibili in `Onboarding`; validazione reale su `crm_dev.db`: `onboarding_readiness` in `today` scende da `27` a `6`.
 - `UPG-2026-03-09-16`: la policy dei promemoria manuali e ora runtime reale: i `todo` senza data non entrano piu in `today`, i reminder visibili sono capped dinamicamente in base alla pressione di sessioni/finanza/onboarding e l'ordine tra todo segue `urgenza + eta`, non il titolo.
 - `UPG-2026-03-09-15`: formalizzata la policy matematica dei promemoria manuali in `Oggi`: niente `todo` nel bucket `now`, niente `todo` senza scadenza in `today`, ranking solo su `scadenza + eta`, e cap dinamico dei promemoria visibili in base alla pressione dei casi strutturali della giornata.
 - `UPG-2026-03-09-14`: il budget della viewport di `Oggi` e ora canonico nel backend: `today` restituisce gia la coda visibile (`2 now / 4 today`), conserva i `total` reali di sezione e la pagina smette di fare slicing locale, riducendo finalmente la duplicazione logica tra engine e UI.

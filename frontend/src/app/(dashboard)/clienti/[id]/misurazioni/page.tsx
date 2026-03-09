@@ -82,7 +82,7 @@ export default function MisurazionePage({
       const cId = fromParam.replace("monitoraggio-", "");
       return `/monitoraggio/${cId}`;
     }
-    return `/clienti/${clientId}/progressi`;
+    return `/monitoraggio/${clientId}?from=clienti-${clientId}`;
   }, [fromParam, clientId]);
 
   // Data

@@ -87,11 +87,11 @@ const NAV_TOP: NavEntry[] = [
     ],
   },
   {
-    section: "Monitoraggio",
+    section: "Portale Cliente",
     items: [
       {
         href: "/monitoraggio",
-        label: "Panoramica",
+        label: "Portale",
         icon: BarChart3,
         activeMatch: (pathname) => pathname === "/monitoraggio",
       },

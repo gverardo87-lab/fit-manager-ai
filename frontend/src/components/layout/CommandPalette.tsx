@@ -971,11 +971,11 @@ export function CommandPalette() {
                         Registra misurazione per {contextClient.nome}
                       </CommandItem>
                       <CommandItem
-                        value={`ctx-progressi-${contextClient.id}`}
-                        onSelect={() => navigate(`/clienti/${contextClient.id}/progressi`)}
+                        value={`ctx-portale-${contextClient.id}`}
+                        onSelect={() => navigate(`/monitoraggio/${contextClient.id}?from=clienti-${contextClient.id}`)}
                       >
                         <TrendingUp className="mr-2 h-4 w-4 text-muted-foreground" />
-                        Progressi di {contextClient.nome}
+                        Portale Cliente di {contextClient.nome}
                       </CommandItem>
                       <CommandItem
                         value={`ctx-anamnesi-${contextClient.id}`}
