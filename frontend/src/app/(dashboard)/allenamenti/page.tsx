@@ -61,14 +61,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+
 import { Skeleton } from "@/components/ui/skeleton";
 import { DatePicker } from "@/components/ui/date-picker";
 
@@ -597,7 +590,7 @@ function ProgramCard({ plan }: { plan: WorkoutPlan }) {
 }
 
 // ════════════════════════════════════════════════════════════
-// COMPLIANCE GRID (premium)
+// COMPLIANCE GRID — Compact Timeline
 // ════════════════════════════════════════════════════════════
 
 function ComplianceGrid({
@@ -610,83 +603,182 @@ function ComplianceGrid({
   logGrid: Map<string, WorkoutLog>;
 }) {
   const totalSessions = plan.sessioni.length;
+  const [expandedPast, setExpandedPast] = useState(false);
+
+  const pastWeeks = weeks.filter((w) => isWeekPastOrCurrent(w) && !isCurrentWeek(w));
+  const currentWeek = weeks.find((w) => isCurrentWeek(w));
+  const futureWeeks = weeks.filter((w) => isWeekFuture(w));
 
   return (
-    <div className="overflow-x-auto -mx-4 px-4 sm:-mx-5 sm:px-5">
-      <Table>
-        <TableHeader>
-          <TableRow className="hover:bg-transparent">
-            <TableHead className="w-24 text-xs font-semibold">Settimana</TableHead>
-            {plan.sessioni.map((s) => (
-              <TableHead key={s.id} className="text-xs text-center min-w-[110px] font-semibold">
-                {s.nome_sessione}
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {weeks.map((week) => {
-            const current = isCurrentWeek(week);
-            const past = isWeekPastOrCurrent(week) && !current;
-            const future = isWeekFuture(week);
+    <div className="space-y-2">
+      {/* ── Past weeks: compact dots (expandable to full cells) ── */}
+      {pastWeeks.length > 0 && (
+        <div className="space-y-1">
+          <button
+            type="button"
+            className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => setExpandedPast((v) => !v)}
+          >
+            <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${expandedPast ? "rotate-180" : ""}`} />
+            {pastWeeks.length} settiman{pastWeeks.length === 1 ? "a" : "e"} passat{pastWeeks.length === 1 ? "a" : "e"}
+          </button>
 
-            return (
-              <TableRow
-                key={week.weekNumber}
-                className={current ? "bg-primary/5 dark:bg-primary/10" : "hover:bg-transparent"}
-              >
-                <TableCell className="text-xs text-muted-foreground tabular-nums whitespace-nowrap py-2">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-medium">Sett. {week.weekNumber}</span>
-                    {current && (
-                      <Badge variant="outline" className="text-[9px] px-1 py-0 border-primary/30 text-primary">
-                        Corrente
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="text-[10px] text-muted-foreground/70">
-                    {formatShortDate(week.startDate)} — {formatShortDate(week.endDate)}
-                  </div>
-                </TableCell>
-                {plan.sessioni.map((session, sessionIndex) => {
-                  const key = `${week.weekNumber}-${session.id}`;
-                  const log = logGrid.get(key);
+          {!expandedPast ? (
+            /* Compact dot view */
+            <div className="space-y-0.5 pl-4">
+              {pastWeeks.map((week) => (
+                <CompactWeekRow
+                  key={week.weekNumber}
+                  week={week}
+                  sessions={plan.sessioni}
+                  logGrid={logGrid}
+                />
+              ))}
+            </div>
+          ) : (
+            /* Expanded cell view for past weeks */
+            <div className="space-y-1 pl-4">
+              {pastWeeks.map((week) => (
+                <ExpandedWeekRow
+                  key={week.weekNumber}
+                  week={week}
+                  plan={plan}
+                  logGrid={logGrid}
+                  totalSessions={totalSessions}
+                  isCurrent={false}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
-                  return (
-                    <TableCell key={session.id} className="text-center p-1.5">
-                      {log ? (
-                        <LoggedCell log={log} clientId={plan.id_cliente!} />
-                      ) : past ? (
-                        <MissedCell
-                          planId={plan.id}
-                          sessionId={session.id}
-                          clientId={plan.id_cliente!}
-                          week={week}
-                          sessionIndex={sessionIndex}
-                          totalSessions={totalSessions}
-                        />
-                      ) : current ? (
-                        <PendingCell
-                          planId={plan.id}
-                          sessionId={session.id}
-                          clientId={plan.id_cliente!}
-                          week={week}
-                          sessionIndex={sessionIndex}
-                          totalSessions={totalSessions}
-                        />
-                      ) : future ? (
-                        <div className="flex items-center justify-center h-12 rounded-lg bg-muted/20 opacity-40">
-                          <span className="text-[10px] text-muted-foreground">—</span>
-                        </div>
-                      ) : null}
-                    </TableCell>
-                  );
-                })}
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
+      {/* ── Current week: always expanded ── */}
+      {currentWeek && (
+        <ExpandedWeekRow
+          week={currentWeek}
+          plan={plan}
+          logGrid={logGrid}
+          totalSessions={totalSessions}
+          isCurrent
+        />
+      )}
+
+      {/* ── Future weeks: compact count ── */}
+      {futureWeeks.length > 0 && (
+        <div className="flex items-center gap-1.5 pl-4 text-[11px] text-muted-foreground/60">
+          <span>{futureWeeks.length} settiman{futureWeeks.length === 1 ? "a" : "e"} rimanent{futureWeeks.length === 1 ? "e" : "i"}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Compact past week: one row with dots per session. */
+function CompactWeekRow({
+  week,
+  sessions,
+  logGrid,
+}: {
+  week: WeekSlot;
+  sessions: WorkoutPlan["sessioni"];
+  logGrid: Map<string, WorkoutLog>;
+}) {
+  const done = sessions.filter((s) => logGrid.has(`${week.weekNumber}-${s.id}`)).length;
+  const total = sessions.length;
+
+  return (
+    <div className="flex items-center gap-2 py-0.5">
+      <span className="w-12 shrink-0 text-[10px] text-muted-foreground/70 tabular-nums">
+        S.{week.weekNumber}
+      </span>
+      <div className="flex items-center gap-1">
+        {sessions.map((s) => {
+          const has = logGrid.has(`${week.weekNumber}-${s.id}`);
+          return (
+            <div
+              key={s.id}
+              className={`h-2.5 w-2.5 rounded-full ${
+                has
+                  ? "bg-emerald-500"
+                  : "bg-red-300 dark:bg-red-700/50"
+              }`}
+              title={`${s.nome_sessione}: ${has ? "completata" : "mancata"}`}
+            />
+          );
+        })}
+      </div>
+      <span className="text-[10px] text-muted-foreground/50 tabular-nums">
+        {done}/{total}
+      </span>
+    </div>
+  );
+}
+
+/** Expanded week row: full interactive cells for each session. */
+function ExpandedWeekRow({
+  week,
+  plan,
+  logGrid,
+  totalSessions,
+  isCurrent,
+}: {
+  week: WeekSlot;
+  plan: WorkoutPlan;
+  logGrid: Map<string, WorkoutLog>;
+  totalSessions: number;
+  isCurrent: boolean;
+}) {
+  const past = !isCurrent;
+
+  return (
+    <div className={`rounded-lg p-2.5 ${isCurrent ? "bg-primary/5 dark:bg-primary/10 border border-primary/20" : "bg-muted/20"}`}>
+      <div className="flex items-center gap-1.5 mb-2">
+        <span className="text-[11px] font-medium tabular-nums">
+          Sett. {week.weekNumber}
+        </span>
+        {isCurrent && (
+          <Badge variant="outline" className="text-[9px] px-1 py-0 border-primary/30 text-primary">
+            Corrente
+          </Badge>
+        )}
+        <span className="text-[10px] text-muted-foreground/60 tabular-nums">
+          {formatShortDate(week.startDate)} — {formatShortDate(week.endDate)}
+        </span>
+      </div>
+      <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${plan.sessioni.length}, 1fr)` }}>
+        {plan.sessioni.map((session, sessionIndex) => {
+          const key = `${week.weekNumber}-${session.id}`;
+          const log = logGrid.get(key);
+
+          return (
+            <div key={session.id} className="space-y-0.5">
+              <p className="text-[9px] text-muted-foreground/70 truncate text-center">{session.nome_sessione}</p>
+              {log ? (
+                <LoggedCell log={log} clientId={plan.id_cliente!} />
+              ) : past ? (
+                <MissedCell
+                  planId={plan.id}
+                  sessionId={session.id}
+                  clientId={plan.id_cliente!}
+                  week={week}
+                  sessionIndex={sessionIndex}
+                  totalSessions={totalSessions}
+                />
+              ) : isCurrent ? (
+                <PendingCell
+                  planId={plan.id}
+                  sessionId={session.id}
+                  clientId={plan.id_cliente!}
+                  week={week}
+                  sessionIndex={sessionIndex}
+                  totalSessions={totalSessions}
+                />
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
