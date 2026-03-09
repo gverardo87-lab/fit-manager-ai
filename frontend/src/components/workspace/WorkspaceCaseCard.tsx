@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import type { OperationalCase } from "@/types/api";
 
 import {
+  formatFinanceAmount,
   getFinanceSummary,
   getCaseDueLabel,
   WORKSPACE_CASE_KIND_META,
@@ -34,6 +35,16 @@ export function WorkspaceCaseCard({
   const primaryAction = item.suggested_actions.find((action) => action.is_primary) ?? item.suggested_actions[0];
   const financeSummary = showFinanceSummary ? getFinanceSummary(item) : null;
   const isFinance = variant === "finance";
+  const dueAmount = formatFinanceAmount(item.finance_context?.total_due_amount);
+  const residualAmount = formatFinanceAmount(item.finance_context?.total_residual_amount);
+  const amountLabel =
+    item.case_kind === "recurring_expense_due"
+      ? "Uscita"
+      : item.case_kind === "payment_due_soon"
+        ? "In arrivo"
+        : item.case_kind === "contract_renewal_due"
+          ? "Residuo"
+          : "Da incassare";
 
   return (
     <div
@@ -60,7 +71,7 @@ export function WorkspaceCaseCard({
             : "border-border/70",
       )}
     >
-      <div className={cn("flex flex-col gap-3", isFinance ? "xl:grid xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start" : "lg:flex-row lg:items-start")}>
+      <div className={cn("flex flex-col gap-3", isFinance ? "xl:grid xl:grid-cols-[minmax(0,1fr)_230px] xl:items-start" : "lg:flex-row lg:items-start")}>
         <div
           className={cn(
             "hidden shrink-0 rounded-full",
@@ -85,7 +96,7 @@ export function WorkspaceCaseCard({
             </span>
           </div>
 
-          <div className={cn("mt-3", isFinance && "grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-start")}>
+          <div className={cn("mt-3", isFinance && "min-w-0")}>
             <div className="min-w-0">
               <h3
                 className={cn(
@@ -99,15 +110,6 @@ export function WorkspaceCaseCard({
                 {item.reason}
               </p>
             </div>
-
-            {isFinance && financeSummary ? (
-              <div className="rounded-[22px] border border-stone-300/80 bg-stone-950 px-4 py-3 text-stone-50 shadow-inner dark:border-zinc-700 dark:bg-zinc-950">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-300">
-                  Quadro economico
-                </p>
-                <p className="mt-1 text-sm font-semibold leading-6 text-stone-50">{financeSummary}</p>
-              </div>
-            ) : null}
           </div>
           {!isFinance && financeSummary && <p className="mt-2 text-sm font-medium text-foreground/85">{financeSummary}</p>}
 
@@ -129,44 +131,96 @@ export function WorkspaceCaseCard({
               {item.signal_count} {item.signal_count === 1 ? "segnale" : "segnali"}
             </span>
           </div>
+
+          {isFinance && financeSummary && (
+            <div className="mt-4 rounded-[22px] border border-stone-300/80 bg-white/65 px-4 py-3 text-sm text-stone-700 dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-zinc-300">
+              {financeSummary}
+            </div>
+          )}
         </div>
 
-        <div className={cn("flex shrink-0 flex-wrap items-center gap-2", isFinance ? "xl:flex-col xl:items-end" : "lg:flex-col lg:items-end")}>
-          {primaryAction?.href ? (
-            <Button
-              asChild
-              size="sm"
-              className={cn(
-                "h-10",
-                isFinance &&
-                  "border-0 bg-stone-950 text-stone-50 shadow-sm hover:bg-stone-800 dark:bg-amber-500 dark:text-zinc-950 dark:hover:bg-amber-400",
-              )}
-              onClick={(event) => event.stopPropagation()}
-            >
-              <Link href={primaryAction.href}>
-                {primaryAction.label}
-                <ArrowUpRight className="ml-1 h-3.5 w-3.5" />
-              </Link>
-            </Button>
-          ) : (
-            <Button size="sm" className="h-10" disabled={!primaryAction?.enabled}>
-              {primaryAction?.label ?? "Apri"}
-            </Button>
-          )}
+        <div className={cn("flex shrink-0 flex-wrap items-center gap-2", isFinance ? "xl:flex-col xl:items-stretch" : "lg:flex-col lg:items-end")}>
+          {isFinance ? (
+            <div className="rounded-[24px] border border-stone-300/80 bg-stone-950 px-4 py-4 text-stone-50 shadow-[0_16px_42px_-28px_rgba(28,25,23,0.65)] dark:border-zinc-700 dark:bg-zinc-950">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-300">
+                {amountLabel}
+              </p>
+              <p className="mt-2 font-serif text-[28px] font-semibold leading-none tracking-[-0.03em] text-stone-50">
+                {dueAmount ?? residualAmount ?? "n/d"}
+              </p>
+              {dueAmount && residualAmount && dueAmount !== residualAmount ? (
+                <p className="mt-2 text-xs text-stone-300">Residuo {residualAmount}</p>
+              ) : null}
 
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className={cn("h-10 text-muted-foreground", isFinance && "text-stone-700 hover:bg-stone-200/70 dark:text-zinc-300 dark:hover:bg-zinc-800")}
-            onClick={(event) => {
-              event.stopPropagation();
-              onSelect();
-            }}
-          >
-            Dettaglio
-            <ChevronRight className="ml-1 h-3.5 w-3.5" />
-          </Button>
+              <div className="mt-4 flex flex-col gap-2">
+                {primaryAction?.href ? (
+                  <Button
+                    asChild
+                    size="sm"
+                    className="h-10 border-0 bg-amber-400 text-stone-950 hover:bg-amber-300"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <Link href={primaryAction.href}>
+                      {primaryAction.label}
+                      <ArrowUpRight className="ml-1 h-3.5 w-3.5" />
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button size="sm" className="h-10" disabled={!primaryAction?.enabled}>
+                    {primaryAction?.label ?? "Apri"}
+                  </Button>
+                )}
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-10 justify-between px-0 text-stone-300 hover:bg-transparent hover:text-stone-50"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onSelect();
+                  }}
+                >
+                  Dettaglio
+                  <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {primaryAction?.href ? (
+                <Button
+                  asChild
+                  size="sm"
+                  className="h-10"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <Link href={primaryAction.href}>
+                    {primaryAction.label}
+                    <ArrowUpRight className="ml-1 h-3.5 w-3.5" />
+                  </Link>
+                </Button>
+              ) : (
+                <Button size="sm" className="h-10" disabled={!primaryAction?.enabled}>
+                  {primaryAction?.label ?? "Apri"}
+                </Button>
+              )}
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-10 text-muted-foreground"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onSelect();
+                }}
+              >
+                Dettaglio
+                <ChevronRight className="ml-1 h-3.5 w-3.5" />
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </div>

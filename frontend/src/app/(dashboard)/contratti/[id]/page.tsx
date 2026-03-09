@@ -19,7 +19,6 @@ import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import {
   ArrowLeft,
-  FileText,
   Pencil,
   Trash2,
   Receipt,
@@ -57,14 +56,26 @@ export default function ContractDetailPage({
   searchParams: searchParamsPromise,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ from?: string }>;
+  searchParams: Promise<{ from?: string; returnTo?: string }>;
 }) {
   const { id } = use(params);
-  const { from } = use(searchParamsPromise);
+  const { from, returnTo } = use(searchParamsPromise);
   const contractId = parseInt(id, 10);
   const router = useRouter();
   const returnClientId = from?.startsWith("clienti-") ? from.slice(8) : null;
   const returnToDashboard = from === "dashboard";
+  const safeReturnTo =
+    returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : null;
+  const backHref =
+    safeReturnTo ??
+    (returnClientId ? `/clienti/${returnClientId}?tab=contratti` : returnToDashboard ? "/" : "/contratti");
+  const backLabel = safeReturnTo?.startsWith("/rinnovi-incassi")
+    ? "Torna a Rinnovi & Incassi"
+    : returnClientId
+      ? "Torna al profilo cliente"
+      : returnToDashboard
+        ? "Torna alla dashboard"
+        : "Torna ai contratti";
 
   const { data: contract, isLoading } = useContract(contractId);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -90,8 +101,9 @@ export default function ContractDetailPage({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3">
           <Link
-            href={returnClientId ? `/clienti/${returnClientId}?tab=contratti` : returnToDashboard ? "/" : "/contratti"}
+            href={backHref}
             className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border bg-white shadow-sm transition-colors hover:bg-zinc-50 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+            title={backLabel}
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
@@ -111,7 +123,11 @@ export default function ContractDetailPage({
             <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
               {clientName && (
                 <Link
-                  href={`/clienti/${contract.id_cliente}`}
+                  href={
+                    safeReturnTo
+                      ? `/clienti/${contract.id_cliente}?returnTo=${encodeURIComponent(safeReturnTo)}`
+                      : `/clienti/${contract.id_cliente}`
+                  }
                   className="font-medium text-foreground hover:underline"
                 >
                   {clientName}
@@ -149,7 +165,19 @@ export default function ContractDetailPage({
       </div>
 
       {/* ── Banner ritorno al cliente ── */}
-      {returnClientId && (
+      {safeReturnTo && (
+        <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-2 flex items-center gap-2">
+          <ArrowLeft className="h-3.5 w-3.5 text-primary" />
+          <Link
+            href={safeReturnTo}
+            className="text-sm text-primary hover:underline"
+          >
+            {backLabel}
+          </Link>
+        </div>
+      )}
+
+      {returnClientId && !safeReturnTo && (
         <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-2 flex items-center gap-2">
           <ArrowLeft className="h-3.5 w-3.5 text-primary" />
           <Link
@@ -161,7 +189,7 @@ export default function ContractDetailPage({
         </div>
       )}
 
-      {returnToDashboard && (
+      {returnToDashboard && !safeReturnTo && (
         <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-2 flex items-center gap-2">
           <ArrowLeft className="h-3.5 w-3.5 text-primary" />
           <Link
@@ -219,7 +247,7 @@ export default function ContractDetailPage({
         onOpenChange={setDeleteOpen}
         contract={contract}
         clientName={clientName}
-        onDeleted={() => router.push(returnClientId ? `/clienti/${returnClientId}?tab=contratti` : returnToDashboard ? "/" : "/contratti")}
+        onDeleted={() => router.push(backHref)}
       />
     </div>
   );

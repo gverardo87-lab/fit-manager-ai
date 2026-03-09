@@ -67,6 +67,15 @@ export default function ClientProfilePage({
   const router = useRouter();
   const activeTab = searchParams.get("tab") ?? "panoramica";
   const shouldAutoOpenScheda = searchParams.get("startScheda") === "1";
+  const rawReturnTo = searchParams.get("returnTo");
+  const fromParam = searchParams.get("from");
+  const returnTo = rawReturnTo && rawReturnTo.startsWith("/") && !rawReturnTo.startsWith("//") ? rawReturnTo : null;
+  const backHref = returnTo ?? (fromParam === "monitoraggio" ? "/monitoraggio" : "/clienti");
+  const backLabel = returnTo?.startsWith("/rinnovi-incassi")
+    ? "Torna a Rinnovi & Incassi"
+    : fromParam === "monitoraggio"
+      ? "Torna a Monitoraggio"
+      : "Torna ai clienti";
 
   const handleTabChange = useCallback((value: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -114,7 +123,12 @@ export default function ClientProfilePage({
 
   return (
     <div className="space-y-4">
-      <ClientProfileHeader client={client} onEdit={() => setSheetOpen(true)} />
+      <ClientProfileHeader
+        client={client}
+        onEdit={() => setSheetOpen(true)}
+        backHref={backHref}
+        backLabel={backLabel}
+      />
 
       {/* Onboarding Checklist — hero CTA + stepper (solo se profilo incompleto) */}
       <OnboardingChecklist steps={onboardingSteps} />

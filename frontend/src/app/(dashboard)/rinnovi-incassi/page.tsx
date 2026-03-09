@@ -1,15 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { useRef } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   AlertCircle,
+  ArrowUpRight,
   ChevronDown,
   ChevronRight,
   HandCoins,
   RefreshCw,
 } from "lucide-react";
 
-import { WorkspaceCaseCard } from "@/components/workspace/WorkspaceCaseCard";
 import { WorkspaceDetailPanel } from "@/components/workspace/WorkspaceDetailPanel";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -19,6 +21,14 @@ import type { WorkspaceCasesQuery } from "@/hooks/useWorkspace";
 import { usePageReveal } from "@/lib/page-reveal";
 import { cn } from "@/lib/utils";
 import type { OperationalCase } from "@/types/api";
+import {
+  getFinanceCaseKindMeta,
+  getFinanceSeverityMeta,
+  formatFinanceAmount,
+  formatWorkspaceDate,
+  getCaseDueLabel,
+  getFinanceSummary,
+} from "@/components/workspace/workspace-ui";
 
 type FinanceFilter =
   | "all"
@@ -83,9 +93,174 @@ function HeaderPill({
   tone: string;
 }) {
   return (
-    <div className={cn("min-w-[130px] rounded-[24px] border px-4 py-3 shadow-sm backdrop-blur", tone)}>
-      <p className="text-[10px] font-semibold uppercase tracking-[0.18em]">{label}</p>
-      <p className="mt-2 text-3xl font-black leading-none tracking-[-0.03em] tabular-nums">{value}</p>
+    <div className={cn("min-w-[108px] rounded-[18px] border px-3 py-2 shadow-[0_16px_38px_-28px_rgba(31,42,51,0.18)] backdrop-blur", tone)}>
+      <p className="text-[9px] font-semibold uppercase tracking-[0.18em]">{label}</p>
+      <p className="mt-1 text-[26px] font-black leading-none tracking-[-0.04em] tabular-nums">{value}</p>
+    </div>
+  );
+}
+
+function getFinanceAmountMeta(item: OperationalCase): { label: string; value: string; secondary: string | null } {
+  const dueAmount = formatFinanceAmount(item.finance_context?.total_due_amount);
+  const residualAmount = formatFinanceAmount(item.finance_context?.total_residual_amount);
+
+  if (item.case_kind === "recurring_expense_due") {
+    return {
+      label: "Uscita",
+      value: dueAmount ?? residualAmount ?? "n/d",
+      secondary: null,
+    };
+  }
+
+  if (item.case_kind === "payment_due_soon") {
+    return {
+      label: "In arrivo",
+      value: dueAmount ?? residualAmount ?? "n/d",
+      secondary: residualAmount && residualAmount !== dueAmount ? `Residuo ${residualAmount}` : null,
+    };
+  }
+
+  if (item.case_kind === "contract_renewal_due") {
+    return {
+      label: "Residuo",
+      value: residualAmount ?? dueAmount ?? "n/d",
+      secondary: dueAmount ? `Incasso ${dueAmount}` : null,
+    };
+  }
+
+  return {
+    label: "Da incassare",
+    value: dueAmount ?? residualAmount ?? "n/d",
+    secondary: residualAmount && residualAmount !== dueAmount ? `Residuo ${residualAmount}` : null,
+  };
+}
+
+function FinanceLedgerRow({
+  item,
+  selected,
+  onSelect,
+  onRevealDetail,
+  hrefTransform,
+}: {
+  item: OperationalCase;
+  selected: boolean;
+  onSelect: () => void;
+  onRevealDetail: () => void;
+  hrefTransform: (href: string, caseId: string) => string;
+}) {
+  const kindMeta = getFinanceCaseKindMeta(item.case_kind);
+  const severityMeta = getFinanceSeverityMeta(item.severity);
+  const primaryAction = item.suggested_actions.find((action) => action.is_primary) ?? item.suggested_actions[0];
+  const primaryActionHref = primaryAction?.href ? hrefTransform(primaryAction.href, item.case_id) : undefined;
+  const financeSummary = getFinanceSummary(item);
+  const amountMeta = getFinanceAmountMeta(item);
+  const dueDateLabel = item.due_date ? formatWorkspaceDate(item.due_date) : null;
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onSelect}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect();
+        }
+      }}
+      className={cn(
+        "group rounded-[16px] px-3 py-2.5 transition-all",
+        selected
+          ? "border border-[#b8d0d1] bg-[#eef5f4] text-[#1f2a33] shadow-[0_18px_36px_-28px_rgba(47,110,115,0.22)]"
+          : "border border-transparent bg-transparent text-[#1f2a33] hover:bg-[#f6f1ea]",
+      )}
+    >
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,2.2fr)_120px_150px_132px] xl:items-center">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={cn("rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em]", kindMeta.tone)}>
+              {kindMeta.label}
+            </span>
+            <span className={cn("rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em]", severityMeta.tone)}>
+              {severityMeta.label}
+            </span>
+          </div>
+          <div className="mt-2 min-w-0">
+            <h3 className="truncate text-[14px] font-bold tracking-[-0.02em]">{item.title}</h3>
+            <p className={cn("mt-1 line-clamp-1 text-[12px]", selected ? "text-[#4c5b66]" : "text-[#5f6b76]")}>
+              {item.reason}
+            </p>
+            {financeSummary ? (
+              <p className={cn("mt-1 line-clamp-1 text-[11px]", selected ? "text-[#5b6a74]" : "text-[#7c8791]")}>
+                {financeSummary}
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        <div className={cn("space-y-1 text-[11px]", selected ? "text-[#4c5b66]" : "text-[#5f6b76]")}>
+          <p className="font-semibold uppercase tracking-[0.14em] text-[10px]">Tempo</p>
+          <p className="font-medium">{getCaseDueLabel(item)}</p>
+          {dueDateLabel ? <p>{dueDateLabel}</p> : <p>{item.signal_count} segnali</p>}
+        </div>
+
+        <div className={cn("rounded-[14px] border px-3 py-2", selected ? "border-[#d8e6e5] bg-white/85" : "border-[#e5ddd3] bg-[#fbf8f3]")}>
+          <p className={cn("text-[9px] font-semibold uppercase tracking-[0.18em]", selected ? "text-[#6d7b85]" : "text-[#7c8791]")}>
+            {amountMeta.label}
+          </p>
+          <p className="mt-1 font-serif text-[24px] font-semibold leading-none tracking-[-0.04em]">
+            {amountMeta.value}
+          </p>
+          {amountMeta.secondary ? (
+            <p className={cn("mt-1 text-[10px]", selected ? "text-[#6d7b85]" : "text-[#7c8791]")}>
+              {amountMeta.secondary}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="flex items-center gap-2 xl:flex-col xl:items-stretch">
+          {primaryActionHref ? (
+            <Button
+              asChild
+              size="sm"
+              className={cn(
+                "h-9 flex-1 xl:w-full",
+                selected
+                  ? "border-0 bg-[#2f6e73] text-[#f8f5ef] hover:bg-[#25585c]"
+                  : "border-0 bg-[#2f6e73] text-[#f8f5ef] hover:bg-[#25585c]",
+              )}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <Link href={primaryActionHref}>
+                {primaryAction.label}
+                <ArrowUpRight className="ml-1 h-3.5 w-3.5" />
+              </Link>
+            </Button>
+          ) : (
+            <Button size="sm" className="h-9 flex-1 xl:w-full" disabled={!primaryAction?.enabled}>
+              {primaryAction?.label ?? "Apri"}
+            </Button>
+          )}
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className={cn(
+              "h-9 flex-1 justify-between xl:w-full xl:flex-none",
+              selected
+                ? "text-[#4c5b66] hover:bg-[#dfeceb] hover:text-[#1f2a33]"
+                : "text-[#5f6b76] hover:bg-[#edf2f1] hover:text-[#1f2a33]",
+            )}
+            onClick={(event) => {
+              event.stopPropagation();
+              onRevealDetail();
+            }}
+          >
+            Dettaglio
+            <ChevronRight className="ml-1 h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -97,8 +272,9 @@ function FinanceQueueSection({
   items,
   selectedCaseId,
   onSelect,
+  onRevealDetail,
+  hrefTransform,
   emptyMessage,
-  tone,
 }: {
   title: string;
   subtitle: string;
@@ -106,42 +282,51 @@ function FinanceQueueSection({
   items: OperationalCase[];
   selectedCaseId: string;
   onSelect: (caseId: string) => void;
+  onRevealDetail: (caseId: string) => void;
+  hrefTransform: (href: string, caseId: string) => string;
   emptyMessage: string;
-  tone: string;
 }) {
   return (
-    <section className={cn("space-y-4 rounded-[28px] border p-4 shadow-sm", tone)}>
-      <div className="border-b border-current/10 pb-4">
+    <section className="space-y-3">
+      <div className="flex flex-col gap-1.5 rounded-[18px] border border-[#ded5ca] bg-[#f4efe8] px-4 py-3">
         <div className="flex items-center gap-2">
-          <h3 className="text-base font-semibold">{title}</h3>
-          <span className="rounded-full border border-current/10 bg-white/70 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-current/80 dark:bg-zinc-950/40">
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#41505c]">{title}</h3>
+          <span className="rounded-full border border-[#d8cec3] bg-white/85 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#6b7680]">
             {total}
           </span>
         </div>
-        <p className="mt-1 text-sm text-current/75">{subtitle}</p>
+        <p className="text-[13px] text-[#5f6b76]">{subtitle}</p>
         {total > items.length && items.length > 0 && (
-          <p className="mt-2 text-xs text-current/60">
+          <p className="text-[10px] uppercase tracking-[0.16em] text-[#7c8791]">
             Mostro {items.length} casi su {total} in questa vista iniziale.
           </p>
         )}
       </div>
 
       {items.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-current/20 bg-white/55 px-4 py-5 text-sm text-current/65 dark:bg-zinc-950/30">
+        <div className="rounded-[18px] border border-dashed border-[#ded5ca] bg-[#fbf8f3] px-4 py-4 text-sm text-[#7c8791]">
           {emptyMessage}
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="overflow-hidden rounded-[20px] border border-[#ded5ca] bg-[linear-gradient(180deg,rgba(255,252,248,0.98),rgba(247,242,234,0.96))] shadow-[0_24px_56px_-42px_rgba(31,42,51,0.14)]">
+          <div className="hidden border-b border-[#e8dfd5] px-3 py-2 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#7c8791] xl:grid xl:grid-cols-[minmax(0,2.2fr)_120px_150px_132px]">
+            <span>Caso</span>
+            <span>Tempo</span>
+            <span>Importo</span>
+            <span>Azione</span>
+          </div>
+          <div className="divide-y divide-[#ebe3d9] p-1">
           {items.map((item) => (
-            <WorkspaceCaseCard
+            <FinanceLedgerRow
               key={item.case_id}
               item={item}
               selected={item.case_id === selectedCaseId}
               onSelect={() => onSelect(item.case_id)}
-              showFinanceSummary
-              variant="finance"
+              onRevealDetail={() => onRevealDetail(item.case_id)}
+              hrefTransform={hrefTransform}
             />
           ))}
+          </div>
         </div>
       )}
     </section>
@@ -150,9 +335,37 @@ function FinanceQueueSection({
 
 export default function RenewalsCashWorkspacePage() {
   const { revealClass, revealStyle } = usePageReveal();
-  const [filter, setFilter] = useState<FinanceFilter>("all");
-  const [requestedCaseId, setRequestedCaseId] = useState("");
-  const [showWaiting, setShowWaiting] = useState(false);
+  const detailPanelRef = useRef<HTMLDivElement | null>(null);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const rawFilter = searchParams.get("filter");
+  const filter = FINANCE_FILTERS.some((item) => item.id === rawFilter)
+    ? (rawFilter as FinanceFilter)
+    : "all";
+  const requestedCaseId = searchParams.get("case") ?? "";
+  const showWaiting = searchParams.get("waiting") === "1";
+  const searchParamsString = searchParams.toString();
+
+  function replaceFinanceState(mutator: (params: URLSearchParams) => void) {
+    const params = new URLSearchParams(searchParamsString);
+    mutator(params);
+    const next = params.toString();
+    router.replace(`${pathname}${next ? `?${next}` : ""}`, { scroll: false });
+  }
+
+  function decorateFinanceHref(href: string) {
+    return decorateFinanceHrefForCase(href, requestedCaseId);
+  }
+
+  function decorateFinanceHrefForCase(href: string, caseId: string) {
+    if (!href.startsWith("/")) return href;
+    const financeParams = new URLSearchParams(searchParamsString);
+    if (caseId) financeParams.set("case", caseId);
+    const url = new URL(href, "http://fitmanager.local");
+    url.searchParams.set("returnTo", `${pathname}${financeParams.toString() ? `?${financeParams.toString()}` : ""}`);
+    return `${url.pathname}${url.search}${url.hash}`;
+  }
 
   const selectedFilter = FINANCE_FILTERS.find((item) => item.id === filter) ?? FINANCE_FILTERS[0];
   const summaryQuery = useWorkspaceCases(
@@ -317,72 +530,92 @@ export default function RenewalsCashWorkspacePage() {
     financeData.summary.waiting_count;
   const hasCases = totalCases > 0;
 
+  function selectCase(caseId: string) {
+    replaceFinanceState((params) => {
+      params.set("case", caseId);
+    });
+  }
+
+  function revealCaseDetail(caseId: string) {
+    selectCase(caseId);
+
+    if (typeof window === "undefined") return;
+    if (window.matchMedia("(min-width: 1280px)").matches) return;
+
+    window.requestAnimationFrame(() => {
+      detailPanelRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div
         className={revealClass(
           0,
-          "relative overflow-hidden rounded-[34px] border border-stone-300/80 bg-[linear-gradient(135deg,rgba(255,251,235,0.98),rgba(255,244,230,0.98)_48%,rgba(255,237,213,0.96))] p-6 shadow-[0_35px_90px_-60px_rgba(124,45,18,0.45)] dark:border-zinc-800 dark:bg-[linear-gradient(135deg,rgba(28,25,23,0.98),rgba(39,39,42,0.98)_52%,rgba(17,24,39,0.98))]",
+          "relative overflow-hidden rounded-[24px] border border-[#ddd4ca] bg-[radial-gradient(circle_at_top_left,rgba(47,110,115,0.12),transparent_34%),linear-gradient(135deg,rgba(248,244,237,0.98),rgba(244,238,229,0.98)_48%,rgba(238,232,223,0.98))] p-4 shadow-[0_28px_72px_-54px_rgba(47,110,115,0.22)]",
         )}
         style={revealStyle(0)}
       >
-        <div className="pointer-events-none absolute inset-0 opacity-60">
-          <div className="absolute -right-24 top-0 h-56 w-56 rounded-full bg-orange-300/20 blur-3xl dark:bg-orange-500/10" />
-          <div className="absolute bottom-0 left-0 h-40 w-full bg-[linear-gradient(90deg,transparent,rgba(120,53,15,0.06),transparent)] dark:bg-[linear-gradient(90deg,transparent,rgba(251,191,36,0.08),transparent)]" />
+        <div className="pointer-events-none absolute inset-0 opacity-80">
+          <div className="absolute -right-20 top-0 h-44 w-44 rounded-full bg-[#c9785c]/12 blur-3xl" />
+          <div className="absolute bottom-0 left-0 h-24 w-full bg-[linear-gradient(90deg,transparent,rgba(47,110,115,0.08),transparent)]" />
         </div>
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex flex-col gap-4 xl:grid xl:grid-cols-[minmax(0,1.35fr)_320px] xl:items-end">
           <div className="relative z-10 max-w-3xl">
-            <div className="flex items-start gap-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] border border-stone-300/70 bg-stone-950 shadow-sm dark:border-zinc-700 dark:bg-amber-400">
-                <HandCoins className="h-6 w-6 text-amber-300 dark:text-zinc-950" />
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] border border-[#d8cec3] bg-white/82 shadow-sm">
+                <HandCoins className="h-4 w-4 text-[#2f6e73]" />
               </div>
               <div>
-                <span className="inline-flex rounded-full border border-stone-300/80 bg-white/70 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-600 dark:border-zinc-700 dark:bg-zinc-900/70 dark:text-zinc-300">
+                <span className="inline-flex rounded-full border border-[#d8cec3] bg-white/82 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6b7680]">
                   Workspace privato
                 </span>
-                <h1 className="mt-3 text-3xl font-black tracking-[-0.04em] text-stone-950 sm:text-4xl dark:text-stone-50">
+                <h1 className="mt-2 text-[30px] font-black tracking-[-0.05em] text-[#1f2a33] sm:text-[34px]">
                   Rinnovi & Incassi
                 </h1>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-700 dark:text-zinc-300">
-                  Una scrivania economica operativa, non il vecchio pannello cassa. Qui decidi cosa incassare, cosa rinnovare e cosa confermare prima che diventi rumore.
+                <p className="mt-1.5 max-w-2xl text-[13px] leading-6 text-[#5f6b76]">
+                  Una scrivania economica privata e densa. Qui muovi denaro, rinnovi e scadenze senza disperderti in pannelli alti e rumore grafico.
                 </p>
               </div>
             </div>
-            <p className="mt-5 max-w-2xl text-[15px] leading-7 text-stone-800 dark:text-zinc-200">{brief}</p>
+            <p className="mt-3 max-w-2xl text-[13px] leading-6 text-[#31404b]">{brief}</p>
             {totalCases > totalVisible && (
-              <p className="mt-4 text-xs uppercase tracking-[0.16em] text-stone-500 dark:text-zinc-400">
+              <p className="mt-3 text-[10px] uppercase tracking-[0.16em] text-[#7c8791]">
                 Vista iniziale dei primi {totalVisible} casi su {totalCases}, con budget per bucket e paginazione server-side.
               </p>
             )}
           </div>
 
-          <div className="relative z-10 grid grid-cols-2 gap-3 lg:w-[340px]">
+          <div className="relative z-10 grid grid-cols-2 gap-2.5 xl:w-[320px]">
             <HeaderPill
               label="Critici"
               value={financeData.summary.now_count}
-              tone="border-red-300/70 bg-red-50/90 text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300"
+              tone="border-[#e5c0c0] bg-[#fff3f2] text-[#b85c5c]"
             />
             <HeaderPill
               label="Oggi"
               value={financeData.summary.today_count}
-              tone="border-amber-300/70 bg-amber-50/90 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300"
+              tone="border-[#e8d3bf] bg-[#fbf4ec] text-[#c58a36]"
             />
             <HeaderPill
               label="Entro 7 giorni"
               value={financeData.summary.upcoming_7d_count}
-              tone="border-orange-300/70 bg-orange-50/90 text-orange-700 dark:border-orange-900/50 dark:bg-orange-950/30 dark:text-orange-300"
+              tone="border-[#cfe0e1] bg-[#f0f7f6] text-[#2f6e73]"
             />
             <HeaderPill
               label="Da pianificare"
               value={financeData.summary.waiting_count}
-              tone="border-stone-300/70 bg-stone-100/90 text-stone-700 dark:border-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-300"
+              tone="border-[#ddd4ca] bg-white/82 text-[#6b7680]"
             />
           </div>
         </div>
       </div>
 
       <div className={revealClass(70)} style={revealStyle(70)}>
-        <div className="overflow-x-auto rounded-[28px] border border-stone-300/80 bg-stone-950/95 p-2 shadow-[0_18px_50px_-36px_rgba(28,25,23,0.6)] dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="overflow-x-auto rounded-[18px] border border-[#ddd4ca] bg-[#f4efe8] p-1.5 shadow-[0_18px_50px_-40px_rgba(31,42,51,0.12)]">
           <div className="flex w-max min-w-full gap-2">
           {FINANCE_FILTERS.map((item) => {
             const isActive = item.id === filter;
@@ -391,15 +624,18 @@ export default function RenewalsCashWorkspacePage() {
                 key={item.id}
                 type="button"
                 className={cn(
-                  "rounded-[18px] px-4 py-2.5 text-sm font-medium transition-all",
+                  "rounded-[12px] px-3 py-1.5 text-[13px] font-medium transition-all",
                   isActive
-                    ? "bg-[linear-gradient(135deg,rgba(251,191,36,1),rgba(253,186,116,1))] text-stone-950 shadow-[0_14px_40px_-28px_rgba(251,191,36,0.9)]"
-                    : "text-stone-300 hover:bg-white/8 hover:text-stone-50",
+                    ? "bg-[#2f6e73] text-[#f8f5ef] shadow-[0_12px_30px_-24px_rgba(47,110,115,0.42)]"
+                    : "text-[#5f6b76] hover:bg-white/84 hover:text-[#1f2a33]",
                 )}
                 onClick={() => {
-                  setFilter(item.id);
-                  setRequestedCaseId("");
-                  setShowWaiting(false);
+                  replaceFinanceState((params) => {
+                    if (item.id === "all") params.delete("filter");
+                    else params.set("filter", item.id);
+                    params.delete("case");
+                    params.delete("waiting");
+                  });
                 }}
               >
                 {item.label}
@@ -412,27 +648,27 @@ export default function RenewalsCashWorkspacePage() {
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
         <div className={revealClass(120)} style={revealStyle(120)}>
-          <div className="rounded-[32px] border border-stone-300/80 bg-[linear-gradient(180deg,rgba(255,252,248,0.98),rgba(248,245,241,0.96))] shadow-[0_30px_80px_-48px_rgba(120,53,15,0.28)] dark:border-zinc-800 dark:bg-[linear-gradient(180deg,rgba(39,39,42,0.98),rgba(24,24,27,0.96))]">
-            <div className="border-b border-stone-300/70 px-5 py-5 dark:border-zinc-800">
+          <div className="rounded-[22px] border border-[#ddd4ca] bg-[linear-gradient(180deg,rgba(255,252,248,0.98),rgba(248,243,236,0.96))] shadow-[0_28px_64px_-48px_rgba(31,42,51,0.14)]">
+            <div className="border-b border-[#e5ddd4] px-4 py-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-stone-300/70 bg-stone-950 shadow-sm dark:border-zinc-700 dark:bg-amber-400">
-                  <HandCoins className="h-5 w-5 text-amber-300 dark:text-zinc-950" />
+                <div className="flex h-9 w-9 items-center justify-center rounded-[12px] border border-[#d8cec3] bg-white/82 shadow-sm">
+                  <HandCoins className="h-4 w-4 text-[#2f6e73]" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-500 dark:text-zinc-400">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#7c8791]">
                     Coda operativa
                   </p>
-                  <h2 className="mt-1 text-xl font-bold tracking-[-0.02em] text-stone-950 dark:text-stone-50">
+                  <h2 className="mt-1 text-lg font-bold tracking-[-0.02em] text-[#1f2a33]">
                     Queue economica
                   </h2>
-                  <p className="mt-1 text-sm text-stone-600 dark:text-zinc-400">
+                  <p className="mt-1 text-[12px] text-[#5f6b76]">
                     Prima i soldi che stanno gia bruciando, poi le scadenze che vuoi anticipare.
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="space-y-5 p-5">
+            <div className="space-y-4 p-4">
               {!hasCases ? (
                 <EmptyState
                   icon={HandCoins}
@@ -448,9 +684,10 @@ export default function RenewalsCashWorkspacePage() {
                       total={criticalTotal}
                       items={criticalItems}
                       selectedCaseId={selectedCaseId}
-                      onSelect={setRequestedCaseId}
+                      onSelect={selectCase}
+                      onRevealDetail={revealCaseDetail}
+                      hrefTransform={decorateFinanceHrefForCase}
                       emptyMessage="Nessun caso economico critico."
-                      tone="border-red-300/70 bg-[linear-gradient(160deg,rgba(254,242,242,0.92),rgba(255,247,237,0.88))] text-red-800 dark:border-red-900/40 dark:bg-[linear-gradient(160deg,rgba(69,10,10,0.32),rgba(67,20,7,0.22))] dark:text-red-200"
                     />
                   )}
 
@@ -461,9 +698,10 @@ export default function RenewalsCashWorkspacePage() {
                       total={todayTotal}
                       items={todayItems}
                       selectedCaseId={selectedCaseId}
-                      onSelect={setRequestedCaseId}
+                      onSelect={selectCase}
+                      onRevealDetail={revealCaseDetail}
+                      hrefTransform={decorateFinanceHrefForCase}
                       emptyMessage="Nessun caso economico da chiudere oggi."
-                      tone="border-amber-300/70 bg-[linear-gradient(160deg,rgba(255,251,235,0.96),rgba(255,247,237,0.9))] text-amber-800 dark:border-amber-900/40 dark:bg-[linear-gradient(160deg,rgba(69,26,3,0.3),rgba(67,20,7,0.22))] dark:text-amber-200"
                     />
                   )}
 
@@ -474,9 +712,10 @@ export default function RenewalsCashWorkspacePage() {
                       total={upcomingTotal}
                       items={upcomingItems}
                       selectedCaseId={selectedCaseId}
-                      onSelect={setRequestedCaseId}
+                      onSelect={selectCase}
+                      onRevealDetail={revealCaseDetail}
+                      hrefTransform={decorateFinanceHrefForCase}
                       emptyMessage="Nessun caso economico in arrivo nei prossimi 7 giorni."
-                      tone="border-orange-300/70 bg-[linear-gradient(160deg,rgba(255,247,237,0.96),rgba(255,251,235,0.9))] text-orange-800 dark:border-orange-900/40 dark:bg-[linear-gradient(160deg,rgba(67,20,7,0.28),rgba(69,26,3,0.2))] dark:text-orange-200"
                     />
                   )}
 
@@ -484,44 +723,58 @@ export default function RenewalsCashWorkspacePage() {
                     <section className="space-y-3">
                       <button
                         type="button"
-                        onClick={() => setShowWaiting((current) => !current)}
-                        className="flex w-full items-center justify-between rounded-[26px] border border-stone-300/80 bg-[linear-gradient(160deg,rgba(245,245,244,0.96),rgba(255,255,255,0.86))] px-4 py-4 text-left transition-colors hover:bg-stone-100 dark:border-zinc-800 dark:bg-[linear-gradient(160deg,rgba(39,39,42,0.96),rgba(24,24,27,0.9))] dark:hover:bg-zinc-900"
+                        onClick={() =>
+                          replaceFinanceState((params) => {
+                            const nextOpen = !showWaiting;
+                            if (nextOpen) params.set("waiting", "1");
+                            else params.delete("waiting");
+                          })
+                        }
+                        className="flex w-full items-center justify-between rounded-[18px] border border-[#ddd4ca] bg-[#f4efe8] px-4 py-3 text-left transition-colors hover:bg-[#efe8de]"
                       >
                         <div>
                           <div className="flex items-center gap-2">
-                            <h3 className="text-base font-semibold text-stone-900 dark:text-stone-50">Da pianificare</h3>
-                            <span className="rounded-full border border-stone-300/80 bg-white/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-stone-600 dark:border-zinc-700 dark:bg-zinc-950/60 dark:text-zinc-300">
+                            <h3 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1f2a33]">Da pianificare</h3>
+                            <span className="rounded-full border border-[#d8cec3] bg-white/82 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#6b7680]">
                               {waitingTotal}
                             </span>
                           </div>
-                          <p className="mt-1 text-sm text-stone-600 dark:text-zinc-400">
+                          <p className="mt-1 text-[13px] text-[#5f6b76]">
                             Backlog economico non urgente, utile quando la giornata si alleggerisce.
                           </p>
                           {showWaiting && waitingTotal > waitingItems.length && (
-                            <p className="mt-1 text-xs text-stone-500 dark:text-zinc-500">
+                            <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-[#7c8791]">
                               Mostro {waitingItems.length} casi su {waitingTotal} in questa vista iniziale.
                             </p>
                           )}
                         </div>
                         {showWaiting ? (
-                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                          <ChevronDown className="h-4 w-4 text-[#7c8791]" />
                         ) : (
-                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          <ChevronRight className="h-4 w-4 text-[#7c8791]" />
                         )}
                       </button>
 
                       {showWaiting && (
-                        <div className="space-y-3">
+                        <div className="overflow-hidden rounded-[20px] border border-[#ded5ca] bg-[linear-gradient(180deg,rgba(255,252,248,0.98),rgba(247,242,234,0.96))] shadow-[0_24px_56px_-42px_rgba(31,42,51,0.14)]">
+                          <div className="hidden border-b border-[#e8dfd5] px-3 py-2 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#7c8791] xl:grid xl:grid-cols-[minmax(0,2.2fr)_120px_150px_132px]">
+                            <span>Caso</span>
+                            <span>Tempo</span>
+                            <span>Importo</span>
+                            <span>Azione</span>
+                          </div>
+                          <div className="divide-y divide-[#ebe3d9] p-1">
                           {waitingItems.map((item) => (
-                            <WorkspaceCaseCard
+                            <FinanceLedgerRow
                               key={item.case_id}
                               item={item}
                               selected={item.case_id === selectedCaseId}
-                              onSelect={() => setRequestedCaseId(item.case_id)}
-                              showFinanceSummary
-                              variant="finance"
+                              onSelect={() => selectCase(item.case_id)}
+                              onRevealDetail={() => revealCaseDetail(item.case_id)}
+                              hrefTransform={decorateFinanceHrefForCase}
                             />
                           ))}
+                          </div>
                         </div>
                       )}
                     </section>
@@ -532,7 +785,7 @@ export default function RenewalsCashWorkspacePage() {
           </div>
         </div>
 
-        <div className={revealClass(170)} style={revealStyle(170)}>
+        <div ref={detailPanelRef} className={revealClass(170)} style={revealStyle(170)}>
           <div className="xl:sticky xl:top-6">
             <WorkspaceDetailPanel
               selectedCase={selectedCase}
@@ -541,6 +794,7 @@ export default function RenewalsCashWorkspacePage() {
               isError={detailQuery.isError}
               onRetry={() => void detailQuery.refetch()}
               variant="finance"
+              hrefTransform={decorateFinanceHref}
             />
           </div>
         </div>

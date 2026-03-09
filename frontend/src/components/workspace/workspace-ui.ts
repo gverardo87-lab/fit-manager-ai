@@ -140,6 +140,75 @@ export const WORKSPACE_CASE_KIND_META: Record<
   },
 };
 
+export const FINANCE_TOKEN_TONES = {
+  subtlePill: "border border-[#d9d0c5] bg-[#fffdf9] text-[#5f6b76]",
+  subtlePillStrong: "border border-[#d3cbc0] bg-[#f7f1e8] text-[#4d5a65]",
+  accentPill: "border border-[#c9dcdc] bg-[#eaf4f3] text-[#2f6e73]",
+  warmPill: "border border-[#e1cec1] bg-[#f8ebe4] text-[#935646]",
+  contextChip: "border border-[#d9d0c5] bg-[#fffdf9] text-[#31404b]",
+  signalCard: "border border-[#e8dfd5] bg-white/88 text-[#31404b]",
+} as const;
+
+export const FINANCE_SEVERITY_META: Record<
+  CaseSeverity,
+  {
+    label: string;
+    tone: string;
+  }
+> = {
+  critical: {
+    label: "Critica",
+    tone: "border border-[#dec0b3] bg-[#f7e5de] text-[#925343]",
+  },
+  high: {
+    label: "Alta",
+    tone: "border border-[#e2cfad] bg-[#f7ecd9] text-[#8b6630]",
+  },
+  medium: {
+    label: "Media",
+    tone: "border border-[#c9dcdc] bg-[#eaf4f3] text-[#2f6e73]",
+  },
+  low: {
+    label: "Bassa",
+    tone: "border border-[#d8d1c6] bg-[#f2ede6] text-[#5f6b76]",
+  },
+};
+
+const FINANCE_CASE_KIND_META: Partial<
+  Record<
+    CaseKind,
+    {
+      label: string;
+      tone: string;
+    }
+  >
+> = {
+  payment_overdue: {
+    label: "Incasso",
+    tone: "border border-[#e3c7bc] bg-[#f9e9e2] text-[#985846]",
+  },
+  payment_due_soon: {
+    label: "In arrivo",
+    tone: "border border-[#e3d4c5] bg-[#f7efe6] text-[#9a6c4e]",
+  },
+  contract_renewal_due: {
+    label: "Rinnovo",
+    tone: "border border-[#cddfe0] bg-[#eaf4f3] text-[#2f6e73]",
+  },
+  recurring_expense_due: {
+    label: "Spesa",
+    tone: "border border-[#ddd0bf] bg-[#f3ebe2] text-[#785f4d]",
+  },
+};
+
+export function getFinanceSeverityMeta(severity: CaseSeverity) {
+  return FINANCE_SEVERITY_META[severity];
+}
+
+export function getFinanceCaseKindMeta(caseKind: CaseKind) {
+  return FINANCE_CASE_KIND_META[caseKind] ?? WORKSPACE_CASE_KIND_META[caseKind];
+}
+
 const DATE_FORMATTER = new Intl.DateTimeFormat("it-IT", {
   day: "numeric",
   month: "short",
@@ -150,6 +219,12 @@ const DATETIME_FORMATTER = new Intl.DateTimeFormat("it-IT", {
   month: "short",
   hour: "2-digit",
   minute: "2-digit",
+});
+
+const EUR_FORMATTER = new Intl.NumberFormat("it-IT", {
+  style: "currency",
+  currency: "EUR",
+  maximumFractionDigits: 2,
 });
 
 export function formatWorkspaceDate(value: string | null): string | null {
@@ -164,6 +239,11 @@ export function formatWorkspaceDateTime(value: string | null): string | null {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return null;
   return DATETIME_FORMATTER.format(parsed);
+}
+
+export function formatFinanceAmount(value: number | null | undefined): string | null {
+  if (value === null || value === undefined) return null;
+  return EUR_FORMATTER.format(value);
 }
 
 export function getCaseDueLabel(item: OperationalCase): string {

@@ -22,16 +22,23 @@ import type { ClientEnriched } from "@/types/api";
 interface ClientProfileHeaderProps {
   client: ClientEnriched;
   onEdit: () => void;
+  backHref?: string;
+  backLabel?: string;
 }
 
-export function ClientProfileHeader({ client, onEdit }: ClientProfileHeaderProps) {
+export function ClientProfileHeader({
+  client,
+  onEdit,
+  backHref = "/clienti",
+  backLabel = "Torna ai clienti",
+}: ClientProfileHeaderProps) {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       {/* ── Left: back + avatar + identity ── */}
       <div className="flex items-center gap-4">
         <Link
-          href="/clienti"
-          title="Torna ai clienti"
+          href={backHref}
+          title={backLabel}
           className="flex h-9 w-9 items-center justify-center rounded-lg border bg-background transition-colors hover:bg-accent"
         >
           <ArrowLeft className="h-4 w-4" />
