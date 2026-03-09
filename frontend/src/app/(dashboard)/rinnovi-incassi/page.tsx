@@ -38,6 +38,14 @@ const FINANCE_FILTERS: Array<{
   { id: "recurring_expense_due", label: "Spese ricorrenti", caseKind: "recurring_expense_due" },
 ];
 
+const FINANCE_VIEWPORT_LIMITS = {
+  now: 3,
+  today: 4,
+  upcoming_3d: 3,
+  upcoming_7d: 3,
+  waiting: 6,
+} as const;
+
 function buildFinanceBrief({
   criticalCount,
   todayCount,
@@ -84,6 +92,7 @@ function HeaderPill({
 function FinanceQueueSection({
   title,
   subtitle,
+  total,
   items,
   selectedCaseId,
   onSelect,
@@ -91,6 +100,7 @@ function FinanceQueueSection({
 }: {
   title: string;
   subtitle: string;
+  total: number;
   items: OperationalCase[];
   selectedCaseId: string;
   onSelect: (caseId: string) => void;
@@ -102,10 +112,15 @@ function FinanceQueueSection({
         <div className="flex items-center gap-2">
           <h3 className="text-base font-semibold">{title}</h3>
           <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            {items.length}
+            {total}
           </span>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
+        {total > items.length && items.length > 0 && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            Mostro {items.length} casi su {total} in questa vista iniziale.
+          </p>
+        )}
       </div>
 
       {items.length === 0 ? (
@@ -136,23 +151,84 @@ export default function RenewalsCashWorkspacePage() {
   const [showWaiting, setShowWaiting] = useState(false);
 
   const selectedFilter = FINANCE_FILTERS.find((item) => item.id === filter) ?? FINANCE_FILTERS[0];
-  const casesQuery = useWorkspaceCases(
+  const summaryQuery = useWorkspaceCases(
     {
       workspace: "renewals_cash",
       page: 1,
-      page_size: 100,
+      page_size: 1,
       sort_by: "priority",
       case_kind: selectedFilter.caseKind,
     },
     true,
   );
-  const financeData = casesQuery.data;
-  const items = financeData?.items ?? [];
-  const criticalItems = items.filter((item) => item.bucket === "now");
-  const todayItems = items.filter((item) => item.bucket === "today");
-  const upcomingItems = items.filter((item) => item.bucket === "upcoming_3d" || item.bucket === "upcoming_7d");
-  const waitingItems = items.filter((item) => item.bucket === "waiting");
-  const visibleItems = [...criticalItems, ...todayItems, ...upcomingItems, ...waitingItems];
+  const criticalQuery = useWorkspaceCases(
+    {
+      workspace: "renewals_cash",
+      page: 1,
+      page_size: FINANCE_VIEWPORT_LIMITS.now,
+      sort_by: "priority",
+      bucket: "now",
+      case_kind: selectedFilter.caseKind,
+    },
+    true,
+  );
+  const todayQuery = useWorkspaceCases(
+    {
+      workspace: "renewals_cash",
+      page: 1,
+      page_size: FINANCE_VIEWPORT_LIMITS.today,
+      sort_by: "priority",
+      bucket: "today",
+      case_kind: selectedFilter.caseKind,
+    },
+    true,
+  );
+  const upcoming3dQuery = useWorkspaceCases(
+    {
+      workspace: "renewals_cash",
+      page: 1,
+      page_size: FINANCE_VIEWPORT_LIMITS.upcoming_3d,
+      sort_by: "priority",
+      bucket: "upcoming_3d",
+      case_kind: selectedFilter.caseKind,
+    },
+    true,
+  );
+  const upcoming7dQuery = useWorkspaceCases(
+    {
+      workspace: "renewals_cash",
+      page: 1,
+      page_size: FINANCE_VIEWPORT_LIMITS.upcoming_7d,
+      sort_by: "priority",
+      bucket: "upcoming_7d",
+      case_kind: selectedFilter.caseKind,
+    },
+    true,
+  );
+  const waitingQuery = useWorkspaceCases(
+    {
+      workspace: "renewals_cash",
+      page: 1,
+      page_size: FINANCE_VIEWPORT_LIMITS.waiting,
+      sort_by: "priority",
+      bucket: "waiting",
+      case_kind: selectedFilter.caseKind,
+    },
+    showWaiting,
+  );
+
+  const financeData = summaryQuery.data;
+  const criticalItems = criticalQuery.data?.items ?? [];
+  const criticalTotal = criticalQuery.data?.total ?? 0;
+  const todayItems = todayQuery.data?.items ?? [];
+  const todayTotal = todayQuery.data?.total ?? 0;
+  const upcoming3dItems = upcoming3dQuery.data?.items ?? [];
+  const upcoming7dItems = upcoming7dQuery.data?.items ?? [];
+  const upcomingItems = [...upcoming3dItems, ...upcoming7dItems];
+  const upcomingTotal = (upcoming3dQuery.data?.total ?? 0) + (upcoming7dQuery.data?.total ?? 0);
+  const waitingItems = waitingQuery.data?.items ?? [];
+  const waitingTotal = financeData?.summary.waiting_count ?? waitingQuery.data?.total ?? 0;
+  const visibleItems = [...criticalItems, ...todayItems, ...upcomingItems, ...(showWaiting ? waitingItems : [])];
   const selectedCaseId =
     (requestedCaseId && visibleItems.some((item) => item.case_id === requestedCaseId) && requestedCaseId) ||
     visibleItems[0]?.case_id ||
@@ -165,8 +241,22 @@ export default function RenewalsCashWorkspacePage() {
     },
     Boolean(selectedCase?.case_id),
   );
+  const isLoading =
+    summaryQuery.isLoading ||
+    criticalQuery.isLoading ||
+    todayQuery.isLoading ||
+    upcoming3dQuery.isLoading ||
+    upcoming7dQuery.isLoading ||
+    (showWaiting && waitingQuery.isLoading);
+  const isError =
+    summaryQuery.isError ||
+    criticalQuery.isError ||
+    todayQuery.isError ||
+    upcoming3dQuery.isError ||
+    upcoming7dQuery.isError ||
+    (showWaiting && waitingQuery.isError);
 
-  if (casesQuery.isLoading) {
+  if (isLoading && !financeData) {
     return (
       <div className="space-y-5">
         <Skeleton className="h-36 rounded-3xl" />
@@ -178,7 +268,7 @@ export default function RenewalsCashWorkspacePage() {
     );
   }
 
-  if (casesQuery.isError || !financeData) {
+  if (isError || !financeData) {
     return (
       <div className="rounded-3xl border border-destructive/40 bg-destructive/5 p-6">
         <div className="flex items-start gap-3">
@@ -190,7 +280,18 @@ export default function RenewalsCashWorkspacePage() {
             </p>
           </div>
         </div>
-        <Button size="sm" className="mt-4" onClick={() => void casesQuery.refetch()}>
+        <Button
+          size="sm"
+          className="mt-4"
+          onClick={() => {
+            void summaryQuery.refetch();
+            void criticalQuery.refetch();
+            void todayQuery.refetch();
+            void upcoming3dQuery.refetch();
+            void upcoming7dQuery.refetch();
+            if (showWaiting) void waitingQuery.refetch();
+          }}
+        >
           <RefreshCw className="mr-2 h-3.5 w-3.5" />
           Riprova
         </Button>
@@ -204,7 +305,13 @@ export default function RenewalsCashWorkspacePage() {
     upcomingCount: financeData.summary.upcoming_7d_count,
     waitingCount: financeData.summary.waiting_count,
   });
-  const hasCases = visibleItems.length > 0;
+  const totalVisible = criticalItems.length + todayItems.length + upcomingItems.length + (showWaiting ? waitingItems.length : 0);
+  const totalCases =
+    financeData.summary.now_count +
+    financeData.summary.today_count +
+    financeData.summary.upcoming_7d_count +
+    financeData.summary.waiting_count;
+  const hasCases = totalCases > 0;
 
   return (
     <div className="space-y-5">
@@ -229,10 +336,9 @@ export default function RenewalsCashWorkspacePage() {
               </div>
             </div>
             <p className="mt-4 text-sm leading-6 text-foreground/85 sm:text-[15px]">{brief}</p>
-            {financeData.total > items.length && (
+            {totalCases > totalVisible && (
               <p className="mt-3 text-xs text-muted-foreground">
-                Vista iniziale dei primi {items.length} casi su {financeData.total}. La coda completa resta sul contratto
-                workspace.
+                Vista iniziale dei primi {totalVisible} casi su {totalCases}, con budget per bucket e paginazione server-side.
               </p>
             )}
           </div>
@@ -315,6 +421,7 @@ export default function RenewalsCashWorkspacePage() {
                   <FinanceQueueSection
                     title="Critici"
                     subtitle="Incassi gia in ritardo o casi che non dovrebbero aspettare."
+                    total={criticalTotal}
                     items={criticalItems}
                     selectedCaseId={selectedCaseId}
                     onSelect={setRequestedCaseId}
@@ -324,6 +431,7 @@ export default function RenewalsCashWorkspacePage() {
                   <FinanceQueueSection
                     title="Oggi"
                     subtitle="Scadenze e rinnovi che conviene chiudere in questa giornata."
+                    total={todayTotal}
                     items={todayItems}
                     selectedCaseId={selectedCaseId}
                     onSelect={setRequestedCaseId}
@@ -333,13 +441,14 @@ export default function RenewalsCashWorkspacePage() {
                   <FinanceQueueSection
                     title="Entro 7 giorni"
                     subtitle="Pressione economica vicina che vuoi anticipare prima che diventi critica."
+                    total={upcomingTotal}
                     items={upcomingItems}
                     selectedCaseId={selectedCaseId}
                     onSelect={setRequestedCaseId}
                     emptyMessage="Nessun caso economico in arrivo nei prossimi 7 giorni."
                   />
 
-                  {waitingItems.length > 0 && (
+                  {waitingTotal > 0 && (
                     <section className="space-y-3">
                       <button
                         type="button"
@@ -350,12 +459,17 @@ export default function RenewalsCashWorkspacePage() {
                           <div className="flex items-center gap-2">
                             <h3 className="text-base font-semibold">Da pianificare</h3>
                             <span className="rounded-full bg-background px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                              {waitingItems.length}
+                              {waitingTotal}
                             </span>
                           </div>
                           <p className="mt-1 text-sm text-muted-foreground">
                             Backlog economico non urgente, utile quando la giornata si alleggerisce.
                           </p>
+                          {showWaiting && waitingTotal > waitingItems.length && (
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              Mostro {waitingItems.length} casi su {waitingTotal} in questa vista iniziale.
+                            </p>
+                          )}
                         </div>
                         {showWaiting ? (
                           <ChevronDown className="h-4 w-4 text-muted-foreground" />

@@ -36,6 +36,7 @@ Esempio:
 
 ## Ultimo allineamento (2026-03-09)
 
+- `UPG-2026-03-09-25`: il shell `Rinnovi & Incassi` ora applica un budget visivo per bucket senza nuovi endpoint: query server-side separate per `Critici`, `Oggi`, `Entro 7 giorni` e `Da pianificare`, con `waiting` caricato solo su espansione. Decisione chiave: niente slicing locale di una lista monolitica; la shell usa il contratto `workspace/cases` nel modo corretto.
 - `UPG-2026-03-09-24`: `Rinnovi & Incassi` ora applica una dominanza finance-specifica pulita: se un contratto ha gia un `payment_due_soon`, il corrispondente `contract_renewal_due` non viene generato. Decisione chiave: una sola riga per contratto nella finestra breve, cosi il trainer vede prima l'incasso imminente e il rinnovo riemerge solo quando torna il momento giusto.
 - `UPG-2026-03-09-23`: il workspace `Rinnovi & Incassi` ora espone anche `recurring_expense_due`, ma senza inventare una seconda verita finance: il case nasce dallo stesso helper condiviso che alimenta `pending-expenses` e sparisce dopo `POST /confirm-expenses`. Decisione chiave: anche questa famiglia resta confinata al workspace finance e non rientra in `Oggi`.
 - `UPG-2026-03-09-22`: il workspace `Rinnovi & Incassi` ora espone anche `payment_due_soon`: rate `PENDENTE/PARZIALE` in scadenza entro 7 giorni aggregate per contratto, soppresse se sullo stesso contratto esiste gia un arretrato. Decisione chiave: questi incassi in arrivo restano nel workspace finance e non rientrano in `Oggi`, per non riaprire il rumore cross-domain.
