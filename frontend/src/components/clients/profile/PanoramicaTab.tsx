@@ -64,14 +64,14 @@ const JOURNEY_PHASES: JourneyPhase[] = [
     label: "Anamnesi",
     icon: HeartPulse,
     getCompleted: (p) => p.readiness?.anamnesi_state === "structured",
-    getAction: (p) => ({ type: "link", href: `/clienti/${p.clientId}/anamnesi` }),
+    getAction: (p) => ({ type: "link", href: `/clienti/${p.clientId}/anamnesi?from=clienti-${p.clientId}` }),
   },
   {
     key: "misurazioni",
     label: "Misurazioni",
     icon: Ruler,
     getCompleted: (p) => p.readiness?.has_measurements ?? false,
-    getAction: (p) => ({ type: "link", href: `/clienti/${p.clientId}/progressi` }),
+    getAction: (p) => ({ type: "link", href: `/clienti/${p.clientId}/progressi?from=clienti-${p.clientId}` }),
   },
   {
     key: "scheda",
@@ -92,7 +92,7 @@ const JOURNEY_PHASES: JourneyPhase[] = [
 const QUICK_ACCESS = [
   {
     key: "portale",
-    href: (id: number) => `/monitoraggio/${id}`,
+    href: (id: number) => `/monitoraggio/${id}?from=clienti-${id}`,
     icon: ClipboardList,
     label: "Portale Clinico",
     description: "Panoramica 360° con tracking completo",
@@ -102,7 +102,7 @@ const QUICK_ACCESS = [
   },
   {
     key: "progressi",
-    href: (id: number) => `/clienti/${id}/progressi`,
+    href: (id: number) => `/clienti/${id}/progressi?from=clienti-${id}`,
     icon: TrendingUp,
     label: "Progressi Fisici",
     description: "Misurazioni, obiettivi e analisi clinica",
@@ -112,7 +112,7 @@ const QUICK_ACCESS = [
   },
   {
     key: "anamnesi",
-    href: (id: number) => `/clienti/${id}/anamnesi`,
+    href: (id: number) => `/clienti/${id}/anamnesi?from=clienti-${id}`,
     icon: HeartPulse,
     label: "Anamnesi",
     description: "Questionario clinico e stile di vita",

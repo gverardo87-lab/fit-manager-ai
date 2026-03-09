@@ -212,7 +212,7 @@ export function GoalsSection({
 
             {/* CTAs */}
             <div className="flex flex-wrap justify-end gap-2">
-              <Link href={`/clienti/${clientId}/progressi`}>
+              <Link href={`/clienti/${clientId}/progressi?from=monitoraggio-${clientId}`}>
                 <Button size="sm" variant="outline" className="gap-1.5">
                   <TrendingUp className="h-3.5 w-3.5" />
                   Vedi Progressi

@@ -215,7 +215,7 @@ export function ProgramSection({
 
             {/* CTAs */}
             <div className="flex flex-wrap justify-end gap-2">
-              <Link href={`/allenamenti?idCliente=${clientId}`}>
+              <Link href={`/allenamenti?idCliente=${clientId}&from=monitoraggio-${clientId}`}>
                 <Button size="sm" variant="outline" className="gap-1.5">
                   <ClipboardList className="h-3.5 w-3.5" />
                   Vedi aderenza

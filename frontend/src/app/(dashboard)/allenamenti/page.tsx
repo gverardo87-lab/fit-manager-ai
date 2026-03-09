@@ -169,6 +169,18 @@ export default function AllenamentiPage() {
   const { revealClass, revealStyle } = usePageReveal();
   const router = useRouter();
   const initialClientId = getUrlParams().get("idCliente");
+  const fromParam = getUrlParams().get("from");
+
+  const backNav = useMemo(() => {
+    if (fromParam?.startsWith("clienti-")) {
+      const cId = fromParam.replace("clienti-", "");
+      return { href: `/clienti/${cId}?tab=schede`, label: "Profilo cliente" };
+    }
+    if (fromParam === "monitoraggio") {
+      return { href: "/monitoraggio", label: "Monitoraggio" };
+    }
+    return null;
+  }, [fromParam]);
 
   const { data: workoutsData, isLoading: loadingWorkouts } = useWorkouts();
   const { data: clientsData } = useClients();
@@ -281,6 +293,16 @@ export default function AllenamentiPage() {
 
   return (
     <div className="space-y-6">
+      {/* ── Back banner (context-aware) ── */}
+      {backNav && (
+        <Link href={backNav.href}>
+          <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground">
+            <ArrowLeft className="h-4 w-4" />
+            {backNav.label}
+          </Button>
+        </Link>
+      )}
+
       {/* ── Header con icona gradient ── */}
       <div data-guide="monitoraggio-header" className={revealClass(0, "flex items-center gap-3")} style={revealStyle(0)}>
         <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-teal-100 to-teal-200 dark:from-teal-900/40 dark:to-teal-800/30">

@@ -29,6 +29,9 @@ interface PortalHeaderProps {
   bmi: number | null;
   bmiClassifica: string | null;
   compliancePct: number | null;
+  /** Override back link based on ?from= context */
+  backHref?: string;
+  backLabel?: string;
 }
 
 const SEVERITY_BADGE: Record<Severity, string> = {
@@ -59,6 +62,8 @@ export function PortalHeader({
   bmi,
   bmiClassifica,
   compliancePct,
+  backHref,
+  backLabel,
 }: PortalHeaderProps) {
   const age = computeAge(client.data_nascita);
   const sesso = client.sesso === "M" ? "Uomo" : client.sesso === "F" ? "Donna" : null;
@@ -97,17 +102,17 @@ export function PortalHeader({
 
   return (
     <div className="space-y-4">
-      {/* Back nav */}
+      {/* Back nav — context-aware */}
       <div className="flex items-center gap-2">
-        <Link href="/monitoraggio">
+        <Link href={backHref ?? "/monitoraggio"}>
           <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground">
             <ArrowLeft className="h-4 w-4" />
-            Monitoraggio
+            {backLabel ?? "Monitoraggio"}
           </Button>
         </Link>
         <span className="text-muted-foreground/40">/</span>
         <Link
-          href={`/clienti/${client.id}`}
+          href={`/clienti/${client.id}?from=monitoraggio-${client.id}`}
           className="text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           Profilo

@@ -101,7 +101,7 @@ export function SchedeTab({ clientId, onNewScheda }: SchedeTabProps) {
       </div>
       <div className="flex justify-end">
         <Link
-          href={`/allenamenti?idCliente=${clientId}`}
+          href={`/allenamenti?idCliente=${clientId}&from=clienti-${clientId}`}
           className="text-xs text-primary hover:underline"
         >
           Vedi aderenza allenamenti →

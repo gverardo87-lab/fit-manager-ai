@@ -11,6 +11,7 @@
  */
 
 import { use, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { PortalHeader } from "@/components/portal/PortalHeader";
 import { PortalNav } from "@/components/portal/PortalNav";
@@ -50,7 +51,18 @@ export default function MonitoraggioClientDetailPage({
 }) {
   const { id } = use(params);
   const clientId = parseInt(id, 10);
+  const searchParams = useSearchParams();
+  const fromParam = searchParams.get("from");
   const { revealClass, revealStyle } = usePageReveal();
+
+  // Context-aware back navigation
+  const backNav = useMemo(() => {
+    if (fromParam?.startsWith("clienti-")) {
+      const cId = fromParam.replace("clienti-", "");
+      return { href: `/clienti/${cId}`, label: "Profilo cliente" };
+    }
+    return undefined;
+  }, [fromParam]);
 
   // Data loading — 9 hook
   const { data: client, isLoading: clientLoading } = useClient(clientId);
@@ -187,6 +199,8 @@ export default function MonitoraggioClientDetailPage({
           bmi={bmiValue}
           bmiClassifica={bmiClassifica}
           compliancePct={compliancePct}
+          backHref={backNav?.href}
+          backLabel={backNav?.label}
         />
       </div>
 

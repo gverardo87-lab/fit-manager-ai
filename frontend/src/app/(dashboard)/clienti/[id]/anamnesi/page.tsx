@@ -11,7 +11,7 @@
  * Back button: torna al profilo cliente.
  */
 
-import { use, useCallback, useEffect, useRef, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -56,6 +56,15 @@ export default function AnamnesiPage({
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
+  const fromParam = searchParams.get("from");
+
+  const backNav = useMemo(() => {
+    if (fromParam?.startsWith("monitoraggio-")) {
+      const cId = fromParam.replace("monitoraggio-", "");
+      return { href: `/monitoraggio/${cId}`, label: "Portale Clinico" };
+    }
+    return { href: `/clienti/${clientId}`, label: "Profilo" };
+  }, [fromParam, clientId]);
 
   const { data: client, isLoading } = useClient(clientId);
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -102,8 +111,9 @@ export default function AnamnesiPage({
       {/* Header */}
       <div className="flex items-center gap-4">
         <Link
-          href={`/clienti/${clientId}`}
+          href={backNav.href}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border bg-white shadow-sm transition-colors hover:bg-zinc-50 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+          title={`Torna a ${backNav.label}`}
         >
           <ArrowLeft className="h-4 w-4" />
         </Link>

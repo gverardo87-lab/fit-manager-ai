@@ -75,6 +75,15 @@ export default function MisurazionePage({
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit");
+  const fromParam = searchParams.get("from");
+
+  const backHref = useMemo(() => {
+    if (fromParam?.startsWith("monitoraggio-")) {
+      const cId = fromParam.replace("monitoraggio-", "");
+      return `/monitoraggio/${cId}`;
+    }
+    return `/clienti/${clientId}/progressi`;
+  }, [fromParam, clientId]);
 
   // Data
   const { data: client, isLoading: clientLoading } = useClient(clientId);
@@ -153,7 +162,7 @@ export default function MisurazionePage({
 
   const goBack = (force = false) => {
     if (!force && isDirty && !window.confirm("Hai modifiche non salvate. Vuoi davvero uscire?")) return;
-    router.push(`/clienti/${clientId}/progressi`);
+    router.push(backHref);
   };
 
   const handleSubmit = () => {

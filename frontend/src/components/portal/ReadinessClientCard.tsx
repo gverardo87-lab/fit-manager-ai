@@ -173,7 +173,7 @@ export function ReadinessClientRow({ item, expanded, onToggle }: ReadinessClient
 
         {/* CTA — always shows next_action_label; when ready → Portale */}
         <Link
-          href={isReady ? `/monitoraggio/${item.client_id}` : item.next_action_href}
+          href={isReady ? `/monitoraggio/${item.client_id}?from=monitoraggio` : item.next_action_href}
           onClick={(e) => e.stopPropagation()}
           className="shrink-0"
         >

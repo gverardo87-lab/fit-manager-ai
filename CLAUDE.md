@@ -1236,6 +1236,16 @@ Regola di sicurezza: meglio fermarsi e riallineare che aprire merge conflict su 
 - DEVE avere TUTTI i campi di `WorkoutExerciseRow`, inclusi quelli nullable (= `null`)
 - Il build fallisce se manca un campo required nell'interfaccia
 
+### Quando aggiungi un Link cross-page (COMANDAMENTO SACRO)
+Ogni link che naviga a un'altra pagina DEVE essere **bidirezionale**:
+1. Il link DEVE includere `?from=sourceContext` (es. `?from=clienti-5`, `?from=monitoraggio-5`, `?from=dashboard`)
+2. La pagina destinazione DEVE leggere `searchParams.get("from")` e mostrare un back button/banner che torna esattamente alla pagina sorgente
+3. Se la destinazione gia' ha un back button hardcoded (es. `href="/clienti/{id}"`), renderlo dinamico basato su `?from=`
+4. Pattern `from` consolidati: `clienti-{id}`, `monitoraggio-{id}`, `monitoraggio`, `dashboard`, `scheda-{id}`, `allenamenti`, `schede`
+5. Se il link ha gia' query params (es. `?new=1`), aggiungere `&from=...` (non sovrascrivere)
+6. Pagine destinazione che gia' gestiscono `?from=`: `/schede/[id]`, `/contratti/[id]`, `/esercizi/[id]`, `/monitoraggio/[id]`, `/clienti/[id]/progressi`, `/clienti/[id]/anamnesi`, `/clienti/[id]/misurazioni`, `/allenamenti`
+- **Violazione = bug di navigazione** — l'utente si perde e non torna dove era
+
 ### Prima di ogni commit
 - `bash tools/scripts/check-all.sh` — OBBLIGATORIO, zero eccezioni
 

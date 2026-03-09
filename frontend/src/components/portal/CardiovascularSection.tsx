@@ -194,7 +194,7 @@ export function CardiovascularSection({
 
             {/* CTA */}
             <div className="flex justify-end">
-              <Link href={`/clienti/${clientId}/misurazioni?new=1`}>
+              <Link href={`/clienti/${clientId}/misurazioni?new=1&from=monitoraggio-${clientId}`}>
                 <Button size="sm" variant="outline" className="gap-1.5">
                   <Plus className="h-3.5 w-3.5" />
                   Registra Misurazioni

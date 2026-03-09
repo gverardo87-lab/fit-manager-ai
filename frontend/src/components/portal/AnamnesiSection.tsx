@@ -214,7 +214,7 @@ export function AnamnesiSection({
 
             {/* CTA */}
             <div className="flex justify-end">
-              <Link href={`/clienti/${clientId}/anamnesi?startWizard=1`}>
+              <Link href={`/clienti/${clientId}/anamnesi?startWizard=1&from=monitoraggio-${clientId}`}>
                 <Button size="sm" variant="outline" className="gap-1.5">
                   <CtaIcon className="h-3.5 w-3.5" />
                   {ctaLabel}

@@ -157,7 +157,7 @@ function ProjectionClientRow({ clientId, nome, cognome, expanded, onToggle, onSu
 
         {/* CTA */}
         <Link
-          href={`/clienti/${clientId}/progressi`}
+          href={`/clienti/${clientId}/progressi?from=monitoraggio-${clientId}`}
           onClick={(e) => e.stopPropagation()}
           className="shrink-0"
         >
@@ -228,7 +228,7 @@ function ProjectionClientRow({ clientId, nome, cognome, expanded, onToggle, onSu
           {/* Bottom link */}
           <div className="mt-3 flex items-center justify-end border-t pt-3">
             <Link
-              href={`/clienti/${clientId}/progressi`}
+              href={`/clienti/${clientId}/progressi?from=monitoraggio-${clientId}`}
               className="text-xs text-muted-foreground hover:text-foreground hover:underline"
             >
               Progressi completi →
