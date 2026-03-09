@@ -374,13 +374,13 @@ export function TrainingPlanRow({ item, expanded, onToggle }: TrainingPlanRowPro
           {/* Bottom links */}
           <div className="mt-3 flex items-center justify-between border-t pt-3">
             <Link
-              href={`/schede/${item.plan_id}`}
+              href={`/schede/${item.plan_id}?from=monitoraggio`}
               className="text-xs text-muted-foreground hover:text-foreground hover:underline"
             >
               Apri scheda →
             </Link>
             <Link
-              href={`/monitoraggio/${item.client_id}`}
+              href={`/clienti/${item.client_id}`}
               className="text-xs text-muted-foreground hover:text-foreground hover:underline"
             >
               Profilo cliente →

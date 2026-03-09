@@ -253,7 +253,7 @@ export function ReadinessClientRow({ item, expanded, onToggle }: ReadinessClient
           {/* Bottom link */}
           <div className="mt-3 flex items-center justify-end border-t pt-3">
             <Link
-              href={`/monitoraggio/${item.client_id}`}
+              href={`/clienti/${item.client_id}`}
               className="text-xs text-muted-foreground hover:text-foreground hover:underline"
             >
               Profilo cliente →

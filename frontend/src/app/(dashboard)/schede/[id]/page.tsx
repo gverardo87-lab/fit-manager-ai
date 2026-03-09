@@ -436,6 +436,8 @@ export default function SchedaDetailPage({
   const fromParam = useSearchParams().get("from");
   const returnClientId = fromParam?.startsWith("clienti-") ? fromParam.slice(8) : null;
   const returnToAllenamenti = fromParam === "allenamenti";
+  const returnToMonitoraggio = fromParam === "monitoraggio" || fromParam?.startsWith("monitoraggio-");
+  const returnMonitoraggioClientId = fromParam?.startsWith("monitoraggio-") ? fromParam.slice(14) : null;
   const id = parseInt(idStr, 10);
   const router = useRouter();
 
@@ -1766,6 +1768,17 @@ export default function SchedaDetailPage({
           <ArrowLeft className="h-3.5 w-3.5 text-primary" />
           <button
             onClick={() => guardedNavigate("/allenamenti")}
+            className="text-sm text-primary hover:underline"
+          >
+            Torna agli allenamenti
+          </button>
+        </div>
+      )}
+      {returnToMonitoraggio && (
+        <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-2 flex items-center gap-2" data-print-hide>
+          <ArrowLeft className="h-3.5 w-3.5 text-primary" />
+          <button
+            onClick={() => guardedNavigate(returnMonitoraggioClientId ? `/monitoraggio/${returnMonitoraggioClientId}` : "/monitoraggio")}
             className="text-sm text-primary hover:underline"
           >
             Torna al monitoraggio
