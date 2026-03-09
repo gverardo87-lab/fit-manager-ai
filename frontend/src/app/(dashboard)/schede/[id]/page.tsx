@@ -179,7 +179,18 @@ export default function SchedaDetailPage({ params }: { params: Promise<{ id: str
                   </div>
                 ))}
               </div>
-              <Button variant="outline" className="w-full" onClick={handlers.handleAddSession}><Plus className="mr-2 h-4 w-4" />Aggiungi Sessione</Button>
+              {/* Add session — dashed placeholder card (Trello-style) */}
+              <div className="min-w-[340px] max-w-[460px]">
+                <button
+                  onClick={handlers.handleAddSession}
+                  className="w-full rounded-xl border-2 border-dashed border-muted-foreground/20 bg-muted/30 py-8 flex flex-col items-center gap-2 text-muted-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-primary transition-all duration-200 group"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted group-hover:bg-primary/10 transition-colors">
+                    <Plus className="h-5 w-5" />
+                  </div>
+                  <span className="text-sm font-medium">Aggiungi Sessione</span>
+                </button>
+              </div>
             </>
           )}
 

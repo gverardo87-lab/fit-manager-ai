@@ -97,6 +97,17 @@ interface SessionCardProps {
   onClearSection?: (sessionId: number, sezione: TemplateSection, what: "exercises" | "blocks" | "all") => void;
 }
 
+// ── Session accent colors (per-session colore bordo top) ──
+
+const SESSION_ACCENT = [
+  { border: "border-t-primary",     badge: "bg-primary/10 text-primary" },
+  { border: "border-t-blue-500",    badge: "bg-blue-500/10 text-blue-600 dark:text-blue-400" },
+  { border: "border-t-violet-500",  badge: "bg-violet-500/10 text-violet-600 dark:text-violet-400" },
+  { border: "border-t-amber-500",   badge: "bg-amber-500/10 text-amber-600 dark:text-amber-400" },
+  { border: "border-t-rose-500",    badge: "bg-rose-500/10 text-rose-600 dark:text-rose-400" },
+  { border: "border-t-emerald-500", badge: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
+];
+
 // ── Sezione config ──
 
 const SECTION_CONFIG: Record<TemplateSection, {
@@ -105,6 +116,7 @@ const SECTION_CONFIG: Record<TemplateSection, {
   addLabel: string;
   color: string;
   dividerBg: string;
+  sectionBg: string;
 }> = {
   avviamento: {
     label: "Avviamento",
@@ -112,6 +124,7 @@ const SECTION_CONFIG: Record<TemplateSection, {
     addLabel: "Aggiungi Avviamento",
     color: "text-amber-600 dark:text-amber-400",
     dividerBg: "bg-amber-200 dark:bg-amber-700",
+    sectionBg: "bg-amber-50/50 dark:bg-amber-950/20",
   },
   principale: {
     label: "Blocco Serie x Ripetizioni",
@@ -119,6 +132,7 @@ const SECTION_CONFIG: Record<TemplateSection, {
     addLabel: "Aggiungi Esercizio",
     color: "text-primary",
     dividerBg: "bg-primary/20",
+    sectionBg: "",
   },
   stretching: {
     label: "Stretching & Mobilita",
@@ -126,6 +140,7 @@ const SECTION_CONFIG: Record<TemplateSection, {
     addLabel: "Aggiungi Stretching",
     color: "text-cyan-600 dark:text-cyan-400",
     dividerBg: "bg-cyan-200 dark:bg-cyan-700",
+    sectionBg: "bg-cyan-50/50 dark:bg-cyan-950/20",
   },
 };
 
@@ -331,92 +346,104 @@ export function SessionCard({
     }
   }, [editName, session.id, session.nome_sessione, onUpdateSession]);
 
+  const accent = SESSION_ACCENT[(session.numero_sessione - 1) % SESSION_ACCENT.length];
+
   return (
     <Card
-      className="transition-all duration-200 hover:shadow-md"
+      className={`transition-all duration-200 hover:shadow-md border-t-[3px] ${accent.border}`}
       data-workout-session-id={session.id}
       data-workout-session-number={session.numero_sessione}
     >
-      <CardHeader className="flex flex-row items-center gap-2 pb-2">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
-          {session.numero_sessione}
-        </div>
-        <div className="flex-1 min-w-0 group">
-          {isEditingName ? (
-            <Input
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              onBlur={handleNameSave}
-              onKeyDown={(e) => e.key === "Enter" && handleNameSave()}
-              className="h-7 text-sm font-semibold"
-              autoFocus
-            />
-          ) : (
-            <button
-              onClick={() => { setEditName(session.nome_sessione); setIsEditingName(true); }}
-              className="flex items-center gap-1 text-sm font-semibold hover:text-primary transition-colors"
-            >
-              {session.nome_sessione}
-              {/* Dot indicatore note sessione */}
-              {session.note && (
-                <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
-              )}
-              <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-100" />
-            </button>
-          )}
-          {session.focus_muscolare && (
-            <p className="text-xs text-muted-foreground truncate">{session.focus_muscolare}</p>
-          )}
-        </div>
-        {/* Safety pills */}
-        <div className="flex items-center gap-1 shrink-0">
-          {sessionSafety.avoid > 0 && (
-            <span className="inline-flex items-center gap-0.5 rounded-full bg-red-100 dark:bg-red-950/40 px-1.5 py-0.5 text-[10px] font-medium text-red-700 dark:text-red-400">
-              <ShieldAlert className="h-3 w-3" />
-              {sessionSafety.avoid}
-            </span>
-          )}
-          {sessionSafety.caution > 0 && (
-            <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 dark:bg-amber-950/40 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
-              <AlertTriangle className="h-3 w-3" />
-              {sessionSafety.caution}
-            </span>
-          )}
-          {sessionSafety.modify > 0 && (
-            <span className="inline-flex items-center gap-0.5 rounded-full bg-blue-100 dark:bg-blue-950/40 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:text-blue-400">
-              <Info className="h-3 w-3" />
-              {sessionSafety.modify}
-            </span>
-          )}
-        </div>
-        {/* Overflow menu (⋮) — note, duplica, elimina */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => setShowNotes(!showNotes)}>
-              <StickyNote className="h-3.5 w-3.5 mr-2" />
-              {session.note ? "Modifica note" : "Aggiungi note"}
-            </DropdownMenuItem>
-            {onDuplicateSession && (
-              <DropdownMenuItem onClick={() => onDuplicateSession(session.id)}>
-                <Copy className="h-3.5 w-3.5 mr-2" />
-                Duplica sessione
-              </DropdownMenuItem>
+      <CardHeader className="pb-3 space-y-2">
+        {/* Riga 1: badge numero + nome sessione + menu */}
+        <div className="flex items-center gap-2.5">
+          <div className={`flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold ${accent.badge}`}>
+            {session.numero_sessione}
+          </div>
+          <div className="flex-1 min-w-0 group">
+            {isEditingName ? (
+              <Input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                onBlur={handleNameSave}
+                onKeyDown={(e) => e.key === "Enter" && handleNameSave()}
+                className="h-8 text-sm font-bold"
+                autoFocus
+              />
+            ) : (
+              <button
+                onClick={() => { setEditName(session.nome_sessione); setIsEditingName(true); }}
+                className="flex items-center gap-1.5 text-sm font-bold hover:text-primary transition-colors"
+              >
+                {session.nome_sessione}
+                {session.note && (
+                  <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                )}
+                <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </button>
             )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => onDeleteSession(session.id)}
-              className="text-destructive focus:text-destructive"
-            >
-              <Trash2 className="h-3.5 w-3.5 mr-2" />
-              Elimina sessione
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            {session.focus_muscolare && (
+              <p className="text-xs text-muted-foreground truncate mt-0.5">{session.focus_muscolare}</p>
+            )}
+          </div>
+          {/* Overflow menu (⋮) */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setShowNotes(!showNotes)}>
+                <StickyNote className="h-3.5 w-3.5 mr-2" />
+                {session.note ? "Modifica note" : "Aggiungi note"}
+              </DropdownMenuItem>
+              {onDuplicateSession && (
+                <DropdownMenuItem onClick={() => onDuplicateSession(session.id)}>
+                  <Copy className="h-3.5 w-3.5 mr-2" />
+                  Duplica sessione
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => onDeleteSession(session.id)}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-2" />
+                Elimina sessione
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        {/* Riga 2: safety pills + volume (sotto il nome, non compressi) */}
+        {(sessionSafety.avoid > 0 || sessionSafety.caution > 0 || sessionSafety.modify > 0 || (sessionVolume != null && sessionVolume > 0)) && (
+          <div className="flex items-center gap-1.5 flex-wrap pl-[42px]">
+            {sessionSafety.avoid > 0 && (
+              <span className="inline-flex items-center gap-0.5 rounded-full bg-red-100 dark:bg-red-950/40 px-2 py-0.5 text-[10px] font-medium text-red-700 dark:text-red-400">
+                <ShieldAlert className="h-3 w-3" />
+                {sessionSafety.avoid}
+              </span>
+            )}
+            {sessionSafety.modify > 0 && (
+              <span className="inline-flex items-center gap-0.5 rounded-full bg-blue-100 dark:bg-blue-950/40 px-2 py-0.5 text-[10px] font-medium text-blue-700 dark:text-blue-400">
+                <Info className="h-3 w-3" />
+                {sessionSafety.modify}
+              </span>
+            )}
+            {sessionSafety.caution > 0 && (
+              <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 dark:bg-amber-950/40 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                <AlertTriangle className="h-3 w-3" />
+                {sessionSafety.caution}
+              </span>
+            )}
+            {sessionVolume != null && sessionVolume > 0 && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary/8 px-2 py-0.5 text-[10px] font-semibold text-primary tabular-nums">
+                <Dumbbell className="h-2.5 w-2.5" />
+                {sessionVolume.toLocaleString("it-IT")} kg
+              </span>
+            )}
+          </div>
+        )}
       </CardHeader>
 
       {/* Note sessione espandibili */}
@@ -432,7 +459,7 @@ export function SessionCard({
         </div>
       )}
 
-      <CardContent className="pt-0 space-y-2">
+      <CardContent className="pt-1 space-y-4">
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           {SECTION_ORDER.map((sectionKey) => {
             const config = SECTION_CONFIG[sectionKey];
@@ -445,11 +472,11 @@ export function SessionCard({
             if (!hasContent && !isPrincipale) {
               return (
                 <div key={sectionKey}>
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className={`flex items-center gap-1 ${config.color} text-[11px] font-semibold uppercase tracking-wider shrink-0 opacity-50`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className={`inline-flex items-center gap-1 ${config.color} text-[10px] font-medium uppercase tracking-wider shrink-0 opacity-40`}>
                       {config.icon} {config.label}
                     </span>
-                    <div className={`flex-1 h-px ${config.dividerBg} opacity-40`} />
+                    <div className={`flex-1 h-px ${config.dividerBg} opacity-30`} />
                     <Button
                       variant="ghost"
                       size="sm"
@@ -464,26 +491,21 @@ export function SessionCard({
               );
             }
 
+            const itemCount = exercises.length + (hasBlocks ? session.blocchi.length : 0);
+
             return (
               <div key={sectionKey}>
-                {/* ── Section separator: label + linea colorata ── */}
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className={`flex items-center gap-1 ${config.color} text-[11px] font-semibold uppercase tracking-wider shrink-0`}>
+                {/* ── Section separator: label badge + linea colorata ── */}
+                <div className="flex items-center gap-2 mb-2.5">
+                  <span className={`inline-flex items-center gap-1 ${config.color} text-[10px] font-semibold uppercase tracking-wider shrink-0`}>
                     {config.icon} {config.label}
+                    {hasContent && (
+                      <span className="inline-flex items-center justify-center h-4 min-w-4 rounded-full bg-muted text-[9px] font-bold text-muted-foreground px-1">
+                        {itemCount}
+                      </span>
+                    )}
                   </span>
-                  {hasContent && (
-                    <span className="text-[10px] text-muted-foreground">
-                      ({exercises.length + (hasBlocks ? session.blocchi.length : 0)})
-                    </span>
-                  )}
-                  {/* Linea divisoria orizzontale */}
-                  <div className={`flex-1 h-px ${config.dividerBg}`} />
-                  {/* Volume badge — solo principale */}
-                  {isPrincipale && sessionVolume != null && (
-                    <span className="text-[10px] font-semibold text-muted-foreground tabular-nums">
-                      Vol: {sessionVolume.toLocaleString("it-IT")} kg
-                    </span>
-                  )}
+                  <div className={`flex-1 h-px ${config.dividerBg} opacity-50`} />
                   {/* Svuota button */}
                   <ClearSectionButton
                     sessionId={session.id}
@@ -494,8 +516,17 @@ export function SessionCard({
                   />
                 </div>
 
-                {/* ── Section body — no box wrapper ── */}
-                <div className="pl-1">
+                {/* ── Section body ── */}
+                <div className={`pl-2 ${config.sectionBg ? `${config.sectionBg} rounded-lg py-2 -mx-1 px-3` : ""}`}>
+                  {/* Empty state — sessione vuota */}
+                  {isPrincipale && exercises.length === 0 && session.blocchi.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-6 text-center">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/60 mb-2">
+                        <Dumbbell className="h-5 w-5 text-muted-foreground/50" />
+                      </div>
+                      <p className="text-xs text-muted-foreground/70">Aggiungi il primo esercizio</p>
+                    </div>
+                  )}
                   {/* Exercise rows */}
                   {exercises.length > 0 && (
                     <>
@@ -524,7 +555,7 @@ export function SessionCard({
                         items={exercises.map((e) => e.id)}
                         strategy={verticalListSortingStrategy}
                       >
-                        <div className="space-y-0.5">
+                        <div className="space-y-1.5">
                           {exercises.map((exercise) => (
                             <SortableExerciseRow
                               key={exercise.id}
@@ -553,7 +584,7 @@ export function SessionCard({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="mt-1 w-full text-xs text-muted-foreground hover:text-primary h-7"
+                    className="mt-2 w-full text-xs text-muted-foreground hover:text-primary h-7 border border-dashed border-transparent hover:border-primary/20 rounded-lg transition-all"
                     onClick={() => onAddExercise(session.id, sectionKey)}
                   >
                     <Plus className="mr-1 h-3 w-3" />

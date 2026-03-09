@@ -337,7 +337,7 @@ export function SortableExerciseRow({
     return (
       <div ref={setNodeRef} style={style} data-workout-exercise-id={exercise.id}>
         <div
-          className={`group/row rounded-md px-1 py-0.5 hover:bg-muted/40 transition-colors ${safetyBg}`}
+          className={`group/row rounded-md px-2 py-1.5 hover:bg-muted/40 transition-colors border-b border-border/30 last:border-b-0 ${safetyBg}`}
         >
           {/* Riga 1: grip + info + safety + nome + dot + delete */}
           <div className="flex items-center gap-1 min-w-0">
@@ -387,45 +387,57 @@ export function SortableExerciseRow({
               <Trash2 className="h-2.5 w-2.5" />
             </Button>
           </div>
-          {/* Riga 2: serie + rip + kg + riposo (solo principale) */}
-          <div className="flex items-center gap-1 ml-4 mt-0.5">
-            <Input
-              type="number"
-              value={exercise.serie}
-              onChange={(e) => onUpdate({ serie: parseInt(e.target.value) || 1 })}
-              min={1}
-              max={10}
-              className="h-5 text-center text-[10px] px-0.5 w-10"
-            />
-            <Input
-              value={exercise.ripetizioni}
-              onChange={(e) => onUpdate({ ripetizioni: e.target.value })}
-              className="h-5 text-center text-[10px] px-0.5 w-12"
-              placeholder={compact ? "30s" : "8-12"}
-            />
+          {/* Riga 2: serie + rip + kg + riposo con micro-label */}
+          <div className="flex items-end gap-1.5 ml-4 mt-1">
+            <div className="flex flex-col items-center">
+              <span className="text-[8px] text-muted-foreground/60 uppercase leading-none mb-0.5">Serie</span>
+              <Input
+                type="number"
+                value={exercise.serie}
+                onChange={(e) => onUpdate({ serie: parseInt(e.target.value) || 1 })}
+                min={1}
+                max={10}
+                className="h-5 text-center text-[10px] px-0.5 w-10 border-transparent hover:border-border focus:border-primary bg-transparent"
+              />
+            </div>
+            <div className="flex flex-col items-center">
+              <span className="text-[8px] text-muted-foreground/60 uppercase leading-none mb-0.5">Rip</span>
+              <Input
+                value={exercise.ripetizioni}
+                onChange={(e) => onUpdate({ ripetizioni: e.target.value })}
+                className="h-5 text-center text-[10px] px-0.5 w-12 border-transparent hover:border-border focus:border-primary bg-transparent"
+                placeholder={compact ? "30s" : "8-12"}
+              />
+            </div>
             {!compact && (
               <>
-                <Input
-                  type="number"
-                  value={exercise.carico_kg ?? ""}
-                  onChange={(e) => onUpdate({
-                    carico_kg: e.target.value ? parseFloat(e.target.value) : null,
-                  })}
-                  min={0}
-                  max={500}
-                  step={0.5}
-                  className="h-5 text-center text-[10px] px-0.5 w-12"
-                  placeholder="kg"
-                />
-                <Input
-                  type="number"
-                  value={exercise.tempo_riposo_sec}
-                  onChange={(e) => onUpdate({ tempo_riposo_sec: parseInt(e.target.value) || 0 })}
-                  min={0}
-                  max={300}
-                  step={15}
-                  className="h-5 text-center text-[10px] px-0.5 w-10"
-                />
+                <div className="flex flex-col items-center">
+                  <span className="text-[8px] text-muted-foreground/60 uppercase leading-none mb-0.5">Kg</span>
+                  <Input
+                    type="number"
+                    value={exercise.carico_kg ?? ""}
+                    onChange={(e) => onUpdate({
+                      carico_kg: e.target.value ? parseFloat(e.target.value) : null,
+                    })}
+                    min={0}
+                    max={500}
+                    step={0.5}
+                    className="h-5 text-center text-[10px] px-0.5 w-12 border-transparent hover:border-border focus:border-primary bg-transparent"
+                    placeholder="—"
+                  />
+                </div>
+                <div className="flex flex-col items-center">
+                  <span className="text-[8px] text-muted-foreground/60 uppercase leading-none mb-0.5">Rec</span>
+                  <Input
+                    type="number"
+                    value={exercise.tempo_riposo_sec}
+                    onChange={(e) => onUpdate({ tempo_riposo_sec: parseInt(e.target.value) || 0 })}
+                    min={0}
+                    max={300}
+                    step={15}
+                    className="h-5 text-center text-[10px] px-0.5 w-10 border-transparent hover:border-border focus:border-primary bg-transparent"
+                  />
+                </div>
               </>
             )}
           </div>
@@ -522,7 +534,7 @@ export function SortableExerciseRow({
             <Input
               value={exercise.ripetizioni}
               onChange={(e) => onUpdate({ ripetizioni: e.target.value })}
-              className="h-6 text-center text-[11px] px-1"
+              className="h-6 text-center text-[11px] px-1 border-transparent hover:border-border focus:border-primary bg-transparent"
               placeholder="8-12"
             />
           )}
@@ -538,7 +550,7 @@ export function SortableExerciseRow({
               min={0}
               max={500}
               step={0.5}
-              className="h-6 text-center text-[11px] px-1"
+              className="h-6 text-center text-[11px] px-1 border-transparent hover:border-border focus:border-primary bg-transparent"
               placeholder="—"
             />
           )}
@@ -561,7 +573,7 @@ export function SortableExerciseRow({
     return (
       <div ref={setNodeRef} style={style} data-workout-exercise-id={exercise.id}>
         <div
-          className={`group/row grid grid-cols-[20px_14px_1fr_44px_52px_24px] gap-1 items-center rounded-md px-1 py-1 hover:bg-muted/40 transition-colors ${safetyBg}`}
+          className={`group/row grid grid-cols-[20px_14px_1fr_44px_52px_24px] gap-1 items-center rounded-md px-2 py-1.5 hover:bg-muted/40 transition-colors border-b border-border/30 last:border-b-0 ${safetyBg}`}
         >
           {/* Drag handle */}
           <button
@@ -614,14 +626,14 @@ export function SortableExerciseRow({
             onChange={(e) => onUpdate({ serie: parseInt(e.target.value) || 1 })}
             min={1}
             max={10}
-            className="h-6 text-center text-[11px] px-1"
+            className="h-6 text-center text-[11px] px-1 border-transparent hover:border-border focus:border-primary bg-transparent"
           />
 
           {/* Ripetizioni */}
           <Input
             value={exercise.ripetizioni}
             onChange={(e) => onUpdate({ ripetizioni: e.target.value })}
-            className="h-6 text-center text-[11px] px-1"
+            className="h-6 text-center text-[11px] px-1 border-transparent hover:border-border focus:border-primary bg-transparent"
             placeholder="30s"
           />
 
@@ -670,7 +682,7 @@ export function SortableExerciseRow({
   return (
     <div ref={setNodeRef} style={style} data-workout-exercise-id={exercise.id}>
       <div
-        className={`group/row grid grid-cols-[20px_14px_1fr_44px_52px_52px_44px_24px] gap-1 items-center rounded-md px-1 py-1 hover:bg-muted/40 transition-colors ${safetyBg}`}
+        className={`group/row grid grid-cols-[20px_14px_1fr_44px_52px_52px_44px_24px] gap-1 items-center rounded-md px-2 py-1.5 hover:bg-muted/40 transition-colors border-b border-border/30 last:border-b-0 ${safetyBg}`}
       >
         {/* Drag handle */}
         <button
@@ -722,14 +734,14 @@ export function SortableExerciseRow({
           onChange={(e) => onUpdate({ serie: parseInt(e.target.value) || 1 })}
           min={1}
           max={10}
-          className="h-6 text-center text-[11px] px-1"
+          className="h-6 text-center text-[11px] px-1 border-transparent hover:border-border focus:border-primary bg-transparent"
         />
 
         {/* Ripetizioni */}
         <Input
           value={exercise.ripetizioni}
           onChange={(e) => onUpdate({ ripetizioni: e.target.value })}
-          className="h-6 text-center text-[11px] px-1"
+          className="h-6 text-center text-[11px] px-1 border-transparent hover:border-border focus:border-primary bg-transparent"
           placeholder="8-12"
         />
 
@@ -744,7 +756,7 @@ export function SortableExerciseRow({
             min={0}
             max={500}
             step={0.5}
-            className="h-6 text-center text-[11px] px-1"
+            className="h-6 text-center text-[11px] px-1 border-transparent hover:border-border focus:border-primary bg-transparent"
             placeholder="—"
           />
           {percentOneRM != null && (
@@ -762,7 +774,7 @@ export function SortableExerciseRow({
           min={0}
           max={300}
           step={15}
-          className="h-6 text-center text-[11px] px-1"
+          className="h-6 text-center text-[11px] px-1 border-transparent hover:border-border focus:border-primary bg-transparent"
         />
 
         {/* Delete — semi-trasparente, visibile su hover */}
