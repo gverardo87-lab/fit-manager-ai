@@ -441,6 +441,29 @@ export function SessionCard({
             const hasBlocks = isPrincipale && session.blocchi.length > 0;
             const hasContent = exercises.length > 0 || hasBlocks;
 
+            // Sezioni vuote auto-collapsed: solo separator + "Aggiungi" inline
+            if (!hasContent && !isPrincipale) {
+              return (
+                <div key={sectionKey}>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className={`flex items-center gap-1 ${config.color} text-[11px] font-semibold uppercase tracking-wider shrink-0 opacity-50`}>
+                      {config.icon} {config.label}
+                    </span>
+                    <div className={`flex-1 h-px ${config.dividerBg} opacity-40`} />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-5 px-2 text-[10px] text-muted-foreground hover:text-primary"
+                      onClick={() => onAddExercise(session.id, sectionKey)}
+                    >
+                      <Plus className="mr-0.5 h-2.5 w-2.5" />
+                      {config.addLabel}
+                    </Button>
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <div key={sectionKey}>
                 {/* ── Section separator: label + linea colorata ── */}
