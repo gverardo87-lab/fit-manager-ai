@@ -10,6 +10,7 @@ from sqlmodel import Session, select, text
 from api.models.client import Client
 from api.models.contract import Contract
 from api.models.event import Event
+from api.models.recurring_expense import RecurringExpense
 from api.models.rate import Rate
 from api.models.todo import Todo
 from api.schemas.clinical import ClinicalReadinessClientItem
@@ -30,6 +31,9 @@ from api.schemas.workspace import (
     WorkspaceTodaySection,
 )
 from api.services.clinical_readiness import compute_clinical_readiness_data
+from api.services.recurring_expense_schedule import (
+    list_pending_recurring_expense_occurrences,
+)
 
 _SECTION_ORDER = ("now", "today", "upcoming_3d", "upcoming_7d", "waiting")
 _SECTION_LABELS = {
@@ -43,6 +47,7 @@ _TODAY_VIEWPORT_LIMITS = {
     "now": 2,
     "today": 4,
 }
+_TODAY_EXCLUDED_CASE_KINDS = {"payment_due_soon", "recurring_expense_due"}
 _READINESS_UPCOMING_EVENT_WINDOW_DAYS = 7
 _READINESS_RECENT_CONTRACT_WINDOW_DAYS = 7
 _SEVERITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3}
@@ -50,10 +55,12 @@ _BUCKET_ORDER = {bucket: idx for idx, bucket in enumerate(_SECTION_ORDER)}
 _CASE_PRIORITY = {
     "session_imminent": 0,
     "payment_overdue": 1,
-    "onboarding_readiness": 2,
-    "contract_renewal_due": 3,
-    "client_reactivation": 4,
-    "todo_manual": 5,
+    "payment_due_soon": 2,
+    "onboarding_readiness": 3,
+    "contract_renewal_due": 4,
+    "recurring_expense_due": 5,
+    "client_reactivation": 6,
+    "todo_manual": 7,
 }
 _SEVERITY_RANK = {"low": 0, "medium": 1, "high": 2, "critical": 3}
 _READINESS_SIGNAL_LABELS = {
@@ -317,6 +324,38 @@ def _renewal_severity(days_left: int) -> str:
     return "medium"
 
 
+def _payment_due_soon_bucket(days_left: int) -> str:
+    if days_left <= 0:
+        return "today"
+    if days_left <= 3:
+        return "upcoming_3d"
+    return "upcoming_7d"
+
+
+def _payment_due_soon_severity(days_left: int) -> str:
+    if days_left <= 0:
+        return "high"
+    if days_left <= 3:
+        return "medium"
+    return "low"
+
+
+def _recurring_expense_bucket(days_left: int) -> str:
+    if days_left <= 0:
+        return "today"
+    if days_left <= 3:
+        return "upcoming_3d"
+    return "upcoming_7d"
+
+
+def _recurring_expense_severity(days_left: int) -> str:
+    if days_left <= 0:
+        return "high"
+    if days_left <= 3:
+        return "medium"
+    return "low"
+
+
 def _reactivation_severity(days_inactive: int) -> str:
     if days_inactive >= 45:
         return "high"
@@ -395,7 +434,7 @@ def _apply_finance_visibility(case: OperationalCase, visibility: str) -> Operati
 
 def _case_matches_workspace(case: OperationalCase, workspace: str) -> bool:
     if workspace == "today":
-        return case.bucket != "waiting"
+        return case.bucket != "waiting" and case.case_kind not in _TODAY_EXCLUDED_CASE_KINDS
     return case.workspace == workspace
 
 
@@ -998,6 +1037,138 @@ def _build_payment_overdue_cases(
     return cases
 
 
+def _load_due_soon_rows(
+    *,
+    trainer_id: int,
+    session: Session,
+    reference_date: date,
+):
+    deadline = reference_date + timedelta(days=7)
+    return session.exec(
+        select(Rate, Contract, Client)
+        .join(Contract, Rate.id_contratto == Contract.id)
+        .join(Client, Contract.id_cliente == Client.id)
+        .where(
+            Contract.trainer_id == trainer_id,
+            Rate.stato.in_(["PENDENTE", "PARZIALE"]),
+            Rate.data_scadenza >= reference_date,
+            Rate.data_scadenza <= deadline,
+            Rate.deleted_at == None,
+            Contract.deleted_at == None,
+            Contract.chiuso == False,
+        )
+        .order_by(Rate.data_scadenza.asc())
+    ).all()
+
+
+def _build_payment_due_soon_cases(
+    *,
+    trainer_id: int,
+    session: Session,
+    reference_date: date,
+    overdue_contract_ids: set[int] | None = None,
+) -> list[OperationalCase]:
+    grouped: dict[int, dict] = {}
+    for rate, contract, client in _load_due_soon_rows(
+        trainer_id=trainer_id,
+        session=session,
+        reference_date=reference_date,
+    ):
+        contract_id = contract.id or 0
+        if contract_id in (overdue_contract_ids or set()):
+            continue
+        bucket = grouped.setdefault(
+            contract_id,
+            {
+                "contract": contract,
+                "client": client,
+                "rates": [],
+                "earliest_due": rate.data_scadenza,
+            },
+        )
+        bucket["rates"].append(rate)
+        if rate.data_scadenza < bucket["earliest_due"]:
+            bucket["earliest_due"] = rate.data_scadenza
+
+    cases: list[OperationalCase] = []
+    for contract_id, data in grouped.items():
+        contract = data["contract"]
+        client = data["client"]
+        rates = data["rates"]
+        earliest_due = data["earliest_due"]
+        days_left = (earliest_due - reference_date).days
+        due_count = len(rates)
+        client_label = _full_name(client.nome, client.cognome)
+        total_due_amount = round(
+            sum(rate.importo_previsto - rate.importo_saldato for rate in rates),
+            2,
+        )
+        contract_residual_amount = round(
+            max((contract.prezzo_totale or 0) - contract.totale_versato, 0),
+            2,
+        )
+        reason = (
+            f"1 rata in scadenza il {earliest_due.isoformat()}"
+            if due_count == 1
+            else f"{due_count} rate in scadenza entro 7 giorni"
+        )
+        case_id = f"case:payment_due_soon:contract:{contract_id}"
+        cases.append(
+            OperationalCase(
+                case_id=case_id,
+                merge_key=case_id,
+                workspace="renewals_cash",
+                case_kind="payment_due_soon",
+                title=f"Incasso in arrivo: {client_label}",
+                reason=reason,
+                severity=_payment_due_soon_severity(days_left),
+                bucket=_payment_due_soon_bucket(days_left),
+                due_date=earliest_due,
+                days_to_due=days_left,
+                root_entity=WorkspaceRootEntity(
+                    type="contract",
+                    id=contract_id,
+                    label=contract.tipo_pacchetto or f"Contratto {contract_id}",
+                    href=f"/contratti/{contract_id}",
+                ),
+                secondary_entity=WorkspaceRootEntity(
+                    type="client",
+                    id=client.id or 0,
+                    label=client_label,
+                    href=f"/clienti/{client.id}",
+                ),
+                signal_count=due_count,
+                preview_signals=[
+                    WorkspaceSignal(
+                        signal_code="rate_due_soon",
+                        source="upcoming_rates",
+                        label=f"Rata in scadenza il {rate.data_scadenza.isoformat()}",
+                        severity=_payment_due_soon_severity((rate.data_scadenza - reference_date).days),
+                        due_date=rate.data_scadenza,
+                        reason="Incasso da pianificare",
+                    )
+                    for rate in rates[:3]
+                ],
+                finance_context=WorkspaceFinanceContext(
+                    visibility="full",
+                    due_date=earliest_due,
+                    overdue_count=None,
+                    currency="EUR",
+                    total_due_amount=total_due_amount,
+                    total_residual_amount=contract_residual_amount,
+                    contract_id=contract_id,
+                ),
+                suggested_actions=[
+                    _link_action("open-cash", "Apri cassa", "/cassa", primary=True),
+                    _link_action("open-contract", "Apri contratto", f"/contratti/{contract_id}", primary=False),
+                ],
+                source_refs=[f"contract:{contract_id}", *(f"rate:{rate.id}" for rate in rates)],
+            )
+        )
+
+    return cases
+
+
 def _load_expiring_contract_rows(
     *,
     trainer_id: int,
@@ -1126,6 +1297,97 @@ def _build_contract_renewal_cases(
                     _link_action("open-contract", "Apri contratto", f"/contratti/{contract_id}", primary=True),
                 ],
                 source_refs=[f"contract:{contract_id}"],
+            )
+        )
+
+    return cases
+
+
+def _recurring_expense_href(due_date: date) -> str:
+    return f"/cassa?tab=recurring&anno={due_date.year}&mese={due_date.month}"
+
+
+def _build_recurring_expense_due_cases(
+    *,
+    trainer_id: int,
+    session: Session,
+    reference_date: date,
+) -> list[OperationalCase]:
+    deadlines = {reference_date.month: reference_date.year}
+    future_deadline = reference_date + timedelta(days=7)
+    deadlines[future_deadline.month] = future_deadline.year
+
+    pending_occurrences: list = []
+    for mese, anno in deadlines.items():
+        pending_occurrences.extend(
+            list_pending_recurring_expense_occurrences(
+                trainer_id=trainer_id,
+                session=session,
+                anno=anno,
+                mese=mese,
+            )
+        )
+
+    cases: list[OperationalCase] = []
+    seen_keys: set[tuple[int, str]] = set()
+    window_end = reference_date + timedelta(days=7)
+
+    for occurrence in pending_occurrences:
+        identity = (occurrence.expense_id, occurrence.occurrence_key)
+        if identity in seen_keys:
+            continue
+        seen_keys.add(identity)
+        if occurrence.due_date > window_end:
+            continue
+
+        days_left = (occurrence.due_date - reference_date).days
+        href = _recurring_expense_href(occurrence.due_date)
+        case_id = f"case:recurring_expense_due:expense:{occurrence.expense_id}:{occurrence.occurrence_key}"
+        cases.append(
+            OperationalCase(
+                case_id=case_id,
+                merge_key=case_id,
+                workspace="renewals_cash",
+                case_kind="recurring_expense_due",
+                title=f"Spesa da confermare: {occurrence.nome}",
+                reason=f"Occorrenza prevista il {occurrence.due_date.isoformat()}",
+                severity=_recurring_expense_severity(days_left),
+                bucket=_recurring_expense_bucket(days_left),
+                due_date=occurrence.due_date,
+                days_to_due=days_left,
+                root_entity=WorkspaceRootEntity(
+                    type="expense",
+                    id=occurrence.expense_id,
+                    label=occurrence.nome,
+                    href=href,
+                ),
+                signal_count=1,
+                preview_signals=[
+                    WorkspaceSignal(
+                        signal_code="recurring_expense_due",
+                        source="pending_expenses",
+                        label="Spesa ricorrente in attesa di conferma",
+                        severity=_recurring_expense_severity(days_left),
+                        due_date=occurrence.due_date,
+                        reason=occurrence.occurrence_key,
+                    )
+                ],
+                finance_context=WorkspaceFinanceContext(
+                    visibility="full",
+                    due_date=occurrence.due_date,
+                    overdue_count=None,
+                    currency="EUR",
+                    total_due_amount=occurrence.importo,
+                    total_residual_amount=None,
+                    contract_id=None,
+                ),
+                suggested_actions=[
+                    _link_action("open-cash", "Apri cassa", href, primary=True),
+                ],
+                source_refs=[
+                    f"recurring_expense:{occurrence.expense_id}",
+                    f"recurring_occurrence:{occurrence.occurrence_key}",
+                ],
             )
         )
 
@@ -1571,6 +1833,91 @@ def _build_payment_overdue_case_detail(
     return signals or list(case.preview_signals), related_entities, activity_preview
 
 
+def _build_payment_due_soon_case_detail(
+    *,
+    case: OperationalCase,
+    trainer_id: int,
+    session: Session,
+    reference_date: date,
+) -> tuple[list[WorkspaceSignal], list[WorkspaceRootEntity], list[WorkspaceCaseActivityItem]]:
+    contract_id = _coerce_entity_id(case.root_entity.id)
+    if contract_id is None:
+        return _default_case_detail(case)
+
+    contract_row = session.exec(
+        select(Contract, Client)
+        .join(Client, Contract.id_cliente == Client.id)
+        .where(
+            Contract.id == contract_id,
+            Contract.trainer_id == trainer_id,
+            Contract.deleted_at == None,
+        )
+    ).first()
+    if contract_row is None:
+        return _default_case_detail(case)
+
+    contract, client = contract_row
+    deadline = reference_date + timedelta(days=7)
+    rates = session.exec(
+        select(Rate)
+        .where(
+            Rate.id_contratto == contract_id,
+            Rate.stato.in_(["PENDENTE", "PARZIALE"]),
+            Rate.data_scadenza >= reference_date,
+            Rate.data_scadenza <= deadline,
+            Rate.deleted_at == None,
+        )
+        .order_by(Rate.data_scadenza.asc())
+    ).all()
+    client_label = _full_name(client.nome, client.cognome)
+    signals = [
+        WorkspaceSignal(
+            signal_code=f"rate_due_soon_{rate.id}",
+            source="upcoming_rates",
+            label=f"Rata in scadenza il {rate.data_scadenza.isoformat()}",
+            severity=_payment_due_soon_severity((rate.data_scadenza - reference_date).days),
+            due_date=rate.data_scadenza,
+            reason="Incasso da pianificare",
+        )
+        for rate in rates
+    ]
+    related_entities = _dedupe_entities(
+        case.root_entity,
+        case.secondary_entity,
+        WorkspaceRootEntity(
+            type="client",
+            id=client.id or 0,
+            label=client_label,
+            href=f"/clienti/{client.id}",
+        ),
+    )
+    activity_preview = [
+        item
+        for item in [
+            _make_activity_item(
+                at=contract.data_vendita,
+                label="Contratto registrato",
+                href=f"/contratti/{contract_id}",
+            ),
+            *[
+                _make_activity_item(
+                    at=rate.data_scadenza,
+                    label=f"Scadenza rata: {rate.data_scadenza.isoformat()}",
+                    href=f"/contratti/{contract_id}",
+                )
+                for rate in rates[:5]
+            ],
+            _make_activity_item(
+                at=contract.data_scadenza,
+                label="Scadenza contratto",
+                href=f"/contratti/{contract_id}",
+            ),
+        ]
+        if item is not None
+    ]
+    return signals or list(case.preview_signals), related_entities, activity_preview
+
+
 def _build_contract_renewal_case_detail(
     *,
     case: OperationalCase,
@@ -1655,6 +2002,81 @@ def _build_contract_renewal_case_detail(
                 at=contract.data_scadenza,
                 label="Scadenza contratto",
                 href=f"/contratti/{contract_id}",
+            ),
+        ]
+        if item is not None
+    ]
+    return signals, related_entities, activity_preview
+
+
+def _extract_recurring_occurrence_key(case: OperationalCase) -> str | None:
+    for ref in case.source_refs:
+        if ref.startswith("recurring_occurrence:"):
+            return ref.split(":", 1)[1]
+    return None
+
+
+def _build_recurring_expense_case_detail(
+    *,
+    case: OperationalCase,
+    trainer_id: int,
+    session: Session,
+) -> tuple[list[WorkspaceSignal], list[WorkspaceRootEntity], list[WorkspaceCaseActivityItem]]:
+    expense_id = _coerce_entity_id(case.root_entity.id)
+    occurrence_key = _extract_recurring_occurrence_key(case)
+    if expense_id is None or not occurrence_key:
+        return _default_case_detail(case)
+
+    expense = session.exec(
+        select(RecurringExpense).where(
+            RecurringExpense.id == expense_id,
+            RecurringExpense.trainer_id == trainer_id,
+            RecurringExpense.deleted_at == None,
+        )
+    ).first()
+    if expense is None:
+        return _default_case_detail(case)
+
+    signals = [
+        WorkspaceSignal(
+            signal_code="recurring_expense_due",
+            source="pending_expenses",
+            label="Spesa ricorrente in attesa di conferma",
+            severity=case.severity,
+            due_date=case.due_date,
+            reason=occurrence_key,
+        )
+    ]
+    if expense.categoria:
+        signals.append(
+            WorkspaceSignal(
+                signal_code="recurring_expense_category",
+                source="pending_expenses",
+                label="Categoria spesa",
+                severity="low",
+                due_date=case.due_date,
+                reason=expense.categoria,
+            )
+        )
+
+    related_entities = _dedupe_entities(case.root_entity)
+    activity_preview = [
+        item
+        for item in [
+            _make_activity_item(
+                at=expense.data_creazione,
+                label="Spesa ricorrente creata",
+                href=case.root_entity.href,
+            ),
+            _make_activity_item(
+                at=expense.data_inizio,
+                label="Inizio ciclo",
+                href=case.root_entity.href,
+            ),
+            _make_activity_item(
+                at=case.due_date,
+                label=f"Occorrenza dovuta: {case.due_date.isoformat()}" if case.due_date else "",
+                href=case.root_entity.href,
             ),
         ]
         if item is not None
@@ -1775,8 +2197,21 @@ def _build_case_detail_payload(
             session=session,
             reference_date=reference_date,
         )
+    if case.case_kind == "payment_due_soon":
+        return _build_payment_due_soon_case_detail(
+            case=case,
+            trainer_id=trainer_id,
+            session=session,
+            reference_date=reference_date,
+        )
     if case.case_kind == "contract_renewal_due":
         return _build_contract_renewal_case_detail(
+            case=case,
+            trainer_id=trainer_id,
+            session=session,
+        )
+    if case.case_kind == "recurring_expense_due":
+        return _build_recurring_expense_case_detail(
             case=case,
             trainer_id=trainer_id,
             session=session,
@@ -1834,11 +2269,22 @@ def collect_workspace_snapshot(
         for case in overdue_cases
         if case.root_entity.type == "contract" and _coerce_entity_id(case.root_entity.id) is not None
     }
+    due_soon_cases = _build_payment_due_soon_cases(
+        trainer_id=trainer_id,
+        session=session,
+        reference_date=today,
+        overdue_contract_ids=overdue_contract_ids,
+    )
     renewal_cases = _build_contract_renewal_cases(
         trainer_id=trainer_id,
         session=session,
         reference_date=today,
         overdue_contract_ids=overdue_contract_ids,
+    )
+    recurring_expense_cases = _build_recurring_expense_due_cases(
+        trainer_id=trainer_id,
+        session=session,
+        reference_date=today,
     )
     reactivation_cases = _build_reactivation_cases(
         trainer_id=trainer_id,
@@ -1851,7 +2297,9 @@ def collect_workspace_snapshot(
         *onboarding_cases,
         *todo_cases,
         *overdue_cases,
+        *due_soon_cases,
         *renewal_cases,
+        *recurring_expense_cases,
         *reactivation_cases,
     ]
     all_cases.sort(key=_sort_case)

@@ -45,6 +45,12 @@ from api.schemas.financial import (
     MovementManualCreate, MovementResponse,
 )
 from api.routers._audit import log_audit
+from api.services.recurring_expense_schedule import (
+    VALID_RECURRING_EXPENSE_FREQUENCIES,
+    get_recurring_expense_occurrences_in_month,
+    get_recurring_expense_start_date,
+    list_pending_recurring_expense_occurrences,
+)
 
 logger = logging.getLogger("fitmanager.api")
 router = APIRouter(prefix="/movements", tags=["movements"])
@@ -434,88 +440,17 @@ def get_balance(
 # OCCURRENCE ENGINE: Calcolo scadenze spese ricorrenti
 # ════════════════════════════════════════════════════════════
 
-VALID_FREQUENCIES = {"MENSILE", "SETTIMANALE", "TRIMESTRALE", "SEMESTRALE", "ANNUALE"}
+VALID_FREQUENCIES = VALID_RECURRING_EXPENSE_FREQUENCIES
 
 
 def _get_start_date(expense: RecurringExpense) -> date:
-    """Restituisce la data di ancoraggio per la spesa (data_inizio > data_creazione > fallback)."""
-    if expense.data_inizio:
-        return expense.data_inizio
-    if expense.data_creazione:
-        return expense.data_creazione.date() if hasattr(expense.data_creazione, 'date') else expense.data_creazione
-    return date(2026, 1, 1)
+    return get_recurring_expense_start_date(expense)
 
 
 def _get_occurrences_in_month(
     expense: RecurringExpense, anno: int, mese: int
 ) -> list[tuple[date, str]]:
-    """
-    Calcola le occorrenze di una spesa ricorrente in un dato mese.
-
-    Returns: lista di (data_effettiva, mese_anno_key) per ogni occorrenza.
-    La chiave mese_anno e' usata per la deduplicazione (UNIQUE constraint).
-
-    Ancoraggio: usa data_inizio (scelta dall'utente) per determinare
-    il mese di partenza e il ciclo delle frequenze non-mensili.
-    Cross-year safe: usa mese assoluto (anno*12 + mese) per modular arithmetic.
-
-    Frequenze supportate:
-    - MENSILE: 1 occorrenza per mese, key = "2026-02"
-    - SETTIMANALE: ~4 per mese (ogni 7 giorni), key = "2026-02-W1"...
-    - TRIMESTRALE: 1 ogni 3 mesi (ancorata a data_inizio), key = "2026-02"
-    - SEMESTRALE: 1 ogni 6 mesi (ancorata a data_inizio), key = "2026-02"
-    - ANNUALE: 1 per anno (mese anniversario di data_inizio), key = "2026"
-    """
-    days_in_month = calendar.monthrange(anno, mese)[1]
-    freq = expense.frequenza or "MENSILE"
-    start = _get_start_date(expense)
-
-    # Guard: spesa non ancora attiva nel mese target
-    last_day_of_month = date(anno, mese, days_in_month)
-    if start > last_day_of_month:
-        return []
-
-    if freq == "MENSILE":
-        giorno = min(expense.giorno_scadenza, days_in_month)
-        return [(date(anno, mese, giorno), f"{anno:04d}-{mese:02d}")]
-
-    if freq == "SETTIMANALE":
-        base = min(expense.giorno_scadenza, 7)
-        occurrences = []
-        day = base
-        week = 1
-        while day <= days_in_month:
-            key = f"{anno:04d}-{mese:02d}-W{week}"
-            occurrences.append((date(anno, mese, day), key))
-            day += 7
-            week += 1
-        return occurrences
-
-    # Cross-year safe: mese assoluto per TRIM/SEM/ANN
-    abs_target = anno * 12 + mese
-    abs_start = start.year * 12 + start.month
-
-    if freq == "TRIMESTRALE":
-        if (abs_target - abs_start) % 3 != 0:
-            return []
-        giorno = min(expense.giorno_scadenza, days_in_month)
-        return [(date(anno, mese, giorno), f"{anno:04d}-{mese:02d}")]
-
-    if freq == "SEMESTRALE":
-        if (abs_target - abs_start) % 6 != 0:
-            return []
-        giorno = min(expense.giorno_scadenza, days_in_month)
-        return [(date(anno, mese, giorno), f"{anno:04d}-{mese:02d}")]
-
-    if freq == "ANNUALE":
-        if mese != start.month:
-            return []
-        giorno = min(expense.giorno_scadenza, days_in_month)
-        return [(date(anno, mese, giorno), f"{anno:04d}")]
-
-    # Frequenza sconosciuta: fallback a MENSILE
-    giorno = min(expense.giorno_scadenza, days_in_month)
-    return [(date(anno, mese, giorno), f"{anno:04d}-{mese:02d}")]
+    return get_recurring_expense_occurrences_in_month(expense, anno, mese)
 
 
 # ════════════════════════════════════════════════════════════
@@ -553,44 +488,24 @@ def get_pending_expenses(
     per quella occorrenza. Se non esiste, la include nella lista pending.
     L'utente puo' poi confermare con POST /confirm-expenses.
     """
-    recurring = session.exec(
-        select(RecurringExpense).where(
-            RecurringExpense.trainer_id == trainer.id,
-            RecurringExpense.attiva == True,
-            RecurringExpense.deleted_at == None,
+    pending_occurrences = list_pending_recurring_expense_occurrences(
+        trainer_id=trainer.id,
+        session=session,
+        anno=anno,
+        mese=mese,
+    )
+    pending_items = [
+        PendingExpenseItem(
+            id_spesa=item.expense_id,
+            nome=item.nome,
+            categoria=item.categoria,
+            importo=item.importo,
+            frequenza=item.frequenza,
+            data_prevista=item.due_date,
+            mese_anno_key=item.occurrence_key,
         )
-    ).all()
-
-    if not recurring:
-        return PendingExpensesResponse(items=[], totale_pending=0)
-
-    # Batch fetch: tutti i CashMovement ricorrenti del mese per il trainer
-    existing = session.exec(
-        select(CashMovement.id_spesa_ricorrente, CashMovement.mese_anno).where(
-            CashMovement.trainer_id == trainer.id,
-            CashMovement.id_spesa_ricorrente != None,
-            CashMovement.deleted_at == None,
-        )
-    ).all()
-    existing_keys: set[tuple[int, str]] = {(r[0], r[1]) for r in existing}
-
-    pending_items: list[PendingExpenseItem] = []
-
-    for expense in recurring:
-        occurrences = _get_occurrences_in_month(expense, anno, mese)
-        for data_prevista, mese_anno_key in occurrences:
-            if (expense.id, mese_anno_key) not in existing_keys:
-                pending_items.append(PendingExpenseItem(
-                    id_spesa=expense.id,
-                    nome=expense.nome,
-                    categoria=expense.categoria,
-                    importo=expense.importo,
-                    frequenza=expense.frequenza or "MENSILE",
-                    data_prevista=data_prevista,
-                    mese_anno_key=mese_anno_key,
-                ))
-
-    pending_items.sort(key=lambda x: (x.data_prevista, x.nome.lower()))
+        for item in pending_occurrences
+    ]
     totale = sum(item.importo for item in pending_items)
 
     return PendingExpensesResponse(items=pending_items, totale_pending=round(totale, 2))

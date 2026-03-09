@@ -43,7 +43,15 @@ def _toggle_todo(client, headers, todo_id):
     return response.json()
 
 
-def _create_contract_with_overdue_plan(client, headers, client_id):
+def _create_contract_with_rate_plan(
+    client,
+    headers,
+    client_id,
+    *,
+    first_due: date,
+    numero_rate: int = 2,
+    frequenza: str = "SETTIMANALE",
+):
     today = date.today()
     contract_response = client.post(
         "/api/contracts",
@@ -65,14 +73,23 @@ def _create_contract_with_overdue_plan(client, headers, client_id):
         f"/api/rates/generate-plan/{contract['id']}",
         json={
             "importo_da_rateizzare": 600.0,
-            "numero_rate": 2,
-            "data_prima_rata": (today - timedelta(days=20)).isoformat(),
-            "frequenza": "SETTIMANALE",
+            "numero_rate": numero_rate,
+            "data_prima_rata": first_due.isoformat(),
+            "frequenza": frequenza,
         },
         headers=headers,
     )
     assert rate_response.status_code == 201, rate_response.text
     return contract, rate_response.json()["items"]
+
+
+def _create_contract_with_overdue_plan(client, headers, client_id):
+    return _create_contract_with_rate_plan(
+        client,
+        headers,
+        client_id,
+        first_due=date.today() - timedelta(days=20),
+    )
 
 
 def _create_event(client, headers, *, client_id, contract_id=None, title, start_at=None):
@@ -93,6 +110,31 @@ def _create_event(client, headers, *, client_id, contract_id=None, title, start_
         json=payload,
         headers=headers,
     )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def _create_recurring_expense(
+    client,
+    headers,
+    *,
+    nome="Affitto Studio",
+    categoria="Affitto",
+    importo=650.0,
+    giorno_scadenza=None,
+    frequenza="MENSILE",
+    data_inizio=None,
+):
+    today = date.today()
+    payload = {
+        "nome": nome,
+        "categoria": categoria,
+        "importo": importo,
+        "giorno_scadenza": giorno_scadenza or today.day,
+        "frequenza": frequenza,
+        "data_inizio": data_inizio or today.replace(day=1).isoformat(),
+    }
+    response = client.post("/api/recurring-expenses", json=payload, headers=headers)
     assert response.status_code == 201, response.text
     return response.json()
 
@@ -191,6 +233,185 @@ def test_workspace_today_aggregates_real_sources(client, auth_headers):
     assert renewal_items
     renewal_case = next(item for item in renewal_items if item["root_entity"]["id"] == contract["id"])
     assert renewal_case["finance_context"]["visibility"] == "full"
+
+
+def test_workspace_renewals_cash_includes_payment_due_soon_but_keeps_it_out_of_today(client, auth_headers):
+    due_client = _create_client(
+        client,
+        auth_headers,
+        "Sara",
+        "Scadenza",
+        anamnesi=_structured_anamnesi(),
+    )
+    contract, _rates = _create_contract_with_rate_plan(
+        client,
+        auth_headers,
+        due_client["id"],
+        first_due=date.today() + timedelta(days=2),
+        numero_rate=1,
+    )
+
+    due_soon_response = client.get(
+        "/api/workspace/cases",
+        params={"workspace": "renewals_cash", "case_kind": "payment_due_soon", "page_size": 20},
+        headers=auth_headers,
+    )
+    assert due_soon_response.status_code == 200, due_soon_response.text
+    due_soon_items = due_soon_response.json()["items"]
+    due_soon_case = next(item for item in due_soon_items if item["root_entity"]["id"] == contract["id"])
+    assert due_soon_case["bucket"] == "upcoming_3d"
+    assert due_soon_case["finance_context"]["visibility"] == "full"
+    assert due_soon_case["finance_context"]["total_due_amount"] == 600.0
+    assert "scadenza" in due_soon_case["reason"].lower()
+
+    detail_response = client.get(
+        f"/api/workspace/cases/{due_soon_case['case_id']}",
+        params={"workspace": "renewals_cash"},
+        headers=auth_headers,
+    )
+    assert detail_response.status_code == 200, detail_response.text
+    detail = detail_response.json()
+    assert detail["case"]["case_kind"] == "payment_due_soon"
+    assert detail["signals"]
+
+    today_response = client.get("/api/workspace/today", headers=auth_headers)
+    assert today_response.status_code == 200, today_response.text
+    today_case_kinds = {
+        case["case_kind"]
+        for section in today_response.json()["sections"]
+        for case in section["items"]
+    }
+    assert "payment_due_soon" not in today_case_kinds
+
+    today_list_response = client.get(
+        "/api/workspace/cases",
+        params={"workspace": "today", "case_kind": "payment_due_soon", "page_size": 20},
+        headers=auth_headers,
+    )
+    assert today_list_response.status_code == 200, today_list_response.text
+    assert today_list_response.json()["total"] == 0
+
+
+def test_workspace_renewals_cash_suppresses_payment_due_soon_when_contract_has_overdue(client, auth_headers):
+    mixed_client = _create_client(
+        client,
+        auth_headers,
+        "Marco",
+        "Misto",
+        anamnesi=_structured_anamnesi(),
+    )
+    contract, _rates = _create_contract_with_rate_plan(
+        client,
+        auth_headers,
+        mixed_client["id"],
+        first_due=date.today() - timedelta(days=1),
+        numero_rate=2,
+    )
+
+    overdue_response = client.get(
+        "/api/workspace/cases",
+        params={"workspace": "renewals_cash", "case_kind": "payment_overdue", "page_size": 20},
+        headers=auth_headers,
+    )
+    assert overdue_response.status_code == 200, overdue_response.text
+    overdue_items = overdue_response.json()["items"]
+    assert any(item["root_entity"]["id"] == contract["id"] for item in overdue_items)
+
+    due_soon_response = client.get(
+        "/api/workspace/cases",
+        params={"workspace": "renewals_cash", "case_kind": "payment_due_soon", "page_size": 20},
+        headers=auth_headers,
+    )
+    assert due_soon_response.status_code == 200, due_soon_response.text
+    due_soon_items = due_soon_response.json()["items"]
+    assert not any(item["root_entity"]["id"] == contract["id"] for item in due_soon_items)
+
+
+def test_workspace_renewals_cash_includes_recurring_expense_due_and_removes_it_after_confirm(
+    client,
+    auth_headers,
+):
+    expense = _create_recurring_expense(
+        client,
+        auth_headers,
+        nome="Affitto Sala PT",
+        importo=720.0,
+    )
+    today = date.today()
+
+    pending_response = client.get(
+        "/api/movements/pending-expenses",
+        params={"anno": today.year, "mese": today.month},
+        headers=auth_headers,
+    )
+    assert pending_response.status_code == 200, pending_response.text
+    pending_items = pending_response.json()["items"]
+    pending_item = next(item for item in pending_items if item["id_spesa"] == expense["id"])
+
+    finance_response = client.get(
+        "/api/workspace/cases",
+        params={"workspace": "renewals_cash", "case_kind": "recurring_expense_due", "page_size": 20},
+        headers=auth_headers,
+    )
+    assert finance_response.status_code == 200, finance_response.text
+    finance_items = finance_response.json()["items"]
+    finance_case = next(item for item in finance_items if item["root_entity"]["id"] == expense["id"])
+    assert finance_case["bucket"] == "today"
+    assert finance_case["finance_context"]["visibility"] == "full"
+    assert finance_case["finance_context"]["total_due_amount"] == 720.0
+    assert pending_item["mese_anno_key"] in finance_case["case_id"]
+
+    detail_response = client.get(
+        f"/api/workspace/cases/{finance_case['case_id']}",
+        params={"workspace": "renewals_cash"},
+        headers=auth_headers,
+    )
+    assert detail_response.status_code == 200, detail_response.text
+    detail = detail_response.json()
+    assert detail["case"]["case_kind"] == "recurring_expense_due"
+    assert detail["signals"]
+    assert any(signal["signal_code"] == "recurring_expense_due" for signal in detail["signals"])
+
+    today_response = client.get(
+        "/api/workspace/cases",
+        params={"workspace": "today", "case_kind": "recurring_expense_due", "page_size": 20},
+        headers=auth_headers,
+    )
+    assert today_response.status_code == 200, today_response.text
+    assert today_response.json()["total"] == 0
+
+    confirm_response = client.post(
+        "/api/movements/confirm-expenses",
+        json={
+            "items": [
+                {
+                    "id_spesa": pending_item["id_spesa"],
+                    "mese_anno_key": pending_item["mese_anno_key"],
+                }
+            ]
+        },
+        headers=auth_headers,
+    )
+    assert confirm_response.status_code == 200, confirm_response.text
+    assert confirm_response.json()["created"] == 1
+
+    pending_after_response = client.get(
+        "/api/movements/pending-expenses",
+        params={"anno": today.year, "mese": today.month},
+        headers=auth_headers,
+    )
+    assert pending_after_response.status_code == 200, pending_after_response.text
+    pending_after_items = pending_after_response.json()["items"]
+    assert not any(item["id_spesa"] == expense["id"] for item in pending_after_items)
+
+    finance_after_response = client.get(
+        "/api/workspace/cases",
+        params={"workspace": "renewals_cash", "case_kind": "recurring_expense_due", "page_size": 20},
+        headers=auth_headers,
+    )
+    assert finance_after_response.status_code == 200, finance_after_response.text
+    finance_after_items = finance_after_response.json()["items"]
+    assert not any(item["root_entity"]["id"] == expense["id"] for item in finance_after_items)
 
 
 def test_workspace_today_session_absorbs_onboarding_blockers(client, auth_headers):

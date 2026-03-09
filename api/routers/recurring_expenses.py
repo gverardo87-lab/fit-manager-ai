@@ -9,7 +9,6 @@ Queste spese contribuiscono al calcolo del Margine Netto Mensile
 nell'endpoint /movements/stats.
 """
 
-import calendar
 from typing import Optional
 from datetime import date, datetime, timedelta, timezone
 
@@ -24,96 +23,28 @@ from api.models.trainer import Trainer
 from api.models.recurring_expense import RecurringExpense
 from api.models.movement import CashMovement
 from api.routers._audit import log_audit
+from api.services.recurring_expense_schedule import (
+    VALID_RECURRING_EXPENSE_FREQUENCIES,
+    get_recurring_expense_occurrences_in_month,
+    get_recurring_expense_start_date,
+    resolve_recurring_expense_occurrence_date,
+)
 
 router = APIRouter(prefix="/recurring-expenses", tags=["recurring-expenses"])
 
-VALID_FREQUENCIES = {"MENSILE", "SETTIMANALE", "TRIMESTRALE", "SEMESTRALE", "ANNUALE"}
+VALID_FREQUENCIES = VALID_RECURRING_EXPENSE_FREQUENCIES
 
 
 def _get_start_date(expense: RecurringExpense) -> date:
-    """Data di ancoraggio della spesa ricorrente."""
-    if expense.data_inizio:
-        return expense.data_inizio
-    if expense.data_creazione:
-        return expense.data_creazione.date()
-    return date.today()
+    return get_recurring_expense_start_date(expense)
 
 
 def _get_occurrences_in_month(expense: RecurringExpense, anno: int, mese: int) -> list[tuple[date, str]]:
-    """
-    Occorrenze della spesa in un mese specifico.
-
-    Ritorna lista di tuple (data_effettiva, mese_anno_key).
-    """
-    days_in_month = calendar.monthrange(anno, mese)[1]
-    freq = expense.frequenza or "MENSILE"
-    start = _get_start_date(expense)
-
-    last_day_of_month = date(anno, mese, days_in_month)
-    if start > last_day_of_month:
-        return []
-
-    if freq == "MENSILE":
-        giorno = min(expense.giorno_scadenza, days_in_month)
-        return [(date(anno, mese, giorno), f"{anno:04d}-{mese:02d}")]
-
-    if freq == "SETTIMANALE":
-        base = min(expense.giorno_scadenza, 7)
-        occurrences: list[tuple[date, str]] = []
-        day = base
-        week = 1
-        while day <= days_in_month:
-            key = f"{anno:04d}-{mese:02d}-W{week}"
-            occurrences.append((date(anno, mese, day), key))
-            day += 7
-            week += 1
-        return occurrences
-
-    abs_target = anno * 12 + mese
-    abs_start = start.year * 12 + start.month
-
-    if freq == "TRIMESTRALE":
-        if (abs_target - abs_start) % 3 != 0:
-            return []
-        giorno = min(expense.giorno_scadenza, days_in_month)
-        return [(date(anno, mese, giorno), f"{anno:04d}-{mese:02d}")]
-
-    if freq == "SEMESTRALE":
-        if (abs_target - abs_start) % 6 != 0:
-            return []
-        giorno = min(expense.giorno_scadenza, days_in_month)
-        return [(date(anno, mese, giorno), f"{anno:04d}-{mese:02d}")]
-
-    if freq == "ANNUALE":
-        if mese != start.month:
-            return []
-        giorno = min(expense.giorno_scadenza, days_in_month)
-        return [(date(anno, mese, giorno), f"{anno:04d}")]
-
-    giorno = min(expense.giorno_scadenza, days_in_month)
-    return [(date(anno, mese, giorno), f"{anno:04d}-{mese:02d}")]
+    return get_recurring_expense_occurrences_in_month(expense, anno, mese)
 
 
 def _resolve_occurrence_date(expense: RecurringExpense, key: str) -> Optional[date]:
-    """
-    Risolve la data di un'occorrenza partendo dalla key periodo.
-
-    La key deve essere coerente con il ciclo reale della spesa.
-    """
-    parts = key.split("-")
-    try:
-        anno = int(parts[0])
-        if len(parts) == 1:
-            mese = _get_start_date(expense).month
-        else:
-            mese = int(parts[1])
-    except (ValueError, IndexError):
-        return None
-
-    for occ_date, occ_key in _get_occurrences_in_month(expense, anno, mese):
-        if occ_key == key:
-            return occ_date
-    return None
+    return resolve_recurring_expense_occurrence_date(expense, key)
 
 
 _signed_importo = case(

@@ -19,7 +19,12 @@ import type { WorkspaceCasesQuery } from "@/hooks/useWorkspace";
 import { usePageReveal } from "@/lib/page-reveal";
 import type { OperationalCase } from "@/types/api";
 
-type FinanceFilter = "all" | "payment_overdue" | "contract_renewal_due";
+type FinanceFilter =
+  | "all"
+  | "payment_overdue"
+  | "payment_due_soon"
+  | "contract_renewal_due"
+  | "recurring_expense_due";
 
 const FINANCE_FILTERS: Array<{
   id: FinanceFilter;
@@ -28,7 +33,9 @@ const FINANCE_FILTERS: Array<{
 }> = [
   { id: "all", label: "Tutti" },
   { id: "payment_overdue", label: "Incassi in ritardo", caseKind: "payment_overdue" },
+  { id: "payment_due_soon", label: "Incassi in arrivo", caseKind: "payment_due_soon" },
   { id: "contract_renewal_due", label: "Rinnovi", caseKind: "contract_renewal_due" },
+  { id: "recurring_expense_due", label: "Spese ricorrenti", caseKind: "recurring_expense_due" },
 ];
 
 function buildFinanceBrief({

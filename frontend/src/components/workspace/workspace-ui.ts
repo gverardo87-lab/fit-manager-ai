@@ -13,31 +13,36 @@ export const WORKSPACE_BUCKET_META: Record<
     label: "Adesso",
     shortLabel: "Ora",
     tone: "text-red-700 dark:text-red-300",
-    pillTone: "border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300",
+    pillTone:
+      "border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300",
   },
   today: {
     label: "Oggi",
     shortLabel: "Oggi",
     tone: "text-amber-700 dark:text-amber-300",
-    pillTone: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300",
+    pillTone:
+      "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300",
   },
   upcoming_3d: {
     label: "Entro 3 giorni",
     shortLabel: "3g",
     tone: "text-blue-700 dark:text-blue-300",
-    pillTone: "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/40 dark:bg-blue-950/20 dark:text-blue-300",
+    pillTone:
+      "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/40 dark:bg-blue-950/20 dark:text-blue-300",
   },
   upcoming_7d: {
     label: "Entro 7 giorni",
     shortLabel: "7g",
     tone: "text-violet-700 dark:text-violet-300",
-    pillTone: "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900/40 dark:bg-violet-950/20 dark:text-violet-300",
+    pillTone:
+      "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900/40 dark:bg-violet-950/20 dark:text-violet-300",
   },
   waiting: {
     label: "In attesa",
     shortLabel: "Attesa",
     tone: "text-zinc-700 dark:text-zinc-300",
-    pillTone: "border-zinc-200 bg-zinc-50 text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900/70 dark:text-zinc-300",
+    pillTone:
+      "border-zinc-200 bg-zinc-50 text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900/70 dark:text-zinc-300",
   },
 };
 
@@ -110,7 +115,7 @@ export const WORKSPACE_CASE_KIND_META: Record<
     tone: "bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:text-rose-300",
   },
   payment_due_soon: {
-    label: "Scadenza",
+    label: "Incasso",
     tone: "bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:text-rose-300",
   },
   contract_renewal_due: {
@@ -185,9 +190,17 @@ export function getFinanceSummary(item: OperationalCase): string | null {
   const residual = item.finance_context.total_residual_amount;
   if (due === null && residual === null) return null;
   const pieces: string[] = [];
-  if (due !== null) pieces.push(`Da incassare ${due.toFixed(2)} EUR`);
+  if (due !== null) {
+    if (item.case_kind === "recurring_expense_due") {
+      pieces.push(`Importo ${due.toFixed(2)} EUR`);
+    } else if (item.case_kind === "payment_due_soon") {
+      pieces.push(`In arrivo ${due.toFixed(2)} EUR`);
+    } else {
+      pieces.push(`Da incassare ${due.toFixed(2)} EUR`);
+    }
+  }
   if (residual !== null) pieces.push(`Residuo ${residual.toFixed(2)} EUR`);
-  return pieces.join(" • ");
+  return pieces.join(" | ");
 }
 
 export function getCaseImpactLine(item: OperationalCase): string {
@@ -198,8 +211,12 @@ export function getCaseImpactLine(item: OperationalCase): string {
       return "Se lo rimandi, l'avvio del cliente resta bloccato e la giornata si sporca dopo.";
     case "payment_overdue":
       return "Se lo lasci aperto, il contratto resta in area a rischio e perdi trazione economica.";
+    case "payment_due_soon":
+      return "Se lo prepari adesso, eviti che una scadenza vicina diventi arretrato.";
     case "contract_renewal_due":
       return "Se non lo muovi oggi, il rinnovo perde slancio commerciale.";
+    case "recurring_expense_due":
+      return "Se la confermi nel contesto corretto, la previsione di cassa resta pulita e auditabile.";
     case "client_reactivation":
       return "Se agisci oggi, la probabilita di riattivazione resta piu alta.";
     case "todo_manual":
