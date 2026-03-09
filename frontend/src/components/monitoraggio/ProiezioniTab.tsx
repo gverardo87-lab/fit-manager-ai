@@ -265,8 +265,8 @@ export function ProiezioniTab() {
   if (clientsLoading) {
     return (
       <div className="space-y-5">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
+        <div className="grid grid-cols-2 gap-3">
+          {Array.from({ length: 2 }).map((_, i) => (
             <Skeleton key={i} className="h-16 rounded-lg" />
           ))}
         </div>
@@ -282,25 +282,8 @@ export function ProiezioniTab() {
 
   return (
     <div className="space-y-5">
-      {/* KPI row */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="rounded-lg border border-teal-200 bg-teal-50/80 px-3 py-2 dark:border-teal-900/40 dark:bg-teal-950/20">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Con dati
-          </p>
-          <p className="mt-1 text-2xl font-extrabold leading-none tabular-nums text-teal-700 dark:text-teal-300">
-            <AnimatedNumber value={kpi.withData} />
-            <span className="ml-1 text-xs font-medium text-muted-foreground">/ {activeClients.length}</span>
-          </p>
-        </div>
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50/80 px-3 py-2 dark:border-emerald-900/40 dark:bg-emerald-950/20">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            In tempo
-          </p>
-          <p className="mt-1 text-2xl font-extrabold leading-none tabular-nums text-emerald-700 dark:text-emerald-300">
-            <AnimatedNumber value={kpi.onTrack} />
-          </p>
-        </div>
+      {/* KPI row — solo i 2 KPI actionable */}
+      <div className="grid grid-cols-2 gap-3">
         <div className="rounded-lg border border-red-200 bg-red-50/80 px-3 py-2 dark:border-red-900/40 dark:bg-red-950/20">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             In ritardo

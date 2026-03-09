@@ -2,85 +2,146 @@
 "use client";
 
 /**
- * Panoramica Monitoraggio — Pagina unificata con 3 tab.
+ * Panoramica Monitoraggio — Layout unificato a sezioni collapsibili.
  *
- * Tab 1: Salute Clienti (ex MyPortal — readiness clinica)
- * Tab 2: Qualita Programmi (ex MyTrainer — analisi metodologica)
- * Tab 3: Proiezioni (worklist proiezioni obiettivi aggregate)
+ * Sostituisce i 3 tab con sezioni stacked verticalmente per eliminare
+ * la friction del tab-switching. L'utente vede tutto scorrendo.
  *
- * Raccoglie in un unico punto le 3 dimensioni di monitoraggio.
+ * Sezione 1: Salute Clienti (readiness clinica)
+ * Sezione 2: Qualita Programmi (analisi metodologica)
+ * Sezione 3: Proiezioni (obiettivi aggregate)
  */
 
 import { useState } from "react";
 import {
   Activity,
+  ChevronDown,
   HeartPulse,
   Rocket,
   Target,
 } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePageReveal } from "@/lib/page-reveal";
 
 import { SaluteClientiTab } from "@/components/monitoraggio/SaluteClientiTab";
 import { QualitaProgrammiTab } from "@/components/monitoraggio/QualitaProgrammiTab";
 import { ProiezioniTab } from "@/components/monitoraggio/ProiezioniTab";
 
+// ── Section config ──
+
+interface SectionDef {
+  id: string;
+  title: string;
+  subtitle: string;
+  icon: React.ComponentType<{ className?: string }>;
+  iconBg: string;
+  iconColor: string;
+}
+
+const SECTIONS: SectionDef[] = [
+  {
+    id: "salute",
+    title: "Salute Clienti",
+    subtitle: "Readiness clinica e onboarding",
+    icon: HeartPulse,
+    iconBg: "bg-rose-100 dark:bg-rose-900/30",
+    iconColor: "text-rose-600 dark:text-rose-400",
+  },
+  {
+    id: "programmi",
+    title: "Qualita Programmi",
+    subtitle: "Analisi metodologica allenamento",
+    icon: Target,
+    iconBg: "bg-blue-100 dark:bg-blue-900/30",
+    iconColor: "text-blue-600 dark:text-blue-400",
+  },
+  {
+    id: "proiezioni",
+    title: "Proiezioni",
+    subtitle: "Trend obiettivi e alert rischio",
+    icon: Rocket,
+    iconBg: "bg-violet-100 dark:bg-violet-900/30",
+    iconColor: "text-violet-600 dark:text-violet-400",
+  },
+];
+
+const SECTION_CONTENT: Record<string, React.ComponentType> = {
+  salute: SaluteClientiTab,
+  programmi: QualitaProgrammiTab,
+  proiezioni: ProiezioniTab,
+};
+
 export default function MonitoraggioPage() {
   const { revealClass, revealStyle } = usePageReveal();
-  const [activeTab, setActiveTab] = useState("salute");
+
+  // All sections start expanded — user scrolls to scan
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+
+  const toggleSection = (id: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   return (
     <div className="space-y-5">
       {/* Page header */}
       <div
-        className={revealClass(0, "flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between")}
+        className={revealClass(0, "flex items-center gap-3")}
         style={revealStyle(0)}
       >
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-violet-100 to-teal-100 dark:from-violet-900/40 dark:to-teal-800/30">
-            <Activity className="h-5 w-5 text-violet-600 dark:text-violet-400" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Monitoraggio</h1>
-            <p className="text-sm text-muted-foreground">
-              Panoramica salute clienti, qualita programmi e proiezioni
-            </p>
-          </div>
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-violet-100 to-teal-100 dark:from-violet-900/40 dark:to-teal-800/30">
+          <Activity className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Monitoraggio</h1>
+          <p className="text-sm text-muted-foreground">
+            Salute clienti, qualita programmi e proiezioni
+          </p>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className={revealClass(50)} style={revealStyle(50)}>
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full overflow-x-auto">
-            <TabsTrigger value="salute" className="gap-1.5">
-              <HeartPulse className="h-4 w-4" />
-              <span className="hidden sm:inline">Salute Clienti</span>
-              <span className="sm:hidden">Salute</span>
-            </TabsTrigger>
-            <TabsTrigger value="programmi" className="gap-1.5">
-              <Target className="h-4 w-4" />
-              <span className="hidden sm:inline">Qualita Programmi</span>
-              <span className="sm:hidden">Programmi</span>
-            </TabsTrigger>
-            <TabsTrigger value="proiezioni" className="gap-1.5">
-              <Rocket className="h-4 w-4" />
-              <span className="hidden sm:inline">Proiezioni</span>
-              <span className="sm:hidden">Proiezioni</span>
-            </TabsTrigger>
-          </TabsList>
+      {/* Stacked sections */}
+      {SECTIONS.map((section, idx) => {
+        const isOpen = !collapsed.has(section.id);
+        const SectionContent = SECTION_CONTENT[section.id];
+        const Icon = section.icon;
 
-          <TabsContent value="salute" className="mt-4">
-            <SaluteClientiTab />
-          </TabsContent>
-          <TabsContent value="programmi" className="mt-4">
-            <QualitaProgrammiTab />
-          </TabsContent>
-          <TabsContent value="proiezioni" className="mt-4">
-            <ProiezioniTab />
-          </TabsContent>
-        </Tabs>
-      </div>
+        return (
+          <div
+            key={section.id}
+            className={revealClass(50 + idx * 50, "rounded-xl border bg-white dark:bg-zinc-900 overflow-hidden")}
+            style={revealStyle(50 + idx * 50)}
+          >
+            {/* Section header — clickable to collapse/expand */}
+            <button
+              type="button"
+              className="w-full flex items-center gap-3 p-4 text-left hover:bg-muted/30 transition-colors"
+              onClick={() => toggleSection(section.id)}
+            >
+              <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${section.iconBg}`}>
+                <Icon className={`h-4 w-4 ${section.iconColor}`} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h2 className="text-sm font-semibold">{section.title}</h2>
+                <p className="text-xs text-muted-foreground">{section.subtitle}</p>
+              </div>
+              <ChevronDown
+                className={`h-4 w-4 text-muted-foreground/50 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+
+            {/* Section content */}
+            {isOpen && (
+              <div className="border-t px-4 pb-4 pt-4">
+                <SectionContent />
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
