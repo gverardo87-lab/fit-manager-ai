@@ -169,7 +169,7 @@ export default function ClientProfilePage({
           <MovimentiTab clientId={clientId} />
         </TabsContent>
         <TabsContent value="schede" className="mt-4">
-          <SchedeTab clientId={clientId} onNewScheda={() => setTemplateSelectorOpen(true)} />
+          <SchedeTab clientId={clientId} onNewScheda={() => setTemplateSelectorOpen(true)} fromContext={searchParams.get("from") ?? undefined} />
         </TabsContent>
       </Tabs>
 
@@ -177,6 +177,7 @@ export default function ClientProfilePage({
         open={templateSelectorOpen}
         onOpenChange={setTemplateSelectorOpen}
         clientId={clientId}
+        fromContext={searchParams.get("from") ?? undefined}
       />
       <ClientSheet
         open={sheetOpen}

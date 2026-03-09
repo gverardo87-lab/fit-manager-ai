@@ -91,7 +91,11 @@ export default function SchedaDetailPage({ params }: { params: Promise<{ id: str
   const goBack = useCallback(() => {
     if (builder.isDirtyRef.current && !window.confirm("Hai modifiche non salvate. Vuoi davvero uscire?")) return;
     const returnClientId = fromParam?.startsWith("clienti-") ? fromParam.slice(8) : null;
-    const dest = returnClientId ? `/clienti/${returnClientId}?tab=schede` : fromParam === "allenamenti" ? "/allenamenti" : "/schede";
+    const dest = returnClientId
+      ? `/clienti/${returnClientId}?tab=schede`
+      : fromParam === "allenamenti" ? "/allenamenti"
+      : fromParam === "monitoraggio" ? "/monitoraggio"
+      : "/schede";
     router.push(dest);
   }, [router, fromParam, builder.isDirtyRef]);
 

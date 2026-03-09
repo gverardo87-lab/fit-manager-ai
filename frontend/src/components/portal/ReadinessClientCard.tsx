@@ -183,7 +183,10 @@ export function ReadinessClientRow({ item, expanded, onToggle }: ReadinessClient
 
         {/* CTA — always shows next_action_label; when ready → Monitoraggio */}
         <Link
-          href={isReady ? `/monitoraggio/${item.client_id}?from=monitoraggio` : item.next_action_href}
+          href={isReady
+            ? `/monitoraggio/${item.client_id}?from=monitoraggio`
+            : `${item.next_action_href}${item.next_action_href.includes("?") ? "&" : "?"}from=monitoraggio`
+          }
           onClick={(e) => e.stopPropagation()}
           className="shrink-0"
         >

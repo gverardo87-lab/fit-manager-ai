@@ -176,6 +176,8 @@ interface TemplateSelectorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   clientId?: number;
+  /** Contesto di provenienza per cross-page back navigation (es. "monitoraggio") */
+  fromContext?: string;
 }
 
 export function TemplateSelector(props: TemplateSelectorProps) {
@@ -186,7 +188,7 @@ export function TemplateSelector(props: TemplateSelectorProps) {
   return <TemplateSelectorDialog key={dialogKey} {...props} />;
 }
 
-function TemplateSelectorDialog({ open, onOpenChange, clientId }: TemplateSelectorProps) {
+function TemplateSelectorDialog({ open, onOpenChange, clientId, fromContext }: TemplateSelectorProps) {
   const router = useRouter();
   const createWorkout = useCreateWorkout();
   const generatePlanPackage = useGeneratePlanPackage();
@@ -251,12 +253,12 @@ function TemplateSelectorDialog({ open, onOpenChange, clientId }: TemplateSelect
         {
           onSuccess: (plan) => {
             onOpenChange(false);
-            router.push(`/schede/${plan.id}`);
+            router.push(`/schede/${plan.id}${fromContext ? `?from=${fromContext}` : ""}`);
           },
         },
       );
     },
-    [createWorkout, selectedClientId, onOpenChange, router, exercises],
+    [createWorkout, selectedClientId, onOpenChange, router, exercises, fromContext],
   );
 
   const handleBlankSheet = useCallback(() => {
@@ -288,11 +290,11 @@ function TemplateSelectorDialog({ open, onOpenChange, clientId }: TemplateSelect
       {
         onSuccess: (plan) => {
           onOpenChange(false);
-          router.push(`/schede/${plan.id}`);
+          router.push(`/schede/${plan.id}${fromContext ? `?from=${fromContext}` : ""}`);
         },
       },
     );
-  }, [createWorkout, selectedClientId, onOpenChange, router, exercises]);
+  }, [createWorkout, selectedClientId, onOpenChange, router, exercises, fromContext]);
 
   /** Scheda vuota con 1 blocco circuit pre-impostato in Principale */
   const handleBlankSheetHybrid = useCallback(() => {
@@ -328,11 +330,11 @@ function TemplateSelectorDialog({ open, onOpenChange, clientId }: TemplateSelect
       {
         onSuccess: (plan) => {
           onOpenChange(false);
-          router.push(`/schede/${plan.id}`);
+          router.push(`/schede/${plan.id}${fromContext ? `?from=${fromContext}` : ""}`);
         },
       },
     );
-  }, [createWorkout, selectedClientId, onOpenChange, router]);
+  }, [createWorkout, selectedClientId, onOpenChange, router, fromContext]);
 
   // ── Handler: Scheda Smart (generazione automatica 14 dimensioni) ──
   const handleSmartTemplate = useCallback(() => {
@@ -353,7 +355,7 @@ function TemplateSelectorDialog({ open, onOpenChange, clientId }: TemplateSelect
               onSuccess: (plan) => {
                 storeSmartPlanPackage(plan.id, planPackage);
                 onOpenChange(false);
-                router.push(`/schede/${plan.id}`);
+                router.push(`/schede/${plan.id}${fromContext ? `?from=${fromContext}` : ""}`);
               },
             },
           );
@@ -369,6 +371,7 @@ function TemplateSelectorDialog({ open, onOpenChange, clientId }: TemplateSelect
     smartLivello,
     onOpenChange,
     router,
+    fromContext,
   ]);
 
   const isTemplateLoading = !exerciseData || exercises.length === 0;

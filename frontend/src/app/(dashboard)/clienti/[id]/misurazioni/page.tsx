@@ -78,6 +78,7 @@ export default function MisurazionePage({
   const fromParam = searchParams.get("from");
 
   const backHref = useMemo(() => {
+    if (fromParam === "monitoraggio") return "/monitoraggio";
     if (fromParam?.startsWith("monitoraggio-")) {
       const cId = fromParam.replace("monitoraggio-", "");
       return `/monitoraggio/${cId}`;

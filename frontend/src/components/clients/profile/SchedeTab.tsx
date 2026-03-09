@@ -19,9 +19,11 @@ import type { WorkoutPlan } from "@/types/api";
 interface SchedeTabProps {
   clientId: number;
   onNewScheda: () => void;
+  /** Contesto di provenienza per propagare al builder (es. "monitoraggio") */
+  fromContext?: string;
 }
 
-export function SchedeTab({ clientId, onNewScheda }: SchedeTabProps) {
+export function SchedeTab({ clientId, onNewScheda, fromContext }: SchedeTabProps) {
   const router = useRouter();
   const { data, isLoading } = useClientWorkouts(clientId);
 
@@ -67,7 +69,7 @@ export function SchedeTab({ clientId, onNewScheda }: SchedeTabProps) {
               <TableRow
                 key={w.id}
                 className="cursor-pointer hover:bg-muted/50"
-                onClick={() => router.push(`/schede/${w.id}?from=clienti-${clientId}`)}
+                onClick={() => router.push(`/schede/${w.id}?from=${fromContext ?? `clienti-${clientId}`}`)}
               >
                 <TableCell className="font-medium">{w.nome}</TableCell>
                 <TableCell>

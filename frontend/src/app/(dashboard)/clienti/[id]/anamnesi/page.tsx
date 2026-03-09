@@ -59,6 +59,9 @@ export default function AnamnesiPage({
   const fromParam = searchParams.get("from");
 
   const backNav = useMemo(() => {
+    if (fromParam === "monitoraggio") {
+      return { href: "/monitoraggio", label: "Monitoraggio" };
+    }
     if (fromParam?.startsWith("monitoraggio-")) {
       const cId = fromParam.replace("monitoraggio-", "");
       return { href: `/monitoraggio/${cId}`, label: "Monitoraggio" };
