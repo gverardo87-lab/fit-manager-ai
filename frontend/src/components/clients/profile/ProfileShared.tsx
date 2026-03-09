@@ -6,13 +6,45 @@
  * EmptyTab, TabSkeleton, ProfileSkeleton.
  */
 
-import { AlertTriangle } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, type LucideIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export function EmptyTab({ message }: { message: string }) {
+interface EmptyTabProps {
+  icon?: LucideIcon;
+  message: string;
+  /** Breve spiegazione contestuale (opzionale). */
+  hint?: string;
+  /** CTA button (opzionale). */
+  action?: {
+    label: string;
+    onClick?: () => void;
+    href?: string;
+  };
+}
+
+export function EmptyTab({ icon: Icon, message, hint, action }: EmptyTabProps) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12">
-      <p className="text-sm text-muted-foreground">{message}</p>
+      {Icon && <Icon className="h-10 w-10 text-muted-foreground/25" />}
+      <p className="text-sm font-medium text-muted-foreground">{message}</p>
+      {hint && (
+        <p className="max-w-xs text-center text-xs text-muted-foreground/70">{hint}</p>
+      )}
+      {action && (
+        <div className="mt-1">
+          {action.href ? (
+            <Button variant="outline" size="sm" asChild>
+              <Link href={action.href}>{action.label}</Link>
+            </Button>
+          ) : action.onClick ? (
+            <Button variant="outline" size="sm" onClick={action.onClick}>
+              {action.label}
+            </Button>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }

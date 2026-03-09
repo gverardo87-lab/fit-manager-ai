@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { Calendar } from "lucide-react";
 import { useClientEvents, type EventHydrated } from "@/hooks/useAgenda";
 import { TabSkeleton, EmptyTab } from "./ProfileShared";
 
@@ -18,7 +19,14 @@ export function SessioniTab({ clientId }: { clientId: number }) {
   const events = data?.items ?? [];
 
   if (events.length === 0) {
-    return <EmptyTab message="Nessuna sessione per questo cliente" />;
+    return (
+      <EmptyTab
+        icon={Calendar}
+        message="Nessuna sessione registrata"
+        hint="Le sessioni si creano dall'Agenda e vengono collegate automaticamente."
+        action={{ label: "Apri Agenda", href: `/agenda?newEvent=1&clientId=${clientId}` }}
+      />
+    );
   }
 
   const sorted = [...events].sort(

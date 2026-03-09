@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { FileText } from "lucide-react";
 import { useClientContracts } from "@/hooks/useContracts";
 import { formatCurrency } from "@/lib/format";
 import { TabSkeleton, EmptyTab } from "./ProfileShared";
@@ -20,7 +21,14 @@ export function ContrattiTab({ clientId }: { clientId: number }) {
   const contracts = data?.items ?? [];
 
   if (contracts.length === 0) {
-    return <EmptyTab message="Nessun contratto per questo cliente" />;
+    return (
+      <EmptyTab
+        icon={FileText}
+        message="Nessun contratto attivo"
+        hint="Il contratto definisce il pacchetto, i crediti e il piano pagamento."
+        action={{ label: "Vai a Contratti", href: `/contratti?new=1&cliente=${clientId}` }}
+      />
+    );
   }
 
   return (

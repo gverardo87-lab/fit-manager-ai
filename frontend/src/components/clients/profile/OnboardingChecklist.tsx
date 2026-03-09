@@ -11,8 +11,17 @@
  */
 
 import Link from "next/link";
-import { Check, ChevronRight, Rocket } from "lucide-react";
+import { Check, ChevronRight, ListChecks } from "lucide-react";
 import type { OnboardingStep } from "@/hooks/useClientReadiness";
+
+/** CTA verb per step — specifico, non generico "Inizia". */
+const STEP_CTA: Record<string, string> = {
+  contratto: "Crea contratto",
+  anamnesi: "Compila",
+  misurazioni: "Registra",
+  scheda: "Crea programma",
+  sessione: "Prenota",
+};
 
 interface OnboardingChecklistProps {
   steps: OnboardingStep[];
@@ -43,9 +52,9 @@ export function OnboardingChecklist({ steps }: OnboardingChecklistProps) {
       <div className="flex items-center justify-between px-5 pt-5 pb-3">
         <div className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-            <Rocket className="h-4 w-4 text-primary" />
+            <ListChecks className="h-4 w-4 text-primary" />
           </div>
-          <h3 className="text-sm font-bold tracking-tight">Configura il profilo</h3>
+          <h3 className="text-sm font-bold tracking-tight">Configurazione cliente</h3>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold tabular-nums text-muted-foreground">
@@ -104,7 +113,7 @@ function HeroCardInner({ step, color }: { step: OnboardingStep; color: typeof ST
         </div>
         {/* div styled come bottone — MAI <Button> qui: wrapper puo' essere <button> (onAction) */}
         <div className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-sm">
-          Inizia
+          {STEP_CTA[step.key] ?? "Inizia"}
           <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
         </div>
       </div>

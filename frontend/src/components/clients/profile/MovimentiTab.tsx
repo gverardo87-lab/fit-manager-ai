@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { Wallet } from "lucide-react";
 import { useMovements } from "@/hooks/useMovements";
 import { formatCurrency } from "@/lib/format";
 import { TabSkeleton, EmptyTab } from "./ProfileShared";
@@ -20,7 +21,14 @@ export function MovimentiTab({ clientId }: { clientId: number }) {
   const movements = data?.items ?? [];
 
   if (movements.length === 0) {
-    return <EmptyTab message="Nessun movimento per questo cliente" />;
+    return (
+      <EmptyTab
+        icon={Wallet}
+        message="Nessun movimento registrato"
+        hint="I movimenti vengono creati automaticamente dai pagamenti delle rate o manualmente dalla Cassa."
+        action={{ label: "Vai a Cassa", href: "/cassa" }}
+      />
+    );
   }
 
   return (
