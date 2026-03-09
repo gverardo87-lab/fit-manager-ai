@@ -176,6 +176,8 @@ def _build_clinical_readiness_item(
     *,
     has_measurements: bool,
     has_workout_plan: bool,
+    workout_plan_name: str | None = None,
+    workout_activated: bool = False,
     latest_measurement_date: date | None,
     latest_workout_updated_at: str | date | datetime | None,
     anamnesi_reference_date: date | None,
@@ -204,7 +206,12 @@ def _build_clinical_readiness_item(
         priority_score += 60
 
     if has_workout_plan:
-        readiness_score += 30
+        readiness_score += 20
+        if workout_activated:
+            readiness_score += 10
+        else:
+            missing_steps.append("workout_not_activated")
+            priority_score += 20
     else:
         missing_steps.append("workout")
         priority_score += 40
@@ -227,6 +234,10 @@ def _build_clinical_readiness_item(
         next_action_code = "assign_workout"
         next_action_label = "Assegna scheda"
         next_action_href = f"/clienti/{client_id}?tab=schede&startScheda=1"
+    elif not workout_activated:
+        next_action_code = "activate_workout"
+        next_action_label = "Attiva programma"
+        next_action_href = f"/allenamenti?idCliente={client_id}"
     else:
         next_action_code = "ready"
         next_action_label = "Profilo pronto"
@@ -267,6 +278,8 @@ def _build_clinical_readiness_item(
         anamnesi_state=anamnesi_state,
         has_measurements=has_measurements,
         has_workout_plan=has_workout_plan,
+        workout_activated=workout_activated,
+        workout_plan_name=workout_plan_name,
         missing_steps=missing_steps,
         readiness_score=readiness_score,
         priority=priority,
@@ -342,16 +355,49 @@ def compute_clinical_readiness_data(
     }
     clients_with_workout = set(latest_workout_by_client.keys())
 
+    # Fetch latest plan per client for activation status + name (anti-N+1)
+    workout_detail_rows = session.exec(
+        select(
+            WorkoutPlan.id_cliente,
+            WorkoutPlan.nome,
+            WorkoutPlan.data_inizio,
+            WorkoutPlan.data_fine,
+        )
+        .where(
+            WorkoutPlan.trainer_id == trainer_id,
+            WorkoutPlan.deleted_at == None,
+            WorkoutPlan.id_cliente != None,
+            WorkoutPlan.id_cliente.in_(client_ids),
+        )
+        .order_by(
+            WorkoutPlan.id_cliente,
+            func.coalesce(WorkoutPlan.updated_at, WorkoutPlan.created_at).desc(),
+        )
+    ).all()
+    # Keep only the latest plan per client (first row per id_cliente after ORDER BY desc)
+    # Tuple: (nome, data_inizio, data_fine)
+    latest_plan_info: dict[int, tuple[str | None, date | None, date | None]] = {}
+    for row in workout_detail_rows:
+        cid = row[0]
+        if cid is not None and cid not in latest_plan_info:
+            latest_plan_info[cid] = (row[1], row[2], row[3])
+
     items: list[ClinicalReadinessClientItem] = []
     for client in active_clients:
         if client.id is None:
             continue
         client_id = client.id
+        plan_info = latest_plan_info.get(client_id)
         items.append(
             _build_clinical_readiness_item(
                 client,
                 has_measurements=client_id in clients_with_measurements,
                 has_workout_plan=client_id in clients_with_workout,
+                workout_plan_name=plan_info[0] if plan_info else None,
+                # Activated = both data_inizio AND data_fine set (matches frontend getProgramStatus)
+                workout_activated=(
+                    plan_info[1] is not None and plan_info[2] is not None
+                ) if plan_info else False,
                 latest_measurement_date=latest_measurement_by_client.get(client_id),
                 latest_workout_updated_at=latest_workout_by_client.get(client_id),
                 anamnesi_reference_date=_extract_anamnesi_reference_date(client.anamnesi_json),

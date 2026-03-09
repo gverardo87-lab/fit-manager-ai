@@ -26,6 +26,7 @@ def _structured_anamnesi():
     return {
         "infortuni_attuali": {"presente": False, "dettaglio": None},
         "data_compilazione": "2026-03-01",
+        "obiettivo_principale": "salute",
     }
 
 
@@ -63,7 +64,7 @@ def test_clinical_readiness_prioritizes_missing_and_legacy(client, auth_headers,
         )
     )
 
-    # c_ready: baseline + workout assigned
+    # c_ready: baseline + workout assigned + activated
     session.add(
         ClientMeasurement(
             id_cliente=c_ready["id"],
@@ -78,6 +79,9 @@ def test_clinical_readiness_prioritizes_missing_and_legacy(client, auth_headers,
             nome="Ready plan",
             obiettivo="generale",
             livello="beginner",
+            data_inizio=date(2026, 3, 2),
+            data_fine=date(2026, 6, 2),
+            created_at=date(2026, 3, 2).isoformat(),
         )
     )
     session.commit()
@@ -134,17 +138,20 @@ def test_clinical_readiness_prioritizes_missing_and_legacy(client, auth_headers,
     assert items[2]["measurement_freshness"]["reason_code"] == "measurement_review"
     assert items[2]["workout_freshness"]["status"] == "missing"
 
-    expected_ready_due = date(2026, 3, 2) + date.resolution * 25
+    expected_measurement_due = date(2026, 3, 2) + date.resolution * 25
+    expected_workout_due = date(2026, 3, 2) + date.resolution * 21
+    # Workout review (21 days) comes before measurement review (25 days)
+    expected_ready_due = expected_workout_due
     expected_ready_days = (expected_ready_due - date.today()).days
     assert items[3]["client_id"] == c_ready["id"]
     assert items[3]["next_action_code"] == "ready"
     assert items[3]["readiness_score"] == 100
     assert items[3]["priority"] == "low"
-    assert items[3]["timeline_reason"] == "measurement_review"
-    assert items[3]["timeline_label"] == f"Review misurazioni tra {expected_ready_days} giorni"
+    assert items[3]["timeline_reason"] == "workout_review"
+    assert items[3]["timeline_label"] == f"Review scheda tra {expected_ready_days} giorni"
     assert items[3]["next_due_date"] == expected_ready_due.isoformat()
     assert items[3]["measurement_freshness"]["status"] == "ok"
-    assert items[3]["measurement_freshness"]["due_date"] == expected_ready_due.isoformat()
+    assert items[3]["measurement_freshness"]["due_date"] == expected_measurement_due.isoformat()
     assert items[3]["workout_freshness"]["status"] == "ok"
 
 
@@ -205,6 +212,8 @@ def test_clinical_readiness_exposes_shared_measurement_and_workout_freshness(cli
             nome="Policy plan",
             obiettivo="generale",
             livello="beginner",
+            data_inizio=(today - date.resolution * 36),
+            data_fine=(today + date.resolution * 60),
             created_at=(today - date.resolution * 36).isoformat(),
             updated_at=(today - date.resolution * 36).isoformat(),
         )
@@ -292,6 +301,9 @@ def test_clinical_readiness_worklist_supports_pagination_and_filters(client, aut
             nome="Ready plan 1",
             obiettivo="generale",
             livello="beginner",
+            data_inizio=date(2026, 3, 2),
+            data_fine=date(2026, 6, 2),
+            created_at=date(2026, 3, 2).isoformat(),
         )
     )
     session.add(
@@ -301,6 +313,9 @@ def test_clinical_readiness_worklist_supports_pagination_and_filters(client, aut
             nome="Ready plan 2",
             obiettivo="generale",
             livello="beginner",
+            data_inizio=date(2026, 3, 3),
+            data_fine=date(2026, 6, 3),
+            created_at=date(2026, 3, 3).isoformat(),
         )
     )
     session.commit()

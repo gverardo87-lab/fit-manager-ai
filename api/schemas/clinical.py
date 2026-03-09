@@ -37,11 +37,13 @@ class ClinicalReadinessClientItem(BaseModel):
     anamnesi_state: str                  # missing | legacy | structured
     has_measurements: bool = False
     has_workout_plan: bool = False
-    missing_steps: List[str] = []        # anamnesi_missing | anamnesi_legacy | baseline | workout
+    workout_activated: bool = False
+    workout_plan_name: Optional[str] = None
+    missing_steps: List[str] = []        # anamnesi_missing | anamnesi_legacy | baseline | workout | workout_not_activated
     readiness_score: int = 0             # 0..100
     priority: str = "low"                # high | medium | low
     priority_score: int = 0              # deterministico per ordinamento
-    next_action_code: str                # collect_anamnesi | migrate_anamnesi | collect_baseline | assign_workout | ready
+    next_action_code: str                # collect_anamnesi | migrate_anamnesi | collect_baseline | assign_workout | activate_workout | ready
     next_action_label: str
     next_action_href: str
     next_due_date: Optional[date] = None

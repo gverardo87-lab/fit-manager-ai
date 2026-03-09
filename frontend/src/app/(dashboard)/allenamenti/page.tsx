@@ -477,10 +477,12 @@ function ProgramCard({ plan }: { plan: WorkoutPlan }) {
               : `border-l-4 ${STATUS_CARD_BORDER[status]} bg-white dark:bg-zinc-900`
       }`}>
         {/* ── Compact header (sempre visibile, clickable per espandere) ── */}
-        <button
-          type="button"
+        <div
+          role="button"
+          tabIndex={0}
           className="w-full text-left p-3 sm:p-4"
           onClick={() => hasGrid && setExpanded((v) => !v)}
+          onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && hasGrid) { e.preventDefault(); setExpanded((v) => !v); } }}
           style={{ cursor: hasGrid ? "pointer" : "default" }}
         >
           <div className="flex items-center gap-3">
@@ -539,7 +541,7 @@ function ProgramCard({ plan }: { plan: WorkoutPlan }) {
               </Button>
             )}
           </div>
-        </button>
+        </div>
 
         {/* ── Expanded content (drill-down) ── */}
         {expanded && hasGrid && (

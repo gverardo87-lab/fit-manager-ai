@@ -830,7 +830,8 @@ export type ClinicalMissingStep =
   | "anamnesi_missing"
   | "anamnesi_legacy"
   | "baseline"
-  | "workout";
+  | "workout"
+  | "workout_not_activated";
 
 /** Priorita operativa readiness */
 export type ClinicalPriority = "high" | "medium" | "low";
@@ -841,6 +842,7 @@ export type ClinicalNextActionCode =
   | "migrate_anamnesi"
   | "collect_baseline"
   | "assign_workout"
+  | "activate_workout"
   | "ready";
 
 export type ClinicalFreshnessDomain = "measurements" | "workout";
@@ -868,6 +870,8 @@ export interface ClinicalReadinessClientItem {
   anamnesi_state: AnamnesiReadinessState;
   has_measurements: boolean;
   has_workout_plan: boolean;
+  workout_activated: boolean;
+  workout_plan_name: string | null;
   missing_steps: ClinicalMissingStep[];
   readiness_score: number;
   priority: ClinicalPriority;

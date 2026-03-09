@@ -8,10 +8,18 @@
  */
 
 import Link from "next/link";
-import { ArrowRight, Check, X, AlertTriangle, ChevronDown } from "lucide-react";
+import { ArrowRight, Check, X, AlertTriangle, ChevronDown, Play } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { ClinicalReadinessClientItem } from "@/types/api";
+
+const MISSING_STEP_LABEL: Record<string, string> = {
+  anamnesi_missing: "Anamnesi",
+  anamnesi_legacy: "Anamnesi (legacy)",
+  baseline: "Misurazioni",
+  workout: "Scheda",
+  workout_not_activated: "Attivazione",
+};
 
 // ── Costanti ──
 
@@ -130,6 +138,10 @@ export function ReadinessClientRow({ item, expanded, onToggle }: ReadinessClient
     : "missing";
   const measurementState = freshnessToDotState(item.measurement_freshness.status);
   const workoutState = freshnessToDotState(item.workout_freshness.status);
+  const activationState: "ok" | "warn" | "missing" =
+    !item.has_workout_plan ? "missing"
+    : item.workout_activated ? "ok"
+    : "warn";
 
   const isReady = item.readiness_score >= 100;
   const isQuiet = item.priority === "low";
@@ -172,6 +184,7 @@ export function ReadinessClientRow({ item, expanded, onToggle }: ReadinessClient
           <StatusDot state={anamnesiState} label="Ana" />
           <StatusDot state={measurementState} label="Mis" />
           <StatusDot state={workoutState} label="Sch" />
+          <StatusDot state={activationState} label="Att" />
         </div>
 
         {/* Timeline badge */}
@@ -181,17 +194,14 @@ export function ReadinessClientRow({ item, expanded, onToggle }: ReadinessClient
           </Badge>
         )}
 
-        {/* CTA — always shows next_action_label; when ready → Monitoraggio */}
+        {/* CTA — always uses backend next_action_label/href */}
         <Link
-          href={isReady
-            ? `/monitoraggio/${item.client_id}?from=monitoraggio`
-            : `${item.next_action_href}${item.next_action_href.includes("?") ? "&" : "?"}from=monitoraggio`
-          }
+          href={`${item.next_action_href}${item.next_action_href.includes("?") ? "&" : "?"}from=monitoraggio`}
           onClick={(e) => e.stopPropagation()}
           className="shrink-0"
         >
           <Button size="sm" variant={isReady ? "outline" : "default"} className="gap-1 text-xs">
-            <span className="hidden sm:inline">{isReady ? "Vedi monitoraggio" : item.next_action_label}</span>
+            <span className="hidden sm:inline">{item.next_action_label}</span>
             <ArrowRight className="h-3 w-3" />
           </Button>
         </Link>
@@ -220,7 +230,8 @@ export function ReadinessClientRow({ item, expanded, onToggle }: ReadinessClient
               <div className="flex flex-wrap gap-3">
                 <StatusDot state={anamnesiState} label="Anamnesi" />
                 <StatusDot state={measurementState} label="Misurazioni" />
-                <StatusDot state={workoutState} label="Scheda" />
+                <StatusDot state={workoutState} label={item.workout_plan_name ? `Scheda: ${item.workout_plan_name}` : "Scheda"} />
+                <StatusDot state={activationState} label="Attivazione" />
               </div>
             </div>
 
@@ -248,8 +259,12 @@ export function ReadinessClientRow({ item, expanded, onToggle }: ReadinessClient
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     {item.missing_steps.map((step) => (
-                      <Badge key={step} variant="outline" className="border-red-200 bg-red-50 text-[10px] text-red-700 dark:border-red-900/40 dark:bg-red-900/30 dark:text-red-300">
-                        {step}
+                      <Badge key={step} variant="outline" className={
+                        step === "workout_not_activated"
+                          ? "border-amber-200 bg-amber-50 text-[10px] text-amber-700 dark:border-amber-900/40 dark:bg-amber-900/30 dark:text-amber-300"
+                          : "border-red-200 bg-red-50 text-[10px] text-red-700 dark:border-red-900/40 dark:bg-red-900/30 dark:text-red-300"
+                      }>
+                        {MISSING_STEP_LABEL[step] ?? step}
                       </Badge>
                     ))}
                   </div>
@@ -263,14 +278,24 @@ export function ReadinessClientRow({ item, expanded, onToggle }: ReadinessClient
             </div>
           </div>
 
-          {/* Bottom link */}
-          <div className="mt-3 flex items-center justify-end border-t pt-3">
+          {/* Bottom actions */}
+          <div className="mt-3 flex items-center justify-between border-t pt-3">
             <Link
-              href={`/clienti/${item.client_id}`}
+              href={`/clienti/${item.client_id}?from=monitoraggio`}
               className="text-xs text-muted-foreground hover:text-foreground hover:underline"
             >
               Profilo cliente →
             </Link>
+            {!isReady && (
+              <Link
+                href={`${item.next_action_href}${item.next_action_href.includes("?") ? "&" : "?"}from=monitoraggio`}
+              >
+                <Button size="sm" className="gap-1 text-xs">
+                  {item.next_action_label}
+                  <ArrowRight className="h-3 w-3" />
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       )}
