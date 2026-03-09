@@ -36,6 +36,7 @@ Esempio:
 
 ## Ultimo allineamento (2026-03-09)
 
+- `UPG-2026-03-09-28`: primo redesign grafico di `Rinnovi & Incassi`. La logica resta invariata, ma il workspace finance smette di sembrare una lista neutra e assume un'identita propria: hero piu deciso, metric tiles leggibili, filtro segmented scuro, card finance dedicate e detail panel caldo/editoriale. Decisione chiave: il look finance vive in un `variant` dedicato e non contamina `Oggi`.
 - `UPG-2026-03-09-27`: `Oggi` ora segue davvero il tempo reale della giornata: se esistono sessioni operative, gli `payment_overdue` spariscono dal workspace `today`; quando le sessioni sono finite, la finanza riemerge. Inoltre gli eventi gia conclusi non generano piu casi `session_imminent`, quindi alle 21:00 non puoi piu vedere come priorita un appuntamento delle 10:00.
 - `UPG-2026-03-09-26`: la shell `Rinnovi & Incassi` non mostra piu bucket vuoti. Se un bucket non ha casi reali, scompare invece di occupare altezza con un box vuoto. Decisione chiave: questa pagina deve mostrare solo pressione economica reale, non stati negativi ridondanti.
 - `UPG-2026-03-09-25`: il shell `Rinnovi & Incassi` ora applica un budget visivo per bucket senza nuovi endpoint: query server-side separate per `Critici`, `Oggi`, `Entro 7 giorni` e `Da pianificare`, con `waiting` caricato solo su espansione. Decisione chiave: niente slicing locale di una lista monolitica; la shell usa il contratto `workspace/cases` nel modo corretto.
