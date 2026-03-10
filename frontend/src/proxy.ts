@@ -1,15 +1,14 @@
-// src/middleware.ts
 /**
- * Edge Middleware — Route Protection.
+ * Next.js Proxy — Route Protection.
  *
  * Intercetta TUTTE le richieste prima che raggiungano i componenti React.
- * Funziona al livello Edge (Vercel Edge Runtime / Node.js middleware),
+ * Funziona al livello Edge (Proxy Runtime / Node.js),
  * quindi il redirect avviene PRIMA del rendering — nessun "flash" della pagina.
  *
  * Logica:
  * 1. Se l'utente NON ha il cookie token e accede a una rotta protetta → redirect /login
  * 2. Se l'utente HA il cookie token e accede a /login o /register → redirect /
- * 3. File statici, API routes e _next sono esclusi dal middleware
+ * 3. File statici, API routes e _next sono esclusi dal proxy
  */
 
 import { NextResponse } from "next/server";
@@ -20,13 +19,13 @@ const TOKEN_COOKIE = "fitmanager_token";
 
 // Rotte pubbliche — accessibili senza autenticazione (pagine + API pubbliche).
 // /api è incluso perché le API sono proxiate via Next.js rewrite al backend FastAPI
-// che gestisce autonomamente l'auth JWT. Il middleware non deve interferire.
+// che gestisce autonomamente l'auth JWT. Il proxy non deve interferire.
 const PUBLIC_ROUTES = ["/login", "/register", "/licenza", "/setup", "/public", "/api", "/health"];
 
 // Rotte da cui ridirigere gli utenti già autenticati (solo pagine auth, non API)
 const AUTH_ONLY_PAGES = ["/login", "/register", "/licenza", "/setup"];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get(TOKEN_COOKIE)?.value;
 
