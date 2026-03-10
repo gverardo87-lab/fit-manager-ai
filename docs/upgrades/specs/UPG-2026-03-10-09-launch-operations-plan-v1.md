@@ -21,6 +21,24 @@ FitManager non deve distinguersi sul mercato per "piu feature cloud", ma per:
 3. supporto tecnico rapido e deterministico;
 4. continuita operativa anche senza dipendenze cloud.
 
+## Progress Update As Of 2026-03-10
+
+Questo piano e' nato come backlog operativo iniziale. Dopo la sua stesura sono stati chiusi
+i seguenti microstep P0:
+
+- `UPG-2026-03-10-11`: `support snapshot` read-only in `Impostazioni`
+- `UPG-2026-03-10-12`: migrazione shell Next `middleware -> proxy`
+- `UPG-2026-03-10-13`: logging locale persistente in `data/logs/`
+- `UPG-2026-03-10-14`: matrice negativa di test sul gate licenza lato API
+- `UPG-2026-03-10-15`: `SUPPORT_RUNBOOK.md` come artefatto operativo unico
+
+Restano ancora aperti i gate manuali/non documentali:
+
+- prova installata `license.key` rimosso -> `/licenza`
+- validazione reale LAN / Tailscale VPN / Funnel smartphone
+- installazione pulita su macchina Windows non-dev
+- decisione finale su code signing per market gate
+
 ## Verified Baseline As Of 2026-03-10
 
 ### Gia chiuso
@@ -35,7 +53,7 @@ FitManager non deve distinguersi sul mercato per "piu feature cloud", ma per:
 - Backup/restore bank-grade con WAL checkpoint e schema sync.
 - Health/runtime surface esposta in `Impostazioni` con versione, stato licenza, stato DB, modalita `source/installer`, `dev/prod`.
 
-### Gap ancora aperti
+### Gap ancora aperti al momento della stesura iniziale
 
 - `support snapshot` read-only non ancora disponibile.
 - Warning Next 16: convenzione `middleware` deprecata verso `proxy`.
@@ -57,7 +75,7 @@ Non tutte le attivita bloccano il pilot. Alcune bloccano solo il go-live commerc
 
 ## Priority Matrix
 
-### P0 - Must Close Before Pilot
+### P0 - Must Close Before Pilot (backlog iniziale)
 
 1. `support snapshot` scaricabile da `Impostazioni`, senza PII.
 2. Migrazione Next `middleware.ts -> proxy.ts` o equivalente compatibile Next 16.

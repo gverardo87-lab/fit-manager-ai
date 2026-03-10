@@ -226,9 +226,9 @@ Trainer lavora da localhost:3000
 Senza `PUBLIC_BASE_URL`, il link userebbe `window.location.origin` (es. `http://localhost:3000/...`)
 che non sarebbe raggiungibile dal telefono del cliente.
 
-### Middleware Next.js (`frontend/src/middleware.ts`)
+### Proxy Next.js (`frontend/src/proxy.ts`)
 
-`/api` e' nelle `PUBLIC_ROUTES` — il middleware non interferisce con le chiamate API
+`/api` e' nelle `PUBLIC_ROUTES` — il proxy non interferisce con le chiamate API
 proxiate. L'autenticazione JWT e' gestita dal backend FastAPI.
 
 ---
@@ -295,7 +295,7 @@ legge le variabili d'ambiente solo all'avvio).
 | Problema | Causa | Soluzione |
 |----------|-------|-----------|
 | "Funnel not available" | ACL non configurato | Admin Console → Access Controls → aggiungere funnel attr |
-| Login gira e da errore | Middleware blocca `/api/*` | Verificare `PUBLIC_ROUTES` include `/api` in middleware.ts |
+| Login gira e da errore | Proxy blocca `/api/*` | Verificare `PUBLIC_ROUTES` include `/api` in `src/proxy.ts` |
 | Link anamnesi con "localhost" | `PUBLIC_BASE_URL` non configurato | Aggiungere `PUBLIC_BASE_URL=https://...` in `data/.env` e riavviare |
 | Link anamnesi non funziona da telefono | PC spento o FitManager non in esecuzione | Avviare FitManager + verificare `tailscale funnel status` |
 | "ERR_CONNECTION_REFUSED" da telefono | Funnel non attivo | `tailscale funnel --bg 3000` |

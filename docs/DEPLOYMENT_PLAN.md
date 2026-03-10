@@ -1,6 +1,7 @@
 # FitManager AI Studio — Piano di Distribuzione
 
 > Piano approvato il 2026-03-01. Da eseguire quando il prodotto e' pronto per la vendita.
+> Runbook operativo di supporto e recovery: `docs/SUPPORT_RUNBOOK.md`.
 
 ---
 

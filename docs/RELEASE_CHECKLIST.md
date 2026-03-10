@@ -29,7 +29,7 @@
 - [x] License.key firmata: client `chiara-bassani`, tier `pro`, scade 2027-02-27
 - [x] Health endpoint riporta `license_status: valid`
 - [x] Launcher impone `LICENSE_ENFORCEMENT_ENABLED=true` in produzione
-- [ ] Test enforcement negativo: rimuovere license.key e verificare /licenza page
+- [ ] Test enforcement negativo manuale: rimuovere `license.key` su installazione reale e verificare pagina `/licenza`
 
 ## 4. Dati e Configurazione
 

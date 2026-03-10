@@ -18,16 +18,17 @@ A fine task:
 
 ```
 api/
-├── main.py              App factory, CORS, lifespan (backup+seed+integrity), 19 routers
-├── config.py            DATABASE_URL (env/port-auto), CATALOG_DATABASE_URL, JWT_SECRET, DATA_DIR (sys.frozen-aware)
+├── main.py              App factory, CORS, lifespan (backup+seed+integrity), runtime logging, router mount
+├── config.py            DATABASE_URL (env/port-auto), CATALOG_DATABASE_URL, JWT_SECRET, DATA_DIR (sys.frozen-aware), log env
 ├── database.py          Dual engine (business + catalog) + session factories
+├── logging_config.py    Bootstrap logging locale (`data/logs/fitmanager.log`, rotazione idempotente)
 ├── dependencies.py      get_current_trainer() → JWT validation
 ├── seed_exercises.py    Seed builtin: 311 esercizi + 426 relazioni + 494 media (idempotente, FK guard)
 ├── auth/
 │   ├── router.py        POST /login, /register, /setup/status, /setup/create
 │   ├── service.py       bcrypt hash, JWT create/validate
 │   └── schemas.py       TokenResponse, LoginRequest
-├── models/              SQLModel ORM (table=True) — 19 modelli
+├── models/              SQLModel ORM (table=True) — 20 modelli
 │   ├── trainer.py       trainers (tenant root, saldo_iniziale_cassa)
 │   ├── client.py        clienti
 │   ├── contract.py      contratti (+ relationships: rates, movements, rinnovo_di FK self-referencing)
@@ -48,7 +49,7 @@ api/
 │   ├── audit_log.py     audit_log (timeline modifiche)
 │   ├── todo.py          todos (trainer-owned)
 │   └── share_token.py   share_tokens (UUID4 monouso per portale pubblico anamnesi)
-├── routers/             REST endpoints con Bouncer Pattern — 19 router
+├── routers/             REST endpoints con Bouncer Pattern — 20 router
 │   ├── _audit.py        log_audit() helper condiviso
 │   ├── agenda.py        CRUD eventi + credit guard + _sync_contract_chiuso
 │   ├── assistant.py     Parse + commit NLP (feature flag ASSISTANT_V1_ENABLED)
@@ -62,6 +63,7 @@ api/
 │   ├── movements.py     Ledger + pending/confirm + forecast + saldo + audit-log
 │   ├── rates.py         CRUD rate + pay/unpay atomic
 │   ├── recurring_expenses.py  CRUD spese fisse + close/rettifica
+│   ├── system.py        Snapshot read-only supporto/runtime (`/system/support-snapshot`)
 │   ├── todos.py         CRUD todos + toggle completato
 │   ├── training_methodology.py  MyTrainer: qualita' metodologica programmi allenamento
 │   ├── training_science.py  Generazione piani + analisi 4D + mesociclo (5 endpoint, zero DB)
@@ -69,7 +71,7 @@ api/
 │   ├── workouts.py      CRUD schede + sessioni + esercizi (deep IDOR chain)
 │   ├── workspace.py     Cockpit operativo: today + session-prep + cases (4 GET read-only)
 │   └── public_portal.py Portale pubblico anamnesi: generate token (JWT) + validate + submit (2 endpoint pubblici, rate limiter IP-based, feature flag PUBLIC_PORTAL_ENABLED)
-├── schemas/             Pydantic v2 — 10 moduli
+├── schemas/             Pydantic v2 — 15 moduli
 │   ├── assistant.py     ParseRequest/Response, CommitRequest/Response (6 schema)
 │   ├── exercise.py      ExerciseCreate/Update/Response + media/relazioni/tassonomia
 │   ├── financial.py     Contract/Rate/Movement/Dashboard/ClinicalReadiness/PaymentReceipt/RenewalChainItem DTOs
@@ -77,13 +79,15 @@ api/
 │   ├── measurement.py   MeasurementCreate/Response + valori
 │   ├── public.py        ShareTokenCreate/Response, AnamnesiValidate/Submit (portale pubblico)
 │   ├── safety.py        SafetyMapResponse + ExerciseSafetyEntry
+│   ├── system.py        HealthResponse + SupportSnapshotResponse
 │   ├── workspace.py     SessionPrepItem/HealthCheck/Alert/Hint/Response + OperationalCase + WorkspaceTodayResponse (~255 LOC)
 │   ├── workout.py       WorkoutPlan/Session/Exercise Create/Update/Response
 │   └── workout_log.py   WorkoutLogCreate/Response
-└── services/            Business logic — 9 servizi + 1 parser (21 moduli)
+└── services/            Business logic — servizi dominio + parser assistant + training science
     ├── condition_rules.py  Regole deterministiche anamnesi → condizioni (80 pattern rules)
     ├── goal_engine.py      Calcolo progresso obiettivi
     ├── license.py          Verifica licenza JWT RSA (4-tier key resolution)
+    ├── system_runtime.py   Helper condivisi health/support snapshot + backup metadata
     ├── safety_engine.py    Safety map per-esercizio (extract conditions + build map)
     ├── session_prep.py     Session Prep cockpit: 7-step pipeline (events + readiness + safety + contracts)
     ├── workspace_engine.py Workspace operativo: today/cases/detail + ranking + dominance matrix (~3000 LOC)

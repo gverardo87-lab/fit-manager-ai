@@ -915,15 +915,15 @@ tutte le 6 pagine filtri (esercizi, clienti, contratti, schede, cassa, allenamen
 
 ```
 frontend/          Next.js 16 + React 19 + TypeScript
-  src/hooks/       React Query (server state) — 19 hook modules
+  src/hooks/       React Query (server state) — 24 hook modules
   src/components/  shadcn/ui + componenti dominio — ~80 componenti
   src/types/       Interfacce TypeScript (mirror Pydantic)
        |
        | REST API (JSON over HTTP, JWT auth)
        v
 api/               FastAPI + SQLModel ORM — Dual Engine
-  models/          19 modelli ORM (SQLAlchemy table=True)
-  routers/         19 router con Bouncer Pattern + Deep IDOR
+  models/          20 modelli ORM (SQLAlchemy table=True)
+  routers/         21 router module con Bouncer Pattern + Deep IDOR
   schemas/         Pydantic v2 (input/output validation)
   services/        Safety Engine, Goal Engine, Training Science Engine (10 moduli)
        |
@@ -1235,7 +1235,7 @@ MagicDNS ON, HTTPS Certificates ON, ACL funnel attribute (target: email trainer)
 
 1. **Multi-tenancy**: trainer_id da JWT, iniettato server-side, mai dal body
 2. **Query parametrizzate**: `WHERE id = ?` (core/) o `select().where()` (api/)
-3. **3 layer auth**: Edge Middleware → AuthGuard client → JWT API validation
+3. **3 layer auth**: Edge Proxy → AuthGuard client → JWT API validation
 4. **Builtin guard**: `_guard_custom(exercise)` blocca modifica/eliminazione esercizi builtin su update E delete
 5. **JWT_SECRET**: log CRITICAL se non configurato. Token firmati con chiave di sviluppo — MAI in produzione esposta
 6. **Niente PII nei prompt LLM**: usare attributi anonimi
@@ -1550,10 +1550,14 @@ Source (Git privato)
 - [x] Tailscale Funnel: accesso pubblico HTTPS per anamnesi clienti — DONE
 - [x] PUBLIC_BASE_URL: link anamnesi con dominio Funnel anche da localhost — DONE
 - [x] Runbook installazione cliente: checklist 6 fasi in `docs/TAILSCALE_FUNNEL_SETUP.md` — DONE
+- [x] `Stato installazione` + `Snapshot diagnostico` in UI Impostazioni — DONE
+- [x] Logging locale operativo in `data/logs/fitmanager.log` — DONE
+- [x] Runbook supporto/licenza/recovery in `docs/SUPPORT_RUNBOOK.md` — DONE
 - [x] `__version__` visibile in UI Impostazioni
 - [ ] Flusso E2E completo: install → licenza → setup → Tailscale → cliente → anamnesi
 
 Tracking dettagliato: `docs/upgrades/specs/UPG-2026-03-04-06-launch-market-readiness-roadmap.md`
+Runbook operativo supporto/licenza/recovery: `docs/SUPPORT_RUNBOOK.md`
 
 ---
 
@@ -1651,8 +1655,8 @@ sqlite3 data/catalog.db ".tables"
 
 ### Snapshot autorevole 2026-03-10
 
-- **api/**: 123 file Python, 21 router module, 21 model module, 115 handler REST annotati
-- **frontend/**: 250 file TypeScript/TSX, 24 page route, 151 componenti, 22 hook file
+- **api/**: 123 file Python, 21 router module, 20 model module, 115 handler REST annotati
+- **frontend/**: 250 file TypeScript/TSX, 24 page route, 151 componenti, 24 hook file
 - **core/**: 27 file Python, moduli AI/legacy fuori dal percorso critico del CRM core
 - **tools/**: 63 script, di cui 48 in `tools/admin_scripts/`
 - **DB**: `crm.db`, `crm_dev.db`, `catalog.db` nel layer `data/`
@@ -1661,8 +1665,8 @@ sqlite3 data/catalog.db ".tables"
 
 I conteggi storici sotto vanno considerati superati se divergono da questo snapshot.
 
-- **api/**: ~17,000 LOC Python — 19 modelli ORM, 19 router, 10 schema modules, 9 services + 1 parser (21 moduli)
-- **frontend/**: ~18,000 LOC TypeScript — ~80 componenti, 20 hook modules, 22 pagine
+- **api/**: ~17,000 LOC Python — 20 modelli ORM, 21 router module, 15 schema modules, servizi dominio + parser assistant + training science
+- **frontend/**: ~18,000 LOC TypeScript — ~80 componenti, 24 hook modules, 24 pagine
 - **core/**: ~10,300 LOC Python — moduli AI (RAG, exercise archive) in attesa di API endpoints
 - **tools/admin_scripts/**: ~3,200 LOC Python — 16 script (import, quality engine, taxonomy, seed, test, QA clinica)
 - **DB**: Dual-DB SQLite (22 business + 7 catalog), WAL mode, FK enforced, multi-tenant via trainer_id

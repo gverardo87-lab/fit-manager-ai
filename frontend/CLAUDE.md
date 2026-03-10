@@ -18,7 +18,8 @@ A fine task:
 
 ```
 frontend/src/
-├── app/                     Next.js App Router — 22 pagine
+├── proxy.ts                Next.js proxy (PUBLIC_ROUTES, auth boundary, same-origin API/media)
+├── app/                     Next.js App Router — 24 pagine
 │   ├── (dashboard)/         Route group (non appare in URL)
 │   │   ├── layout.tsx       Sidebar + AuthGuard + CommandPalette + scroll restoration
 │   │   ├── page.tsx         Dashboard reminder-first (~1760 LOC) + WelcomeCard first-run
@@ -29,7 +30,7 @@ frontend/src/
 │   │   ├── contratti/       Lista + [id]/ dettaglio con rate, pagamenti e catena rinnovi
 │   │   ├── esercizi/        Lista + [id]/ dettaglio con MuscleMap SVG + tassonomia
 │   │   ├── guida/           Hub guida interattiva + SpotlightTour
-│   │   ├── impostazioni/    Account, backup/restore, saldo iniziale
+│   │   ├── impostazioni/    Account, backup/restore, saldo iniziale, stato installazione, snapshot diagnostico
 │   │   ├── oggi/            Cockpit session prep (SessionPrepCard, hero KPI, 4 sezioni urgenza)
 │   │   ├── rinnovi-incassi/ Rinnovi contratti + incassi rate (actionable, inline payment + renewal)
 │   │   └── schede/          Lista + [id]/ builder split con preview live
@@ -57,16 +58,17 @@ frontend/src/
 │   ├── exercises/           ExercisesTable, ExerciseSheet, ExerciseForm, MuscleMap SVG
 │   ├── movements/           MovementsTable, MovementSheet, RecurringExpensesTab, CashAuditSheet,
 │   │                        SplitLedgerView, AdvancedFilters, AgingReport, ForecastTab
+│   ├── settings/            SystemStatusSection, SupportSnapshotSection, system-status-utils
 │   ├── workspace/           SessionPrepCard (client+non-client), workspace-ui.ts (config/metadata)
 │   ├── workouts/            SessionCard, SortableExerciseRow, BlockCard, ExerciseSelector,
 │   │                        TemplateSelector, WorkoutPreview, ExportButtons, ExerciseDetailPanel,
 │   │                        SmartAnalysisPanel, MuscleMapPanel, RiskBodyMap
 │   └── ui/                  shadcn/ui (33 primitives + AnimatedNumber + Skeleton shimmer + LogoIcon)
-├── hooks/                   React Query hooks — 20 moduli
+├── hooks/                   React Query hooks — 24 moduli
 │   ├── useAgenda, useClients, useContracts, useRates, useMovements
 │   ├── useExercises, useWorkouts, useMeasurements, useGoals
 │   ├── useRecurringExpenses, useTodos, useDashboard, useBackup
-│   ├── useAssistant, useSmartProgramming, useUnsavedChanges, useGuideProgress
+│   ├── useAssistant, useSmartProgramming, useSystemHealth, useSystemSupport, useUnsavedChanges, useGuideProgress
 │   ├── useTrainingScience   Hook per 5 endpoint Training Science Engine backend
 │   ├── useWorkspace         4 hook workspace: useWorkspaceToday, useWorkspaceCases, useWorkspaceCaseDetail, useSessionPrep (refetch 60s)
 │   ├── useClientReadiness   Readiness singolo cliente (wraps useClinicalReadiness) + computeOnboardingSteps
@@ -93,7 +95,7 @@ frontend/src/
 ## Pattern Obbligatori
 
 ### Hook per dominio
-19 moduli hook, uno per dominio. Struttura:
+24 moduli hook, uno per dominio. Struttura:
 ```typescript
 // useClients.ts
 export function useClients() { return useQuery({...}) }            // READ (tutti, filtro client-side)
@@ -327,7 +329,7 @@ Approccio mobile-first con breakpoints Tailwind (`sm:`, `md:`, `lg:`). Zero libr
 
 ## Auth (3 layer)
 
-1. **Edge Middleware** (`middleware.ts`): intercetta route prima del render
+1. **Edge Proxy** (`src/proxy.ts`): intercetta route prima del render
 2. **AuthGuard** (`components/auth/AuthGuard.tsx`): check cookie client-side
 3. **API interceptor** (`lib/api-client.ts`): JWT header + redirect su 401 (skip se gia' su `/login`)
 
@@ -348,7 +350,7 @@ Token in cookie `fitmanager_token` (8h expiry). Trainer data in `fitmanager_trai
 | 401 interceptor loop login | Interceptor cattura 401 credenziali errate → redirect a /login → loop | Skip redirect se `pathname.startsWith("/login")` |
 | Badge "Scaduto" per rate in ritardo | Confondeva contratto scaduto con rate scadute — significato diverso | 7 livelli badge: Insolvente (red solid), Rate in Ritardo (red light), Scaduto (amber) |
 | KPI "Rate Scadute" contava contratti | `func.count(distinct(id_contratto))` → numeri bassi e fuorvianti | `func.count(Rate.id)` per contratti, label "Con Rate Scadute" per clienti |
-| Middleware intercetta fetch `/api/public/*` senza cookie | Next.js middleware gira PRIMA dei rewrites. `fetch('/api/public/...')` da pagina kiosk (no JWT cookie) → middleware → `307 /login` → client riceve HTML | Separare `PUBLIC_ROUTES` (accessibili senza auth, include `/api/public`) da `AUTH_ONLY_PAGES` (sole pagine auth che redirectano utenti loggati). MAI trattare queste due liste come sinonimi. |
+| Proxy intercetta fetch `/api/public/*` senza cookie | Next.js proxy gira PRIMA dei rewrites. `fetch('/api/public/...')` da pagina kiosk (no JWT cookie) → proxy → `307 /login` → client riceve HTML | Separare `PUBLIC_ROUTES` (accessibili senza auth, include `/api/public`) da `AUTH_ONLY_PAGES` (sole pagine auth che redirectano utenti loggati). MAI trattare queste due liste come sinonimi. |
 | Link kiosk da localhost non raggiungibile da altri device | `window.location.origin = "http://localhost:3000"` → URL nel link non raggiungibile su rete esterna | Mostrare warning amber nel dialog quando `hostname === "localhost"`. Il trainer deve accedere via IP LAN o Tailscale per generare link fruibili da smartphone. |
 | **`notes` vs `note` payload typo (CRITICO PROD)** | `prepareSessionsInputForSave()` in `builder-utils.ts` mandava `notes:` (plurale) ma backend Pydantic schema ha `note:` (singolare) con `extra: "forbid"` → 422 su OGNI salvataggio scheda. TypeScript non cattura il typo perche' il campo extra non genera errore di tipo. Utente ha perso 20 min di lavoro | Campo rinominato `notes:` → `note:`. **Lezione**: dopo ogni refactor del payload, verificare i nomi campo con curl vs schema Pydantic. `extra: "forbid"` trasforma un typo in un blocco totale silenzioso |
 | `AuthGuard` hydration mismatch | `useState(() => isAuthenticated())` legge `document.cookie` nell'initializer — server ritorna `false` (no document), client ritorna `true` (cookie presente) → SSR ≠ client → hydration error | `useState(false)` + `useEffect(() => setChecked(true))`. MAI leggere browser API (`document`, `window`, `localStorage`) in `useState` initializer — usare sempre `useEffect` |
