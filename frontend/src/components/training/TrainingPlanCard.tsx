@@ -145,10 +145,12 @@ export function TrainingPlanRow({ item, expanded, onToggle }: TrainingPlanRowPro
       }`}
     >
       {/* ── Compact Row (always visible) ── */}
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         onClick={onToggle}
-        className="flex w-full items-center gap-3 p-3 text-left sm:px-4"
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(); } }}
+        className="flex w-full cursor-pointer items-center gap-3 p-3 text-left sm:px-4"
       >
         {/* Status dot */}
         <div className={`h-2 w-2 shrink-0 rounded-full ${STATUS_DOT[item.status] ?? "bg-zinc-400"}`} />
@@ -210,7 +212,7 @@ export function TrainingPlanRow({ item, expanded, onToggle }: TrainingPlanRowPro
             expanded ? "rotate-180" : ""
           }`}
         />
-      </button>
+      </div>
 
       {/* ── Expanded Drill-Down ── */}
       {expanded && (
