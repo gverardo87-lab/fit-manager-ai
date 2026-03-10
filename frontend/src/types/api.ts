@@ -86,6 +86,30 @@ export type InstallationLicenseStatus =
   | "unconfigured";
 export type InstallationAppMode = "development" | "production";
 export type InstallationDistributionMode = "source" | "installer";
+export type InstallationConnectivityProfile =
+  | "local_only"
+  | "trusted_devices"
+  | "public_portal";
+export type InstallationConnectivityProbeStatus =
+  | "ok"
+  | "not_installed"
+  | "not_connected"
+  | "permission_denied"
+  | "not_enabled"
+  | "error";
+export type InstallationConnectivityCheckStatus =
+  | "ok"
+  | "warning"
+  | "critical"
+  | "neutral";
+export type InstallationConnectivityActionCode =
+  | "install_tailscale"
+  | "connect_tailscale"
+  | "grant_tailscale_access"
+  | "configure_public_base_url"
+  | "review_public_base_url"
+  | "enable_funnel"
+  | "ready";
 
 export interface InstallationHealthResponse {
   status: InstallationHealthStatus;
@@ -107,6 +131,33 @@ export interface InstallationSupportSnapshotResponse {
   public_base_url: string | null;
   health: InstallationHealthResponse;
   recent_backups: BackupInfo[];
+}
+
+export interface InstallationConnectivityCheck {
+  code: string;
+  label: string;
+  status: InstallationConnectivityCheckStatus;
+  detail: string;
+}
+
+export interface InstallationConnectivityStatusResponse {
+  generated_at: string;
+  profile: InstallationConnectivityProfile;
+  tailscale_cli_installed: boolean;
+  tailscale_version: string | null;
+  tailscale_status: InstallationConnectivityProbeStatus;
+  tailscale_connected: boolean;
+  tailscale_ip: string | null;
+  tailscale_dns_name: string | null;
+  funnel_status: InstallationConnectivityProbeStatus;
+  funnel_enabled: boolean;
+  public_portal_enabled: boolean;
+  public_base_url: string | null;
+  public_base_url_matches_dns: boolean | null;
+  next_recommended_action_code: InstallationConnectivityActionCode;
+  next_recommended_action_label: string;
+  checks: InstallationConnectivityCheck[];
+  missing_requirements: string[];
 }
 
 /** Dati pubblici trainer — TrainerPublic */

@@ -96,7 +96,7 @@ Decisione:
   - `docs/TAILSCALE_FUNNEL_SETUP.md`
   - `docs/SUPPORT_RUNBOOK.md`
   - `docs/RELEASE_CHECKLIST.md`
-  - `CLAUDE.md`, `frontend/CLAUDE.md`, `api/CLAUDE.md` quando il comportamento sara' reale
+- `CLAUDE.md`, `frontend/CLAUDE.md`, `api/CLAUDE.md` quando il comportamento sara' reale
 
 - Layer coinvolti: `api`, `frontend`, `tools`, `docs`
 
@@ -109,6 +109,16 @@ Decisione:
   - il portale pubblico resta disattivabile in ogni momento.
 
 ## Proposed Architecture
+
+## Progress Update (2026-03-10)
+
+- `Phase A - Contract + Runtime Read-only`: chiusa con `UPG-2026-03-10-21`
+  - backend read-only `connectivity_runtime.py`
+  - endpoint protetto `/api/system/connectivity-status`
+  - type sync frontend
+  - nuova surface `Connettivita` in `Impostazioni`
+- Stato attuale: il prodotto sa leggere e spiegare lo stato reale della macchina, ma non
+  applica ancora configurazioni `.env` e non offre ancora il wizard passo-passo.
 
 ### 1. Runtime Service Backend
 

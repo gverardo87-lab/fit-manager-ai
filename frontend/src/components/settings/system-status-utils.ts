@@ -1,4 +1,6 @@
 import type {
+  InstallationConnectivityCheckStatus,
+  InstallationConnectivityProfile,
   InstallationConnectionStatus,
   InstallationLicenseStatus,
 } from "@/types/api";
@@ -53,4 +55,41 @@ export function mapConnectionStatus(
   return status === "connected"
     ? { label: "Connesso", tone: "good" }
     : { label: "Disconnesso", tone: "critical" };
+}
+
+export function mapConnectivityCheckStatus(
+  status: InstallationConnectivityCheckStatus,
+): { label: string; tone: Tone } {
+  switch (status) {
+    case "ok":
+      return { label: "Pronto", tone: "good" };
+    case "warning":
+      return { label: "Da completare", tone: "warning" };
+    case "critical":
+      return { label: "Bloccante", tone: "critical" };
+    default:
+      return { label: "Non richiesto", tone: "neutral" };
+  }
+}
+
+export function mapConnectivityProfile(
+  profile: InstallationConnectivityProfile,
+): { label: string; description: string } {
+  switch (profile) {
+    case "public_portal":
+      return {
+        label: "Portale pubblico",
+        description: "L'istanza e pronta per dispositivi fidati e link anamnesi pubblici.",
+      };
+    case "trusted_devices":
+      return {
+        label: "Dispositivi fidati",
+        description: "Tailscale e pronto per accesso remoto autenticato, senza link pubblici.",
+      };
+    default:
+      return {
+        label: "Solo locale",
+        description: "FitManager resta utilizzabile sul PC locale; accesso remoto non ancora pronto.",
+      };
+  }
 }
