@@ -9,6 +9,15 @@
 - Priority: high
 - Status: done
 
+## Historical Note
+
+Questa spec ha congelato il contratto documentale iniziale del rebuild. Il freeze reale poi
+accettato dal rebuild `UPG-2026-03-10-19` ha mantenuto la stessa policy `catalog.db canonico / crm.db vuoto nel bundle`,
+ma ha documentato esplicitamente la realta' osservata senza modificare i DB:
+
+- `catalog.db` bundle = 400 ID esercizio
+- `crm.db` locale = 396 record `in_subset=True`
+
 ## Context
 
 Prima di rigenerare il setup installabile serve un contratto unico e autorevole su:
@@ -33,10 +42,10 @@ dell'installer parta da regole chiare e non da assunzioni locali.
 
 ## Decisions To Encode
 
-1. **Source freeze**: commit `4a19bf2`
+1. **Source freeze docs-first**: commit `4a19bf2`
 2. **Versione candidata**: `1.0.0`
 3. **Bundle dati**:
-   - `catalog.db` canonico con i 391 esercizi attivi correnti
+   - `catalog.db` canonico congelato al conteggio reale del bundle release candidate
    - `crm.db` vuoto, first-run-safe
 4. **Dati reali Chiara**: ripristinati solo tramite restore verificato del backup reale
 5. **Licenza cliente**:

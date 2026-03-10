@@ -30,6 +30,7 @@ resolve_iscc() {
   local candidates=(
     "C:/Program Files (x86)/Inno Setup 6/ISCC.exe"
     "C:/Program Files/Inno Setup 6/ISCC.exe"
+    "C:/Users/gvera/AppData/Local/Programs/Inno Setup 6/ISCC.exe"
   )
 
   local candidate
@@ -71,6 +72,8 @@ echo "=== build-installer.sh ==="
 echo "Project root: $ROOT"
 echo "Installer version: $INSTALLER_VERSION"
 
+RELEASE_DATA_DIR="$ROOT/dist/release-data"
+
 if [ "$SKIP_CHECKS" -eq 0 ]; then
   bash "$ROOT/tools/scripts/check-all.sh"
 else
@@ -80,6 +83,11 @@ fi
 bash "$ROOT/tools/build/build-frontend.sh"
 bash "$ROOT/tools/build/build-backend.sh"
 bash "$ROOT/tools/build/build-media.sh"
+
+echo "Staging immutable release data..."
+mkdir -p "$RELEASE_DATA_DIR"
+cp "$ROOT/data/catalog.db" "$RELEASE_DATA_DIR/catalog.db"
+cp "$ROOT/data/license_public.pem" "$RELEASE_DATA_DIR/license_public.pem"
 
 ISCC_BIN="$(resolve_iscc)"
 echo "Using ISCC: $ISCC_BIN"

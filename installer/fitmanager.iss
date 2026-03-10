@@ -60,17 +60,18 @@ Source: "..\data\exercises\seed_exercises.json"; DestDir: "{app}\data\exercises"
 Source: "..\data\exercises\seed_exercise_relations.json"; DestDir: "{app}\data\exercises"; Flags: ignoreversion
 Source: "..\data\exercises\seed_exercise_media.json"; DestDir: "{app}\data\exercises"; Flags: ignoreversion
 
-; Catalog DB (tassonomia scientifica — muscoli, articolazioni, condizioni, metriche)
-Source: "..\data\catalog.db"; DestDir: "{app}\data"; Flags: ignoreversion
+; Catalog DB (tassonomia scientifica - muscoli, articolazioni, condizioni, metriche)
+Source: "..\dist\release-data\catalog.db"; DestDir: "{app}\data"; Flags: ignoreversion
 
 ; Chiave pubblica licenza (verifica firma JWT RSA)
-Source: "assets\license_public.pem"; DestDir: "{app}\data"; Flags: ignoreversion
+; Fonte canonica: data/license_public.pem, stageata in dist/release-data per evitare lock sul file live.
+Source: "..\dist\release-data\license_public.pem"; DestDir: "{app}\data"; Flags: ignoreversion
 
 ; Foto esercizi attivi (staging da build-media.sh, ~36MB)
 Source: "..\dist\media\exercises\*"; DestDir: "{app}\data\media\exercises"; Flags: ignoreversion recursesubdirs
 
-; EULA
-Source: "assets\EULA.txt"; DestDir: "{app}"; Flags: ignoreversion
+; EULA gia' visualizzata via LicenseFile nel setup; non serve installarla come file separato.
+; Source: "assets\EULA.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 [Dirs]
 ; Cartella data preservata sugli aggiornamenti
@@ -97,4 +98,3 @@ Type: filesandordirs; Name: "{app}\backend"
 Type: filesandordirs; Name: "{app}\frontend"
 Type: filesandordirs; Name: "{app}\node"
 Type: files; Name: "{app}\launcher.bat"
-Type: files; Name: "{app}\EULA.txt"

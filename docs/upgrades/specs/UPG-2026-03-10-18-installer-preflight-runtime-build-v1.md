@@ -9,6 +9,12 @@
 - Priority: high
 - Status: done
 
+## Historical Note
+
+Questa spec chiude il preflight runtime/build, non il rebuild reale. Il rebuild effettivo e il
+freeze dell'artefatto sono stati poi completati in `UPG-2026-03-10-19`, mantenendo invariata
+la scelta di non modificare i DB e accettando il freeze reale `catalog.db=400` / `crm.db locale=396`.
+
 ## Context
 
 Dopo il preflight docs-first (`UPG-2026-03-10-17`) il repository aveva ancora drift operativo
@@ -39,7 +45,7 @@ cosi che naming artefatti, fonte dati del bundle e perimetro licenza siano univo
 3. **Bundle media source of truth**:
    - `build-media.sh` legge gli esercizi attivi da `data/catalog.db`
    - query canonica = `UNION` delle junction tables catalog
-   - guard esplicito su `391` esercizi attivi attesi
+   - guard esplicito sul conteggio atteso del catalogo canonico del bundle
 4. **License perimeter hardening**:
    - `installer/assets/license.key` rimosso dal repository
    - `.gitignore` aggiornato per prevenire reintroduzione accidentale
@@ -87,7 +93,7 @@ cosi che naming artefatti, fonte dati del bundle e perimetro licenza siano univo
 1. Il microstep non prova ancora il rebuild reale: la catena `build-installer.sh -> ISCC` resta da eseguire.
 2. La validazione di sintassi `bash -n` non e' stata eseguibile nel terminale corrente:
    Git Bash presente ma bloccato da errore ambientale Win32 `couldn't create signal pipe`.
-3. La verifica `catalog.db -> 391 attivi -> media staged` resta logica/statica finche' lo script non viene eseguito.
+3. La verifica `catalog.db -> conteggio congelato -> media staged` resta dipendente dal catalogo canonico reale finche' la build non viene eseguita sul dataset corrente. Questo punto e' poi stato chiuso in `UPG-2026-03-10-19`.
 
 ## Next Smallest Step
 

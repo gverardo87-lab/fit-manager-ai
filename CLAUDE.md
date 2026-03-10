@@ -326,7 +326,7 @@ Editor strutturato per creare schede allenamento professionali.
 - **Blocchi Strutturati** (circuit/superset/tabata/amrap/emom/for_time): layout format-specific in builder, preview e export. `BLOCK_EXERCISE_CONFIG` (esportata da `SortableExerciseRow.tsx`) governa griglia, colonne Rip/Kg, notazione (A1/A2 superset, 1./2. altri, nessuna tabata). `BlockPreview` in preview con `border-l-4` + sfondo header colorato per tipo (`BLOCK_TYPE_PREVIEW_CONFIG`). Export: `addBlockExerciseCard()` con header colorato (`BLOCK_TYPE_HEADER_COLORS` scuri, testo bianco) + Rip ±Kg condizionali (tabata = solo nome). No Serie/Riposo per-esercizio nei blocchi (sono parametri del blocco). Notazione A1/A2 per superset in export (viola scuro).
 - **Client linkage**: assegnazione/riassegnazione cliente inline (Select + `"__none__"` sentinel), filtro cliente nella lista, tab "Schede" nel profilo cliente, cross-link bidirezionale
 - **TemplateSelector**: dialog con selezione cliente integrata (`selectedClientId` state, pre-compilato da contesto)
-- **391 esercizi attivi** (102 compound, 101 isolation, 54 stretching, 50 bodyweight, 35 cardio, 30 mobilita, 19 avviamento) + 720 archiviati
+- **Freeze reality 2026-03-10**: `catalog.db` canonico = 400 ID esercizio per il bundle release candidate; `crm.db` locale = 396 esercizi con `in_subset=True`. Non usare conteggi hardcoded senza specificare la fonte.
 - Tassonomia completa: muscoli FK (3,370 righe), articolazioni FK (858), condizioni mediche FK (1,280), relazioni (460)
 - Categorie: `compound`, `isolation`, `bodyweight`, `cardio`, `stretching`, `mobilita`, `avviamento`
 - Pattern: 9 forza (`squat`, `hinge`, `push_h/v`, `pull_h/v`, `core`, `rotation`, `carry`) + 3 complementari (`warmup`, `stretch`, `mobility`)
@@ -475,7 +475,7 @@ Phase F (sostituzione legacy) deferred fino a matrice verde su dati reali.
 **Demand Vector DB** (Phase 0e, UPG-2026-03-08-01):
 - 10 colonne demand su tabella `esercizi` (`skill_demand`..`metabolic_demand`, scala 0..4)
 - `resolve_demand_vector()` legge da DB con fallback a pattern x difficulty
-- `populate_demand.py`: seed deterministico rule-based per 391 esercizi
+- `populate_demand.py`: seed deterministico rule-based per il subset attivo corrente del catalogo
 
 **Plan Builder Quality Fixes** (Phase 0e):
 - MAV_max guard: nessun muscolo oltre MAV × 1.15 in boost/isolation
@@ -558,8 +558,9 @@ File chiave: `lib/smart-programming/` (5 moduli, <300 LOC ciascuno),
 > **Filosofia: l'allenamento e' un sottoramo della medicina.** Il database esercizi e' il nucleo del prodotto.
 > Contenuti imprecisi possono causare infortuni. Zero approssimazione.
 
-**Strategia "Database 391"**: 391 esercizi attivi (`in_subset=True`): 102 compound, 101 isolation, 54 stretching,
-50 bodyweight, 35 cardio, 30 mobilita, 19 avviamento. Avviamento/mobilita/stretching/cardio photo-optional.
+**Strategia "Catalog Freeze 2026-03-10"**: il bundle release candidate usa `catalog.db` come fonte canonica
+con 400 ID esercizio; il `crm.db` locale marca 396 esercizi `in_subset=True`. Avviamento/mobilita/stretching/cardio
+restano categorie photo-optional.
 720 esercizi archiviati (`in_subset=False`) reinseribili via `activate_batch.py`.
 Seed JSON (`seed_exercises.json`) fisso a 344 — gli esercizi aggiuntivi sono stati attivati via `activate_batch.py` post-install.
 
@@ -959,7 +960,7 @@ core/              Moduli AI (dormant, non esposti via API — prossima fase)
 5. `PRAGMA integrity_check` su entrambi i DB
 
 **Seed data** (`data/exercises/`):
-- `seed_exercises.json` — 344 esercizi attivi base (`in_subset=1`) con ID preservati per FK (DB live ha 391 via activate_batch)
+- `seed_exercises.json` — seed base storico con ID preservati per FK; il subset canonico corrente del bundle e' determinato dal `catalog.db` congelato
 - `seed_exercise_relations.json` — 426 relazioni (progressioni/regressioni/varianti)
 - `seed_exercise_media.json` — 494 media (foto inizio/fine movimento)
 - Inclusi nell'installer e nel bundle PyInstaller (`fitmanager.spec` datas)
@@ -1511,21 +1512,22 @@ Source (Git privato)
 |
 +-- api/           -> PyInstaller -> dist/fitmanager/fitmanager.exe (102MB)
 +-- frontend/      -> next build --standalone -> .next/standalone/ (45MB)
-+-- installer/     -> Inno Setup -> dist/FitManager_Setup_1.0.0.exe (83MB)
++-- installer/     -> Inno Setup -> dist/FitManager_Setup_1.0.0.exe (~98MB)
 |   launcher.bat      Avvia backend + frontend + apre browser (supporta --port)
 |   fitmanager.iss    Script Inno Setup 6 (italiano, data/ preservata)
 |   node/             node.exe runtime (copiato, non committato)
-|   assets/           EULA.txt + license_public.pem (mai `license.key` cliente)
+|   assets/           EULA.txt (mai `license.key` cliente)
 +-- tools/build/
 |   build-frontend.sh   npm build + copia static/public nel standalone
 |   build-backend.sh    PyInstaller con fitmanager.spec
 |   build-media.sh      staging media/catalogo canonico per il bundle
-|   build-installer.sh  orchestration script: checks -> frontend -> backend -> media -> ISCC
+|   build-installer.sh  orchestration script: checks -> frontend -> backend -> media -> release-data -> ISCC
 |   entry_point.py      Wrapper uvicorn (--port support)
 |   fitmanager.spec     PyInstaller spec (esclude AI libs ~1.8GB)
+|   dist/release-data/  snapshot immutabili per packaging (`catalog.db`, `license_public.pem`)
 +-- data/          -> Sopravvive agli aggiornamenti
     crm.db            Database business locale (vuoto nel bundle installer, poi setup/restore)
-    catalog.db        Catalogo scientifico canonico nel bundle (391 esercizi attivi correnti)
+    catalog.db        Catalogo scientifico canonico nel bundle (400 ID esercizio congelati al 2026-03-10)
     media/            Foto esercizi
     license.key       JWT firmato RSA (copiato post-install, mai nel repo/assets)
     .env              Configurazione locale (JWT_SECRET, PUBLIC_BASE_URL, PUBLIC_PORTAL_ENABLED)
@@ -1538,13 +1540,17 @@ Source (Git privato)
 
 Decisioni operative congelate prima del rebuild candidato:
 
-1. **Source freeze**: commit `4a19bf2`
-2. **Versione candidata**: `1.0.0`, da riallineare in backend, frontend e installer
+1. **Preflight anchor**: commit `4a19bf2`
+2. **Versione candidata**: `1.0.0`
 3. **Bundle dati**:
-   - `catalog.db` canonico nel pacchetto, con i 391 esercizi attivi correnti
+   - `catalog.db` canonico nel pacchetto, oggi congelato a 400 ID esercizio
    - `crm.db` vuoto nel bundle, first-run-safe
 4. **Dati reali Chiara**: rientrano solo tramite restore verificato del backup reale sulla release candidate
 5. **Licenza cliente**: `license.key` puo vivere solo in `data/license.key` sulla macchina installata; non deve stare nel repository o in `installer/assets`
+6. **Freeze artefatto reale**:
+   - `dist/FitManager_Setup_1.0.0.exe`
+   - `98,480,252` bytes
+   - SHA-256 `05B2AF87FD01CF1A3DC5BB3DDFCAD3785C798CFA9DE3D93480B33359F2E3DC58`
 
 ### Checklist Pre-Distribuzione
 
@@ -1558,10 +1564,10 @@ Decisioni operative congelate prima del rebuild candidato:
 - [x] Dashboard WelcomeCard first-run — S2.2 DONE
 - [x] Next.js standalone bundle (45MB) — S3.1 DONE
 - [x] PyInstaller `fitmanager.exe` (102MB) — S3.2 DONE
-- [x] Launcher + Inno Setup installer (83MB) — S3.3 DONE
+- [x] Launcher + Inno Setup installer (~98MB) — S3.3 DONE
 - [x] Smoke test: install → login page funzionante — S3.4 DONE
 - [x] Fix post-smoke-test: path PyInstaller, seed media/relazioni, backup restore — S3.5 DONE
-- [x] Installer testato: install → login → esercizi con foto → backup/restore — 83MB
+- [x] Installer testato: install → login → esercizi con foto → backup/restore — RC build 2026-03-10 prodotta (`98,480,252` bytes)
 - [x] Tailscale Funnel: accesso pubblico HTTPS per anamnesi clienti — DONE
 - [x] PUBLIC_BASE_URL: link anamnesi con dominio Funnel anche da localhost — DONE
 - [x] Runbook installazione cliente: checklist 6 fasi in `docs/TAILSCALE_FUNNEL_SETUP.md` — DONE
@@ -1626,6 +1632,7 @@ bash tools/build/build-installer.sh                       # Quality gate + front
 bash tools/build/build-frontend.sh                        # Next.js standalone bundle (45MB)
 bash tools/build/build-backend.sh                         # PyInstaller exe (102MB, richiede pip install pyinstaller)
 bash tools/build/build-media.sh                           # staging foto esercizi da catalog.db canonico
+ls dist/release-data                                      # snapshot packaging (`catalog.db`, `license_public.pem`)
 # Test installer: dist/FitManager_Setup_1.0.0.exe
 
 # Test E2E (richiede server avviato)
@@ -1686,7 +1693,7 @@ I conteggi storici sotto vanno considerati superati se divergono da questo snaps
 - **core/**: ~10,300 LOC Python — moduli AI (RAG, exercise archive) in attesa di API endpoints
 - **tools/admin_scripts/**: ~3,200 LOC Python — 16 script (import, quality engine, taxonomy, seed, test, QA clinica)
 - **DB**: Dual-DB SQLite (22 business + 7 catalog), WAL mode, FK enforced, multi-tenant via trainer_id
-- **Esercizi**: 391 attivi nel DB live (seed JSON base 344, delta 47 via activate_batch) + 720 archiviati (reinserimento graduale)
+- **Esercizi**: freeze reality 2026-03-10 -> `catalog.db` canonico 400 ID esercizio per il bundle, `crm.db` locale 396 attivi; evitare conteggi hardcoded senza fonte esplicita
 - **Test**: 63 pytest + 67 E2E + 69 vitest (data protection)
 - **Sicurezza**: JWT auth, bcrypt, Deep Relational IDOR, 3-layer route protection
 - **Cloud**: 0 dipendenze, 0 dati verso terzi

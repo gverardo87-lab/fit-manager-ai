@@ -32,25 +32,31 @@ i seguenti microstep P0:
 - `UPG-2026-03-10-14`: matrice negativa di test sul gate licenza lato API
 - `UPG-2026-03-10-15`: `SUPPORT_RUNBOOK.md` come artefatto operativo unico
 - `UPG-2026-03-10-18`: preflight runtime/build dell'installer (`1.0.0`, naming versionato, `build-media.sh` su `catalog.db`, `build-installer.sh`, rimozione `license.key` da repo/assets)
+- `UPG-2026-03-10-19`: release candidate `1.0.0` costruita davvero con `build-installer.sh`, freeze reale `catalog.db=400` / `crm.db locale=396`, packaging snapshot-based via `dist/release-data`
 
 Restano ancora aperti i gate manuali/non documentali:
 
 - prova installata `license.key` rimosso -> `/licenza`
 - validazione reale LAN / Tailscale VPN / Funnel smartphone
 - installazione pulita su macchina Windows non-dev
+- restore del backup reale di Chiara sulla release candidate
 - decisione finale su code signing per market gate
 
 ## Release Candidate Preflight Decisions As Of 2026-03-10
 
 Decisioni aggiunte dopo la stesura iniziale del piano:
 
-1. **Source freeze**: commit `4a19bf2`
-2. **Versione candidata**: `1.0.0`, da riallineare in backend, frontend e installer
+1. **Preflight anchor**: commit `4a19bf2` come baseline docs-first iniziale
+2. **Versione candidata**: `1.0.0`, ora gia' riallineata in backend, frontend e installer
 3. **Policy bundle dati**:
-   - `catalog.db` canonico nel pacchetto, con i 391 esercizi attivi correnti
+   - `catalog.db` canonico nel pacchetto, oggi congelato a 400 ID esercizio
    - `crm.db` vuoto nel bundle release candidate
 4. **Dati reali trainer**: lo stato reale di Chiara rientra solo tramite restore verificato del backup piu recente
 5. **Policy licenza**: `license.key` cliente fuori dal repository e fuori da `installer/assets`; destinazione runtime unica `data/license.key`
+6. **Freeze artefatto**:
+   - RC build eseguita il 2026-03-10
+   - artefatto: `dist/FitManager_Setup_1.0.0.exe`
+   - SHA-256: `05B2AF87FD01CF1A3DC5BB3DDFCAD3785C798CFA9DE3D93480B33359F2E3DC58`
 
 ## Verified Baseline As Of 2026-03-10
 

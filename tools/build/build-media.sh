@@ -5,7 +5,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 CATALOG_DB="${FITMANAGER_CATALOG_DB:-$ROOT/data/catalog.db}"
-EXPECTED_ACTIVE_COUNT="${FITMANAGER_EXPECTED_ACTIVE_COUNT:-391}"
+EXPECTED_ACTIVE_COUNT="${FITMANAGER_EXPECTED_ACTIVE_COUNT:-400}"
 MEDIA_SRC="$ROOT/data/media/exercises"
 MEDIA_DST="$ROOT/dist/media/exercises"
 

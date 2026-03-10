@@ -32,10 +32,10 @@
 
 Decisioni operative congelate prima del rebuild candidato:
 
-1. **Source freeze**: commit `4a19bf2`.
-2. **Versione candidata**: `1.0.0`, da riallineare in backend, frontend e installer.
+1. **Preflight anchor**: commit `4a19bf2` come baseline docs-first del freeze iniziale.
+2. **Versione candidata**: `1.0.0`, riallineata in backend, frontend e installer.
 3. **Policy bundle dati**:
-   - `data/catalog.db` e' il catalogo canonico del prodotto, con i 391 esercizi attivi correnti;
+   - `data/catalog.db` e' il catalogo canonico del prodotto e oggi espone 400 ID esercizio per il bundle release candidate;
    - `data/crm.db` nel bundle deve essere vuoto e first-run-safe.
 4. **Dati reali cliente**: non entrano nell'installer. Lo stato reale di Chiara rientra solo tramite restore verificato del backup piu recente.
 5. **Policy licenza**:
@@ -45,6 +45,17 @@ Decisioni operative congelate prima del rebuild candidato:
 
 Questa sezione e' il contratto di base per ogni rebuild release candidate. Nessun installer nuovo va generato
 se questi punti non sono gia stati riflessi nella documentazione operativa e nella checklist release.
+
+### Stato Reale Del Rebuild (2026-03-10)
+
+- Build completata con `bash tools/build/build-installer.sh`
+- Artefatto prodotto: `dist/FitManager_Setup_1.0.0.exe`
+- SHA-256: `05B2AF87FD01CF1A3DC5BB3DDFCAD3785C798CFA9DE3D93480B33359F2E3DC58`
+- Reality freeze accettato senza modifiche DB:
+  - `catalog.db` canonico bundle = 400 ID esercizio
+  - `crm.db` locale = 396 record `in_subset=True`
+- Packaging hardening: `catalog.db` e `license_public.pem` vengono stageati in `dist/release-data`
+  per evitare lock sui file live in `data/`
 
 ---
 
@@ -62,16 +73,18 @@ Source (Git privato — MAI esposto al cliente)
 |   Output: .next/standalone/ + .next/static/
 |   Source maps: MAI distribuite
 |
-+-- installer/              <- Inno Setup -> FitManager_Setup_1.0.0.exe (83MB)
++-- installer/              <- Inno Setup -> FitManager_Setup_1.0.0.exe (~98 MB)
 |   fitmanager.iss          Script installer Inno Setup
 |   launcher.bat            Avvia backend + frontend + apre browser
-|   assets/                 Icone, testi, EULA, license_public.pem
+|   assets/                 Icone, testi, EULA (mai `license.key` cliente)
 |
 +-- tools/build/
     build-backend.sh        PyInstaller spec + esclusioni
     build-frontend.sh       next build standalone + copia
     build-media.sh          staging media esercizi per bundle
-    build-installer.sh      orchestrazione unica: checks -> frontend -> backend -> media -> ISCC
+    build-installer.sh      orchestrazione unica: checks -> frontend -> backend -> media -> release-data -> ISCC
+|
++-- dist/release-data/       Snapshot immutabili per il packaging (`catalog.db`, `license_public.pem`)
 ```
 
 ---
@@ -80,7 +93,7 @@ Source (Git privato — MAI esposto al cliente)
 
 ```
 1. Riceve link download (GitHub Release privato o sito web)
-2. Scarica "FitManager_Setup_1.0.0.exe" (~80MB)
+2. Scarica "FitManager_Setup_1.0.0.exe" (~98MB)
 3. Doppio click -> installer professionale
    +-----------------------------------+
    |  FitManager AI Studio             |
@@ -133,6 +146,7 @@ SVILUPPATORE                              APPLICAZIONE
 - Middleware FastAPI: controlla licenza su ogni request (cache in memoria)
 - CLI tool: `python -m tools.admin_scripts.generate_license --client "gym-roma" --tier pro --months 12`
 - Storage licenza: `data/license.key` (file JWT nella cartella dati)
+- Chiave pubblica distribuita: `data/license_public.pem`, stageata in `dist/release-data` durante il packaging
 - La `license.key` del cliente non deve essere conservata nel repository, nei commit o in `installer/assets`
 
 ---
@@ -169,7 +183,7 @@ SVILUPPATORE                              APPLICAZIONE
 ### Catalogo scientifico
 
 - `data/catalog.db` e' parte del prodotto distribuito.
-- Deve essere coerente con il catalogo canonico del CRM e contenere i 391 esercizi attivi correnti
+- Deve essere coerente con il catalogo canonico del CRM e contenere i 400 ID esercizio oggi congelati per il bundle release candidate
   (inclusi `stretching` e `avviamento`).
 - Non deve dipendere da dati cliente o da contenuti business locali.
 
