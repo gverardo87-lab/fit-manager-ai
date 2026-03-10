@@ -71,8 +71,8 @@ parte della base, non un extra.
 ## Verification
 
 - `venv\Scripts\ruff.exe check api\config.py api\main.py api\logging_config.py tests\test_logging_config.py`
-- `venv\Scripts\pytest.exe -q tests\test_logging_config.py -p no:cacheprovider` -> **blocked**
-  dal launcher Python locale della venv che continua a puntare al runtime Microsoft Store.
+- `python -m pytest tests/test_logging_config.py -q -p no:cacheprovider` -> **passed**
+  (`2026-03-11`, eseguito in venv locale reale dall'utente)
 
 ## Risks / Residuals
 

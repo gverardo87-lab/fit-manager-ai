@@ -56,8 +56,8 @@ operativo del prodotto.
 ## Verification
 
 - `venv\Scripts\ruff.exe check tests\test_license_middleware.py`
-- `venv\Scripts\pytest.exe -q tests\test_license_middleware.py -p no:cacheprovider` -> **blocked**
-  dal launcher Python locale della venv che continua a puntare al runtime Microsoft Store.
+- `python -m pytest tests/test_license_middleware.py -q -p no:cacheprovider` -> **passed**
+  (`2026-03-11`, eseguito in venv locale reale dall'utente)
 
 ## Risks / Residuals
 

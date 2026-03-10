@@ -2,8 +2,9 @@
 
 from datetime import datetime
 from typing import Literal
+from urllib.parse import urlparse
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, model_validator
 
 
 HealthStatus = Literal["ok", "degraded"]
@@ -86,3 +87,35 @@ class ConnectivityStatusResponse(BaseModel):
     next_recommended_action_label: str
     checks: list[ConnectivityCheck]
     missing_requirements: list[str]
+
+
+class ConnectivityConfigRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    profile: ConnectivityProfile
+    public_base_url: str | None = None
+
+    @model_validator(mode="after")
+    def validate_public_base_url(self):
+        if self.profile != "public_portal":
+            return self
+
+        value = (self.public_base_url or "").strip()
+        if not value:
+            raise ValueError("La base URL pubblica e obbligatoria per il profilo portale pubblico")
+
+        parsed = urlparse(value)
+        if parsed.scheme != "https" or not parsed.netloc:
+            raise ValueError("La base URL pubblica deve essere un URL HTTPS assoluto")
+
+        return self
+
+
+class ConnectivityConfigResponse(BaseModel):
+    applied_at: datetime
+    profile: ConnectivityProfile
+    public_portal_enabled: bool
+    public_base_url: str | None = None
+    written_keys: list[str]
+    restart_required: bool
+    message: str

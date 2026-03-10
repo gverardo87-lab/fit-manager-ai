@@ -117,8 +117,17 @@ Decisione:
   - endpoint protetto `/api/system/connectivity-status`
   - type sync frontend
   - nuova surface `Connettivita` in `Impostazioni`
+- `Phase B - Guided Runtime Apply`: primo passo chiuso con `UPG-2026-03-11-01`
+  - endpoint protetto `/api/system/connectivity-config`
+  - scrittura sicura di `PUBLIC_PORTAL_ENABLED` / `PUBLIC_BASE_URL`
+  - aggiornamento runtime in-process senza riavvio
+  - CTA minime dalla card `Connettivita`
+- `Phase B - Follow-up Hardening`: chiuso con `UPG-2026-03-11-02`
+  - writer `.env` via file temporaneo + `os.replace()`
+  - guardrail esplicito sui path trusted del binary Tailscale
+  - field `Base URL pubblica` nascosto finche non serve davvero
 - Stato attuale: il prodotto sa leggere e spiegare lo stato reale della macchina, ma non
-  applica ancora configurazioni `.env` e non offre ancora il wizard passo-passo.
+  offre ancora il wizard passo-passo e non verifica ancora end-to-end il portale pubblico.
 
 ### 1. Runtime Service Backend
 

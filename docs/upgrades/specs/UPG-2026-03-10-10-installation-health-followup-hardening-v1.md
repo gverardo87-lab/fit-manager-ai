@@ -62,15 +62,15 @@ di affidabilita installativa.
 
 - `& 'C:\Program Files\nodejs\npm.cmd' --prefix frontend run lint -- "src/app/(dashboard)/impostazioni/page.tsx" "src/components/settings/SystemStatusSection.tsx"`
 - `venv\Scripts\ruff.exe check tests/test_health_endpoint.py api/main.py api/schemas/system.py`
-- `venv\Scripts\pytest.exe -q tests/test_health_endpoint.py -p no:cacheprovider` -> **blocked**
-  dal problema locale noto della venv che risolve verso il launcher Python del Microsoft Store.
+- `python -m pytest tests/test_health_endpoint.py -q -p no:cacheprovider` -> **passed**
+  (`2026-03-11`, eseguito in venv locale reale dall'utente)
 
 ## Risks / Residuals
 
 1. `SystemStatusSection.tsx` e ora a **300 LOC esatti**: il prossimo step che aggiunge contenuto
    deve spezzare il componente prima di crescere.
-2. Il test backend e presente ma non e stato eseguibile localmente per un limite ambiente gia noto,
-   non per errore del test stesso.
+2. Il test backend e ora eseguito con successo in venv reale; il rischio residuo non e piu
+   la toolchain pytest ma la crescita del componente UI.
 
 ## Next Smallest Step
 

@@ -6,7 +6,13 @@ from sqlmodel import Session
 from api.database import get_catalog_session, get_session
 from api.dependencies import get_current_trainer
 from api.models.trainer import Trainer
-from api.schemas.system import ConnectivityStatusResponse, SupportSnapshotResponse
+from api.schemas.system import (
+    ConnectivityConfigRequest,
+    ConnectivityConfigResponse,
+    ConnectivityStatusResponse,
+    SupportSnapshotResponse,
+)
+from api.services.connectivity_config import apply_connectivity_config
 from api.services.connectivity_runtime import build_connectivity_status
 from api.services.system_runtime import build_support_snapshot
 
@@ -19,6 +25,15 @@ def get_connectivity_status(
 ):
     """Stato read-only della connettivita locale: Tailscale, Funnel e base URL."""
     return build_connectivity_status()
+
+
+@router.post("/connectivity-config", response_model=ConnectivityConfigResponse)
+def update_connectivity_config(
+    payload: ConnectivityConfigRequest,
+    _trainer: Trainer = Depends(get_current_trainer),
+):
+    """Applica solo la configurazione FitManager: profilo, flag portale e base URL."""
+    return apply_connectivity_config(payload)
 
 
 @router.get("/support-snapshot", response_model=SupportSnapshotResponse)

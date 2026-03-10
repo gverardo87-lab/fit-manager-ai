@@ -160,6 +160,21 @@ export interface InstallationConnectivityStatusResponse {
   missing_requirements: string[];
 }
 
+export interface InstallationConnectivityConfigRequest {
+  profile: InstallationConnectivityProfile;
+  public_base_url: string | null;
+}
+
+export interface InstallationConnectivityConfigResponse {
+  applied_at: string;
+  profile: InstallationConnectivityProfile;
+  public_portal_enabled: boolean;
+  public_base_url: string | null;
+  written_keys: string[];
+  restart_required: boolean;
+  message: string;
+}
+
 /** Dati pubblici trainer — TrainerPublic */
 export interface Trainer {
   id: number;

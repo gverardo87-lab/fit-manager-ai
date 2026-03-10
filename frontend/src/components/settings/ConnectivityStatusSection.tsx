@@ -1,9 +1,10 @@
 "use client";
 
-import { Loader2, Network, RefreshCw, ShieldAlert, Wifi, WifiOff } from "lucide-react";
+import { useState } from "react";
+import { Loader2, Network, RefreshCw, Wifi, WifiOff } from "lucide-react";
 
+import { useApplyConnectivityConfig } from "@/hooks/useConnectivityConfig";
 import { useConnectivityStatus } from "@/hooks/useConnectivityStatus";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,95 +13,19 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import {
+  ErrorState,
+  LoadingState,
+  PublicPortalHint,
+  StatusBadge,
+  SummaryItem,
+} from "@/components/settings/connectivity-status-ui";
 import {
   mapConnectivityCheckStatus,
   mapConnectivityProfile,
-  toneClasses,
   type Tone,
 } from "@/components/settings/system-status-utils";
-
-function StatusBadge({ label, tone }: { label: string; tone: Tone }) {
-  return (
-    <Badge variant="outline" className={toneClasses[tone]}>
-      {label}
-    </Badge>
-  );
-}
-
-function LoadingState() {
-  return (
-    <Card>
-      <CardHeader>
-        <Skeleton className="h-6 w-40" />
-        <Skeleton className="h-4 w-80" />
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <Skeleton className="h-24 w-full rounded-xl" />
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, index) => (
-            <Skeleton key={index} className="h-24 w-full rounded-xl" />
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function ErrorState({
-  isRetrying,
-  onRetry,
-}: {
-  isRetrying: boolean;
-  onRetry: () => void;
-}) {
-  return (
-    <Card className="border-destructive/40">
-      <CardHeader>
-        <div className="flex items-center gap-2 text-destructive">
-          <ShieldAlert className="h-5 w-5" />
-          <CardTitle>Connettivita non leggibile</CardTitle>
-        </div>
-        <CardDescription>
-          Non sono riuscito a leggere lo stato locale di Tailscale e del portale pubblico. Prima
-          del wizard vero serve una surface affidabile, altrimenti il setup remoto resta opaco.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Button variant="outline" size="sm" onClick={onRetry} disabled={isRetrying}>
-          {isRetrying ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <RefreshCw className="mr-2 h-4 w-4" />
-          )}
-          Riprova
-        </Button>
-      </CardContent>
-    </Card>
-  );
-}
-
-function SummaryItem({
-  label,
-  value,
-  badge,
-}: {
-  label: string;
-  value: string;
-  badge?: { label: string; tone: Tone };
-}) {
-  return (
-    <div className="rounded-xl border bg-background/80 p-4">
-      <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-        {label}
-      </p>
-      <div className="mt-2 flex items-center justify-between gap-3">
-        <p className="text-sm font-semibold text-foreground">{value}</p>
-        {badge ? <StatusBadge label={badge.label} tone={badge.tone} /> : null}
-      </div>
-    </div>
-  );
-}
 
 function resolveNextActionTone(actionCode: string): Tone {
   switch (actionCode) {
@@ -115,6 +40,12 @@ function resolveNextActionTone(actionCode: string): Tone {
 
 export function ConnectivityStatusSection() {
   const { data, isLoading, isError, isFetching, refetch } = useConnectivityStatus();
+  const applyConfig = useApplyConnectivityConfig();
+  const [baseUrlDraft, setBaseUrlDraft] = useState("");
+  const [userEditedBaseUrl, setUserEditedBaseUrl] = useState(false);
+  const [showPublicPortalConfig, setShowPublicPortalConfig] = useState(false);
+  const suggestedBaseUrl =
+    data?.public_base_url ?? (data?.tailscale_dns_name ? `https://${data.tailscale_dns_name}` : "");
 
   if (isLoading) {
     return <LoadingState />;
@@ -130,6 +61,27 @@ export function ConnectivityStatusSection() {
     ...check,
     badge: mapConnectivityCheckStatus(check.status),
   }));
+  const effectiveBaseUrlDraft = userEditedBaseUrl ? baseUrlDraft : suggestedBaseUrl;
+  const normalizedBaseUrl = effectiveBaseUrlDraft.trim();
+  const publicPortalConfigVisible = data.profile === "public_portal" || showPublicPortalConfig;
+
+  const saveProfile = (
+    profileToApply: "local_only" | "trusted_devices" | "public_portal",
+  ) => {
+    applyConfig.mutate(
+      {
+        profile: profileToApply,
+        public_base_url: profileToApply === "public_portal" ? normalizedBaseUrl || null : null,
+      },
+      {
+        onSuccess: (response) => {
+          setBaseUrlDraft(response.public_base_url ?? "");
+          setUserEditedBaseUrl(false);
+          setShowPublicPortalConfig(response.profile === "public_portal");
+        },
+      },
+    );
+  };
 
   return (
     <Card>
@@ -203,6 +155,84 @@ export function ConnectivityStatusSection() {
                 : { label: "Non richiesta", tone: "neutral" }
             }
           />
+        </div>
+
+        <div className="rounded-xl border bg-background/80 p-4">
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Applica profilo FitManager</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Qui salvi solo la configurazione dell&apos;app. Login Tailscale e attivazione Funnel
+                restano nel client ufficiale, ma FitManager puo preparare il proprio runtime.
+              </p>
+            </div>
+
+            {publicPortalConfigVisible ? (
+              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
+                <div className="space-y-2">
+                  <label className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                    Base URL pubblica
+                  </label>
+                  <Input
+                    value={effectiveBaseUrlDraft}
+                    onChange={(event) => {
+                      setBaseUrlDraft(event.target.value);
+                      setUserEditedBaseUrl(true);
+                    }}
+                    placeholder="https://nome-macchina.tailnet.ts.net"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Suggerita: {suggestedBaseUrl || "nessun DNS Tailscale rilevato"}
+                  </p>
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setBaseUrlDraft(suggestedBaseUrl);
+                      setUserEditedBaseUrl(false);
+                    }}
+                    disabled={applyConfig.isPending || !suggestedBaseUrl}
+                  >
+                    Usa DNS rilevato
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <PublicPortalHint onConfigure={() => setShowPublicPortalConfig(true)} />
+            )}
+
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant={data.profile === "local_only" ? "default" : "outline"}
+                size="sm"
+                disabled={applyConfig.isPending}
+                onClick={() => saveProfile("local_only")}
+              >
+                {applyConfig.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Solo locale
+              </Button>
+              <Button
+                variant={data.profile === "trusted_devices" ? "default" : "outline"}
+                size="sm"
+                disabled={applyConfig.isPending}
+                onClick={() => saveProfile("trusted_devices")}
+              >
+                {applyConfig.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Dispositivi fidati
+              </Button>
+              <Button
+                variant={data.profile === "public_portal" ? "default" : "outline"}
+                size="sm"
+                disabled={applyConfig.isPending || !normalizedBaseUrl}
+                onClick={() => saveProfile("public_portal")}
+              >
+                {applyConfig.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Portale pubblico
+              </Button>
+            </div>
+          </div>
         </div>
 
         <div className="grid gap-3 lg:grid-cols-2">

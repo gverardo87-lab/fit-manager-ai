@@ -100,9 +100,9 @@ Introdurre il primo microstep runtime reale del workstream connettivita':
   - `venv\Scripts\ruff.exe check api\routers\system.py api\schemas\system.py api\services\connectivity_runtime.py tests\test_connectivity_runtime.py tests\test_connectivity_status_endpoint.py`
 - Frontend lint:
   - `& 'C:\Program Files\nodejs\npm.cmd' --prefix frontend run lint -- "src/app/(dashboard)/impostazioni/page.tsx" "src/components/settings/ConnectivityStatusSection.tsx" "src/components/settings/system-status-utils.ts" "src/hooks/useConnectivityStatus.ts" "src/types/api.ts"`
-- Test runtime tentato:
-  - `venv\Scripts\python.exe -m pytest tests\test_connectivity_runtime.py tests\test_connectivity_status_endpoint.py -q`
-  - esecuzione bloccata dal launcher Python locale della venv che punta al Microsoft Store
+- Test runtime:
+  - `python -m pytest tests/test_connectivity_runtime.py tests/test_connectivity_status_endpoint.py -q -p no:cacheprovider`
+  - **passed** (`2026-03-11`, eseguito in venv locale reale dall'utente)
 
 ## Risks / Residual Gaps
 

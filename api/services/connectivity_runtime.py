@@ -60,6 +60,9 @@ def _resolve_tailscale_binary() -> str | None:
 
 
 def _run_tailscale_command(binary: str, *args: str) -> CommandResult:
+    # `binary` is resolved only from trusted sources: PATH di sistema via `shutil.which`
+    # oppure dai percorsi hardcoded di installazione Tailscale su Windows. Non deve
+    # mai evolvere verso un path configurabile da input utente senza sanitizzazione.
     completed = subprocess.run(
         [binary, *args],
         capture_output=True,

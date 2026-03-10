@@ -85,15 +85,15 @@ terminali, screenshot parziali o accesso diretto ai sorgenti.
 
 - `venv\Scripts\ruff.exe check api/main.py api/schemas/system.py api/services/system_runtime.py api/routers/system.py tests/test_health_endpoint.py tests/test_support_snapshot_endpoint.py`
 - `& 'C:\Program Files\nodejs\npm.cmd' --prefix frontend run lint -- "src/app/(dashboard)/impostazioni/page.tsx" "src/components/settings/SystemStatusSection.tsx" "src/components/settings/SupportSnapshotSection.tsx" "src/hooks/useSystemSupport.ts" "src/types/api.ts"`
-- `venv\Scripts\pytest.exe -q tests/test_health_endpoint.py tests/test_support_snapshot_endpoint.py -p no:cacheprovider` -> **blocked**
-  dal launcher Python della venv che continua a puntare al runtime Microsoft Store.
+- `python -m pytest tests/test_health_endpoint.py tests/test_support_snapshot_endpoint.py -q -p no:cacheprovider` -> **passed**
+  (`2026-03-11`, eseguito in venv locale reale dall'utente)
 
 ## Risks / Residuals
 
 1. La diagnostica e ora scaricabile, ma il prossimo collo di bottiglia resta la migrazione Next
    `middleware -> proxy`: warning noto della shell distributiva ancora aperto.
-2. I test pytest focused esistono ma non sono eseguibili localmente in questo ambiente per un
-   limite della venv Windows, non per un failure del codice.
+2. I test pytest focused sono ora eseguiti con successo; il rischio residuo resta operativo,
+   non piu legato alla venv locale.
 
 ## Next Smallest Step
 
