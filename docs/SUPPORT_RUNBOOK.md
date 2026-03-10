@@ -29,11 +29,27 @@ Usare questo documento se il problema riguarda almeno uno di questi casi:
 - la licenza risulta `missing`, `invalid`, `expired` o `unconfigured`
 - il trainer viene reindirizzato a `/licenza`
 - serve ripristinare dati da backup
+- serve reidratare una nuova installazione partendo da un backup reale trainer
 - un aggiornamento ha introdotto un problema e bisogna tornare operativi
 - c'e un dubbio su ambiente `dev/prod`, runtime `source/installer` o stato del portale pubblico
 
 Per problemi di rete/Tailscale/Funnel usare questo runbook come ingresso rapido e poi
 passare a [TAILSCALE_FUNNEL_SETUP.md](/Users/gvera/Projects/FitManager_AI_Studio/docs/TAILSCALE_FUNNEL_SETUP.md).
+
+---
+
+## 2b. Policy Bundle Dati e Licenza
+
+Questa policy vale per ogni release candidate installabile:
+
+- `data/catalog.db` e' parte del bundle prodotto e rappresenta il catalogo scientifico canonico.
+- `data/crm.db` nel bundle deve essere vuoto e compatibile col primo avvio.
+- I dati reali del trainer rientrano solo tramite Setup Wizard o restore verificato di backup.
+- La destinazione runtime della licenza cliente resta `data/license.key`.
+- La `license.key` cliente non deve essere conservata nel repository e non deve stare in `installer/assets`.
+- Nel bundle puo stare solo la chiave pubblica o altro materiale read-only necessario alla verifica.
+
+Se questa policy non e' rispettata, il pacchetto non e' idoneo alla rehearsal distributiva.
 
 ---
 
@@ -162,6 +178,10 @@ Procedura standard:
    - `license_enforcement_enabled = true` in produzione
    - apertura normale della UI senza redirect a `/licenza`
 
+Nota di governance:
+- il file sorgente della licenza cliente deve vivere fuori dal repository e fuori da `installer/assets`;
+- nel repository puo restare solo il materiale pubblico/read-only di verifica.
+
 ### 5.5 Quando fermarsi e fare escalation
 
 Escalare se:
@@ -197,6 +217,23 @@ Se l'app e ancora accessibile:
 Se l'app non e accessibile ma il DB esiste ancora:
 - copiare in sola sicurezza la cartella `data/backups/` se necessario per analisi;
 - non tentare overwrite manuali del DB live.
+
+### 6.2b Rehydrate Post-Install
+
+Caso tipico di release candidate:
+
+1. Installare il pacchetto su macchina pulita.
+2. Configurare licenza e verificare `Stato installazione`.
+3. Eseguire restore del backup trainer piu recente.
+4. Verificare dopo il login:
+   - clienti presenti;
+   - contratti e rate coerenti;
+   - schede e agenda leggibili;
+   - movimenti/cassa coerenti;
+   - media e catalogo correttamente disponibili.
+
+Questo e' il flusso obbligatorio per riportare l'installazione candidata allo stato operativo reale
+di Chiara senza distribuire `crm.db` popolati dentro il bundle.
 
 ### 6.3 Sequenza standard di restore
 
@@ -317,6 +354,8 @@ La recovery e riuscita solo se:
 - Non sovrascrivere a mano i file SQLite del live system.
 - Non usare `alembic upgrade head` da solo sui DB del cliente.
 - Non lanciare seed/reset su `crm.db`.
+- Non distribuire un installer con `crm.db` gia popolato con dati trainer reali.
+- Non tenere `license.key` cliente nel repository o in `installer/assets`.
 - Non avviare la produzione da sorgente senza `LICENSE_ENFORCEMENT_ENABLED=true`.
 - Non chiedere screenshot al posto di snapshot/log quando il prodotto e raggiungibile.
 - Non condividere pubblicamente snapshot o log senza revisione, anche se non contengono PII business intenzionale.

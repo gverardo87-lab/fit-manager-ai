@@ -1515,21 +1515,35 @@ Source (Git privato)
 |   launcher.bat      Avvia backend + frontend + apre browser (supporta --port)
 |   fitmanager.iss    Script Inno Setup 6 (italiano, data/ preservata)
 |   node/             node.exe runtime (copiato, non committato)
-|   assets/           EULA.txt
+|   assets/           EULA.txt + license_public.pem (mai `license.key` cliente)
 +-- tools/build/
 |   build-frontend.sh   npm build + copia static/public nel standalone
 |   build-backend.sh    PyInstaller con fitmanager.spec
+|   build-media.sh      staging media/catalogo canonico per il bundle
 |   entry_point.py      Wrapper uvicorn (--port support)
 |   fitmanager.spec     PyInstaller spec (esclude AI libs ~1.8GB)
 +-- data/          -> Sopravvive agli aggiornamenti
-    crm.db            Database SQLite
+    crm.db            Database business locale (vuoto nel bundle installer, poi setup/restore)
+    catalog.db        Catalogo scientifico canonico nel bundle (391 esercizi attivi correnti)
     media/            Foto esercizi
-    license.key       JWT firmato RSA
+    license.key       JWT firmato RSA (copiato post-install, mai nel repo/assets)
     .env              Configurazione locale (JWT_SECRET, PUBLIC_BASE_URL, PUBLIC_PORTAL_ENABLED)
 ```
 
 **Formula porte**: `frontend_port - 3000 + 8000 = backend_port`
 - 3000→8000 (prod), 3001→8001 (dev), 3002→8002 (installer test)
+
+### Release Candidate Preflight (2026-03-10)
+
+Decisioni operative congelate prima del rebuild candidato:
+
+1. **Source freeze**: commit `4a19bf2`
+2. **Versione candidata**: `1.0.0`, da riallineare in backend, frontend e installer
+3. **Bundle dati**:
+   - `catalog.db` canonico nel pacchetto, con i 391 esercizi attivi correnti
+   - `crm.db` vuoto nel bundle, first-run-safe
+4. **Dati reali Chiara**: rientrano solo tramite restore verificato del backup reale sulla release candidate
+5. **Licenza cliente**: `license.key` puo vivere solo in `data/license.key` sulla macchina installata; non deve stare nel repository o in `installer/assets`
 
 ### Checklist Pre-Distribuzione
 

@@ -21,24 +21,28 @@
 - [x] Launcher: `installer/launcher.bat` con `LICENSE_ENFORCEMENT_ENABLED=true`
 - [x] Node runtime: `installer/node/node.exe`
 - [x] Seed data in bundle: esercizi JSON + relazioni + media
+- [ ] Versione `1.0.0` riallineata in `api/__init__.py`, `frontend/package.json` e `installer/fitmanager.iss`
+- [ ] Nome output installer versionato e tracciabile, non solo `FitManager_Setup.exe`
 
 ## 3. License System
 
 - [x] RSA keypair generata (`~/.fitmanager/`)
 - [x] Chiave pubblica in `data/license_public.pem`
-- [x] License.key firmata: client `chiara-bassani`, tier `pro`, scade 2027-02-27
+- [ ] `license.key` cliente tenuta fuori dal repository e fuori da `installer/assets`, con copia solo verso `data/license.key` sulla macchina target
 - [x] Health endpoint riporta `license_status: valid`
 - [x] Launcher impone `LICENSE_ENFORCEMENT_ENABLED=true` in produzione
 - [ ] Test enforcement negativo manuale: rimuovere `license.key` su installazione reale e verificare pagina `/licenza`
 
 ## 4. Dati e Configurazione
 
-- [x] `data/crm.db` — database produzione con dati reali
-- [x] `data/catalog.db` — catalogo scientifico (53 muscoli, 15 articolazioni, 47 condizioni)
+- [ ] `data/crm.db` nel bundle release candidate vuoto e first-run-safe
+- [ ] `data/catalog.db` allineato al catalogo canonico con 391 esercizi attivi correnti
 - [x] `data/.env` — JWT_SECRET (52 char), PUBLIC_PORTAL_ENABLED, PUBLIC_BASE_URL
 - [x] `data/media/exercises/` — 1788 foto esercizi
 - [x] `data/exercises/` — 3 seed JSON (esercizi + relazioni + media)
 - [x] 391 esercizi attivi (102 compound, 101 isolation, 54 stretching, 50 bodyweight, 35 cardio, 30 mobilita, 19 avviamento)
+- [ ] Restore del backup reale di Chiara verificato sulla release candidate
+- [ ] Backup/restore ricontrollato con dati sensibili reali: clienti, contratti, schede, agenda, cassa e media
 
 ## 5. Rete e Accesso
 
@@ -82,7 +86,8 @@
 ## Baseline
 
 - **Branch**: `codex_02`
-- **Baseline commit**: vedi tag `v1.0.0-rc1` (se applicato)
+- **Source freeze commit**: `4a19bf2`
+- **Versione candidata**: `1.0.0` (da riallineare su backend/frontend/installer)
 - **Data**: 2026-03-10
 
 ## Rollback

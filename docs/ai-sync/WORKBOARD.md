@@ -7,6 +7,7 @@ Aggiornare prima di iniziare e alla chiusura di ogni task.
 
 | Work ID | Owner | Branch | Scope | Status | Locked files | Started (UTC) | Handoff / Notes |
 |---|---|---|---|---|---|---|---|
+| AGT-2026-03-10-18 | Codex | `codex_02` | Installer release preflight docs-first: allineare i documenti autorevoli al freeze commit `4a19bf2`, alla versione candidata `1.0.0`, alla policy bundle `catalog.db` canonico + `crm.db` vuoto e alla gestione corretta di `license.key` fuori dal repo prima del rebuild candidato | in_progress | `CLAUDE.md`, `docs/DEPLOYMENT_PLAN.md`, `docs/RELEASE_CHECKLIST.md`, `docs/SUPPORT_RUNBOOK.md`, `docs/upgrades/specs/UPG-2026-03-10-09-launch-operations-plan-v1.md`, `docs/upgrades/specs/UPG-2026-03-10-17-installer-preflight-doc-alignment-v1.md`, `docs/upgrades/UPGRADE_LOG.md`, `docs/upgrades/README.md`, `docs/ai-sync/WORKBOARD.md` | 2026-03-10T13:10:00Z | Microstep docs-only prima della fase runtime/build. Nessun cambio ancora alla pipeline o agli artefatti; obiettivo: fissare un contratto unico sui dati distribuiti e sulla procedura di restore/licenza. |
 
 ## Completed
 

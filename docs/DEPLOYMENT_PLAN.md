@@ -28,6 +28,26 @@
 
 ---
 
+## Release Candidate Preflight (2026-03-10)
+
+Decisioni operative congelate prima del rebuild candidato:
+
+1. **Source freeze**: commit `4a19bf2`.
+2. **Versione candidata**: `1.0.0`, da riallineare in backend, frontend e installer.
+3. **Policy bundle dati**:
+   - `data/catalog.db` e' il catalogo canonico del prodotto, con i 391 esercizi attivi correnti;
+   - `data/crm.db` nel bundle deve essere vuoto e first-run-safe.
+4. **Dati reali cliente**: non entrano nell'installer. Lo stato reale di Chiara rientra solo tramite restore verificato del backup piu recente.
+5. **Policy licenza**:
+   - la chiave pubblica puo stare nel bundle;
+   - la `license.key` del cliente NON deve vivere nel repository o in `installer/assets`;
+   - la destinazione runtime resta `data/license.key` sulla macchina installata.
+
+Questa sezione e' il contratto di base per ogni rebuild release candidate. Nessun installer nuovo va generato
+se questi punti non sono gia stati riflessi nella documentazione operativa e nella checklist release.
+
+---
+
 ## Architettura Distribuzione
 
 ```
@@ -45,12 +65,13 @@ Source (Git privato — MAI esposto al cliente)
 +-- installer/              <- Inno Setup -> FitManager_Setup.exe (83MB)
 |   fitmanager.iss          Script installer Inno Setup
 |   launcher.bat            Avvia backend + frontend + apre browser
-|   assets/                 Icone, testi, EULA, license.key, license_public.pem
+|   assets/                 Icone, testi, EULA, license_public.pem
 |
 +-- tools/build/
     build-backend.sh        PyInstaller spec + esclusioni
     build-frontend.sh       next build standalone + copia
-    build-installer.sh      Inno Setup compile
+    build-media.sh          staging media esercizi per bundle
+    (manuale) ISCC          compilazione Inno Setup reale via `installer/fitmanager.iss`
 ```
 
 ---
@@ -112,6 +133,7 @@ SVILUPPATORE                              APPLICAZIONE
 - Middleware FastAPI: controlla licenza su ogni request (cache in memoria)
 - CLI tool: `python -m tools.admin_scripts.generate_license --client "gym-roma" --tier pro --months 12`
 - Storage licenza: `data/license.key` (file JWT nella cartella dati)
+- La `license.key` del cliente non deve essere conservata nel repository, nei commit o in `installer/assets`
 
 ---
 
@@ -139,6 +161,34 @@ SVILUPPATORE                              APPLICAZIONE
 - App controlla GitHub API per nuove release
 - Scarica e installa in background
 - "Riavvia per aggiornare"
+
+---
+
+## Bundle Data Policy
+
+### Catalogo scientifico
+
+- `data/catalog.db` e' parte del prodotto distribuito.
+- Deve essere coerente con il catalogo canonico del CRM e contenere i 391 esercizi attivi correnti
+  (inclusi `stretching` e `avviamento`).
+- Non deve dipendere da dati cliente o da contenuti business locali.
+
+### Business DB
+
+- `data/crm.db` nel bundle release candidate deve essere vuoto.
+- Il prodotto deve restare avviabile al primo avvio tramite Setup Wizard anche senza restore.
+- Dati reali, clienti, contratti, agenda, cassa, schede e media business rientrano solo tramite
+  restore verificato del backup trainer.
+
+### Verifica critica prima del pilot
+
+Prima del pilot la release candidate deve superare questo flusso:
+
+1. installazione pulita;
+2. attivazione licenza;
+3. avvio e verifica `Stato installazione`;
+4. restore del backup reale di Chiara;
+5. verifica presenza corretta di clienti, contratti, schede, agenda, cassa e media sensibili.
 
 ---
 

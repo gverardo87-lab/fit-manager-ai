@@ -39,6 +39,18 @@ Restano ancora aperti i gate manuali/non documentali:
 - installazione pulita su macchina Windows non-dev
 - decisione finale su code signing per market gate
 
+## Release Candidate Preflight Decisions As Of 2026-03-10
+
+Decisioni aggiunte dopo la stesura iniziale del piano:
+
+1. **Source freeze**: commit `4a19bf2`
+2. **Versione candidata**: `1.0.0`, da riallineare in backend, frontend e installer
+3. **Policy bundle dati**:
+   - `catalog.db` canonico nel pacchetto, con i 391 esercizi attivi correnti
+   - `crm.db` vuoto nel bundle release candidate
+4. **Dati reali trainer**: lo stato reale di Chiara rientra solo tramite restore verificato del backup piu recente
+5. **Policy licenza**: `license.key` cliente fuori dal repository e fuori da `installer/assets`; destinazione runtime unica `data/license.key`
+
 ## Verified Baseline As Of 2026-03-10
 
 ### Gia chiuso
@@ -277,14 +289,14 @@ Per proteggere il lancio, fino alla chiusura del pilot NON entra:
 
 Ordine esecutivo raccomandato dal piano:
 
-1. `support snapshot` read-only in `Impostazioni`
-2. migrazione `middleware -> proxy`
-3. logging locale persistente
-4. test enforcement negativo licenza
-5. support runbook v1
-6. rehearsal installer su macchina pulita
-7. validazione LAN/Tailscale/Funnel
-8. stable RC per pilot
+1. allineamento docs-first del preflight installer
+2. version sync `1.0.0` su backend/frontend/installer
+3. rimozione della `license.key` cliente dal perimetro repository/assets
+4. chiarimento/orchestrazione della pipeline di build installer
+5. rebuild release candidate
+6. restore del backup reale di Chiara sulla candidate build
+7. test negativo licenza su installazione reale
+8. rehearsal macchina pulita + LAN/Tailscale/Funnel
 
 ## Risks / Residuals
 
