@@ -118,7 +118,6 @@ export function ForecastTab() {
       {/* ── Grafico Runway (saldo cumulativo) ── */}
       {hasTimeline && (
         <RunwayChart
-          timeline={data.timeline}
           saldoIniziale={data.saldo_iniziale}
           months={data.monthly_projection}
         />
@@ -379,11 +378,9 @@ function ProjectionChart({ data }: { data: ForecastMonthData[] }) {
 // ════════════════════════════════════════════════════════════
 
 function RunwayChart({
-  timeline,
   saldoIniziale,
   months,
 }: {
-  timeline: ForecastTimelineItem[];
   saldoIniziale: number;
   months: ForecastMonthData[];
 }) {
@@ -400,7 +397,7 @@ function RunwayChart({
     }
 
     return points;
-  }, [timeline, saldoIniziale, months]);
+  }, [saldoIniziale, months]);
 
   const minSaldo = Math.min(...runwayData.map((d) => d.saldo));
   const maxSaldo = Math.max(...runwayData.map((d) => d.saldo));

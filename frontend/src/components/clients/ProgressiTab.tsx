@@ -154,7 +154,7 @@ export function ProgressiTab({ clientId, sesso, dataNascita }: ProgressiTabProps
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [goalFormOpen, setGoalFormOpen] = useState(false);
 
-  const measurements = measurementsData?.items ?? [];
+  const measurements = useMemo(() => measurementsData?.items ?? [], [measurementsData]);
 
   // ── Metriche tracciate (con almeno 1 valore) ──
   const trackedMetricIds = useMemo(() => {

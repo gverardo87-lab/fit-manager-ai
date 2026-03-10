@@ -144,7 +144,7 @@ export default function SchedePage() {
   const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<WorkoutPlan | null>(null);
 
-  const workouts = data?.items ?? [];
+  const workouts = useMemo(() => data?.items ?? [], [data]);
 
   // KPI
   const kpi = useMemo(() => {

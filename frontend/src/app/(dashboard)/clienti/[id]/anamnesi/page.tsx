@@ -320,10 +320,10 @@ function ShareAnamnesiDialog({
           {!result ? (
             <>
               <div className="rounded-lg border bg-muted/40 p-3 text-xs text-muted-foreground space-y-1">
-                <p>• Il link e' <strong>monouso</strong>: dopo l&apos;invio non puo' essere riutilizzato</p>
+                <p>• Il link &egrave; <strong>monouso</strong>: dopo l&apos;invio non pu&ograve; essere riutilizzato</p>
                 <p>• Scade dopo <strong>48 ore</strong> dalla generazione</p>
                 <p>• I dati vengono salvati direttamente nel profilo cliente</p>
-                <p>• Il link funziona solo mentre FitManager e' aperto</p>
+                <p>• Il link funziona solo mentre FitManager &egrave; aperto</p>
               </div>
               <Button
                 className="w-full"

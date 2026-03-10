@@ -159,7 +159,7 @@ describe("guardedOpenChange — Scenari sequenziali", () => {
 describe("guardedOpenChange — Save bypass", () => {
   it("save resetta dirty prima di chiudere → nessun confirm", () => {
     const onOpenChange = vi.fn();
-    const { dirtyRef, guardedOpenChange } = createGuardedOpenChange(onOpenChange);
+    const { dirtyRef, guardedOpenChange: _guardedOpenChange } = createGuardedOpenChange(onOpenChange);
 
     // Utente ha modificato
     dirtyRef.current = true;
@@ -170,7 +170,7 @@ describe("guardedOpenChange — Save bypass", () => {
     onOpenChange(false);
 
     // Nessun confirm mostrato
-    expect(window.confirm).toBeUndefined;
+    expect(window.confirm).toBeUndefined();
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 });

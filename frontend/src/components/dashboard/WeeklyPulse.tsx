@@ -72,8 +72,6 @@ interface WeeklyPulseProps {
 // ── Component ──
 
 export function WeeklyPulse({ events, dateAnchor, isLoading }: WeeklyPulseProps) {
-  if (isLoading) return <WeeklyPulseSkeleton />;
-
   const monday = weekStartDate(dateAnchor);
   const mondayTs = monday.getTime();
   const sundayEnd = new Date(monday);
@@ -113,6 +111,8 @@ export function WeeklyPulse({ events, dateAnchor, isLoading }: WeeklyPulseProps)
     const active = CATEGORIES.filter((c) => catSet.has(c.key));
     return { chartData: data, totalSessions: total, totalCompleted: completed, activeCats: active };
   }, [events, mondayTs]);
+
+  if (isLoading) return <WeeklyPulseSkeleton />;
 
   const hasData = totalSessions > 0;
 

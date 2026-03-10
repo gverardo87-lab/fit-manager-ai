@@ -188,7 +188,6 @@ describe("Draft API — Corruzione & Resilienza", () => {
 
   it("saveDraft gestisce sessionStorage pieno (graceful degradation)", () => {
     // Mock sessionStorage.setItem che lancia QuotaExceededError
-    const original = sessionStorage.setItem.bind(sessionStorage);
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new DOMException("Quota exceeded", "QuotaExceededError");
     });

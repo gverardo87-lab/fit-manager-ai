@@ -39,7 +39,7 @@ export function GoalsSection({
   clientId,
   goals,
   latestMeasurement,
-  metrics,
+  metrics: _metrics,
   sesso,
   dataNascita,
 }: GoalsSectionProps) {

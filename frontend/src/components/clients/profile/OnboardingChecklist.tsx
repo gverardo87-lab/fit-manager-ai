@@ -147,8 +147,6 @@ function StepPill({
   isNext: boolean;
   color: typeof STEP_COLORS[number];
 }) {
-  const Icon = step.icon;
-
   if (step.completed) {
     return (
       <div className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-muted-foreground/70">

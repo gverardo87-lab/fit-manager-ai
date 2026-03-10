@@ -699,8 +699,8 @@ export function CommandPalette() {
     staleTime: 30_000,
   });
 
-  const clients = clientsData?.items ?? [];
-  const exercises = exercisesData?.items ?? [];
+  const clients = useMemo(() => clientsData?.items ?? [], [clientsData]);
+  const exercises = useMemo(() => exercisesData?.items ?? [], [exercisesData]);
 
   // ── Client/Exercise lookup maps ──
   const clientMap = useMemo(

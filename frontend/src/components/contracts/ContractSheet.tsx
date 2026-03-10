@@ -52,7 +52,7 @@ export function ContractSheet({
 
   const handleSubmit = (values: ContractSubmitPayload) => {
     if (isEdit) {
-      const { id_cliente, acconto, metodo_acconto, ...updatePayload } = values;
+      const { id_cliente: _id_cliente, acconto: _acconto, metodo_acconto: _metodo_acconto, ...updatePayload } = values;
       updateMutation.mutate(
         { id: contract.id, ...updatePayload },
         { onSuccess: () => { dirtyRef.current = false; onOpenChange(false); } }

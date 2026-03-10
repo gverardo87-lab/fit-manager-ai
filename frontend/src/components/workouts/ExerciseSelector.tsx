@@ -203,7 +203,7 @@ export function ExerciseSelector({
   }, []);
 
   const { data } = useExercises();
-  const exercises = data?.items ?? [];
+  const exercises = useMemo(() => data?.items ?? [], [data]);
   const recentSection = useMemo(
     () => resolveRecentSection(categoryFilter),
     [categoryFilter],

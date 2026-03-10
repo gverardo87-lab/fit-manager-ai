@@ -34,7 +34,6 @@ import { BAND_COLOR_CLASSES } from "@/lib/normative-ranges";
 import type { Measurement, ClientGoal } from "@/types/api";
 import {
   generateClinicalReport,
-  type ClinicalReport,
   type Severity,
   type RateAssessment,
   type CompositionAnalysis,

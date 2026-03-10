@@ -8,7 +8,7 @@
  */
 
 import Link from "next/link";
-import { ArrowRight, Check, X, AlertTriangle, ChevronDown, Play } from "lucide-react";
+import { ArrowRight, Check, X, AlertTriangle, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { ClinicalReadinessClientItem } from "@/types/api";

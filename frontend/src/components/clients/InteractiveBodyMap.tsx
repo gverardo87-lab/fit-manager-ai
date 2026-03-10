@@ -20,8 +20,6 @@ import { useMemo, useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 import Body from "react-muscle-highlighter";
 import type { ExtendedBodyPart } from "react-muscle-highlighter";
-import { format, parseISO } from "date-fns";
-import { it } from "date-fns/locale";
 import {
   AlertTriangle,
   ArrowDownRight,
@@ -64,7 +62,6 @@ function getInitialIsMobile() {
 }
 
 // Metriche dove calare e' positivo (per delta color nel detail)
-const LOWER_IS_BETTER_IDS = new Set([9, 10]); // Vita, Fianchi
 
 // ════════════════════════════════════════════════════════════
 // TYPES
@@ -575,7 +572,6 @@ function ZoneDetailPanel({
                       <MetricDeltaBadge
                         delta={m.delta}
                         unita={m.unita}
-                        metricId={m.metricId}
                       />
                     )}
                   </div>
@@ -748,11 +744,9 @@ function ZoneDetailPanel({
 function MetricDeltaBadge({
   delta,
   unita,
-  metricId,
 }: {
   delta: number;
   unita: string;
-  metricId: number;
 }) {
   const isPositive = delta > 0;
   const sign = isPositive ? "+" : "";

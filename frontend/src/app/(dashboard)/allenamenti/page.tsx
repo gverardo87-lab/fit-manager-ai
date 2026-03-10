@@ -432,7 +432,7 @@ function ProgramCard({ plan }: { plan: WorkoutPlan }) {
   const [activateOpen, setActivateOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const { data: logsData } = useWorkoutLogs(plan.id);
-  const logs = logsData?.items ?? [];
+  const logs = useMemo(() => logsData?.items ?? [], [logsData]);
 
   const sessionIds = useMemo(
     () => plan.sessioni.map((s) => s.id),

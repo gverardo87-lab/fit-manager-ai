@@ -10,7 +10,6 @@ import Link from "next/link";
 import { ArrowLeft, Scale, Droplets, Activity, Dumbbell } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AnimatedNumber } from "@/components/ui/animated-number";
 import { HealthScoreRing } from "@/components/portal/HealthScoreRing";
 import { computeAge } from "@/lib/normative-ranges";
 import type { HealthScoreResult } from "@/lib/health-score";

@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { AnamnesiData, AnamnesiQuestion } from "@/types/api";
+import type { AnamnesiQuestion } from "@/types/api";
 import {
   DOLORI_OPTIONS, DOLORI_LABELS,
   PATOLOGIE_OPTIONS, PATOLOGIE_OPTION_LABELS,
@@ -231,7 +231,7 @@ export function StepAlimentazione({ data, onChange }: StepProps) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Il rapporto con l&apos;alimentazione e' parte del percorso.
+        Il rapporto con l&apos;alimentazione &egrave; parte del percorso.
       </p>
 
       <SelectField label="Come definiresti la tua alimentazione?" value={data.tipo_alimentazione}
@@ -249,7 +249,7 @@ export function StepAlimentazione({ data, onChange }: StepProps) {
 
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
-          <label className="text-sm font-medium">Serenita' nel rapporto col cibo e col corpo</label>
+          <label className="text-sm font-medium">Serenit&agrave; nel rapporto col cibo e col corpo</label>
           <span className="text-sm font-semibold text-primary">{data.serenita_cibo}/10</span>
         </div>
         <input
@@ -258,11 +258,11 @@ export function StepAlimentazione({ data, onChange }: StepProps) {
           onChange={(e) => onChange({ serenita_cibo: Number(e.target.value) })}
           className="w-full accent-primary"
         />
-        <p className="text-xs text-muted-foreground">1 = molto difficile, 10 = totale serenita'</p>
+        <p className="text-xs text-muted-foreground">1 = molto difficile, 10 = totale serenit&agrave;</p>
       </div>
 
       <div className="space-y-1.5">
-        <label className="text-sm font-medium">C&apos;e' qualcosa che vuoi dirmi sull&apos;alimentazione?</label>
+        <label className="text-sm font-medium">C&apos;&egrave; qualcosa che vuoi dirmi sull&apos;alimentazione?</label>
         <Textarea
           value={data.messaggio_alimentazione ?? ""}
           onChange={(e) => onChange({ messaggio_alimentazione: e.target.value || null })}
@@ -343,7 +343,7 @@ export function StepLogistica({ data, onChange }: StepProps) {
           className="mt-0.5"
         />
         <span className="text-sm leading-snug">
-          Acconsento al trattamento dei miei dati personali per la finalita' di
+          Acconsento al trattamento dei miei dati personali per la finalit&agrave; di
           personalizzazione del programma di allenamento.
         </span>
       </div>

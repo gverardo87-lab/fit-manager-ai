@@ -107,7 +107,7 @@ export function StepStileVita({ data, onChange }: StepProps) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Informazioni sulla tua quotidianita' e abitudini.
+        Informazioni sulla tua quotidianit&agrave; e abitudini.
       </p>
 
       <div className="space-y-1.5">
@@ -188,7 +188,7 @@ export function StepObiettivo({ data, onChange }: StepProps) {
       </div>
 
       <div className="space-y-1.5">
-        <label className="text-sm font-medium">Perche' proprio adesso?</label>
+        <label className="text-sm font-medium">Perch&eacute; proprio adesso?</label>
         <Textarea
           value={data.perche_adesso ?? ""}
           onChange={(e) => onChange({ perche_adesso: e.target.value || null })}
@@ -267,7 +267,7 @@ export function StepEsperienza({ data, onChange }: StepProps) {
 
       {data.esperienza_pt && (
         <div className="space-y-1.5">
-          <label className="text-sm font-medium">Com&apos;e' stata l&apos;esperienza?</label>
+          <label className="text-sm font-medium">Com&apos;&egrave; stata l&apos;esperienza?</label>
           <Textarea
             value={data.feedback_pt ?? ""}
             onChange={(e) => onChange({ feedback_pt: e.target.value || null })}

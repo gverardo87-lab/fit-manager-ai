@@ -49,7 +49,11 @@ export function HealthScoreRing({
   strokeWidth = 8,
   className = "",
 }: HealthScoreRingProps) {
-  const [animatedScore, setAnimatedScore] = useState(0);
+  const [animatedScore, setAnimatedScore] = useState(() => {
+    if (typeof window === "undefined") return 0;
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    return prefersReduced ? score : 0;
+  });
   const mountedRef = useRef(false);
 
   const radius = (size - strokeWidth) / 2;
@@ -61,11 +65,11 @@ export function HealthScoreRing({
   const colors = SCORE_COLORS[colorKey];
 
   useEffect(() => {
-    // Rispetta prefers-reduced-motion
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (prefersReduced) {
-      setAnimatedScore(score);
-      return;
+      // Score changes are handled via the callback below, not synchronously
+      const timer = setTimeout(() => setAnimatedScore(score), 0);
+      return () => clearTimeout(timer);
     }
 
     if (!mountedRef.current) {
@@ -75,7 +79,8 @@ export function HealthScoreRing({
       return () => clearTimeout(timer);
     }
 
-    setAnimatedScore(score);
+    const timer = setTimeout(() => setAnimatedScore(score), 0);
+    return () => clearTimeout(timer);
   }, [score]);
 
   return (

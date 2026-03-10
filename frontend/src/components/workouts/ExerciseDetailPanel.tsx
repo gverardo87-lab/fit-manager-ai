@@ -71,6 +71,7 @@ function ExerciseThumbnails({ exerciseId }: { exerciseId: number }) {
     <div className="flex gap-2">
       {startVisible && startUrl && (
         <div className="relative">
+          {/* eslint-disable-next-line @next/next/no-img-element -- dynamic backend media path */}
           <img
             src={startUrl}
             alt="Posizione iniziale"
@@ -85,6 +86,7 @@ function ExerciseThumbnails({ exerciseId }: { exerciseId: number }) {
       )}
       {endVisible && endUrl && (
         <div className="relative">
+          {/* eslint-disable-next-line @next/next/no-img-element -- dynamic backend media path */}
           <img
             src={endUrl}
             alt="Posizione finale"
@@ -104,7 +106,7 @@ function ExerciseThumbnails({ exerciseId }: { exerciseId: number }) {
 export function ExerciseDetailPanel({
   exercise,
   exerciseId,
-  safety,
+  safety: _safety,
   safetyEntries,
   exerciseMap,
   schedaId,

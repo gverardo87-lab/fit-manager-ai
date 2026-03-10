@@ -63,12 +63,27 @@ export function AnatomicalMuscleMap({
   const [hovered, setHovered] = useState<string | null>(null);
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [isDark, setIsDark] = useState(false);
+  const [containerWidth, setContainerWidth] = useState(300);
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof document === "undefined") return false;
+    return document.documentElement.classList.contains("dark");
+  });
+
+  // Track container width for tooltip positioning (avoids ref read during render)
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    setContainerWidth(el.offsetWidth);
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) setContainerWidth(entry.contentRect.width);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // Detect dark mode via media query (works without ThemeProvider)
   useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    setIsDark(mq.matches || document.documentElement.classList.contains("dark"));
     const handler = () => {
       setIsDark(mq.matches || document.documentElement.classList.contains("dark"));
     };
@@ -235,7 +250,7 @@ export function AnatomicalMuscleMap({
         <div
           className="absolute z-50 pointer-events-none px-2.5 py-1.5 rounded-md shadow-lg border text-xs bg-popover text-popover-foreground"
           style={{
-            left: Math.min(tooltip.x + 12, (containerRef.current?.offsetWidth ?? 300) - 140),
+            left: Math.min(tooltip.x + 12, containerWidth - 140),
             top: tooltip.y - 48,
           }}
         >

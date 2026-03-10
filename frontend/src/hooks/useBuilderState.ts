@@ -86,8 +86,10 @@ export function useBuilderState({
   const coalesceKeyRef = useRef<string | null>(null);
   const coalesceBaseRef = useRef<SessionCardData[] | null>(null);
   const smartPlanPackageHydratedRef = useRef<number | null>(null);
-  sessionsRef.current = sessions;
-  isDirtyRef.current = isDirty;
+
+  // Sync refs via effect (React 19: ref writes forbidden during render)
+  useEffect(() => { sessionsRef.current = sessions; }, [sessions]);
+  useEffect(() => { isDirtyRef.current = isDirty; }, [isDirty]);
 
   // ── Draft protection ──
   const draftKey = isNaN(id) ? undefined : `scheda-builder-${id}`;

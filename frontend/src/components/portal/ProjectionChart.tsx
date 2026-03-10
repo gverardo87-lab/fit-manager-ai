@@ -189,10 +189,10 @@ export function ProjectionChart({ measurements, metrics, metricId, goals }: Proj
     return buildTrendProjection(measurements, metricId, metric.nome, metric.unita_misura, goals);
   }, [measurements, metricId, metric, goals]);
 
-  if (!result || !metric) return null;
+  const chartData = useMemo(() => result ? buildChartData(result) : [], [result]);
+  const yDomain = useMemo(() => result ? computeYDomain(chartData, result.targetValue) : [0, 100] as [number, number], [chartData, result]);
 
-  const chartData = useMemo(() => buildChartData(result), [result]);
-  const yDomain = useMemo(() => computeYDomain(chartData, result.targetValue), [chartData, result.targetValue]);
+  if (!result || !metric) return null;
   const narrativeCfg = NARRATIVE_CONFIG[result.narrative];
   const NarrIcon = narrativeCfg.icon;
   const tone = getTrendTone(result.narrative);

@@ -6,7 +6,7 @@
  * beforeunload, onDirtyChange propagation, form lifecycle.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { saveDraft, loadDraft, clearDraft } from "@/hooks/useUnsavedChanges";
 
 // ════════════════════════════════════════════════════════════

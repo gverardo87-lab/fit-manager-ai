@@ -12,7 +12,6 @@ import { useRouter } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import {
-  Calendar,
   ChevronDown,
   Plus,
   Ruler,
@@ -38,7 +37,6 @@ import type { ClinicalFreshnessSignal, Measurement, Metric } from "@/types/api";
 
 const PRIORITY_METRIC_IDS = [1, 3, 5]; // Peso, Massa Grassa, BMI
 const LOWER_IS_BETTER = new Set([1, 3, 5, 9, 10]);
-const HIGHER_IS_BETTER = new Set([4, 20, 21, 22]);
 
 const KPI_BORDER_COLORS = [
   "border-l-teal-500",

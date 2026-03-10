@@ -40,7 +40,6 @@ interface Rect {
 const PADDING = 8; // px around target
 const GAP = 12;    // px between target and tooltip
 const TOOLTIP_WIDTH = 360;
-const TOOLTIP_WIDTH_MOBILE = 0; // full-width on mobile (calculated from viewport)
 
 function getTargetRect(target: string): Rect | null {
   const el = document.querySelector<HTMLElement>(`[data-guide="${target}"]`);

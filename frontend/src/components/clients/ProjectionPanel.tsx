@@ -225,7 +225,7 @@ function GoalProjectionCard({ proj }: { proj: GoalProjectionResponse }) {
             {/* Confidence */}
             {proj.confidence && (
               <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                <span>Velocita': {formatRate(proj.weekly_rate ?? 0, proj.unit)}</span>
+                <span>Velocit&agrave;: {formatRate(proj.weekly_rate ?? 0, proj.unit)}</span>
                 {proj.r_squared != null && <span>R²={proj.r_squared.toFixed(2)}</span>}
               </div>
             )}

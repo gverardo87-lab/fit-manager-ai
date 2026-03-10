@@ -8,7 +8,6 @@ import type {
   Exercise,
   ExerciseSafetyEntry,
   ClientGoal,
-  AnamnesiData,
 } from "@/types/api";
 import type { StrengthRatio } from "@/lib/derived-metrics";
 import type { SymmetryPair } from "@/lib/clinical-analysis";

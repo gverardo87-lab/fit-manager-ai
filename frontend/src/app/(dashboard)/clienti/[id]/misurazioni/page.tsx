@@ -45,7 +45,7 @@ import {
   useCreateMeasurement,
   useUpdateMeasurement,
 } from "@/hooks/useMeasurements";
-import type { Metric, Measurement, MeasurementValueInput, MetricCategory } from "@/types/api";
+import type { Metric, MeasurementValueInput, MetricCategory } from "@/types/api";
 import { METRIC_CATEGORY_LABELS } from "@/types/api";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { resolveBackNavigation } from "@/lib/url-state";

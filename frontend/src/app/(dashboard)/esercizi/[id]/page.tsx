@@ -109,9 +109,8 @@ function ClassificationRow({ label, value }: { label: string; value: string }) {
 // HERO: MAPPA MUSCOLARE + CLASSIFICAZIONE
 // ════════════════════════════════════════════════════════════
 
-function MuscleGroup({ muscles, ruolo, colorIntensity }: {
+function MuscleGroup({ muscles, colorIntensity }: {
   muscles: TaxonomyMuscle[];
-  ruolo: string;
   colorIntensity: "strong" | "soft";
 }) {
   // Raggruppa per gruppo muscolare
@@ -183,7 +182,7 @@ function ExerciseHero({ exercise }: { exercise: Exercise }) {
                   <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     Muscoli Primari ({primaryMuscles.length})
                   </h3>
-                  <MuscleGroup muscles={primaryMuscles} ruolo="primary" colorIntensity="strong" />
+                  <MuscleGroup muscles={primaryMuscles} colorIntensity="strong" />
                 </div>
               )}
               {secondaryMuscles.length > 0 && (
@@ -191,7 +190,7 @@ function ExerciseHero({ exercise }: { exercise: Exercise }) {
                   <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     Muscoli Secondari ({secondaryMuscles.length})
                   </h3>
-                  <MuscleGroup muscles={secondaryMuscles} ruolo="secondary" colorIntensity="soft" />
+                  <MuscleGroup muscles={secondaryMuscles} colorIntensity="soft" />
                 </div>
               )}
             </>

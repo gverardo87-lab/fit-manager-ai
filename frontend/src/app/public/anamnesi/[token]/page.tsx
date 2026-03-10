@@ -211,8 +211,8 @@ export default function PublicAnamnesiPage({
             <div>
               <p className="font-bold text-xl">Questionario inviato!</p>
               <p className="text-sm text-muted-foreground mt-2">
-                Grazie {info?.client_name}. Il tuo trainer ricevera' le informazioni
-                e le utilizzera' per personalizzare il tuo programma.
+                Grazie {info?.client_name}. Il tuo trainer ricever&agrave; le informazioni
+                e le utilizzer&agrave; per personalizzare il tuo programma.
               </p>
             </div>
             <p className="text-xs text-muted-foreground">Puoi chiudere questa pagina.</p>

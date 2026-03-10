@@ -196,9 +196,16 @@ export function BuilderSaveBar({
 function useIssuesExpanded(saveIssues: SaveIssue[]): [boolean, React.Dispatch<React.SetStateAction<boolean>>] {
   const [expanded, setExpanded] = useState(false);
   const criticalCount = saveIssues.filter((i) => i.level === "critical").length;
+  const prevCriticalRef = useRef(criticalCount);
 
   useEffect(() => {
-    if (criticalCount > 0) setExpanded(true);
+    // Auto-expand only on transition from 0 to >0
+    if (criticalCount > 0 && prevCriticalRef.current === 0) {
+      const timer = setTimeout(() => setExpanded(true), 0);
+      prevCriticalRef.current = criticalCount;
+      return () => clearTimeout(timer);
+    }
+    prevCriticalRef.current = criticalCount;
   }, [criticalCount]);
 
   return [expanded, setExpanded];

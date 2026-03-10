@@ -56,7 +56,8 @@ export default function SchedaDetailPage({ params }: { params: Promise<{ id: str
   const safetyEntries = safetyMap?.entries;
 
   // Client demographics
-  const assignedClient = useMemo(() => (plan?.id_cliente ? clients.find((c) => c.id === plan.id_cliente) : undefined), [clients, plan?.id_cliente]);
+  const planClienteId = plan?.id_cliente ?? null;
+  const assignedClient = useMemo(() => (planClienteId ? clients.find((c) => c.id === planClienteId) : undefined), [clients, planClienteId]);
   const clientSesso = useMemo(() => { const s = assignedClient?.sesso; return s === "Uomo" ? "M" : s === "Donna" ? "F" : null; }, [assignedClient?.sesso]);
   const clientDataNascita = assignedClient?.data_nascita ?? null;
   const clientNome = plan?.client_nome && plan?.client_cognome ? `${plan.client_nome} ${plan.client_cognome}` : undefined;
@@ -89,16 +90,19 @@ export default function SchedaDetailPage({ params }: { params: Promise<{ id: str
   });
 
   // ── Navigation ──
+  const isDirtyRef = builder.isDirtyRef;
   const goBack = useCallback(() => {
-    if (builder.isDirtyRef.current && !window.confirm("Hai modifiche non salvate. Vuoi davvero uscire?")) return;
+    if (isDirtyRef.current && !window.confirm("Hai modifiche non salvate. Vuoi davvero uscire?")) return;
     const nav = resolveBackNavigation(fromParam, { href: "/schede", label: "" }, { tab: "schede" });
     router.push(nav.href);
-  }, [router, fromParam, builder.isDirtyRef]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- isDirtyRef is a stable ref
+  }, [router, fromParam]);
 
   const guardedNavigate = useCallback((href: string) => {
-    if (builder.isDirtyRef.current && !window.confirm("Hai modifiche non salvate. Vuoi davvero uscire?")) return;
+    if (isDirtyRef.current && !window.confirm("Hai modifiche non salvate. Vuoi davvero uscire?")) return;
     router.push(href);
-  }, [router, builder.isDirtyRef]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- isDirtyRef is a stable ref
+  }, [router]);
 
   // ── View state ──
   const [activeView, setActiveView] = useState<"sessioni" | "analisi">("sessioni");
@@ -108,8 +112,10 @@ export default function SchedaDetailPage({ params }: { params: Promise<{ id: str
   });
   useEffect(() => {
     window.localStorage.setItem("fitmanager.builder.showAdvanced", showAdvanced ? "1" : "0");
-    if (!showAdvanced && activeView === "analisi") setActiveView("sessioni");
-  }, [showAdvanced, activeView]);
+  }, [showAdvanced]);
+
+  // If advanced is toggled off while on analisi, reset view
+  const effectiveView = !showAdvanced && activeView === "analisi" ? "sessioni" : activeView;
 
   // ── Safety computed data (for SafetyCard + ExportButtons) ──
   const { safetyStats, safetyConditionStats, groupedConditions, uniqueConditionsForMap } = useSafetyData(safetyEntries, safetyMap?.condition_count ?? 0, builder.sessions);
@@ -162,7 +168,7 @@ export default function SchedaDetailPage({ params }: { params: Promise<{ id: str
             </div>
           )}
 
-          {activeView === "sessioni" && (
+          {effectiveView === "sessioni" && (
             <>
               <div className="flex gap-3 overflow-x-auto pb-2">
                 {builder.sessions.map((session) => (
@@ -194,7 +200,7 @@ export default function SchedaDetailPage({ params }: { params: Promise<{ id: str
             </>
           )}
 
-          {activeView === "analisi" && builder.sessions.length > 0 && (
+          {effectiveView === "analisi" && builder.sessions.length > 0 && (
             <ScientificAnalysisTab
               sessions={builder.sessions.map((s) => ({ nome_sessione: s.nome_sessione, esercizi: s.esercizi.map((e) => ({ id_esercizio: e.id_esercizio, serie: e.serie, carico_kg: e.carico_kg })) }))}
               exerciseMap={exerciseMap} livello={plan.livello} obiettivo={plan.obiettivo}

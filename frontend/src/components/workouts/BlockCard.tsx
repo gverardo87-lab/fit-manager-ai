@@ -17,7 +17,7 @@
  * DnD: esercizi riordinabili dentro il blocco via @dnd-kit/sortable.
  */
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   DndContext,
   closestCenter,
@@ -38,7 +38,6 @@ import {
   Plus, Trash2, ChevronDown, GripVertical, StickyNote, Copy,
 } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -53,7 +52,7 @@ import {
 } from "@/components/ui/collapsible";
 
 import { SortableExerciseRow, BLOCK_EXERCISE_CONFIG } from "./SortableExerciseRow";
-import type { BlockType, SessionBlock, WorkoutExerciseRow, ExerciseSafetyEntry, Exercise } from "@/types/api";
+import type { BlockType, WorkoutExerciseRow, ExerciseSafetyEntry, Exercise } from "@/types/api";
 import { BLOCK_TYPE_LABELS } from "@/types/api";
 
 // ── Mutable local representation di un blocco (con id negativo per nuovi blocchi)
@@ -223,7 +222,7 @@ function minToSec(min: string): number | null {
 
 export function BlockCard({
   block,
-  sessionId,
+  sessionId: _sessionId,
   safetyMap,
   exerciseMap,
   schedaId,

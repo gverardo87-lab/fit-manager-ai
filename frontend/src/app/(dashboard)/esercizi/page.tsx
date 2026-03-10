@@ -182,7 +182,7 @@ export default function EserciziPage() {
   }, [activeCategories, selectedPattern, selectedMuscle, selectedEquipment,
       selectedDifficulty, selectedForceType, selectedLateral, search, pathname]);
 
-  const allExercises = data?.items ?? [];
+  const allExercises = useMemo(() => data?.items ?? [], [data]);
   const kpi = useExerciseKpi(allExercises);
 
   // ── Pool post-categoria (base per chip dinamici) ──

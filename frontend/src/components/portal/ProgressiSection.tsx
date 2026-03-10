@@ -16,9 +16,7 @@ import {
   ArrowRight,
   Calendar,
   ChevronDown,
-  Minus,
   Plus,
-  TrendingDown,
   TrendingUp,
 } from "lucide-react";
 
@@ -164,10 +162,6 @@ export function ProgressiSection({
 // ── Sub-components ──
 
 function CompositionPhaseCard({ composition }: { composition: NonNullable<ClinicalReport["composition"]> }) {
-  const DeltaIcon = composition.deltaFM !== null && composition.deltaFM < 0 ? TrendingDown
-    : composition.deltaFM !== null && composition.deltaFM > 0 ? TrendingUp
-    : Minus;
-
   return (
     <Card className={`border-l-4 ${SEVERITY_BORDER[composition.phaseSeverity]} bg-gradient-to-br from-background to-muted/30`}>
       <CardContent className="p-4 space-y-3">
