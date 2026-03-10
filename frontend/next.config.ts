@@ -26,6 +26,10 @@ const nextConfig: NextConfig = {
     const backendBase = process.env.NEXT_PUBLIC_API_URL ?? `http://localhost:${backendPort}`;
     return [
       {
+        source: "/health",
+        destination: `${backendBase}/health`,
+      },
+      {
         source: "/media/:path*",
         destination: `${backendBase}/media/:path*`,
       },

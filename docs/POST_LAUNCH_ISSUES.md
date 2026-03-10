@@ -9,7 +9,7 @@
 
 | # | Priorita | Area | Descrizione | Workaround | Stato |
 |---|----------|------|-------------|------------|-------|
-| 1 | P2 | UI | `__version__` non visibile nella pagina Impostazioni | Verificare nella pagina /health dell'API | open |
+| 1 | P2 | UI | `__version__` non visibile nella pagina Impostazioni | Risolto il 2026-03-10 da `UPG-2026-03-10-08`: ora esposto in `Impostazioni > Stato installazione` | closed |
 | 2 | P2 | Backend | 9 repository legacy (sqlite3 raw) usati solo da core/ | Non impattano il CRM core | deferred |
 | 3 | P2 | Backend | FinancialRepository + CardImportRepository legacy (dict raw) | Non usati dal CRM attivo | deferred |
 | 4 | P3 | Frontend | ESLint 5 warning residui (`react-hooks/incompatible-library` da react-hook-form `watch()`) | Non-actionable, nessun impatto | deferred |

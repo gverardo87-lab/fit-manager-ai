@@ -1550,7 +1550,7 @@ Source (Git privato)
 - [x] Tailscale Funnel: accesso pubblico HTTPS per anamnesi clienti — DONE
 - [x] PUBLIC_BASE_URL: link anamnesi con dominio Funnel anche da localhost — DONE
 - [x] Runbook installazione cliente: checklist 6 fasi in `docs/TAILSCALE_FUNNEL_SETUP.md` — DONE
-- [ ] `__version__` visibile in UI Impostazioni
+- [x] `__version__` visibile in UI Impostazioni
 - [ ] Flusso E2E completo: install → licenza → setup → Tailscale → cliente → anamnesi
 
 Tracking dettagliato: `docs/upgrades/specs/UPG-2026-03-04-06-launch-market-readiness-roadmap.md`

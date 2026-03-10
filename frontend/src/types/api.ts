@@ -76,6 +76,32 @@ export interface TokenResponse {
   cognome: string;
 }
 
+export type InstallationHealthStatus = "ok" | "degraded";
+export type InstallationConnectionStatus = "connected" | "disconnected";
+export type InstallationLicenseStatus =
+  | "valid"
+  | "missing"
+  | "invalid"
+  | "expired"
+  | "unconfigured";
+export type InstallationAppMode = "development" | "production";
+export type InstallationDistributionMode = "source" | "installer";
+
+export interface InstallationHealthResponse {
+  status: InstallationHealthStatus;
+  version: string;
+  db: InstallationConnectionStatus;
+  catalog: InstallationConnectionStatus;
+  license_status: InstallationLicenseStatus;
+  license_enforcement_enabled: boolean;
+  app_mode: InstallationAppMode;
+  distribution_mode: InstallationDistributionMode;
+  public_portal_enabled: boolean;
+  public_base_url_configured: boolean;
+  started_at: string;
+  uptime_seconds: number;
+}
+
 /** Dati pubblici trainer — TrainerPublic */
 export interface Trainer {
   id: number;

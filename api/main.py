@@ -15,18 +15,21 @@ Migrazioni schema gestite da Alembic: `alembic upgrade head`
 import logging
 import os
 import sqlite3
+import sys
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, Request, status
+from fastapi import Depends, FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 from starlette.staticfiles import StaticFiles
 from sqlmodel import Session, text
 
+from api.schemas.system import HealthResponse
 from api.database import get_catalog_session, get_session
 
-from api.config import API_PREFIX, CATALOG_DATABASE_URL, DATA_DIR
+from api.config import API_PREFIX, CATALOG_DATABASE_URL, DATA_DIR, DATABASE_URL
 from api.database import create_catalog_tables, create_db_and_tables, engine
 from api.seed_exercises import seed_builtin_exercises, seed_exercise_media, seed_exercise_relations
 from api.services.license import check_license
@@ -55,6 +58,7 @@ logger = logging.getLogger("fitmanager.api")
 
 BACKUP_DIR = DATA_DIR / "backups"
 MAX_AUTO_BACKUPS = 5  # solo gli ultimi 5 backup automatici
+APP_STARTED_AT = datetime.now(timezone.utc)
 
 LICENSE_EXEMPT_PATHS = {
     "/health",
@@ -217,6 +221,23 @@ def _is_license_exempt_path(path: str) -> bool:
     return any(path.startswith(prefix) for prefix in LICENSE_EXEMPT_PREFIXES)
 
 
+def _is_public_portal_enabled() -> bool:
+    value = os.getenv("PUBLIC_PORTAL_ENABLED", "false").strip().lower()
+    return value in {"1", "true", "yes", "on"}
+
+
+def _is_public_base_url_configured() -> bool:
+    return bool(os.getenv("PUBLIC_BASE_URL", "").strip())
+
+
+def _get_app_mode() -> str:
+    return "development" if "crm_dev" in DATABASE_URL else "production"
+
+
+def _get_distribution_mode() -> str:
+    return "installer" if getattr(sys, "frozen", False) else "source"
+
+
 @app.middleware("http")
 async def license_middleware(request: Request, call_next):
     """Middleware licenza (gated): enforcement opzionale via env."""
@@ -270,8 +291,9 @@ app.include_router(training_methodology_router, prefix=API_PREFIX)
 app.include_router(workspace_router, prefix=API_PREFIX)
 
 
-@app.get("/health")
+@app.get("/health", response_model=HealthResponse)
 def health_check(
+    response: Response,
     session: Session = Depends(get_session),
     catalog_session: Session = Depends(get_catalog_session),
 ):
@@ -294,13 +316,20 @@ def health_check(
     license_result = check_license()
 
     healthy = db_ok and catalog_ok
-    return JSONResponse(
-        status_code=200 if healthy else 503,
-        content={
-            "status": "ok" if healthy else "degraded",
-            "version": __version__,
-            "db": "connected" if db_ok else "disconnected",
-            "catalog": "connected" if catalog_ok else "disconnected",
-            "license_status": license_result.status,
-        },
+    if not healthy:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+
+    return HealthResponse(
+        status="ok" if healthy else "degraded",
+        version=__version__,
+        db="connected" if db_ok else "disconnected",
+        catalog="connected" if catalog_ok else "disconnected",
+        license_status=license_result.status,
+        license_enforcement_enabled=_is_license_enforcement_enabled(),
+        app_mode=_get_app_mode(),
+        distribution_mode=_get_distribution_mode(),
+        public_portal_enabled=_is_public_portal_enabled(),
+        public_base_url_configured=_is_public_base_url_configured(),
+        started_at=APP_STARTED_AT,
+        uptime_seconds=int((datetime.now(timezone.utc) - APP_STARTED_AT).total_seconds()),
     )
