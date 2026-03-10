@@ -31,6 +31,11 @@ def test_license_middleware_blocks_protected_route_without_license(client, monke
     monkeypatch.setenv("LICENSE_ENFORCEMENT_ENABLED", "true")
     token = _register_and_token(client, "license-missing@test.com")
 
+    monkeypatch.setattr(
+        "api.main.check_license",
+        lambda: LicenseCheckResult(status="missing", message="Licenza non trovata"),
+    )
+
     response = client.get(
         "/api/clients",
         headers={"Authorization": f"Bearer {token}"},
