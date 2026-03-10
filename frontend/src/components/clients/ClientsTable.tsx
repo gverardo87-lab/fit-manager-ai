@@ -143,7 +143,7 @@ export function ClientsTable({ clients, onEdit, onDelete, onNewClient }: Clients
                 const ratio = prezzo > 0 ? versato / prezzo : 0;
 
                 return (
-                  <TableRow key={client.id}>
+                  <TableRow key={client.id} className="transition-colors hover:bg-muted/50">
                     {/* ── Nome + nota + dot rate scadute ── */}
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-1.5">

@@ -125,7 +125,7 @@ export function MovementsTable({
     <div className="space-y-4" ref={containerRef}>
       {/* ── Barra ricerca ── */}
       <div className="flex items-center gap-3">
-        <div className="relative max-w-md flex-1">
+        <div className="relative w-full sm:max-w-md flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Cerca per nota, categoria o metodo..."
@@ -152,7 +152,7 @@ export function MovementsTable({
             : "I movimenti appariranno qui"}
         />
       ) : (
-        <div className="rounded-lg border bg-white dark:bg-zinc-900">
+        <div className="rounded-lg border bg-white dark:bg-zinc-900 overflow-x-auto">
           <Table>
             <TableHeader className="sticky top-0 z-10 bg-white dark:bg-zinc-900">
               <TableRow>

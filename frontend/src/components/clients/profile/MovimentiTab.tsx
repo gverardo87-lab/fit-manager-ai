@@ -32,7 +32,7 @@ export function MovimentiTab({ clientId }: { clientId: number }) {
   }
 
   return (
-    <div className="rounded-lg border bg-white dark:bg-zinc-900">
+    <div className="rounded-lg border bg-white dark:bg-zinc-900 overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>

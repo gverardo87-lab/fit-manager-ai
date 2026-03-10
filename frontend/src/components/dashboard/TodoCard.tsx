@@ -185,7 +185,7 @@ function buildTodoHeroState(ctx: TodoHeroContext): TodoHeroState {
     return {
       mode: "warning_alerts",
       title: ctx.warningAlertCount === 1 ? "1 avviso operativo da monitorare" : `${ctx.warningAlertCount} avvisi operativi da monitorare`,
-      detail: "Non e bloccante, ma conviene chiuderli entro la giornata.",
+      detail: "Non è bloccante, ma conviene chiuderli entro la giornata.",
       primaryLabel: "Apri alert",
       icon: BellRing,
       panelTone: "border-amber-200 bg-amber-50/70 dark:border-amber-900/40 dark:bg-amber-950/20",

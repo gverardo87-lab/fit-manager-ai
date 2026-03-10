@@ -159,7 +159,7 @@ export function ContractsTable({
   return (
     <div className="space-y-4">
       {/* ── Barra ricerca ── */}
-      <div className="relative max-w-sm">
+      <div className="relative w-full sm:max-w-sm">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           placeholder="Cerca per cliente o pacchetto..."
@@ -183,7 +183,7 @@ export function ContractsTable({
           } : undefined}
         />
       ) : (
-        <div className="rounded-lg border bg-white dark:bg-zinc-900">
+        <div className="rounded-lg border bg-white dark:bg-zinc-900 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -198,7 +198,7 @@ export function ContractsTable({
             </TableHeader>
             <TableBody>
               {filtered.map((contract) => (
-                <TableRow key={contract.id}>
+                <TableRow key={contract.id} className="transition-colors hover:bg-muted/50">
                   {/* ── Cliente (link a scheda contratto) ── */}
                   <TableCell className="font-medium">
                     <Link href={`/contratti/${contract.id}`} className="hover:underline">

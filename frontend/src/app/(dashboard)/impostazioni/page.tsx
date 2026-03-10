@@ -241,6 +241,7 @@ export default function ImpostazioniPage() {
           )}
 
           {backups && backups.length > 0 && (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -253,7 +254,7 @@ export default function ImpostazioniPage() {
               </TableHeader>
               <TableBody>
                 {backups.map((backup) => (
-                  <TableRow key={backup.filename}>
+                  <TableRow key={backup.filename} className="transition-colors hover:bg-muted/50">
                     <TableCell className="font-mono text-sm truncate max-w-[180px]">
                       {backup.filename}
                     </TableCell>
@@ -305,6 +306,7 @@ export default function ImpostazioniPage() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

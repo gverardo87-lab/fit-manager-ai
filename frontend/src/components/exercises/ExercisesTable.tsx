@@ -69,7 +69,7 @@ export function ExercisesTable({
           } : undefined}
         />
       ) : (
-        <div className="rounded-lg border bg-white dark:bg-zinc-900">
+        <div className="rounded-lg border bg-white dark:bg-zinc-900 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -83,7 +83,7 @@ export function ExercisesTable({
             </TableHeader>
             <TableBody>
               {exercises.map((exercise) => (
-                <TableRow key={exercise.id}>
+                <TableRow key={exercise.id} className="transition-colors hover:bg-muted/50">
                   {/* Nome */}
                   <TableCell>
                     <div className="flex items-center gap-2">

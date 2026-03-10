@@ -26,13 +26,13 @@ export function ContrattiTab({ clientId }: { clientId: number }) {
         icon={FileText}
         message="Nessun contratto attivo"
         hint="Il contratto definisce il pacchetto, i crediti e il piano pagamento."
-        action={{ label: "Vai a Contratti", href: `/contratti?new=1&cliente=${clientId}` }}
+        action={{ label: "Crea Contratto", href: `/contratti?new=1&cliente=${clientId}` }}
       />
     );
   }
 
   return (
-    <div className="rounded-lg border bg-white dark:bg-zinc-900">
+    <div className="rounded-lg border bg-white dark:bg-zinc-900 overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>

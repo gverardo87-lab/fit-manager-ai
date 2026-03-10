@@ -348,7 +348,7 @@ export default function SchedePage() {
       )}
 
       {data && workouts.length > 0 && (
-        <div className="rounded-lg border">
+        <div className="rounded-lg border overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -365,7 +365,7 @@ export default function SchedePage() {
               {workouts.map((plan) => (
                 <TableRow
                   key={plan.id}
-                  className="cursor-pointer hover:bg-muted/50"
+                  className="cursor-pointer transition-colors hover:bg-muted/50"
                   onClick={() => router.push(`/schede/${plan.id}`)}
                 >
                   <TableCell className="font-medium">{plan.nome}</TableCell>
