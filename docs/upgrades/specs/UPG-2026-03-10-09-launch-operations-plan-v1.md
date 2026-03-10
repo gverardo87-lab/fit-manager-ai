@@ -277,7 +277,7 @@ Ordine esecutivo raccomandato dal piano:
 
 ## Next Smallest Step
 
-Aprire il microstep `UPG-2026-03-10-10` per implementare il `support snapshot` read-only scaricabile
+Aprire il microstep `UPG-2026-03-10-11` per implementare il `support snapshot` read-only scaricabile
 da `Impostazioni`, usando come fonti locali:
 
 - payload `/health`

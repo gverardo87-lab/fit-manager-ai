@@ -82,7 +82,13 @@ function LoadingState() {
   );
 }
 
-function ErrorState({ onRetry }: { onRetry: () => void }) {
+function ErrorState({
+  isRetrying,
+  onRetry,
+}: {
+  isRetrying: boolean;
+  onRetry: () => void;
+}) {
   return (
     <Card className="border-destructive/40">
       <CardHeader>
@@ -96,8 +102,12 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Button variant="outline" size="sm" onClick={onRetry}>
-          <RefreshCw className="mr-2 h-4 w-4" />
+        <Button variant="outline" size="sm" onClick={onRetry} disabled={isRetrying}>
+          {isRetrying ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="mr-2 h-4 w-4" />
+          )}
           Riprova
         </Button>
       </CardContent>
@@ -165,7 +175,7 @@ export function SystemStatusSection() {
   }
 
   if (isError || !data) {
-    return <ErrorState onRetry={() => void refetch()} />;
+    return <ErrorState isRetrying={isFetching} onRetry={() => void refetch()} />;
   }
 
   const license = mapLicenseStatus(data.license_status);

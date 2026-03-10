@@ -129,11 +129,6 @@ export default function ImpostazioniPage() {
 
   return (
     <div className="space-y-6">
-      <div className={revealClass(25)} style={revealStyle(25)}>
-        <SystemStatusSection />
-      </div>
-
-      <div className="space-y-6">
       {/* ── Header ── */}
       <div data-guide="impostazioni-header" className={revealClass(0, "flex items-center gap-3")} style={revealStyle(0)}>
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-900/30">
@@ -145,6 +140,10 @@ export default function ImpostazioniPage() {
             Gestione backup, dati e configurazione
           </p>
         </div>
+      </div>
+
+      <div className={revealClass(25)} style={revealStyle(25)}>
+        <SystemStatusSection />
       </div>
 
       {/* ── Sezione Saldo Iniziale ── */}
@@ -364,7 +363,6 @@ export default function ImpostazioniPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      </div>
     </div>
   );
 }
