@@ -7,7 +7,7 @@
 - Owner: Codex
 - Area: Documentation + Launch Readiness + Distribution Governance
 - Priority: high
-- Status: in_progress
+- Status: done
 
 ## Context
 
