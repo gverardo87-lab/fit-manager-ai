@@ -79,6 +79,25 @@ export const MUSCLE_LABELS: Record<string, string> = {
   core: "Core",
 };
 
+/** Colori distinti per gruppo muscolare — chip colorati nel builder */
+export const MUSCLE_COLORS: Record<string, string> = {
+  chest:      "bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400",
+  lats:       "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400",
+  back:       "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400",
+  shoulders:  "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400",
+  traps:      "bg-stone-100 text-stone-700 dark:bg-stone-800/50 dark:text-stone-400",
+  biceps:     "bg-cyan-100 text-cyan-700 dark:bg-cyan-950/50 dark:text-cyan-400",
+  triceps:    "bg-orange-100 text-orange-700 dark:bg-orange-950/50 dark:text-orange-400",
+  forearms:   "bg-yellow-100 text-yellow-700 dark:bg-yellow-950/50 dark:text-yellow-400",
+  core:       "bg-teal-100 text-teal-700 dark:bg-teal-950/50 dark:text-teal-400",
+  quadriceps: "bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400",
+  hamstrings: "bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-400",
+  glutes:     "bg-purple-100 text-purple-700 dark:bg-purple-950/50 dark:text-purple-400",
+  adductors:  "bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-950/50 dark:text-fuchsia-400",
+  calves:     "bg-lime-100 text-lime-700 dark:bg-lime-950/50 dark:text-lime-400",
+  hip_flexors:"bg-pink-100 text-pink-700 dark:bg-pink-950/50 dark:text-pink-400",
+};
+
 export const MUSCLE_OPTIONS = Object.entries(MUSCLE_LABELS).map(
   ([value, label]) => ({ value, label })
 );
