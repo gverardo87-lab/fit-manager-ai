@@ -315,11 +315,11 @@ export function SessionPrepCard({ item, expanded = false, onToggleExpand }: Sess
               Profilo
             </Link>
             <Link
-              href={`/clienti/${item.client_id}/progressi?from=oggi`}
+              href={`/clienti/${item.client_id}/misurazioni?from=oggi`}
               className="rounded-lg border border-border/70 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/50"
               onClick={(e) => e.stopPropagation()}
             >
-              Progressi
+              Misurazioni
             </Link>
           </div>
         </div>
