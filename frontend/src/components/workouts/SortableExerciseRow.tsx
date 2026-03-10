@@ -372,7 +372,7 @@ export function SortableExerciseRow({
             <div className="flex-1 min-w-0">
               <button
                 onClick={onReplace}
-                className="w-full text-left text-xs font-medium truncate hover:text-primary transition-colors"
+                className="w-full text-left text-[13px] font-medium truncate hover:text-primary transition-colors leading-snug"
                 title={`${exercise.esercizio_nome} — clicca per sostituire`}
               >
                 {exercise.esercizio_nome}
@@ -380,7 +380,7 @@ export function SortableExerciseRow({
               {exerciseData?.muscoli_primari && exerciseData.muscoli_primari.length > 0 && (
                 <div className="flex gap-0.5 mt-0.5 flex-wrap">
                   {exerciseData.muscoli_primari.slice(0, 2).map((m) => (
-                    <span key={m} className={`text-[7px] font-semibold rounded-sm px-1 py-px leading-tight tracking-wide uppercase ${MUSCLE_COLORS[m] ?? "bg-muted/30 text-muted-foreground/60"}`}>
+                    <span key={m} className={`text-[8px] font-semibold rounded px-1 py-px leading-tight tracking-wide uppercase ${MUSCLE_COLORS[m] ?? "bg-muted/30 text-muted-foreground/60"}`}>
                       {MUSCLE_LABELS[m] ?? m}
                     </span>
                   ))}
@@ -400,31 +400,31 @@ export function SortableExerciseRow({
             </Button>
           </div>
           {/* Riga 2: serie + rip + kg + riposo con micro-label */}
-          <div className="flex items-end gap-1.5 ml-4 mt-1.5">
-            <div className="flex flex-col items-center">
-              <span className="text-[7px] text-muted-foreground/50 uppercase tracking-wider leading-none mb-0.5 font-semibold">Serie</span>
+          <div className="flex items-end gap-2.5 ml-4 mt-2">
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-[8px] text-muted-foreground/50 uppercase tracking-widest leading-none font-semibold">Serie</span>
               <Input
                 type="number"
                 value={exercise.serie}
                 onChange={(e) => onUpdate({ serie: parseInt(e.target.value) || 1 })}
                 min={1}
                 max={10}
-                className="h-6 text-center text-[11px] font-semibold tabular-nums px-0.5 w-10 rounded-md border-border/25 hover:border-border/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/15 bg-muted/20"
+                className="h-7 text-center text-xs font-semibold tabular-nums px-1 w-11 rounded-md border-border/20 hover:border-border/40 focus:border-primary/50 focus:ring-2 focus:ring-primary/10 bg-background/80 shadow-sm"
               />
             </div>
-            <div className="flex flex-col items-center">
-              <span className="text-[7px] text-muted-foreground/50 uppercase tracking-wider leading-none mb-0.5 font-semibold">Rip</span>
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-[8px] text-muted-foreground/50 uppercase tracking-widest leading-none font-semibold">Rip</span>
               <Input
                 value={exercise.ripetizioni}
                 onChange={(e) => onUpdate({ ripetizioni: e.target.value })}
-                className="h-6 text-center text-[11px] font-semibold tabular-nums px-0.5 w-12 rounded-md border-border/25 hover:border-border/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/15 bg-muted/20"
+                className="h-7 text-center text-xs font-semibold tabular-nums px-1 w-14 rounded-md border-border/20 hover:border-border/40 focus:border-primary/50 focus:ring-2 focus:ring-primary/10 bg-background/80 shadow-sm"
                 placeholder={compact ? "30s" : "8-12"}
               />
             </div>
             {!compact && (
               <>
-                <div className="flex flex-col items-center">
-                  <span className="text-[7px] text-muted-foreground/50 uppercase tracking-wider leading-none mb-0.5 font-semibold">Kg</span>
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-[8px] text-muted-foreground/50 uppercase tracking-widest leading-none font-semibold">Kg</span>
                   <Input
                     type="number"
                     value={exercise.carico_kg ?? ""}
@@ -434,12 +434,12 @@ export function SortableExerciseRow({
                     min={0}
                     max={500}
                     step={0.5}
-                    className="h-6 text-center text-[11px] font-semibold tabular-nums px-0.5 w-12 rounded-md border-border/25 hover:border-border/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/15 bg-muted/20"
+                    className="h-7 text-center text-xs font-semibold tabular-nums px-1 w-14 rounded-md border-border/20 hover:border-border/40 focus:border-primary/50 focus:ring-2 focus:ring-primary/10 bg-background/80 shadow-sm"
                     placeholder="—"
                   />
                 </div>
-                <div className="flex flex-col items-center">
-                  <span className="text-[7px] text-muted-foreground/50 uppercase tracking-wider leading-none mb-0.5 font-semibold">Rec</span>
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-[8px] text-muted-foreground/50 uppercase tracking-widest leading-none font-semibold">Rec</span>
                   <Input
                     type="number"
                     value={exercise.tempo_riposo_sec}
@@ -447,7 +447,7 @@ export function SortableExerciseRow({
                     min={0}
                     max={300}
                     step={15}
-                    className="h-6 text-center text-[11px] font-semibold tabular-nums px-0.5 w-10 rounded-md border-border/25 hover:border-border/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/15 bg-muted/20"
+                    className="h-7 text-center text-xs font-semibold tabular-nums px-1 w-11 rounded-md border-border/20 hover:border-border/40 focus:border-primary/50 focus:ring-2 focus:ring-primary/10 bg-background/80 shadow-sm"
                   />
                 </div>
               </>
@@ -500,7 +500,7 @@ export function SortableExerciseRow({
     return (
       <div ref={setNodeRef} style={style} data-workout-exercise-id={exercise.id}>
         <div
-          className={`group/row grid ${cfg.gridCols} gap-1 items-center rounded-md px-1 py-1 hover:bg-muted/40 transition-colors ${safetyBg}`}
+          className={`group/row grid ${cfg.gridCols} gap-1.5 items-center rounded-md px-1.5 py-1.5 hover:bg-muted/40 transition-colors ${safetyBg}`}
         >
           {/* Drag handle */}
           <button
@@ -546,7 +546,7 @@ export function SortableExerciseRow({
             <Input
               value={exercise.ripetizioni}
               onChange={(e) => onUpdate({ ripetizioni: e.target.value })}
-              className="h-6 text-center text-[11px] font-medium tabular-nums px-1 rounded-md border-border/25 hover:border-border/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/15 bg-muted/20"
+              className="h-7 text-center text-xs font-medium tabular-nums px-1 rounded-md border-border/20 hover:border-border/40 focus:border-primary/50 focus:ring-2 focus:ring-primary/10 bg-background/80 shadow-sm"
               placeholder="8-12"
             />
           )}
@@ -562,7 +562,7 @@ export function SortableExerciseRow({
               min={0}
               max={500}
               step={0.5}
-              className="h-6 text-center text-[11px] font-medium tabular-nums px-1 rounded-md border-border/25 hover:border-border/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/15 bg-muted/20"
+              className="h-7 text-center text-xs font-medium tabular-nums px-1 rounded-md border-border/20 hover:border-border/40 focus:border-primary/50 focus:ring-2 focus:ring-primary/10 bg-background/80 shadow-sm"
               placeholder="—"
             />
           )}
@@ -585,7 +585,7 @@ export function SortableExerciseRow({
     return (
       <div ref={setNodeRef} style={style} data-workout-exercise-id={exercise.id}>
         <div
-          className={`group/row grid grid-cols-[20px_14px_1fr_44px_52px_24px] gap-1 items-center rounded-lg px-2 py-1.5 hover:bg-muted/30 transition-all duration-150 border border-transparent hover:border-border/20 hover:shadow-sm ${safetyBg}`}
+          className={`group/row grid grid-cols-[20px_14px_1fr_48px_56px_56px_48px_24px] gap-1.5 items-center rounded-lg px-2 py-2 hover:bg-muted/30 transition-all duration-150 border border-transparent hover:border-border/20 hover:shadow-sm ${safetyBg}`}
         >
           {/* Drag handle */}
           <button
@@ -621,7 +621,7 @@ export function SortableExerciseRow({
             )}
             <button
               onClick={onReplace}
-              className="text-left text-xs truncate hover:text-primary transition-colors"
+              className="text-left text-[13px] truncate hover:text-primary transition-colors"
               title={`${exercise.esercizio_nome} — clicca per sostituire`}
             >
               {exercise.esercizio_nome}
@@ -631,23 +631,27 @@ export function SortableExerciseRow({
             )}
           </div>
 
-          {/* Serie */}
+          {/* Serie — allineato con colonna Serie del layout principale */}
           <Input
             type="number"
             value={exercise.serie}
             onChange={(e) => onUpdate({ serie: parseInt(e.target.value) || 1 })}
             min={1}
             max={10}
-            className="h-6 text-center text-[11px] font-medium tabular-nums px-1 rounded-md border-border/25 hover:border-border/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/15 bg-muted/20"
+            className="h-8 text-center text-[13px] font-medium tabular-nums px-1.5 rounded-lg border-border/20 hover:border-border/40 focus:border-primary/50 focus:ring-2 focus:ring-primary/10 bg-background/80 shadow-sm"
           />
 
-          {/* Ripetizioni */}
+          {/* Ripetizioni — allineato con colonna Rip del layout principale */}
           <Input
             value={exercise.ripetizioni}
             onChange={(e) => onUpdate({ ripetizioni: e.target.value })}
-            className="h-6 text-center text-[11px] font-medium tabular-nums px-1 rounded-md border-border/25 hover:border-border/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/15 bg-muted/20"
+            className="h-8 text-center text-[13px] font-medium tabular-nums px-1.5 rounded-lg border-border/20 hover:border-border/40 focus:border-primary/50 focus:ring-2 focus:ring-primary/10 bg-background/80 shadow-sm"
             placeholder="30s"
           />
+
+          {/* Placeholder per colonne Kg + Riposo (mantiene allineamento griglia) */}
+          <div />
+          <div />
 
           {/* Delete — semi-trasparente, visibile su hover */}
           <Button
@@ -662,13 +666,13 @@ export function SortableExerciseRow({
 
         {/* Pannello espandibile unificato: nota + dettagli */}
         {expanded && (
-          <div className="ml-[34px] mr-1 mt-0.5 mb-1 space-y-1.5">
+          <div className="ml-[34px] mr-1 mt-1 mb-1.5 space-y-1.5">
             {/* Nota input */}
             <Input
               value={exercise.note ?? ""}
               onChange={(e) => onUpdate({ note: e.target.value || null })}
               placeholder="Es: 30s per lato, focus respirazione..."
-              className="h-6 text-xs"
+              className="h-8 text-[13px]"
             />
             {/* Detail panel */}
             {exerciseData && (
@@ -694,7 +698,7 @@ export function SortableExerciseRow({
   return (
     <div ref={setNodeRef} style={style} data-workout-exercise-id={exercise.id}>
       <div
-        className={`group/row grid grid-cols-[20px_14px_1fr_44px_52px_52px_44px_24px] gap-1 items-center rounded-lg px-2 py-1.5 hover:bg-muted/30 transition-all duration-150 border border-transparent hover:border-border/20 hover:shadow-sm ${safetyBg}`}
+        className={`group/row grid grid-cols-[20px_14px_1fr_48px_56px_56px_48px_24px] gap-1.5 items-center rounded-lg px-2 py-2 hover:bg-muted/30 transition-all duration-150 border border-transparent hover:border-border/20 hover:shadow-sm ${safetyBg}`}
       >
         {/* Drag handle */}
         <button
@@ -757,14 +761,14 @@ export function SortableExerciseRow({
           onChange={(e) => onUpdate({ serie: parseInt(e.target.value) || 1 })}
           min={1}
           max={10}
-          className="h-6 text-center text-[11px] font-medium tabular-nums px-1 rounded-md border-border/25 hover:border-border/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/15 bg-muted/20"
+          className="h-7 text-center text-xs font-medium tabular-nums px-1 rounded-md border-border/20 hover:border-border/40 focus:border-primary/50 focus:ring-2 focus:ring-primary/10 bg-background/80 shadow-sm"
         />
 
         {/* Ripetizioni */}
         <Input
           value={exercise.ripetizioni}
           onChange={(e) => onUpdate({ ripetizioni: e.target.value })}
-          className="h-6 text-center text-[11px] font-medium tabular-nums px-1 rounded-md border-border/25 hover:border-border/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/15 bg-muted/20"
+          className="h-7 text-center text-xs font-medium tabular-nums px-1 rounded-md border-border/20 hover:border-border/40 focus:border-primary/50 focus:ring-2 focus:ring-primary/10 bg-background/80 shadow-sm"
           placeholder="8-12"
         />
 
@@ -779,7 +783,7 @@ export function SortableExerciseRow({
             min={0}
             max={500}
             step={0.5}
-            className="h-6 text-center text-[11px] font-medium tabular-nums px-1 rounded-md border-border/25 hover:border-border/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/15 bg-muted/20"
+            className="h-7 text-center text-xs font-medium tabular-nums px-1 rounded-md border-border/20 hover:border-border/40 focus:border-primary/50 focus:ring-2 focus:ring-primary/10 bg-background/80 shadow-sm"
             placeholder="—"
           />
           {percentOneRM != null && (
@@ -797,7 +801,7 @@ export function SortableExerciseRow({
           min={0}
           max={300}
           step={15}
-          className="h-6 text-center text-[11px] font-medium tabular-nums px-1 rounded-md border-border/25 hover:border-border/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/15 bg-muted/20"
+          className="h-7 text-center text-xs font-medium tabular-nums px-1 rounded-md border-border/20 hover:border-border/40 focus:border-primary/50 focus:ring-2 focus:ring-primary/10 bg-background/80 shadow-sm"
         />
 
         {/* Delete — semi-trasparente, visibile su hover */}
@@ -813,19 +817,19 @@ export function SortableExerciseRow({
 
       {/* Pannello espandibile unificato: nota + tempo esecuzione + dettagli */}
       {expanded && (
-        <div className="ml-[34px] mr-1 mt-0.5 mb-1 space-y-1.5">
+        <div className="ml-[34px] mr-1 mt-1 mb-1.5 space-y-1.5">
           {/* Nota + Tempo inline */}
-          <div className="flex gap-1.5">
+          <div className="flex gap-2">
             <Input
               value={exercise.note ?? ""}
               onChange={(e) => onUpdate({ note: e.target.value || null })}
               placeholder="Nota: presa supina, pausa 2s, RPE 8..."
-              className="h-6 text-xs flex-1"
+              className="h-7 text-xs flex-1"
             />
             <Input
               value={exercise.tempo_esecuzione ?? ""}
               onChange={(e) => onUpdate({ tempo_esecuzione: e.target.value || null })}
-              className="h-6 text-[11px] text-center w-20"
+              className="h-7 text-xs text-center w-20"
               placeholder="Tempo 3-1-2-0"
             />
           </div>
