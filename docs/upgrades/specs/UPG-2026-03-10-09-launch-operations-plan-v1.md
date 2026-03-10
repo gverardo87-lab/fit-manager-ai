@@ -58,6 +58,28 @@ Decisioni aggiunte dopo la stesura iniziale del piano:
    - artefatto: `dist/FitManager_Setup_1.0.0.exe`
    - SHA-256: `05B2AF87FD01CF1A3DC5BB3DDFCAD3785C798CFA9DE3D93480B33359F2E3DC58`
 
+## Next Strategic Workstream After Manual Validation
+
+Dopo la riuscita della rehearsal installativa reale sul PC di Chiara
+(`install -> license.key -> restore backup`), il prossimo workstream di prodotto non e'
+piu solo "validare la rete", ma trasformare Tailscale/Funnel da runbook tecnico a
+onboarding guidato dal prodotto.
+
+Questo workstream e' ora formalizzato in:
+
+- `UPG-2026-03-10-20`: `Connectivity Setup Wizard Plan v1`
+
+Decisione chiave:
+
+- il prodotto manterra' sempre `local_only` come fallback;
+- aggiungera' poi due profili espliciti:
+  - `trusted_devices`
+  - `public_portal`
+- Tailscale login resta nel client ufficiale;
+- FitManager dovra' leggere lo stato reale della connettivita', configurare le proprie
+  variabili (`PUBLIC_PORTAL_ENABLED`, `PUBLIC_BASE_URL`) e guidare il trainer con una UX
+  deterministica.
+
 ## Verified Baseline As Of 2026-03-10
 
 ### Gia chiuso
