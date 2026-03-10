@@ -91,9 +91,9 @@ export function BuilderHeader({
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={cancelEdit}><X className="h-4 w-4" /></Button>
               </div>
             ) : (
-              <button onClick={() => startEdit("nome", plan.nome)} className="flex items-center gap-2 text-xl font-bold tracking-tight hover:text-primary transition-colors">
+              <button onClick={() => startEdit("nome", plan.nome)} className="flex items-center gap-2 text-xl font-extrabold tracking-tight hover:text-primary transition-colors group/name">
                 {plan.nome}
-                <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                <Pencil className="h-3.5 w-3.5 text-muted-foreground/40 group-hover/name:text-muted-foreground/70 transition-opacity" />
               </button>
             )}
             <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -120,13 +120,13 @@ export function BuilderHeader({
                 <SelectContent>{LIVELLI_SCHEDA.map((l) => (<SelectItem key={l} value={l}>{LIVELLO_LABELS[l]}</SelectItem>))}</SelectContent>
               </Select>
               {totalVolume != null && (
-                <Badge variant="outline" className="text-xs tabular-nums">Vol. totale: {totalVolume.toLocaleString("it-IT")} kg</Badge>
+                <Badge variant="outline" className="text-xs font-semibold tabular-nums tracking-tight">Vol. totale: {totalVolume.toLocaleString("it-IT")} kg</Badge>
               )}
             </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {!isDirty && lastSavedLabel && <span className="hidden sm:inline text-xs text-muted-foreground">Salvata alle {lastSavedLabel}</span>}
+          {!isDirty && lastSavedLabel && <span className="hidden sm:inline text-[11px] text-muted-foreground/60 font-medium">Salvata alle {lastSavedLabel}</span>}
           <Button variant="outline" size="icon" className="h-8 w-8" onClick={onUndo} disabled={!canUndo} title="Annulla (Ctrl/Cmd+Z)"><Undo2 className="h-4 w-4" /></Button>
           <Button variant="outline" size="icon" className="h-8 w-8" onClick={onRedo} disabled={!canRedo} title="Ripeti (Ctrl/Cmd+Shift+Z)"><Redo2 className="h-4 w-4" /></Button>
           {hasSessions && (
@@ -145,19 +145,19 @@ export function BuilderHeader({
 
       {/* Return banners */}
       {returnClientId && (
-        <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-2 flex items-center gap-2" data-print-hide>
+        <div className="rounded-lg border border-primary/15 bg-primary/[0.03] px-4 py-2 flex items-center gap-2" data-print-hide>
           <ArrowLeft className="h-3.5 w-3.5 text-primary" />
           <button onClick={() => onNavigate(`/clienti/${returnClientId}?tab=schede`)} className="text-sm text-primary hover:underline">Torna al profilo cliente</button>
         </div>
       )}
       {returnToAllenamenti && (
-        <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-2 flex items-center gap-2" data-print-hide>
+        <div className="rounded-lg border border-primary/15 bg-primary/[0.03] px-4 py-2 flex items-center gap-2" data-print-hide>
           <ArrowLeft className="h-3.5 w-3.5 text-primary" />
           <button onClick={() => onNavigate("/allenamenti")} className="text-sm text-primary hover:underline">Torna agli allenamenti</button>
         </div>
       )}
       {returnToMonitoraggio && (
-        <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-2 flex items-center gap-2" data-print-hide>
+        <div className="rounded-lg border border-primary/15 bg-primary/[0.03] px-4 py-2 flex items-center gap-2" data-print-hide>
           <ArrowLeft className="h-3.5 w-3.5 text-primary" />
           <button onClick={() => onNavigate(returnMonitoraggioClientId ? `/monitoraggio/${returnMonitoraggioClientId}` : "/monitoraggio")} className="text-sm text-primary hover:underline">Torna al monitoraggio</button>
         </div>

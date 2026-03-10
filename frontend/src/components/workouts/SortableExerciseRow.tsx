@@ -29,6 +29,7 @@ import { Separator } from "@/components/ui/separator";
 
 import { useExerciseRelations } from "@/hooks/useExercises";
 import { getReplacementReason, getReplacementScore } from "@/lib/exercise-replacement";
+import { MUSCLE_LABELS, MUSCLE_COLORS } from "@/components/exercises/exercise-constants";
 import { ExerciseDetailPanel } from "./ExerciseDetailPanel";
 import type { WorkoutExerciseRow, ExerciseSafetyEntry, Exercise, BlockType } from "@/types/api";
 
@@ -337,14 +338,14 @@ export function SortableExerciseRow({
     return (
       <div ref={setNodeRef} style={style} data-workout-exercise-id={exercise.id}>
         <div
-          className={`group/row rounded-md px-2 py-1.5 hover:bg-muted/40 transition-colors border-b border-border/30 last:border-b-0 ${safetyBg}`}
+          className={`group/row rounded-lg px-2 py-1.5 hover:bg-muted/30 transition-all duration-150 border border-transparent hover:border-border/20 hover:shadow-sm ${safetyBg}`}
         >
           {/* Riga 1: grip + info + safety + nome + dot + delete */}
           <div className="flex items-center gap-1 min-w-0">
             <button
               {...attributes}
               {...listeners}
-              className="shrink-0 flex items-center justify-center cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground"
+              className="shrink-0 flex items-center justify-center cursor-grab active:cursor-grabbing text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors"
             >
               <GripVertical className="h-3 w-3" />
             </button>
@@ -368,51 +369,62 @@ export function SortableExerciseRow({
                 onResolve={onReplace}
               />
             )}
-            <button
-              onClick={onReplace}
-              className="flex-1 text-left text-xs truncate hover:text-primary transition-colors"
-              title={`${exercise.esercizio_nome} — clicca per sostituire`}
-            >
-              {exercise.esercizio_nome}
-            </button>
+            <div className="flex-1 min-w-0">
+              <button
+                onClick={onReplace}
+                className="w-full text-left text-xs font-medium truncate hover:text-primary transition-colors"
+                title={`${exercise.esercizio_nome} — clicca per sostituire`}
+              >
+                {exercise.esercizio_nome}
+              </button>
+              {exerciseData?.muscoli_primari && exerciseData.muscoli_primari.length > 0 && (
+                <div className="flex gap-0.5 mt-0.5 flex-wrap">
+                  {exerciseData.muscoli_primari.slice(0, 2).map((m) => (
+                    <span key={m} className={`text-[7px] font-semibold rounded-sm px-1 py-px leading-tight tracking-wide uppercase ${MUSCLE_COLORS[m] ?? "bg-muted/30 text-muted-foreground/60"}`}>
+                      {MUSCLE_LABELS[m] ?? m}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
             {hasSecondaryContent && (
               <span className="shrink-0 h-1.5 w-1.5 rounded-full bg-primary/60" />
             )}
             <Button
               variant="ghost"
               size="icon"
-              className="h-4 w-4 shrink-0 text-muted-foreground/0 group-hover/row:text-muted-foreground/50 hover:!text-destructive transition-colors"
+              className="h-4 w-4 shrink-0 text-muted-foreground/0 group-hover/row:text-muted-foreground/40 hover:!text-destructive transition-all duration-150"
               onClick={onDelete}
             >
               <Trash2 className="h-2.5 w-2.5" />
             </Button>
           </div>
           {/* Riga 2: serie + rip + kg + riposo con micro-label */}
-          <div className="flex items-end gap-1.5 ml-4 mt-1">
+          <div className="flex items-end gap-1.5 ml-4 mt-1.5">
             <div className="flex flex-col items-center">
-              <span className="text-[8px] text-muted-foreground/60 uppercase leading-none mb-0.5">Serie</span>
+              <span className="text-[7px] text-muted-foreground/50 uppercase tracking-wider leading-none mb-0.5 font-semibold">Serie</span>
               <Input
                 type="number"
                 value={exercise.serie}
                 onChange={(e) => onUpdate({ serie: parseInt(e.target.value) || 1 })}
                 min={1}
                 max={10}
-                className="h-5 text-center text-[10px] px-0.5 w-10 border-transparent hover:border-border focus:border-primary bg-transparent"
+                className="h-6 text-center text-[11px] font-semibold tabular-nums px-0.5 w-10 rounded-md border-border/25 hover:border-border/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/15 bg-muted/20"
               />
             </div>
             <div className="flex flex-col items-center">
-              <span className="text-[8px] text-muted-foreground/60 uppercase leading-none mb-0.5">Rip</span>
+              <span className="text-[7px] text-muted-foreground/50 uppercase tracking-wider leading-none mb-0.5 font-semibold">Rip</span>
               <Input
                 value={exercise.ripetizioni}
                 onChange={(e) => onUpdate({ ripetizioni: e.target.value })}
-                className="h-5 text-center text-[10px] px-0.5 w-12 border-transparent hover:border-border focus:border-primary bg-transparent"
+                className="h-6 text-center text-[11px] font-semibold tabular-nums px-0.5 w-12 rounded-md border-border/25 hover:border-border/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/15 bg-muted/20"
                 placeholder={compact ? "30s" : "8-12"}
               />
             </div>
             {!compact && (
               <>
                 <div className="flex flex-col items-center">
-                  <span className="text-[8px] text-muted-foreground/60 uppercase leading-none mb-0.5">Kg</span>
+                  <span className="text-[7px] text-muted-foreground/50 uppercase tracking-wider leading-none mb-0.5 font-semibold">Kg</span>
                   <Input
                     type="number"
                     value={exercise.carico_kg ?? ""}
@@ -422,12 +434,12 @@ export function SortableExerciseRow({
                     min={0}
                     max={500}
                     step={0.5}
-                    className="h-5 text-center text-[10px] px-0.5 w-12 border-transparent hover:border-border focus:border-primary bg-transparent"
+                    className="h-6 text-center text-[11px] font-semibold tabular-nums px-0.5 w-12 rounded-md border-border/25 hover:border-border/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/15 bg-muted/20"
                     placeholder="—"
                   />
                 </div>
                 <div className="flex flex-col items-center">
-                  <span className="text-[8px] text-muted-foreground/60 uppercase leading-none mb-0.5">Rec</span>
+                  <span className="text-[7px] text-muted-foreground/50 uppercase tracking-wider leading-none mb-0.5 font-semibold">Rec</span>
                   <Input
                     type="number"
                     value={exercise.tempo_riposo_sec}
@@ -435,7 +447,7 @@ export function SortableExerciseRow({
                     min={0}
                     max={300}
                     step={15}
-                    className="h-5 text-center text-[10px] px-0.5 w-10 border-transparent hover:border-border focus:border-primary bg-transparent"
+                    className="h-6 text-center text-[11px] font-semibold tabular-nums px-0.5 w-10 rounded-md border-border/25 hover:border-border/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/15 bg-muted/20"
                   />
                 </div>
               </>
@@ -494,7 +506,7 @@ export function SortableExerciseRow({
           <button
             {...attributes}
             {...listeners}
-            className="flex items-center justify-center cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground"
+            className="flex items-center justify-center cursor-grab active:cursor-grabbing text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors"
           >
             <GripVertical className="h-3.5 w-3.5" />
           </button>
@@ -534,7 +546,7 @@ export function SortableExerciseRow({
             <Input
               value={exercise.ripetizioni}
               onChange={(e) => onUpdate({ ripetizioni: e.target.value })}
-              className="h-6 text-center text-[11px] px-1 border-transparent hover:border-border focus:border-primary bg-transparent"
+              className="h-6 text-center text-[11px] font-medium tabular-nums px-1 rounded-md border-border/25 hover:border-border/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/15 bg-muted/20"
               placeholder="8-12"
             />
           )}
@@ -550,7 +562,7 @@ export function SortableExerciseRow({
               min={0}
               max={500}
               step={0.5}
-              className="h-6 text-center text-[11px] px-1 border-transparent hover:border-border focus:border-primary bg-transparent"
+              className="h-6 text-center text-[11px] font-medium tabular-nums px-1 rounded-md border-border/25 hover:border-border/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/15 bg-muted/20"
               placeholder="—"
             />
           )}
@@ -559,7 +571,7 @@ export function SortableExerciseRow({
           <Button
             variant="ghost"
             size="icon"
-            className="h-5 w-5 text-muted-foreground/0 group-hover/row:text-muted-foreground/50 hover:!text-destructive transition-colors"
+            className="h-5 w-5 text-muted-foreground/0 group-hover/row:text-muted-foreground/40 hover:!text-destructive transition-all duration-150"
             onClick={onDelete}
           >
             <Trash2 className="h-3 w-3" />
@@ -573,13 +585,13 @@ export function SortableExerciseRow({
     return (
       <div ref={setNodeRef} style={style} data-workout-exercise-id={exercise.id}>
         <div
-          className={`group/row grid grid-cols-[20px_14px_1fr_44px_52px_24px] gap-1 items-center rounded-md px-2 py-1.5 hover:bg-muted/40 transition-colors border-b border-border/30 last:border-b-0 ${safetyBg}`}
+          className={`group/row grid grid-cols-[20px_14px_1fr_44px_52px_24px] gap-1 items-center rounded-lg px-2 py-1.5 hover:bg-muted/30 transition-all duration-150 border border-transparent hover:border-border/20 hover:shadow-sm ${safetyBg}`}
         >
           {/* Drag handle */}
           <button
             {...attributes}
             {...listeners}
-            className="flex items-center justify-center cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground"
+            className="flex items-center justify-center cursor-grab active:cursor-grabbing text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors"
           >
             <GripVertical className="h-3.5 w-3.5" />
           </button>
@@ -626,14 +638,14 @@ export function SortableExerciseRow({
             onChange={(e) => onUpdate({ serie: parseInt(e.target.value) || 1 })}
             min={1}
             max={10}
-            className="h-6 text-center text-[11px] px-1 border-transparent hover:border-border focus:border-primary bg-transparent"
+            className="h-6 text-center text-[11px] font-medium tabular-nums px-1 rounded-md border-border/25 hover:border-border/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/15 bg-muted/20"
           />
 
           {/* Ripetizioni */}
           <Input
             value={exercise.ripetizioni}
             onChange={(e) => onUpdate({ ripetizioni: e.target.value })}
-            className="h-6 text-center text-[11px] px-1 border-transparent hover:border-border focus:border-primary bg-transparent"
+            className="h-6 text-center text-[11px] font-medium tabular-nums px-1 rounded-md border-border/25 hover:border-border/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/15 bg-muted/20"
             placeholder="30s"
           />
 
@@ -641,7 +653,7 @@ export function SortableExerciseRow({
           <Button
             variant="ghost"
             size="icon"
-            className="h-5 w-5 text-muted-foreground/0 group-hover/row:text-muted-foreground/50 hover:!text-destructive transition-colors"
+            className="h-5 w-5 text-muted-foreground/0 group-hover/row:text-muted-foreground/40 hover:!text-destructive transition-all duration-150"
             onClick={onDelete}
           >
             <Trash2 className="h-3 w-3" />
@@ -682,13 +694,13 @@ export function SortableExerciseRow({
   return (
     <div ref={setNodeRef} style={style} data-workout-exercise-id={exercise.id}>
       <div
-        className={`group/row grid grid-cols-[20px_14px_1fr_44px_52px_52px_44px_24px] gap-1 items-center rounded-md px-2 py-1.5 hover:bg-muted/40 transition-colors border-b border-border/30 last:border-b-0 ${safetyBg}`}
+        className={`group/row grid grid-cols-[20px_14px_1fr_44px_52px_52px_44px_24px] gap-1 items-center rounded-lg px-2 py-1.5 hover:bg-muted/30 transition-all duration-150 border border-transparent hover:border-border/20 hover:shadow-sm ${safetyBg}`}
       >
         {/* Drag handle */}
         <button
           {...attributes}
           {...listeners}
-          className="flex items-center justify-center cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground"
+          className="flex items-center justify-center cursor-grab active:cursor-grabbing text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors"
         >
           <GripVertical className="h-3.5 w-3.5" />
         </button>
@@ -701,29 +713,40 @@ export function SortableExerciseRow({
           <Info className="h-3 w-3" />
         </button>
 
-        {/* Nome esercizio + safety icon + dot indicator */}
-        <div className="flex items-center gap-1 min-w-0">
-          {safety && (
-            <SafetyPopover
-              safety={safety}
-              exerciseName={exercise.esercizio_nome}
-              exerciseId={exercise.id_esercizio}
-              iconSize="h-3 w-3"
-              safetyEntries={safetyEntries}
-              sourceExercise={exerciseData}
-              exerciseMap={exerciseMap}
-              onQuickReplace={onQuickReplace}
-            />
-          )}
-          <button
-            onClick={onReplace}
-            className="text-left text-sm truncate hover:text-primary transition-colors"
-            title={`${exercise.esercizio_nome} — clicca per sostituire`}
-          >
-            {exercise.esercizio_nome}
-          </button>
-          {hasSecondaryContent && (
-            <span className="shrink-0 h-1.5 w-1.5 rounded-full bg-primary/60" />
+        {/* Nome esercizio + safety icon + dot indicator + muscoli */}
+        <div className="min-w-0">
+          <div className="flex items-center gap-1">
+            {safety && (
+              <SafetyPopover
+                safety={safety}
+                exerciseName={exercise.esercizio_nome}
+                exerciseId={exercise.id_esercizio}
+                iconSize="h-3 w-3"
+                safetyEntries={safetyEntries}
+                sourceExercise={exerciseData}
+                exerciseMap={exerciseMap}
+                onQuickReplace={onQuickReplace}
+              />
+            )}
+            <button
+              onClick={onReplace}
+              className="text-left text-sm font-medium truncate hover:text-primary transition-colors"
+              title={`${exercise.esercizio_nome} — clicca per sostituire`}
+            >
+              {exercise.esercizio_nome}
+            </button>
+            {hasSecondaryContent && (
+              <span className="shrink-0 h-1.5 w-1.5 rounded-full bg-primary/60" />
+            )}
+          </div>
+          {exerciseData?.muscoli_primari && exerciseData.muscoli_primari.length > 0 && (
+            <div className="flex gap-0.5 mt-0.5 flex-wrap">
+              {exerciseData.muscoli_primari.slice(0, 3).map((m) => (
+                <span key={m} className={`text-[8px] font-semibold rounded-sm px-1 py-px leading-tight tracking-wide uppercase ${MUSCLE_COLORS[m] ?? "bg-muted/40 text-muted-foreground/70"}`}>
+                  {MUSCLE_LABELS[m] ?? m}
+                </span>
+              ))}
+            </div>
           )}
         </div>
 
@@ -734,14 +757,14 @@ export function SortableExerciseRow({
           onChange={(e) => onUpdate({ serie: parseInt(e.target.value) || 1 })}
           min={1}
           max={10}
-          className="h-6 text-center text-[11px] px-1 border-transparent hover:border-border focus:border-primary bg-transparent"
+          className="h-6 text-center text-[11px] font-medium tabular-nums px-1 rounded-md border-border/25 hover:border-border/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/15 bg-muted/20"
         />
 
         {/* Ripetizioni */}
         <Input
           value={exercise.ripetizioni}
           onChange={(e) => onUpdate({ ripetizioni: e.target.value })}
-          className="h-6 text-center text-[11px] px-1 border-transparent hover:border-border focus:border-primary bg-transparent"
+          className="h-6 text-center text-[11px] font-medium tabular-nums px-1 rounded-md border-border/25 hover:border-border/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/15 bg-muted/20"
           placeholder="8-12"
         />
 
@@ -756,7 +779,7 @@ export function SortableExerciseRow({
             min={0}
             max={500}
             step={0.5}
-            className="h-6 text-center text-[11px] px-1 border-transparent hover:border-border focus:border-primary bg-transparent"
+            className="h-6 text-center text-[11px] font-medium tabular-nums px-1 rounded-md border-border/25 hover:border-border/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/15 bg-muted/20"
             placeholder="—"
           />
           {percentOneRM != null && (
@@ -774,14 +797,14 @@ export function SortableExerciseRow({
           min={0}
           max={300}
           step={15}
-          className="h-6 text-center text-[11px] px-1 border-transparent hover:border-border focus:border-primary bg-transparent"
+          className="h-6 text-center text-[11px] font-medium tabular-nums px-1 rounded-md border-border/25 hover:border-border/50 focus:border-primary/50 focus:ring-1 focus:ring-primary/15 bg-muted/20"
         />
 
         {/* Delete — semi-trasparente, visibile su hover */}
         <Button
           variant="ghost"
           size="icon"
-          className="h-5 w-5 text-muted-foreground/0 group-hover/row:text-muted-foreground/50 hover:!text-destructive transition-colors"
+          className="h-5 w-5 text-muted-foreground/0 group-hover/row:text-muted-foreground/40 hover:!text-destructive transition-all duration-150"
           onClick={onDelete}
         >
           <Trash2 className="h-3 w-3" />

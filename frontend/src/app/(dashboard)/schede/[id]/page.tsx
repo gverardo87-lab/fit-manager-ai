@@ -159,9 +159,9 @@ export default function SchedaDetailPage({ params }: { params: Promise<{ id: str
           )}
 
           {builder.sessions.length > 0 && showAdvanced && (
-            <div className="flex items-center gap-1 rounded-lg bg-muted/50 p-0.5">
+            <div className="flex items-center gap-1 rounded-xl bg-muted/40 p-1 ring-1 ring-border/30">
               {(["sessioni", "analisi"] as const).map((tab) => (
-                <button key={tab} type="button" onClick={() => setActiveView(tab)} className={`flex-1 text-xs font-medium py-1.5 px-3 rounded-md transition-all ${activeView === tab ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+                <button key={tab} type="button" onClick={() => setActiveView(tab)} className={`flex-1 text-xs font-semibold py-1.5 px-4 rounded-lg transition-all duration-200 ${activeView === tab ? "bg-background shadow-sm text-foreground ring-1 ring-border/50" : "text-muted-foreground/70 hover:text-foreground hover:bg-background/50"}`}>
                   {tab === "sessioni" ? "Sessioni" : "Analisi Scientifica"}
                 </button>
               ))}
@@ -189,12 +189,12 @@ export default function SchedaDetailPage({ params }: { params: Promise<{ id: str
               <div className="min-w-[340px] max-w-[460px]">
                 <button
                   onClick={handlers.handleAddSession}
-                  className="w-full rounded-xl border-2 border-dashed border-muted-foreground/20 bg-muted/30 py-8 flex flex-col items-center gap-2 text-muted-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-primary transition-all duration-200 group"
+                  className="w-full rounded-xl border-2 border-dashed border-muted-foreground/15 bg-muted/20 py-10 flex flex-col items-center gap-2.5 text-muted-foreground/60 hover:border-primary/30 hover:bg-primary/[0.03] hover:text-primary transition-all duration-300 group"
                 >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted group-hover:bg-primary/10 transition-colors">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-muted/60 group-hover:bg-primary/10 group-hover:ring-1 group-hover:ring-primary/20 transition-all duration-300">
                     <Plus className="h-5 w-5" />
                   </div>
-                  <span className="text-sm font-medium">Aggiungi Sessione</span>
+                  <span className="text-sm font-medium tracking-tight">Aggiungi Sessione</span>
                 </button>
               </div>
             </>
