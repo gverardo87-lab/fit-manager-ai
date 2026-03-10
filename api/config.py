@@ -63,6 +63,12 @@ CATALOG_DATABASE_URL: str = os.getenv(
     f"sqlite:///{DATA_DIR / 'catalog.db'}",
 )
 
+# Logging locale applicativo
+LOG_DIR: Path = DATA_DIR / "logs"
+APP_LOG_LEVEL: str = os.getenv("APP_LOG_LEVEL", "INFO").upper()
+APP_LOG_MAX_BYTES: int = int(os.getenv("APP_LOG_MAX_BYTES", "1000000"))
+APP_LOG_BACKUP_COUNT: int = int(os.getenv("APP_LOG_BACKUP_COUNT", "5"))
+
 # JWT Authentication — bootstrap automatico al primo avvio
 def _resolve_jwt_secret() -> str:
     """Risolve JWT_SECRET: env > data/.env > auto-genera e persiste."""

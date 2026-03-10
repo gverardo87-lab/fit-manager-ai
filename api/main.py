@@ -26,8 +26,17 @@ from sqlmodel import Session
 from api.schemas.system import HealthResponse
 from api.database import get_catalog_session, get_session
 
-from api.config import API_PREFIX, CATALOG_DATABASE_URL, DATA_DIR, DATABASE_URL
+from api.config import (
+    API_PREFIX,
+    APP_LOG_BACKUP_COUNT,
+    APP_LOG_LEVEL,
+    APP_LOG_MAX_BYTES,
+    CATALOG_DATABASE_URL,
+    DATA_DIR,
+    DATABASE_URL,
+)
 from api.database import create_catalog_tables, create_db_and_tables, engine
+from api.logging_config import configure_app_logging
 from api.seed_exercises import seed_builtin_exercises, seed_exercise_media, seed_exercise_relations
 from api.services.license import check_license
 from api.auth.router import router as auth_router
@@ -57,6 +66,12 @@ from api.services.system_runtime import (
     is_license_enforcement_enabled,
 )
 
+APP_LOG_PATH = configure_app_logging(
+    DATA_DIR,
+    level_name=APP_LOG_LEVEL,
+    max_bytes=APP_LOG_MAX_BYTES,
+    backup_count=APP_LOG_BACKUP_COUNT,
+)
 logger = logging.getLogger("fitmanager.api")
 
 MAX_AUTO_BACKUPS = 5  # solo gli ultimi 5 backup automatici
@@ -154,6 +169,13 @@ async def lifespan(app: FastAPI):
     db_label = "DEV (crm_dev.db)" if "crm_dev" in DATABASE_URL else "PROD (crm.db)"
     is_dev = "crm_dev" in DATABASE_URL
     logger.info(f"API startup: database {db_label}")
+    logger.info(f"  LOG_FILE = {APP_LOG_PATH}")
+    logger.info(
+        "  LOG_POLICY = level=%s max_bytes=%s backup_count=%s",
+        APP_LOG_LEVEL,
+        APP_LOG_MAX_BYTES,
+        APP_LOG_BACKUP_COUNT,
+    )
     # Maschera credenziali per PostgreSQL (user:pass@host)
     safe_url = DATABASE_URL
     if "@" in DATABASE_URL:
