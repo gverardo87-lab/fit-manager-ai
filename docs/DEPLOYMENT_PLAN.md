@@ -62,7 +62,7 @@ Source (Git privato — MAI esposto al cliente)
 |   Output: .next/standalone/ + .next/static/
 |   Source maps: MAI distribuite
 |
-+-- installer/              <- Inno Setup -> FitManager_Setup.exe (83MB)
++-- installer/              <- Inno Setup -> FitManager_Setup_1.0.0.exe (83MB)
 |   fitmanager.iss          Script installer Inno Setup
 |   launcher.bat            Avvia backend + frontend + apre browser
 |   assets/                 Icone, testi, EULA, license_public.pem
@@ -71,7 +71,7 @@ Source (Git privato — MAI esposto al cliente)
     build-backend.sh        PyInstaller spec + esclusioni
     build-frontend.sh       next build standalone + copia
     build-media.sh          staging media esercizi per bundle
-    (manuale) ISCC          compilazione Inno Setup reale via `installer/fitmanager.iss`
+    build-installer.sh      orchestrazione unica: checks -> frontend -> backend -> media -> ISCC
 ```
 
 ---
@@ -80,7 +80,7 @@ Source (Git privato — MAI esposto al cliente)
 
 ```
 1. Riceve link download (GitHub Release privato o sito web)
-2. Scarica "FitManager_Setup_v1.2.exe" (~80MB)
+2. Scarica "FitManager_Setup_1.0.0.exe" (~80MB)
 3. Doppio click -> installer professionale
    +-----------------------------------+
    |  FitManager AI Studio             |

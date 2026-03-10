@@ -17,18 +17,18 @@
 
 - [x] PyInstaller backend exe: `dist/fitmanager/fitmanager.exe` (bundle ~100 MB)
 - [x] Next.js standalone: `frontend/.next/standalone/server.js`
-- [x] Inno Setup installer: `dist/FitManager_Setup.exe` (~83 MB)
+- [x] Inno Setup installer: `dist/FitManager_Setup_1.0.0.exe` (~83 MB)
 - [x] Launcher: `installer/launcher.bat` con `LICENSE_ENFORCEMENT_ENABLED=true`
 - [x] Node runtime: `installer/node/node.exe`
 - [x] Seed data in bundle: esercizi JSON + relazioni + media
-- [ ] Versione `1.0.0` riallineata in `api/__init__.py`, `frontend/package.json` e `installer/fitmanager.iss`
-- [ ] Nome output installer versionato e tracciabile, non solo `FitManager_Setup.exe`
+- [x] Versione `1.0.0` riallineata in `api/__init__.py`, `frontend/package.json` e `installer/fitmanager.iss`
+- [x] Nome output installer versionato e tracciabile, non solo `FitManager_Setup.exe`
 
 ## 3. License System
 
 - [x] RSA keypair generata (`~/.fitmanager/`)
 - [x] Chiave pubblica in `data/license_public.pem`
-- [ ] `license.key` cliente tenuta fuori dal repository e fuori da `installer/assets`, con copia solo verso `data/license.key` sulla macchina target
+- [x] `license.key` cliente tenuta fuori dal repository e fuori da `installer/assets`, con copia solo verso `data/license.key` sulla macchina target
 - [x] Health endpoint riporta `license_status: valid`
 - [x] Launcher impone `LICENSE_ENFORCEMENT_ENABLED=true` in produzione
 - [ ] Test enforcement negativo manuale: rimuovere `license.key` su installazione reale e verificare pagina `/licenza`

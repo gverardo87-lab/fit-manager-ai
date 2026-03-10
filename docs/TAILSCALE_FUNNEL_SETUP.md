@@ -103,7 +103,7 @@ Accedere a https://admin.tailscale.com con l'account del trainer.
 
 ### Fase 3 — FitManager (5 min)
 
-- [ ] 3.1 Eseguire `FitManager_Setup.exe`
+- [ ] 3.1 Eseguire l'ultima build `FitManager_Setup_1.0.0.exe`
 - [ ] 3.2 Primo avvio: completare il Setup Wizard (credenziali trainer)
 - [ ] 3.3 Attivare licenza (se richiesta)
 - [ ] 3.4 Verificare che il CRM funzioni: `http://localhost:3000` → login → navigazione OK

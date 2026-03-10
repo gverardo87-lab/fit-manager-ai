@@ -31,6 +31,7 @@ i seguenti microstep P0:
 - `UPG-2026-03-10-13`: logging locale persistente in `data/logs/`
 - `UPG-2026-03-10-14`: matrice negativa di test sul gate licenza lato API
 - `UPG-2026-03-10-15`: `SUPPORT_RUNBOOK.md` come artefatto operativo unico
+- `UPG-2026-03-10-18`: preflight runtime/build dell'installer (`1.0.0`, naming versionato, `build-media.sh` su `catalog.db`, `build-installer.sh`, rimozione `license.key` da repo/assets)
 
 Restano ancora aperti i gate manuali/non documentali:
 

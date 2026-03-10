@@ -2,7 +2,7 @@
 ; FitManager AI Studio — Inno Setup Script
 ; ══════════════════════════════════════════════════════════════
 ;
-; Produce: FitManager_Setup.exe (~95 MB)
+; Produce: FitManager_Setup_1.0.0.exe (~95 MB)
 ; Requisiti: Inno Setup 6+ (winget install JRSoftware.InnoSetup)
 ;
 ; Compilazione:
@@ -16,14 +16,17 @@
 ;     node\          (node.exe runtime ~40MB)
 ;     data\          (creata al primo avvio, preservata sugli aggiornamenti)
 
+#define MyAppName "FitManager AI Studio"
+#define MyAppVersion "1.0.0"
+
 [Setup]
-AppName=FitManager AI Studio
-AppVersion=1.0.0
+AppName={#MyAppName}
+AppVersion={#MyAppVersion}
 AppPublisher=FitManager
 AppPublisherURL=https://fitmanager.it
 DefaultDirName={autopf}\FitManager
 DefaultGroupName=FitManager
-OutputBaseFilename=FitManager_Setup
+OutputBaseFilename=FitManager_Setup_{#MyAppVersion}
 OutputDir=..\dist
 Compression=lzma2/ultra
 SolidCompression=yes
@@ -33,7 +36,7 @@ LicenseFile=assets\EULA.txt
 PrivilegesRequired=lowest
 WizardStyle=modern
 DisableProgramGroupPage=yes
-UninstallDisplayName=FitManager AI Studio
+UninstallDisplayName={#MyAppName}
 
 [Languages]
 Name: "italian"; MessagesFile: "compiler:Languages\Italian.isl"

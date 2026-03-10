@@ -1511,7 +1511,7 @@ Source (Git privato)
 |
 +-- api/           -> PyInstaller -> dist/fitmanager/fitmanager.exe (102MB)
 +-- frontend/      -> next build --standalone -> .next/standalone/ (45MB)
-+-- installer/     -> Inno Setup -> dist/FitManager_Setup.exe (83MB)
++-- installer/     -> Inno Setup -> dist/FitManager_Setup_1.0.0.exe (83MB)
 |   launcher.bat      Avvia backend + frontend + apre browser (supporta --port)
 |   fitmanager.iss    Script Inno Setup 6 (italiano, data/ preservata)
 |   node/             node.exe runtime (copiato, non committato)
@@ -1520,6 +1520,7 @@ Source (Git privato)
 |   build-frontend.sh   npm build + copia static/public nel standalone
 |   build-backend.sh    PyInstaller con fitmanager.spec
 |   build-media.sh      staging media/catalogo canonico per il bundle
+|   build-installer.sh  orchestration script: checks -> frontend -> backend -> media -> ISCC
 |   entry_point.py      Wrapper uvicorn (--port support)
 |   fitmanager.spec     PyInstaller spec (esclude AI libs ~1.8GB)
 +-- data/          -> Sopravvive agli aggiornamenti
@@ -1620,11 +1621,12 @@ cd frontend && npm test                                   # 69 vitest (data prot
 pytest tests/ -v                                          # 63 test
 
 # ── Build Distribuzione ──
+bash tools/build/build-installer.sh                       # Quality gate + frontend + backend + media + Inno Setup
+# Oppure singoli step, se serve debug del packaging:
 bash tools/build/build-frontend.sh                        # Next.js standalone bundle (45MB)
 bash tools/build/build-backend.sh                         # PyInstaller exe (102MB, richiede pip install pyinstaller)
-# Inno Setup (compila installer 83MB):
-"/c/Users/gvera/AppData/Local/Programs/Inno Setup 6/ISCC.exe" installer/fitmanager.iss
-# Test installer: dist/FitManager_Setup.exe
+bash tools/build/build-media.sh                           # staging foto esercizi da catalog.db canonico
+# Test installer: dist/FitManager_Setup_1.0.0.exe
 
 # Test E2E (richiede server avviato)
 python tools/admin_scripts/test_crud_idor.py

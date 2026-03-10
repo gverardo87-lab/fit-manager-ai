@@ -7,7 +7,6 @@ Usage: python -m tools.admin_scripts.e2e_distribution_rehearsal [--base-url URL]
 """
 
 import argparse
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -20,6 +19,13 @@ FAIL = 0
 WARN = 0
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+
+
+def _find_installer_path() -> Path:
+    candidates = sorted(PROJECT_ROOT.glob("dist/FitManager_Setup*.exe"))
+    if not candidates:
+        return PROJECT_ROOT / "dist" / "FitManager_Setup_1.0.0.exe"
+    return max(candidates, key=lambda path: path.stat().st_mtime)
 
 
 def _set_base_url(url: str):
@@ -75,11 +81,16 @@ def phase_1_artifacts():
         _log(alembic_dir.exists(), "Alembic migrations in bundle")
 
     # 3. Installer
-    installer = PROJECT_ROOT / "dist" / "FitManager_Setup.exe"
-    _log(installer.exists(), "Inno Setup installer exists")
+    installer = _find_installer_path()
+    _log(installer.exists(), "Inno Setup installer exists", f"path={installer}")
     if installer.exists():
         size_mb = installer.stat().st_size / (1024 * 1024)
         _log(size_mb > 40, "Installer size reasonable", f"{size_mb:.1f} MB")
+        _log(
+            installer.name.startswith("FitManager_Setup_"),
+            "Installer naming is versioned",
+            f"name={installer.name}",
+        )
 
     # 4. Launcher
     launcher = PROJECT_ROOT / "installer" / "launcher.bat"
@@ -300,7 +311,7 @@ def phase_6_portal(token: str):
     # Check if portal is enabled via health
     try:
         r = requests.get(f"{_BASE_URL}/health", timeout=5)
-        health = r.json()
+        r.json()
         _log(r.status_code == 200, "Health endpoint accessible")
     except Exception as e:
         _log(False, "Health endpoint", f"error={e}")
@@ -466,7 +477,7 @@ def main():
 
     # Manual checklist
     print(f"\n  === Manual Checklist (not automatable) ===")
-    print(f"  [ ] Install FitManager_Setup.exe on clean Windows machine")
+    print(f"  [ ] Install the latest FitManager_Setup_*.exe on clean Windows machine")
     print(f"  [ ] Verify launcher.bat starts backend + frontend")
     print(f"  [ ] Access from LAN device (tablet/phone on same WiFi)")
     print(f"  [ ] Access via Tailscale VPN from external network")
