@@ -194,7 +194,7 @@ export function TrainingPlanRow({ item, expanded, onToggle }: TrainingPlanRowPro
 
         {/* CTA */}
         <Link
-          href={item.next_action_href}
+          href={`${item.next_action_href}${item.next_action_href.includes("?") ? "&" : "?"}from=monitoraggio`}
           onClick={(e) => e.stopPropagation()}
           className="shrink-0"
         >
@@ -388,7 +388,7 @@ export function TrainingPlanRow({ item, expanded, onToggle }: TrainingPlanRowPro
               </Link>
             )}
             <Link
-              href={`/clienti/${item.client_id}`}
+              href={`/clienti/${item.client_id}?from=monitoraggio`}
               className="text-xs text-muted-foreground hover:text-foreground hover:underline"
             >
               Profilo cliente →

@@ -22,6 +22,7 @@ const FILTER_PAGE_KEYS: Record<string, string> = {
   "/esercizi": "esercizi",
   "/schede": "schede",
   "/allenamenti": "allenamenti",
+  "/monitoraggio": "monitoraggio",
 };
 
 // ── SessionStorage (fonte primaria) ──

@@ -826,7 +826,15 @@ useEffect(() => {
 }, [filter]);
 ```
 
-**Pagine**: esercizi (8 filtri), clienti (2), contratti (2), schede (3), cassa (3), allenamenti (2).
+**Pagine**: esercizi (8 filtri), clienti (2), contratti (2), schede (3), cassa (3), allenamenti (2), monitoraggio (sezioni collapsibili).
+
+**Section State Persistence** (pagine con sezioni collapsibili):
+Stesso pattern dei filtri applicato allo stato di espansione/collasso delle sezioni.
+`saveFilters("monitoraggio", { collapsed: [...] })` su ogni toggle,
+`loadFilters("monitoraggio")` al mount per ripristinare lo stato.
+La Sidebar cancella via `clearPageState()` → navigazione fresca = default.
+**Regola**: ogni pagina con sezioni collapsibili che genera link cross-page DEVE
+persistere lo stato visuale in sessionStorage. Violazione = bug di navigazione.
 
 **Scroll Restoration** (`layout.tsx`) — 2 hook + constraint CSS:
 - **CSS**: `h-screen` sul wrapper esterno → `<main>` e' il vero scroll container (`overflow-y-auto`)
@@ -1131,6 +1139,7 @@ Errori reali trovati e corretti. MAI ripeterli.
 | API proxiate via Funnel bloccate dal middleware | Rewrite `/api/*` al backend funziona, ma middleware intercetta prima → 307 /login per chiamate senza cookie JWT (es. login, health) | `/api` aggiunto a `PUBLIC_ROUTES` in middleware.ts. Auth JWT gestita dal backend FastAPI, non dal middleware Next.js |
 | `getApiBaseUrl()` costruisce URL con porta su Funnel | `https://nome.ts.net` → `window.location.port = ""` → `parseInt("") = NaN` → `apiPort = NaN` → chiamate API falliscono | Detect: se HTTPS o no porta esplicita → ritorna `/api` (URL relativo, proxy Next.js). Altrimenti → mapping porta diretto |
 | **`notes` vs `note` nel payload sessioni (CRITICO PROD)** | `prepareSessionsInputForSave()` in `builder-utils.ts` costruiva il payload con `notes:` (plurale) ma `WorkoutSessionInput` backend ha campo `note:` (singolare). Con `extra: "forbid"` su Pydantic → **422 su OGNI salvataggio scheda**. Chiara ha perso 20 min di lavoro. Bug silenzioso: TypeScript non cattura typo perche' il return type e' `WorkoutSessionInput[]` ma il campo extra non causa errore TS (solo Pydantic lo rifiuta a runtime) | Rinominare `notes:` → `note:` in `builder-utils.ts:307`. **Lezione**: quando Pydantic usa `extra: "forbid"`, un singolo typo nel nome campo blocca l'intera operazione. Testare SEMPRE il payload reale con curl prima di dichiarare funzionante. Grep i nomi campo del payload vs lo schema backend dopo ogni refactor |
+| Sezioni collapsibili senza persistenza stato | `/monitoraggio` ha 3 sezioni collapsibili. Navigando via CTA a `/schede/[id]` e tornando, la pagina rimonta con default (solo "salute" aperta) → utente perde contesto sezione | `saveFilters`/`loadFilters` su sessionStorage per stato collapsed. Sidebar `clearPageState()` resetta al default. **Regola**: ogni pagina con sezioni collapsibili + link cross-page DEVE persistere lo stato visuale |
 
 ---
 
@@ -1309,6 +1318,9 @@ Ogni link che naviga a un'altra pagina DEVE essere **bidirezionale**:
 5. Se il link ha gia' query params (es. `?new=1`), usare `appendFromParam()` (non sovrascrivere)
 6. Pagine destinazione che usano `resolveBackNavigation()`: `/clienti/[id]`, `/clienti/[id]/anamnesi`, `/clienti/[id]/misurazioni`, `/schede/[id]`, `/contratti/[id]`, `/monitoraggio/[id]`, `/allenamenti`. Caso speciale: `/esercizi/[id]` usa `scheda-{id}` + `parentFrom` per breadcrumb multi-livello
 - **Violazione = bug di navigazione** — l'utente si perde e non torna dove era
+7. Se la pagina sorgente ha stato visuale (sezioni collapsibili, tab attiva), DEVE persistere
+   quello stato in sessionStorage via `saveFilters`/`loadFilters` — altrimenti il ritorno resetta
+   lo stato al default e l'utente perde il contesto da cui era partito
 
 ### Prima di ogni commit
 - `bash tools/scripts/check-all.sh` — OBBLIGATORIO, zero eccezioni

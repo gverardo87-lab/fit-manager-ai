@@ -12,7 +12,7 @@
  * Sezione 3: Proiezioni (obiettivi aggregate)
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Activity,
   ChevronDown,
@@ -21,6 +21,7 @@ import {
   Target,
 } from "lucide-react";
 import { usePageReveal } from "@/lib/page-reveal";
+import { saveFilters, loadFilters } from "@/lib/url-state";
 
 import { SaluteClientiTab } from "@/components/monitoraggio/SaluteClientiTab";
 import { QualitaProgrammiTab } from "@/components/monitoraggio/QualitaProgrammiTab";
@@ -73,10 +74,19 @@ const SECTION_CONTENT: Record<string, React.ComponentType> = {
 export default function MonitoraggioPage() {
   const { revealClass, revealStyle } = usePageReveal();
 
-  // "Salute Clienti" starts expanded (gateway to client portals), others collapsed
-  const [collapsed, setCollapsed] = useState<Set<string>>(
-    () => new Set(SECTIONS.filter((s) => s.id !== "salute").map((s) => s.id)),
-  );
+  // Restore section state from sessionStorage (back-nav) or use default (sidebar fresh)
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => {
+    const saved = loadFilters("monitoraggio");
+    if (saved?.collapsed && Array.isArray(saved.collapsed)) {
+      return new Set(saved.collapsed as string[]);
+    }
+    return new Set(SECTIONS.filter((s) => s.id !== "salute").map((s) => s.id));
+  });
+
+  // Persist section state on every toggle
+  useEffect(() => {
+    saveFilters("monitoraggio", { collapsed: Array.from(collapsed) });
+  }, [collapsed]);
 
   const toggleSection = (id: string) => {
     setCollapsed((prev) => {
