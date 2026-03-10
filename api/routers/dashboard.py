@@ -691,7 +691,7 @@ def get_dashboard_alerts(
             title=f"{stale_misure_count} {'cliente senza misurazioni recenti' if stale_misure_count == 1 else 'clienti senza misurazioni recenti'}",
             detail="Misurazioni non aggiornate da oltre 5 settimane",
             count=stale_misure_count,
-            link="/clienti/myportal",
+            link="/monitoraggio",
         ))
 
     # ── Conteggi severity ──

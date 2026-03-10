@@ -192,7 +192,7 @@ export default function OggiCockpitPage() {
           </p>
           <div className="mt-4 flex justify-center gap-3">
             <Button asChild variant="outline" size="sm">
-              <Link href="/clienti/myportal">
+              <Link href="/monitoraggio">
                 <HeartPulse className="mr-1.5 h-3.5 w-3.5" />
                 Monitoraggio
               </Link>

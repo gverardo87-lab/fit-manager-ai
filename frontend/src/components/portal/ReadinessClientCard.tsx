@@ -281,10 +281,10 @@ export function ReadinessClientRow({ item, expanded, onToggle }: ReadinessClient
           {/* Bottom actions */}
           <div className="mt-3 flex items-center justify-between border-t pt-3">
             <Link
-              href={`/clienti/${item.client_id}?from=monitoraggio`}
+              href={`/monitoraggio/${item.client_id}?from=monitoraggio`}
               className="text-xs text-muted-foreground hover:text-foreground hover:underline"
             >
-              Profilo cliente →
+              Monitoraggio cliente →
             </Link>
             {!isReady && (
               <Link

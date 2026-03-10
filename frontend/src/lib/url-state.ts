@@ -93,7 +93,7 @@ export interface BackNavigation {
 const SIMPLE_BACK_ROUTES: Record<string, BackNavigation> = {
   dashboard: { href: "/", label: "Torna alla dashboard" },
   oggi: { href: "/oggi", label: "Torna a Oggi" },
-  monitoraggio: { href: "/clienti/myportal", label: "Torna a Monitoraggio" },
+  monitoraggio: { href: "/monitoraggio", label: "Torna a Monitoraggio" },
   allenamenti: { href: "/allenamenti", label: "Torna a Monitoraggio Allenamenti" },
   schede: { href: "/schede", label: "Torna alle schede" },
 };

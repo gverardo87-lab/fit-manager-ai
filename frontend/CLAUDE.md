@@ -18,7 +18,7 @@ A fine task:
 
 ```
 frontend/src/
-├── app/                     Next.js App Router — 21 pagine
+├── app/                     Next.js App Router — 22 pagine
 │   ├── (dashboard)/         Route group (non appare in URL)
 │   │   ├── layout.tsx       Sidebar + AuthGuard + CommandPalette + scroll restoration
 │   │   ├── page.tsx         Dashboard reminder-first (~1760 LOC) + WelcomeCard first-run
@@ -30,6 +30,7 @@ frontend/src/
 │   │   ├── esercizi/        Lista + [id]/ dettaglio con MuscleMap SVG + tassonomia
 │   │   ├── guida/           Hub guida interattiva + SpotlightTour
 │   │   ├── impostazioni/    Account, backup/restore, saldo iniziale
+│   │   ├── oggi/            Cockpit session prep (SessionPrepCard, hero KPI, 4 sezioni urgenza)
 │   │   └── schede/          Lista + [id]/ builder split con preview live
 │   ├── login/page.tsx       Login pubblico (mesh gradient animato + LogoIcon)
 │   ├── setup/page.tsx       Setup Wizard primo avvio (crea trainer)
@@ -54,16 +55,18 @@ frontend/src/
 │   ├── exercises/           ExercisesTable, ExerciseSheet, ExerciseForm, MuscleMap SVG
 │   ├── movements/           MovementsTable, MovementSheet, RecurringExpensesTab, CashAuditSheet,
 │   │                        SplitLedgerView, AdvancedFilters, AgingReport, ForecastTab
+│   ├── workspace/           SessionPrepCard (client+non-client), workspace-ui.ts (config/metadata)
 │   ├── workouts/            SessionCard, SortableExerciseRow, BlockCard, ExerciseSelector,
 │   │                        TemplateSelector, WorkoutPreview, ExportButtons, ExerciseDetailPanel,
 │   │                        SmartAnalysisPanel, MuscleMapPanel, RiskBodyMap
 │   └── ui/                  shadcn/ui (33 primitives + AnimatedNumber + Skeleton shimmer + LogoIcon)
-├── hooks/                   React Query hooks — 19 moduli
+├── hooks/                   React Query hooks — 20 moduli
 │   ├── useAgenda, useClients, useContracts, useRates, useMovements
 │   ├── useExercises, useWorkouts, useMeasurements, useGoals
 │   ├── useRecurringExpenses, useTodos, useDashboard, useBackup
 │   ├── useAssistant, useSmartProgramming, useUnsavedChanges, useGuideProgress
 │   ├── useTrainingScience   Hook per 5 endpoint Training Science Engine backend
+│   ├── useWorkspace         4 hook workspace: useWorkspaceToday, useWorkspaceCases, useWorkspaceCaseDetail, useSessionPrep (refetch 60s)
 │   ├── useClientReadiness   Readiness singolo cliente (wraps useClinicalReadiness) + computeOnboardingSteps
 ├── lib/                     25 utility/engine
 │   ├── api-client.ts        Axios + JWT interceptor + runtime API URL detection
@@ -386,7 +389,7 @@ Pattern architetturale:
 - **Severity hierarchy**: critical (sfondo rosso, CTA filled), warning (sfondo neutro, CTA outline)
 - **ScrollArea flex**: `min-h-0 flex-1` su ScrollArea + `overflow-hidden` su SheetContent per scroll corretto
 
-### MyPortal (`/clienti/myportal`)
+### MyPortal (`/monitoraggio`)
 Tracking board readiness clinica. KPI + filtri + tabella/card responsive.
 Riusa `useClinicalReadiness()` (zero API aggiuntive). Badge anamnesi/misurazioni/scheda colorati.
 Deep-link con flag auto-start (`?startWizard=1`, `?startScheda=1`).

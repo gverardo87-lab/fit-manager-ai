@@ -1,183 +1,155 @@
 # FitManager AI Studio
 
-**CRM professionale per personal trainer e professionisti fitness a P.IVA.**
+CRM locale per personal trainer e professionisti fitness.
+Obiettivo attuale: trasformare il repository da "prodotto in sviluppo" a baseline affidabile per il lancio.
 
-Gestione clienti, contratti, agenda, contabilita' e (prossimamente) programmazione allenamenti con AI locale.
+## Cosa copre oggi
 
----
+- Clienti, contratti, rate, agenda e cassa
+- Schede allenamento, libreria esercizi e monitoraggio cliente
+- Workspace operativi `Oggi` e `Rinnovi & Incassi`
+- Backup, setup, licenza e portale pubblico anamnesi
+- Guida integrata e componenti CRM per uso desktop/tablet
 
-## Stack
+## Snapshot reale del repository (2026-03-10)
 
-| Layer | Tecnologia |
-|-------|-----------|
-| **Frontend** | Next.js 16, React 19, TypeScript 5, shadcn/ui, Tailwind CSS 4, Recharts |
-| **Backend** | FastAPI, SQLModel (SQLAlchemy), Pydantic v2 |
-| **Database** | SQLite (PostgreSQL-ready), Alembic migrations |
-| **Auth** | JWT (bcrypt), 3-layer: Edge Middleware + AuthGuard + API validation |
-| **AI** (dormiente) | Ollama + LangChain + ChromaDB — moduli in `core/`, non ancora esposti via API |
+| Area | Snapshot |
+|---|---|
+| `api/` | 123 file Python, 21 router module, 21 model module, 115 handler REST annotati |
+| `frontend/src/` | 250 file TS/TSX, 24 page route, 151 componenti, 22 hook file |
+| `tests/` | 27 file pytest |
+| `core/` | 27 file Python, moduli AI/legacy fuori dal percorso critico di lancio |
+| `tools/` | 63 script, di cui 48 in `tools/admin_scripts/` |
+| `data/` | `crm.db`, `crm_dev.db`, `catalog.db` |
 
-**Privacy-first**: tutto gira in locale, zero cloud, zero dati verso terzi.
+Questi numeri sono stati riallineati con `rg` sul repo. Evitare di reintrodurre conteggi manuali non verificati.
 
----
+## Avvio locale
 
-## Quick Start
+Prerequisiti minimi:
 
-### Prerequisiti
+- Node.js 20+
+- npm
+- Python 3.12
+- un virtualenv funzionante per il progetto
+- SQLite disponibile in PATH se si usano i check manuali DB
 
-- Python 3.9+
-- Node.js 18+
-- (Opzionale) Ollama per moduli AI futuri
+### Sviluppo (PowerShell)
 
-### Installazione
+```powershell
+# Terminale 1 - Backend su crm_dev.db
+$env:DATABASE_URL = "sqlite:///data/crm_dev.db"
+uvicorn api.main:app --reload --host 0.0.0.0 --port 8001
 
-```bash
-# 1. Clone
-git clone <repo-url>
-cd FitManager_AI_Studio
-
-# 2. Backend
-python -m venv venv
-.\venv\Scripts\Activate.ps1          # Windows
-pip install -e .
-
-# 3. Frontend
+# Terminale 2 - Frontend
 cd frontend
-npm install
-cd ..
-
-# 4. Database (prima volta)
-alembic upgrade head
-
-# 5. Seed dati demo (opzionale)
-python tools/admin_scripts/reset_and_seed.py
-# Credenziali demo: chiarabassani96@gmail.com / Fitness2024!
+npm run dev
 ```
 
-### Avvio
+Apri `http://localhost:3001`.
 
-```bash
-# Terminal 1 — Backend
-uvicorn api.main:app --reload --port 8000
+### Produzione da sorgente
 
-# Terminal 2 — Frontend
-cd frontend && npm run dev
+Per il lancio reale preferire installer e `installer/launcher.bat`.
+Se il backend viene avviato manualmente da sorgente, il gate licenza va esplicitamente attivato:
+
+```powershell
+$env:LICENSE_ENFORCEMENT_ENABLED = "true"
+uvicorn api.main:app --host 0.0.0.0 --port 8000
 ```
 
-Apri `http://localhost:3000`
+Il frontend di produzione usa:
 
----
-
-## Architettura
-
-```
-frontend/               Next.js 16 + React 19 + TypeScript
-  src/app/              App Router (6 pagine + login)
-  src/components/       56 componenti (shadcn/ui + dominio)
-  src/hooks/            7 hook modules (React Query)
-  src/types/api.ts      Interfacce TypeScript (mirror Pydantic)
-       |
-       | REST API (JSON, JWT auth)
-       v
-api/                    FastAPI + SQLModel ORM
-  models/               7 modelli ORM
-  routers/              9 router (Bouncer Pattern + Deep IDOR)
-  schemas/              Pydantic v2 DTOs
-       |
-       v
-SQLite                  data/crm.db — 19 tabelle, FK enforced
-       |
-core/                   Moduli AI (dormant — prossima fase)
-  workout_generator     Generazione programmi allenamento (RAG)
-  exercise_archive      Archivio 72 esercizi
-  knowledge_chain       Q&A su documenti PDF
+```powershell
+cd frontend
+npm run build
+npm run prod
 ```
 
-### Separazione dei layer
+## Topologia runtime
 
-| Layer | Importa | Non importa mai |
-|-------|---------|-----------------|
-| `api/` | fastapi, sqlmodel, pydantic | `core/`, `frontend/` |
-| `frontend/` | react, next, @tanstack/react-query | `api/`, `core/` (solo REST) |
-| `core/` | stdlib, langchain, ollama | `api/`, `frontend/` |
+| Ambiente | Frontend | Backend | Database |
+|---|---|---|---|
+| Dev | `3001` | `8001` | `data/crm_dev.db` |
+| Prod | `3000` | `8000` | `data/crm.db` |
 
----
+Il frontend deduce la base URL API dal `window.location` e usa la coppia di porte corretta.
 
-## Funzionalita'
+## Struttura del progetto
 
-### Attive
+```text
+frontend/      Next.js 16 + React 19 + TypeScript
+  src/app/     App Router con route dashboard, setup, licenza e public portal
+  src/components/
+  src/hooks/
+  src/types/api.ts
 
-- **Dashboard** — overview operativa client-safe (clienti attivi, appuntamenti, alert operativi, todo)
-- **Clienti** — CRUD completo, ricerca, anagrafica
-- **Contratti** — Gestione contratti con piano pagamenti, pagamenti parziali, storico, auto-close/reopen
-- **Agenda** — Calendario interattivo (react-big-calendar), drag & drop, colori per categoria e stato, credit engine
-- **Cassa** — Libro mastro, spese ricorrenti (conferma manuale), split entrate/uscite, aging report scadenze
-- **Impostazioni** — Configurazione profilo trainer
+api/           FastAPI + SQLModel + Pydantic
+  routers/     Domini REST, auth, backup, workspace, training science
+  models/      ORM business e supporto licenza/public portal
+  schemas/     Contratti API e DTO
+  services/    Workspace engine, training science, readiness, auditing
 
-### Sicurezza
-
-- **Multi-tenancy**: `trainer_id` da JWT, iniettato server-side, mai dal client
-- **Deep Relational IDOR**: ownership verificata attraverso catena FK
-- **Bouncer Pattern**: ogni endpoint valida precondizioni con early return
-- **Atomic Transactions**: operazioni multi-tabella con singolo commit
-- **Soft Delete**: `deleted_at` su tutte le tabelle business
-- **Audit Trail**: ogni CREATE/UPDATE/DELETE loggato con diff JSON
-
-### Prossima fase (AI locale)
-
-- Generazione programmi allenamento personalizzati via RAG + Ollama
-- Q&A su documenti PDF (manuali, ricerche scientifiche)
-- Archivio esercizi con pattern di movimento
-
----
-
-## Comandi
-
-```bash
-# Backend
-uvicorn api.main:app --reload --port 8000
-
-# Frontend
-cd frontend && npm run dev
-
-# Build check (obbligatorio prima di ogni commit)
-cd frontend && npx next build
-
-# Test (pytest — 60 test)
-pytest tests/ -v
-
-# Migrazioni
-alembic upgrade head
-alembic revision -m "descrizione"
-
-# Seed dati demo
-python tools/admin_scripts/reset_and_seed.py
-
-# Database
-sqlite3 data/crm.db ".tables"
+core/          Moduli AI/legacy non obbligatori per il CRM core
+tools/         Seed, smoke test, build, migration, admin script
+data/          Database SQLite, checksum e asset runtime locali
+docs/          Governance upgrade, workboard, specifiche
+installer/     Launcher e packaging Windows
 ```
 
----
+## Domini principali
 
-## Documentazione tecnica
+- `Clienti`: anagrafica, anamnesi, misurazioni e monitoraggio
+- `Contratti + Rate`: integrita pagamenti, stato contratto, storico incassi
+- `Agenda`: sessioni, drag and drop, consumo crediti e sincronizzazione contratto
+- `Cassa`: ledger, spese ricorrenti, previsioni, aging
+- `Schede + Esercizi`: builder, libreria, media, analisi smart
+- `Workspace`: code operative specializzate per lavoro giornaliero e finanza
 
-Le regole architetturali e i design pattern sono documentati nei file CLAUDE.md:
+## Quality gate minimi
 
-- [CLAUDE.md](CLAUDE.md) — Manifesto architetturale (root)
-- [api/CLAUDE.md](api/CLAUDE.md) — Backend rules (pattern, sicurezza, test)
-- [frontend/CLAUDE.md](frontend/CLAUDE.md) — Frontend rules (componenti, hook, visual design)
-- [core/CLAUDE.md](core/CLAUDE.md) — AI modules (dormant)
+```powershell
+# Backend static check
+venv\Scripts\ruff.exe check api tests
 
----
+# Frontend lint completo
+& 'C:\Program Files\nodejs\npm.cmd' --prefix frontend run lint -- src
 
-## Metriche
+# Build frontend
+& 'C:\Program Files\nodejs\npm.cmd' --prefix frontend run build
 
-| Layer | LOC | Componenti |
-|-------|-----|-----------|
-| `api/` | ~4,900 | 7 modelli, 9 router, 60 test |
-| `frontend/` | ~12,600 | 56 componenti, 7 hook, 7 pagine |
-| `core/` | ~11,100 | Moduli AI (dormant) |
-| **DB** | — | 19 tabelle, FK enforced |
+# Backend tests
+python -m pytest -q tests
 
----
+# Frontend tests
+& 'C:\Program Files\nodejs\npm.cmd' --prefix frontend run test
+```
+
+Baseline verificata il 2026-03-10:
+
+- `ruff check api tests`: verde
+- lint frontend globale: rosso (`29` errori, `57` warning)
+- build frontend: compile OK, poi bloccato dall'ambiente con `spawn EPERM`
+- pytest backend: bloccato da virtualenv locale misconfigurato
+
+## Stato pre-lancio
+
+La documentazione autoritativa ora descrive il repository reale, ma il prodotto non e ancora "release-ready".
+La sequenza minima di hardening raccomandata e:
+
+1. Ripristinare toolchain e virtualenv in modo ripetibile.
+2. Portare `eslint src` a zero errori, iniziando da hook order e render-phase side effects.
+3. Ripristinare una suite backend critica eseguibile su pagamenti, workspace e readiness.
+4. Eseguire smoke reali su setup, licenza, backup/restore, LAN/Tailscale e public portal.
+5. Congelare la baseline con checklist di rilascio e rollback pack.
+
+Dettaglio operativo: `docs/upgrades/specs/UPG-2026-03-10-05-documentation-baseline-and-launch-readiness-plan.md`.
+
+## Documentazione
+
+- `ARCHITECTURE.md`: fotografia tecnica e piano di hardening
+- `CLAUDE.md`: regole di progetto, runbook e riferimenti operativi estesi
+- `AGENTS.md`: workflow microstep, quality gate e policy di sync
+- `docs/upgrades/`: specifiche, log upgrade e allineamento release
 
 **Maintained by**: G. Verardo

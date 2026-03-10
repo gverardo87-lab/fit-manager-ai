@@ -218,7 +218,7 @@ File chiave: `api/routers/dashboard.py` (~980 LOC, 8 endpoint), `api/schemas/fin
 
 ### MyPortal — Tracking Board Clinico
 
-Pagina dedicata (`/clienti/myportal`) per monitorare progressione readiness clienti.
+Pagina dedicata (`/monitoraggio`) per monitorare progressione readiness clienti.
 
 **Features**:
 - **4 KPI card**: clienti totali, da completare, pronti, alta priorita'
@@ -232,7 +232,66 @@ Pagina dedicata (`/clienti/myportal`) per monitorare progressione readiness clie
 
 **Sidebar**: voce "MyPortal" (icona HeartPulse) nella sezione Clienti.
 
-File chiave: `frontend/src/app/(dashboard)/clienti/myportal/page.tsx` (~490 LOC).
+File chiave: `frontend/src/app/(dashboard)/monitoraggio/page.tsx` (~490 LOC).
+
+### Oggi Cockpit — Session Prep Engine
+
+> **Filosofia: il trainer apre una sola pagina e sa tutto.** Zero navigazione per preparare la giornata.
+> Dati aggregati da 7 fonti in un'unica vista ordinata per urgenza clinica.
+
+Pagina `/oggi` — cockpit operativo giornaliero. Mostra tutte le sessioni del giorno
+con profilo cliente, readiness clinica, alert di sicurezza e hint di qualita'.
+
+**Backend** (`api/services/session_prep.py`, ~430 LOC):
+`build_session_prep(trainer_id, session)` — pipeline 7 step, read-only, zero side effects:
+1. Fetch eventi del giorno (non cancellati, non passati) con LEFT JOIN client
+2. Batch client IDs + client map
+3. Session counts + last session dates per client (2 query aggregate)
+4. Clinical readiness (riusa `compute_clinical_readiness_data()` condiviso con dashboard/myportal)
+5. Safety engine: `extract_client_conditions()` + batch fetch nomi condizioni da catalog DB
+6. Contratti attivi per client (crediti rimanenti, giorni a scadenza)
+7. Build `SessionPrepItem[]` con health checks + clinical alerts + quality hints
+
+Helper: `_build_health_checks()` (4 domini: anamnesi/misurazioni/scheda/programma),
+`_build_quality_hints()` (max 2 hints: misurazioni stale, contratto in scadenza, gap sessioni, cliente nuovo).
+
+**Anti-N+1**: 7 query totali (1 principale + 6 batch aggregate). Zero loop di query.
+
+**Endpoint**: `GET /workspace/today/session-prep` (JWT auth) in `api/routers/workspace.py`.
+Router workspace con 4 endpoint read-only sotto prefisso `/workspace`.
+
+**Schema** (`api/schemas/workspace.py`, ~255 LOC):
+- `SessionPrepItem`: evento + profilo cliente (nome, eta', sesso, sessioni, readiness score)
+- `SessionPrepHealthCheck`: dominio (anamnesi/measurements/workout/program) + status/detail/CTA
+- `SessionPrepAlert`: condizione clinica da anamnesi (nome + categoria)
+- `SessionPrepHint`: suggerimento qualita' (code + text + severity + cta_href)
+- `SessionPrepResponse`: payload giorno completo (sessions + non_client_events + conteggi)
+
+**Frontend** (`frontend/src/app/(dashboard)/oggi/page.tsx`, ~309 LOC):
+- Hero header con greeting + KPI pills (sessioni totali, alert clinici)
+- 4 sezioni ordinate per urgenza: clinical alerts → health issues → clean → non-client events
+- Page reveal con staggered animation
+- Empty state per giornate libere con CTA
+
+**Componente** (`frontend/src/components/workspace/SessionPrepCard.tsx`, ~332 LOC):
+- **Non-client events**: card minimale con icona Clock + categoria + orario
+- **Client sessions**: card espandibile con ReadinessRing (3 colori: emerald >=80%, amber >=50%, red <50%),
+  HealthCheckDot (dots compatti always visible), AlertsBadge (condizioni cliniche),
+  sezione espansa con HealthCheckRow dettagliato + HintRow + quick actions (Profilo, Misurazioni)
+- CTA health check con `appendFromParam(cta_href, "oggi")` per back-navigation centralizzata
+
+**Hook**: `useSessionPrep()` in `hooks/useWorkspace.ts` — query key `["workspace", "session-prep"]`, refetch 60s.
+
+**Workspace Engine** (`api/services/workspace_engine.py`, ~3000 LOC):
+Motore operativo completo per la pagina Oggi. Funzioni: `build_workspace_today()`,
+`build_workspace_case_list()`, `build_workspace_case_detail()`.
+4 workspace: "today", "onboarding", "programmi", "renewals_cash".
+Ranking complesso con dominance matrix e visibility policies per prioritizzazione casi.
+
+File chiave: `api/services/session_prep.py` (engine), `api/services/workspace_engine.py` (workspace),
+`api/routers/workspace.py` (4 endpoint), `api/schemas/workspace.py` (tipi),
+`frontend/src/app/(dashboard)/oggi/page.tsx` (pagina), `frontend/src/components/workspace/SessionPrepCard.tsx` (card),
+`frontend/src/hooks/useWorkspace.ts` (4 hook), `frontend/src/components/workspace/workspace-ui.ts` (config/metadata).
 
 ### Workout Template Builder — Schede Allenamento
 
@@ -733,12 +792,14 @@ Riferimenti UPG log:
 > La Sidebar cancella lo stato salvato onClick → pagina parte da zero.
 > Il browser back NON passa dalla Sidebar → stato intatto → ripristinato.
 
-**Architettura** — `lib/url-state.ts` (5 utility):
+**Architettura** — `lib/url-state.ts` (7 utility):
 - `saveFilters(pageKey, state)` → scrive in sessionStorage
 - `loadFilters(pageKey)` → legge da sessionStorage (null se vuoto)
 - `clearPageState(href)` → cancella `filters:` + `scroll:` per la pagina (chiamato da Sidebar onClick)
 - `getUrlParams()` → legge da `window.location.search` (fallback deep-link)
 - `syncUrlParams(pathname, params)` → scrive URL con `replaceState` (feedback visivo)
+- `resolveBackNavigation(from, fallback, options?)` → mappa `?from=` a `{ href, label }` (centralizzato)
+- `appendFromParam(href, from)` → appende `?from=X` a un href (gestisce `?` vs `&`)
 
 **Sidebar** (`Sidebar.tsx`): ogni `NavItem` chiama `clearPageState(item.href)` onClick prima della navigazione.
 Questo cancella filtri e scroll salvati → la pagina target parte da zero (default).
@@ -774,8 +835,10 @@ useEffect(() => {
   se assente (cancellato da Sidebar o prima visita) → `scrollTop = 0`
 - **Strict Mode guard**: `prevPathnameRef` impedisce double-invocation da React Strict Mode
 
-**Cross-link contestuali**: `?from=clienti-{id}` su contratti/[id] e schede/[id] → banner "Torna al profilo".
-`?from=dashboard` su contratti/[id] → banner "Torna alla dashboard". Back button condizionale.
+**Cross-link contestuali** (centralizzati in `resolveBackNavigation()`):
+Tutti i valori `?from=` sono mappati in `SIMPLE_BACK_ROUTES` + 3 parser compositi in `url-state.ts`.
+7 pagine destinazione usano `resolveBackNavigation()` — aggiungere un nuovo valore richiede UNA riga.
+`appendFromParam(href, "oggi")` appende `?from=` a href con query params esistenti.
 
 **Deep-link params**: `?newEvent=1&clientId=X` (agenda), `?new=1` (clienti/contratti), `?new=1&cliente=X` (contratti).
 Consumati al mount, URL pulito con `replaceState`.
@@ -800,7 +863,7 @@ frontend/          Next.js 16 + React 19 + TypeScript
        v
 api/               FastAPI + SQLModel ORM — Dual Engine
   models/          19 modelli ORM (SQLAlchemy table=True)
-  routers/         16 router con Bouncer Pattern + Deep IDOR
+  routers/         19 router con Bouncer Pattern + Deep IDOR
   schemas/         Pydantic v2 (input/output validation)
   services/        Safety Engine, Goal Engine, Training Science Engine (10 moduli)
        |
@@ -1239,12 +1302,12 @@ Regola di sicurezza: meglio fermarsi e riallineare che aprire merge conflict su 
 
 ### Quando aggiungi un Link cross-page (COMANDAMENTO SACRO)
 Ogni link che naviga a un'altra pagina DEVE essere **bidirezionale**:
-1. Il link DEVE includere `?from=sourceContext` (es. `?from=clienti-5`, `?from=monitoraggio-5`, `?from=dashboard`)
-2. La pagina destinazione DEVE leggere `searchParams.get("from")` e mostrare un back button/banner che torna esattamente alla pagina sorgente
-3. Se la destinazione gia' ha un back button hardcoded (es. `href="/clienti/{id}"`), renderlo dinamico basato su `?from=`
-4. Pattern `from` consolidati: `clienti-{id}`, `monitoraggio-{id}`, `monitoraggio`, `dashboard`, `scheda-{id}`, `allenamenti`, `schede`
-5. Se il link ha gia' query params (es. `?new=1`), aggiungere `&from=...` (non sovrascrivere)
-6. Pagine destinazione che gia' gestiscono `?from=`: `/schede/[id]`, `/contratti/[id]`, `/esercizi/[id]`, `/monitoraggio/[id]`, `/clienti/[id]/progressi`, `/clienti/[id]/anamnesi`, `/clienti/[id]/misurazioni`, `/allenamenti`
+1. Il link DEVE includere `?from=sourceContext` — usare `appendFromParam(href, "oggi")` da `url-state.ts` per href con query params esistenti
+2. La pagina destinazione DEVE usare `resolveBackNavigation(fromParam, fallback)` da `url-state.ts` — NON duplicare if/else per ogni valore
+3. Se aggiungi un nuovo valore `from` (es. una nuova pagina sorgente), aggiungilo a `SIMPLE_BACK_ROUTES` in `url-state.ts` — un solo posto, tutte le 7 pagine lo riconoscono automaticamente
+4. Pattern `from` consolidati: `clienti-{id}`, `monitoraggio-{id}`, `monitoraggio`, `dashboard`, `oggi`, `scheda-{id}`, `allenamenti`, `schede`
+5. Se il link ha gia' query params (es. `?new=1`), usare `appendFromParam()` (non sovrascrivere)
+6. Pagine destinazione che usano `resolveBackNavigation()`: `/clienti/[id]`, `/clienti/[id]/anamnesi`, `/clienti/[id]/misurazioni`, `/schede/[id]`, `/contratti/[id]`, `/monitoraggio/[id]`, `/allenamenti`. Caso speciale: `/esercizi/[id]` usa `scheda-{id}` + `parentFrom` per breadcrumb multi-livello
 - **Violazione = bug di navigazione** — l'utente si perde e non torna dove era
 
 ### Prima di ogni commit
@@ -1429,6 +1492,26 @@ Tracking dettagliato: `docs/upgrades/specs/UPG-2026-03-04-06-launch-market-readi
 
 ## Comandi
 
+### Override autorevole 2026-03-10
+
+Usare questo blocco come riferimento operativo corrente.
+Se il backend parte manualmente in produzione senza `LICENSE_ENFORCEMENT_ENABLED=true`, il gate licenza non viene applicato.
+
+```bash
+# Dev
+DATABASE_URL=sqlite:///data/crm_dev.db uvicorn api.main:app --reload --host 0.0.0.0 --port 8001
+cd frontend && npm run dev                                # porta 3001, API -> localhost:8001
+
+# Prod da sorgente
+LICENSE_ENFORCEMENT_ENABLED=true uvicorn api.main:app --host 0.0.0.0 --port 8000
+cd frontend && npm run build && npm run prod              # porta 3000, API -> host:8000
+
+# Produzione reale
+installer/launcher.bat
+```
+
+Il blocco storico seguente va considerato legacy se diverge da questo override.
+
 ```bash
 # ── Avvio rapido (copia-incolla) ──
 # Dev:
@@ -1499,8 +1582,20 @@ sqlite3 data/catalog.db ".tables"
 
 ## Metriche Progetto
 
-- **api/**: ~17,000 LOC Python — 19 modelli ORM, 16 router, 8 schema modules, 6 services + 1 parser (18 moduli)
-- **frontend/**: ~18,000 LOC TypeScript — ~80 componenti, 19 hook modules, 21 pagine
+### Snapshot autorevole 2026-03-10
+
+- **api/**: 123 file Python, 21 router module, 21 model module, 115 handler REST annotati
+- **frontend/**: 250 file TypeScript/TSX, 24 page route, 151 componenti, 22 hook file
+- **core/**: 27 file Python, moduli AI/legacy fuori dal percorso critico del CRM core
+- **tools/**: 63 script, di cui 48 in `tools/admin_scripts/`
+- **DB**: `crm.db`, `crm_dev.db`, `catalog.db` nel layer `data/`
+- **Esercizi**: catalogo vivo; non usare piu conteggi fissi senza snapshot verificata
+- **Test**: 27 file pytest + suite vitest frontend + smoke/admin script dedicati
+
+I conteggi storici sotto vanno considerati superati se divergono da questo snapshot.
+
+- **api/**: ~17,000 LOC Python — 19 modelli ORM, 19 router, 10 schema modules, 9 services + 1 parser (21 moduli)
+- **frontend/**: ~18,000 LOC TypeScript — ~80 componenti, 20 hook modules, 22 pagine
 - **core/**: ~10,300 LOC Python — moduli AI (RAG, exercise archive) in attesa di API endpoints
 - **tools/admin_scripts/**: ~3,200 LOC Python — 16 script (import, quality engine, taxonomy, seed, test, QA clinica)
 - **DB**: Dual-DB SQLite (22 business + 7 catalog), WAL mode, FK enforced, multi-tenant via trainer_id
