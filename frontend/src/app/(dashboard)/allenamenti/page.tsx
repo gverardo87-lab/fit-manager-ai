@@ -20,7 +20,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { loadFilters, saveFilters, getUrlParams, syncUrlParams } from "@/lib/url-state";
+import { loadFilters, saveFilters, getUrlParams, syncUrlParams, resolveBackNavigation } from "@/lib/url-state";
 import { usePageReveal } from "@/lib/page-reveal";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -172,14 +172,9 @@ export default function AllenamentiPage() {
   const fromParam = getUrlParams().get("from");
 
   const backNav = useMemo(() => {
-    if (fromParam?.startsWith("clienti-")) {
-      const cId = fromParam.replace("clienti-", "");
-      return { href: `/clienti/${cId}?tab=schede`, label: "Profilo cliente" };
-    }
-    if (fromParam === "monitoraggio") {
-      return { href: "/monitoraggio", label: "Monitoraggio" };
-    }
-    return null;
+    if (!fromParam) return null;
+    const nav = resolveBackNavigation(fromParam, { href: "", label: "" }, { tab: "schede" });
+    return nav.href ? nav : null;
   }, [fromParam]);
 
   const { data: workoutsData, isLoading: loadingWorkouts } = useWorkouts();

@@ -15,6 +15,7 @@ import {
   XCircle,
 } from "lucide-react";
 
+import { appendFromParam } from "@/lib/url-state";
 import type {
   HealthCheckStatus,
   SessionPrepAlert,
@@ -76,8 +77,9 @@ function HealthCheckRow({ check }: { check: SessionPrepHealthCheck }) {
       )}
       {check.cta_href && (
         <Link
-          href={check.cta_href}
+          href={appendFromParam(check.cta_href, "oggi")}
           className="ml-auto text-[10px] font-semibold text-primary hover:underline"
+          onClick={(e) => e.stopPropagation()}
         >
           Aggiorna
         </Link>
@@ -308,7 +310,7 @@ export function SessionPrepCard({ item, expanded = false, onToggleExpand }: Sess
           {/* Quick actions */}
           <div className="flex flex-wrap gap-2 pt-1">
             <Link
-              href={`/clienti/${item.client_id}`}
+              href={`/clienti/${item.client_id}?from=oggi`}
               className="rounded-lg border border-border/70 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/50"
               onClick={(e) => e.stopPropagation()}
             >

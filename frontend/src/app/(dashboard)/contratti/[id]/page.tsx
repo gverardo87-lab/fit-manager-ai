@@ -46,6 +46,7 @@ import { ContractSheet } from "@/components/contracts/ContractSheet";
 import { DeleteContractDialog } from "@/components/contracts/DeleteContractDialog";
 import { useContract } from "@/hooks/useContracts";
 import { useContractEvents, type EventHydrated } from "@/hooks/useAgenda";
+import { resolveBackNavigation } from "@/lib/url-state";
 
 // ════════════════════════════════════════════════════════════
 // PAGE COMPONENT
@@ -62,20 +63,13 @@ export default function ContractDetailPage({
   const { from, returnTo } = use(searchParamsPromise);
   const contractId = parseInt(id, 10);
   const router = useRouter();
-  const returnClientId = from?.startsWith("clienti-") ? from.slice(8) : null;
-  const returnToDashboard = from === "dashboard";
   const safeReturnTo =
     returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : null;
-  const backHref =
-    safeReturnTo ??
-    (returnClientId ? `/clienti/${returnClientId}?tab=contratti` : returnToDashboard ? "/" : "/contratti");
+  const backNav = resolveBackNavigation(from, { href: "/contratti", label: "Torna ai contratti" }, { tab: "contratti" });
+  const backHref = safeReturnTo ?? backNav.href;
   const backLabel = safeReturnTo?.startsWith("/rinnovi-incassi")
     ? "Torna a Rinnovi & Incassi"
-    : returnClientId
-      ? "Torna al profilo cliente"
-      : returnToDashboard
-        ? "Torna alla dashboard"
-        : "Torna ai contratti";
+    : backNav.label;
 
   const { data: contract, isLoading } = useContract(contractId);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -164,39 +158,15 @@ export default function ContractDetailPage({
         </div>
       </div>
 
-      {/* ── Banner ritorno al cliente ── */}
-      {safeReturnTo && (
+      {/* ── Banner ritorno contestuale ── */}
+      {(safeReturnTo || backNav.href !== "/contratti") && (
         <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-2 flex items-center gap-2">
           <ArrowLeft className="h-3.5 w-3.5 text-primary" />
           <Link
-            href={safeReturnTo}
+            href={backHref}
             className="text-sm text-primary hover:underline"
           >
             {backLabel}
-          </Link>
-        </div>
-      )}
-
-      {returnClientId && !safeReturnTo && (
-        <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-2 flex items-center gap-2">
-          <ArrowLeft className="h-3.5 w-3.5 text-primary" />
-          <Link
-            href={`/clienti/${returnClientId}?tab=contratti`}
-            className="text-sm text-primary hover:underline"
-          >
-            Torna al profilo cliente
-          </Link>
-        </div>
-      )}
-
-      {returnToDashboard && !safeReturnTo && (
-        <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-2 flex items-center gap-2">
-          <ArrowLeft className="h-3.5 w-3.5 text-primary" />
-          <Link
-            href="/"
-            className="text-sm text-primary hover:underline"
-          >
-            Torna alla dashboard
           </Link>
         </div>
       )}

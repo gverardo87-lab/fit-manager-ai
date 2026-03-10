@@ -29,6 +29,7 @@ import { useBuilderHandlers } from "@/hooks/useBuilderHandlers";
 import { PATTERN_TO_1RM } from "@/lib/derived-metrics";
 import { CATEGORY_ORDER } from "@/lib/builder-utils";
 import { SECTION_CATEGORIES } from "@/lib/workout-templates";
+import { resolveBackNavigation } from "@/lib/url-state";
 import type { SafetyConditionDetail } from "@/types/api";
 import type { SafetyExportData } from "@/lib/export-workout-pdf";
 
@@ -90,13 +91,8 @@ export default function SchedaDetailPage({ params }: { params: Promise<{ id: str
   // ── Navigation ──
   const goBack = useCallback(() => {
     if (builder.isDirtyRef.current && !window.confirm("Hai modifiche non salvate. Vuoi davvero uscire?")) return;
-    const returnClientId = fromParam?.startsWith("clienti-") ? fromParam.slice(8) : null;
-    const dest = returnClientId
-      ? `/clienti/${returnClientId}?tab=schede`
-      : fromParam === "allenamenti" ? "/allenamenti"
-      : fromParam === "monitoraggio" ? "/monitoraggio"
-      : "/schede";
-    router.push(dest);
+    const nav = resolveBackNavigation(fromParam, { href: "/schede", label: "" }, { tab: "schede" });
+    router.push(nav.href);
   }, [router, fromParam, builder.isDirtyRef]);
 
   const guardedNavigate = useCallback((href: string) => {

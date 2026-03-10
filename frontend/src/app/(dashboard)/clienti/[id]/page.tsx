@@ -38,6 +38,7 @@ import { useClient } from "@/hooks/useClients";
 import { useClientContracts } from "@/hooks/useContracts";
 import { useClientEvents } from "@/hooks/useAgenda";
 import { useClientReadiness, computeOnboardingSteps } from "@/hooks/useClientReadiness";
+import { resolveBackNavigation } from "@/lib/url-state";
 
 // ════════════════════════════════════════════════════════════
 // PAGE
@@ -70,12 +71,11 @@ export default function ClientProfilePage({
   const rawReturnTo = searchParams.get("returnTo");
   const fromParam = searchParams.get("from");
   const returnTo = rawReturnTo && rawReturnTo.startsWith("/") && !rawReturnTo.startsWith("//") ? rawReturnTo : null;
-  const backHref = returnTo ?? (fromParam === "monitoraggio" ? "/monitoraggio" : "/clienti");
+  const backNav = resolveBackNavigation(fromParam, { href: "/clienti", label: "Torna ai clienti" });
+  const backHref = returnTo ?? backNav.href;
   const backLabel = returnTo?.startsWith("/rinnovi-incassi")
     ? "Torna a Rinnovi & Incassi"
-    : fromParam === "monitoraggio"
-      ? "Torna a Monitoraggio"
-      : "Torna ai clienti";
+    : backNav.label;
 
   const handleTabChange = useCallback((value: string) => {
     const params = new URLSearchParams(searchParams.toString());

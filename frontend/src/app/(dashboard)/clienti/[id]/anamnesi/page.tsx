@@ -40,6 +40,7 @@ import { AnamnesiSummary } from "@/components/clients/anamnesi/AnamnesiSummary";
 import { AnamnesiWizard } from "@/components/clients/anamnesi/AnamnesiWizard";
 import { isStructuredAnamnesi } from "@/components/clients/anamnesi/anamnesi-helpers";
 import { useClient, useCreateShareToken } from "@/hooks/useClients";
+import { resolveBackNavigation } from "@/lib/url-state";
 import type { AnamnesiData, ShareTokenResponse } from "@/types/api";
 
 // ════════════════════════════════════════════════════════════
@@ -59,14 +60,17 @@ export default function AnamnesiPage({
   const fromParam = searchParams.get("from");
 
   const backNav = useMemo(() => {
-    if (fromParam === "monitoraggio") {
-      return { href: "/monitoraggio", label: "Monitoraggio" };
-    }
-    if (fromParam?.startsWith("monitoraggio-")) {
-      const cId = fromParam.replace("monitoraggio-", "");
-      return { href: `/monitoraggio/${cId}`, label: "Monitoraggio" };
-    }
-    return { href: `/clienti/${clientId}`, label: "Profilo" };
+    const nav = resolveBackNavigation(fromParam, {
+      href: `/clienti/${clientId}`,
+      label: "Profilo",
+    });
+    // Shorten labels for breadcrumb-style display
+    const shortLabels: Record<string, string> = {
+      "Torna a Oggi": "Oggi",
+      "Torna alla dashboard": "Dashboard",
+      "Torna a Monitoraggio": "Monitoraggio",
+    };
+    return { href: nav.href, label: shortLabels[nav.label] ?? nav.label };
   }, [fromParam, clientId]);
 
   const { data: client, isLoading } = useClient(clientId);

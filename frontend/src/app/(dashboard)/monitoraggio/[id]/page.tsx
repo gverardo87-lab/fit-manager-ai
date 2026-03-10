@@ -41,6 +41,7 @@ import { getLatestValue } from "@/lib/derived-metrics";
 import { computeHealthScore } from "@/lib/health-score";
 import { getProgramStatus, computeWeeks, computeCompliance } from "@/lib/workout-monitoring";
 import { usePageReveal } from "@/lib/page-reveal";
+import { resolveBackNavigation } from "@/lib/url-state";
 
 // Metric IDs da clinical-analysis.ts
 const ID_PESO = 1;
@@ -60,11 +61,9 @@ export default function MonitoraggioClientDetailPage({
 
   // Context-aware back navigation
   const backNav = useMemo(() => {
-    if (fromParam?.startsWith("clienti-")) {
-      const cId = fromParam.replace("clienti-", "");
-      return { href: `/clienti/${cId}`, label: "Profilo cliente" };
-    }
-    return undefined;
+    if (!fromParam) return undefined;
+    const nav = resolveBackNavigation(fromParam, { href: "", label: "" });
+    return nav.href ? nav : undefined;
   }, [fromParam]);
 
   // Data loading — 9 hook

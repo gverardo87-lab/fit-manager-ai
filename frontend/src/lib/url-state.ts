@@ -71,6 +71,76 @@ export function clearPageState(href: string): void {
   sessionStorage.removeItem(`scroll:${href}`);
 }
 
+// ── Back navigation (centralizzato) ──
+
+/**
+ * Risolve il parametro `?from=` in href + label per la back navigation.
+ *
+ * Ogni pagina che riceve link con `?from=X` chiama questa funzione
+ * per determinare dove tornare. Aggiungere nuovi valori QUI — un solo posto.
+ *
+ * Valori supportati:
+ *   - Letterali: "dashboard", "oggi", "monitoraggio", "allenamenti", "schede"
+ *   - Compositi: "clienti-{id}", "monitoraggio-{id}", "scheda-{id}"
+ *
+ * @param options.tab — tab da aprire sulla pagina destinazione (es. "schede", "contratti")
+ */
+export interface BackNavigation {
+  href: string;
+  label: string;
+}
+
+const SIMPLE_BACK_ROUTES: Record<string, BackNavigation> = {
+  dashboard: { href: "/", label: "Torna alla dashboard" },
+  oggi: { href: "/oggi", label: "Torna a Oggi" },
+  monitoraggio: { href: "/clienti/myportal", label: "Torna a Monitoraggio" },
+  allenamenti: { href: "/allenamenti", label: "Torna a Monitoraggio Allenamenti" },
+  schede: { href: "/schede", label: "Torna alle schede" },
+};
+
+export function resolveBackNavigation(
+  fromParam: string | null | undefined,
+  fallback: BackNavigation,
+  options?: { tab?: string },
+): BackNavigation {
+  if (!fromParam) return fallback;
+
+  // Simple page literals
+  const simple = SIMPLE_BACK_ROUTES[fromParam];
+  if (simple) return simple;
+
+  // Composite: clienti-{id}
+  if (fromParam.startsWith("clienti-")) {
+    const id = fromParam.slice(8);
+    const tab = options?.tab;
+    return {
+      href: `/clienti/${id}${tab ? `?tab=${tab}` : ""}`,
+      label: "Torna al profilo cliente",
+    };
+  }
+
+  // Composite: monitoraggio-{id}
+  if (fromParam.startsWith("monitoraggio-")) {
+    const id = fromParam.slice(13);
+    return { href: `/monitoraggio/${id}`, label: "Torna a Monitoraggio" };
+  }
+
+  // Composite: scheda-{id}
+  if (fromParam.startsWith("scheda-")) {
+    const id = fromParam.slice(7);
+    return { href: `/schede/${id}`, label: "Torna alla scheda" };
+  }
+
+  return fallback;
+}
+
+/**
+ * Appende `?from=X` a un href, gestendo correttamente href con query params esistenti.
+ */
+export function appendFromParam(href: string, from: string): string {
+  return href.includes("?") ? `${href}&from=${from}` : `${href}?from=${from}`;
+}
+
 // ── URL (feedback visivo) ──
 
 /**

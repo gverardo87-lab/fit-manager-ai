@@ -48,6 +48,7 @@ import {
 import type { Metric, Measurement, MeasurementValueInput, MetricCategory } from "@/types/api";
 import { METRIC_CATEGORY_LABELS } from "@/types/api";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
+import { resolveBackNavigation } from "@/lib/url-state";
 
 // ════════════════════════════════════════════════════════════
 // CATEGORY ICONS & COLORS
@@ -78,12 +79,11 @@ export default function MisurazionePage({
   const fromParam = searchParams.get("from");
 
   const backHref = useMemo(() => {
-    if (fromParam === "monitoraggio") return "/monitoraggio";
-    if (fromParam?.startsWith("monitoraggio-")) {
-      const cId = fromParam.replace("monitoraggio-", "");
-      return `/monitoraggio/${cId}`;
-    }
-    return `/monitoraggio/${clientId}?from=clienti-${clientId}`;
+    const nav = resolveBackNavigation(fromParam, {
+      href: `/monitoraggio/${clientId}?from=clienti-${clientId}`,
+      label: "Torna a Monitoraggio",
+    });
+    return nav.href;
   }, [fromParam, clientId]);
 
   // Data
