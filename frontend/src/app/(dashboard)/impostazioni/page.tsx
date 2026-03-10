@@ -58,6 +58,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { SupportSnapshotSection } from "@/components/settings/SupportSnapshotSection";
 import { SystemStatusSection } from "@/components/settings/SystemStatusSection";
 
 import {
@@ -146,13 +147,17 @@ export default function ImpostazioniPage() {
         <SystemStatusSection />
       </div>
 
-      {/* ── Sezione Saldo Iniziale ── */}
       <div className={revealClass(50)} style={revealStyle(50)}>
+        <SupportSnapshotSection />
+      </div>
+
+      {/* ── Sezione Saldo Iniziale ── */}
+      <div className={revealClass(75)} style={revealStyle(75)}>
         <SaldoInizialeSection />
       </div>
 
       {/* ── Sezione Backup ── */}
-      <Card className={revealClass(100)} style={revealStyle(100)}>
+      <Card className={revealClass(125)} style={revealStyle(125)}>
         <CardHeader>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
@@ -305,7 +310,7 @@ export default function ImpostazioniPage() {
       </Card>
 
       {/* ── Sezione Export ── */}
-      <Card className={revealClass(150)} style={revealStyle(150)}>
+      <Card className={revealClass(175)} style={revealStyle(175)}>
         <CardHeader>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">

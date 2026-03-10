@@ -15,12 +15,12 @@ def test_health_returns_enriched_runtime_metadata(client, test_engine, monkeypat
     app.dependency_overrides[get_catalog_session] = override_catalog
 
     monkeypatch.setattr(
-        "api.main.APP_STARTED_AT",
+        "api.services.system_runtime.APP_STARTED_AT",
         datetime(2026, 3, 10, 6, 0, 0, tzinfo=timezone.utc),
     )
-    monkeypatch.setattr("api.main.DATABASE_URL", "sqlite:///data/crm_dev.db")
+    monkeypatch.setattr("api.services.system_runtime.DATABASE_URL", "sqlite:///data/crm_dev.db")
     monkeypatch.setattr(
-        "api.main.check_license",
+        "api.services.system_runtime.check_license",
         lambda: LicenseCheckResult(status="valid", message="Licenza valida"),
     )
     monkeypatch.setenv("LICENSE_ENFORCEMENT_ENABLED", "true")

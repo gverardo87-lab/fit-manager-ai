@@ -1,4 +1,4 @@
-"""Schemas per stato runtime e salute installazione."""
+"""Schemas per stato runtime e support snapshot dell'installazione."""
 
 from datetime import datetime
 from typing import Literal
@@ -26,3 +26,17 @@ class HealthResponse(BaseModel):
     public_base_url_configured: bool
     started_at: datetime
     uptime_seconds: int
+
+
+class SupportSnapshotBackupItem(BaseModel):
+    filename: str
+    size_bytes: int
+    created_at: str
+    checksum: str | None = None
+
+
+class SupportSnapshotResponse(BaseModel):
+    generated_at: datetime
+    public_base_url: str | None = None
+    health: HealthResponse
+    recent_backups: list[SupportSnapshotBackupItem]

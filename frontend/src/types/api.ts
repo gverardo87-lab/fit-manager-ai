@@ -102,6 +102,13 @@ export interface InstallationHealthResponse {
   uptime_seconds: number;
 }
 
+export interface InstallationSupportSnapshotResponse {
+  generated_at: string;
+  public_base_url: string | null;
+  health: InstallationHealthResponse;
+  recent_backups: BackupInfo[];
+}
+
 /** Dati pubblici trainer — TrainerPublic */
 export interface Trainer {
   id: number;

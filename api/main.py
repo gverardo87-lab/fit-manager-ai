@@ -13,18 +13,15 @@ Migrazioni schema gestite da Alembic: `alembic upgrade head`
 """
 
 import logging
-import os
 import sqlite3
-import sys
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 from starlette.staticfiles import StaticFiles
-from sqlmodel import Session, text
+from sqlmodel import Session
 
 from api.schemas.system import HealthResponse
 from api.database import get_catalog_session, get_session
@@ -50,15 +47,19 @@ from api.routers.goals import router as goals_router
 from api.routers.workout_logs import router as workout_logs_router
 from api.routers.assistant import router as assistant_router
 from api.routers.public_portal import router as public_portal_router
+from api.routers.system import router as system_router
 from api.routers.training_science import router as training_science_router
 from api.routers.training_methodology import router as training_methodology_router
 from api.routers.workspace import router as workspace_router
+from api.services.system_runtime import (
+    BACKUP_DIR,
+    build_health_response,
+    is_license_enforcement_enabled,
+)
 
 logger = logging.getLogger("fitmanager.api")
 
-BACKUP_DIR = DATA_DIR / "backups"
 MAX_AUTO_BACKUPS = 5  # solo gli ultimi 5 backup automatici
-APP_STARTED_AT = datetime.now(timezone.utc)
 
 LICENSE_EXEMPT_PATHS = {
     "/health",
@@ -150,7 +151,6 @@ async def lifespan(app: FastAPI):
     4. Seed esercizi builtin
     5. Integrity check
     """
-    from api.config import DATABASE_URL
     db_label = "DEV (crm_dev.db)" if "crm_dev" in DATABASE_URL else "PROD (crm.db)"
     is_dev = "crm_dev" in DATABASE_URL
     logger.info(f"API startup: database {db_label}")
@@ -210,38 +210,16 @@ app.add_middleware(
 )
 
 
-def _is_license_enforcement_enabled() -> bool:
-    value = os.getenv("LICENSE_ENFORCEMENT_ENABLED", "false").strip().lower()
-    return value in {"1", "true", "yes", "on"}
-
-
 def _is_license_exempt_path(path: str) -> bool:
     if path in LICENSE_EXEMPT_PATHS:
         return True
     return any(path.startswith(prefix) for prefix in LICENSE_EXEMPT_PREFIXES)
 
 
-def _is_public_portal_enabled() -> bool:
-    value = os.getenv("PUBLIC_PORTAL_ENABLED", "false").strip().lower()
-    return value in {"1", "true", "yes", "on"}
-
-
-def _is_public_base_url_configured() -> bool:
-    return bool(os.getenv("PUBLIC_BASE_URL", "").strip())
-
-
-def _get_app_mode() -> str:
-    return "development" if "crm_dev" in DATABASE_URL else "production"
-
-
-def _get_distribution_mode() -> str:
-    return "installer" if getattr(sys, "frozen", False) else "source"
-
-
 @app.middleware("http")
 async def license_middleware(request: Request, call_next):
     """Middleware licenza (gated): enforcement opzionale via env."""
-    if not _is_license_enforcement_enabled():
+    if not is_license_enforcement_enabled():
         return await call_next(request)
 
     path = request.url.path
@@ -286,6 +264,7 @@ app.include_router(goals_router, prefix=API_PREFIX)
 app.include_router(workout_logs_router, prefix=API_PREFIX)
 app.include_router(assistant_router, prefix=API_PREFIX)
 app.include_router(public_portal_router, prefix=API_PREFIX)
+app.include_router(system_router, prefix=API_PREFIX)
 app.include_router(training_science_router, prefix=API_PREFIX)
 app.include_router(training_methodology_router, prefix=API_PREFIX)
 app.include_router(workspace_router, prefix=API_PREFIX)
@@ -298,38 +277,7 @@ def health_check(
     catalog_session: Session = Depends(get_catalog_session),
 ):
     """Endpoint di salute — verifica DB + catalog + licenza + versione."""
-    from api import __version__
-
-    db_ok = False
-    catalog_ok = False
-    try:
-        session.exec(text("SELECT 1")).one()
-        db_ok = True
-    except Exception:
-        pass
-    try:
-        catalog_session.exec(text("SELECT 1")).one()
-        catalog_ok = True
-    except Exception:
-        pass
-
-    license_result = check_license()
-
-    healthy = db_ok and catalog_ok
-    if not healthy:
+    health = build_health_response(session, catalog_session)
+    if health.status != "ok":
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
-
-    return HealthResponse(
-        status="ok" if healthy else "degraded",
-        version=__version__,
-        db="connected" if db_ok else "disconnected",
-        catalog="connected" if catalog_ok else "disconnected",
-        license_status=license_result.status,
-        license_enforcement_enabled=_is_license_enforcement_enabled(),
-        app_mode=_get_app_mode(),
-        distribution_mode=_get_distribution_mode(),
-        public_portal_enabled=_is_public_portal_enabled(),
-        public_base_url_configured=_is_public_base_url_configured(),
-        started_at=APP_STARTED_AT,
-        uptime_seconds=int((datetime.now(timezone.utc) - APP_STARTED_AT).total_seconds()),
-    )
+    return health
