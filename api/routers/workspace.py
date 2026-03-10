@@ -7,10 +7,12 @@ from api.database import get_session
 from api.dependencies import get_current_trainer
 from api.models.trainer import Trainer
 from api.schemas.workspace import (
+    SessionPrepResponse,
     WorkspaceCaseDetailResponse,
     WorkspaceCaseListResponse,
     WorkspaceTodayResponse,
 )
+from api.services.session_prep import build_session_prep
 from api.services.workspace_engine import (
     build_workspace_case_detail,
     build_workspace_case_list,
@@ -80,3 +82,15 @@ def get_workspace_case_detail(
     if detail is None:
         raise HTTPException(status_code=404, detail="Workspace case not found")
     return detail
+
+
+@router.get("/today/session-prep", response_model=SessionPrepResponse)
+def get_session_prep(
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """Cockpit data for today's sessions — rich client profiles."""
+    return build_session_prep(
+        trainer_id=trainer.id,
+        session=session,
+    )

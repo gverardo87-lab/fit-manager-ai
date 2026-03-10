@@ -1103,6 +1103,69 @@ export interface WorkspaceCaseDetailResponse {
   activity_preview: WorkspaceCaseActivityItem[];
 }
 
+// ════════════════════════════════════════════════════════════
+// SESSION PREP — Cockpit operativo per sessioni del giorno
+// (api/schemas/workspace.py → SessionPrep*)
+// ════════════════════════════════════════════════════════════
+
+export type HealthCheckStatus = "ok" | "warning" | "critical" | "missing";
+
+export interface SessionPrepHealthCheck {
+  domain: string;
+  label: string;
+  status: HealthCheckStatus;
+  detail: string | null;
+  days_since_last: number | null;
+  cta_href: string | null;
+}
+
+export interface SessionPrepAlert {
+  condition_name: string;
+  category: string | null;
+}
+
+export interface SessionPrepHint {
+  code: string;
+  text: string;
+  severity: "critical" | "high" | "medium" | "low";
+  cta_href: string | null;
+}
+
+export interface SessionPrepItem {
+  event_id: number;
+  starts_at: string;
+  ends_at: string | null;
+  category: string;
+  event_title: string | null;
+  event_notes: string | null;
+  client_id: number | null;
+  client_name: string | null;
+  client_age: number | null;
+  client_sex: string | null;
+  client_since: string | null;
+  is_new_client: boolean;
+  total_sessions: number;
+  completed_sessions: number;
+  last_session_date: string | null;
+  days_since_last_session: number | null;
+  health_checks: SessionPrepHealthCheck[];
+  clinical_alerts: SessionPrepAlert[];
+  quality_hints: SessionPrepHint[];
+  active_plan_name: string | null;
+  contract_credits_remaining: number | null;
+  contract_credits_total: number | null;
+  readiness_score: number | null;
+}
+
+export interface SessionPrepResponse {
+  date: string;
+  current_time: string;
+  sessions: SessionPrepItem[];
+  non_client_events: SessionPrepItem[];
+  total_sessions: number;
+  clients_with_alerts: number;
+}
+
 export interface TrainingMethodologyPlanItem {
   plan_id: number;
   plan_nome: string;

@@ -180,3 +180,75 @@ class WorkspaceCaseDetailResponse(BaseModel):
     signals: list[WorkspaceSignal] = Field(default_factory=list)
     related_entities: list[WorkspaceRootEntity] = Field(default_factory=list)
     activity_preview: list[WorkspaceCaseActivityItem] = Field(default_factory=list)
+
+
+# ── Session Prep (cockpit chinesiologo) ──
+
+
+HealthCheckStatus = Literal["ok", "warning", "critical", "missing"]
+
+
+class SessionPrepHealthCheck(BaseModel):
+    """Singola spunta salute (anamnesi/misurazioni/scheda/programma)."""
+
+    domain: str
+    label: str
+    status: HealthCheckStatus
+    detail: str | None = None
+    days_since_last: int | None = None
+    cta_href: str | None = None
+
+
+class SessionPrepAlert(BaseModel):
+    """Alert clinico sintetico (condizione medica attiva)."""
+
+    condition_name: str
+    category: str | None = None
+
+
+class SessionPrepHint(BaseModel):
+    """Spunto qualita' servizio."""
+
+    code: str
+    text: str
+    severity: CaseSeverity = "medium"
+    cta_href: str | None = None
+
+
+class SessionPrepItem(BaseModel):
+    """Profilo operativo completo per una sessione della giornata."""
+
+    event_id: int
+    starts_at: datetime
+    ends_at: datetime | None = None
+    category: str
+    event_title: str | None = None
+    event_notes: str | None = None
+    client_id: int | None = None
+    client_name: str | None = None
+    client_age: int | None = None
+    client_sex: str | None = None
+    client_since: date | None = None
+    is_new_client: bool = False
+    total_sessions: int = 0
+    completed_sessions: int = 0
+    last_session_date: date | None = None
+    days_since_last_session: int | None = None
+    health_checks: list[SessionPrepHealthCheck] = Field(default_factory=list)
+    clinical_alerts: list[SessionPrepAlert] = Field(default_factory=list)
+    quality_hints: list[SessionPrepHint] = Field(default_factory=list)
+    active_plan_name: str | None = None
+    contract_credits_remaining: int | None = None
+    contract_credits_total: int | None = None
+    readiness_score: int | None = None
+
+
+class SessionPrepResponse(BaseModel):
+    """Risposta completa session prep per la giornata."""
+
+    date: date
+    current_time: datetime
+    sessions: list[SessionPrepItem] = Field(default_factory=list)
+    non_client_events: list[SessionPrepItem] = Field(default_factory=list)
+    total_sessions: int = 0
+    clients_with_alerts: int = 0

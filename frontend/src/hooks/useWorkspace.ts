@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import apiClient from "@/lib/api-client";
 import type {
+  SessionPrepResponse,
   WorkspaceCaseDetailResponse,
   WorkspaceCaseListResponse,
   WorkspaceTodayResponse,
@@ -78,6 +79,18 @@ export function useWorkspaceCases(query: WorkspaceCasesQuery = {}, enabled = tru
 export interface WorkspaceCaseDetailQuery {
   caseId: string;
   workspace?: "today" | "onboarding" | "programmi" | "renewals_cash";
+}
+
+export function useSessionPrep(enabled = true) {
+  return useQuery<SessionPrepResponse>({
+    queryKey: ["workspace", "session-prep"],
+    queryFn: async () => {
+      const { data } = await apiClient.get<SessionPrepResponse>("/workspace/today/session-prep");
+      return data;
+    },
+    refetchInterval: 60_000,
+    enabled,
+  });
 }
 
 export function useWorkspaceCaseDetail(query: WorkspaceCaseDetailQuery, enabled = true) {
