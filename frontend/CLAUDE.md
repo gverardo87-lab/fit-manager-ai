@@ -26,11 +26,12 @@ frontend/src/
 │   │   ├── allenamenti/     Monitoraggio compliance programmi
 │   │   ├── cassa/           5 tab: Libro Mastro, Spese Fisse, Entrate & Uscite, Scadenze, Previsioni
 │   │   ├── clienti/         Lista + [id]/ profilo + myportal/ tracking board
-│   │   ├── contratti/       Lista + [id]/ dettaglio con rate e pagamenti
+│   │   ├── contratti/       Lista + [id]/ dettaglio con rate, pagamenti e catena rinnovi
 │   │   ├── esercizi/        Lista + [id]/ dettaglio con MuscleMap SVG + tassonomia
 │   │   ├── guida/           Hub guida interattiva + SpotlightTour
 │   │   ├── impostazioni/    Account, backup/restore, saldo iniziale
 │   │   ├── oggi/            Cockpit session prep (SessionPrepCard, hero KPI, 4 sezioni urgenza)
+│   │   ├── rinnovi-incassi/ Rinnovi contratti + incassi rate (actionable, inline payment + renewal)
 │   │   └── schede/          Lista + [id]/ builder split con preview live
 │   ├── login/page.tsx       Login pubblico (mesh gradient animato + LogoIcon)
 │   ├── setup/page.tsx       Setup Wizard primo avvio (crea trainer)
@@ -47,9 +48,10 @@ frontend/src/
 │   │                        InteractiveBodyMap, SessionComparison
 │   │   └── profile/         OnboardingChecklist (5-step + hero CTA), PanoramicaTab (Journey Hub + Path Bar),
 │   │                        ContrattiTab, SessioniTab, MovimentiTab, SchedeTab, ProfileShared (skeletons+empty+CTA)
-│   ├── contracts/           ContractsTable, ContractSheet, ContractForm, ContractFinancialHero,
+│   ├── contracts/           ContractsTable, ContractSheet (renewal mode: renewContractId+renewalDefaults),
+│   │                        ContractForm (RenewalDefaults pre-fill), ContractFinancialHero,
 │   │                        PaymentPlanTab (RateCard, PayRateForm, PaymentHistory, AddRateForm),
-│   │                        RateEditDialog, RateUnpayDialog
+│   │                        RateEditDialog, RateUnpayDialog, DeleteContractDialog
 │   ├── dashboard/           TodoCard (hero actions), GhostEventsSheet, OverdueRatesSheet,
 │   │                        ExpiringContractsSheet, InactiveClientsSheet
 │   ├── exercises/           ExercisesTable, ExerciseSheet, ExerciseForm, MuscleMap SVG
@@ -526,7 +528,7 @@ type NavSection = { section: string; items: NavLink[] };
 type NavEntry = NavLink | NavSection;
 ```
 
-Struttura: Dashboard, Agenda (top-level) → Clienti (Clienti, MyPortal) → Contabilita' (Contratti, Cassa) → Allenamento (Esercizi, Schede, Monitoraggio).
+Struttura: Dashboard, Agenda (top-level) → Clienti (Clienti, MyPortal) → Contabilita' (Contratti, Cassa, Rinnovi & Incassi) → Allenamento (Esercizi, Schede, Monitoraggio).
 Guida + Impostazioni pinned in fondo. Search trigger sopra la nav. Header con `LogoIcon` SVG su sfondo teal.
 
 ## Exercise Selector — Pattern Professionale

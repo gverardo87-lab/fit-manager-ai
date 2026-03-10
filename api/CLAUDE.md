@@ -30,7 +30,7 @@ api/
 ├── models/              SQLModel ORM (table=True) — 19 modelli
 │   ├── trainer.py       trainers (tenant root, saldo_iniziale_cassa)
 │   ├── client.py        clienti
-│   ├── contract.py      contratti (+ relationships: rates, movements)
+│   ├── contract.py      contratti (+ relationships: rates, movements, rinnovo_di FK self-referencing)
 │   ├── rate.py          rate_programmate
 │   ├── event.py         agenda
 │   ├── movement.py      movimenti_cassa (ledger)
@@ -54,7 +54,7 @@ api/
 │   ├── assistant.py     Parse + commit NLP (feature flag ASSISTANT_V1_ENABLED)
 │   ├── backup.py        Backup/Restore/Export/Verify (7 endpoint, WAL-safe)
 │   ├── clients.py       CRUD clienti
-│   ├── contracts.py     CRUD contratti + batch fetch enriched
+│   ├── contracts.py     CRUD contratti + batch fetch enriched + renew (rinnovo_di FK chain)
 │   ├── dashboard.py     KPI + alerts + clinical readiness + inline resolution (8 GET, ~980 LOC)
 │   ├── exercises.py     CRUD esercizi + safety-map + tassonomia (dual session)
 │   ├── goals.py         CRUD obiettivi + progress tracking (dual session)
@@ -72,7 +72,7 @@ api/
 ├── schemas/             Pydantic v2 — 10 moduli
 │   ├── assistant.py     ParseRequest/Response, CommitRequest/Response (6 schema)
 │   ├── exercise.py      ExerciseCreate/Update/Response + media/relazioni/tassonomia
-│   ├── financial.py     Contract/Rate/Movement/Dashboard/ClinicalReadiness/PaymentReceipt DTOs
+│   ├── financial.py     Contract/Rate/Movement/Dashboard/ClinicalReadiness/PaymentReceipt/RenewalChainItem DTOs
 │   ├── goal.py          GoalCreate/Update/Response + progress
 │   ├── measurement.py   MeasurementCreate/Response + valori
 │   ├── public.py        ShareTokenCreate/Response, AnamnesiValidate/Submit (portale pubblico)
@@ -221,6 +221,10 @@ Il contratto e' il nodo centrale del sistema. 7 livelli di protezione:
     rate con date oltre il nuovo termine (422 con conteggio rate e messaggio chiaro).
 11. **Expired contract detection** (lista contratti + lista clienti): `ha_rate_scadute` considera
     tutte le rate non saldate su contratti scaduti: `or_(Rate.data_scadenza < today, Contract.data_scadenza < today)`.
+12. **Renewal chain** (`POST /contracts/{id}/renew`): crea nuovo contratto con `rinnovo_di = id`.
+    Bouncer verifica ownership originale + client (Relational IDOR). Acconto + CashMovement atomico.
+    `GET /contracts/{id}` ritorna `contratto_originale` (parent via rinnovo_di) + `rinnovi_successivi`
+    (children: contratti con `rinnovo_di = id`). Schema: `RenewalChainItem` in `financial.py`.
 
 ### Conferma & Registra (Spese Ricorrenti)
 Paradigma esplicito: l'utente vede le spese in attesa e le conferma manualmente.

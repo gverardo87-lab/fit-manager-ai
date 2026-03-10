@@ -725,6 +725,58 @@ con bordo severity-colorato + badge. Riceve `measurements`, `sesso`, `dataNascit
 **Integrazione**: `MeasurementChart` mostra `<ReferenceArea>` bande normative.
 `GoalFormDialog` mostra hint range sano sotto target. `GoalsSummary` propaga sesso/dataNascita.
 
+### Rinnovi & Incassi — Pagina Operativa Actionable
+
+> **Filosofia: ogni riga ha un'azione primaria.** Zero read-only.
+> La pagina unifica le due operazioni piu' frequenti: rinnovare contratti e incassare rate scadute.
+
+Pagina `/rinnovi-incassi` (~340 LOC). Due sezioni:
+
+1. **Contratti da rinnovare** — contratti in scadenza o scaduti con crediti residui.
+   CTA "Rinnova" apre `ContractSheet` in renewal mode (pre-compilato con tipo_pacchetto,
+   crediti, prezzo del contratto scadente). Usa `useRenewContract` hook →
+   `POST /contracts/{id}/renew` (crea contratto con FK `rinnovo_di`).
+2. **Incassi in ritardo** — rate scadute non saldate con pagamento inline
+   (metodo selezionabile + "Incassa" 1-click). Riusa `usePayRate` hook.
+
+**Backend — Renewal Endpoint** (`POST /contracts/{contract_id}/renew`):
+- Bouncer verifica ownership contratto originale + client ownership (Relational IDOR)
+- Crea nuovo contratto con `rinnovo_di = contract_id` (FK self-referencing)
+- Gestisce acconto + CashMovement se `acconto > 0`
+- Audit trail con `{"rinnovo_di": contract_id}`
+
+**Backend — Renewal Chain** (`GET /contracts/{id}` response):
+- `contratto_originale: RenewalChainItem | null` — contratto padre (via `rinnovo_di`)
+- `rinnovi_successivi: RenewalChainItem[]` — contratti figli (query: `rinnovo_di = id`)
+- `RenewalChainItem`: `{ id, tipo_pacchetto, data_inizio, data_scadenza, chiuso }`
+
+**Frontend — ContractSheet Renewal Mode**:
+- `renewContractId` prop → usa `useRenewContract` (non `useCreateContract`)
+- `renewalDefaults: RenewalDefaults` prop → pre-compila form (tipo, crediti, prezzo)
+- Client locked, bottone "Rinnova Contratto", titolo "Rinnova Contratto"
+
+**Frontend — Renewal Chain Section** (`/contratti/[id]`):
+- Breadcrumb navigabile: `Originale → Corrente → Rinnovo`
+- Solo visibile se esiste catena (parent o children)
+- Link cliccabili a ogni contratto della catena
+
+**Modello DB**: `rinnovo_di: Optional[int]` su `contratti`, index `ix_contratti_rinnovo_di`.
+Migrazione: `27b8b9852489_add_rinnovo_di_to_contratti.py`.
+
+**Hook**: `useRenewContract()` in `useContracts.ts` — invalidazione completa:
+contracts, contract, clients, client, dashboard, movements, movement-stats, aging-report,
+cash-balance, workspace.
+
+**Dati dashboard**: riusa `useExpiringContracts()` + `useOverdueRates()` (zero API aggiuntive).
+
+File chiave: `api/routers/contracts.py` (renew endpoint + chain in get_contract),
+`api/schemas/financial.py` (RenewalChainItem), `api/models/contract.py` (rinnovo_di FK),
+`frontend/src/app/(dashboard)/rinnovi-incassi/page.tsx` (pagina operativa),
+`frontend/src/components/contracts/ContractSheet.tsx` (renewal mode),
+`frontend/src/components/contracts/ContractForm.tsx` (RenewalDefaults pre-fill),
+`frontend/src/hooks/useContracts.ts` (useRenewContract),
+`frontend/src/app/(dashboard)/contratti/[id]/page.tsx` (RenewalChainSection).
+
 ### Saldo Contabile Cumulativo — Running Balance
 
 > **Filosofia: Computed on Read.** Nessun campo saldo nel DB — calcolato a runtime.
@@ -1025,6 +1077,7 @@ Il contratto e' l'entita' centrale: collega pagamenti, crediti, sessioni.
 - **Expired contract detection**: `ha_rate_scadute` include rate non saldate su contratti scaduti (`or_(rate.data_scadenza < today, contract.data_scadenza < today)`) — sia su contratti che su clienti
 - **Delete guard**: contratto eliminabile solo se zero rate non-saldate + zero crediti residui
 - **Payment history**: `receipt_map` come `dict[int, list[CashMovement]]` — storico completo per rata
+- **Renewal chain**: `rinnovo_di` FK self-referencing su contratti. `POST /contracts/{id}/renew` crea nuovo contratto linkato. `GET /contracts/{id}` ritorna `contratto_originale` (parent) + `rinnovi_successivi` (children) per navigazione catena
 
 ### 4. React Query + Toast (Frontend)
 Ogni hook: `useQuery` per lettura, `useMutation` per scrittura.
