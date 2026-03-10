@@ -27,16 +27,15 @@ import { isAuthenticated } from "@/lib/auth";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const [checked] = useState(() => {
-    if (typeof document === "undefined") return false;
-    return isAuthenticated();
-  });
+  const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    if (!checked) {
+    if (isAuthenticated()) {
+      setChecked(true);
+    } else {
       router.replace("/login");
     }
-  }, [checked, router]);
+  }, [router]);
 
   if (!checked) return null;
 

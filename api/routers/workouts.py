@@ -21,6 +21,7 @@ from api.models.trainer import Trainer
 from api.models.client import Client
 from api.models.exercise import Exercise
 from api.models.workout import WorkoutPlan, WorkoutSession, SessionBlock, WorkoutExercise
+from api.models.workout_log import WorkoutLog
 from api.schemas.workout import (
     WorkoutPlanCreate, WorkoutPlanUpdate, WorkoutSessionInput,
     WorkoutPlanResponse, WorkoutPlanListResponse,
@@ -332,9 +333,18 @@ def _collect_exercise_ids(sessions: list[WorkoutSessionInput]) -> set[int]:
 
 
 def _delete_sessions_cascade(session: Session, session_ids: list[int]) -> None:
-    """Elimina esercizi → blocchi → sessioni in ordine corretto (FK)."""
+    """Elimina log → esercizi → blocchi → sessioni in ordine corretto (FK)."""
     if not session_ids:
         return
+    # 0. Elimina workout logs che referenziano queste sessioni
+    old_logs = session.exec(
+        select(WorkoutLog).where(WorkoutLog.id_sessione.in_(session_ids))
+    ).all()
+    for log in old_logs:
+        session.delete(log)
+    if old_logs:
+        session.flush()
+
     # 1. Elimina tutti gli esercizi delle sessioni
     old_exercises = session.exec(
         select(WorkoutExercise).where(WorkoutExercise.id_sessione.in_(session_ids))

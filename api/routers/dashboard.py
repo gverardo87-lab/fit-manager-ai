@@ -664,11 +664,11 @@ def get_dashboard_alerts(
           AND cl.stato = 'Attivo'
           AND cl.deleted_at IS NULL
           AND EXISTS (
-              SELECT 1 FROM misurazioni m
+              SELECT 1 FROM misurazioni_cliente m
               WHERE m.id_cliente = cl.id
           )
           AND NOT EXISTS (
-              SELECT 1 FROM misurazioni m
+              SELECT 1 FROM misurazioni_cliente m
               WHERE m.id_cliente = cl.id
                 AND m.data_misurazione > :cutoff
           )

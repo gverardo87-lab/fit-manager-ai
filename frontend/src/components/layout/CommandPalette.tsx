@@ -754,14 +754,14 @@ export function CommandPalette() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogHeader className="sr-only">
-        <DialogTitle>Cerca</DialogTitle>
-        <DialogDescription>Cerca clienti, esercizi, pagine...</DialogDescription>
-      </DialogHeader>
       <DialogContent
         className={`gap-0 overflow-hidden p-0 ${assistantMode ? "max-w-2xl" : "max-w-3xl"}`}
         showCloseButton={false}
       >
+        <DialogHeader className="sr-only">
+          <DialogTitle>Cerca</DialogTitle>
+          <DialogDescription>Cerca clienti, esercizi, pagine...</DialogDescription>
+        </DialogHeader>
         <Command
           value={highlighted}
           onValueChange={setHighlighted}
