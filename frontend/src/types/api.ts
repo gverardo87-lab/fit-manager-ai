@@ -420,6 +420,7 @@ export interface Contract {
   stato_pagamento: string;
   note: string | null;
   chiuso: boolean;
+  rinnovo_di: number | null;
 }
 
 /** ContractListResponse — GET /api/contracts (enriched with rate KPI) */
@@ -429,6 +430,15 @@ export interface ContractListItem extends Contract {
   rate_totali: number;
   rate_pagate: number;
   ha_rate_scadute: boolean;
+}
+
+/** Minimal contract info for renewal chain display */
+export interface RenewalChainItem {
+  id: number;
+  tipo_pacchetto: string | null;
+  data_inizio: string | null;
+  data_scadenza: string | null;
+  chiuso: boolean;
 }
 
 /** ContractWithRatesResponse — GET /api/contracts/{id} */
@@ -454,6 +464,9 @@ export interface ContractWithRates extends Contract {
   sedute_completate: number;
   sedute_rinviate: number;
   crediti_residui: number;
+  // Renewal chain
+  contratto_originale: RenewalChainItem | null;
+  rinnovi_successivi: RenewalChainItem[];
 }
 
 // ════════════════════════════════════════════════════════════

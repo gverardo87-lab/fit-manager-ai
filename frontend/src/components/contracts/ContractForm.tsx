@@ -81,9 +81,18 @@ export interface ContractSubmitPayload {
   note?: string;
 }
 
+/** Pre-fill values for renewal (new contract with defaults from expiring one). */
+export interface RenewalDefaults {
+  id_cliente: number;
+  tipo_pacchetto: string;
+  crediti_totali: number;
+  prezzo_totale: number;
+}
+
 interface ContractFormProps {
   contract?: Contract | null;
   defaultClientId?: number;
+  renewalDefaults?: RenewalDefaults;
   onSubmit: (values: ContractSubmitPayload) => void;
   isPending: boolean;
   onDirtyChange?: (dirty: boolean) => void;
@@ -92,11 +101,13 @@ interface ContractFormProps {
 export function ContractForm({
   contract,
   defaultClientId,
+  renewalDefaults,
   onSubmit,
   isPending,
   onDirtyChange,
 }: ContractFormProps) {
   const isEdit = !!contract;
+  const isRenewal = !!renewalDefaults;
   const { data: clientsData } = useClients();
 
   const {
@@ -109,10 +120,10 @@ export function ContractForm({
   } = useForm<ContractFormValues>({
     resolver: zodResolver(contractSchema),
     defaultValues: {
-      id_cliente: contract?.id_cliente ?? defaultClientId ?? undefined,
-      tipo_pacchetto: contract?.tipo_pacchetto ?? "",
-      crediti_totali: contract?.crediti_totali ?? 10,
-      prezzo_totale: contract?.prezzo_totale ?? 0,
+      id_cliente: contract?.id_cliente ?? renewalDefaults?.id_cliente ?? defaultClientId ?? undefined,
+      tipo_pacchetto: contract?.tipo_pacchetto ?? renewalDefaults?.tipo_pacchetto ?? "",
+      crediti_totali: contract?.crediti_totali ?? renewalDefaults?.crediti_totali ?? 10,
+      prezzo_totale: contract?.prezzo_totale ?? renewalDefaults?.prezzo_totale ?? 0,
       data_inizio: contract?.data_inizio
         ? parseISO(contract.data_inizio)
         : undefined,
@@ -157,7 +168,7 @@ export function ContractForm({
             <Select
               value={field.value?.toString() ?? ""}
               onValueChange={(v) => field.onChange(parseInt(v, 10))}
-              disabled={isEdit}
+              disabled={isEdit || isRenewal}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Seleziona cliente..." />
@@ -324,7 +335,7 @@ export function ContractForm({
       {/* ── Submit ── */}
       <Button type="submit" className="w-full" disabled={isPending}>
         {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-        {isEdit ? "Salva Modifiche" : "Crea Contratto"}
+        {isEdit ? "Salva Modifiche" : isRenewal ? "Rinnova Contratto" : "Crea Contratto"}
       </Button>
     </form>
   );

@@ -25,6 +25,7 @@ import {
   Calendar,
   Settings2,
   AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -174,6 +175,11 @@ export default function ContractDetailPage({
       {/* ── Financial Hero KPI ── */}
       <ContractFinancialHero contract={contract} />
 
+      {/* ── Renewal chain (solo se presente) ── */}
+      {(contract.contratto_originale || contract.rinnovi_successivi.length > 0) && (
+        <RenewalChainSection contract={contract} />
+      )}
+
       {/* ── Tabs ── */}
       <Tabs defaultValue="payments">
         <TabsList>
@@ -220,6 +226,56 @@ export default function ContractDetailPage({
         onDeleted={() => router.push(backHref)}
       />
     </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// Renewal Chain (catena rinnovi)
+// ════════════════════════════════════════════════════════════
+
+import type { RenewalChainItem } from "@/types/api";
+
+function RenewalChainSection({ contract }: { contract: ContractWithRates }) {
+  return (
+    <Card>
+      <CardContent className="flex flex-col gap-2 p-4">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <RefreshCw className="h-4 w-4 text-primary" />
+          Catena rinnovi
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          {contract.contratto_originale && (
+            <RenewalChainLink item={contract.contratto_originale} label="Originale" />
+          )}
+          {contract.contratto_originale && (
+            <span className="text-muted-foreground">→</span>
+          )}
+          <span className="rounded-md border-2 border-primary/30 bg-primary/5 px-3 py-1 font-medium">
+            {contract.tipo_pacchetto ?? "Contratto corrente"}
+          </span>
+          {contract.rinnovi_successivi.map((item) => (
+            <span key={item.id} className="flex items-center gap-2">
+              <span className="text-muted-foreground">→</span>
+              <RenewalChainLink item={item} label="Rinnovo" />
+            </span>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function RenewalChainLink({ item, label }: { item: RenewalChainItem; label: string }) {
+  return (
+    <Link
+      href={`/contratti/${item.id}`}
+      className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1 transition-colors hover:bg-muted"
+    >
+      <span>{item.tipo_pacchetto ?? label}</span>
+      {item.chiuso && (
+        <Badge variant="secondary" className="h-4 px-1 text-[10px]">Chiuso</Badge>
+      )}
+    </Link>
   );
 }
 

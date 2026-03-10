@@ -118,6 +118,41 @@ export function useUpdateContract() {
   });
 }
 
+// ── Mutation: rinnova contratto ──
+
+export function useRenewContract() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      contractId,
+      ...payload
+    }: ContractCreate & { contractId: number }) => {
+      const { data } = await apiClient.post<Contract>(
+        `/contracts/${contractId}/renew`,
+        payload
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["contract"] });
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      queryClient.invalidateQueries({ queryKey: ["client"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["movements"] });
+      queryClient.invalidateQueries({ queryKey: ["movement-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["aging-report"] });
+      queryClient.invalidateQueries({ queryKey: ["cash-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["workspace"] });
+      toast.success("Contratto rinnovato");
+    },
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Errore nel rinnovo del contratto"));
+    },
+  });
+}
+
 // ── Mutation: elimina contratto ──
 
 export function useDeleteContract() {

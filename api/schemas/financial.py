@@ -109,6 +109,7 @@ class ContractResponse(BaseModel):
     stato_pagamento: str = "PENDENTE"
     note: Optional[str] = None
     chiuso: bool = False
+    rinnovo_di: Optional[int] = None
 
     model_config = {"from_attributes": True}
 
@@ -242,6 +243,15 @@ class ContractListResponse(ContractResponse):
     ha_rate_scadute: bool = False
 
 
+class RenewalChainItem(BaseModel):
+    """Minimal contract info for renewal chain display."""
+    id: int
+    tipo_pacchetto: Optional[str] = None
+    data_inizio: Optional[str] = None
+    data_scadenza: Optional[str] = None
+    chiuso: bool = False
+
+
 class ContractWithRatesResponse(ContractResponse):
     """
     Response model per contratto con lista rate embedded.
@@ -255,6 +265,10 @@ class ContractWithRatesResponse(ContractResponse):
     # ── Client info (per la pagina dettaglio) ──
     client_nome: str = ""
     client_cognome: str = ""
+
+    # ── Renewal chain ──
+    contratto_originale: Optional[RenewalChainItem] = None  # parent (rinnovo_di)
+    rinnovi_successivi: List[RenewalChainItem] = []          # children
 
     # ── KPI Computed (calcolati nel router) ──
     residuo: float = 0                  # prezzo_totale - totale_versato

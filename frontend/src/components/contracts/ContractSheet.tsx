@@ -16,8 +16,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { ContractForm, type ContractSubmitPayload } from "./ContractForm";
-import { useCreateContract, useUpdateContract } from "@/hooks/useContracts";
+import { ContractForm, type ContractSubmitPayload, type RenewalDefaults } from "./ContractForm";
+import { useCreateContract, useUpdateContract, useRenewContract } from "@/hooks/useContracts";
 import type { Contract } from "@/types/api";
 
 interface ContractSheetProps {
@@ -25,6 +25,9 @@ interface ContractSheetProps {
   onOpenChange: (open: boolean) => void;
   contract?: Contract | null;
   defaultClientId?: number;
+  /** When set, form is pre-filled and useRenewContract is used instead of useCreateContract. */
+  renewContractId?: number;
+  renewalDefaults?: RenewalDefaults;
 }
 
 export function ContractSheet({
@@ -32,12 +35,16 @@ export function ContractSheet({
   onOpenChange,
   contract,
   defaultClientId,
+  renewContractId,
+  renewalDefaults,
 }: ContractSheetProps) {
   const isEdit = !!contract;
+  const isRenewal = !!renewContractId;
   const createMutation = useCreateContract();
   const updateMutation = useUpdateContract();
+  const renewMutation = useRenewContract();
 
-  const isPending = createMutation.isPending || updateMutation.isPending;
+  const isPending = createMutation.isPending || updateMutation.isPending || renewMutation.isPending;
 
   // Protezione chiusura accidentale
   const dirtyRef = useRef(false);
@@ -51,16 +58,14 @@ export function ContractSheet({
   }, [onOpenChange]);
 
   const handleSubmit = (values: ContractSubmitPayload) => {
+    const onSuccess = () => { dirtyRef.current = false; onOpenChange(false); };
     if (isEdit) {
       const { id_cliente: _id_cliente, acconto: _acconto, metodo_acconto: _metodo_acconto, ...updatePayload } = values;
-      updateMutation.mutate(
-        { id: contract.id, ...updatePayload },
-        { onSuccess: () => { dirtyRef.current = false; onOpenChange(false); } }
-      );
+      updateMutation.mutate({ id: contract.id, ...updatePayload }, { onSuccess });
+    } else if (isRenewal && renewContractId) {
+      renewMutation.mutate({ contractId: renewContractId, ...values }, { onSuccess });
     } else {
-      createMutation.mutate(values, {
-        onSuccess: () => { dirtyRef.current = false; onOpenChange(false); },
-      });
+      createMutation.mutate(values, { onSuccess });
     }
   };
 
@@ -69,14 +74,15 @@ export function ContractSheet({
       <SheetContent className="overflow-y-auto sm:max-w-lg">
         <SheetHeader>
           <SheetTitle>
-            {isEdit ? "Modifica Contratto" : "Nuovo Contratto"}
+            {isEdit ? "Modifica Contratto" : isRenewal ? "Rinnova Contratto" : "Nuovo Contratto"}
           </SheetTitle>
         </SheetHeader>
         <div className="mt-6">
           <ContractForm
-            key={contract?.id ?? "new"}
+            key={contract?.id ?? renewContractId ?? "new"}
             contract={contract}
             defaultClientId={defaultClientId}
+            renewalDefaults={renewalDefaults}
             onSubmit={handleSubmit}
             isPending={isPending}
             onDirtyChange={handleDirtyChange}

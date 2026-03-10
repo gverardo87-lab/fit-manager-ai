@@ -27,7 +27,7 @@ from api.models.event import Event
 from api.schemas.financial import (
     ContractCreate, ContractUpdate,
     ContractResponse, ContractListResponse, ContractWithRatesResponse,
-    RateResponse, RatePaymentReceipt,
+    RateResponse, RatePaymentReceipt, RenewalChainItem,
 )
 from api.routers._audit import log_audit
 
@@ -387,6 +387,42 @@ def get_contract(
     if client:
         resp.client_nome = client.nome
         resp.client_cognome = client.cognome
+
+    # Renewal chain: parent + children (2 query leggere)
+    if contract.rinnovo_di:
+        parent = session.exec(
+            select(Contract).where(
+                Contract.id == contract.rinnovo_di,
+                Contract.trainer_id == trainer.id,
+                Contract.deleted_at == None,
+            )
+        ).first()
+        if parent:
+            resp.contratto_originale = RenewalChainItem(
+                id=parent.id,
+                tipo_pacchetto=parent.tipo_pacchetto,
+                data_inizio=str(parent.data_inizio) if parent.data_inizio else None,
+                data_scadenza=str(parent.data_scadenza) if parent.data_scadenza else None,
+                chiuso=parent.chiuso,
+            )
+    children = session.exec(
+        select(Contract).where(
+            Contract.rinnovo_di == contract_id,
+            Contract.trainer_id == trainer.id,
+            Contract.deleted_at == None,
+        ).order_by(Contract.data_inizio)
+    ).all()
+    resp.rinnovi_successivi = [
+        RenewalChainItem(
+            id=c.id,
+            tipo_pacchetto=c.tipo_pacchetto,
+            data_inizio=str(c.data_inizio) if c.data_inizio else None,
+            data_scadenza=str(c.data_scadenza) if c.data_scadenza else None,
+            chiuso=c.chiuso,
+        )
+        for c in children
+    ]
+
     return resp
 
 
@@ -679,3 +715,81 @@ def delete_contract(
         }
     log_audit(session, "contract", contract.id, "DELETE", trainer.id, audit_changes)
     session.commit()
+
+
+# ════════════════════════════════════════════════════════════
+# POST: Rinnova contratto (clone con nuove date)
+# ════════════════════════════════════════════════════════════
+
+@router.post("/{contract_id}/renew", response_model=ContractResponse, status_code=status.HTTP_201_CREATED)
+def renew_contract(
+    contract_id: int,
+    data: ContractCreate,
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """
+    Rinnova un contratto esistente creandone uno nuovo collegato.
+
+    Il nuovo contratto:
+    - Ha rinnovo_di = contract_id (catena di rinnovi)
+    - Usa i dati dal payload (il frontend pre-compila con i dati del vecchio)
+    - Segue le stesse regole di create_contract (Relational IDOR, acconto, ecc.)
+
+    Bouncer: il contratto originale deve appartenere al trainer.
+    """
+    # 1. Bouncer: verifica ownership contratto originale
+    original = session.exec(
+        select(Contract).where(
+            Contract.id == contract_id,
+            Contract.trainer_id == trainer.id,
+            Contract.deleted_at == None,
+        )
+    ).first()
+    if not original:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contratto non trovato")
+
+    # 2. Relational IDOR — il cliente deve appartenere a questo trainer
+    _check_client_ownership(session, data.id_cliente, trainer.id)
+
+    # 3. Crea contratto rinnovato con link al precedente
+    renewed = Contract(
+        trainer_id=trainer.id,
+        id_cliente=data.id_cliente,
+        tipo_pacchetto=data.tipo_pacchetto,
+        crediti_totali=data.crediti_totali,
+        prezzo_totale=data.prezzo_totale,
+        data_inizio=data.data_inizio,
+        data_scadenza=data.data_scadenza,
+        acconto=data.acconto,
+        totale_versato=data.acconto,
+        stato_pagamento="PENDENTE",
+        note=data.note,
+        rinnovo_di=contract_id,
+    )
+    session.add(renewed)
+    session.flush()
+
+    # 4. Se acconto > 0, registra nel libro mastro
+    if data.acconto > 0:
+        client = session.get(Client, data.id_cliente)
+        client_label = f"{client.nome} {client.cognome}" if client else f"Cliente #{data.id_cliente}"
+
+        movement = CashMovement(
+            trainer_id=trainer.id,
+            data_effettiva=data.data_inizio,
+            tipo="ENTRATA",
+            categoria=CATEGORIA_ACCONTO,
+            importo=data.acconto,
+            metodo=data.metodo_acconto,
+            id_cliente=data.id_cliente,
+            id_contratto=renewed.id,
+            note=f"Acconto Rinnovo Contratto - {client_label}",
+        )
+        session.add(movement)
+
+    log_audit(session, "contract", renewed.id, "CREATE", trainer.id, {"rinnovo_di": contract_id})
+    session.commit()
+    session.refresh(renewed)
+
+    return _to_response(renewed)
