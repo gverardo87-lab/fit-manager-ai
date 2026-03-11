@@ -63,10 +63,13 @@ Do not hide risks. Surface them early and explicitly.
 - Keep query invalidation symmetric across opposite operations.
 - Handle loading/error/empty states explicitly.
 - Avoid exposing sensitive data in default overview screens.
-- For dashboard visual redesigns, apply `.codex/skills/fitmanager-dashboard-crm-design` guidance.
-- For tablet/mobile UI optimization across CRM pages, apply `.codex/skills/fitmanager-responsive-adaptive-ui` guidance.
+- For dashboard overview and post-login summary redesigns, apply `.codex/skills/fitmanager-dashboard-crm-design` guidance.
+- For action-first workspaces, worklists, cockpits, and queue surfaces (for example `Oggi`, `Rinnovi & Incassi`, monitoring boards), apply `.codex/skills/fitmanager-operational-workspace-design` guidance.
+- For CRM record/detail/hub pages (for example client profile, contract detail, workout detail, entity profile surfaces), apply `.codex/skills/fitmanager-crm-record-page-design` guidance.
+- For tablet/mobile UI optimization across CRM pages, apply `.codex/skills/fitmanager-responsive-adaptive-ui` guidance while preserving the page's chosen desktop identity instead of collapsing every screen into the same template.
 - For user-guide chapter and contextual help content design, apply `.codex/skills/fitmanager-guide-content-architecture` guidance.
 - For illustrated guide assets (screenshots/callouts/step visuals), apply `.codex/skills/fitmanager-guide-illustrated-playbook` guidance.
+- When multiple UI skills apply, choose the one matching the surface type and do not force dashboard patterns onto workspaces or record pages.
 
 ### Cross-layer
 

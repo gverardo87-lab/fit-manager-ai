@@ -1,0 +1,4 @@
+interface:
+  display_name: "FitManager Operational Workspace Design"
+  short_description: "Design action-first CRM workspaces and queues."
+  default_prompt: "Use $fitmanager-operational-workspace-design to redesign this FitManager workspace around next-best-action, clearer queue dominance, and stronger case context."

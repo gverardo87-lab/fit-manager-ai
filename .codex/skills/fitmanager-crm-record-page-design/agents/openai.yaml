@@ -1,0 +1,4 @@
+interface:
+  display_name: "FitManager CRM Record Page Design"
+  short_description: "Design CRM record pages without dashboard drift."
+  default_prompt: "Use $fitmanager-crm-record-page-design to redesign this FitManager detail page as a stronger CRM record with clearer identity, actions, and canonical context."
