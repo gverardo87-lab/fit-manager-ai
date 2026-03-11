@@ -1,12 +1,13 @@
 # Responsive Density Matrix
 
 Use this matrix to keep visual density coherent while preserving touch usability and page identity.
+It is a reference, not a mandatory layout script.
 
 ## Breakpoint targets
 
 | Width | Goal | Layout rule |
 |---|---|---|
-| `<= 639px` | Touch clarity | Stack sections, compact spacing, avoid more than 2 competing cards above fold |
+| `<= 639px` | Touch clarity | Prefer a single-priority stack or compressed feed, compact spacing, avoid more than 2 competing blocks above fold |
 | `640px - 1023px` | Operational balance | Use 2-column boards, queue/detail pairs, or dossier splits only when they reinforce the desktop archetype |
 | `>= 1024px` | Scan speed | Preserve dense desktop hierarchy, asymmetric intent, and avoid mobile-driven oversizing |
 

@@ -10,6 +10,9 @@
 - Target release: `fit_launch_01`
 - Status: `done`
 
+> Historical implementation note: this density pass is preserved for traceability only.
+> It should not freeze the next visual direction of `/oggi`.
+
 ## Problem
 
 Dopo `UPG-2026-03-11-17`, `Oggi` aveva finalmente la struttura giusta ma non ancora il livello

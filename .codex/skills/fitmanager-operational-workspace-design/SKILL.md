@@ -45,9 +45,10 @@ A workspace must make the next move obvious:
    - row dossier plus compact lane headers;
    - dense ledger plus dossier;
    - compact mobile action stack.
+   These are starting grammars, not locked templates.
    Card grids are allowed only when they genuinely improve workflow.
-   If the workspace shows 4 or more live cases at once, default to dense rows or dossier strips before
-   defaulting to stacked cards.
+   If the workspace shows 4 or more live cases at once, start by testing dense rows or dossier strips
+   before defaulting to stacked cards, unless another grammar is clearly faster to act through.
 4. Keep action and context adjacent:
    - recommended action;
    - why now;
@@ -85,6 +86,7 @@ A workspace must make the next move obvious:
 - Metrics should support action, not compete with it.
 - Row dossier beats tall card repetition when the queue is dense.
 - Quick capture should minimize pre-selection friction when the real-world task starts before perfect association.
+- Archetypes are tools, not mandates.
 
 ## Red Flags
 

@@ -10,6 +10,9 @@
 - Target release: `fit_launch_01`
 - Status: `done`
 
+> Historical implementation note: this microstep records one past refactor of `/oggi`.
+> Do not treat the `queue + detail` shape described here as a locked target for future redesigns.
+
 ## Problem
 
 La spec `UPG-2026-03-11-16` ha chiarito che `Oggi` non poteva piu restare una pagina

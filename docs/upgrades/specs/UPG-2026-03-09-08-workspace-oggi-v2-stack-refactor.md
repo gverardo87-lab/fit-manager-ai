@@ -9,6 +9,9 @@
 - Priority: `high`
 - Target release: `codex_02`
 
+> Historical implementation note: this v2 stack refactor is not active layout guidance for `/oggi`.
+> Keep it only as history. For new design work, start from current route reality plus the active workspace skills.
+
 ## Problem
 
 Il primo shell frontend di `Oggi` introdotto in `UPG-2026-03-09-07` era funzionale ma concettualmente ancora troppo vicino alla dashboard:

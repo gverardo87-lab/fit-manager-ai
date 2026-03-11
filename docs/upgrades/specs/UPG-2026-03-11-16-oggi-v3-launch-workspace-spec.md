@@ -8,7 +8,10 @@
 - Area: `Workspace UX + Launch Readiness + CRM Operations`
 - Priority: `high`
 - Target release: `fit_launch_01`
-- Status: `planned`
+- Status: `superseded`
+
+> Superseded as active design guidance.
+> This v3 planning draft no longer reflects the current route and should not constrain future `/oggi` redesign work.
 
 ## Problem
 

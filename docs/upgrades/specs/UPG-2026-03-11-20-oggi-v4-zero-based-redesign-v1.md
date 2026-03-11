@@ -10,6 +10,9 @@
 - Target release: `fit_launch_01`
 - Status: `done`
 
+> Historical implementation snapshot, not current source of truth.
+> The current `/oggi` route no longer matches this spec closely enough for it to guide new redesign work directly.
+
 ## Why This Exists
 
 Dopo il benchmark `UPG-2026-03-11-19`, il verdetto e stato esplicito:

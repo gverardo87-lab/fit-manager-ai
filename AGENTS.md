@@ -15,6 +15,9 @@ Quando le istruzioni confliggono, usare questo ordine:
 6. `POSTMORTEMS.md`
 7. runbook, upgrade docs e altra documentazione solo quando servono
 
+Le spec in `docs/upgrades/specs/` sono storiche di default e guidano il lavoro attivo solo se la task
+le richiama esplicitamente o se non esiste una guida piu' recente.
+
 File legacy da non usare come nuova fonte di regole:
 
 - `CLAUDE.md`

@@ -22,7 +22,7 @@ Deliver CRM screens that stay:
    - primary metric;
    - secondary metadata.
 2. Set breakpoint behavior explicitly:
-   - mobile (`<640px`): stacked layout, compact spacing, touch-first controls;
+   - mobile (`<640px`): single-priority stack or compressed feed, compact spacing, touch-first controls;
    - tablet (`640-1023px`): restore split boards, queue/detail pairs, or dossier layouts only when they strengthen the chosen page archetype;
    - desktop (`>=1024px`): keep existing density, hierarchy, and page identity.
 3. Apply density rules:
@@ -50,6 +50,7 @@ Deliver CRM screens that stay:
 ## Reference
 
 Read `references/responsive-density-matrix.md` when tuning spacing and typography.
+Use it as a tuning aid, not as a locked layout spec.
 
 Pair this skill with the surface-specific skill that matches the page:
 
