@@ -180,91 +180,80 @@ export function WorkspaceCaseCard({
         }
       }}
       className={cn(
-        "group relative overflow-hidden rounded-[22px] border transition-all",
+        "group rounded-xl border transition-all duration-200",
         selected
-          ? "border-emerald-500/30 bg-[linear-gradient(135deg,rgba(255,255,255,0.99),rgba(240,253,250,0.96))] shadow-[0_26px_54px_-38px_rgba(13,148,136,0.45)] dark:border-emerald-400/30 dark:bg-[linear-gradient(135deg,rgba(20,24,24,0.98),rgba(18,32,30,0.98))]"
-          : "border-stone-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(248,246,242,0.98))] shadow-[0_18px_46px_-40px_rgba(41,37,36,0.28)] hover:border-stone-300 hover:shadow-[0_22px_54px_-42px_rgba(41,37,36,0.38)] dark:border-zinc-800 dark:bg-[linear-gradient(135deg,rgba(24,24,27,0.96),rgba(20,20,24,0.98))]",
+          ? "border-teal-500/30 bg-teal-50/40 shadow-sm dark:border-teal-400/20 dark:bg-teal-950/15"
+          : "border-stone-200/60 bg-white hover:-translate-y-px hover:border-stone-300/80 hover:shadow-sm dark:border-zinc-800 dark:bg-zinc-950/60 dark:hover:border-zinc-700",
       )}
     >
-      <span className={cn("absolute inset-y-0 left-0 w-1.5", accentClass)} />
+      <div className="flex items-start gap-3 px-3.5 py-3 md:items-center">
+        {/* Severity dot */}
+        <span className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full md:mt-0", accentClass)} />
 
-      <div className="grid gap-3 px-4 py-3.5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:gap-4">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className={cn("rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]", kindMeta.tone)}>
-              {kindMeta.label}
-            </span>
-            <span className={cn("rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]", severityMeta.tone)}>
-              {severityMeta.label}
-            </span>
-            <span className="rounded-full border border-stone-200/80 bg-stone-50/90 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-600 dark:border-zinc-700 dark:bg-zinc-950/70 dark:text-zinc-300">
-              {dueLabel}
+        <div className="min-w-0 flex-1">
+          {/* Title row */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <h3 className="text-[14px] font-semibold leading-5 text-stone-900 dark:text-zinc-50">
+              {item.title}
+            </h3>
+            <span className="text-[11px] font-medium text-stone-500 dark:text-zinc-400">
+              {entityLabel}
             </span>
           </div>
 
-          <div className="mt-2 min-w-0">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <h3 className="text-[15px] font-semibold leading-5 text-stone-950 dark:text-zinc-50">
-                {item.title}
-              </h3>
-              <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-stone-600 dark:bg-zinc-800 dark:text-zinc-300">
-                {entityLabel}
-              </span>
-            </div>
-            <p className="mt-1 text-[13px] leading-5 text-stone-700 dark:text-zinc-300">
-              {item.reason}
+          {/* Reason */}
+          <p className="mt-0.5 text-[12px] leading-5 text-stone-600 dark:text-zinc-400">
+            {item.reason}
+          </p>
+
+          {/* Supporting line (readiness, credits, alerts) */}
+          {supportingLine && (
+            <p className="mt-1 text-[11px] font-medium text-teal-700 dark:text-teal-400">
+              {supportingLine}
             </p>
-            {supportingLine ? (
-              <p className="mt-1.5 text-[12px] font-medium leading-5 text-stone-600 dark:text-zinc-400">
-                {supportingLine}
-              </p>
-            ) : null}
-            {financeSummary ? (
-              <p className="mt-1.5 text-[12px] font-medium leading-5 text-stone-700 dark:text-zinc-300">
-                {financeSummary}
-              </p>
-            ) : null}
-          </div>
+          )}
+          {financeSummary && (
+            <p className="mt-1 text-[11px] font-medium text-stone-600 dark:text-zinc-400">
+              {financeSummary}
+            </p>
+          )}
 
-            <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[11px] text-stone-600 dark:text-zinc-400">
-              <span className="rounded-full border border-stone-200/80 bg-white/80 px-2.5 py-1 dark:border-zinc-700 dark:bg-zinc-950/70">
-                {item.signal_count} {item.signal_count === 1 ? "segnale" : "segnali"}
-              </span>
-              {item.secondary_entity && item.root_entity.label !== entityLabel ? (
-                <span className="rounded-full border border-stone-200/80 bg-white/80 px-2.5 py-1 dark:border-zinc-700 dark:bg-zinc-950/70">
-                  {item.root_entity.label}
-                </span>
-              ) : null}
-            {!primaryAction?.enabled && primaryAction?.availability_note ? (
-              <span className="rounded-full border border-stone-200/80 bg-white/80 px-2.5 py-1 dark:border-zinc-700 dark:bg-zinc-950/70">
-                {primaryAction.availability_note}
-              </span>
-            ) : null}
+          {/* Meta pills — minimal */}
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px] text-stone-400 dark:text-zinc-500">
+            <span>{dueLabel}</span>
+            {item.signal_count > 0 && (
+              <>
+                <span className="text-stone-300 dark:text-zinc-600">&middot;</span>
+                <span>{item.signal_count} {item.signal_count === 1 ? "segnale" : "segnali"}</span>
+              </>
+            )}
+            {!primaryAction?.enabled && primaryAction?.availability_note && (
+              <>
+                <span className="text-stone-300 dark:text-zinc-600">&middot;</span>
+                <span>{primaryAction.availability_note}</span>
+              </>
+            )}
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 md:justify-end">
+        {/* CTA */}
+        <div className="flex shrink-0 items-center">
           {primaryActionHref ? (
             <Button
               asChild
               size="sm"
-              className={cn(
-                "h-9 rounded-full px-3.5 shadow-none",
-                selected
-                  ? "border-0 bg-stone-950 text-stone-50 hover:bg-stone-800 dark:bg-emerald-400 dark:text-stone-950 dark:hover:bg-emerald-300"
-                  : "border-0 bg-stone-900 text-stone-50 hover:bg-stone-800 dark:bg-zinc-100 dark:text-stone-950 dark:hover:bg-zinc-200",
-              )}
+              className="h-8 rounded-full px-3 text-xs shadow-none"
               onClick={(event) => event.stopPropagation()}
             >
               <Link href={primaryActionHref}>
                 {primaryAction.label}
-                <ArrowUpRight className="ml-1 h-3.5 w-3.5" />
+                <ArrowUpRight className="ml-1 h-3 w-3" />
               </Link>
             </Button>
           ) : (
             <Button
               size="sm"
-              className="h-9 rounded-full px-3.5"
+              className="h-8 rounded-full px-3 text-xs"
               disabled={!primaryAction?.enabled}
             >
               {primaryAction?.label ?? "Apri"}
