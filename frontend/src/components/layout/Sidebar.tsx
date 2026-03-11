@@ -76,6 +76,7 @@ const NAV_TOP: NavEntry[] = [
         href: "/monitoraggio",
         label: "Monitoraggio",
         icon: BarChart3,
+        tooltip: "Readiness clinica e onboarding clienti",
         activeMatch: (pathname) => pathname.startsWith("/monitoraggio"),
       },
     ],
@@ -83,17 +84,17 @@ const NAV_TOP: NavEntry[] = [
   {
     section: "Contabilita",
     items: [
-      { href: "/contratti", label: "Contratti", icon: FileText },
-      { href: "/rinnovi-incassi", label: "Rinnovi & Incassi", icon: HandCoins },
-      { href: "/cassa", label: "Cassa", icon: Wallet },
+      { href: "/contratti", label: "Contratti", icon: FileText, tooltip: "Pacchetti, rate e pagamenti" },
+      { href: "/rinnovi-incassi", label: "Rinnovi & Incassi", icon: HandCoins, tooltip: "Rinnova contratti e incassa rate scadute" },
+      { href: "/cassa", label: "Cassa", icon: Wallet, tooltip: "Libro mastro, spese fisse e previsioni" },
     ],
   },
   {
     section: "Allenamento",
     items: [
-      { href: "/esercizi", label: "Esercizi", icon: Dumbbell },
-      { href: "/schede", label: "Schede", icon: ClipboardList, guideId: "sidebar-schede" },
-      { href: "/allenamenti", label: "Aderenza", icon: Activity },
+      { href: "/esercizi", label: "Esercizi", icon: Dumbbell, tooltip: "Catalogo esercizi con tassonomia scientifica" },
+      { href: "/schede", label: "Schede", icon: ClipboardList, guideId: "sidebar-schede", tooltip: "Crea e gestisci schede allenamento" },
+      { href: "/allenamenti", label: "Aderenza", icon: Activity, tooltip: "Compliance e monitoraggio programmi attivi" },
     ],
   },
 ];
