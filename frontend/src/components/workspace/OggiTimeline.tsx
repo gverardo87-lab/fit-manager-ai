@@ -36,11 +36,11 @@ export function getPreFlightStatus(s: SessionPrepItem): PreFlightStatus {
 
 type LedColor = "green" | "amber" | "red" | "gray";
 
-const LED_BG: Record<LedColor, string> = {
-  green: "bg-emerald-500",
-  amber: "bg-amber-500",
-  red: "bg-red-500",
-  gray: "bg-stone-300 dark:bg-zinc-600",
+const LED_STYLE: Record<LedColor, { bg: string; glow: string }> = {
+  green: { bg: "bg-emerald-500", glow: "oklch(0.62 0.15 150 / 0.40)" },
+  amber: { bg: "bg-amber-500",   glow: "oklch(0.75 0.12 70 / 0.40)" },
+  red:   { bg: "bg-red-500",     glow: "oklch(0.55 0.15 25 / 0.40)" },
+  gray:  { bg: "bg-stone-300 dark:bg-zinc-600", glow: "none" },
 };
 
 function getHealthLed(s: SessionPrepItem): LedColor {
@@ -62,9 +62,13 @@ function getProgramLed(s: SessionPrepItem): LedColor {
 }
 
 function Led({ color, title }: { color: LedColor; title: string }) {
+  const style = LED_STYLE[color];
   return (
     <div className="group/led relative">
-      <div className={cn("h-[6px] w-[6px] rounded-full", LED_BG[color])} />
+      <div
+        className={cn("h-[6px] w-[6px] rounded-full", style.bg)}
+        style={style.glow !== "none" ? { boxShadow: `0 0 6px ${style.glow}` } : undefined}
+      />
       <div className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-stone-900 px-2 py-0.5 text-[9px] font-medium text-white opacity-0 shadow-lg transition-opacity group-hover/led:opacity-100 dark:bg-zinc-100 dark:text-stone-900">
         {title}
       </div>
@@ -101,14 +105,19 @@ function TimelineRow({
         selected && meta.glow,
       )}
       style={{
-        border: selected ? "1px solid oklch(0.70 0.12 170 / 0.2)" : "1px solid transparent",
+        /* No border — luminosity difference only */
         background: selected
-          ? "linear-gradient(135deg, oklch(0.97 0.02 170 / 0.3), oklch(0.99 0.005 170 / 0.15))"
+          ? "oklch(0.96 0.015 170 / 0.6)"
           : undefined,
       }}
     >
       {/* Timeline dot */}
-      <span className={cn("h-2 w-2 shrink-0 rounded-full", meta.dot)} />
+      <span
+        className={cn("h-2 w-2 shrink-0 rounded-full", meta.dot)}
+        style={status === "ready" || status === "risk" || status === "blocked"
+          ? { boxShadow: `0 0 5px ${status === "ready" ? "oklch(0.62 0.15 150 / 0.35)" : "oklch(0.55 0.15 25 / 0.35)"}` }
+          : undefined}
+      />
 
       {/* Time */}
       <span className="w-11 shrink-0 text-[12px] font-extrabold tabular-nums tracking-tight text-stone-600 dark:text-zinc-400">
@@ -123,7 +132,7 @@ function TimelineRow({
         {name}
       </span>
 
-      {/* LEDs */}
+      {/* LEDs — glowing dots */}
       {isClient && (
         <div className="flex items-center gap-1.5">
           <Led color={getHealthLed(session)} title="Salute" />
@@ -158,8 +167,10 @@ export function OggiTimeline({ sessions, selectedEventId, onSelect, className }:
   if (sessions.length === 0) {
     return (
       <div
-        className={cn("flex flex-col items-center justify-center rounded-2xl p-10 text-center", className)}
-        style={{ border: "1px solid oklch(0.70 0.02 250 / 0.10)" }}
+        className={cn("flex flex-col items-center justify-center rounded-2xl p-10 text-center backdrop-blur-sm", className)}
+        style={{
+          background: "oklch(0.98 0.003 200 / 0.5)",
+        }}
       >
         <CalendarClock className="h-8 w-8 text-stone-200 dark:text-zinc-700" />
         <p className="mt-3 text-sm font-bold text-stone-400 dark:text-zinc-500">Giornata libera</p>
@@ -172,14 +183,18 @@ export function OggiTimeline({ sessions, selectedEventId, onSelect, className }:
 
   return (
     <div
-      className={cn("oggi-glow-neutral flex flex-col overflow-hidden rounded-2xl", className)}
+      className={cn("oggi-glow-neutral flex flex-col overflow-hidden rounded-2xl backdrop-blur-sm", className)}
       style={{
-        border: "1px solid oklch(0.70 0.02 250 / 0.10)",
-        background: "linear-gradient(180deg, oklch(0.995 0.003 250 / 0.8), oklch(0.99 0.001 250 / 0.6))",
+        /* Glass container — no heavy border, luminosity separation */
+        background: "linear-gradient(180deg, oklch(0.99 0.003 200 / 0.7), oklch(0.98 0.002 200 / 0.5))",
+        border: "0.5px solid oklch(0.80 0.01 200 / 0.12)",
       }}
     >
       {/* Header */}
-      <div className="flex items-center gap-2.5 border-b border-stone-100/80 px-4 py-3 backdrop-blur-sm dark:border-zinc-800/80">
+      <div
+        className="flex items-center gap-2.5 px-4 py-3 backdrop-blur-sm"
+        style={{ borderBottom: "0.5px solid oklch(0.80 0.01 200 / 0.08)" }}
+      >
         <Clock className="h-3.5 w-3.5 text-stone-400 dark:text-zinc-500" />
         <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-stone-400 dark:text-zinc-500">
           Timeline

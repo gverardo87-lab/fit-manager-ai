@@ -73,8 +73,8 @@ export default function OggiWorkspacePage() {
       <div
         className="rounded-2xl p-6"
         style={{
-          border: "1px solid oklch(0.65 0.20 25 / 0.3)",
-          background: "oklch(0.97 0.01 25 / 0.5)",
+          border: "0.5px solid oklch(0.55 0.15 25 / 0.15)",
+          background: "oklch(0.98 0.005 25 / 0.3)",
         }}
       >
         <div className="flex items-start gap-3">
@@ -101,7 +101,13 @@ export default function OggiWorkspacePage() {
 
   /* ── Main: Mission Control ── */
   return (
-    <div className="space-y-4">
+    <div className="relative space-y-4">
+      {/* Refraction gradient ghost — teal ambient sphere behind timeline */}
+      <div
+        className="pointer-events-none absolute -left-24 top-32 h-[400px] w-[400px] rounded-full blur-[120px]"
+        style={{ background: "oklch(0.65 0.12 170 / 0.03)" }}
+      />
+
       {/* Hero */}
       <div className={revealClass(0)} style={revealStyle(0)}>
         <OggiHero
@@ -118,8 +124,8 @@ export default function OggiWorkspacePage() {
           <div
             className="flex items-center gap-3 rounded-xl px-4 py-2.5 backdrop-blur-sm"
             style={{
-              border: "1px solid oklch(0.70 0.02 250 / 0.08)",
-              background: "oklch(0.995 0.003 250 / 0.6)",
+              border: "0.5px solid oklch(0.80 0.01 200 / 0.08)",
+              background: "oklch(0.99 0.003 200 / 0.5)",
             }}
           >
             <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-stone-400 dark:text-zinc-500">

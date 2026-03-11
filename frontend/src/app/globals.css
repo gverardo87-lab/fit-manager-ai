@@ -241,7 +241,16 @@
     height 300ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* ── Oggi Cockpit — Atmospheric Layer ── */
+/* ── Oggi Cockpit — Atmospheric Health-Tech Layer ── */
+
+/*
+ * Palette "Obsidian & Glass":
+ *   Primary Teal (chirurgico): oklch(0.65 0.12 170)
+ *   OK aura:      oklch(0.62 0.15 150 / 0.10)
+ *   Alert aura:   oklch(0.55 0.15 25  / 0.15)
+ *   Warning aura: oklch(0.75 0.12 70  / 0.10)
+ *   Neutral:      no glow — luminosity separation only
+ */
 
 /* Luxury lift: cubic-bezier con deceleration elastica */
 .oggi-lift {
@@ -252,78 +261,84 @@
   transform: translateY(-2px);
 }
 
-/* Stato-based colored glow shadows (light mode) */
+/* Semantic glow auras (light mode) — light as refracted color, not paint */
 .oggi-glow-teal {
   box-shadow:
-    0 1px 2px oklch(0.55 0.12 170 / 0.06),
-    0 8px 24px -4px oklch(0.55 0.15 170 / 0.12),
-    0 20px 48px -8px oklch(0.55 0.15 170 / 0.08);
+    0 0 0 0.5px oklch(0.65 0.12 170 / 0.12),
+    0 4px 16px -2px oklch(0.62 0.15 150 / 0.10),
+    0 16px 40px -8px oklch(0.62 0.12 150 / 0.06);
 }
 .oggi-glow-amber {
   box-shadow:
-    0 1px 2px oklch(0.70 0.15 85 / 0.08),
-    0 8px 24px -4px oklch(0.70 0.18 85 / 0.14),
-    0 20px 48px -8px oklch(0.70 0.15 85 / 0.08);
+    0 0 0 0.5px oklch(0.75 0.12 70 / 0.10),
+    0 4px 16px -2px oklch(0.75 0.12 70 / 0.10),
+    0 16px 40px -8px oklch(0.75 0.10 70 / 0.06);
 }
 .oggi-glow-red {
   box-shadow:
-    0 1px 2px oklch(0.55 0.20 25 / 0.08),
-    0 8px 24px -4px oklch(0.55 0.22 25 / 0.12),
-    0 20px 48px -8px oklch(0.55 0.18 25 / 0.06);
+    0 0 0 0.5px oklch(0.55 0.15 25 / 0.12),
+    0 4px 16px -2px oklch(0.55 0.15 25 / 0.15),
+    0 16px 40px -8px oklch(0.55 0.12 25 / 0.08);
 }
 .oggi-glow-neutral {
-  box-shadow:
-    0 1px 2px oklch(0.40 0.01 250 / 0.04),
-    0 8px 24px -4px oklch(0.40 0.01 250 / 0.06),
-    0 20px 48px -8px oklch(0.40 0.01 250 / 0.04);
+  box-shadow: 0 1px 3px oklch(0.40 0.00 0 / 0.04);
 }
 
-/* Hover intensifica la saturazione dell'ombra */
+/* Hover: aura intensifies — chroma saturation shift */
 .oggi-lift:hover.oggi-glow-teal {
   box-shadow:
-    0 1px 2px oklch(0.55 0.15 170 / 0.08),
-    0 12px 32px -4px oklch(0.50 0.18 170 / 0.18),
-    0 24px 56px -8px oklch(0.50 0.15 170 / 0.12);
+    0 0 0 0.5px oklch(0.65 0.15 170 / 0.18),
+    0 8px 24px -2px oklch(0.62 0.18 150 / 0.16),
+    0 24px 56px -8px oklch(0.62 0.15 150 / 0.10);
+}
+.oggi-lift:hover.oggi-glow-amber {
+  box-shadow:
+    0 0 0 0.5px oklch(0.75 0.15 70 / 0.15),
+    0 8px 24px -2px oklch(0.75 0.15 70 / 0.14),
+    0 24px 56px -8px oklch(0.75 0.12 70 / 0.08);
+}
+.oggi-lift:hover.oggi-glow-red {
+  box-shadow:
+    0 0 0 0.5px oklch(0.55 0.18 25 / 0.18),
+    0 8px 24px -2px oklch(0.55 0.18 25 / 0.20),
+    0 24px 56px -8px oklch(0.55 0.15 25 / 0.12);
 }
 .oggi-lift:hover.oggi-glow-neutral {
   box-shadow:
-    0 1px 2px oklch(0.40 0.01 250 / 0.06),
-    0 12px 32px -4px oklch(0.50 0.06 170 / 0.10),
-    0 24px 56px -8px oklch(0.50 0.04 170 / 0.06);
+    0 1px 3px oklch(0.40 0.00 0 / 0.06),
+    0 8px 20px -4px oklch(0.55 0.04 170 / 0.06);
 }
 
-/* Dark mode overrides */
+/* Dark mode: auras glow against obsidian */
 .dark .oggi-glow-teal {
   box-shadow:
-    0 1px 2px oklch(0.30 0.05 170 / 0.3),
-    0 8px 24px -4px oklch(0.25 0.08 170 / 0.25),
-    0 20px 48px -8px oklch(0.20 0.06 170 / 0.20);
+    0 0 0 0.5px oklch(0.40 0.08 170 / 0.25),
+    0 4px 20px -2px oklch(0.30 0.10 170 / 0.30),
+    0 16px 48px -8px oklch(0.25 0.08 170 / 0.20);
 }
 .dark .oggi-glow-amber {
   box-shadow:
-    0 1px 2px oklch(0.35 0.08 85 / 0.3),
-    0 8px 24px -4px oklch(0.30 0.10 85 / 0.25);
+    0 0 0 0.5px oklch(0.40 0.08 70 / 0.20),
+    0 4px 20px -2px oklch(0.35 0.10 70 / 0.25);
 }
 .dark .oggi-glow-red {
   box-shadow:
-    0 1px 2px oklch(0.30 0.10 25 / 0.3),
-    0 8px 24px -4px oklch(0.25 0.12 25 / 0.25);
+    0 0 0 0.5px oklch(0.35 0.10 25 / 0.25),
+    0 4px 20px -2px oklch(0.30 0.12 25 / 0.30);
 }
 .dark .oggi-glow-neutral {
-  box-shadow:
-    0 1px 2px oklch(0.10 0.00 0 / 0.5),
-    0 8px 24px -4px oklch(0.10 0.02 200 / 0.3);
+  box-shadow: 0 1px 3px oklch(0.00 0.00 0 / 0.40);
 }
 .dark .oggi-lift:hover.oggi-glow-teal {
   box-shadow:
-    0 1px 2px oklch(0.30 0.06 170 / 0.35),
-    0 12px 32px -4px oklch(0.25 0.10 170 / 0.35),
-    0 24px 56px -8px oklch(0.20 0.08 170 / 0.25);
+    0 0 0 0.5px oklch(0.45 0.10 170 / 0.35),
+    0 8px 28px -2px oklch(0.30 0.12 170 / 0.40),
+    0 24px 56px -8px oklch(0.25 0.10 170 / 0.25);
 }
 .dark .oggi-lift:hover.oggi-glow-neutral {
   box-shadow:
-    0 1px 2px oklch(0.10 0.00 0 / 0.6),
-    0 12px 32px -4px oklch(0.15 0.04 170 / 0.20);
+    0 1px 3px oklch(0.00 0.00 0 / 0.50),
+    0 8px 20px -4px oklch(0.20 0.04 170 / 0.15);
 }
 
 /* Imminent pulse — subtle glow for sessions starting soon */
@@ -335,12 +350,12 @@
   animation: oggi-pulse 2s ease-in-out infinite;
 }
 
-/* Glass border — translucent border that catches light */
+/* Glass border — 0.5px translucent, catches ambient light */
 .oggi-glass-border {
-  border: 1px solid oklch(0.90 0.01 200 / 0.5);
+  border: 0.5px solid oklch(0.80 0.01 200 / 0.15);
 }
 .dark .oggi-glass-border {
-  border: 1px solid oklch(0.40 0.02 200 / 0.25);
+  border: 0.5px solid oklch(0.50 0.02 200 / 0.12);
 }
 
 /* ── Workout Preview: Print/PDF ── */

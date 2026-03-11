@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -44,22 +44,23 @@ function saveNote(eventId: number, text: string) {
 function Quadrant({
   icon: Icon,
   title,
-  accent,
+  accentHue,
   children,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   title: string;
-  accent?: string;
+  accentHue?: number;
   children: React.ReactNode;
 }) {
   return (
     <div
       className="flex flex-col rounded-xl p-4 backdrop-blur-sm"
       style={{
-        border: `1px solid oklch(0.70 0.02 250 / 0.08)`,
-        background: accent
-          ? `linear-gradient(145deg, oklch(0.97 0.01 ${accent} / 0.3), oklch(0.995 0.003 250 / 0.5))`
-          : "linear-gradient(145deg, oklch(0.995 0.003 250 / 0.7), oklch(0.99 0.001 250 / 0.5))",
+        /* No heavy border — 0.5px glass + luminosity +2% vs page bg */
+        border: "0.5px solid oklch(0.80 0.01 200 / 0.10)",
+        background: accentHue
+          ? `linear-gradient(145deg, oklch(0.98 0.008 ${accentHue} / 0.3), oklch(0.995 0.003 200 / 0.4))`
+          : "linear-gradient(145deg, oklch(0.995 0.003 200 / 0.6), oklch(0.99 0.002 200 / 0.4))",
       }}
     >
       <div className="mb-3 flex items-center gap-2">
@@ -81,25 +82,43 @@ interface OggiCommandCenterProps {
   className?: string;
 }
 
-export function OggiCommandCenter({ session, status, className }: OggiCommandCenterProps) {
-  const [note, setNote] = useState("");
+function PrepNotesField({ eventId }: { eventId: number }) {
+  const [note, setNote] = useState(() => loadNote(eventId));
 
-  useEffect(() => {
-    if (session?.event_id) setNote(loadNote(session.event_id));
-    else setNote("");
-  }, [session?.event_id]);
-
-  const handleNote = useCallback((text: string) => {
+  const handleNote = (text: string) => {
     setNote(text);
-    if (session?.event_id) saveNote(session.event_id, text);
-  }, [session?.event_id]);
+    saveNote(eventId, text);
+  };
+
+  return (
+    <>
+      <textarea
+        value={note}
+        onChange={(e) => handleNote(e.target.value)}
+        placeholder="Note rapide per questa sessione..."
+        rows={4}
+        className="w-full resize-none rounded-lg bg-transparent text-[12px] leading-relaxed text-stone-700 placeholder:text-stone-300 focus:outline-none dark:text-zinc-300 dark:placeholder:text-zinc-600"
+      />
+      {note.trim() && (
+        <p className="mt-1 text-[9px] text-stone-300 dark:text-zinc-600">
+          Salvato localmente
+        </p>
+      )}
+    </>
+  );
+}
+
+export function OggiCommandCenter({ session, status, className }: OggiCommandCenterProps) {
 
   /* Empty state */
   if (!session) {
     return (
       <div
-        className={cn("flex items-center justify-center rounded-2xl p-16 text-center", className)}
-        style={{ border: "1px solid oklch(0.70 0.02 250 / 0.10)" }}
+        className={cn("flex items-center justify-center rounded-2xl p-16 text-center backdrop-blur-sm", className)}
+        style={{
+          background: "oklch(0.98 0.003 200 / 0.4)",
+          border: "0.5px solid oklch(0.80 0.01 200 / 0.08)",
+        }}
       >
         <div>
           <HeartPulse className="mx-auto h-10 w-10 text-stone-200 dark:text-zinc-700" />
@@ -118,8 +137,11 @@ export function OggiCommandCenter({ session, status, className }: OggiCommandCen
   if (!session.client_id) {
     return (
       <div
-        className={cn("flex items-center justify-center rounded-2xl p-16 text-center", className)}
-        style={{ border: "1px solid oklch(0.70 0.02 250 / 0.10)" }}
+        className={cn("flex items-center justify-center rounded-2xl p-16 text-center backdrop-blur-sm", className)}
+        style={{
+          background: "oklch(0.98 0.003 200 / 0.4)",
+          border: "0.5px solid oklch(0.80 0.01 200 / 0.08)",
+        }}
       >
         <div>
           <p className="text-xl font-extrabold tracking-tight text-stone-800 dark:text-zinc-100">
@@ -145,7 +167,16 @@ export function OggiCommandCenter({ session, status, className }: OggiCommandCen
           {session.client_name}
         </h2>
         {status !== "no_client" && (
-          <span className={cn("rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider", meta.bg, meta.color)}>
+          <span
+            className={cn("rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider", meta.color)}
+            style={{
+              background: status === "ready"
+                ? "oklch(0.62 0.15 150 / 0.10)"
+                : status === "risk" || status === "blocked"
+                  ? "oklch(0.55 0.15 25 / 0.10)"
+                  : "oklch(0.75 0.12 70 / 0.10)",
+            }}
+          >
             {meta.label}
           </span>
         )}
@@ -154,7 +185,7 @@ export function OggiCommandCenter({ session, status, className }: OggiCommandCen
       {/* 4 Quadrants — Bento Grid */}
       <div className="grid gap-3 sm:grid-cols-2">
         {/* A. Clinical Readiness */}
-        <Quadrant icon={ShieldAlert} title="Readiness Clinica" accent={alertCount > 0 ? "25" : "170"}>
+        <Quadrant icon={ShieldAlert} title="Readiness Clinica" accentHue={alertCount > 0 ? 25 : 150}>
           <div className="flex items-start gap-4">
             {readiness !== null && (
               <div className="shrink-0 text-center">
@@ -179,7 +210,10 @@ export function OggiCommandCenter({ session, status, className }: OggiCommandCen
             </div>
           </div>
           {alertCount > 0 && (
-            <div className="mt-3 rounded-lg bg-red-500/8 px-3 py-2">
+            <div
+              className="mt-3 rounded-lg px-3 py-2"
+              style={{ background: "oklch(0.55 0.15 25 / 0.06)" }}
+            >
               <p className="text-[11px] font-bold text-red-700 dark:text-red-300">
                 {alertCount} alert {alertCount === 1 ? "clinico" : "clinici"}
               </p>
@@ -192,7 +226,8 @@ export function OggiCommandCenter({ session, status, className }: OggiCommandCen
           )}
           <Link
             href={appendFromParam(`/clienti/${session.client_id}`, "oggi")}
-            className="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold text-teal-700 transition-colors hover:text-teal-900 dark:text-teal-400"
+            className="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold transition-colors"
+            style={{ color: "oklch(0.50 0.10 170)" }}
           >
             Profilo completo <ArrowRight className="h-3 w-3" />
           </Link>
@@ -230,7 +265,7 @@ export function OggiCommandCenter({ session, status, className }: OggiCommandCen
             )}
           </div>
           {session.quality_hints.length > 0 && (
-            <div className="mt-3 space-y-1 border-t border-stone-100/60 pt-2 dark:border-zinc-800/40">
+            <div className="mt-3 space-y-1 pt-2" style={{ borderTop: "0.5px solid oklch(0.80 0.01 200 / 0.10)" }}>
               {session.quality_hints.slice(0, 2).map((hint, i) => (
                 <p key={i} className="text-[10px] leading-snug text-amber-700 dark:text-amber-400">
                   {hint.text}
@@ -256,14 +291,20 @@ export function OggiCommandCenter({ session, status, className }: OggiCommandCen
                 Crediti rimanenti
               </p>
               {session.contract_credits_remaining <= 2 && session.contract_credits_remaining > 0 && (
-                <div className="mt-3 rounded-lg bg-amber-500/8 px-3 py-2">
+                <div
+                  className="mt-3 rounded-lg px-3 py-2"
+                  style={{ background: "oklch(0.75 0.12 70 / 0.08)" }}
+                >
                   <p className="text-[11px] font-bold text-amber-700 dark:text-amber-300">
                     In esaurimento
                   </p>
                 </div>
               )}
               {session.contract_credits_remaining <= 0 && (
-                <div className="mt-3 rounded-lg bg-red-500/8 px-3 py-2">
+                <div
+                  className="mt-3 rounded-lg px-3 py-2"
+                  style={{ background: "oklch(0.55 0.15 25 / 0.06)" }}
+                >
                   <p className="text-[11px] font-bold text-red-700 dark:text-red-300">
                     Crediti esauriti — rinnovo necessario
                   </p>
@@ -279,18 +320,7 @@ export function OggiCommandCenter({ session, status, className }: OggiCommandCen
 
         {/* D. Prep Notes */}
         <Quadrant icon={FileText} title="Note Sessione">
-          <textarea
-            value={note}
-            onChange={(e) => handleNote(e.target.value)}
-            placeholder="Note rapide per questa sessione..."
-            rows={4}
-            className="w-full resize-none rounded-lg bg-transparent text-[12px] leading-relaxed text-stone-700 placeholder:text-stone-300 focus:outline-none dark:text-zinc-300 dark:placeholder:text-zinc-600"
-          />
-          {note.trim() && (
-            <p className="mt-1 text-[9px] text-stone-300 dark:text-zinc-600">
-              Salvato localmente
-            </p>
-          )}
+          <PrepNotesField key={session.event_id} eventId={session.event_id} />
         </Quadrant>
       </div>
     </div>

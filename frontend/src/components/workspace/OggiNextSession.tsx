@@ -154,51 +154,54 @@ export function OggiNextSession({ session, className }: OggiNextSessionProps) {
         className,
       )}
     >
-      {/* Glass border */}
+      {/* Glass border — 0.5px, semantic aura via glow class */}
       <div
         className="absolute inset-0 rounded-2xl"
         style={{
           border: isOngoing
-            ? "1px solid oklch(0.70 0.15 170 / 0.20)"
+            ? "0.5px solid oklch(0.65 0.12 170 / 0.15)"
             : isImminent
-              ? "1px solid oklch(0.75 0.14 85 / 0.20)"
-              : "1px solid oklch(0.70 0.02 250 / 0.10)",
+              ? "0.5px solid oklch(0.75 0.12 70 / 0.12)"
+              : "0.5px solid oklch(0.80 0.01 200 / 0.10)",
         }}
       />
 
-      {/* Subtle gradient background */}
+      {/* Luminosity-based background — +2% L from page bg */}
       <div
         className="absolute inset-0 rounded-2xl"
         style={{
           background: isOngoing
-            ? "linear-gradient(135deg, oklch(0.97 0.02 170 / 0.5) 0%, oklch(0.99 0.005 170 / 0.3) 100%)"
+            ? "linear-gradient(135deg, oklch(0.97 0.012 170 / 0.4) 0%, oklch(0.99 0.004 170 / 0.2) 100%)"
             : isImminent
-              ? "linear-gradient(135deg, oklch(0.97 0.02 85 / 0.4) 0%, oklch(0.99 0.005 85 / 0.2) 100%)"
-              : "linear-gradient(135deg, oklch(0.995 0.003 250 / 0.5) 0%, oklch(0.99 0.001 250 / 0.3) 100%)",
+              ? "linear-gradient(135deg, oklch(0.97 0.010 70 / 0.3) 0%, oklch(0.99 0.004 70 / 0.15) 100%)"
+              : "linear-gradient(135deg, oklch(0.995 0.003 200 / 0.4) 0%, oklch(0.99 0.002 200 / 0.25) 100%)",
         }}
       />
       <div
         className="absolute inset-0 hidden rounded-2xl dark:block"
         style={{
           background: isOngoing
-            ? "linear-gradient(135deg, oklch(0.20 0.04 170 / 0.6) 0%, oklch(0.16 0.02 170 / 0.4) 100%)"
+            ? "linear-gradient(135deg, oklch(0.20 0.03 170 / 0.5) 0%, oklch(0.16 0.02 170 / 0.3) 100%)"
             : isImminent
-              ? "linear-gradient(135deg, oklch(0.20 0.04 85 / 0.5) 0%, oklch(0.16 0.02 85 / 0.3) 100%)"
-              : "linear-gradient(135deg, oklch(0.18 0.01 250 / 0.5) 0%, oklch(0.15 0.005 250 / 0.3) 100%)",
+              ? "linear-gradient(135deg, oklch(0.20 0.03 70 / 0.4) 0%, oklch(0.16 0.02 70 / 0.25) 100%)"
+              : "linear-gradient(135deg, oklch(0.18 0.008 200 / 0.4) 0%, oklch(0.15 0.004 200 / 0.25) 100%)",
         }}
       />
 
       <div className="relative flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:gap-5">
         {/* Time block */}
         <div className="flex shrink-0 items-center gap-3 sm:flex-col sm:items-center sm:gap-1.5">
-          <div className={cn(
-            "flex items-center gap-2 rounded-xl px-3.5 py-2.5 backdrop-blur-sm",
-            isOngoing
-              ? "border border-white/[0.08] bg-teal-500/10 dark:bg-teal-400/10"
-              : isImminent
-                ? "border border-white/[0.08] bg-amber-500/10 dark:bg-amber-400/10"
-                : "border border-stone-200/40 bg-white/60 dark:border-zinc-700/30 dark:bg-zinc-800/40",
-          )}>
+          <div
+            className="flex items-center gap-2 rounded-xl px-3.5 py-2.5 backdrop-blur-sm"
+            style={{
+              border: "0.5px solid oklch(0.80 0.01 200 / 0.10)",
+              background: isOngoing
+                ? "oklch(0.62 0.15 150 / 0.08)"
+                : isImminent
+                  ? "oklch(0.75 0.12 70 / 0.08)"
+                  : "oklch(0.97 0.005 200 / 0.5)",
+            }}
+          >
             <Clock className={cn(
               "h-4 w-4",
               isOngoing ? "text-teal-600 dark:text-teal-400" : isImminent ? "text-amber-600 dark:text-amber-400" : "text-stone-400 dark:text-zinc-500",
@@ -275,12 +278,16 @@ export function OggiNextSession({ session, className }: OggiNextSessionProps) {
           <div className="flex shrink-0 items-center">
             <Link
               href={`/clienti/${session.client_id}?from=oggi`}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full px-5 py-2.5 text-[13px] font-bold transition-all duration-300",
-                isOngoing || isImminent
-                  ? "bg-teal-600 text-white shadow-md hover:bg-teal-700 hover:shadow-lg dark:bg-teal-500 dark:hover:bg-teal-600"
-                  : "border border-stone-200/60 bg-white/80 text-stone-700 shadow-sm backdrop-blur-sm hover:bg-white hover:shadow-md dark:border-zinc-700/40 dark:bg-zinc-800/60 dark:text-zinc-200 dark:hover:bg-zinc-800",
-              )}
+              className="inline-flex items-center gap-1.5 rounded-full px-5 py-2.5 text-[13px] font-bold backdrop-blur-sm transition-all duration-300"
+              style={{
+                border: "0.5px solid oklch(0.65 0.12 170 / 0.20)",
+                background: isOngoing || isImminent
+                  ? "oklch(0.65 0.12 170 / 0.12)"
+                  : "oklch(0.97 0.005 200 / 0.5)",
+                color: isOngoing || isImminent
+                  ? "oklch(0.40 0.10 170)"
+                  : "oklch(0.35 0.02 200)",
+              }}
             >
               Prepara
               <ArrowRight className="h-3.5 w-3.5" />
