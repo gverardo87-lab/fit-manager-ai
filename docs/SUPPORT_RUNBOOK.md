@@ -36,6 +36,9 @@ Usare questo documento se il problema riguarda almeno uno di questi casi:
 Per problemi di rete/Tailscale/Funnel usare questo runbook come ingresso rapido e poi
 passare a [TAILSCALE_FUNNEL_SETUP.md](/Users/gvera/Projects/FitManager_AI_Studio/docs/TAILSCALE_FUNNEL_SETUP.md).
 
+Per diagnosi shell rapide su porte locali, `health` e `license.key`, usare anche
+[RUNTIME_DIAGNOSTICS_PLAYBOOK.md](/Users/gvera/Projects/FitManager_AI_Studio/docs/RUNTIME_DIAGNOSTICS_PLAYBOOK.md).
+
 Nota aggiornata sul prodotto:
 - da `Impostazioni -> Connettivita` FitManager sa ora anche generare un link anamnesi
   monouso di prova per un cliente attivo e validarne automaticamente pagina pubblica +
@@ -87,7 +90,8 @@ Prima di toccare file o reinstallare:
 Se l'app non arriva nemmeno alla UI:
 - raccogliere comunque `data/logs/fitmanager.log`;
 - verificare che esistano `data/crm.db`, `data/catalog.db`, `data/.env`;
-- usare la sezione 7 di questo runbook.
+- usare la sezione 7 di questo runbook e il playbook shell
+  [RUNTIME_DIAGNOSTICS_PLAYBOOK.md](/Users/gvera/Projects/FitManager_AI_Studio/docs/RUNTIME_DIAGNOSTICS_PLAYBOOK.md).
 
 Se il problema riguarda il portale anamnesi pubblico ma l'app arriva alla UI:
 1. Aprire `Impostazioni -> Connettivita`.
@@ -184,6 +188,9 @@ In questo scenario:
 - non partire da restore;
 - non partire da nuova reinstallazione;
 - riposizionare prima `data\\license.key`, poi riaprire FitManager.
+
+Per i comandi esatti di conferma su `3000`, `8000` e file licenza, usare
+[RUNTIME_DIAGNOSTICS_PLAYBOOK.md](/Users/gvera/Projects/FitManager_AI_Studio/docs/RUNTIME_DIAGNOSTICS_PLAYBOOK.md).
 
 ### 5.3 Avvio corretto in produzione
 

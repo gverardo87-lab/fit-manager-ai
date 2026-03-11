@@ -230,6 +230,8 @@ Nota pratica:
 - se `localhost:3000` risponde ma le pagine vanno in errore e `localhost:8000/health`
   segnala `license key not found`, il primo controllo da fare non e il restore:
   e il riposizionamento corretto di `data\\license.key`.
+- per i comandi shell esatti e la matrice di interpretazione, usare
+  [RUNTIME_DIAGNOSTICS_PLAYBOOK.md](/Users/gvera/Projects/FitManager_AI_Studio/docs/RUNTIME_DIAGNOSTICS_PLAYBOOK.md).
 
 Se la licenza continua a non risultare valida:
 - fermati;
