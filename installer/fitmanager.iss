@@ -2,7 +2,7 @@
 ; FitManager AI Studio — Inno Setup Script
 ; ══════════════════════════════════════════════════════════════
 ;
-; Produce: FitManager_Setup_1.0.0.exe (~95 MB)
+; Produce: FitManager_Setup_1.0.2.exe (~95 MB)
 ; Requisiti: Inno Setup 6+ (winget install JRSoftware.InnoSetup)
 ;
 ; Compilazione:
@@ -17,7 +17,7 @@
 ;     data\          (creata al primo avvio, preservata sugli aggiornamenti)
 
 #define MyAppName "FitManager AI Studio"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.0.2"
 
 [Setup]
 AppName={#MyAppName}

@@ -23,6 +23,7 @@ from starlette.responses import JSONResponse
 from starlette.staticfiles import StaticFiles
 from sqlmodel import Session
 
+from api import __version__
 from api.schemas.system import HealthResponse
 from api.database import get_catalog_session, get_session
 
@@ -216,7 +217,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="FitManager AI Studio API",
-    version="1.0.0",
+    version=__version__,
     description="REST API per il CRM fitness. Multi-tenant, JWT auth, database-agnostic.",
     lifespan=lifespan,
 )

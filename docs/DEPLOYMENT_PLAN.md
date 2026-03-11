@@ -28,12 +28,12 @@
 
 ---
 
-## Release Candidate Preflight (2026-03-10)
+## Release Candidate Refresh (2026-03-11)
 
 Decisioni operative congelate prima del rebuild candidato:
 
 1. **Preflight anchor**: commit `4a19bf2` come baseline docs-first del freeze iniziale.
-2. **Versione candidata**: `1.0.0`, riallineata in backend, frontend e installer.
+2. **Versione candidata**: `1.0.2`, riallineata in backend, frontend e installer.
 3. **Policy bundle dati**:
    - `data/catalog.db` e' il catalogo canonico del prodotto e oggi espone 400 ID esercizio per il bundle release candidate;
    - `data/crm.db` nel bundle deve essere vuoto e first-run-safe.
@@ -46,11 +46,12 @@ Decisioni operative congelate prima del rebuild candidato:
 Questa sezione e' il contratto di base per ogni rebuild release candidate. Nessun installer nuovo va generato
 se questi punti non sono gia stati riflessi nella documentazione operativa e nella checklist release.
 
-### Stato Reale Del Rebuild (2026-03-10)
+### Stato Reale Del Rebuild (2026-03-11)
 
 - Build completata con `bash tools/build/build-installer.sh`
-- Artefatto prodotto: `dist/FitManager_Setup_1.0.0.exe`
-- SHA-256: `05B2AF87FD01CF1A3DC5BB3DDFCAD3785C798CFA9DE3D93480B33359F2E3DC58`
+- Artefatto prodotto: `dist/FitManager_Setup_1.0.2.exe`
+- Dimensione: `98,510,802` bytes
+- SHA-256: `9D9EF9FF22053C37EEE8B66EA41C58FA5D467395120EFE37B2AB613FFC6B51C6`
 - Reality freeze accettato senza modifiche DB:
   - `catalog.db` canonico bundle = 400 ID esercizio
   - `crm.db` locale = 396 record `in_subset=True`
@@ -73,7 +74,7 @@ Source (Git privato — MAI esposto al cliente)
 |   Output: .next/standalone/ + .next/static/
 |   Source maps: MAI distribuite
 |
-+-- installer/              <- Inno Setup -> FitManager_Setup_1.0.0.exe (~98 MB)
++-- installer/              <- Inno Setup -> FitManager_Setup_1.0.2.exe (~98 MB)
 |   fitmanager.iss          Script installer Inno Setup
 |   launcher.bat            Avvia backend + frontend + apre browser
 |   assets/                 Icone, testi, EULA (mai `license.key` cliente)
@@ -93,7 +94,7 @@ Source (Git privato — MAI esposto al cliente)
 
 ```
 1. Riceve link download (GitHub Release privato o sito web)
-2. Scarica "FitManager_Setup_1.0.0.exe" (~98MB)
+2. Scarica "FitManager_Setup_1.0.2.exe" (~98MB)
 3. Doppio click -> installer professionale
    +-----------------------------------+
    |  FitManager AI Studio             |

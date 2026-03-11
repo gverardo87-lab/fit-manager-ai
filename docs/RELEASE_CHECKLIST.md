@@ -18,14 +18,15 @@
 
 - [x] PyInstaller backend exe: `dist/fitmanager/fitmanager.exe` (bundle ~100 MB)
 - [x] Next.js standalone: `frontend/.next/standalone/server.js`
-- [x] Inno Setup installer: `dist/FitManager_Setup_1.0.0.exe` (`98,480,252` bytes)
-- [x] SHA-256 release candidate: `05B2AF87FD01CF1A3DC5BB3DDFCAD3785C798CFA9DE3D93480B33359F2E3DC58`
+- [x] Inno Setup installer: `dist/FitManager_Setup_1.0.2.exe` (`98,510,802` bytes)
+- [x] SHA-256 release candidate: `9D9EF9FF22053C37EEE8B66EA41C58FA5D467395120EFE37B2AB613FFC6B51C6`
 - [x] Launcher: `installer/launcher.bat` con `LICENSE_ENFORCEMENT_ENABLED=true`
 - [x] Node runtime: `installer/node/node.exe`
 - [x] Seed data in bundle: esercizi JSON + relazioni + media
-- [x] Versione `1.0.0` riallineata in `api/__init__.py`, `frontend/package.json` e `installer/fitmanager.iss`
+- [x] Versione `1.0.2` riallineata in `api/__init__.py`, `api/main.py`, `frontend/package.json` e `installer/fitmanager.iss`
 - [x] Nome output installer versionato e tracciabile, non solo `FitManager_Setup.exe`
 - [x] Packaging di `catalog.db` e `license_public.pem` tramite snapshot immutabili in `dist/release-data`
+- [x] Rebuild del setup dopo il fix rewrite loopback: `frontend/.next/standalone/server.js` non contiene host LAN/Tailscale/developer nei rewrite `/api`, `/health`, `/media`
 
 ## 3. License System
 
@@ -34,6 +35,7 @@
 - [x] `license.key` cliente tenuta fuori dal repository e fuori da `installer/assets`, con copia solo verso `data/license.key` sulla macchina target
 - [x] Health endpoint riporta `license_status: valid`
 - [x] Launcher impone `LICENSE_ENFORCEMENT_ENABLED=true` in produzione
+- [x] Verifica manuale post-install/post-upgrade: `data/license.key` presente nella cartella installata finale prima di interpretare errori pagina come bug runtime
 - [ ] Test enforcement negativo manuale: rimuovere `license.key` su installazione reale e verificare pagina `/licenza`
 
 ## 4. Dati e Configurazione
@@ -56,7 +58,7 @@
 - [x] Public portal attivo: token generazione + validazione funzionante
 - [x] Validazione guidata in-app del portale pubblico: link anamnesi di prova generato da `Impostazioni -> Connettivita` e verifica funzionale pagina pubblica + token (`21 passed` suite connectivity completa)
 - [ ] Test LAN da tablet/smartphone (stesso WiFi)
-- [ ] Test Tailscale VPN da rete esterna
+- [x] Test Tailscale VPN da rete esterna
 - [ ] Test anamnesi self-service da smartphone via Funnel
 
 ## 6. Backup & Restore
@@ -71,9 +73,9 @@
 
 ## 7. Test Manuali (Non Automatizzabili)
 
-- [ ] Installazione pulita su macchina Windows senza sviluppo
-- [ ] Launcher avvia backend + frontend + apre browser
-- [ ] Login con credenziali produzione
+- [x] Installazione pulita su macchina Windows senza sviluppo
+- [x] Launcher avvia backend + frontend + apre browser
+- [x] Login con credenziali produzione
 - [ ] Flusso completo: cliente -> contratto -> rata -> pagamento -> cassa
 - [ ] Flusso scheda allenamento: crea -> esercizi -> salva -> export
 - [ ] Agenda: crea evento PT -> verifica crediti scalati
@@ -91,10 +93,13 @@
 
 - **Branch**: `codex_02`
 - **Preflight anchor commit**: `4a19bf2` (docs-first)
-- **Release candidate artifact**: `dist/FitManager_Setup_1.0.0.exe`
-- **Release candidate SHA-256**: `05B2AF87FD01CF1A3DC5BB3DDFCAD3785C798CFA9DE3D93480B33359F2E3DC58`
-- **Versione candidata**: `1.0.0`
-- **Data**: 2026-03-10
+- **Release candidate artifact**: `dist/FitManager_Setup_1.0.2.exe`
+- **Release candidate SHA-256**: `9D9EF9FF22053C37EEE8B66EA41C58FA5D467395120EFE37B2AB613FFC6B51C6`
+- **Versione candidata**: `1.0.2`
+- **Data**: 2026-03-11
+
+> Nota 2026-03-11: la RC `1.0.1` gia costruita va considerata non distribuibile perche contiene
+> rewrite standalone contaminati da un host di sviluppo. La build distribuibile corrente riparte da `1.0.2`.
 
 ## Rollback
 

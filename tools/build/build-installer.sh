@@ -4,7 +4,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-INSTALLER_VERSION="1.0.0"
+INSTALLER_VERSION="1.0.2"
 ISCC_PATH=""
 SKIP_CHECKS=0
 

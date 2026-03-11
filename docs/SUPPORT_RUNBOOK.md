@@ -161,6 +161,30 @@ Verificare anche:
 - `distribution_mode = installer` oppure `source`
 - `license_enforcement_enabled = true` in produzione
 
+### 5.2a Controllo fisico obbligatorio del file
+
+Prima di classificare il problema come bug runtime, reinstallazione rotta o DB corrotto,
+verificare sempre che il file esista davvero nella cartella dati dell'installazione attiva:
+
+- `<cartella installazione>\\data\\license.key`
+
+Questo controllo e obbligatorio soprattutto dopo:
+- uninstall + reinstall;
+- upgrade in-place;
+- copia manuale di `data\\`;
+- spostamenti tra cartelle o desktop.
+
+Caso reale gia osservato:
+- `localhost:3000` raggiungibile;
+- `localhost:8000/health` risponde con licenza mancante;
+- tutte le pagine sembrano "in errore";
+- root cause reale: `license.key` spostata fuori dalla cartella `data\\` attiva.
+
+In questo scenario:
+- non partire da restore;
+- non partire da nuova reinstallazione;
+- riposizionare prima `data\\license.key`, poi riaprire FitManager.
+
 ### 5.3 Avvio corretto in produzione
 
 Le due modalita sicure sono:
@@ -182,12 +206,16 @@ Non considerare valida una sessione "prod" avviata da sorgente senza
 Procedura standard:
 
 1. Chiudere FitManager.
-2. Posizionare il nuovo file in:
+2. Individuare il percorso installato finale usato davvero dal launcher.
+3. Posizionare il nuovo file in:
    - `data/license.key`
-3. Non rinominare il file.
-4. Non aprire e non modificare il contenuto a mano.
-5. Riavviare FitManager con la modalita corretta.
-6. Verificare:
+4. Non rinominare il file.
+5. Verificare che Windows non abbia aggiunto suffissi o estensioni:
+   - `license.key.txt`
+   - `license (1).key`
+6. Non aprire e non modificare il contenuto a mano.
+7. Riavviare FitManager con la modalita corretta.
+8. Verificare:
    - `license_status = valid`
    - `license_enforcement_enabled = true` in produzione
    - apertura normale della UI senza redirect a `/licenza`
@@ -348,10 +376,11 @@ Ordine di intervento:
 
 1. Raccogliere snapshot diagnostico e log.
 2. Verificare la nuova versione visibile in `Stato installazione`.
-3. Se il problema e bloccante:
+3. Verificare subito che `data/license.key` sia ancora presente nella cartella installata finale.
+4. Se il problema e bloccante:
    - reinstallare la versione precedente disponibile
    - se necessario ripristinare il `pre_update_*.sqlite`
-4. Verificare login e flusso core:
+5. Verificare login e flusso core:
    - cliente
    - contratto
    - rata/incasso

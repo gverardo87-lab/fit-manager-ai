@@ -24,7 +24,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 def _find_installer_path() -> Path:
     candidates = sorted(PROJECT_ROOT.glob("dist/FitManager_Setup*.exe"))
     if not candidates:
-        return PROJECT_ROOT / "dist" / "FitManager_Setup_1.0.0.exe"
+        return PROJECT_ROOT / "dist" / "FitManager_Setup_1.0.2.exe"
     return max(candidates, key=lambda path: path.stat().st_mtime)
 
 

@@ -45,6 +45,8 @@ macchina guasta, usa prima [SUPPORT_RUNBOOK.md](/Users/gvera/Projects/FitManager
 - Non fare restore "per abitudine" se l'upgrade ha gia mantenuto i dati correttamente.
 - Non cambiare cartella di installazione durante l'upgrade standard.
 - Non perdere la copia esterna di `license.key` prima di iniziare.
+- Non dare per scontato che la licenza sia ancora al suo posto dopo uninstall, reinstall o
+  spostamenti manuali della cartella `data\`: va sempre ricontrollata nel percorso finale.
 
 ---
 
@@ -52,7 +54,7 @@ macchina guasta, usa prima [SUPPORT_RUNBOOK.md](/Users/gvera/Projects/FitManager
 
 Prima di iniziare devi avere:
 
-- il nuovo installer, per esempio `FitManager_Setup_1.0.0.exe`;
+- il nuovo installer, per esempio `FitManager_Setup_1.0.2.exe`;
 - accesso al FitManager attuale sul PC del trainer;
 - accesso alla cartella installata;
 - una posizione sicura dove copiare temporaneamente i file critici
@@ -97,6 +99,7 @@ Spunta ogni voce prima di lanciare il nuovo setup.
 - [ ] Ho copiato fuori dalla cartella installata `data\\license.key`.
 - [ ] Ho copiato fuori dalla cartella installata almeno `data\\backups\\`.
 - [ ] Ho identificato la cartella installata di FitManager.
+- [ ] So gia qual e il percorso finale dove dovra stare `data\\license.key` dopo l'upgrade.
 - [ ] Ho chiuso FitManager prima dell'upgrade.
 - [ ] Ho il nuovo installer pronto.
 
@@ -157,13 +160,20 @@ Esempi comuni:
 ### Step 7 - Primo avvio post-upgrade
 
 1. Avvia FitManager.
-2. Verifica che non compaia un errore bloccante.
-3. Se vieni reindirizzato a `/licenza`, passa alla sezione 9.
+2. Prima di interpretare qualsiasi errore, verifica fisicamente che esista:
+   - `<cartella installazione>\\data\\license.key`
+3. Se `license.key` manca:
+   - chiudi FitManager;
+   - copia dentro la licenza dalla tua copia esterna;
+   - riavvia FitManager.
+4. Verifica che non compaia un errore bloccante.
+5. Se vieni reindirizzato a `/licenza`, passa alla sezione 9.
 
 ### Step 8 - Verifica immediata post-upgrade
 
 Vai in `Impostazioni -> Stato installazione` e controlla:
 
+- `license.key` presente nel percorso installato finale;
 - versione aggiornata;
 - licenza valida;
 - database business raggiungibile;
@@ -206,11 +216,20 @@ Sintomi tipici:
 Procedura:
 
 1. Chiudi FitManager.
-2. Prendi la copia esterna di sicurezza di `license.key`.
-3. Copiala in:
+2. Verifica la cartella installata reale dal collegamento o dal percorso usato dal setup.
+3. Prendi la copia esterna di sicurezza di `license.key`.
+4. Copiala in:
    - `<cartella installazione>\\data\\license.key`
-4. Riavvia FitManager.
-5. Ricontrolla `Impostazioni -> Stato installazione`.
+5. Verifica che il file non sia stato rinominato in modo errato:
+   - `license.key.txt`
+   - `license (1).key`
+6. Riavvia FitManager.
+7. Ricontrolla `Impostazioni -> Stato installazione`.
+
+Nota pratica:
+- se `localhost:3000` risponde ma le pagine vanno in errore e `localhost:8000/health`
+  segnala `license key not found`, il primo controllo da fare non e il restore:
+  e il riposizionamento corretto di `data\\license.key`.
 
 Se la licenza continua a non risultare valida:
 - fermati;
@@ -261,9 +280,10 @@ Ordine corretto:
    - `license.key`
    - `backups`
 7. Installa la nuova versione nella stessa cartella.
-8. Avvia FitManager.
-9. Verifica dati e licenza.
-10. Fai restore solo se qualcosa manca.
+8. Prima del primo avvio ricopia `license.key` nella nuova cartella `data\\`.
+9. Avvia FitManager.
+10. Verifica dati e licenza.
+11. Fai restore solo se qualcosa manca.
 
 Questa strada e' piu delicata del normale upgrade in-place.
 
@@ -275,6 +295,7 @@ L'upgrade e riuscito solo se alla fine risultano veri tutti questi punti:
 
 - [ ] FitManager si apre correttamente.
 - [ ] Il login funziona.
+- [ ] `data\\license.key` e presente nella cartella installata finale.
 - [ ] La licenza risulta valida.
 - [ ] `Stato installazione` non mostra errori bloccanti.
 - [ ] I clienti reali sono presenti.

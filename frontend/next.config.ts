@@ -20,10 +20,14 @@ const nextConfig: NextConfig = {
   // Proxy /media/* al backend — rende i fetch same-origin (evita CORS su StaticFiles).
   // Mapping generico: porta frontend - 3000 + 8000 = porta backend.
   // 3000→8000 (prod), 3001→8001 (dev), 3002→8002 (installer test).
+  // IMPORTANTE: questi rewrite vengono serializzati nel server standalone buildato.
+  // Non devono mai dipendere da URL browser-facing o variabili ambiente lato client,
+  // altrimenti il bundle installer puo' congelare un host di sviluppo (LAN/Tailscale)
+  // e proxyare /api verso la macchina sbagliata sul PC del cliente.
   rewrites: async () => {
     const port = parseInt(process.env.PORT ?? "3000");
     const backendPort = port - 3000 + 8000;
-    const backendBase = process.env.NEXT_PUBLIC_API_URL ?? `http://localhost:${backendPort}`;
+    const backendBase = `http://127.0.0.1:${backendPort}`;
     return [
       {
         source: "/health",

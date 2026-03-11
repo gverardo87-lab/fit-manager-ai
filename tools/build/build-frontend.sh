@@ -34,6 +34,32 @@ if [ ! -f ".next/standalone/server.js" ]; then
 fi
 echo "✓ server.js presente"
 
+echo "→ Verifica rewrite loopback nel server standalone..."
+node <<'NODE'
+const fs = require("fs");
+
+const serverJs = fs.readFileSync(".next/standalone/server.js", "utf8");
+const nonLoopbackMatch = serverJs.match(
+  /"destination":"http:\/\/(?!127\.0\.0\.1:|localhost:)[^"]+"/
+);
+
+if (nonLoopbackMatch) {
+  console.error(
+    "ERRORE: rewrite standalone punta a un host non-loopback:",
+    nonLoopbackMatch[0]
+  );
+  process.exit(1);
+}
+
+if (!serverJs.includes('"destination":"http://127.0.0.1:')) {
+  console.error(
+    "ERRORE: rewrite standalone non contiene destinazioni loopback attese."
+  );
+  process.exit(1);
+}
+NODE
+echo "✓ rewrite standalone corretti"
+
 # ── 3. Copia static assets (non inclusi automaticamente) ──
 echo "→ Copia .next/static → standalone/.next/static..."
 cp -r .next/static .next/standalone/.next/static

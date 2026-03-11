@@ -34,6 +34,8 @@ i seguenti microstep P0:
 - `UPG-2026-03-10-18`: preflight runtime/build dell'installer (`1.0.0`, naming versionato, `build-media.sh` su `catalog.db`, `build-installer.sh`, rimozione `license.key` da repo/assets)
 - `UPG-2026-03-10-19`: release candidate `1.0.0` costruita davvero con `build-installer.sh`, freeze reale `catalog.db=400` / `crm.db locale=396`, packaging snapshot-based via `dist/release-data`
 - `UPG-2026-03-11-05`: validazione guidata del link anamnesi pubblico reale dentro `Impostazioni`, con link monouso di prova e check funzionale pagina pubblica + token
+- `UPG-2026-03-11-07`: refresh della release candidate a `1.0.1` dopo il completamento del workstream Connectivity Setup Wizard (Phase A-D) e della guida upgrade; artefatto poi invalidato da `UPG-2026-03-11-08` per rewrite standalone contaminati da host di sviluppo.
+- `UPG-2026-03-11-09`: refresh correttivo della release candidate a `1.0.2` dopo il fix loopback rewrite; nuovo artefatto rebuildato e pronto per l'upgrade in-place su PC cliente.
 
 Restano ancora aperti i gate manuali/non documentali:
 
@@ -48,16 +50,16 @@ Restano ancora aperti i gate manuali/non documentali:
 Decisioni aggiunte dopo la stesura iniziale del piano:
 
 1. **Preflight anchor**: commit `4a19bf2` come baseline docs-first iniziale
-2. **Versione candidata**: `1.0.0`, ora gia' riallineata in backend, frontend e installer
+2. **Versione candidata**: `1.0.2`, ora riallineata in backend, frontend e installer
 3. **Policy bundle dati**:
    - `catalog.db` canonico nel pacchetto, oggi congelato a 400 ID esercizio
    - `crm.db` vuoto nel bundle release candidate
 4. **Dati reali trainer**: lo stato reale di Chiara rientra solo tramite restore verificato del backup piu recente
 5. **Policy licenza**: `license.key` cliente fuori dal repository e fuori da `installer/assets`; destinazione runtime unica `data/license.key`
 6. **Freeze artefatto**:
-   - RC build eseguita il 2026-03-10
-   - artefatto: `dist/FitManager_Setup_1.0.0.exe`
-   - SHA-256: `05B2AF87FD01CF1A3DC5BB3DDFCAD3785C798CFA9DE3D93480B33359F2E3DC58`
+   - RC refresh eseguita il 2026-03-11
+   - artefatto: `dist/FitManager_Setup_1.0.2.exe`
+   - SHA-256: `9D9EF9FF22053C37EEE8B66EA41C58FA5D467395120EFE37B2AB613FFC6B51C6`
 
 ## Next Strategic Workstream After Manual Validation
 

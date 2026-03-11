@@ -1144,6 +1144,7 @@ Errori reali trovati e corretti. MAI ripeterli.
 | `<button>` nested in `<button>` | PopoverTrigger (button) dentro button nome esercizio → hydration error Next.js | SafetyPopover e name button come siblings dentro `<div>`, MAI annidati |
 | `fetch()` CORS su StaticFiles | `fetch()` cross-origin bloccato da CORS su StaticFiles backend, ma `<img>` funziona (esente da CORS) → export workout senza foto (Excel legacy e clinico HTML/PDF) | Next.js `rewrites` in `next.config.ts` proxya `/media/*` al backend → fetch same-origin. MAI `getMediaUrl()` per fetch, solo URL relativi |
 | `next.config.ts` rewrite destination hardcoded | `destination: process.env.NEXT_PUBLIC_API_URL \|\| "http://localhost:8000"` non valorizzato in dev → rewrite proxya a 8000, ma dev backend e' su 8001 → tutte le immagini 404 → export senza foto | Port-aware detection: `const port = parseInt(process.env.PORT ?? "3000"); const backendPort = port >= 3001 ? 8001 : 8000;`. `process.env.PORT` e' impostato da Next.js dalla flag `-p` a startup time (non build time) |
+| Standalone rewrite contaminato da host di sviluppo | `next.config.ts` usa `NEXT_PUBLIC_API_URL` nei rewrite server-side → il build standalone congela un IP LAN/Tailscale nel `server.js` (`/api`, `/health`, `/media`) → installer funzionante localmente in sviluppo ma rotto sul PC cliente, con tutte le pagine in errore | I rewrite del server standalone DEVONO puntare sempre a `127.0.0.1:${backendPort}`. Mai usare env browser-facing nei rewrite. Aggiungere un guard di build che fallisce se `frontend/.next/standalone/server.js` contiene destinazioni HTTP non-loopback |
 | `setattr(plan, "data_inizio", "str")` su campo Date | Schema Pydantic manda stringhe, modello SQLModel ha `Optional[date]` → SQLAlchemy non converte automaticamente | Convertire `date.fromisoformat(value)` nel router PRIMA di `setattr`. MAI passare stringhe a campi date del modello |
 | Spese annuali non confermabili | `_date_from_mese_anno_key("2026", giorno)` ritorna `None` per key annuali (formato "YYYY" senza mese) → `confirm_expenses` skippa silenziosamente | Aggiunto parametro `start_month` a `_date_from_mese_anno_key()`. Call site passa `_get_start_date(expense).month` |
 | Invalidazione rate CRUD asimmetrica | `useCreateRate`/`useUpdateRate`/`useDeleteRate`/`useGeneratePaymentPlan` invalidavano 3 query, ma `usePayRate`/`useUnpayRate` ne invalidavano 6 → pagina Cassa stale dopo CRUD rate | Aggiunte `["movements"]`, `["movement-stats"]`, `["aging-report"]` a tutte le 4 mutation |
@@ -1192,6 +1193,7 @@ Errori reali trovati e corretti. MAI ripeterli.
 | `alembic upgrade head` su tabella gia' creata da `create_db_and_tables()` | SQLModel crea le tabelle al startup prima di Alembic → migrazione fallisce con "table already exists" | `alembic stamp <revision>` per marcare la migrazione come applicata senza eseguire il DDL |
 | API proxiate via Funnel bloccate dal proxy | Rewrite `/api/*` al backend funziona, ma il proxy intercetta prima → 307 /login per chiamate senza cookie JWT (es. login, health) | `/api` aggiunto a `PUBLIC_ROUTES` in `proxy.ts`. Auth JWT gestita dal backend FastAPI, non dal proxy Next.js |
 | `getApiBaseUrl()` costruisce URL con porta su Funnel | `https://nome.ts.net` → `window.location.port = ""` → `parseInt("") = NaN` → `apiPort = NaN` → chiamate API falliscono | Detect: se HTTPS o no porta esplicita → ritorna `/api` (URL relativo, proxy Next.js). Altrimenti → mapping porta diretto |
+| Pagine tutte in errore dopo reinstall ma runtime sano | `localhost:3000` risponde, `localhost:8000/health` segnala `license key not found`, e l'utente interpreta il problema come bug di setup o dati corrotti | Prima di rifare restore o reinstallazione, verificare sempre il file fisico `data/license.key` nella cartella installata finale e ricopiarlo se e' stato spostato durante uninstall/reinstall o copie manuali |
 | **`notes` vs `note` nel payload sessioni (CRITICO PROD)** | `prepareSessionsInputForSave()` in `builder-utils.ts` costruiva il payload con `notes:` (plurale) ma `WorkoutSessionInput` backend ha campo `note:` (singolare). Con `extra: "forbid"` su Pydantic → **422 su OGNI salvataggio scheda**. Chiara ha perso 20 min di lavoro. Bug silenzioso: TypeScript non cattura typo perche' il return type e' `WorkoutSessionInput[]` ma il campo extra non causa errore TS (solo Pydantic lo rifiuta a runtime) | Rinominare `notes:` → `note:` in `builder-utils.ts:307`. **Lezione**: quando Pydantic usa `extra: "forbid"`, un singolo typo nel nome campo blocca l'intera operazione. Testare SEMPRE il payload reale con curl prima di dichiarare funzionante. Grep i nomi campo del payload vs lo schema backend dopo ogni refactor |
 | Sezioni collapsibili senza persistenza stato | `/monitoraggio` ha 3 sezioni collapsibili. Navigando via CTA a `/schede/[id]` e tornando, la pagina rimonta con default (solo "salute" aperta) → utente perde contesto sezione | `saveFilters`/`loadFilters` su sessionStorage per stato collapsed. Sidebar `clearPageState()` resetta al default. **Regola**: ogni pagina con sezioni collapsibili + link cross-page DEVE persistere lo stato visuale |
 | `AuthGuard` useState lazy init legge `document.cookie` | `useState(() => isAuthenticated())` — server: `typeof document === "undefined"` → `false` → `null`. Client: cookie presente → `true` → children. Albero SSR ≠ albero client → **hydration mismatch** su tutto il dashboard | `useState(false)` + `useEffect` che chiama `setChecked(true)` dopo mount. Server e client partono entrambi da `false` → `null` → match. L'effect lato client verifica il cookie e renderizza i children. **Regola**: MAI leggere `document`/`window`/`localStorage` in un `useState` initializer — usare sempre `useEffect` |
@@ -1454,6 +1456,10 @@ Il frontend deduce l'API URL da `window.location` a runtime:
 **VPN (Trainer)**: Tailscale (WireGuard P2P), dati P2P crittografati, zero transito su server terzi.
 **Funnel (Clienti)**: HTTPS pubblico senza installazioni, `tailscale funnel --bg 3000` (persistente).
 
+Nota operativa:
+- `trusted_devices` / accesso VPN non sostituisce il login applicativo: sul device remoto il trainer deve prima entrare in Tailscale e poi fare login FitManager nel browser;
+- il Funnel pubblico non espone il CRM completo: serve solo per route pubbliche come l'anamnesi cliente.
+
 **Setup attuale (dev gvera)**:
 - PC: `100.127.28.16` (giacomo), LAN: `192.168.1.23`
 - Funnel: `https://giacomo.tail8a3bc3.ts.net/`
@@ -1512,7 +1518,7 @@ Source (Git privato)
 |
 +-- api/           -> PyInstaller -> dist/fitmanager/fitmanager.exe (102MB)
 +-- frontend/      -> next build --standalone -> .next/standalone/ (45MB)
-+-- installer/     -> Inno Setup -> dist/FitManager_Setup_1.0.0.exe (~98MB)
++-- installer/     -> Inno Setup -> dist/FitManager_Setup_1.0.2.exe (~98MB)
 |   launcher.bat      Avvia backend + frontend + apre browser (supporta --port)
 |   fitmanager.iss    Script Inno Setup 6 (italiano, data/ preservata)
 |   node/             node.exe runtime (copiato, non committato)
@@ -1541,16 +1547,16 @@ Source (Git privato)
 Decisioni operative congelate prima del rebuild candidato:
 
 1. **Preflight anchor**: commit `4a19bf2`
-2. **Versione candidata**: `1.0.0`
+2. **Versione candidata**: `1.0.2`
 3. **Bundle dati**:
    - `catalog.db` canonico nel pacchetto, oggi congelato a 400 ID esercizio
    - `crm.db` vuoto nel bundle, first-run-safe
 4. **Dati reali Chiara**: rientrano solo tramite restore verificato del backup reale sulla release candidate
 5. **Licenza cliente**: `license.key` puo vivere solo in `data/license.key` sulla macchina installata; non deve stare nel repository o in `installer/assets`
 6. **Freeze artefatto reale**:
-   - `dist/FitManager_Setup_1.0.0.exe`
-   - `98,480,252` bytes
-   - SHA-256 `05B2AF87FD01CF1A3DC5BB3DDFCAD3785C798CFA9DE3D93480B33359F2E3DC58`
+   - `dist/FitManager_Setup_1.0.2.exe`
+   - `98,510,802` bytes
+   - SHA-256 `9D9EF9FF22053C37EEE8B66EA41C58FA5D467395120EFE37B2AB613FFC6B51C6`
 
 ### Checklist Pre-Distribuzione
 
@@ -1633,7 +1639,7 @@ bash tools/build/build-frontend.sh                        # Next.js standalone b
 bash tools/build/build-backend.sh                         # PyInstaller exe (102MB, richiede pip install pyinstaller)
 bash tools/build/build-media.sh                           # staging foto esercizi da catalog.db canonico
 ls dist/release-data                                      # snapshot packaging (`catalog.db`, `license_public.pem`)
-# Test installer: dist/FitManager_Setup_1.0.0.exe
+# Test installer: dist/FitManager_Setup_1.0.2.exe
 
 # Test E2E (richiede server avviato)
 python tools/admin_scripts/test_crud_idor.py

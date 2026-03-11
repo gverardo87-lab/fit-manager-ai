@@ -93,12 +93,14 @@ export function mapConnectivityProfile(
     case "public_portal":
       return {
         label: "Portale pubblico",
-        description: "L'istanza e pronta per dispositivi fidati e link anamnesi pubblici.",
+        description:
+          "L'istanza e pronta per dispositivi fidati e link anamnesi pubblici; il CRM completo resta protetto dal login FitManager.",
       };
     case "trusted_devices":
       return {
         label: "Dispositivi fidati",
-        description: "Tailscale e pronto per accesso remoto autenticato, senza link pubblici.",
+        description:
+          "Tailscale e pronto per accesso remoto autenticato: il device remoto deve entrare nel tailnet e poi fare login FitManager.",
       };
     default:
       return {

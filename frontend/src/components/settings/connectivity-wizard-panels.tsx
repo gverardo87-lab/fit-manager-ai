@@ -38,7 +38,7 @@ export function PrepareTailscalePanel({
           <p className="mt-1 text-muted-foreground">
             {requiresDns
               ? "Per il portale pubblico serve anche un DNS `ts.net` rilevabile dal prodotto."
-              : "Per i dispositivi fidati basta un nodo Tailscale connesso."}
+              : "Per i dispositivi fidati basta un nodo Tailscale connesso, ma il device remoto dovra comunque fare login FitManager nel browser."}
           </p>
         </div>
       </div>

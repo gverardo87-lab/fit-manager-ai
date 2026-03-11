@@ -27,6 +27,11 @@ I dati vanno direttamente dal browser al PC del trainer. Zero cloud, zero interm
 | **Trainer (fuori studio)** | Tailscale VPN | `http://100.x.x.x:3000` | App Tailscale su tablet |
 | **Cliente (anamnesi)** | Link monouso WhatsApp | `https://nome.ts.net/public/anamnesi/{token}` | Solo browser |
 
+Nota importante:
+- la modalita' **Tailscale VPN / dispositivi fidati** richiede Tailscale anche sul device remoto;
+- una volta raggiunto FitManager sull'indirizzo Tailscale, il trainer deve comunque fare il login applicativo FitManager su quel browser;
+- il **Funnel pubblico** non espone il CRM completo: serve solo per le route pubbliche, in particolare l'anamnesi cliente.
+
 ### Flusso operativo quotidiano
 
 1. Il trainer accende il PC → FitManager si avvia automaticamente (backend 8000 + frontend 3000)
@@ -103,7 +108,7 @@ Accedere a https://admin.tailscale.com con l'account del trainer.
 
 ### Fase 3 — FitManager (5 min)
 
-- [ ] 3.1 Eseguire l'ultima build `FitManager_Setup_1.0.0.exe`
+- [ ] 3.1 Eseguire l'ultima build `FitManager_Setup_1.0.2.exe`
 - [ ] 3.2 Primo avvio: completare il Setup Wizard (credenziali trainer)
 - [ ] 3.3 Attivare licenza (se richiesta)
 - [ ] 3.4 Verificare che il CRM funzioni: `http://localhost:3000` → login → navigazione OK
@@ -146,6 +151,13 @@ In quel caso riavviare FitManager dopo la modifica manuale del file `data/.env`.
 
 ### Fase 6 — Test End-to-End (3 min)
 
+- [ ] 6.0 **Test CRM su dispositivo fidato**: da tablet/telefono del trainer con Tailscale attivo
+  - installare e aprire Tailscale sul device remoto
+  - fare login nello stesso tailnet del PC studio
+  - aprire `http://<IP-Tailscale-PC>:3000` oppure `http://<dns-ts>.ts.net:3000`
+  - verificare che FitManager risponda
+  - fare login con le credenziali FitManager del trainer
+  - verificare che la sessione remota sia indipendente da `localhost`
 - [ ] 6.1 **Test login via Funnel**: da un telefono (4G, Tailscale DISABILITATO):
   - Aprire `https://<nome>.ts.net/login` → deve apparire la pagina login
   - Fare login con le credenziali → deve funzionare
@@ -166,6 +178,7 @@ In quel caso riavviare FitManager dopo la modifica manuale del file `data/.env`.
 - [ ] Comunicare il link Funnel: `https://<nome>.ts.net`
 - [ ] Spiegare: **"Il link per i clienti funziona solo quando FitManager e' aperto sul PC"**
 - [ ] Spiegare: **"Tu lavori normalmente da localhost:3000, i link per i clienti li genera il sistema"**
+- [ ] Spiegare: **"Dal tablet o da un altro dispositivo fuori studio devi prima accedere a Tailscale e poi fare anche il login FitManager su quel browser"**
 - [ ] Spiegare: **"Dal tablet puoi accedere tramite lo stesso Wi-Fi usando l'IP del PC"**
 - [ ] Annotare l'IP LAN del PC per accesso tablet: _________________ (es. `192.168.1.10`)
 - [ ] Test tablet: aprire `http://<IP-LAN>:3000` dal tablet del trainer → login → OK
