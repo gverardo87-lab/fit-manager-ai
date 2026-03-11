@@ -9,13 +9,13 @@
 
 ### Perche' NON Git
 - Una volta clonato, il cliente ha tutto il sorgente — revocare accesso non cancella il clone
-- Installazione da sorgente impossibile per un personal trainer
+- Installazione da sorgente impossibile per il target reale: chinesiologi, personal trainer e professionisti fitness a P.IVA
 - "Blocco il Git" = minaccia vuota (il codice funziona gia' in locale)
 - Immagine non professionale
 
 ### Perche' NON Docker
 - Docker Desktop su Windows: WSL2, Hyper-V, 4GB RAM overhead
-- Target = personal trainer, non sviluppatore
+- Target = chinesiologi, personal trainer e professionisti fitness a P.IVA, non sviluppatori
 - Ollama GPU passthrough in Docker su Windows = problematico
 - Revocare registry access non ferma immagini gia' pullate
 

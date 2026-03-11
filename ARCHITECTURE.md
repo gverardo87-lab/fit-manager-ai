@@ -7,7 +7,7 @@
 
 ## 1. Executive Summary
 
-FitManager AI Studio e' un CRM locale per personal trainer con focus su:
+FitManager AI Studio e' un CRM locale per chinesiologi, personal trainer e professionisti fitness a P.IVA con focus su:
 
 - affidabilita operativa quotidiana
 - privacy dei dati cliente

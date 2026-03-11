@@ -2,7 +2,7 @@
 
 > **Documento di riferimento per installazione, configurazione e troubleshooting
 > di Tailscale Funnel su FitManager AI Studio.**
-> Destinato sia allo sviluppatore che all'installatore sui PC dei clienti chinesiologi.
+> Destinato sia allo sviluppatore che all'installatore sui PC di clienti chinesiologi, personal trainer e professionisti fitness a P.IVA.
 
 ---
 

@@ -1,141 +1,128 @@
 # AGENTS.md - FitManager AI Studio
 
-This file defines how coding agents must work in this repository.
-Goal: maximize delivery speed without sacrificing reliability, privacy, and product quality.
+Questo file e' il contratto operativo unico per gli agenti che lavorano nel repository.
+Obiettivo: mantenere velocita di consegna alta senza perdere affidabilita', privacy e chiarezza.
 
-## 1) Mission
+## 1) Fonti autorevoli
 
-Build a production-grade CRM for small and medium businesses and professionals.
-Every change must improve at least one of these pillars:
+Quando le istruzioni confliggono, usare questo ordine:
 
-- operational speed
-- data reliability
-- user trust and privacy
-- maintainability and testability
+1. system/developer/runtime constraints
+2. `AGENTS.md`
+3. `MANIFESTO.md`
+4. `LAUNCH_SCOPE.md`
+5. `api/CLAUDE.md`, `frontend/CLAUDE.md`, `core/CLAUDE.md` solo per il layer toccato
+6. `POSTMORTEMS.md`
+7. runbook, upgrade docs e altra documentazione solo quando servono
 
-## 2) Rule Priority
+File legacy da non usare come nuova fonte di regole:
 
-When instructions conflict, follow this order:
+- `CLAUDE.md`
+- `codex.md`
+- `docs/ai-sync/MULTI_AGENT_SYNC.md`
 
-1. System/developer/runtime constraints
-2. This file (`AGENTS.md`)
-3. `CLAUDE.md` (root + layer-specific files)
-4. `codex.md`
-5. `docs/ai-sync/MULTI_AGENT_SYNC.md`
-6. Other documentation
+Servono solo come compatibilita' e redirect.
 
-Always choose the stricter safety/quality rule.
+## 2) Delivery Loop
 
-## 3) Execution Model (Microstep-First)
+Per ogni task:
 
-Use this loop on every task:
+1. scrivere un impact map breve:
+   - obiettivo
+   - file/layer toccati
+   - invarianti da preservare
+2. fare un microstep utile alla volta
+3. verificare subito il microstep
+4. riportare:
+   - cosa e' cambiato
+   - cosa e' stato verificato
+   - rischi/gap emersi
+   - prossimo passo minimo
 
-1. Clarify scope and constraints in one short impact map.
-2. Implement one microstep at a time.
-3. Run targeted verification immediately after each microstep.
-4. Report:
-   - what changed
-   - what was verified
-   - bugs/technical gaps/architectural risks found
+Non nascondere i rischi. Se emergono, esplicitarli presto.
 
-Do not hide risks. Surface them early and explicitly.
+## 3) Principi non negoziabili
 
-## 4) Non-Negotiable Product Principles
+- Privacy-first nelle viste visibili al cliente.
+- Dati finanziari confinati nei contesti finance dedicati.
+- Multi-tenant safety: mai bypassare ownership checks.
+- Auditabilita' per operazioni critiche.
+- Determinismo nei flussi business-critical.
+- Nessun path assoluto hardcoded.
+- Dati persistenti solo in `data/`.
+- Il CRM core deve restare usabile senza dipendenza AI obbligatoria.
 
-- Privacy-first on client-visible views.
-- Financial data is sensitive: keep it in dedicated finance contexts.
-- Multi-tenant safety: never bypass ownership checks.
-- Auditability for critical operations.
-- Deterministic behavior over "magic" behavior in business-critical flows.
-
-## 5) Engineering Guardrails
+## 4) Guardrail ingegneristici
 
 ### Backend
 
-- Preserve Bouncer Pattern and Deep Relational IDOR checks.
-- Prevent mass assignment.
-- Keep multi-entity operations atomic.
-- Keep audit logs coherent for critical state transitions.
+- Preservare Bouncer Pattern e Deep Relational IDOR checks.
+- Prevenire mass assignment.
+- Tenere atomiche le operazioni multi-entita'.
+- Mantenere audit log coerenti sulle transizioni critiche.
 
 ### Frontend
 
-- Keep API type sync with `frontend/src/types/api.ts`.
-- Keep query invalidation symmetric across opposite operations.
-- Handle loading/error/empty states explicitly.
-- Avoid exposing sensitive data in default overview screens.
-- For dashboard overview and post-login summary redesigns, apply `.codex/skills/fitmanager-dashboard-crm-design` guidance.
-- For action-first workspaces, worklists, cockpits, and queue surfaces (for example `Oggi`, `Rinnovi & Incassi`, monitoring boards), apply `.codex/skills/fitmanager-operational-workspace-design` guidance.
-- For CRM record/detail/hub pages (for example client profile, contract detail, workout detail, entity profile surfaces), apply `.codex/skills/fitmanager-crm-record-page-design` guidance.
-- For tablet/mobile UI optimization across CRM pages, apply `.codex/skills/fitmanager-responsive-adaptive-ui` guidance while preserving the page's chosen desktop identity instead of collapsing every screen into the same template.
-- For user-guide chapter and contextual help content design, apply `.codex/skills/fitmanager-guide-content-architecture` guidance.
-- For illustrated guide assets (screenshots/callouts/step visuals), apply `.codex/skills/fitmanager-guide-illustrated-playbook` guidance.
-- When multiple UI skills apply, choose the one matching the surface type and do not force dashboard patterns onto workspaces or record pages.
+- Tenere il type sync con `frontend/src/types/api.ts`.
+- Invalidare le query in modo simmetrico sulle operazioni inverse.
+- Gestire sempre loading/error/empty state.
+- Evitare dati sensibili nelle overview di default.
+- Applicare la skill piu' specifica disponibile per il surface toccato.
+- Usare skill responsive/mobile solo se il task impatta davvero il layout adattivo.
+- Usare skill guide/help solo per superfici guida.
+- Riferimento rapido:
+  - dashboard overview -> `fitmanager-dashboard-crm-design`
+  - workspace operativi -> `fitmanager-operational-workspace-design`
+  - record page CRM -> `fitmanager-crm-record-page-design`
+  - responsive/mobile -> `fitmanager-responsive-adaptive-ui`
+  - guide/help -> `fitmanager-guide-content-architecture`
+  - assets guida illustrati -> `fitmanager-guide-illustrated-playbook`
 
 ### Cross-layer
 
-- No hardcoded absolute paths.
-- Persist business data in `data/`.
-- Keep core CRM usable without mandatory AI dependency.
-- For assistant-to-guide routing and NLP/NPL help integration, apply `.codex/skills/fitmanager-assistant-guide-linking` with API/frontend safety guardrails.
+- Nessuna nuova policy di prodotto inventata nei docs o nel codice.
+- I documenti storici non devono diventare regole operative.
+- Per assistant/help routing usare `fitmanager-assistant-guide-linking` con guardrail API/frontend.
+- Preferire la soluzione piu' semplice e robusta compatibile con il launch scope.
+- Evitare refactor larghi, nuove astrazioni o nuova documentazione se non richiesti dal task.
 
-## 6) Mandatory Technical Review per Change
+## 5) Collaborazione e documentazione
 
-For every implemented microstep, quickly scan for:
+Quando la task tocca codice condiviso, piu' file o governance/processo, il claim su `docs/ai-sync/WORKBOARD.md` e' obbligatorio:
 
-- regressions
-- hidden coupling
-- stale query state risks
-- data consistency gaps
-- security/privacy leaks
-- architectural debt that can break scale
+1. claim su `docs/ai-sync/WORKBOARD.md` prima di editare
+2. `Locked files` aggiornati ai path reali
+3. nessun edit su file lockato senza handoff esplicito
+4. a fine task: checks reali, rilascio lock, note sui rischi
 
-If found, document them and propose the next smallest corrective step.
+Sincronizzare `docs/upgrades/*` solo quando cambia comportamento, architettura, processo o workflow di delivery.
+`WORKBOARD.md` e `UPGRADE_LOG.md` sono ledger operativi/storici, non sorgenti di verita' per le regole del prodotto.
 
-## 7) Quality Gates
+## 6) Quality Gates
 
 Baseline:
 
-- run relevant lint/tests for touched scope
+- eseguire lint/test rilevanti per lo scope toccato
 
-When relevant:
+Quando rilevante:
 
-- DB/schema changes: migration + backend tests
-- accounting/cash logic: targeted ledger integrity checks
-- safety engine logic: dedicated clinical QA scripts
-- installer/backup changes: backup -> mutate -> restore validation flow
-- guide/help changes: chapter coverage audit across CRM routes + link integrity + responsive pass (390px, 768px, 1024px)
+- DB/schema -> migrazione + test backend pertinenti
+- cash/ledger -> controlli mirati di integrita' contabile
+- safety engine -> QA clinica dedicata
+- backup/installer -> backup -> mutate -> restore
+- guide/help -> audit copertura + link integrity + responsive pass
+- docs/process -> review manuale di coerenza cross-doc
 
-Do not claim done without verification evidence.
+Mai dichiarare "done" senza evidenza di verifica.
 
-## 8) Documentation Sync Policy
+## 7) Commit Standard
 
-When behavior changes, update in the same branch:
-
-- `docs/upgrades/UPGRADE_LOG.md`
-- `docs/upgrades/README.md` (if latest alignment changes)
-- spec in `docs/upgrades/specs/` for medium/high-impact changes
-- `docs/ai-sync/WORKBOARD.md` when applicable
-
-Docs are part of the deliverable, not optional cleanup.
-
-## 9) MCP and External Knowledge
-
-If MCP servers are configured:
-
-- prefer primary/official sources
-- use MCP for fast verification of evolving external APIs
-- avoid relying on stale memory for time-sensitive facts
-
-If MCP is unavailable, use local docs and state uncertainty clearly.
-
-## 10) Commit Standard
-
-Commit only cohesive, verified units.
-Commit message format should be domain-first and explicit, for example:
+Commit solo di unita' coese e verificabili.
+Formato messaggio:
 
 - `dashboard: ...`
 - `api: ...`
 - `docs: ...`
 - `installer: ...`
 
-Each commit should leave the branch in a releasable state for its scope.
+Ogni commit deve lasciare il branch rilasciabile per il proprio scope.

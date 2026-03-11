@@ -1,6 +1,6 @@
 # FitManager AI Studio
 
-CRM locale per personal trainer e professionisti fitness.
+CRM locale per chinesiologi, personal trainer e professionisti fitness a P.IVA.
 Obiettivo attuale: trasformare il repository da "prodotto in sviluppo" a baseline affidabile per il lancio.
 
 ## Cosa copre oggi
