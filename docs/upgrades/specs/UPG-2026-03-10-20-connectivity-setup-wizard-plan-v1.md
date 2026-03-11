@@ -131,10 +131,16 @@ Decisione:
   - verifica on-demand dell'origine pubblica via `{PUBLIC_BASE_URL}/health`
   - pannello `Verifica finale` in `Impostazioni` con verdetto `ready | partial | blocked`
   - distinzione esplicita tra configurazione salvata e configurazione davvero verificata
-- Stato attuale: il prodotto sa leggere e spiegare lo stato reale della macchina, ma non
-  offre ancora il wizard passo-passo completo. La verifica end-to-end minima del portale
-  pubblico esiste ora, ma non sostituisce ancora il futuro stepper guidato ne il test
-  funzionale completo del link anamnesi.
+- `Phase C - Wizard Stepper`: chiuso con `UPG-2026-03-11-04`
+  - nuova orchestration frontend `ConnectivitySetupWizard` dentro `Impostazioni`
+  - stepper guidato a 5 step con gating puro su `read/apply/verify`
+  - logica wizard estratta in helper testabile (`buildConnectivityWizardState`)
+  - pannelli separati per `Tailscale`, `apply`, `Funnel` e `verify`
+  - verifica frontend dedicata: `5 passed` su Vitest per la state machine del wizard
+- Stato attuale: il prodotto sa leggere, spiegare, applicare e verificare la connettivita,
+  e ora offre anche un percorso guidato dentro `Impostazioni`. Resta ancora aperto il
+  passo finale di prodotto: validare il link anamnesi pubblico in modo funzionale e poi
+  decidere se promuovere il wizard anche nel first-run post-installazione.
 
 ### 1. Runtime Service Backend
 
