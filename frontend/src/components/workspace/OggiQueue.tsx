@@ -48,18 +48,23 @@ function LaneSection({
             "h-1.5 w-1.5 rounded-full",
             section.bucket === "now" ? "bg-red-500" :
             section.bucket === "today" ? "bg-amber-500" :
-            "bg-stone-400 dark:bg-zinc-500",
+            "bg-stone-300 dark:bg-zinc-600",
           )}
         />
         <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500 dark:text-zinc-400">
           {LANE_HINT[section.bucket] ?? meta.label}
         </span>
-        <span className="text-[11px] font-semibold tabular-nums text-stone-400 dark:text-zinc-500">
+        <span className="text-[11px] tabular-nums text-stone-400 dark:text-zinc-500">
           {section.total}
         </span>
       </div>
 
-      <div className="space-y-1.5">
+      <div className={cn(
+        "space-y-1.5 border-l-2 pl-3 ml-[2.5px]",
+        section.bucket === "now" ? "border-red-200 dark:border-red-900/40" :
+        section.bucket === "today" ? "border-amber-200 dark:border-amber-900/40" :
+        "border-stone-200/50 dark:border-zinc-800",
+      )}>
         {section.items.map((item) => (
           <WorkspaceCaseCard
             key={item.case_id}
@@ -154,14 +159,14 @@ export function OggiQueue({
   const hasAnyCases = sections.some((s) => s.total > 0 || s.items.length > 0);
 
   return (
-    <section className={cn("flex flex-col overflow-hidden rounded-2xl border border-stone-200/60 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950/80", className)}>
+    <section className={cn("oggi-glow-neutral flex flex-col overflow-hidden rounded-2xl dark:bg-zinc-950/80", className)} style={{ border: "1px solid oklch(0.70 0.02 250 / 0.10)", background: "linear-gradient(180deg, oklch(0.995 0.003 250 / 0.8) 0%, oklch(0.99 0.001 250 / 0.6) 100%)" }}>
       {/* Header */}
-      <div className="border-b border-stone-100 px-4 py-3 dark:border-zinc-800/80">
+      <div className="border-b border-stone-100/80 px-4 py-3 backdrop-blur-sm dark:border-zinc-800/80">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <LayoutList className="h-4 w-4 text-stone-400 dark:text-zinc-500" />
             <h2 className="text-sm font-semibold text-stone-900 dark:text-zinc-100">
-              Casi operativi
+              Da fare
             </h2>
           </div>
           <div className="flex items-center gap-1">

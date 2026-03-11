@@ -180,11 +180,23 @@ export function WorkspaceCaseCard({
         }
       }}
       className={cn(
-        "group rounded-xl border transition-all duration-200",
+        "oggi-lift group relative rounded-xl",
         selected
-          ? "border-teal-500/30 bg-teal-50/40 shadow-sm dark:border-teal-400/20 dark:bg-teal-950/15"
-          : "border-stone-200/60 bg-white hover:-translate-y-px hover:border-stone-300/80 hover:shadow-sm dark:border-zinc-800 dark:bg-zinc-950/60 dark:hover:border-zinc-700",
+          ? "oggi-glow-teal"
+          : item.severity === "critical"
+            ? "oggi-glow-red"
+            : item.severity === "high"
+              ? "oggi-glow-amber"
+              : "oggi-glow-neutral",
       )}
+      style={{
+        border: selected
+          ? "1px solid oklch(0.70 0.15 170 / 0.25)"
+          : "1px solid oklch(0.70 0.02 250 / 0.10)",
+        background: selected
+          ? "linear-gradient(135deg, oklch(0.97 0.02 170 / 0.4) 0%, oklch(0.99 0.005 170 / 0.2) 100%)"
+          : "linear-gradient(135deg, oklch(0.995 0.003 250 / 0.6), oklch(0.99 0.001 250 / 0.4))",
+      }}
     >
       <div className="flex items-start gap-3 px-3.5 py-3 md:items-center">
         {/* Severity dot */}
@@ -193,7 +205,7 @@ export function WorkspaceCaseCard({
         <div className="min-w-0 flex-1">
           {/* Title row */}
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <h3 className="text-[14px] font-semibold leading-5 text-stone-900 dark:text-zinc-50">
+            <h3 className="text-[14px] font-bold leading-5 tracking-tight text-stone-900 dark:text-zinc-50">
               {item.title}
             </h3>
             <span className="text-[11px] font-medium text-stone-500 dark:text-zinc-400">
@@ -208,7 +220,7 @@ export function WorkspaceCaseCard({
 
           {/* Supporting line (readiness, credits, alerts) */}
           {supportingLine && (
-            <p className="mt-1 text-[11px] font-medium text-teal-700 dark:text-teal-400">
+            <p className="mt-1 text-[11px] font-semibold text-teal-700 dark:text-teal-400">
               {supportingLine}
             </p>
           )}
@@ -239,17 +251,14 @@ export function WorkspaceCaseCard({
         {/* CTA */}
         <div className="flex shrink-0 items-center">
           {primaryActionHref ? (
-            <Button
-              asChild
-              size="sm"
-              className="h-8 rounded-full px-3 text-xs shadow-none"
+            <Link
+              href={primaryActionHref}
               onClick={(event) => event.stopPropagation()}
+              className="inline-flex h-8 items-center gap-1 rounded-full border border-stone-200/50 bg-white/80 px-3 text-xs font-semibold text-stone-700 shadow-sm backdrop-blur-sm transition-all duration-300 hover:bg-white hover:shadow-md dark:border-zinc-700/40 dark:bg-zinc-800/60 dark:text-zinc-200 dark:hover:bg-zinc-800"
             >
-              <Link href={primaryActionHref}>
-                {primaryAction.label}
-                <ArrowUpRight className="ml-1 h-3 w-3" />
-              </Link>
-            </Button>
+              {primaryAction.label}
+              <ArrowUpRight className="h-3 w-3" />
+            </Link>
           ) : (
             <Button
               size="sm"

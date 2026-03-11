@@ -6,15 +6,16 @@ import { ArrowRight, CalendarClock, ShieldAlert } from "lucide-react";
 
 import { getGreeting } from "@/lib/dashboard-helpers";
 import { getStoredTrainer } from "@/lib/auth";
+import { cn } from "@/lib/utils";
 import type { SessionPrepResponse, WorkspaceTodayResponse } from "@/types/api";
 
-/* ── Progress Ring SVG ── */
+/* ── Conic-Gradient Progress Ring (OLED-feel) ── */
 
 function ProgressRing({
   completed,
   total,
-  size = 80,
-  strokeWidth = 6,
+  size = 88,
+  strokeWidth = 7,
 }: {
   completed: number;
   total: number;
@@ -27,41 +28,44 @@ function ProgressRing({
   const offset = circumference - ratio * circumference;
   const isDone = total > 0 && completed >= total;
 
+  // Conic gradient via CSS background on a ring div
+  const conicAngle = ratio * 360;
+
   return (
-    <div className="relative">
-      <svg
-        width={size}
-        height={size}
-        viewBox={`0 0 ${size} ${size}`}
-        className="motion-reduce:transition-none"
-      >
+    <div className="relative" style={{ width: size, height: size }}>
+      {/* Conic gradient background ring */}
+      <div
+        className="absolute inset-0 rounded-full"
+        style={{
+          background: isDone
+            ? `conic-gradient(from -90deg, oklch(0.80 0.18 155), oklch(0.75 0.16 170), oklch(0.80 0.18 155))`
+            : `conic-gradient(from -90deg, oklch(0.80 0.14 170) 0deg, oklch(0.90 0.12 160) ${conicAngle * 0.5}deg, oklch(0.80 0.14 170) ${conicAngle}deg, transparent ${conicAngle}deg)`,
+          mask: `radial-gradient(farthest-side, transparent ${radius - strokeWidth / 2}px, #000 ${radius - strokeWidth / 2}px ${radius + strokeWidth / 2}px, transparent ${radius + strokeWidth / 2}px)`,
+          WebkitMask: `radial-gradient(farthest-side, transparent ${radius - strokeWidth / 2}px, #000 ${radius - strokeWidth / 2}px ${radius + strokeWidth / 2}px, transparent ${radius + strokeWidth / 2}px)`,
+          opacity: 0.2,
+        }}
+      />
+      {/* SVG stroke ring (sharp, animated) */}
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="absolute inset-0">
         <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="rgba(255,255,255,0.12)"
-          strokeWidth={strokeWidth}
+          cx={size / 2} cy={size / 2} r={radius}
+          fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={strokeWidth}
         />
         <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
+          cx={size / 2} cy={size / 2} r={radius}
           fill="none"
-          stroke={isDone ? "oklch(0.80 0.16 155)" : "oklch(0.85 0.12 170)"}
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
+          stroke={isDone ? "oklch(0.82 0.18 155)" : "oklch(0.88 0.12 170)"}
+          strokeWidth={strokeWidth} strokeLinecap="round"
+          strokeDasharray={circumference} strokeDashoffset={offset}
           className="transition-[stroke-dashoffset] duration-1000 ease-out motion-reduce:transition-none"
           style={{ transformOrigin: "center", transform: "rotate(-90deg)" }}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-2xl font-extrabold tabular-nums leading-none text-white">
+        <span className="text-[28px] font-extrabold tabular-nums leading-none tracking-tighter text-white">
           {total}
         </span>
-        <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-wider text-white/60">
+        <span className="mt-0.5 text-[8px] font-semibold uppercase tracking-[0.2em] text-white/45">
           {total === 1 ? "sessione" : "sessioni"}
         </span>
       </div>
@@ -90,7 +94,6 @@ function buildBrief(
   if (!prep) return "Caricamento...";
   const total = prep.total_sessions;
   const completed = prep.sessions.filter((s) => s.category === "COMPLETATA").length;
-
   const pieces: string[] = [];
 
   if (total === 0) {
@@ -98,59 +101,47 @@ function buildBrief(
   } else if (completed === total) {
     pieces.push("Tutte le sessioni completate");
   } else if (completed > 0) {
-    pieces.push(`${completed} di ${total} ${total === 1 ? "sessione completata" : "sessioni completate"}`);
+    pieces.push(`${completed} di ${total} completate`);
   } else {
-    pieces.push(`${total} ${total === 1 ? "sessione" : "sessioni"} in programma`);
+    pieces.push(`${total} ${total === 1 ? "sessione" : "sessioni"}`);
   }
 
-  if (alertClients > 0) {
-    pieces.push(`${alertClients} ${alertClients === 1 ? "alert clinico" : "alert clinici"}`);
-  }
+  if (alertClients > 0) pieces.push(`${alertClients} alert`);
+  if (focusCount > 0) pieces.push(`${focusCount} ${focusCount === 1 ? "caso" : "casi"}`);
 
-  if (focusCount > 0) {
-    pieces.push(`${focusCount} ${focusCount === 1 ? "caso da gestire" : "casi da gestire"}`);
-  }
-
-  return `${pieces.join(" · ")}.`;
+  return pieces.join(" · ");
 }
 
 /* ── Next Event Preview ── */
 
-function NextEventPreview({
-  prep,
-  now,
-}: {
-  prep: SessionPrepResponse;
-  now: Date;
-}) {
+function NextEventPreview({ prep, now }: { prep: SessionPrepResponse; now: Date }) {
   const nextSession = prep.sessions.find((s) => {
     const start = new Date(s.starts_at);
     return !Number.isNaN(start.getTime()) && start.getTime() > now.getTime();
   });
-
   if (!nextSession) return null;
 
   const mins = minutesUntil(nextSession.starts_at);
   if (mins === null || mins > 120) return null;
 
-  const timeLabel = mins <= 0
-    ? "in corso"
-    : mins < 60
-      ? `tra ${mins} min`
-      : `tra ${Math.round(mins / 60)}h`;
+  const timeLabel = mins <= 0 ? "in corso" : mins < 60 ? `tra ${mins} min` : `tra ${Math.round(mins / 60)}h`;
+  const isImminent = mins > 0 && mins <= 15;
 
   return (
-    <div className="mt-3 flex items-center gap-3 rounded-xl bg-white/10 px-3 py-2 backdrop-blur-sm">
-      <CalendarClock className="h-4 w-4 shrink-0 text-white/70" />
+    <div className="mt-4 flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.06] px-3.5 py-2.5 backdrop-blur-sm">
+      <CalendarClock className="h-4 w-4 shrink-0 text-white/60" />
       <div className="min-w-0 flex-1">
-        <span className="text-xs font-semibold text-white/90">
+        <span className="text-[13px] font-semibold text-white/90">
           {nextSession.client_name ?? nextSession.event_title ?? nextSession.category}
         </span>
-        <span className="ml-2 text-xs text-white/50">
+        <span className="ml-2 text-[12px] tabular-nums text-white/40">
           {TIME_FMT.format(new Date(nextSession.starts_at))}
         </span>
       </div>
-      <span className="shrink-0 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold text-white/80">
+      <span className={cn(
+        "shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold tabular-nums",
+        isImminent ? "bg-amber-400/20 text-amber-200 oggi-pulse-dot" : "bg-white/10 text-white/70",
+      )}>
         {timeLabel}
       </span>
     </div>
@@ -171,7 +162,7 @@ export function OggiHero({ today, prep, focusCount, alertClients, className }: O
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
-    const id = window.setInterval(() => setNow(new Date()), 30_000);
+    const id = window.setInterval(() => setNow(new Date()), 5_000);
     return () => window.clearInterval(id);
   }, []);
 
@@ -185,32 +176,41 @@ export function OggiHero({ today, prep, focusCount, alertClients, className }: O
 
   return (
     <section className={className}>
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-teal-600 via-teal-700 to-emerald-800 p-5 shadow-lg sm:p-6">
-        {/* Decorative */}
-        <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/5 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-8 -left-8 h-32 w-32 rounded-full bg-emerald-400/10 blur-2xl" />
+      <div className="relative overflow-hidden rounded-2xl p-6 sm:p-7"
+        style={{
+          background: "linear-gradient(135deg, oklch(0.32 0.08 175) 0%, oklch(0.28 0.10 170) 40%, oklch(0.24 0.09 165) 100%)",
+          boxShadow: "0 4px 6px oklch(0.20 0.06 170 / 0.15), 0 20px 50px -12px oklch(0.20 0.10 170 / 0.30)",
+        }}
+      >
+        {/* Atmospheric decorations */}
+        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full blur-[80px]"
+          style={{ background: "oklch(0.45 0.12 165 / 0.25)" }} />
+        <div className="pointer-events-none absolute -bottom-10 -left-10 h-40 w-40 rounded-full blur-[60px]"
+          style={{ background: "oklch(0.40 0.10 180 / 0.15)" }} />
 
-        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           {/* Left: greeting + brief + next event */}
           <div className="min-w-0 flex-1">
-            <h1 className="text-xl font-bold tracking-tight text-white sm:text-2xl">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/35">
+              {dateLabel}
+            </p>
+            <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
               {getGreeting()}{trainerName ? `, ${trainerName}` : ""}
             </h1>
-            <p className="mt-1 text-sm font-medium capitalize text-white/50">{dateLabel}</p>
 
-            {/* Live clock + brief */}
-            <div className="mt-3 flex flex-wrap items-center gap-3">
-              <div className="rounded-lg bg-white/10 px-3 py-1.5 backdrop-blur-sm">
-                <span className="text-lg font-extrabold tabular-nums leading-none text-white">
+            {/* Clock + brief */}
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <div className="rounded-xl border border-white/[0.08] bg-white/[0.06] px-3.5 py-2 backdrop-blur-sm">
+                <span className="text-xl font-extrabold tabular-nums leading-none text-white">
                   {nowLabel}
                 </span>
               </div>
-              <p className="text-[13px] leading-5 text-white/70">{brief}</p>
+              <p className="text-[13px] leading-5 text-white/55">{brief}</p>
             </div>
 
-            {/* Alert badge (solo se presenti) */}
+            {/* Alert badge */}
             {alertClients > 0 && (
-              <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-full bg-red-500/20 px-2.5 py-1 text-xs font-semibold text-red-200">
+              <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-red-500/15 px-3 py-1.5 text-[11px] font-semibold text-red-200/90">
                 <ShieldAlert className="h-3 w-3" />
                 {alertClients} {alertClients === 1 ? "alert clinico" : "alert clinici"}
               </div>
@@ -223,7 +223,7 @@ export function OggiHero({ today, prep, focusCount, alertClients, className }: O
             {today && (
               <Link
                 href="/agenda"
-                className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-white/50 transition-colors hover:text-white/80"
+                className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-medium text-white/35 transition-colors hover:text-white/65"
               >
                 Apri agenda completa
                 <ArrowRight className="h-3 w-3" />
@@ -232,7 +232,7 @@ export function OggiHero({ today, prep, focusCount, alertClients, className }: O
           </div>
 
           {/* Right: progress ring */}
-          <div className="flex items-center gap-5">
+          <div className="flex items-center">
             <ProgressRing completed={completedSessions} total={totalSessions} />
           </div>
         </div>
@@ -245,17 +245,19 @@ export function OggiHero({ today, prep, focusCount, alertClients, className }: O
 
 export function OggiHeroSkeleton() {
   return (
-    <div className="rounded-2xl bg-gradient-to-br from-teal-600/50 via-teal-700/50 to-emerald-800/50 p-5 sm:p-6">
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+    <div className="rounded-2xl p-6 sm:p-7"
+      style={{ background: "linear-gradient(135deg, oklch(0.32 0.08 175 / 0.5), oklch(0.24 0.09 165 / 0.5))" }}
+    >
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
         <div className="space-y-3">
-          <div className="h-7 w-56 rounded-lg bg-white/10" />
-          <div className="h-4 w-36 rounded bg-white/10" />
+          <div className="h-3 w-32 rounded bg-white/10" />
+          <div className="h-8 w-56 rounded-lg bg-white/10" />
           <div className="flex gap-3">
-            <div className="h-8 w-20 rounded-lg bg-white/10" />
-            <div className="h-8 w-48 rounded-lg bg-white/10" />
+            <div className="h-10 w-20 rounded-xl bg-white/10" />
+            <div className="h-10 w-48 rounded-xl bg-white/10" />
           </div>
         </div>
-        <div className="h-20 w-20 rounded-full bg-white/10" />
+        <div className="h-[88px] w-[88px] rounded-full bg-white/10" />
       </div>
     </div>
   );
