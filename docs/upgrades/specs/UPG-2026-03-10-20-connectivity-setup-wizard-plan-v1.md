@@ -126,8 +126,15 @@ Decisione:
   - writer `.env` via file temporaneo + `os.replace()`
   - guardrail esplicito sui path trusted del binary Tailscale
   - field `Base URL pubblica` nascosto finche non serve davvero
+- `Phase B2 - Guided Verify`: chiuso con `UPG-2026-03-11-03`
+  - endpoint protetto `/api/system/connectivity-verify`
+  - verifica on-demand dell'origine pubblica via `{PUBLIC_BASE_URL}/health`
+  - pannello `Verifica finale` in `Impostazioni` con verdetto `ready | partial | blocked`
+  - distinzione esplicita tra configurazione salvata e configurazione davvero verificata
 - Stato attuale: il prodotto sa leggere e spiegare lo stato reale della macchina, ma non
-  offre ancora il wizard passo-passo e non verifica ancora end-to-end il portale pubblico.
+  offre ancora il wizard passo-passo completo. La verifica end-to-end minima del portale
+  pubblico esiste ora, ma non sostituisce ancora il futuro stepper guidato ne il test
+  funzionale completo del link anamnesi.
 
 ### 1. Runtime Service Backend
 

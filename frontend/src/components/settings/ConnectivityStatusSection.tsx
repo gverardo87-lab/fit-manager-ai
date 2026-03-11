@@ -5,6 +5,7 @@ import { Loader2, Network, RefreshCw, Wifi, WifiOff } from "lucide-react";
 
 import { useApplyConnectivityConfig } from "@/hooks/useConnectivityConfig";
 import { useConnectivityStatus } from "@/hooks/useConnectivityStatus";
+import { useVerifyConnectivity } from "@/hooks/useVerifyConnectivity";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -20,6 +21,7 @@ import {
   PublicPortalHint,
   StatusBadge,
   SummaryItem,
+  VerificationStatePanel,
 } from "@/components/settings/connectivity-status-ui";
 import {
   mapConnectivityCheckStatus,
@@ -41,6 +43,7 @@ function resolveNextActionTone(actionCode: string): Tone {
 export function ConnectivityStatusSection() {
   const { data, isLoading, isError, isFetching, refetch } = useConnectivityStatus();
   const applyConfig = useApplyConnectivityConfig();
+  const verifyConfig = useVerifyConnectivity();
   const [baseUrlDraft, setBaseUrlDraft] = useState("");
   const [userEditedBaseUrl, setUserEditedBaseUrl] = useState(false);
   const [showPublicPortalConfig, setShowPublicPortalConfig] = useState(false);
@@ -64,10 +67,13 @@ export function ConnectivityStatusSection() {
   const effectiveBaseUrlDraft = userEditedBaseUrl ? baseUrlDraft : suggestedBaseUrl;
   const normalizedBaseUrl = effectiveBaseUrlDraft.trim();
   const publicPortalConfigVisible = data.profile === "public_portal" || showPublicPortalConfig;
+  const hasUnsavedPublicBaseUrlDraft =
+    userEditedBaseUrl && normalizedBaseUrl !== (data.public_base_url ?? "");
 
   const saveProfile = (
     profileToApply: "local_only" | "trusted_devices" | "public_portal",
   ) => {
+    verifyConfig.reset();
     applyConfig.mutate(
       {
         profile: profileToApply,
@@ -178,6 +184,7 @@ export function ConnectivityStatusSection() {
                     onChange={(event) => {
                       setBaseUrlDraft(event.target.value);
                       setUserEditedBaseUrl(true);
+                      verifyConfig.reset();
                     }}
                     placeholder="https://nome-macchina.tailnet.ts.net"
                   />
@@ -192,6 +199,7 @@ export function ConnectivityStatusSection() {
                     onClick={() => {
                       setBaseUrlDraft(suggestedBaseUrl);
                       setUserEditedBaseUrl(false);
+                      verifyConfig.reset();
                     }}
                     disabled={applyConfig.isPending || !suggestedBaseUrl}
                   >
@@ -234,6 +242,13 @@ export function ConnectivityStatusSection() {
             </div>
           </div>
         </div>
+
+        <VerificationStatePanel
+          verification={verifyConfig.data}
+          disabled={applyConfig.isPending || hasUnsavedPublicBaseUrlDraft}
+          isVerifying={verifyConfig.isPending}
+          onVerify={() => verifyConfig.mutate()}
+        />
 
         <div className="grid gap-3 lg:grid-cols-2">
           {checks.map((check) => (

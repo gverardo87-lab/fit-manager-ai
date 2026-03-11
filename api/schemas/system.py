@@ -22,6 +22,7 @@ ConnectivityProbeStatus = Literal[
     "error",
 ]
 ConnectivityCheckStatus = Literal["ok", "warning", "critical", "neutral"]
+ConnectivityVerifyStatus = Literal["ready", "partial", "blocked"]
 ConnectivityActionCode = Literal[
     "install_tailscale",
     "connect_tailscale",
@@ -29,6 +30,7 @@ ConnectivityActionCode = Literal[
     "configure_public_base_url",
     "review_public_base_url",
     "enable_funnel",
+    "verify_public_origin",
     "ready",
 ]
 
@@ -119,3 +121,15 @@ class ConnectivityConfigResponse(BaseModel):
     written_keys: list[str]
     restart_required: bool
     message: str
+
+
+class ConnectivityVerifyResponse(BaseModel):
+    verified_at: datetime
+    target_profile: ConnectivityProfile
+    effective_profile: ConnectivityProfile
+    status: ConnectivityVerifyStatus
+    summary: str
+    verified_public_origin: str | None = None
+    checks: list[ConnectivityCheck]
+    next_recommended_action_code: ConnectivityActionCode
+    next_recommended_action_label: str

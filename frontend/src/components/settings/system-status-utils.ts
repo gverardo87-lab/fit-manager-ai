@@ -1,6 +1,7 @@
 import type {
   InstallationConnectivityCheckStatus,
   InstallationConnectivityProfile,
+  InstallationConnectivityVerifyStatus,
   InstallationConnectionStatus,
   InstallationLicenseStatus,
 } from "@/types/api";
@@ -69,6 +70,19 @@ export function mapConnectivityCheckStatus(
       return { label: "Bloccante", tone: "critical" };
     default:
       return { label: "Non richiesto", tone: "neutral" };
+  }
+}
+
+export function mapConnectivityVerifyStatus(
+  status: InstallationConnectivityVerifyStatus,
+): { label: string; tone: Tone } {
+  switch (status) {
+    case "ready":
+      return { label: "Verificata", tone: "good" };
+    case "partial":
+      return { label: "Parziale", tone: "warning" };
+    default:
+      return { label: "Bloccata", tone: "critical" };
   }
 }
 

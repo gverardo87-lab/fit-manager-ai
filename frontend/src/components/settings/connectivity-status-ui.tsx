@@ -2,6 +2,7 @@
 
 import { Loader2, RefreshCw, ShieldAlert } from "lucide-react";
 
+import type { InstallationConnectivityVerifyResponse } from "@/types/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,7 +13,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { toneClasses, type Tone } from "@/components/settings/system-status-utils";
+import {
+  mapConnectivityCheckStatus,
+  mapConnectivityVerifyStatus,
+  toneClasses,
+  type Tone,
+} from "@/components/settings/system-status-utils";
 
 export function StatusBadge({ label, tone }: { label: string; tone: Tone }) {
   return (
@@ -115,6 +121,82 @@ export function PublicPortalHint({
           Configura portale pubblico
         </Button>
       </div>
+    </div>
+  );
+}
+
+export function VerificationStatePanel({
+  verification,
+  disabled = false,
+  isVerifying,
+  onVerify,
+}: {
+  verification?: InstallationConnectivityVerifyResponse;
+  disabled?: boolean;
+  isVerifying: boolean;
+  onVerify: () => void;
+}) {
+  const verificationBadge = verification
+    ? mapConnectivityVerifyStatus(verification.status)
+    : { label: "Da eseguire", tone: "neutral" as const };
+
+  return (
+    <div className="rounded-xl border bg-background/80 p-4">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold text-foreground">Verifica finale</p>
+            <StatusBadge label={verificationBadge.label} tone={verificationBadge.tone} />
+          </div>
+          {verification ? (
+            <>
+              <p className="text-sm text-muted-foreground">{verification.summary}</p>
+              {verification.status !== "ready" ? (
+                <p className="text-xs text-muted-foreground">
+                  Prossimo passo: {verification.next_recommended_action_label}
+                </p>
+              ) : null}
+              {verification.verified_public_origin ? (
+                <p className="text-xs text-muted-foreground">
+                  Target controllato: {verification.verified_public_origin}
+                </p>
+              ) : null}
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              La configurazione e stata salvata, ma non e ancora stata verificata end-to-end.
+            </p>
+          )}
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onVerify}
+          disabled={isVerifying || disabled}
+        >
+          {isVerifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          Verifica configurazione
+        </Button>
+      </div>
+
+      {verification ? (
+        <div className="mt-4 grid gap-3 lg:grid-cols-3">
+          {verification.checks.map((check) => {
+            const badge = mapConnectivityCheckStatus(check.status);
+            return (
+              <div key={check.code} className="rounded-xl border bg-background/80 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-foreground">{check.label}</p>
+                    <p className="text-sm text-muted-foreground">{check.detail}</p>
+                  </div>
+                  <StatusBadge label={badge.label} tone={badge.tone} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
     </div>
   );
 }

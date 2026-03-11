@@ -102,6 +102,7 @@ export type InstallationConnectivityCheckStatus =
   | "warning"
   | "critical"
   | "neutral";
+export type InstallationConnectivityVerifyStatus = "ready" | "partial" | "blocked";
 export type InstallationConnectivityActionCode =
   | "install_tailscale"
   | "connect_tailscale"
@@ -109,6 +110,7 @@ export type InstallationConnectivityActionCode =
   | "configure_public_base_url"
   | "review_public_base_url"
   | "enable_funnel"
+  | "verify_public_origin"
   | "ready";
 
 export interface InstallationHealthResponse {
@@ -173,6 +175,18 @@ export interface InstallationConnectivityConfigResponse {
   written_keys: string[];
   restart_required: boolean;
   message: string;
+}
+
+export interface InstallationConnectivityVerifyResponse {
+  verified_at: string;
+  target_profile: InstallationConnectivityProfile;
+  effective_profile: InstallationConnectivityProfile;
+  status: InstallationConnectivityVerifyStatus;
+  summary: string;
+  verified_public_origin: string | null;
+  checks: InstallationConnectivityCheck[];
+  next_recommended_action_code: InstallationConnectivityActionCode;
+  next_recommended_action_label: string;
 }
 
 /** Dati pubblici trainer — TrainerPublic */

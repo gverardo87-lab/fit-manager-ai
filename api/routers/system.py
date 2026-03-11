@@ -10,10 +10,12 @@ from api.schemas.system import (
     ConnectivityConfigRequest,
     ConnectivityConfigResponse,
     ConnectivityStatusResponse,
+    ConnectivityVerifyResponse,
     SupportSnapshotResponse,
 )
 from api.services.connectivity_config import apply_connectivity_config
 from api.services.connectivity_runtime import build_connectivity_status
+from api.services.connectivity_verify import verify_connectivity_setup
 from api.services.system_runtime import build_support_snapshot
 
 router = APIRouter(prefix="/system", tags=["system"])
@@ -34,6 +36,14 @@ def update_connectivity_config(
 ):
     """Applica solo la configurazione FitManager: profilo, flag portale e base URL."""
     return apply_connectivity_config(payload)
+
+
+@router.post("/connectivity-verify", response_model=ConnectivityVerifyResponse)
+def run_connectivity_verification(
+    _trainer: Trainer = Depends(get_current_trainer),
+):
+    """Verifica on-demand che la configurazione salvata sia davvero pronta all'uso."""
+    return verify_connectivity_setup()
 
 
 @router.get("/support-snapshot", response_model=SupportSnapshotResponse)
