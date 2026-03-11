@@ -42,9 +42,12 @@ A workspace must make the next move obvious:
 3. Choose the page archetype intentionally:
    - queue plus sticky detail;
    - stack plus supporting rail;
+   - row dossier plus compact lane headers;
    - dense ledger plus dossier;
    - compact mobile action stack.
    Card grids are allowed only when they genuinely improve workflow.
+   If the workspace shows 4 or more live cases at once, default to dense rows or dossier strips before
+   defaulting to stacked cards.
 4. Keep action and context adjacent:
    - recommended action;
    - why now;
@@ -62,6 +65,16 @@ A workspace must make the next move obvious:
    - selected case remains obvious;
    - action CTA survives above the fold when needed;
    - stacked mobile layouts still preserve queue -> detail logic.
+   - desktop should show real work, not mostly wrappers and intros.
+
+## Density Targets
+
+- Workspace headers should stay compact and rarely exceed roughly `80-96px` on desktop.
+- Bucket headers should behave like lane labels, not mini-hero blocks.
+- Dense operational rows should usually land around `72-96px` desktop height before expansion.
+- If the full card is selectable, avoid adding a second generic `Dettaglio` CTA by default.
+- Utility surfaces such as agenda, quick capture, or status summaries should have one visual owner on the page.
+- When the operator can act directly from the queue, prefer one strong CTA over multiple equal-weight buttons.
 
 ## Design Principles
 
@@ -70,6 +83,8 @@ A workspace must make the next move obvious:
 - Context must travel with the case.
 - Strong visual identity is good when it sharpens behavior.
 - Metrics should support action, not compete with it.
+- Row dossier beats tall card repetition when the queue is dense.
+- Quick capture should minimize pre-selection friction when the real-world task starts before perfect association.
 
 ## Red Flags
 
@@ -80,3 +95,7 @@ A workspace must make the next move obvious:
 - the layout preserves symmetry even when it harms flow;
 - mobile stacking destroys the queue -> detail relationship;
 - one entity appears multiple times with no clear precedence.
+- every case is rendered as a standalone tall card even though the workspace is queue-heavy;
+- repeated subtitles, helper copy, and wrappers consume more height than the live cases;
+- the same utility surface appears in multiple places with equal visual weight;
+- a generic `Dettaglio` button duplicates row selection without adding meaning.

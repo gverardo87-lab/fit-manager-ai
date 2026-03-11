@@ -26,6 +26,10 @@ Deliver CRM screens that stay:
    - tablet (`640-1023px`): restore split boards, queue/detail pairs, or dossier layouts only when they strengthen the chosen page archetype;
    - desktop (`>=1024px`): keep existing density, hierarchy, and page identity.
 3. Apply density rules:
+   - reduce wrapper height before shrinking useful content;
+   - keep workspace headers compact; they should not dominate the first fold;
+   - keep lane or bucket headers close to single-line when possible;
+   - in operational workspaces, prefer dense rows (`72-96px` desktop) before reverting to tall cards;
    - keep list-heavy panels at fixed height with internal scroll when it protects scan speed or selection continuity;
    - reduce spacing before reducing typography;
    - keep operational numbers in `tabular-nums` with strong size contrast;
@@ -35,10 +39,12 @@ Deliver CRM screens that stay:
    - keep status/category visible across breakpoints;
    - avoid pushing critical controls below excessive card content;
    - keep selected case, active record context, or current action obvious after stacking.
+   - if a surface already has one owner for agenda, quick actions, or status, don't duplicate it elsewhere just to fill space.
 5. Verify quickly:
    - inspect at 390px, 768px, and 1024px;
    - ensure no horizontal overflow or clipped controls;
    - ensure the mobile version still feels like the same product surface, not a generic pile of cards;
+   - ensure desktop first fold shows meaningful work, not mostly framing and helper copy;
    - lint touched frontend files.
 
 ## Reference
@@ -58,3 +64,5 @@ Pair this skill with the surface-specific skill that matches the page:
 - tablet layouts collapsing into long single-column pages without reason;
 - responsive cleanup that erases the identity of a workspace or record page;
 - mobile fixes that degrade desktop readability.
+- dense workspaces still rendered as tall cards after breakpoint cleanup;
+- repeated utility cards or explanatory wrappers surviving only because the layout feels empty.

@@ -18,12 +18,12 @@ import type { OperationalCase, WorkspaceCaseDetailResponse } from "@/types/api";
 
 import {
   FINANCE_TOKEN_TONES,
-  formatFinanceAmount,
   formatWorkspaceDate,
   formatWorkspaceDateTime,
   getFinanceCaseKindMeta,
   getFinanceSeverityMeta,
   getCaseDueLabel,
+  getCaseImpactLine,
   getFinanceSummary,
   WORKSPACE_CASE_KIND_META,
   WORKSPACE_SEVERITY_META,
@@ -37,6 +37,8 @@ interface WorkspaceDetailPanelProps {
   onRetry: () => void;
   variant?: "default" | "finance";
   hrefTransform?: (href: string) => string;
+  embedded?: boolean;
+  className?: string;
 }
 
 export function WorkspaceDetailPanel({
@@ -47,23 +49,27 @@ export function WorkspaceDetailPanel({
   onRetry,
   variant = "default",
   hrefTransform,
+  embedded = false,
+  className,
 }: WorkspaceDetailPanelProps) {
   const isFinance = variant === "finance";
+  const shellClassName = cn(
+    "flex min-h-0 flex-col",
+    !embedded &&
+      (isFinance
+        ? "rounded-[24px] border border-[#ddd4ca] bg-[linear-gradient(180deg,rgba(255,252,248,0.98),rgba(248,243,236,0.96))] shadow-[0_28px_64px_-48px_rgba(31,42,51,0.14)]"
+        : "rounded-[28px] border border-stone-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,246,242,0.98))] shadow-[0_28px_68px_-52px_rgba(41,37,36,0.34)] dark:border-zinc-800 dark:bg-[linear-gradient(180deg,rgba(24,24,27,0.98),rgba(20,20,24,0.98))]"),
+    className,
+  );
+
   if (!selectedCase) {
     return (
-      <div
-        className={cn(
-          "flex min-h-[460px] items-center p-4",
-          isFinance
-            ? "rounded-[22px] border border-[#ddd4ca] bg-[linear-gradient(180deg,rgba(255,252,248,0.98),rgba(248,243,236,0.96))] shadow-[0_28px_64px_-48px_rgba(31,42,51,0.14)]"
-            : "rounded-3xl border border-border/70 bg-white shadow-sm dark:bg-zinc-900",
-        )}
-      >
+      <div className={cn(shellClassName, !embedded && "min-h-[360px] justify-center p-4", embedded && "p-4")}>
         <EmptyState
           icon={ListTree}
-          title="Seleziona un caso operativo"
-          subtitle="Qui compariranno il perche ora, il contesto e l'azione giusta per chiuderlo."
-          className="w-full border-0 bg-transparent py-4"
+          title="Seleziona un caso"
+          subtitle="Il dossier a destra ti mostra la prossima mossa, il trigger e il contesto utile."
+          className="w-full border-0 bg-transparent py-6"
         />
       </div>
     );
@@ -71,24 +77,17 @@ export function WorkspaceDetailPanel({
 
   if (isError) {
     return (
-      <div
-        className={cn(
-          "p-5",
-          isFinance
-            ? "rounded-[22px] border border-[#e5c0c0] bg-[linear-gradient(180deg,rgba(255,243,242,0.98),rgba(252,238,236,0.96))] shadow-[0_24px_60px_-48px_rgba(184,92,92,0.28)]"
-            : "rounded-3xl border border-destructive/40 bg-destructive/5 shadow-sm",
-        )}
-      >
-        <div className="flex items-start gap-3">
+      <div className={cn(shellClassName, "p-4")}>
+        <div className="flex items-start gap-3 rounded-[20px] border border-destructive/30 bg-destructive/5 p-4">
           <AlertCircle className="mt-0.5 h-5 w-5 text-destructive" />
           <div className="min-w-0 flex-1">
             <h3 className="text-sm font-semibold text-destructive">Dettaglio non disponibile</h3>
             <p className="mt-1 text-sm text-destructive/90">
-              Il caso selezionato esiste, ma il suo contesto dettagliato non si e caricato correttamente.
+              Il caso esiste, ma il dossier non si e caricato correttamente.
             </p>
           </div>
         </div>
-        <Button variant="outline" size="sm" className="mt-4" onClick={onRetry}>
+        <Button variant="outline" size="sm" className="mt-3 w-fit rounded-full" onClick={onRetry}>
           <RefreshCw className="mr-2 h-3.5 w-3.5" />
           Riprova
         </Button>
@@ -106,103 +105,103 @@ export function WorkspaceDetailPanel({
   const financeSummary = getFinanceSummary(currentCase);
   const primaryAction = currentCase.suggested_actions.find((action) => action.is_primary) ?? currentCase.suggested_actions[0];
   const primaryActionHref = primaryAction?.href ? hrefTransform?.(primaryAction.href) ?? primaryAction.href : undefined;
-  const dueAmount = formatFinanceAmount(currentCase.finance_context?.total_due_amount);
-  const residualAmount = formatFinanceAmount(currentCase.finance_context?.total_residual_amount);
+  const secondaryActions = currentCase.suggested_actions
+    .filter((action) => action.id !== primaryAction?.id)
+    .slice(0, 2);
+  const chipClassName = isFinance
+    ? FINANCE_TOKEN_TONES.subtlePill
+    : "border border-stone-200/80 bg-white/80 text-stone-600 dark:border-zinc-700 dark:bg-zinc-950/70 dark:text-zinc-300";
+  const boxClassName = isFinance
+    ? "rounded-[20px] border border-[#e5ddd4] bg-[#fbf8f3] p-3.5"
+    : "rounded-[20px] border border-stone-200/80 bg-white/80 p-3.5 dark:border-zinc-800 dark:bg-zinc-950/50";
 
   return (
-    <div
-      className={cn(
-        "flex min-h-[460px] flex-col",
-        isFinance
-          ? "rounded-[22px] border border-[#ddd4ca] bg-[linear-gradient(180deg,rgba(255,252,248,0.98),rgba(248,243,236,0.96))] shadow-[0_28px_64px_-48px_rgba(31,42,51,0.14)]"
-          : "rounded-3xl border border-border/70 bg-white shadow-sm dark:bg-zinc-900",
-      )}
-    >
+    <div className={shellClassName}>
       <div
         className={cn(
-          "px-3.5 py-3.5",
-          isFinance
-            ? "rounded-t-[22px] border-b border-[#e5ddd4] bg-[radial-gradient(circle_at_top_left,rgba(47,110,115,0.12),transparent_32%),linear-gradient(135deg,rgba(248,244,237,0.98),rgba(244,238,229,0.98)_48%,rgba(238,232,223,0.98))] text-[#1f2a33]"
-            : "border-b",
+          "px-4 py-4",
+          !embedded &&
+            (isFinance
+              ? "border-b border-[#e5ddd4]"
+              : "border-b border-stone-200/80 dark:border-zinc-800"),
         )}
       >
-        <div className={cn("flex flex-col gap-3", isFinance && "lg:grid lg:grid-cols-[minmax(0,1fr)_176px] lg:items-start")}>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${kindMeta.tone}`}>
-                {kindMeta.label}
-              </span>
-              <span className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${severityMeta.tone}`}>
-                {severityMeta.label}
-              </span>
-            </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${kindMeta.tone}`}>
+            {kindMeta.label}
+          </span>
+          <span className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${severityMeta.tone}`}>
+            {severityMeta.label}
+          </span>
+          <span className={cn("rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]", chipClassName)}>
+            {getCaseDueLabel(currentCase)}
+          </span>
+        </div>
 
-            <h2 className={cn("mt-2 leading-tight", isFinance ? "text-[22px] font-bold tracking-[-0.03em] text-[#1f2a33]" : "text-lg font-semibold")}>
-              {currentCase.title}
-            </h2>
-            <p className={cn("mt-1 text-sm", isFinance ? "max-w-2xl text-[#5f6b76]" : "text-muted-foreground")}>
-              {currentCase.reason}
-            </p>
-
-            <div className={cn("mt-3 flex flex-wrap gap-2 text-xs", isFinance ? "text-[#5f6b76]" : "text-muted-foreground")}>
-              <span className={cn("rounded-full px-2.5 py-1", isFinance ? "border border-[#d8cec3] bg-white/82" : "bg-muted")}>
-                {getCaseDueLabel(currentCase)}
-              </span>
-              {currentCase.due_date && (
-                <span className={cn("rounded-full px-2.5 py-1", isFinance ? FINANCE_TOKEN_TONES.subtlePill : "bg-muted")}>
-                  Scadenza {formatWorkspaceDate(currentCase.due_date)}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {isFinance && (
-            <div className="rounded-[16px] border border-[#cfe0e1] bg-[#eef5f4] px-3.5 py-3 shadow-inner">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6b7680]">
-                Esposizione
-              </p>
-              <p className="mt-1.5 font-serif text-[26px] font-semibold leading-none tracking-[-0.03em] text-[#1f2a33]">
-                {dueAmount ?? residualAmount ?? "n/d"}
-              </p>
-              {dueAmount && residualAmount && dueAmount !== residualAmount ? (
-                <p className="mt-1.5 text-[11px] text-[#6d7b85]">Residuo {residualAmount}</p>
-              ) : null}
-            </div>
+        <h2
+          className={cn(
+            "mt-3 leading-tight",
+            isFinance ? "text-[22px] font-bold tracking-[-0.03em] text-[#1f2a33]" : "text-[20px] font-semibold tracking-[-0.02em] text-stone-950 dark:text-zinc-50",
           )}
+        >
+          {currentCase.title}
+        </h2>
+        <p className={cn("mt-1 text-[13px] leading-5", isFinance ? "text-[#5f6b76]" : "text-stone-600 dark:text-zinc-300")}>
+          {currentCase.reason}
+        </p>
+
+        <div className={cn("mt-3 flex flex-wrap gap-1.5 text-[11px]", isFinance ? "text-[#5f6b76]" : "text-stone-600 dark:text-zinc-300")}>
+          {currentCase.due_date ? (
+            <span className={cn("rounded-full px-2.5 py-1", chipClassName)}>
+              Scadenza {formatWorkspaceDate(currentCase.due_date)}
+            </span>
+          ) : null}
+          <span className={cn("rounded-full px-2.5 py-1", chipClassName)}>
+            {currentCase.signal_count} {currentCase.signal_count === 1 ? "segnale" : "segnali"}
+          </span>
+          {financeSummary ? (
+            <span className={cn("rounded-full px-2.5 py-1", chipClassName)}>
+              {financeSummary}
+            </span>
+          ) : null}
         </div>
       </div>
 
       {isLoading && !detail ? (
-        <div className="space-y-3 p-3.5">
-          <Skeleton className="h-20 rounded-2xl" />
-          <Skeleton className="h-5 w-32" />
-          <Skeleton className="h-16 rounded-2xl" />
-          <Skeleton className="h-5 w-28" />
-          <Skeleton className="h-28 rounded-2xl" />
+        <div className="space-y-3 p-4">
+          <Skeleton className="h-28 rounded-[22px]" />
+          <Skeleton className="h-24 rounded-[20px]" />
+          <Skeleton className="h-28 rounded-[20px]" />
         </div>
       ) : (
         <ScrollArea className="min-h-0 flex-1">
-          <div className="space-y-3 p-3.5">
+          <div className="space-y-3.5 p-4">
             <div
               className={cn(
-                "rounded-[16px] border p-3",
+                "rounded-[24px] p-4",
                 isFinance
-                  ? "border-[#d8cec3] bg-white/82 text-[#1f2a33] shadow-inner"
-                  : "border-border/70 bg-muted/25",
+                  ? "border border-[#cfe0e1] bg-[#eef5f4]"
+                  : "border border-stone-900 bg-stone-950 text-stone-50 dark:border-emerald-400/30 dark:bg-zinc-950",
               )}
             >
-              <p className={cn("text-[10px] font-semibold uppercase tracking-[0.16em]", isFinance ? "text-[#7c8791]" : "text-muted-foreground")}>
-                Azione consigliata
+              <p className={cn("text-[10px] font-semibold uppercase tracking-[0.18em]", isFinance ? "text-[#6b7680]" : "text-stone-300")}>
+                Prossima mossa
               </p>
-              <p className={cn("mt-1.5 text-[13px] leading-5", isFinance ? "text-[#31404b]" : "text-foreground")}>
-                Questo e il passo giusto per sbloccare il caso senza sporcare il resto della giornata.
+              <p className={cn("mt-2 text-[13px] leading-5", isFinance ? "text-[#31404b]" : "text-stone-200")}>
+                {getCaseImpactLine(currentCase)}
               </p>
+
               <div className="mt-3 flex flex-wrap gap-2">
                 {primaryActionHref ? (
                   <Button
                     asChild
                     size="sm"
-                    className={cn("h-8.5", isFinance && "border-0 bg-[#2f6e73] text-[#f8f5ef] hover:bg-[#25585c]")}
+                    className={cn(
+                      "h-9 rounded-full px-3.5",
+                      isFinance
+                        ? "border-0 bg-[#2f6e73] text-[#f8f5ef] hover:bg-[#25585c]"
+                        : "border-0 bg-amber-300 text-stone-950 hover:bg-amber-200",
+                    )}
                   >
                     <Link href={primaryActionHref}>
                       {primaryAction.label}
@@ -210,77 +209,80 @@ export function WorkspaceDetailPanel({
                     </Link>
                   </Button>
                 ) : (
-                  <Button size="sm" className="h-8.5" disabled={!primaryAction?.enabled}>
+                  <Button
+                    size="sm"
+                    className={cn("h-9 rounded-full px-3.5", isFinance && "border-0 bg-[#2f6e73] text-[#f8f5ef] hover:bg-[#25585c]")}
+                    disabled={!primaryAction?.enabled}
+                  >
                     {primaryAction?.label ?? "Apri"}
                   </Button>
                 )}
-                {currentCase.suggested_actions
-                  .filter((action) => action.id !== primaryAction?.id)
-                  .slice(0, 2)
-                  .map((action) =>
-                    action.href ? (
-                      (() => {
-                        const href = hrefTransform?.(action.href) ?? action.href;
-                        return (
-                      <Button
-                        key={action.id}
-                        asChild
-                        size="sm"
-                        variant="outline"
-                        className={cn("h-8.5", isFinance && "border-[#d8cec3] bg-transparent text-[#31404b] hover:bg-[#eef5f4] hover:text-[#1f2a33]")}
-                      >
-                        <Link href={href}>{action.label}</Link>
-                      </Button>
-                        );
-                      })()
-                    ) : (
-                      <Button
-                        key={action.id}
-                        size="sm"
-                        variant="outline"
-                        className={cn("h-8.5", isFinance && "border-[#d8cec3] bg-transparent text-[#31404b] hover:bg-[#eef5f4] hover:text-[#1f2a33]")}
-                        disabled={!action.enabled}
-                      >
-                        {action.label}
-                      </Button>
-                    ),
-                  )}
+
+                {secondaryActions.map((action) =>
+                  action.href ? (
+                    <Button
+                      key={action.id}
+                      asChild
+                      size="sm"
+                      variant="outline"
+                      className={cn(
+                        "h-9 rounded-full px-3.5",
+                        isFinance
+                          ? "border-[#cfe0e1] bg-transparent text-[#31404b] hover:bg-[#dfeceb] hover:text-[#1f2a33]"
+                          : "border-white/15 bg-white/5 text-stone-100 hover:bg-white/10 hover:text-stone-50 dark:border-white/10",
+                      )}
+                    >
+                      <Link href={hrefTransform?.(action.href) ?? action.href}>{action.label}</Link>
+                    </Button>
+                  ) : (
+                    <Button
+                      key={action.id}
+                      size="sm"
+                      variant="outline"
+                      className={cn(
+                        "h-9 rounded-full px-3.5",
+                        isFinance
+                          ? "border-[#cfe0e1] bg-transparent text-[#31404b] hover:bg-[#dfeceb] hover:text-[#1f2a33]"
+                          : "border-white/15 bg-white/5 text-stone-100 hover:bg-white/10 hover:text-stone-50 dark:border-white/10",
+                      )}
+                      disabled={!action.enabled}
+                    >
+                      {action.label}
+                    </Button>
+                  ),
+                )}
               </div>
-              {financeSummary && (
-                <p className={cn("mt-2 text-[11px]", isFinance ? "text-[#6d7b85]" : "text-muted-foreground")}>{financeSummary}</p>
-              )}
             </div>
 
-            <div className="grid gap-3 lg:grid-cols-2">
-              <div className={cn("rounded-[16px] border p-3", isFinance ? "border-[#e5ddd4] bg-[#fbf8f3]" : "border-border/70 bg-background")}>
+            <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.92fr)]">
+              <div className={boxClassName}>
                 <div className="mb-2 flex items-center gap-2">
-                  <AlertCircle className={cn("h-4 w-4", isFinance ? "text-[#7c8791]" : "text-muted-foreground")} />
-                  <h3 className="text-[13px] font-semibold">Perche ora</h3>
+                  <AlertCircle className={cn("h-4 w-4", isFinance ? "text-[#7c8791]" : "text-stone-500 dark:text-zinc-400")} />
+                  <h3 className="text-[13px] font-semibold">Perche adesso</h3>
                 </div>
                 {detail?.signals.length ? (
                   <div className="space-y-2">
-                    {detail.signals.map((signal) => (
-                        <div
-                          key={`${currentCase.case_id}-${signal.signal_code}`}
-                          className={cn(
-                            "rounded-[12px] p-2.5",
-                            isFinance ? FINANCE_TOKEN_TONES.signalCard : "border border-border/70 bg-background",
-                          )}
-                        >
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-[13px] font-medium">{signal.label}</p>
-                            {signal.due_date && (
-                            <span
-                              className={cn(
-                                "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-                                isFinance ? FINANCE_TOKEN_TONES.subtlePill : "bg-muted text-muted-foreground",
-                              )}
-                            >
+                    {detail.signals.slice(0, 3).map((signal) => (
+                      <div
+                        key={`${currentCase.case_id}-${signal.signal_code}`}
+                        className={cn(
+                          "rounded-[16px] border p-3",
+                          isFinance
+                            ? FINANCE_TOKEN_TONES.signalCard
+                            : "border-stone-200/80 bg-stone-50/85 dark:border-zinc-800 dark:bg-zinc-900/80",
+                        )}
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-[13px] font-medium">{signal.label}</p>
+                          {signal.due_date ? (
+                            <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]", chipClassName)}>
                               {formatWorkspaceDate(signal.due_date)}
                             </span>
-                          )}
+                          ) : null}
                         </div>
-                        <p className={cn("mt-1 text-[11px] leading-5", isFinance ? "text-[#5f6b76]" : "text-muted-foreground")}>{signal.reason}</p>
+                        <p className={cn("mt-1 text-[11px] leading-5", isFinance ? "text-[#5f6b76]" : "text-stone-600 dark:text-zinc-300")}>
+                          {signal.reason}
+                        </p>
                       </div>
                     ))}
                   </div>
@@ -289,33 +291,28 @@ export function WorkspaceDetailPanel({
                 )}
               </div>
 
-              <div className={cn("rounded-[16px] border p-3", isFinance ? "border-[#e5ddd4] bg-[#fbf8f3]" : "border-border/70 bg-background")}>
+              <div className={boxClassName}>
                 <div className="mb-2 flex items-center gap-2">
-                  <ListTree className={cn("h-4 w-4", isFinance ? "text-[#7c8791]" : "text-muted-foreground")} />
+                  <ListTree className={cn("h-4 w-4", isFinance ? "text-[#7c8791]" : "text-stone-500 dark:text-zinc-400")} />
                   <h3 className="text-[13px] font-semibold">Contesto collegato</h3>
                 </div>
                 {detail?.related_entities.length ? (
                   <div className="flex flex-wrap gap-2">
                     {detail.related_entities.map((entity) =>
                       entity.href ? (
-                        (() => {
-                          const href = hrefTransform?.(entity.href) ?? entity.href;
-                          return (
                         <Link
                           key={`${entity.type}-${entity.id}`}
-                          href={href}
+                          href={hrefTransform?.(entity.href) ?? entity.href}
                           className={cn(
                             "inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors",
                             isFinance
                               ? `${FINANCE_TOKEN_TONES.contextChip} hover:bg-[#eef5f4]`
-                              : "border border-border/70 bg-background hover:bg-muted",
+                              : "border border-stone-200/80 bg-white/85 text-stone-700 hover:bg-stone-50 dark:border-zinc-700 dark:bg-zinc-950/70 dark:text-zinc-200 dark:hover:bg-zinc-900/90",
                           )}
                         >
                           {entity.label}
                           <ArrowUpRight className="h-3 w-3" />
                         </Link>
-                          );
-                        })()
                       ) : (
                         <span
                           key={`${entity.type}-${entity.id}`}
@@ -323,7 +320,7 @@ export function WorkspaceDetailPanel({
                             "inline-flex items-center rounded-full px-3 py-1.5 text-[11px] font-medium",
                             isFinance
                               ? FINANCE_TOKEN_TONES.contextChip
-                              : "border border-border/70 bg-background",
+                              : "border border-stone-200/80 bg-white/85 text-stone-700 dark:border-zinc-700 dark:bg-zinc-950/70 dark:text-zinc-200",
                           )}
                         >
                           {entity.label}
@@ -337,40 +334,39 @@ export function WorkspaceDetailPanel({
               </div>
             </div>
 
-            <div className={cn("rounded-[16px] border p-3", isFinance ? "border-[#e5ddd4] bg-[#fbf8f3]" : "border-border/70 bg-background")}>
+            <div className={boxClassName}>
               <div className="mb-2 flex items-center gap-2">
-                <Clock3 className={cn("h-4 w-4", isFinance ? "text-[#7c8791]" : "text-muted-foreground")} />
+                <Clock3 className={cn("h-4 w-4", isFinance ? "text-[#7c8791]" : "text-stone-500 dark:text-zinc-400")} />
                 <h3 className="text-[13px] font-semibold">Timeline sintetica</h3>
               </div>
               {detail?.activity_preview.length ? (
-                <div className="space-y-2.5">
-                  {detail.activity_preview.map((item, index) => (
-                    <div key={`${item.at}-${item.label}-${index}`} className="flex gap-3">
-                      <div className="flex flex-col items-center">
-                        <span className={cn("h-2.5 w-2.5 rounded-full", isFinance ? "bg-[#2f6e73]" : "bg-primary/70")} />
-                        {index < detail.activity_preview.length - 1 && (
-                          <span className={cn("mt-1 h-full w-px", isFinance ? "bg-[#ddd4ca]" : "bg-border")} />
-                        )}
+                <div className="space-y-0">
+                  {detail.activity_preview.slice(0, 5).map((item, index) => (
+                    <div
+                      key={`${item.at}-${item.label}-${index}`}
+                      className={cn(
+                        "flex gap-3 py-2.5",
+                        index < Math.min(detail.activity_preview.length, 5) - 1 &&
+                          (isFinance ? "border-b border-[#e5ddd4]" : "border-b border-stone-200/80 dark:border-zinc-800"),
+                      )}
+                    >
+                      <div className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-stone-100 text-stone-600 dark:bg-zinc-800 dark:text-zinc-300">
+                        <Clock3 className="h-3.5 w-3.5" />
                       </div>
-                      <div className="min-w-0 flex-1 pb-2">
+                      <div className="min-w-0 flex-1">
                         <p className="text-[13px] font-medium">{item.label}</p>
-                        <p className={cn("mt-1 text-[11px]", isFinance ? "text-[#5f6b76]" : "text-muted-foreground")}>
+                        <p className={cn("mt-0.5 text-[11px]", isFinance ? "text-[#5f6b76]" : "text-stone-600 dark:text-zinc-300")}>
                           {formatWorkspaceDateTime(item.at)}
                         </p>
-                        {item.href && (
-                          (() => {
-                            const href = hrefTransform?.(item.href) ?? item.href;
-                            return (
+                        {item.href ? (
                           <Link
-                            href={href}
-                            className={cn("mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium hover:underline", isFinance ? "text-[#2f6e73]" : "text-primary")}
+                            href={hrefTransform?.(item.href) ?? item.href}
+                            className={cn("mt-1 inline-flex items-center gap-1 text-[11px] font-medium hover:underline", isFinance ? "text-[#2f6e73]" : "text-primary")}
                           >
                             Apri contesto
                             <ArrowUpRight className="h-3 w-3" />
                           </Link>
-                            );
-                          })()
-                        )}
+                        ) : null}
                       </div>
                     </div>
                   ))}
