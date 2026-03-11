@@ -337,6 +337,11 @@ La procedura corretta e:
 2. Conservare l'installer precedente.
 3. Annotare la versione corrente.
 
+Per la procedura sequenziale lato utente/installatore durante un upgrade reale usare:
+- [UPGRADE_PROCEDURE.md](/Users/gvera/Projects/FitManager_AI_Studio/docs/UPGRADE_PROCEDURE.md)
+
+Questo runbook resta invece la fonte tecnica per recovery, restore ed escalation.
+
 ### 8.2 Se l'aggiornamento introduce un problema
 
 Ordine di intervento:
@@ -395,6 +400,7 @@ Per ogni ticket serio raccogliere:
 
 - [RELEASE_CHECKLIST.md](/Users/gvera/Projects/FitManager_AI_Studio/docs/RELEASE_CHECKLIST.md)
 - [TAILSCALE_FUNNEL_SETUP.md](/Users/gvera/Projects/FitManager_AI_Studio/docs/TAILSCALE_FUNNEL_SETUP.md)
+- [UPGRADE_PROCEDURE.md](/Users/gvera/Projects/FitManager_AI_Studio/docs/UPGRADE_PROCEDURE.md)
 - [DEPLOYMENT_PLAN.md](/Users/gvera/Projects/FitManager_AI_Studio/docs/DEPLOYMENT_PLAN.md)
 - [UPG-2026-03-10-09-launch-operations-plan-v1.md](/Users/gvera/Projects/FitManager_AI_Studio/docs/upgrades/specs/UPG-2026-03-10-09-launch-operations-plan-v1.md)
 
