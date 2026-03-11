@@ -51,15 +51,16 @@ type NavLink = {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   guideId?: string;
+  tooltip?: string;
   activeMatch?: (pathname: string) => boolean;
 };
 type NavSection = { section: string; items: NavLink[] };
 type NavEntry = NavLink | NavSection;
 
 const NAV_TOP: NavEntry[] = [
-  { href: "/oggi", label: "Oggi", icon: SunMedium },
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/agenda", label: "Agenda", icon: Calendar },
+  { href: "/oggi", label: "Oggi", icon: SunMedium, tooltip: "Preparazione sessioni del giorno" },
+  { href: "/", label: "Dashboard", icon: LayoutDashboard, tooltip: "Panoramica e KPI operativi" },
+  { href: "/agenda", label: "Agenda", icon: Calendar, tooltip: "Calendario settimanale interattivo" },
   {
     section: "Clienti",
     items: [
@@ -157,8 +158,15 @@ function NavItem({
           )}
         </Link>
       </TooltipTrigger>
-      <TooltipContent side="right" className="lg:hidden">
-        {item.label}
+      <TooltipContent side="right" className={item.tooltip ? "" : "lg:hidden"}>
+        {item.tooltip ? (
+          <div>
+            <p className="font-medium">{item.label}</p>
+            <p className="text-xs text-muted-foreground">{item.tooltip}</p>
+          </div>
+        ) : (
+          item.label
+        )}
       </TooltipContent>
     </Tooltip>
   );

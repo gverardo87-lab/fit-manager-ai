@@ -20,6 +20,7 @@ import {
   Calendar,
   FileText,
   Rocket,
+  Settings,
   Sparkles,
   UserPlus,
 } from "lucide-react";
@@ -287,6 +288,14 @@ function WelcomeCard({ exerciseCount }: { exerciseCount: number }) {
           })}
         </div>
       </div>
+
+      {/* Tip saldo iniziale */}
+      <Link href="/impostazioni" className="group flex items-center gap-2 rounded-lg border border-dashed border-muted-foreground/20 px-4 py-3 transition-colors hover:border-primary/30 hover:bg-primary/5">
+        <Settings className="h-4 w-4 text-muted-foreground/50 group-hover:text-primary" />
+        <p className="text-xs text-muted-foreground">
+          <span className="font-medium">Suggerimento:</span> configura il saldo iniziale di cassa in Impostazioni per un bilancio accurato fin da subito
+        </p>
+      </Link>
     </div>
   );
 }

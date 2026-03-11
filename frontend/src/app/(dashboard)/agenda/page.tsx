@@ -336,6 +336,19 @@ export default function AgendaPage() {
                 </div>
               </div>
             )}
+            {calendarEvents.length === 0 && !isFetching && (
+              <div className="pointer-events-none absolute inset-0 z-[5] flex items-center justify-center">
+                <div className="pointer-events-auto rounded-xl border border-dashed border-blue-200 bg-white/90 px-6 py-8 text-center shadow-sm backdrop-blur-sm dark:border-blue-800/50 dark:bg-zinc-900/90">
+                  <CalendarDays className="mx-auto mb-3 h-10 w-10 text-blue-400/60" />
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Nessun evento in questo periodo
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground/70">
+                    Clicca su uno slot vuoto o premi &quot;Nuovo Evento&quot; per creare una sessione
+                  </p>
+                </div>
+              </div>
+            )}
             <AgendaCalendar
               events={calendarEvents}
               onSelectSlot={handleSelectSlot}
