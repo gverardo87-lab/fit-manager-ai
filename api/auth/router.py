@@ -11,7 +11,7 @@ from sqlmodel import Session, select, func as sa_func
 
 from api.database import get_session
 from api.models.trainer import Trainer
-from api.auth.schemas import TrainerRegister, TrainerLogin, TokenResponse
+from api.auth.schemas import TrainerRegister, TrainerLogin, TokenResponse, PasswordResetRequest
 from api.auth.service import hash_password, verify_password, create_access_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -65,6 +65,28 @@ def register(data: TrainerRegister, session: Session = Depends(get_session)):
         nome=trainer.nome,
         cognome=trainer.cognome,
     )
+
+
+@router.post("/reset-password")
+def reset_password(data: PasswordResetRequest, session: Session = Depends(get_session)):
+    """
+    Reset password per app locale (single-user, no email server).
+
+    Sicurezza: richiede accesso fisico al PC + conoscenza dell'email.
+    L'endpoint e' pubblico (no JWT) — il trainer non puo' fare login.
+    """
+    trainer = session.exec(
+        select(Trainer).where(Trainer.email == data.email)
+    ).first()
+    if not trainer:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Nessun account trovato con questa email",
+        )
+    trainer.hashed_password = hash_password(data.new_password)
+    session.add(trainer)
+    session.commit()
+    return {"message": "Password aggiornata con successo"}
 
 
 @router.post("/login", response_model=TokenResponse)

@@ -40,6 +40,17 @@ class TokenResponse(BaseModel):
     cognome: str
 
 
+class PasswordResetRequest(BaseModel):
+    """Payload per reset password (app locale, no email server)."""
+    email: str
+    new_password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        return v.strip().lower()
+
+
 class TrainerPublic(BaseModel):
     """Dati pubblici del trainer (senza password)."""
     id: int

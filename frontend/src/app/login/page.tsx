@@ -19,7 +19,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
 import Image from "next/image";
-import { Loader2, Eye, EyeOff } from "lucide-react";
+import { Loader2, Eye, EyeOff, KeyRound } from "lucide-react";
 import { AxiosError } from "axios";
 
 import apiClient from "@/lib/api-client";
@@ -33,6 +33,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -58,6 +65,17 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
+const resetSchema = z.object({
+  email: z.string().min(1, "L'email e' obbligatoria").email("Inserisci un'email valida"),
+  new_password: z.string().min(8, "La password deve avere almeno 8 caratteri"),
+  confirm_password: z.string().min(1, "Conferma la password"),
+}).refine((d) => d.new_password === d.confirm_password, {
+  message: "Le password non corrispondono",
+  path: ["confirm_password"],
+});
+
+type ResetFormValues = z.infer<typeof resetSchema>;
+
 // ════════════════════════════════════════════════════════════
 // COMPONENTE
 // ════════════════════════════════════════════════════════════
@@ -66,6 +84,9 @@ export default function LoginPage() {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
 
   // Se non esiste nessun trainer, redirect al Setup Wizard
   useEffect(() => {
@@ -102,6 +123,30 @@ export default function LoginPage() {
       }
     },
   });
+
+  const resetForm = useForm<ResetFormValues>({
+    resolver: zodResolver(resetSchema),
+    defaultValues: { email: "", new_password: "", confirm_password: "" },
+  });
+
+  const resetMutation = useMutation({
+    mutationFn: (data: { email: string; new_password: string }) =>
+      apiClient.post("/auth/reset-password", data),
+    onSuccess: () => {
+      setResetSuccess(true);
+      setResetError(null);
+    },
+    onError: (error: AxiosError<{ detail?: string }>) => {
+      setResetError(error.response?.data?.detail || "Errore durante il reset");
+      setResetSuccess(false);
+    },
+  });
+
+  function onResetSubmit(values: ResetFormValues) {
+    setResetError(null);
+    setResetSuccess(false);
+    resetMutation.mutate({ email: values.email, new_password: values.new_password });
+  }
 
   function onSubmit(values: LoginFormValues) {
     setServerError(null);
@@ -218,10 +263,113 @@ export default function LoginPage() {
                   "Accedi"
                 )}
               </Button>
+              {/* Password dimenticata */}
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResetOpen(true);
+                    setResetSuccess(false);
+                    setResetError(null);
+                    resetForm.reset();
+                  }}
+                  className="text-xs text-muted-foreground hover:text-primary transition-colors"
+                >
+                  Password dimenticata?
+                </button>
+              </div>
             </form>
           </Form>
         </CardContent>
       </Card>
+
+      {/* Dialog reset password */}
+      <Dialog open={resetOpen} onOpenChange={setResetOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <KeyRound className="h-5 w-5 text-primary" />
+              Reimposta password
+            </DialogTitle>
+            <DialogDescription>
+              Inserisci l&apos;email del tuo account e scegli una nuova password.
+            </DialogDescription>
+          </DialogHeader>
+
+          {resetSuccess ? (
+            <div className="space-y-3">
+              <div className="rounded-md bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300">
+                Password aggiornata con successo! Ora puoi fare login.
+              </div>
+              <Button
+                className="w-full"
+                onClick={() => setResetOpen(false)}
+              >
+                Torna al login
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={resetForm.handleSubmit(onResetSubmit)} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Email</label>
+                <Input
+                  type="email"
+                  placeholder="nome@esempio.com"
+                  {...resetForm.register("email")}
+                />
+                {resetForm.formState.errors.email && (
+                  <p className="text-xs text-destructive">{resetForm.formState.errors.email.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Nuova password</label>
+                <Input
+                  type="password"
+                  placeholder="Minimo 8 caratteri"
+                  {...resetForm.register("new_password")}
+                />
+                {resetForm.formState.errors.new_password && (
+                  <p className="text-xs text-destructive">{resetForm.formState.errors.new_password.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Conferma password</label>
+                <Input
+                  type="password"
+                  placeholder="Ripeti la password"
+                  {...resetForm.register("confirm_password")}
+                />
+                {resetForm.formState.errors.confirm_password && (
+                  <p className="text-xs text-destructive">{resetForm.formState.errors.confirm_password.message}</p>
+                )}
+              </div>
+
+              {resetError && (
+                <div className="rounded-md bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                  {resetError}
+                </div>
+              )}
+
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={resetMutation.isPending}
+              >
+                {resetMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Aggiornamento...
+                  </>
+                ) : (
+                  "Reimposta password"
+                )}
+              </Button>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

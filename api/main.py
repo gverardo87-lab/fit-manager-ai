@@ -85,6 +85,7 @@ LICENSE_EXEMPT_PATHS = {
     f"{API_PREFIX}/auth/login",
     f"{API_PREFIX}/auth/register",
     f"{API_PREFIX}/auth/setup-status",
+    f"{API_PREFIX}/auth/reset-password",
 }
 LICENSE_EXEMPT_PREFIXES = ("/media/", f"{API_PREFIX}/public/")
 

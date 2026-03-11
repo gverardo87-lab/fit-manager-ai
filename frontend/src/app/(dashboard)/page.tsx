@@ -132,7 +132,7 @@ export default function DashboardPage() {
 
       {/* ── First-run welcome (zero clienti) ── */}
       {!isLoading && summary && summary.active_clients === 0 ? (
-        <WelcomeCard />
+        <WelcomeCard exerciseCount={summary.exercise_count} />
       ) : (
         <>
           {/* ── CommandStrip (hero) ── */}
@@ -233,7 +233,7 @@ const FIRST_STEPS = [
   },
   {
     label: "Esplora gli esercizi",
-    description: "269 esercizi con tassonomia scientifica",
+    description: "{count} esercizi con tassonomia scientifica",
     icon: Rocket,
     href: "/esercizi",
     gradient: "from-violet-50 to-violet-100/50 dark:from-violet-950/30 dark:to-zinc-900",
@@ -242,7 +242,7 @@ const FIRST_STEPS = [
   },
 ] as const;
 
-function WelcomeCard() {
+function WelcomeCard({ exerciseCount }: { exerciseCount: number }) {
   return (
     <div className="space-y-5 md:space-y-6">
       {/* Hero welcome */}
@@ -278,7 +278,9 @@ function WelcomeCard() {
                     <Icon className={`h-5 w-5 ${step.iconColor}`} />
                     <span className="text-sm font-medium">{step.label}</span>
                   </div>
-                  <p className="text-xs text-muted-foreground">{step.description}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {step.description.replace("{count}", String(exerciseCount || 391))}
+                  </p>
                 </div>
               </Link>
             );

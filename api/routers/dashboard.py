@@ -22,6 +22,7 @@ from api.models.movement import CashMovement
 from api.models.rate import Rate
 from api.models.event import Event
 from api.models.contract import Contract
+from api.models.exercise import Exercise
 from api.schemas.financial import (
     DashboardSummary, ReconciliationItem, ReconciliationResponse,
     AlertItem, DashboardAlerts,
@@ -132,6 +133,14 @@ def get_dashboard_summary(
     # 6. Saldo di cassa attuale (computed on read)
     saldo_attuale = _compute_saldo(session, trainer, as_of=today)
 
+    # 7. Esercizi attivi (in_subset=True)
+    exercise_count = session.exec(
+        select(func.count(Exercise.id)).where(
+            Exercise.in_subset == True,
+            Exercise.deleted_at == None,
+        )
+    ).one()
+
     return DashboardSummary(
         active_clients=active_clients,
         monthly_revenue=round(monthly_revenue, 2),
@@ -139,6 +148,7 @@ def get_dashboard_summary(
         todays_appointments=todays_appointments,
         ledger_alerts=divergent_count,
         saldo_attuale=saldo_attuale,
+        exercise_count=exercise_count,
     )
 
 

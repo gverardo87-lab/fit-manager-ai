@@ -406,6 +406,7 @@ class DashboardSummary(BaseModel):
     todays_appointments: int = 0
     ledger_alerts: int = 0
     saldo_attuale: float = 0.0
+    exercise_count: int = 0
 
 
 # ════════════════════════════════════════════════════════════

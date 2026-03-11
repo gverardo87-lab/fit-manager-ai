@@ -822,6 +822,7 @@ export interface DashboardSummary {
   todays_appointments: number;
   ledger_alerts: number;
   saldo_attuale: number;
+  exercise_count: number;
 }
 
 export interface CashProtection {
