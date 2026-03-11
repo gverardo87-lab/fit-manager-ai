@@ -144,10 +144,16 @@ Decisione:
     monouso e verificare pagina pubblica + token
   - verifica backend confermata nel terminale utente: suite dedicata `5 passed`,
     suite connectivity completa `21 passed`
+- `Phase E - Dashboard Promotion`: chiusa con `UPG-2026-03-11-12`
+  - nuova card onboarding non bloccante nella dashboard post-login
+  - mapping del prossimo passo in base al profilo (`local_only` -> `trusted_devices`,
+    `trusted_devices` -> `public_portal`)
+  - anchor diretto a `Impostazioni#connettivita`
 - Stato attuale: il prodotto sa leggere, spiegare, applicare e verificare la connettivita,
-  e ora offre anche un percorso guidato dentro `Impostazioni` fino alla validazione di un
-  link anamnesi pubblico reale. Resta aperta solo la promozione del wizard nel first-run
-  post-installazione e la validazione manuale finale da smartphone/rete esterna.
+  offre un percorso guidato dentro `Impostazioni` fino alla validazione di un link
+  anamnesi pubblico reale, e promuove ora il setup nel punto di atterraggio naturale
+  post-login. Resta aperta solo la validazione manuale finale da smartphone/rete esterna
+  e, se desiderato in futuro, un first-run gate globale piu forte.
 
 ### 1. Runtime Service Backend
 

@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { CommandStrip, CommandStripSkeleton } from "@/components/dashboard/CommandStrip";
 import { AgendaLive } from "@/components/dashboard/AgendaLive";
 import { AlertHub } from "@/components/dashboard/AlertHub";
+import { ConnectivityOnboardingCard } from "@/components/dashboard/ConnectivityOnboardingCard";
 import { WeeklyPulse } from "@/components/dashboard/WeeklyPulse";
 import { TodoCard } from "@/components/dashboard/TodoCard";
 import { GhostEventsSheet } from "@/components/dashboard/GhostEventsSheet";
@@ -132,6 +133,12 @@ export default function DashboardPage() {
       )}
 
       {/* ── First-run welcome (zero clienti) ── */}
+      {!isLoading && summary ? (
+        <div className={revealClass(20)} style={revealStyle(20)}>
+          <ConnectivityOnboardingCard />
+        </div>
+      ) : null}
+
       {!isLoading && summary && summary.active_clients === 0 ? (
         <WelcomeCard exerciseCount={summary.exercise_count} />
       ) : (

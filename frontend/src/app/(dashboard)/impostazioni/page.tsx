@@ -148,7 +148,11 @@ export default function ImpostazioniPage() {
         <SystemStatusSection />
       </div>
 
-      <div className={revealClass(50)} style={revealStyle(50)}>
+      <div
+        id="connettivita"
+        className={revealClass(50, "scroll-mt-24")}
+        style={revealStyle(50)}
+      >
         <ConnectivityStatusSection />
       </div>
 
