@@ -49,7 +49,7 @@ api/
 │   ├── audit_log.py     audit_log (timeline modifiche)
 │   ├── todo.py          todos (trainer-owned)
 │   └── share_token.py   share_tokens (UUID4 monouso per portale pubblico anamnesi)
-├── routers/             REST endpoints con Bouncer Pattern — 20 router
+├── routers/             REST endpoints con Bouncer Pattern — router dominio + runtime/support
 │   ├── _audit.py        log_audit() helper condiviso
 │   ├── agenda.py        CRUD eventi + credit guard + _sync_contract_chiuso
 │   ├── assistant.py     Parse + commit NLP (feature flag ASSISTANT_V1_ENABLED)
@@ -63,7 +63,7 @@ api/
 │   ├── movements.py     Ledger + pending/confirm + forecast + saldo + audit-log
 │   ├── rates.py         CRUD rate + pay/unpay atomic
 │   ├── recurring_expenses.py  CRUD spese fisse + close/rettifica
-│   ├── system.py        Snapshot read-only supporto/runtime (`/system/support-snapshot`)
+│   ├── system.py        Surface runtime/support: health, support snapshot, connectivity status/config/verify/portal validation
 │   ├── todos.py         CRUD todos + toggle completato
 │   ├── training_methodology.py  MyTrainer: qualita' metodologica programmi allenamento
 │   ├── training_science.py  Generazione piani + analisi 4D + mesociclo (5 endpoint, zero DB)
@@ -71,7 +71,7 @@ api/
 │   ├── workouts.py      CRUD schede + sessioni + esercizi (deep IDOR chain)
 │   ├── workspace.py     Cockpit operativo: today + session-prep + cases (4 GET read-only)
 │   └── public_portal.py Portale pubblico anamnesi: generate token (JWT) + validate + submit (2 endpoint pubblici, rate limiter IP-based, feature flag PUBLIC_PORTAL_ENABLED)
-├── schemas/             Pydantic v2 — 15 moduli
+├── schemas/             Pydantic v2 — schema dominio + runtime/system contracts
 │   ├── assistant.py     ParseRequest/Response, CommitRequest/Response (6 schema)
 │   ├── exercise.py      ExerciseCreate/Update/Response + media/relazioni/tassonomia
 │   ├── financial.py     Contract/Rate/Movement/Dashboard/ClinicalReadiness/PaymentReceipt/RenewalChainItem DTOs
@@ -79,15 +79,19 @@ api/
 │   ├── measurement.py   MeasurementCreate/Response + valori
 │   ├── public.py        ShareTokenCreate/Response, AnamnesiValidate/Submit (portale pubblico)
 │   ├── safety.py        SafetyMapResponse + ExerciseSafetyEntry
-│   ├── system.py        HealthResponse + SupportSnapshotResponse
+│   ├── system.py        Health/SupportSnapshot + ConnectivityStatus/Config/Verify/PortalValidation contracts
 │   ├── workspace.py     SessionPrepItem/HealthCheck/Alert/Hint/Response + OperationalCase + WorkspaceTodayResponse (~255 LOC)
 │   ├── workout.py       WorkoutPlan/Session/Exercise Create/Update/Response
 │   └── workout_log.py   WorkoutLogCreate/Response
-└── services/            Business logic — servizi dominio + parser assistant + training science
+└── services/            Business logic — servizi dominio + runtime/support + parser assistant + training science
     ├── condition_rules.py  Regole deterministiche anamnesi → condizioni (80 pattern rules)
     ├── goal_engine.py      Calcolo progresso obiettivi
     ├── license.py          Verifica licenza JWT RSA (4-tier key resolution)
     ├── system_runtime.py   Helper condivisi health/support snapshot + backup metadata
+    ├── connectivity_runtime.py Read-only probe Tailscale/Funnel + profile classification
+    ├── connectivity_config.py  Apply idempotente `PUBLIC_PORTAL_ENABLED` / `PUBLIC_BASE_URL`
+    ├── connectivity_verify.py  Verify end-to-end dell'origine pubblica via `{PUBLIC_BASE_URL}/health`
+    ├── connectivity_portal_validation.py Validazione funzionale link anamnesi pubblico reale
     ├── safety_engine.py    Safety map per-esercizio (extract conditions + build map)
     ├── session_prep.py     Session Prep cockpit: 7-step pipeline (events + readiness + safety + contracts)
     ├── workspace_engine.py Workspace operativo: today/cases/detail + ranking + dominance matrix (~3000 LOC)

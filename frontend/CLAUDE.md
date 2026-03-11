@@ -22,7 +22,7 @@ frontend/src/
 ├── app/                     Next.js App Router — 24 pagine
 │   ├── (dashboard)/         Route group (non appare in URL)
 │   │   ├── layout.tsx       Sidebar + AuthGuard + CommandPalette + scroll restoration
-│   │   ├── page.tsx         Dashboard reminder-first (~1760 LOC) + WelcomeCard first-run
+│   │   ├── page.tsx         Dashboard reminder-first (~1760 LOC) + WelcomeCard + connectivity onboarding post-login
 │   │   ├── agenda/          Calendario interattivo (react-big-calendar + DnD)
 │   │   ├── allenamenti/     Monitoraggio compliance programmi
 │   │   ├── cassa/           5 tab: Libro Mastro, Spese Fisse, Entrate & Uscite, Scadenze, Previsioni
@@ -30,7 +30,7 @@ frontend/src/
 │   │   ├── contratti/       Lista + [id]/ dettaglio con rate, pagamenti e catena rinnovi
 │   │   ├── esercizi/        Lista + [id]/ dettaglio con MuscleMap SVG + tassonomia
 │   │   ├── guida/           Hub guida interattiva + SpotlightTour
-│   │   ├── impostazioni/    Account, backup/restore, saldo iniziale, stato installazione, snapshot diagnostico
+│   │   ├── impostazioni/    Account, backup/restore, saldo iniziale, stato installazione, snapshot diagnostico, wizard Connettivita
 │   │   ├── oggi/            Cockpit session prep (SessionPrepCard, hero KPI, 4 sezioni urgenza)
 │   │   ├── rinnovi-incassi/ Rinnovi contratti + incassi rate (actionable, inline payment + renewal)
 │   │   └── schede/          Lista + [id]/ builder split con preview live
@@ -38,7 +38,7 @@ frontend/src/
 │   ├── setup/page.tsx       Setup Wizard primo avvio (crea trainer)
 │   ├── licenza/page.tsx     Pagina licenza scaduta/non valida
 │   └── layout.tsx           Root layout (Providers, fonts)
-├── components/              ~80 componenti organizzati per dominio
+├── components/              Componenti organizzati per dominio
 │   ├── auth/                AuthGuard (route protection client-side)
 │   ├── guide/               SpotlightTour (overlay 19 passi cross-page)
 │   ├── layout/              Sidebar (sezioni, clearPageState, LogoIcon) + CommandPalette (~1170 LOC, assistant mode)
@@ -53,22 +53,27 @@ frontend/src/
 │   │                        ContractForm (RenewalDefaults pre-fill), ContractFinancialHero,
 │   │                        PaymentPlanTab (RateCard, PayRateForm, PaymentHistory, AddRateForm),
 │   │                        RateEditDialog, RateUnpayDialog, DeleteContractDialog
-│   ├── dashboard/           TodoCard (hero actions), GhostEventsSheet, OverdueRatesSheet,
-│   │                        ExpiringContractsSheet, InactiveClientsSheet
+│   ├── dashboard/           TodoCard (hero actions), ConnectivityOnboardingCard, GhostEventsSheet,
+│   │                        OverdueRatesSheet, ExpiringContractsSheet, InactiveClientsSheet
 │   ├── exercises/           ExercisesTable, ExerciseSheet, ExerciseForm, MuscleMap SVG
 │   ├── movements/           MovementsTable, MovementSheet, RecurringExpensesTab, CashAuditSheet,
 │   │                        SplitLedgerView, AdvancedFilters, AgingReport, ForecastTab
-│   ├── settings/            SystemStatusSection, SupportSnapshotSection, system-status-utils
+│   ├── settings/            SystemStatusSection, SupportSnapshotSection, ConnectivityStatusSection,
+│   │                        ConnectivitySetupWizard, ConnectivityPortalValidationPanel,
+│   │                        connectivity-status-ui, connectivity-wizard-ui, connectivity-wizard-panels,
+│   │                        connectivity-wizard-state, system-status-utils
 │   ├── workspace/           SessionPrepCard (client+non-client), workspace-ui.ts (config/metadata)
 │   ├── workouts/            SessionCard, SortableExerciseRow, BlockCard, ExerciseSelector,
 │   │                        TemplateSelector, WorkoutPreview, ExportButtons, ExerciseDetailPanel,
 │   │                        SmartAnalysisPanel, MuscleMapPanel, RiskBodyMap
 │   └── ui/                  shadcn/ui (33 primitives + AnimatedNumber + Skeleton shimmer + LogoIcon)
-├── hooks/                   React Query hooks — 24 moduli
+├── hooks/                   React Query + app hooks — 28 moduli
 │   ├── useAgenda, useClients, useContracts, useRates, useMovements
 │   ├── useExercises, useWorkouts, useMeasurements, useGoals
 │   ├── useRecurringExpenses, useTodos, useDashboard, useBackup
-│   ├── useAssistant, useSmartProgramming, useSystemHealth, useSystemSupport, useUnsavedChanges, useGuideProgress
+│   ├── useAssistant, useSmartProgramming, useSystemHealth, useSystemSupport,
+│   │                        useConnectivityStatus, useConnectivityConfig, useVerifyConnectivity,
+│   │                        usePortalValidation, useUnsavedChanges, useGuideProgress
 │   ├── useTrainingScience   Hook per 5 endpoint Training Science Engine backend
 │   ├── useWorkspace         4 hook workspace: useWorkspaceToday, useWorkspaceCases, useWorkspaceCaseDetail, useSessionPrep (refetch 60s)
 │   ├── useClientReadiness   Readiness singolo cliente (wraps useClinicalReadiness) + computeOnboardingSteps
@@ -89,7 +94,7 @@ frontend/src/
 │   ├── guide-tours.ts (dati tour, FAQ, shortcuts)
 │   └── export-workout.ts, export-workout-pdf.ts (clinico HTML→PDF)
 ├── types/api.ts             TypeScript interfaces (mirror Pydantic)
-└── __tests__/               Vitest (69 test data protection + 1 workout metrics)
+└── __tests__/               Vitest (data protection + onboarding/connectivity wizard + runtime UI logic)
 ```
 
 ## Pattern Obbligatori

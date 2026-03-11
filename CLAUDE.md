@@ -916,17 +916,17 @@ tutte le 6 pagine filtri (esercizi, clienti, contratti, schede, cassa, allenamen
 
 ```
 frontend/          Next.js 16 + React 19 + TypeScript
-  src/hooks/       React Query (server state) — 24 hook modules
-  src/components/  shadcn/ui + componenti dominio — ~80 componenti
+  src/hooks/       React Query + setup/runtime hooks — 28 hook file
+  src/components/  shadcn/ui + componenti dominio — 167 TS/TSX file
   src/types/       Interfacce TypeScript (mirror Pydantic)
        |
        | REST API (JSON over HTTP, JWT auth)
        v
 api/               FastAPI + SQLModel ORM — Dual Engine
-  models/          20 modelli ORM (SQLAlchemy table=True)
-  routers/         21 router module con Bouncer Pattern + Deep IDOR
+  models/          21 modelli ORM (SQLAlchemy table=True)
+  routers/         22 router/support module con Bouncer Pattern + Deep IDOR
   schemas/         Pydantic v2 (input/output validation)
-  services/        Safety Engine, Goal Engine, Training Science Engine (10 moduli)
+  services/        Safety Engine, support/runtime, connectivity wizard backend, Training Science Engine
        |
        v
 SQLite (Dual-DB)
@@ -1467,6 +1467,28 @@ Nota operativa:
 
 **Guida completa + runbook installazione**: `docs/TAILSCALE_FUNNEL_SETUP.md`
 
+### Connectivity Setup Wizard — Profili Guidati
+
+La connettivita' non e' piu solo runbook tecnico: il prodotto la espone e la guida da
+`Impostazioni > Connettivita` con 3 profili espliciti:
+
+- `local_only` — uso solo locale/LAN, zero dipendenze Tailscale lato trainer
+- `trusted_devices` — device remoti fidati dentro il tailnet; richiede Tailscale sul device remoto + login FitManager nel browser
+- `public_portal` — abilita `PUBLIC_PORTAL_ENABLED` / `PUBLIC_BASE_URL` e valida il percorso reale del link anamnesi pubblico
+
+Workstream chiuso per fasi:
+- **Phase A**: read-only status (`/api/system/connectivity-status`) + card `Connettivita`
+- **Phase B**: apply guidato `PUBLIC_PORTAL_ENABLED` / `PUBLIC_BASE_URL`
+- **Phase B2**: verify origine pubblica via `/health`
+- **Phase C**: wizard stepper in `Impostazioni`
+- **Phase D**: validazione funzionale link anamnesi pubblico reale
+- **Promozione post-login**: dashboard con `ConnectivityOnboardingCard` che porta a `Impostazioni#connettivita`
+
+Documenti operativi collegati:
+- `docs/TAILSCALE_FUNNEL_SETUP.md`
+- `docs/SUPPORT_RUNBOOK.md`
+- `docs/RUNTIME_DIAGNOSTICS_PLAYBOOK.md`
+
 ### Script di gestione (`tools/scripts/`)
 ```bash
 bash tools/scripts/migrate-all.sh            # Alembic su ENTRAMBI i DB
@@ -1684,8 +1706,8 @@ sqlite3 data/catalog.db ".tables"
 
 ### Snapshot autorevole 2026-03-10
 
-- **api/**: 123 file Python, 21 router module, 20 model module, 115 handler REST annotati
-- **frontend/**: 250 file TypeScript/TSX, 24 page route, 151 componenti, 24 hook file
+- **api/**: 131 file Python, 22 router/support module, 21 model module, 115+ handler REST annotati
+- **frontend/**: 250+ file TypeScript/TSX, 24 page route, 167 file in `components/`, 28 hook file
 - **core/**: 27 file Python, moduli AI/legacy fuori dal percorso critico del CRM core
 - **tools/**: 63 script, di cui 48 in `tools/admin_scripts/`
 - **DB**: `crm.db`, `crm_dev.db`, `catalog.db` nel layer `data/`
@@ -1694,8 +1716,8 @@ sqlite3 data/catalog.db ".tables"
 
 I conteggi storici sotto vanno considerati superati se divergono da questo snapshot.
 
-- **api/**: ~17,000 LOC Python — 20 modelli ORM, 21 router module, 15 schema modules, servizi dominio + parser assistant + training science
-- **frontend/**: ~18,000 LOC TypeScript — ~80 componenti, 24 hook modules, 24 pagine
+- **api/**: ~17,000+ LOC Python — 21 modelli ORM, 22 router/support module, 16 schema modules, servizi dominio + support/runtime + parser assistant + training science
+- **frontend/**: ~18,000+ LOC TypeScript — 167 file in `components/`, 28 hook modules, 24 pagine
 - **core/**: ~10,300 LOC Python — moduli AI (RAG, exercise archive) in attesa di API endpoints
 - **tools/admin_scripts/**: ~3,200 LOC Python — 16 script (import, quality engine, taxonomy, seed, test, QA clinica)
 - **DB**: Dual-DB SQLite (22 business + 7 catalog), WAL mode, FK enforced, multi-tenant via trainer_id
