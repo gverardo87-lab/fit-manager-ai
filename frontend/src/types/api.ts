@@ -189,6 +189,22 @@ export interface InstallationConnectivityVerifyResponse {
   next_recommended_action_label: string;
 }
 
+export interface InstallationConnectivityPortalValidationRequest {
+  token: string;
+  public_url: string;
+}
+
+export interface InstallationConnectivityPortalValidationResponse {
+  validated_at: string;
+  status: InstallationConnectivityVerifyStatus;
+  summary: string;
+  public_url: string;
+  validate_url: string;
+  masked_client_name: string | null;
+  masked_trainer_name: string | null;
+  checks: InstallationConnectivityCheck[];
+}
+
 /** Dati pubblici trainer — TrainerPublic */
 export interface Trainer {
   id: number;

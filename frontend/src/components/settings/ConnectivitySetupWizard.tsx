@@ -16,6 +16,7 @@ import {
   ConnectivityWizardStepper,
   ConnectivityWizardSuccessState,
 } from "@/components/settings/connectivity-wizard-ui";
+import { ConnectivityPortalValidationPanel } from "@/components/settings/ConnectivityPortalValidationPanel";
 import {
   ApplyProfilePanel,
   EnableFunnelPanel,
@@ -192,7 +193,10 @@ export function ConnectivitySetupWizard({
       <ConnectivityWizardStepper steps={wizard.steps} />
 
       {wizard.allDone ? (
-        <ConnectivityWizardSuccessState />
+        <div className="space-y-4">
+          <ConnectivityWizardSuccessState />
+          {selectedProfile === "public_portal" ? <ConnectivityPortalValidationPanel /> : null}
+        </div>
       ) : (
         renderCurrentStep()
       )}

@@ -36,6 +36,13 @@ Usare questo documento se il problema riguarda almeno uno di questi casi:
 Per problemi di rete/Tailscale/Funnel usare questo runbook come ingresso rapido e poi
 passare a [TAILSCALE_FUNNEL_SETUP.md](/Users/gvera/Projects/FitManager_AI_Studio/docs/TAILSCALE_FUNNEL_SETUP.md).
 
+Nota aggiornata sul prodotto:
+- da `Impostazioni -> Connettivita` FitManager sa ora anche generare un link anamnesi
+  monouso di prova per un cliente attivo e validarne automaticamente pagina pubblica +
+  token;
+- usare questo test guidato prima di dichiarare il portale pubblico "pronto", ma non
+  usarlo come sostituto del test manuale finale da smartphone/rete esterna.
+
 ---
 
 ## 2b. Policy Bundle Dati e Licenza
@@ -81,6 +88,13 @@ Se l'app non arriva nemmeno alla UI:
 - raccogliere comunque `data/logs/fitmanager.log`;
 - verificare che esistano `data/crm.db`, `data/catalog.db`, `data/.env`;
 - usare la sezione 7 di questo runbook.
+
+Se il problema riguarda il portale anamnesi pubblico ma l'app arriva alla UI:
+1. Aprire `Impostazioni -> Connettivita`.
+2. Completare o ricontrollare il wizard fino allo step finale.
+3. Generare un link anamnesi di prova per un cliente attivo.
+4. Eseguire la validazione guidata del link pubblico.
+5. Solo dopo passare al test manuale da smartphone o ai comandi Tailscale/Funnel.
 
 ---
 

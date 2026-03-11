@@ -133,3 +133,31 @@ class ConnectivityVerifyResponse(BaseModel):
     checks: list[ConnectivityCheck]
     next_recommended_action_code: ConnectivityActionCode
     next_recommended_action_label: str
+
+
+class ConnectivityPortalValidationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    token: str
+    public_url: str
+
+    @model_validator(mode="after")
+    def validate_public_url(self):
+        value = self.public_url.strip()
+        parsed = urlparse(value)
+        if parsed.scheme != "https" or not parsed.netloc:
+            raise ValueError("Il link pubblico di test deve essere un URL HTTPS assoluto")
+        if not parsed.path.startswith("/public/anamnesi/"):
+            raise ValueError("Il link pubblico di test deve puntare al portale anamnesi")
+        return self
+
+
+class ConnectivityPortalValidationResponse(BaseModel):
+    validated_at: datetime
+    status: ConnectivityVerifyStatus
+    summary: str
+    public_url: str
+    validate_url: str
+    masked_client_name: str | None = None
+    masked_trainer_name: str | None = None
+    checks: list[ConnectivityCheck]

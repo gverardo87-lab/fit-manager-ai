@@ -137,10 +137,17 @@ Decisione:
   - logica wizard estratta in helper testabile (`buildConnectivityWizardState`)
   - pannelli separati per `Tailscale`, `apply`, `Funnel` e `verify`
   - verifica frontend dedicata: `5 passed` su Vitest per la state machine del wizard
+- `Phase D - Public Portal Validation`: chiuso con `UPG-2026-03-11-05`
+  - nuovo endpoint protetto `POST /api/system/connectivity-portal-validation`
+  - validazione funzionale del link anamnesi reale, non solo dell'origine pubblica
+  - nuova panel guidata nel wizard per scegliere un cliente attivo, generare il link
+    monouso e verificare pagina pubblica + token
+  - verifica backend confermata nel terminale utente: suite dedicata `5 passed`,
+    suite connectivity completa `21 passed`
 - Stato attuale: il prodotto sa leggere, spiegare, applicare e verificare la connettivita,
-  e ora offre anche un percorso guidato dentro `Impostazioni`. Resta ancora aperto il
-  passo finale di prodotto: validare il link anamnesi pubblico in modo funzionale e poi
-  decidere se promuovere il wizard anche nel first-run post-installazione.
+  e ora offre anche un percorso guidato dentro `Impostazioni` fino alla validazione di un
+  link anamnesi pubblico reale. Resta aperta solo la promozione del wizard nel first-run
+  post-installazione e la validazione manuale finale da smartphone/rete esterna.
 
 ### 1. Runtime Service Backend
 

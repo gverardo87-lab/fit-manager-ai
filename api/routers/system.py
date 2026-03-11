@@ -7,12 +7,15 @@ from api.database import get_catalog_session, get_session
 from api.dependencies import get_current_trainer
 from api.models.trainer import Trainer
 from api.schemas.system import (
+    ConnectivityPortalValidationRequest,
+    ConnectivityPortalValidationResponse,
     ConnectivityConfigRequest,
     ConnectivityConfigResponse,
     ConnectivityStatusResponse,
     ConnectivityVerifyResponse,
     SupportSnapshotResponse,
 )
+from api.services.connectivity_portal_validation import validate_public_portal_link
 from api.services.connectivity_config import apply_connectivity_config
 from api.services.connectivity_runtime import build_connectivity_status
 from api.services.connectivity_verify import verify_connectivity_setup
@@ -44,6 +47,15 @@ def run_connectivity_verification(
 ):
     """Verifica on-demand che la configurazione salvata sia davvero pronta all'uso."""
     return verify_connectivity_setup()
+
+
+@router.post("/connectivity-portal-validation", response_model=ConnectivityPortalValidationResponse)
+def run_public_portal_validation(
+    payload: ConnectivityPortalValidationRequest,
+    _trainer: Trainer = Depends(get_current_trainer),
+):
+    """Valida un link anamnesi pubblico reale: pagina Next e token pubblico."""
+    return validate_public_portal_link(payload)
 
 
 @router.get("/support-snapshot", response_model=SupportSnapshotResponse)

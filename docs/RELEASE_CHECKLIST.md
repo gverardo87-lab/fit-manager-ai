@@ -54,6 +54,7 @@
 - [x] CORS configurato per localhost, LAN (192.168.x.x), Tailscale (100.x.x.x)
 - [x] Tailscale Funnel: `https://giacomo.tail8a3bc3.ts.net/`
 - [x] Public portal attivo: token generazione + validazione funzionante
+- [x] Validazione guidata in-app del portale pubblico: link anamnesi di prova generato da `Impostazioni -> Connettivita` e verifica funzionale pagina pubblica + token (`21 passed` suite connectivity completa)
 - [ ] Test LAN da tablet/smartphone (stesso WiFi)
 - [ ] Test Tailscale VPN da rete esterna
 - [ ] Test anamnesi self-service da smartphone via Funnel

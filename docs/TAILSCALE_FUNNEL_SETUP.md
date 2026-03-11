@@ -110,18 +110,20 @@ Accedere a https://admin.tailscale.com con l'account del trainer.
 
 ### Fase 4 — Configurazione Portale Pubblico (2 min)
 
-- [ ] 4.1 Aprire il file `data/.env` nella cartella di installazione FitManager
-- [ ] 4.2 Aggiungere le seguenti righe (sostituire con il DNS name annotato al punto 1.4):
-  ```env
-  PUBLIC_PORTAL_ENABLED=true
-  PUBLIC_BASE_URL=https://<nome-macchina>.<tailnet>.ts.net
-  ```
-  Esempio concreto:
-  ```env
-  PUBLIC_PORTAL_ENABLED=true
-  PUBLIC_BASE_URL=https://pc-studio.tail1234ab.ts.net
-  ```
-- [ ] 4.3 Riavviare FitManager (chiudere e riaprire)
+- [ ] 4.1 Aprire FitManager → `Impostazioni -> Connettivita`
+- [ ] 4.2 Nel wizard guidato:
+  - scegliere `Portale pubblico`
+  - usare `Usa DNS rilevato` se il DNS Tailscale e' stato rilevato
+  - in alternativa inserire manualmente `https://<nome-macchina>.<tailnet>.ts.net`
+- [ ] 4.3 Applicare la configurazione dal prodotto
+- [ ] 4.4 Verificare che il profilo risultante sia `public_portal`
+
+Fallback tecnico solo se il wizard non e' disponibile o fallisce:
+```env
+PUBLIC_PORTAL_ENABLED=true
+PUBLIC_BASE_URL=https://<nome-macchina>.<tailnet>.ts.net
+```
+In quel caso riavviare FitManager dopo la modifica manuale del file `data/.env`.
 
 ### Fase 5 — Attivazione Funnel Persistente (2 min)
 
@@ -147,12 +149,17 @@ Accedere a https://admin.tailscale.com con l'account del trainer.
 - [ ] 6.1 **Test login via Funnel**: da un telefono (4G, Tailscale DISABILITATO):
   - Aprire `https://<nome>.ts.net/login` → deve apparire la pagina login
   - Fare login con le credenziali → deve funzionare
-- [ ] 6.2 **Test anamnesi**: dal PC (localhost:3000):
+- [ ] 6.2 **Verifica guidata in-app**: dal PC aprire `Impostazioni -> Connettivita`
+  - scegliere un cliente attivo di prova
+  - generare un link anamnesi monouso
+  - eseguire la validazione guidata
+  - il verdetto deve risultare `ready`
+- [ ] 6.3 **Test anamnesi**: dal PC (localhost:3000):
   - Navigare su un profilo cliente → Anamnesi → "Invia Questionario"
   - Il link generato deve iniziare con `https://<nome>.ts.net/public/anamnesi/...`
   - Copiare il link → aprirlo dal telefono (4G) → deve apparire il form
   - Compilare e inviare → verificare che i dati compaiano nel profilo cliente
-- [ ] 6.3 **Test monouso**: riaprire lo stesso link → deve mostrare "Link gia' utilizzato"
+- [ ] 6.4 **Test monouso**: riaprire lo stesso link → deve mostrare "Link gia' utilizzato"
 
 ### Post-installazione — Comunicazione al Trainer
 

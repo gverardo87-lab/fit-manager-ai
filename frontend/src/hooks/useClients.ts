@@ -158,3 +158,19 @@ export function useCreateShareToken(clientId: number) {
     },
   });
 }
+
+// ── Mutation: genera link monouso per anamnesi self-service da clientId dinamico ──
+
+export function useCreateShareTokenForClient() {
+  return useMutation({
+    mutationFn: async (clientId: number) => {
+      const { data } = await apiClient.post<import("@/types/api").ShareTokenResponse>(
+        `/clients/${clientId}/share-anamnesi`,
+      );
+      return data;
+    },
+    onError: (error) => {
+      toast.error(extractErrorMessage(error, "Impossibile generare il link"));
+    },
+  });
+}

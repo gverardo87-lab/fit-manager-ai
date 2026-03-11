@@ -33,6 +33,7 @@ i seguenti microstep P0:
 - `UPG-2026-03-10-15`: `SUPPORT_RUNBOOK.md` come artefatto operativo unico
 - `UPG-2026-03-10-18`: preflight runtime/build dell'installer (`1.0.0`, naming versionato, `build-media.sh` su `catalog.db`, `build-installer.sh`, rimozione `license.key` da repo/assets)
 - `UPG-2026-03-10-19`: release candidate `1.0.0` costruita davvero con `build-installer.sh`, freeze reale `catalog.db=400` / `crm.db locale=396`, packaging snapshot-based via `dist/release-data`
+- `UPG-2026-03-11-05`: validazione guidata del link anamnesi pubblico reale dentro `Impostazioni`, con link monouso di prova e check funzionale pagina pubblica + token
 
 Restano ancora aperti i gate manuali/non documentali:
 
