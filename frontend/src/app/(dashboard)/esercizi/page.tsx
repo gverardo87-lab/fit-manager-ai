@@ -629,6 +629,7 @@ export default function EserciziPage() {
             onEdit={handleEdit}
             onDelete={handleDelete}
             onNewExercise={handleNewExercise}
+            isFiltered={isFiltered}
           />
         )}
       </div>

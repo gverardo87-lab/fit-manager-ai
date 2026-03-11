@@ -25,7 +25,7 @@ export function CommandStrip({ summary, todayEvents, dateAnchor }: CommandStripP
   const [clockTime, setClockTime] = useState(() => new Date());
 
   useEffect(() => {
-    const timerId = window.setInterval(() => setClockTime(new Date()), 1000);
+    const timerId = window.setInterval(() => setClockTime(new Date()), 5000);
     return () => window.clearInterval(timerId);
   }, []);
 

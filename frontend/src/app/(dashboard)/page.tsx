@@ -227,7 +227,7 @@ const FIRST_STEPS = [
     label: "Pianifica un appuntamento",
     description: "Agenda con drag & drop",
     icon: Calendar,
-    href: "/agenda",
+    href: "/agenda?newEvent=1",
     gradient: "from-amber-50 to-amber-100/50 dark:from-amber-950/30 dark:to-zinc-900",
     iconColor: "text-amber-600 dark:text-amber-400",
     border: "border-amber-200 dark:border-amber-800/50",
@@ -270,12 +270,15 @@ function WelcomeCard({ exerciseCount }: { exerciseCount: number }) {
           Primi passi
         </p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {FIRST_STEPS.map((step) => {
+          {FIRST_STEPS.map((step, idx) => {
             const Icon = step.icon;
             return (
               <Link key={step.label} href={step.href}>
                 <div className={`group flex flex-col gap-2 rounded-xl border ${step.border} bg-gradient-to-br ${step.gradient} p-4 transition-all hover:shadow-md hover:-translate-y-0.5`}>
                   <div className="flex items-center gap-3">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-black/5 text-[10px] font-bold text-muted-foreground dark:bg-white/10">
+                      {idx + 1}
+                    </span>
                     <Icon className={`h-5 w-5 ${step.iconColor}`} />
                     <span className="text-sm font-medium">{step.label}</span>
                   </div>

@@ -47,6 +47,7 @@ interface ExercisesTableProps {
   onEdit: (exercise: Exercise) => void;
   onDelete: (exercise: Exercise) => void;
   onNewExercise?: () => void;
+  isFiltered?: boolean;
 }
 
 export function ExercisesTable({
@@ -54,6 +55,7 @@ export function ExercisesTable({
   onEdit,
   onDelete,
   onNewExercise,
+  isFiltered,
 }: ExercisesTableProps) {
   return (
     <div className="space-y-3">
@@ -61,8 +63,9 @@ export function ExercisesTable({
       {exercises.length === 0 ? (
         <EmptyState
           icon={Dumbbell}
-          title="Nessun esercizio trovato"
-          action={onNewExercise ? {
+          title={isFiltered ? "Nessun esercizio con questi filtri" : "Nessun esercizio trovato"}
+          subtitle={isFiltered ? "Prova a modificare o resettare i filtri" : undefined}
+          action={!isFiltered && onNewExercise ? {
             label: "Crea il primo esercizio",
             onClick: onNewExercise,
             variant: "link",
