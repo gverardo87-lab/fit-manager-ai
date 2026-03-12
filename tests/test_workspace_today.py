@@ -98,17 +98,27 @@ def _create_contract_with_overdue_plan(client, headers, client_id):
     )
 
 
-def _create_event(client, headers, *, client_id, contract_id=None, title, start_at=None):
+def _create_event(
+    client,
+    headers,
+    *,
+    client_id=None,
+    contract_id=None,
+    title,
+    start_at=None,
+    category="PT",
+):
     start_at = start_at or (datetime.now() + timedelta(minutes=30))
     end_at = start_at + timedelta(hours=1)
     payload = {
         "data_inizio": start_at.isoformat(),
         "data_fine": end_at.isoformat(),
-        "categoria": "PT",
+        "categoria": category,
         "titolo": title,
-        "id_cliente": client_id,
         "stato": "Programmato",
     }
+    if client_id is not None:
+        payload["id_cliente"] = client_id
     if contract_id is not None:
         payload["id_contratto"] = contract_id
     response = client.post(
@@ -152,7 +162,7 @@ def _trainer_id(session) -> int:
 
 
 def test_workspace_today_aggregates_real_sources(client, auth_headers):
-    onboarding_client = _create_client(
+    _create_client(
         client,
         auth_headers,
         "Mario",
@@ -166,7 +176,7 @@ def test_workspace_today_aggregates_real_sources(client, auth_headers):
         "Pagamenti",
         anamnesi=_structured_anamnesi(),
     )
-    inactive_client = _create_client(
+    _create_client(
         client,
         auth_headers,
         "Gianni",
@@ -174,7 +184,7 @@ def test_workspace_today_aggregates_real_sources(client, auth_headers):
         anamnesi=_structured_anamnesi(),
     )
 
-    open_todo = _create_todo(client, auth_headers, "Richiama fornitore", date.today())
+    _create_todo(client, auth_headers, "Richiama fornitore", date.today())
     completed_todo = _create_todo(client, auth_headers, "Task completato", date.today())
     _toggle_todo(client, auth_headers, completed_todo["id"])
 
@@ -234,6 +244,55 @@ def test_workspace_today_aggregates_real_sources(client, auth_headers):
     overdue_case = next(item for item in overdue_items if item["root_entity"]["id"] == contract["id"])
     assert overdue_case["finance_context"]["visibility"] == "full"
     assert overdue_case["finance_context"]["total_due_amount"] == 600.0
+
+
+def test_session_prep_counts_only_pt_sessions_and_skips_client_colloqui(client, auth_headers):
+    pt_client = _create_client(
+        client,
+        auth_headers,
+        "Paolo",
+        "Sessione",
+        anamnesi=_structured_anamnesi(),
+    )
+    consult_client = _create_client(
+        client,
+        auth_headers,
+        "Lucia",
+        "Colloquio",
+    )
+
+    pt_event = _create_event(
+        client,
+        auth_headers,
+        client_id=pt_client["id"],
+        title="PT Paolo Sessione",
+        start_at=datetime.now() + timedelta(minutes=45),
+    )
+    consult_event = _create_event(
+        client,
+        auth_headers,
+        client_id=consult_client["id"],
+        title="Colloquio Lucia",
+        category="COLLOQUIO",
+        start_at=datetime.now() + timedelta(hours=2),
+    )
+    internal_event = _create_event(
+        client,
+        auth_headers,
+        title="Blocca agenda staff",
+        category="PERSONALE",
+        start_at=datetime.now() + timedelta(hours=3),
+    )
+
+    response = client.get("/api/workspace/today/session-prep", headers=auth_headers)
+    assert response.status_code == 200, response.text
+    data = response.json()
+
+    assert data["total_sessions"] == 1
+    assert [item["event_id"] for item in data["sessions"]] == [pt_event["id"]]
+    assert consult_event["id"] not in [item["event_id"] for item in data["sessions"]]
+    assert internal_event["id"] in [item["event_id"] for item in data["non_client_events"]]
+    assert consult_event["id"] not in [item["event_id"] for item in data["non_client_events"]]
 
 
 def test_workspace_renewals_cash_includes_payment_due_soon_but_keeps_it_out_of_today(client, auth_headers):

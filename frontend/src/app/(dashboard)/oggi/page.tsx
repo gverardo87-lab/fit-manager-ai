@@ -18,7 +18,7 @@ import { surfaceRoleClassName } from "@/components/ui/surface-role";
 import { cn } from "@/lib/utils";
 import { useSessionPrep, useWorkspaceToday } from "@/hooks/useWorkspace";
 import { usePageReveal } from "@/lib/page-reveal";
-import type { OperationalCase, SessionPrepItem } from "@/types/api";
+import type { SessionPrepItem } from "@/types/api";
 
 const ATTENTION_STATUSES = new Set<PreFlightStatus>(["blocked", "risk", "incomplete"]);
 
@@ -53,15 +53,6 @@ function sortSessionsForToday(
 
     return getSessionStartMs(left) - getSessionStartMs(right);
   });
-}
-
-function getExtraCases(today: ReturnType<typeof useWorkspaceToday>["data"]): OperationalCase[] {
-  if (!today) return [];
-
-  return today.sections
-    .filter((section) => section.bucket === "now" || section.bucket === "today")
-    .flatMap((section) => section.items)
-    .filter((item) => item.case_kind !== "session_imminent");
 }
 
 export default function OggiWorkspacePage() {
@@ -127,14 +118,6 @@ export default function OggiWorkspacePage() {
     return Math.max(prepQuery.dataUpdatedAt ?? 0, todayQuery.dataUpdatedAt ?? 0) || null;
   }, [prepQuery.dataUpdatedAt, todayQuery.dataUpdatedAt]);
 
-  const extraCases = useMemo(() => getExtraCases(today), [today]);
-  const supportCase = useMemo(() => {
-    if (today?.focus_case && today.focus_case.case_kind !== "session_imminent") {
-      return today.focus_case;
-    }
-    return extraCases[0] ?? null;
-  }, [today, extraCases]);
-
   if (prepQuery.isLoading || (!prep && !prepQuery.isError)) {
     return (
       <div className="flex flex-col gap-3">
@@ -190,13 +173,9 @@ export default function OggiWorkspacePage() {
       {/* Hero compatto — strip singola riga */}
       <div className={revealClass(0)} style={revealStyle(0)}>
         <OggiHero
-          compact
           prep={safePrep}
           attentionCount={sessionSummary.attentionCount}
           readyCount={sessionSummary.readyCount}
-          extraCaseCount={extraCases.length}
-          alertClients={safePrep.clients_with_alerts}
-          supportCase={supportCase}
           lastUpdatedAt={lastUpdatedAt}
           isRefreshing={prepQuery.isFetching || todayQuery.isFetching}
         />

@@ -8,7 +8,7 @@ import {
   type SurfaceTone,
 } from "@/components/ui/surface-role";
 import { cn } from "@/lib/utils";
-import type { OperationalCase, SessionPrepResponse } from "@/types/api";
+import type { SessionPrepResponse } from "@/types/api";
 
 const TIME_FMT = new Intl.DateTimeFormat("it-IT", { hour: "2-digit", minute: "2-digit" });
 const DATE_FMT = new Intl.DateTimeFormat("it-IT", {
@@ -44,10 +44,6 @@ export interface OggiHeroProps {
   prep: SessionPrepResponse;
   attentionCount: number;
   readyCount: number;
-  extraCaseCount: number;
-  alertClients: number;
-  supportCase?: OperationalCase | null;
-  compact?: boolean;
   lastUpdatedAt?: number | null;
   isRefreshing?: boolean;
   className?: string;
@@ -57,7 +53,6 @@ export function OggiHero({
   prep,
   attentionCount,
   readyCount,
-  extraCaseCount,
   lastUpdatedAt,
   isRefreshing = false,
   className,
@@ -130,17 +125,6 @@ export function OggiHero({
                 )}
               >
                 {readyCount} {readyCount === 1 ? "pronta" : "pronte"}
-              </span>
-            )}
-
-            {extraCaseCount > 0 && (
-              <span
-                className={surfaceChipClassName(
-                  { tone: "amber" },
-                  "px-3 py-1.5 text-[11px] font-bold tabular-nums",
-                )}
-              >
-                {extraCaseCount} extra
               </span>
             )}
 

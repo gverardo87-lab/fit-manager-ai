@@ -2,7 +2,8 @@
 Session Prep engine — cockpit data per la pagina Oggi.
 
 Aggrega in una sola query batch:
-- Eventi del giorno con client join
+- Sedute PT del giorno con client join
+- Impegni interni di supporto alla giornata
 - Conteggio sessioni storiche per cliente
 - Clinical readiness (anamnesi, misurazioni, scheda, programma)
 - Condizioni mediche dall'anamnesi (safety engine)
@@ -347,6 +348,20 @@ def build_session_prep(
     for event, client in events_with_clients:
         # Skip past events
         if event.data_fine and event.data_fine < now_dt:
+            continue
+
+        # Oggi e' un workspace pre-seduta: gli eventi cliente non-PT
+        # non devono gonfiare il conteggio o generare readiness fuorviante.
+        if event.categoria != "PT":
+            if not client or client.id is None:
+                non_client_items.append(SessionPrepItem(
+                    event_id=event.id or 0,
+                    starts_at=event.data_inizio,
+                    ends_at=event.data_fine,
+                    category=event.categoria,
+                    event_title=event.titolo,
+                    event_notes=event.note,
+                ))
             continue
 
         if not client or client.id is None:
