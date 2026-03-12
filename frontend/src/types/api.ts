@@ -2985,11 +2985,11 @@ export const TIPO_PASTO_OPTIONS = [
 
 export const GIORNO_OPTIONS = [
   { value: 0, label: "Ogni giorno" },
-  { value: 1, label: "LunedÃ¬" },
-  { value: 2, label: "MartedÃ¬" },
-  { value: 3, label: "MercoledÃ¬" },
-  { value: 4, label: "GiovedÃ¬" },
-  { value: 5, label: "VenerdÃ¬" },
+  { value: 1, label: "Lunedì" },
+  { value: 2, label: "Martedì" },
+  { value: 3, label: "Mercoledì" },
+  { value: 4, label: "Giovedì" },
+  { value: 5, label: "Venerdì" },
   { value: 6, label: "Sabato" },
   { value: 7, label: "Domenica" },
 ] as const;
