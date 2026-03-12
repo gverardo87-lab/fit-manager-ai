@@ -105,7 +105,7 @@ export function WeeklyPlanGrid({
         <thead>
           <tr className="border-b bg-muted/30">
             {/* Intestazione colonna sinistra */}
-            <th className="sticky left-0 z-10 w-32 bg-muted/30 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <th className="sticky left-0 z-10 w-36 bg-muted/30 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Pasto
             </th>
             {/* Intestazioni giorni */}
@@ -116,7 +116,7 @@ export function WeeklyPlanGrid({
               return (
                 <th
                   key={giorno}
-                  className={`min-w-[110px] cursor-pointer px-2 py-2 text-center text-xs font-semibold transition-colors hover:bg-muted/50 ${
+                  className={`min-w-[155px] cursor-pointer px-3 py-3 text-center text-sm font-semibold transition-colors hover:bg-muted/50 ${
                     isActive
                       ? "text-primary underline underline-offset-2"
                       : "text-muted-foreground"
@@ -128,28 +128,28 @@ export function WeeklyPlanGrid({
               );
             })}
             {/* Colonna aggiungi giorno */}
-            <th className="w-12 px-2 py-2 text-center">
+            <th className="w-12 px-2 py-3 text-center">
               {availableDays.length > 0 && (
                 <div className="relative inline-block">
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-6 w-6 rounded-full"
+                    className="h-7 w-7 rounded-full"
                     onClick={() => setAddDayOpen((v) => !v)}
                     title="Aggiungi giorno"
                   >
-                    <Plus className="h-3.5 w-3.5" />
+                    <Plus className="h-4 w-4" />
                   </Button>
                   {addDayOpen && (
-                    <div className="absolute right-0 top-8 z-20 min-w-[130px] rounded-lg border bg-popover shadow-md">
-                      <p className="px-3 py-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                    <div className="absolute right-0 top-9 z-20 min-w-[140px] rounded-lg border bg-popover shadow-md">
+                      <p className="px-3 py-2 text-xs uppercase tracking-wide text-muted-foreground">
                         Aggiungi giorno
                       </p>
                       {availableDays.map((opt) => (
                         <button
                           key={opt.value}
                           onClick={() => handleAddDay(opt.value)}
-                          className="w-full px-3 py-1.5 text-left text-sm transition-colors hover:bg-accent"
+                          className="w-full px-3 py-2 text-left text-sm transition-colors hover:bg-accent"
                         >
                           {opt.label}
                         </button>
@@ -169,7 +169,7 @@ export function WeeklyPlanGrid({
               className={slotIdx % 2 !== 0 ? "bg-muted/10" : ""}
             >
               {/* Label tipo pasto */}
-              <td className="sticky left-0 z-10 w-32 bg-background px-3 py-2 text-xs font-medium text-muted-foreground">
+              <td className="sticky left-0 z-10 w-36 bg-background px-4 py-2.5 text-sm font-medium text-muted-foreground">
                 {slot.label}
               </td>
 
@@ -177,28 +177,31 @@ export function WeeklyPlanGrid({
               {presentDays.map((giorno) => {
                 const meal = getMealForCell(pasti, giorno, slot.value);
                 return (
-                  <td key={giorno} className="min-w-[110px] px-1 py-1">
+                  <td key={giorno} className="min-w-[155px] px-1.5 py-1.5">
                     {meal ? (
                       <button
                         onClick={() => onSelectDay(giorno)}
-                        className="w-full rounded-md border border-border/60 bg-muted/20 px-2 py-1.5 text-left transition-colors hover:bg-muted/50"
+                        className="w-full rounded-md border border-border/70 bg-muted/20 px-3 py-2.5 text-left transition-colors hover:bg-muted/50 hover:border-border"
                       >
-                        <div className="text-xs font-semibold tabular-nums text-foreground">
+                        <div className="text-sm font-bold tabular-nums text-foreground">
                           {Math.round(meal.totale_kcal)} kcal
                         </div>
-                        <div className="mt-0.5 text-[10px] text-muted-foreground tabular-nums">
-                          P:{Math.round(meal.totale_proteine_g)}g C:
-                          {Math.round(meal.totale_carboidrati_g)}g G:
-                          {Math.round(meal.totale_grassi_g)}g
+                        <div className="mt-1 flex gap-1.5 text-xs text-muted-foreground tabular-nums">
+                          <span className="text-blue-600 font-medium">P{Math.round(meal.totale_proteine_g)}g</span>
+                          <span className="text-muted-foreground/50">·</span>
+                          <span className="text-amber-600 font-medium">C{Math.round(meal.totale_carboidrati_g)}g</span>
+                          <span className="text-muted-foreground/50">·</span>
+                          <span className="text-rose-500 font-medium">G{Math.round(meal.totale_grassi_g)}g</span>
                         </div>
                       </button>
                     ) : (
                       <button
                         onClick={() => handleAddCellMeal(giorno, slot.value)}
-                        className="flex w-full items-center justify-center rounded-md border border-dashed border-border/40 py-2 text-muted-foreground/40 transition-colors hover:border-border hover:text-muted-foreground"
+                        className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border/60 py-3 text-sm text-muted-foreground/50 transition-colors hover:border-primary/50 hover:text-primary hover:bg-primary/5"
                         title={`Aggiungi ${slot.label}`}
                       >
-                        <Plus className="h-3.5 w-3.5" />
+                        <Plus className="h-4 w-4" />
+                        <span className="text-xs">Aggiungi</span>
                       </button>
                     )}
                   </td>
@@ -211,28 +214,31 @@ export function WeeklyPlanGrid({
 
           {/* Footer totali giornalieri */}
           <tr className="border-t bg-muted/20">
-            <td className="sticky left-0 z-10 bg-muted/20 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <td className="sticky left-0 z-10 bg-muted/20 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Totale
             </td>
             {presentDays.map((giorno) => {
               const totals = getDailyTotals(pasti, giorno);
               return (
-                <td key={giorno} className="px-2 py-2 text-center">
+                <td key={giorno} className="px-2 py-3 text-center">
                   {totals.kcal > 0 ? (
                     <div>
                       <Badge
                         variant="secondary"
-                        className="mb-0.5 text-[10px] font-semibold text-emerald-700 bg-emerald-50"
+                        className="mb-1 text-xs font-bold text-emerald-700 bg-emerald-50"
                       >
                         {Math.round(totals.kcal)} kcal
                       </Badge>
-                      <div className="text-[10px] text-muted-foreground tabular-nums">
-                        P:{Math.round(totals.p)}g C:{Math.round(totals.c)}g G:
-                        {Math.round(totals.g)}g
+                      <div className="flex justify-center gap-1.5 text-xs text-muted-foreground tabular-nums">
+                        <span className="text-blue-600">P{Math.round(totals.p)}g</span>
+                        <span>·</span>
+                        <span className="text-amber-600">C{Math.round(totals.c)}g</span>
+                        <span>·</span>
+                        <span className="text-rose-500">G{Math.round(totals.g)}g</span>
                       </div>
                     </div>
                   ) : (
-                    <span className="text-xs text-muted-foreground/40">— kcal</span>
+                    <span className="text-sm text-muted-foreground/40">—</span>
                   )}
                 </td>
               );

@@ -7,7 +7,7 @@
  * Header: nome giorno + totali macro + tasto "← Torna alla griglia".
  */
 
-import { ArrowLeft, Plus, Trash2, Loader2 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Loader2, UtensilsCrossed } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -51,21 +51,26 @@ function getDailyTotals(pasti: PlanMealDetail[], giorno: number) {
 function ComponentRow({ comp, planId, mealId }: { comp: MealComponentDetail; planId: number; mealId: number }) {
   const deleteComponent = useDeleteComponent();
   return (
-    <div className="flex items-center gap-2 py-1">
-      <span className="flex-1 text-sm">
-        {comp.alimento_nome ?? `Alimento #${comp.alimento_id}`}
-        <span className="ml-1.5 text-xs text-muted-foreground">{comp.quantita_g}g</span>
-      </span>
-      <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+    <div className="flex items-center gap-3 py-2 px-1">
+      <div className="flex-1 min-w-0">
+        <span className="text-base font-medium">
+          {comp.alimento_nome ?? `Alimento #${comp.alimento_id}`}
+        </span>
+        <span className="ml-2 text-sm text-muted-foreground font-medium">{comp.quantita_g}g</span>
+      </div>
+      <span className="shrink-0 text-sm font-semibold tabular-nums text-foreground">
         {Math.round(comp.energia_kcal)} kcal
       </span>
       <Button
         variant="ghost" size="icon"
-        className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
+        className="h-7 w-7 shrink-0 text-muted-foreground/50 hover:text-destructive"
         onClick={() => deleteComponent.mutate({ planId, mealId, compId: comp.id })}
         disabled={deleteComponent.isPending}
       >
-        <Trash2 className="h-3 w-3" />
+        {deleteComponent.isPending
+          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          : <Trash2 className="h-3.5 w-3.5" />
+        }
       </Button>
     </div>
   );
@@ -86,16 +91,17 @@ function MealSlotCard({ giorno, tipoPasto, tipoPastoLabel, meal, planId, onAddFo
 
   if (!meal) {
     return (
-      <div className="rounded-lg border border-dashed border-border/50 px-4 py-3 flex items-center gap-3">
-        <span className="flex-1 text-sm text-muted-foreground/60 italic">Nessun pasto</span>
+      <div className="rounded-lg border border-dashed border-border/60 px-5 py-4 flex items-center gap-4 transition-colors hover:border-primary/40 hover:bg-primary/5">
+        <UtensilsCrossed className="h-5 w-5 text-muted-foreground/30 shrink-0" />
+        <span className="flex-1 text-sm text-muted-foreground/60">{tipoPastoLabel}</span>
         <Button
           variant="ghost" size="sm"
-          className="h-7 text-xs text-muted-foreground hover:text-foreground gap-1"
+          className="gap-1.5 text-sm text-muted-foreground hover:text-foreground"
           onClick={() => addMeal.mutate({ planId, payload: { giorno_settimana: giorno, tipo_pasto: tipoPasto, ordine: 0 } })}
           disabled={addMeal.isPending}
         >
-          {addMeal.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
-          Aggiungi {tipoPastoLabel}
+          {addMeal.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+          Aggiungi pasto
         </Button>
       </div>
     );
@@ -105,65 +111,98 @@ function MealSlotCard({ giorno, tipoPasto, tipoPastoLabel, meal, planId, onAddFo
 
   return (
     <div className="rounded-lg border bg-background">
-      <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border/50">
+      {/* Header pasto */}
+      <div className="flex items-start gap-3 px-5 py-3.5 border-b border-border/50">
         <div className="flex-1 min-w-0">
-          <span className="text-sm font-semibold">{mealLabel}</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-base font-bold">{mealLabel}</span>
+            {meal.componenti.length > 0 && (
+              <Badge variant="secondary" className="h-5 text-xs px-2">
+                {meal.componenti.length} aliment{meal.componenti.length === 1 ? "o" : "i"}
+              </Badge>
+            )}
+          </div>
           {meal.totale_kcal > 0 && (
-            <span className="ml-2 text-xs text-muted-foreground tabular-nums">
-              {Math.round(meal.totale_kcal)} kcal &middot; P {Math.round(meal.totale_proteine_g)}g
-              &middot; C {Math.round(meal.totale_carboidrati_g)}g &middot; G {Math.round(meal.totale_grassi_g)}g
-            </span>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <span className="text-sm font-semibold text-foreground tabular-nums">
+                {Math.round(meal.totale_kcal)} kcal
+              </span>
+              <span className="text-muted-foreground/40 text-xs">·</span>
+              <span className="text-sm font-medium text-blue-600 tabular-nums">P {Math.round(meal.totale_proteine_g)}g</span>
+              <span className="text-muted-foreground/40 text-xs">·</span>
+              <span className="text-sm font-medium text-amber-600 tabular-nums">C {Math.round(meal.totale_carboidrati_g)}g</span>
+              <span className="text-muted-foreground/40 text-xs">·</span>
+              <span className="text-sm font-medium text-rose-500 tabular-nums">G {Math.round(meal.totale_grassi_g)}g</span>
+            </div>
           )}
         </div>
-        {meal.componenti.length > 0 && (
-          <Badge variant="secondary" className="h-5 text-[10px] px-1.5">{meal.componenti.length}</Badge>
+      </div>
+
+      {/* Lista alimenti */}
+      <div className="px-4 py-1">
+        {meal.componenti.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-5 text-center">
+            <UtensilsCrossed className="h-6 w-6 text-muted-foreground/20" />
+            <p className="text-sm text-muted-foreground/60">Nessun alimento ancora</p>
+            <Button
+              variant="outline" size="sm"
+              className="gap-1.5 mt-1"
+              onClick={() => onAddFood(meal.id, mealLabel)}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Aggiungi primo alimento
+            </Button>
+          </div>
+        ) : (
+          <div className="divide-y divide-border/40">
+            {meal.componenti.map((comp) => (
+              <ComponentRow key={comp.id} comp={comp} planId={planId} mealId={meal.id} />
+            ))}
+          </div>
         )}
       </div>
-      <div className="px-4 py-2 space-y-0.5">
-        {meal.componenti.length === 0
-          ? <p className="text-xs text-muted-foreground italic py-1">Nessun alimento</p>
-          : meal.componenti.map((comp) => (
-              <ComponentRow key={comp.id} comp={comp} planId={planId} mealId={meal.id} />
-            ))
-        }
-      </div>
-      <Separator />
-      <div className="flex items-center gap-2 px-4 py-2">
-        <Button
-          variant="ghost" size="sm"
-          className="h-7 gap-1 text-xs text-muted-foreground hover:text-foreground"
-          onClick={() => onAddFood(meal.id, mealLabel)}
-        >
-          <Plus className="h-3 w-3" />
-          Aggiungi alimento
-        </Button>
-        <div className="ml-auto">
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive">
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Elimina pasto</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Vuoi eliminare {mealLabel} e tutti gli alimenti al suo interno? L&apos;azione non è reversibile.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Annulla</AlertDialogCancel>
-                <AlertDialogAction
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  onClick={() => deleteMeal.mutate({ planId, mealId: meal.id })}
-                >
-                  Elimina
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
-      </div>
+
+      {meal.componenti.length > 0 && (
+        <>
+          <Separator />
+          <div className="flex items-center gap-2 px-4 py-2.5">
+            <Button
+              variant="ghost" size="sm"
+              className="gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+              onClick={() => onAddFood(meal.id, mealLabel)}
+            >
+              <Plus className="h-4 w-4" />
+              Aggiungi alimento
+            </Button>
+            <div className="ml-auto">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground/50 hover:text-destructive">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Elimina pasto</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Vuoi eliminare {mealLabel} e tutti gli alimenti al suo interno? L&apos;azione non è reversibile.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Annulla</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      onClick={() => deleteMeal.mutate({ planId, mealId: meal.id })}
+                    >
+                      Elimina
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -174,21 +213,25 @@ export function DayDetailPanel({ plan, planId, giorno, onBack, onAddFood }: DayD
   const giornoLabel = GIORNO_OPTIONS.find((g) => g.value === giorno)?.label ?? "Giorno";
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-0.5">
-          <div className="flex items-center gap-2">
-            <h3 className="text-base font-bold">{giornoLabel}</h3>
+    <div className="space-y-5">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h3 className="text-lg font-bold">{giornoLabel}</h3>
             {totals.kcal > 0 && (
-              <Badge variant="secondary" className="text-xs text-emerald-700 bg-emerald-50">
+              <Badge variant="secondary" className="text-sm font-bold text-emerald-700 bg-emerald-50 px-2.5">
                 {Math.round(totals.kcal)} kcal
               </Badge>
             )}
           </div>
           {totals.kcal > 0 && (
-            <p className="text-xs text-muted-foreground tabular-nums">
-              P {Math.round(totals.p)}g &middot; C {Math.round(totals.c)}g &middot; G {Math.round(totals.g)}g
-            </p>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-blue-600 tabular-nums">P {Math.round(totals.p)}g</span>
+              <span className="text-muted-foreground/40 text-xs">·</span>
+              <span className="text-sm font-medium text-amber-600 tabular-nums">C {Math.round(totals.c)}g</span>
+              <span className="text-muted-foreground/40 text-xs">·</span>
+              <span className="text-sm font-medium text-rose-500 tabular-nums">G {Math.round(totals.g)}g</span>
+            </div>
           )}
         </div>
         <Button
