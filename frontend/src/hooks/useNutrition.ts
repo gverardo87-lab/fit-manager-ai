@@ -67,6 +67,22 @@ export function useFoodDetail(foodId: number | null) {
   });
 }
 
+// ── Lista piani cross-client ──────────────────────────────────────────────
+
+export function useAllNutritionPlans(attivo?: boolean) {
+  return useQuery<NutritionPlan[]>({
+    queryKey: ["nutrition-plans-all", { attivo }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (attivo !== undefined) params.set("attivo", String(attivo));
+      const { data } = await apiClient.get<NutritionPlan[]>(
+        `/nutrition/plans${params.toString() ? `?${params}` : ""}`
+      );
+      return data;
+    },
+  });
+}
+
 // ── Summary cliente ───────────────────────────────────────────────────────
 
 export function useNutritionSummary(clientId: number | null) {
@@ -94,6 +110,21 @@ export function useNutritionPlans(clientId: number | null) {
       return data;
     },
     enabled: clientId !== null,
+  });
+}
+
+// ── Dettaglio piano per id diretto (senza clientId) ──────────────────────
+
+export function useNutritionPlanById(planId: number | null) {
+  return useQuery<NutritionPlanDetail>({
+    queryKey: ["nutrition-plan", planId],
+    queryFn: async () => {
+      const { data } = await apiClient.get<NutritionPlanDetail>(
+        `/nutrition/plans/${planId}`
+      );
+      return data;
+    },
+    enabled: planId !== null,
   });
 }
 

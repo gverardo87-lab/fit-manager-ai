@@ -136,6 +136,11 @@ class NutritionPlanResponse(BaseModel):
     data_fine: Optional[date] = None
     attivo: bool
     created_at: datetime
+    # Arricchito con dati cliente (solo nell'endpoint cross-client)
+    client_nome: Optional[str] = None
+    client_cognome: Optional[str] = None
+    # Conteggio pasti (opzionale, arricchito nella lista)
+    num_pasti: Optional[int] = None
 
 
 class NutritionPlanDetail(NutritionPlanResponse):

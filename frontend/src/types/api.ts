@@ -2890,6 +2890,10 @@ export interface NutritionPlan {
   data_fine: string | null;
   attivo: boolean;
   created_at: string;
+  // Arricchito nell'endpoint cross-client
+  client_nome: string | null;
+  client_cognome: string | null;
+  num_pasti: number | null;
 }
 
 export interface NutritionPlanCreate {

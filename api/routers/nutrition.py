@@ -305,6 +305,173 @@ def get_food_detail(
 
 
 # ---------------------------------------------------------------------------
+# Helper: costruisce NutritionPlanResponse con client info opzionale
+# ---------------------------------------------------------------------------
+
+
+def _plan_to_response(
+    plan: NutritionPlan,
+    client_nome: Optional[str] = None,
+    client_cognome: Optional[str] = None,
+    num_pasti: Optional[int] = None,
+) -> NutritionPlanResponse:
+    """Costruisce NutritionPlanResponse da ORM object + dati cliente opzionali."""
+    return NutritionPlanResponse(
+        id=plan.id,
+        trainer_id=plan.trainer_id,
+        id_cliente=plan.id_cliente,
+        nome=plan.nome,
+        obiettivo_calorico=plan.obiettivo_calorico,
+        proteine_g_target=plan.proteine_g_target,
+        carboidrati_g_target=plan.carboidrati_g_target,
+        grassi_g_target=plan.grassi_g_target,
+        note_cliniche=plan.note_cliniche,
+        data_inizio=plan.data_inizio,
+        data_fine=plan.data_fine,
+        attivo=plan.attivo,
+        created_at=plan.created_at,
+        client_nome=client_nome,
+        client_cognome=client_cognome,
+        num_pasti=num_pasti,
+    )
+
+
+# ---------------------------------------------------------------------------
+# PIANI — GET /nutrition/plans  (cross-client, tutti i piani del trainer)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/nutrition/plans", response_model=list[NutritionPlanResponse])
+def list_all_nutrition_plans(
+    attivo: Optional[bool] = Query(None, description="Filtra per stato attivo/inattivo"),
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """
+    Lista tutti i piani alimentari del trainer (cross-client).
+
+    Arricchisce ogni piano con: nome cliente + conteggio pasti.
+    Usato dalla pagina /nutrizione (lista piani globale).
+    """
+    from api.models.client import Client
+
+    query = select(NutritionPlan).where(
+        NutritionPlan.trainer_id == trainer.id,
+        NutritionPlan.deleted_at == None,
+    )
+    if attivo is not None:
+        query = query.where(NutritionPlan.attivo == attivo)
+    query = query.order_by(NutritionPlan.created_at.desc())
+    plans = session.exec(query).all()
+
+    if not plans:
+        return []
+
+    # Batch fetch clienti
+    client_ids = list({p.id_cliente for p in plans})
+    clients = session.exec(select(Client).where(Client.id.in_(client_ids))).all()
+    client_map = {c.id: c for c in clients}
+
+    # Batch fetch conteggio pasti per piano
+    plan_ids = [p.id for p in plans]
+    meal_counts_rows = session.exec(
+        select(PlanMeal.piano_id, func.count(PlanMeal.id))
+        .where(PlanMeal.piano_id.in_(plan_ids), PlanMeal.deleted_at == None)
+        .group_by(PlanMeal.piano_id)
+    ).all()
+    meal_count_map: dict[int, int] = {row[0]: row[1] for row in meal_counts_rows}
+
+    return [
+        _plan_to_response(
+            plan=p,
+            client_nome=client_map[p.id_cliente].nome if p.id_cliente in client_map else None,
+            client_cognome=client_map[p.id_cliente].cognome if p.id_cliente in client_map else None,
+            num_pasti=meal_count_map.get(p.id, 0),
+        )
+        for p in plans
+    ]
+
+
+# ---------------------------------------------------------------------------
+# PIANI — GET /nutrition/plans/{plan_id}  (by id, senza clientId)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/nutrition/plans/{plan_id}", response_model=NutritionPlanDetail)
+def get_nutrition_plan_by_id(
+    plan_id: int,
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+    nutrition_session: Session = Depends(get_nutrition_session),
+):
+    """
+    Dettaglio piano per id diretto (senza clientId).
+
+    Bouncer verifica trainer_id dal JWT — nessun clientId richiesto.
+    Usato dalla pagina /nutrizione/{id} per navigazione cross-client.
+    """
+    plan = _bouncer_plan(session, plan_id, trainer.id)
+
+    meals = session.exec(
+        select(PlanMeal).where(
+            PlanMeal.piano_id == plan_id,
+            PlanMeal.deleted_at == None,
+        ).order_by(PlanMeal.giorno_settimana, PlanMeal.ordine)
+    ).all()
+    meal_ids = [m.id for m in meals]
+
+    components_all: list[MealComponent] = []
+    food_map: dict[int, Food] = {}
+    cat_map: dict[int, str] = {}
+
+    if meal_ids:
+        components_all = session.exec(
+            select(MealComponent).where(
+                MealComponent.pasto_id.in_(meal_ids),
+                MealComponent.deleted_at == None,
+            )
+        ).all()
+
+        if components_all:
+            food_ids = list({c.alimento_id for c in components_all})
+            foods = nutrition_session.exec(
+                select(Food).where(Food.id.in_(food_ids))
+            ).all()
+            food_map = {f.id: f for f in foods}
+
+            cat_ids = list({f.categoria_id for f in foods})
+            cats = nutrition_session.exec(
+                select(FoodCategory).where(FoodCategory.id.in_(cat_ids))
+            ).all()
+            cat_map = {c.id: c.nome for c in cats}
+
+    comp_by_meal: dict[int, list[MealComponent]] = {m.id: [] for m in meals}
+    for c in components_all:
+        comp_by_meal[c.pasto_id].append(c)
+
+    pasti_detail = [
+        _enrich_meal(m, comp_by_meal[m.id], food_map, cat_map)
+        for m in meals
+    ]
+
+    totale_kcal = sum(p.totale_kcal for p in pasti_detail)
+    totale_prot = sum(p.totale_proteine_g for p in pasti_detail)
+    totale_carb = sum(p.totale_carboidrati_g for p in pasti_detail)
+    totale_gras = sum(p.totale_grassi_g for p in pasti_detail)
+
+    giorni_unici = {m.giorno_settimana for m in meals}
+    n_giorni = max(len(giorni_unici), 1)
+
+    detail = NutritionPlanDetail.model_validate(plan)
+    detail.pasti = pasti_detail
+    detail.totale_kcal = round(totale_kcal / n_giorni, 1)
+    detail.totale_proteine_g = round(totale_prot / n_giorni, 1)
+    detail.totale_carboidrati_g = round(totale_carb / n_giorni, 1)
+    detail.totale_grassi_g = round(totale_gras / n_giorni, 1)
+    return detail
+
+
+# ---------------------------------------------------------------------------
 # SUMMARY — GET /clients/{client_id}/nutrition/summary
 # ---------------------------------------------------------------------------
 

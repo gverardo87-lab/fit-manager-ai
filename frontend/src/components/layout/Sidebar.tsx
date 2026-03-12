@@ -28,6 +28,7 @@ import {
   Search,
   SunMedium,
   HandCoins,
+  UtensilsCrossed,
 } from "lucide-react";
 
 import { LogoIcon } from "@/components/ui/logo";
@@ -95,6 +96,13 @@ const NAV_TOP: NavEntry[] = [
       { href: "/esercizi", label: "Esercizi", icon: Dumbbell, tooltip: "Catalogo esercizi con tassonomia scientifica" },
       { href: "/schede", label: "Schede", icon: ClipboardList, guideId: "sidebar-schede", tooltip: "Crea e gestisci schede allenamento" },
       { href: "/allenamenti", label: "Aderenza", icon: Activity, tooltip: "Compliance e monitoraggio programmi attivi" },
+      {
+        href: "/nutrizione",
+        label: "Nutrizione",
+        icon: UtensilsCrossed,
+        tooltip: "Piani alimentari personalizzati per i clienti",
+        activeMatch: (pathname) => pathname.startsWith("/nutrizione"),
+      },
     ],
   },
 ];
