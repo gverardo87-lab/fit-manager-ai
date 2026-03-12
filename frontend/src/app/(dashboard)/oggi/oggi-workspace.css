@@ -1,153 +1,246 @@
 @layer components {
   .oggi-lift {
     transition:
-      transform 500ms cubic-bezier(0.2, 0.8, 0.2, 1),
-      box-shadow 500ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      box-shadow 280ms ease,
+      border-color 280ms ease;
   }
 
   .oggi-lift:hover {
-    transform: translateY(-2px);
+    transform: translateY(-1px);
   }
 
   .oggi-glow-teal {
     box-shadow:
       0 0 0 0.5px oklch(0.65 0.12 170 / 0.12),
-      0 4px 16px -2px oklch(0.62 0.15 150 / 0.1),
-      0 16px 40px -8px oklch(0.62 0.12 150 / 0.06);
+      0 10px 28px -18px oklch(0.62 0.14 150 / 0.18),
+      0 28px 56px -34px oklch(0.62 0.1 150 / 0.12);
   }
 
   .oggi-glow-amber {
     box-shadow:
-      0 0 0 0.5px oklch(0.75 0.12 70 / 0.1),
-      0 4px 16px -2px oklch(0.75 0.12 70 / 0.1),
-      0 16px 40px -8px oklch(0.75 0.1 70 / 0.06);
+      0 0 0 0.5px oklch(0.75 0.12 70 / 0.12),
+      0 10px 28px -18px oklch(0.75 0.12 70 / 0.18),
+      0 28px 56px -34px oklch(0.75 0.08 70 / 0.12);
   }
 
   .oggi-glow-red {
     box-shadow:
-      0 0 0 0.5px oklch(0.55 0.15 25 / 0.12),
-      0 4px 16px -2px oklch(0.55 0.15 25 / 0.15),
-      0 16px 40px -8px oklch(0.55 0.12 25 / 0.08);
+      0 0 0 0.5px oklch(0.55 0.15 25 / 0.15),
+      0 10px 28px -18px oklch(0.55 0.15 25 / 0.22),
+      0 28px 56px -34px oklch(0.55 0.12 25 / 0.14);
   }
 
   .oggi-glow-neutral {
-    box-shadow: 0 1px 3px oklch(0.4 0 0 / 0.04);
-  }
-
-  .oggi-lift:hover.oggi-glow-teal {
     box-shadow:
-      0 0 0 0.5px oklch(0.65 0.15 170 / 0.18),
-      0 8px 24px -2px oklch(0.62 0.18 150 / 0.16),
-      0 24px 56px -8px oklch(0.62 0.15 150 / 0.1);
-  }
-
-  .oggi-lift:hover.oggi-glow-amber {
-    box-shadow:
-      0 0 0 0.5px oklch(0.75 0.15 70 / 0.15),
-      0 8px 24px -2px oklch(0.75 0.15 70 / 0.14),
-      0 24px 56px -8px oklch(0.75 0.12 70 / 0.08);
-  }
-
-  .oggi-lift:hover.oggi-glow-red {
-    box-shadow:
-      0 0 0 0.5px oklch(0.55 0.18 25 / 0.18),
-      0 8px 24px -2px oklch(0.55 0.18 25 / 0.2),
-      0 24px 56px -8px oklch(0.55 0.15 25 / 0.12);
-  }
-
-  .oggi-lift:hover.oggi-glow-neutral {
-    box-shadow:
-      0 1px 3px oklch(0.4 0 0 / 0.06),
-      0 8px 20px -4px oklch(0.55 0.04 170 / 0.06);
+      0 0 0 0.5px color-mix(in oklch, var(--border) 70%, transparent),
+      0 8px 24px -18px color-mix(in oklch, var(--foreground) 12%, transparent);
   }
 
   .dark .oggi-glow-teal {
     box-shadow:
-      0 0 0 0.5px oklch(0.4 0.08 170 / 0.25),
-      0 4px 20px -2px oklch(0.3 0.1 170 / 0.3),
-      0 16px 48px -8px oklch(0.25 0.08 170 / 0.2);
+      0 0 0 0.5px oklch(0.4 0.08 170 / 0.28),
+      0 12px 32px -18px oklch(0.28 0.1 170 / 0.34),
+      0 28px 56px -32px oklch(0.22 0.08 170 / 0.24);
   }
 
   .dark .oggi-glow-amber {
     box-shadow:
-      0 0 0 0.5px oklch(0.4 0.08 70 / 0.2),
-      0 4px 20px -2px oklch(0.35 0.1 70 / 0.25);
+      0 0 0 0.5px oklch(0.4 0.08 70 / 0.24),
+      0 12px 32px -18px oklch(0.3 0.1 70 / 0.28);
   }
 
   .dark .oggi-glow-red {
     box-shadow:
-      0 0 0 0.5px oklch(0.35 0.1 25 / 0.25),
-      0 4px 20px -2px oklch(0.3 0.12 25 / 0.3);
+      0 0 0 0.5px oklch(0.35 0.1 25 / 0.28),
+      0 12px 32px -18px oklch(0.28 0.12 25 / 0.34);
   }
 
   .dark .oggi-glow-neutral {
-    box-shadow: 0 1px 3px oklch(0 0 0 / 0.4);
-  }
-
-  .dark .oggi-lift:hover.oggi-glow-teal {
     box-shadow:
-      0 0 0 0.5px oklch(0.45 0.1 170 / 0.35),
-      0 8px 28px -2px oklch(0.3 0.12 170 / 0.4),
-      0 24px 56px -8px oklch(0.25 0.1 170 / 0.25);
+      0 0 0 0.5px color-mix(in oklch, var(--border) 60%, transparent),
+      0 8px 24px -18px oklch(0 0 0 / 0.5);
   }
 
-  .dark .oggi-lift:hover.oggi-glow-neutral {
-    box-shadow:
-      0 1px 3px oklch(0 0 0 / 0.5),
-      0 8px 20px -4px oklch(0.2 0.04 170 / 0.15);
+  .oggi-command-bar {
+    position: relative;
+    overflow: hidden;
+    border-color: color-mix(in oklch, var(--border) 82%, var(--primary) 18%);
+    background:
+      radial-gradient(circle at top right, oklch(0.95 0.025 170 / 0.75), transparent 28%),
+      linear-gradient(
+        135deg,
+        color-mix(in oklch, white 86%, var(--card) 14%),
+        color-mix(in oklch, var(--background) 82%, var(--accent) 18%)
+      );
   }
 
-  .oggi-timeline-header {
-    border-bottom: 0.5px solid color-mix(in oklch, var(--border) 76%, var(--primary) 24%);
+  .oggi-command-bar::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(90deg, transparent 0%, color-mix(in oklch, var(--primary) 6%, transparent) 48%, transparent 100%);
+    opacity: 0.6;
   }
 
-  .oggi-timeline-row {
-    border: 0.5px solid transparent;
-    background: color-mix(in oklch, white 82%, var(--background) 18%);
+  .dark .oggi-command-bar {
+    border-color: color-mix(in oklch, var(--border) 72%, var(--primary) 28%);
+    background:
+      radial-gradient(circle at top right, oklch(0.28 0.04 170 / 0.26), transparent 28%),
+      linear-gradient(
+        135deg,
+        color-mix(in oklch, var(--card) 88%, var(--background) 12%),
+        color-mix(in oklch, var(--background) 86%, var(--accent) 14%)
+      );
   }
 
-  .oggi-timeline-row-selected {
-    border-color: color-mix(in oklch, var(--border) 62%, var(--primary) 38%);
-    background: linear-gradient(
-      135deg,
-      color-mix(in oklch, white 78%, var(--chart-4) 22%),
-      color-mix(in oklch, var(--accent) 58%, white 42%)
-    );
+  .oggi-rail-shell {
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in oklch, white 90%, var(--card) 10%),
+        color-mix(in oklch, var(--background) 88%, var(--accent) 12%)
+      );
   }
 
-  .dark .oggi-timeline-row {
-    background: color-mix(in oklch, var(--card) 82%, var(--background) 18%);
+  .dark .oggi-rail-shell {
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in oklch, var(--card) 88%, var(--background) 12%),
+        color-mix(in oklch, var(--background) 86%, var(--accent) 14%)
+      );
   }
 
-  .dark .oggi-timeline-row-selected {
+  .oggi-rail-group {
+    position: relative;
+  }
+
+  .oggi-rail-group::before {
+    content: "";
+    position: absolute;
+    left: 0.2rem;
+    top: 0.6rem;
+    bottom: 0.6rem;
+    width: 1px;
+    background: color-mix(in oklch, var(--border) 80%, var(--primary) 20%);
+  }
+
+  .dark .oggi-rail-group::before {
+    background: color-mix(in oklch, var(--border) 72%, var(--primary) 28%);
+  }
+
+  .oggi-rail-card {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid color-mix(in oklch, var(--border) 90%, var(--ring) 10%);
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in oklch, white 86%, var(--card) 14%),
+        color-mix(in oklch, var(--background) 90%, var(--accent) 10%)
+      );
+  }
+
+  .oggi-rail-card-selected {
     border-color: color-mix(in oklch, var(--border) 58%, var(--primary) 42%);
-    background: linear-gradient(
-      135deg,
-      color-mix(in oklch, var(--card) 78%, var(--primary) 22%),
-      color-mix(in oklch, var(--background) 74%, var(--accent) 26%)
-    );
+    background:
+      linear-gradient(
+        135deg,
+        color-mix(in oklch, white 84%, var(--chart-4) 16%),
+        color-mix(in oklch, var(--background) 84%, var(--accent) 16%)
+      );
+  }
+
+  .dark .oggi-rail-card {
+    border-color: color-mix(in oklch, var(--border) 84%, var(--ring) 16%);
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in oklch, var(--card) 86%, var(--background) 14%),
+        color-mix(in oklch, var(--background) 88%, var(--accent) 12%)
+      );
+  }
+
+  .dark .oggi-rail-card-selected {
+    border-color: color-mix(in oklch, var(--border) 52%, var(--primary) 48%);
+    background:
+      linear-gradient(
+        135deg,
+        color-mix(in oklch, var(--card) 78%, var(--primary) 22%),
+        color-mix(in oklch, var(--background) 80%, var(--accent) 20%)
+      );
+  }
+
+  .oggi-dossier-shell {
+    position: relative;
+    overflow: hidden;
+    border-color: color-mix(in oklch, var(--border) 82%, var(--primary) 18%);
+    background:
+      radial-gradient(circle at top right, oklch(0.95 0.025 70 / 0.55), transparent 28%),
+      linear-gradient(
+        180deg,
+        color-mix(in oklch, white 90%, var(--card) 10%),
+        color-mix(in oklch, var(--background) 87%, var(--accent) 13%)
+      );
+  }
+
+  .oggi-dossier-shell::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(180deg, color-mix(in oklch, white 18%, transparent), transparent 42%);
+    opacity: 0.75;
+  }
+
+  .dark .oggi-dossier-shell {
+    border-color: color-mix(in oklch, var(--border) 74%, var(--primary) 26%);
+    background:
+      radial-gradient(circle at top right, oklch(0.28 0.04 70 / 0.18), transparent 28%),
+      linear-gradient(
+        180deg,
+        color-mix(in oklch, var(--card) 86%, var(--background) 14%),
+        color-mix(in oklch, var(--background) 86%, var(--accent) 14%)
+      );
+  }
+
+  .oggi-notes-shell {
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in oklch, white 88%, var(--card) 12%),
+        color-mix(in oklch, var(--background) 84%, var(--accent) 16%)
+      );
+    border-color: color-mix(in oklch, var(--border) 88%, var(--ring) 12%);
+  }
+
+  .dark .oggi-notes-shell {
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in oklch, var(--card) 86%, var(--background) 14%),
+        color-mix(in oklch, var(--background) 88%, var(--accent) 12%)
+      );
   }
 
   @keyframes oggi-pulse {
     0%,
     100% {
-      opacity: 0.5;
+      opacity: 0.45;
+      transform: scale(0.95);
     }
 
     50% {
       opacity: 1;
+      transform: scale(1);
     }
   }
 
   .oggi-pulse-dot {
-    animation: oggi-pulse 2s ease-in-out infinite;
-  }
-
-  .oggi-glass-border {
-    border: 0.5px solid oklch(0.8 0.01 200 / 0.15);
-  }
-
-  .dark .oggi-glass-border {
-    border: 0.5px solid oklch(0.5 0.02 200 / 0.12);
+    animation: oggi-pulse 1.8s ease-in-out infinite;
   }
 }

@@ -60,21 +60,21 @@ const FLOW_GROUP_META: Record<
 > = {
   attention: {
     title: "Da sbloccare",
-    description: "Sedute che possono cambiare davvero il lavoro in sala.",
+    description: "Le sedute che possono cambiare davvero il lavoro in sala.",
     tone: "red",
     titleColor: "text-red-700 dark:text-red-400",
   },
   prepared: {
     title: "In linea",
-    description: "Sedute pronte o da confermare velocemente.",
+    description: "Sedute gia' pronte o da confermare senza attrito.",
     tone: "teal",
     titleColor: "text-emerald-700 dark:text-emerald-400",
   },
   internal: {
     title: "Altri slot",
-    description: "Impegni interni o senza scheda cliente da tenere in sfondo.",
+    description: "Impegni interni o senza scheda cliente.",
     tone: "neutral",
-    titleColor: "text-stone-400 dark:text-zinc-500",
+    titleColor: "text-stone-500 dark:text-zinc-400",
   },
 };
 
@@ -83,6 +83,13 @@ function getPreflightTone(status: PreFlightStatus): SurfaceTone {
   if (status === "incomplete") return "amber";
   if (status === "risk" || status === "blocked") return "red";
   return "neutral";
+}
+
+function getToneMarkerClass(tone: SurfaceTone): string {
+  if (tone === "teal") return "bg-emerald-500";
+  if (tone === "amber") return "bg-amber-500";
+  if (tone === "red") return "bg-red-500";
+  return "bg-stone-300 dark:bg-zinc-600";
 }
 
 export function getPreFlightStatus(session: SessionPrepItem): PreFlightStatus {
@@ -180,6 +187,7 @@ function SessionCard({
   const meta = PREFLIGHT_META[status];
   const label = session.client_name ?? session.event_title ?? session.category;
   const summary = buildSessionSummary(session, status);
+  const tone = getPreflightTone(status);
 
   return (
     <button
@@ -189,29 +197,51 @@ function SessionCard({
         surfaceRoleClassName(
           {
             role: "signal",
-            tone: selected ? getPreflightTone(status) : "neutral",
+            tone: selected ? tone : "neutral",
             interactive: true,
           },
-          cn("w-full px-3.5 py-3 text-left", selected && "ring-1 ring-primary/12"),
+          "oggi-rail-card w-full px-0 py-0 text-left",
         ),
-        selected && `oggi-glow-${getPreflightTone(status)}`,
+        selected && "oggi-rail-card-selected",
+        selected && `oggi-glow-${tone}`,
       )}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span
-              className={surfaceChipClassName(
-                { tone: "neutral" },
-                "px-2 py-0.5 text-[8.5px] font-bold uppercase tracking-[0.14em]",
+      <span
+        className={cn(
+          "absolute inset-y-3 left-0 w-1 rounded-r-full",
+          meta.dot,
+          selected ? "opacity-100" : "opacity-75",
+        )}
+      />
+
+      <div className="grid gap-2.5 px-3 py-3 sm:grid-cols-[72px_minmax(0,1fr)_auto] sm:items-start">
+        <div className="flex items-center gap-2 sm:flex-col sm:items-start sm:gap-0.5">
+          <span
+            className={surfaceChipClassName(
+              { tone: selected ? tone : "neutral" },
+              "px-2.5 py-1 text-[10px] font-bold tabular-nums",
+            )}
+          >
+            {TIME_FMT.format(new Date(session.starts_at))}
+          </span>
+          <span className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.16em] text-stone-400 dark:text-zinc-500">
+            <span className={cn("h-2 w-2 rounded-full", meta.dot)} />
+            {session.category}
+          </span>
+        </div>
+
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <p
+              className={cn(
+                "text-[14px] font-bold tracking-tight",
+                session.client_id
+                  ? "text-stone-900 dark:text-zinc-50"
+                  : "text-stone-700 dark:text-zinc-200",
               )}
             >
-              {TIME_FMT.format(new Date(session.starts_at))}
-            </span>
-            <span className={cn("h-2 w-2 shrink-0 rounded-full", meta.dot)} />
-            <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-stone-400 dark:text-zinc-500">
-              {session.category}
-            </span>
+              {label}
+            </p>
             {session.is_new_client && (
               <span
                 className={surfaceChipClassName(
@@ -223,33 +253,24 @@ function SessionCard({
               </span>
             )}
           </div>
-
-          <p
-            className={cn(
-              "mt-2 text-[13px] font-bold tracking-tight",
-              session.client_id
-                ? "text-stone-900 dark:text-zinc-50"
-                : "text-stone-600 dark:text-zinc-300",
-            )}
-          >
-            {label}
-          </p>
           <p className="mt-1 text-[10.5px] leading-5 text-stone-500 dark:text-zinc-400">
             {summary}
           </p>
         </div>
 
-        <span
-          className={cn(
-            surfaceChipClassName(
-              { tone: getPreflightTone(status) },
-              "shrink-0 text-[8.5px] font-bold uppercase tracking-[0.12em]",
-            ),
-            meta.color,
-          )}
-        >
-          {selected ? "In focus" : meta.label}
-        </span>
+        <div className="flex flex-wrap items-center gap-2 sm:flex-col sm:items-end">
+          <span
+            className={cn(
+              surfaceChipClassName(
+                { tone: selected ? tone : "neutral" },
+                "text-[8.5px] font-bold uppercase tracking-[0.14em]",
+              ),
+              selected && meta.color,
+            )}
+          >
+            {selected ? "In focus" : meta.label}
+          </span>
+        </div>
       </div>
     </button>
   );
@@ -267,22 +288,21 @@ function SessionGroup({
   onSelect: (eventId: number) => void;
 }) {
   const meta = FLOW_GROUP_META[group];
+  const toneMarkerClass = getToneMarkerClass(meta.tone);
 
   return (
-    <section
-      className={surfaceRoleClassName(
-        { role: "context", tone: "neutral" },
-        "flex flex-col px-3.5 py-3.5 sm:px-4",
-      )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className={`text-[9px] font-bold uppercase tracking-[0.18em] ${meta.titleColor}`}>
-            {meta.title}
-          </p>
-          <p className="mt-1 text-[10.5px] leading-5 text-stone-500 dark:text-zinc-400">
-            {meta.description}
-          </p>
+    <section className="space-y-2">
+      <div className="flex items-start gap-3">
+        <span className={cn("mt-1 h-2.5 w-2.5 shrink-0 rounded-full", toneMarkerClass)} />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <p className={cn("text-[10px] font-bold uppercase tracking-[0.18em]", meta.titleColor)}>
+              {meta.title}
+            </p>
+            <p className="text-[11px] text-stone-500 dark:text-zinc-400">
+              {meta.description}
+            </p>
+          </div>
         </div>
         <span
           className={surfaceChipClassName(
@@ -294,9 +314,9 @@ function SessionGroup({
         </span>
       </div>
 
-      <div className="mt-3 space-y-2.5">
-        {sessions.length > 0 ? (
-          sessions.map((session) => (
+      {sessions.length > 0 ? (
+        <div className="oggi-rail-group space-y-2 pl-4 sm:pl-5">
+          {sessions.map((session) => (
             <SessionCard
               key={session.event_id}
               session={session}
@@ -304,15 +324,13 @@ function SessionGroup({
               selected={session.event_id === selectedEventId}
               onSelect={() => onSelect(session.event_id)}
             />
-          ))
-        ) : (
-          <div className={surfaceRoleClassName({ role: "signal", tone: "neutral" }, "px-3.5 py-3")}>
-            <p className="text-[11px] font-semibold text-stone-500 dark:text-zinc-400">
-              Nessuna seduta in questa fascia.
-            </p>
-          </div>
-        )}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <div className="ml-4 rounded-[20px] border border-dashed border-stone-200/80 bg-stone-50/70 px-3.5 py-2.5 text-[11px] font-medium text-stone-500 dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-zinc-400">
+          Nessuna seduta in questa fascia.
+        </div>
+      )}
     </section>
   );
 }
@@ -356,23 +374,47 @@ export function OggiTimeline({
     <div
       className={surfaceRoleClassName(
         { role: "page", tone: "neutral" },
-        cn("h-full px-4 py-4 sm:px-5 sm:py-5", className),
+        cn("oggi-rail-shell h-full px-4 py-4 sm:px-5 sm:py-5", className),
       )}
     >
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.18em] text-stone-400 dark:text-zinc-500">
-            <Clock3 className="h-3 w-3" />
-            Flusso della giornata
-          </p>
+      <div className="space-y-3">
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <p className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.18em] text-stone-400 dark:text-zinc-500">
+              <Clock3 className="h-3 w-3" />
+              Timeline sedute
+            </p>
+            <h2 className="mt-1 text-[1rem] font-black tracking-tight text-stone-900 dark:text-zinc-50">
+              Flusso operativo della giornata
+            </h2>
+            <p className="mt-0.5 text-[10.5px] leading-5 text-stone-500 dark:text-zinc-400">
+              Leggi prima cosa sbloccare, poi cosa resta in linea.
+            </p>
+          </div>
+
           <div className="flex flex-wrap gap-1.5">
-            <span className={surfaceChipClassName({ tone: "neutral" }, "px-2.5 py-1 text-[9px] font-bold tabular-nums")}>
+            <span
+              className={surfaceChipClassName(
+                { tone: "neutral" },
+                "px-2.5 py-1 text-[9px] font-bold tabular-nums",
+              )}
+            >
               {clientCount} clienti
             </span>
-            <span className={surfaceChipClassName({ tone: "red" }, "px-2.5 py-1 text-[9px] font-bold tabular-nums")}>
+            <span
+              className={surfaceChipClassName(
+                { tone: "red" },
+                "px-2.5 py-1 text-[9px] font-bold tabular-nums",
+              )}
+            >
               {groups.attention.length} attenzione
             </span>
-            <span className={surfaceChipClassName({ tone: "teal" }, "px-2.5 py-1 text-[9px] font-bold tabular-nums")}>
+            <span
+              className={surfaceChipClassName(
+                { tone: "teal" },
+                "px-2.5 py-1 text-[9px] font-bold tabular-nums",
+              )}
+            >
               {groups.prepared.length} in linea
             </span>
           </div>

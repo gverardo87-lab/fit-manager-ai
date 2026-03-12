@@ -80,22 +80,39 @@ function StatPill({
   value,
   detail,
   tone = "neutral",
+  compact = false,
 }: {
   label: string;
   value: number;
   detail: string;
   tone?: SurfaceTone;
+  compact?: boolean;
 }) {
   return (
-    <div className={surfaceRoleClassName({ role: "signal", tone }, "px-3.5 py-3")}>
+    <div
+      className={surfaceRoleClassName(
+        { role: "signal", tone },
+        compact ? "px-3 py-2.5" : "px-3.5 py-3",
+      )}
+    >
       <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-stone-400 dark:text-zinc-500">
         {label}
       </p>
-      <div className="mt-1 flex items-baseline gap-2">
-        <span className="text-[24px] font-extrabold tabular-nums tracking-tight text-stone-900 dark:text-zinc-50">
+      <div className={cn("mt-1 flex items-baseline gap-2", compact && "gap-1.5")}>
+        <span
+          className={cn(
+            "font-extrabold tabular-nums tracking-tight text-stone-900 dark:text-zinc-50",
+            compact ? "text-[20px]" : "text-[24px]",
+          )}
+        >
           {value}
         </span>
-        <span className="text-[10px] leading-5 text-stone-500 dark:text-zinc-400">
+        <span
+          className={cn(
+            "text-stone-500 dark:text-zinc-400",
+            compact ? "text-[9.5px] leading-4" : "text-[10px] leading-5",
+          )}
+        >
           {detail}
         </span>
       </div>
@@ -111,6 +128,8 @@ interface OggiHeroProps {
   alertClients: number;
   supportCase: OperationalCase | null;
   compact?: boolean;
+  lastUpdatedAt?: number | null;
+  isRefreshing?: boolean;
   className?: string;
 }
 
@@ -122,6 +141,8 @@ export function OggiHero({
   alertClients,
   supportCase,
   compact = false,
+  lastUpdatedAt = null,
+  isRefreshing = false,
   className,
 }: OggiHeroProps) {
   const [now, setNow] = useState(() => new Date());
@@ -133,49 +154,120 @@ export function OggiHero({
 
   const supportHref = resolveCaseHref(supportCase);
   const dayBrief = getDayBrief(prep, attentionCount, readyCount, extraCaseCount);
+  const syncLabel = lastUpdatedAt ? TIME_FMT.format(new Date(lastUpdatedAt)) : null;
 
-  // ── Compact strip variant ──────────────────────────────────────────────
   if (compact) {
     const directionColor =
       dayBrief.tone === "red"
         ? "text-red-700 dark:text-red-300"
         : dayBrief.tone === "teal"
           ? "text-emerald-700 dark:text-emerald-300"
-          : "text-stone-600 dark:text-zinc-300";
+          : "text-stone-800 dark:text-zinc-100";
 
     return (
       <section className={className}>
-        <div className={surfaceRoleClassName({ role: "page", tone: "neutral" }, "px-4 py-3 sm:px-5")}>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            {/* Data + ora */}
-            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-400 dark:text-zinc-500">
-              <span>{DATE_FMT.format(now)}</span>
-              <span className={surfaceChipClassName({ tone: "neutral" }, "px-2.5 py-1 text-[11px] font-bold tabular-nums text-stone-500 dark:text-zinc-400")}>
-                {TIME_FMT.format(now)}
-              </span>
-            </div>
-            {/* Direzione giornata — testo colorato, nessuna superficie */}
-            <p className={`flex-1 text-[12px] font-bold tracking-tight ${directionColor}`}>
-              {dayBrief.title}
-            </p>
-            {/* Conteggi — chips compatti */}
-            <div className="ml-auto flex items-center gap-1.5">
-              <span className={surfaceChipClassName({ tone: "neutral" }, "px-2.5 py-1 text-[9px] font-bold tabular-nums")}>
-                {prep.total_sessions} clienti
-              </span>
-              {attentionCount > 0 && (
-                <span className={surfaceChipClassName({ tone: "red" }, "px-2.5 py-1 text-[9px] font-bold tabular-nums")}>
-                  {attentionCount} attenzione
-                </span>
-              )}
-              {extraCaseCount > 0 && (
-                <Link
-                  href="/clienti/myportal"
-                  className={surfaceChipClassName({ tone: "amber" }, "px-2.5 py-1 text-[9px] font-bold tabular-nums transition-opacity hover:opacity-80")}
+        <div
+          className={surfaceRoleClassName(
+            { role: "page", tone: "neutral" },
+            "oggi-command-bar px-4 py-3.5 sm:px-5",
+          )}
+        >
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-400 dark:text-zinc-500">
+                <span className="text-stone-500 dark:text-zinc-300">Regia di oggi</span>
+                <span>{DATE_FMT.format(now)}</span>
+                <span
+                  className={surfaceChipClassName(
+                    { tone: "neutral" },
+                    "px-2.5 py-1 text-[11px] font-bold tabular-nums text-stone-500 dark:text-zinc-400",
+                  )}
                 >
-                  {extraCaseCount} fuori seduta
-                </Link>
-              )}
+                  {TIME_FMT.format(now)}
+                </span>
+                {syncLabel && (
+                  <span
+                    className={surfaceChipClassName(
+                      { tone: isRefreshing ? "amber" : "teal" },
+                      "px-2.5 py-1 text-[10px] font-bold",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "h-1.5 w-1.5 rounded-full",
+                        isRefreshing ? "oggi-pulse-dot bg-amber-500" : "bg-emerald-500",
+                      )}
+                    />
+                    {isRefreshing ? "Sync live" : `Agg. ${syncLabel}`}
+                  </span>
+                )}
+              </div>
+
+              <div className="mt-2.5 space-y-1.5">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-stone-400 dark:text-zinc-500">
+                    Cabina operativa
+                  </span>
+                  {supportCase && supportHref && (
+                    <Link
+                      href={supportHref}
+                      className="inline-flex max-w-full items-center gap-1.5 text-[11px] font-semibold text-stone-600 transition-colors hover:text-stone-900 dark:text-zinc-300 dark:hover:text-zinc-100"
+                    >
+                      <span className="shrink-0 text-stone-400 dark:text-zinc-500">Supporto</span>
+                      <span className="max-w-[280px] truncate">{supportCase.title}</span>
+                      <ArrowRight className="h-3.5 w-3.5 shrink-0" />
+                    </Link>
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <h1 className={cn("text-[1.3rem] font-black tracking-tight sm:text-[1.55rem]", directionColor)}>
+                    {dayBrief.title}
+                  </h1>
+                  <p className="max-w-3xl text-[11px] leading-5 text-stone-600 dark:text-zinc-300">
+                    {dayBrief.detail}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-2 lg:w-[440px] lg:grid-cols-4">
+              <StatPill
+                compact
+                label="Sedute"
+                value={prep.total_sessions}
+                detail="clienti in agenda"
+                tone="neutral"
+              />
+              <StatPill
+                compact
+                label="Attenzione"
+                value={attentionCount}
+                detail={
+                  alertClients > 0
+                    ? `${alertClients} alert clinici`
+                    : "nessun blocco clinico"
+                }
+                tone={attentionCount > 0 ? "red" : "neutral"}
+              />
+              <StatPill
+                compact
+                label="In linea"
+                value={readyCount}
+                detail={
+                  readyCount === prep.total_sessions && prep.total_sessions > 0
+                    ? "giornata allineata"
+                    : "sedute confermate"
+                }
+                tone={readyCount > 0 ? "teal" : "neutral"}
+              />
+              <StatPill
+                compact
+                label="Fuori seduta"
+                value={extraCaseCount}
+                detail={extraCaseCount > 0 ? "altre attenzioni" : "nessun caso extra"}
+                tone={extraCaseCount > 0 ? "amber" : "neutral"}
+              />
             </div>
           </div>
         </div>

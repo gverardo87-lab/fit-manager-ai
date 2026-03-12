@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { AlertCircle, RefreshCw } from "lucide-react";
 
+import "./oggi-workspace.css";
+
 import { OggiHero, OggiHeroSkeleton } from "@/components/workspace/OggiHero";
 import {
   OggiTimeline,
@@ -121,6 +123,10 @@ export default function OggiWorkspacePage() {
     };
   }, [attentionSessions, clientSessions]);
 
+  const lastUpdatedAt = useMemo(() => {
+    return Math.max(prepQuery.dataUpdatedAt ?? 0, todayQuery.dataUpdatedAt ?? 0) || null;
+  }, [prepQuery.dataUpdatedAt, todayQuery.dataUpdatedAt]);
+
   const extraCases = useMemo(() => getExtraCases(today), [today]);
   const supportCase = useMemo(() => {
     if (today?.focus_case && today.focus_case.case_kind !== "session_imminent") {
@@ -140,7 +146,7 @@ export default function OggiWorkspacePage() {
             </p>
           </div>
         )}
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]">
+        <div className="grid gap-3 lg:grid-cols-[minmax(340px,0.84fr)_minmax(0,1.16fr)]">
           <Skeleton className="h-[460px] rounded-[32px]" />
           <Skeleton className="h-[460px] rounded-[32px]" />
         </div>
@@ -191,6 +197,8 @@ export default function OggiWorkspacePage() {
           extraCaseCount={extraCases.length}
           alertClients={safePrep.clients_with_alerts}
           supportCase={supportCase}
+          lastUpdatedAt={lastUpdatedAt}
+          isRefreshing={prepQuery.isFetching || todayQuery.isFetching}
         />
       </div>
 
@@ -209,13 +217,17 @@ export default function OggiWorkspacePage() {
 
       {/* Cockpit 2 colonne: timeline (sinistra) | focus seduta (destra) */}
       <div
-        className={cn(revealClass(18), "grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]")}
+        className={cn(
+          revealClass(18),
+          "grid gap-3 lg:grid-cols-[minmax(340px,0.84fr)_minmax(0,1.16fr)] lg:items-start",
+        )}
         style={revealStyle(18)}
       >
         {/* Mobile: CommandCenter prima (order-1), Timeline dopo (order-2) */}
         {/* Desktop: Timeline a sinistra (lg:order-1), CommandCenter a destra (lg:order-2) */}
         <div className="order-2 lg:order-1">
           <OggiTimeline
+            className="lg:max-h-[calc(100vh-13.5rem)] lg:overflow-y-auto lg:pr-1"
             sessions={orderedSessions}
             selectedEventId={effectiveSelectedId}
             onSelect={setSelectedEventId}
@@ -223,6 +235,7 @@ export default function OggiWorkspacePage() {
         </div>
         <div className="order-1 lg:order-2">
           <OggiCommandCenter
+            className="lg:max-h-[calc(100vh-13.5rem)] lg:overflow-y-auto lg:pr-1"
             session={selectedSession}
             status={selectedStatus}
           />
