@@ -63,6 +63,14 @@ CATALOG_DATABASE_URL: str = os.getenv(
     f"sqlite:///{DATA_DIR / 'catalog.db'}",
 )
 
+# Nutrition Database — catalogo alimenti (CREA 2019 + USDA + custom)
+# Shared tra prod e dev (stessa banca dati alimenti), sempre in data/nutrition.db.
+# Se NUTRITION_DATABASE_URL e' settato esplicitamente, ha priorita'.
+NUTRITION_DATABASE_URL: str = os.getenv(
+    "NUTRITION_DATABASE_URL",
+    f"sqlite:///{DATA_DIR / 'nutrition.db'}",
+)
+
 # Logging locale applicativo
 LOG_DIR: Path = DATA_DIR / "logs"
 APP_LOG_LEVEL: str = os.getenv("APP_LOG_LEVEL", "INFO").upper()

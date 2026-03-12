@@ -19,8 +19,9 @@ from typing import Generator
 from sqlalchemy import event
 from sqlmodel import SQLModel, Session, create_engine
 
-from api.config import CATALOG_DATABASE_URL, DATABASE_URL
+from api.config import CATALOG_DATABASE_URL, DATABASE_URL, NUTRITION_DATABASE_URL
 import api.models.share_token  # noqa: F401 — registra ShareToken nel metadata SQLModel
+import api.models.nutrition  # noqa: F401 — registra modelli nutrition nel metadata SQLModel
 
 logger = logging.getLogger("fitmanager.database")
 
@@ -72,6 +73,21 @@ catalog_engine = create_engine(
 if CATALOG_DATABASE_URL.startswith("sqlite"):
     event.listen(catalog_engine, "connect", _setup_sqlite_pragmas)
 
+# --- Nutrition Engine (nutrition.db) ---
+
+_nutrition_connect_args = {}
+if NUTRITION_DATABASE_URL.startswith("sqlite"):
+    _nutrition_connect_args = {"check_same_thread": False}
+
+nutrition_engine = create_engine(
+    NUTRITION_DATABASE_URL,
+    echo=False,
+    connect_args=_nutrition_connect_args,
+)
+
+if NUTRITION_DATABASE_URL.startswith("sqlite"):
+    event.listen(nutrition_engine, "connect", _setup_sqlite_pragmas)
+
 
 # --- Table creation ---
 
@@ -84,6 +100,13 @@ CATALOG_TABLE_NAMES = frozenset({
     "condizioni_mediche",
     "esercizi_condizioni",
     "metriche",
+})
+
+# Tabelle nutrition (catalogo alimenti CREA/USDA)
+NUTRITION_TABLE_NAMES = frozenset({
+    "categorie_alimenti",
+    "alimenti",
+    "porzioni_standard",
 })
 
 
@@ -112,6 +135,20 @@ def create_catalog_tables() -> None:
     SQLModel.metadata.create_all(catalog_engine, tables=tables)
 
 
+def create_nutrition_tables() -> None:
+    """
+    Crea le tabelle NUTRITION nel database alimenti (nutrition.db).
+
+    Usato da build_nutrition.py per creare nutrition.db da zero.
+    In produzione, nutrition.db viene shippato pre-costruito con dati CREA 2019.
+    """
+    tables = [
+        t for t in SQLModel.metadata.sorted_tables
+        if t.name in NUTRITION_TABLE_NAMES
+    ]
+    SQLModel.metadata.create_all(nutrition_engine, tables=tables)
+
+
 # --- Session factories ---
 
 
@@ -135,4 +172,18 @@ def get_catalog_session() -> Generator[Session, None, None]:
     - Metriche (misurazioni, obiettivi)
     """
     with Session(catalog_engine) as session:
+        yield session
+
+
+def get_nutrition_session() -> Generator[Session, None, None]:
+    """
+    Dependency injection per FastAPI: session NUTRITION (nutrition.db).
+
+    Usata dagli endpoint che leggono il catalogo alimenti:
+    - Ricerca alimenti (nome, categoria)
+    - Dettaglio alimento con macro per 100g
+    - Porzioni standard
+    - Calcolo macro componenti pasto (cross-DB lookup)
+    """
+    with Session(nutrition_engine) as session:
         yield session

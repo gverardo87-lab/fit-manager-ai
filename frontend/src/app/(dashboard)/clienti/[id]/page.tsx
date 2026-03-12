@@ -16,7 +16,7 @@ import { use, useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import {
   FileText, Calendar, Wallet, User,
-  ClipboardList,
+  ClipboardList, UtensilsCrossed,
 } from "lucide-react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -32,12 +32,14 @@ import { ContrattiTab } from "@/components/clients/profile/ContrattiTab";
 import { SessioniTab } from "@/components/clients/profile/SessioniTab";
 import { MovimentiTab } from "@/components/clients/profile/MovimentiTab";
 import { SchedeTab } from "@/components/clients/profile/SchedeTab";
+import { NutrizioneTab } from "@/components/clients/profile/NutrizioneTab";
 import { ProfileSkeleton, NotFoundState } from "@/components/clients/profile/ProfileShared";
 
 import { useClient } from "@/hooks/useClients";
 import { useClientContracts } from "@/hooks/useContracts";
 import { useClientEvents } from "@/hooks/useAgenda";
 import { useClientReadiness, computeOnboardingSteps } from "@/hooks/useClientReadiness";
+import { useNutritionPlans } from "@/hooks/useNutrition";
 import { resolveBackNavigation } from "@/lib/url-state";
 
 // ════════════════════════════════════════════════════════════
@@ -56,6 +58,7 @@ export default function ClientProfilePage({
   const { readiness } = useClientReadiness(clientId);
   const { data: contractsData } = useClientContracts(clientId);
   const { data: eventsData } = useClientEvents(clientId);
+  const { data: nutritionPlans } = useNutritionPlans(clientId);
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [contractSheetOpen, setContractSheetOpen] = useState(false);
@@ -116,7 +119,8 @@ export default function ClientProfilePage({
     contratti: (contractsData?.items?.length ?? 0) > 0,
     sessioni: (eventsData?.items?.length ?? 0) > 0,
     schede: readiness?.has_workout_plan ?? false,
-  }), [contractsData, eventsData, readiness]);
+    nutrizione: (nutritionPlans ?? []).some((p) => p.attivo),
+  }), [contractsData, eventsData, readiness, nutritionPlans]);
 
   if (isLoading) return <ProfileSkeleton />;
   if (!client) return <NotFoundState />;
@@ -161,6 +165,11 @@ export default function ClientProfilePage({
             Schede
             {tabComplete.schede && <CompletionDot />}
           </TabsTrigger>
+          <TabsTrigger value="nutrizione">
+            <UtensilsCrossed className="mr-2 h-4 w-4" />
+            Nutrizione
+            {tabComplete.nutrizione && <CompletionDot />}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="panoramica" className="mt-4">
@@ -184,6 +193,9 @@ export default function ClientProfilePage({
         </TabsContent>
         <TabsContent value="schede" className="mt-4">
           <SchedeTab clientId={clientId} onNewScheda={() => setTemplateSelectorOpen(true)} fromContext={searchParams.get("from") ?? undefined} />
+        </TabsContent>
+        <TabsContent value="nutrizione" className="mt-4">
+          <NutrizioneTab clientId={clientId} />
         </TabsContent>
       </Tabs>
 

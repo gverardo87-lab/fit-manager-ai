@@ -35,8 +35,9 @@ from api.config import (
     CATALOG_DATABASE_URL,
     DATA_DIR,
     DATABASE_URL,
+    NUTRITION_DATABASE_URL,
 )
-from api.database import create_catalog_tables, create_db_and_tables, engine
+from api.database import create_catalog_tables, create_db_and_tables, create_nutrition_tables, engine
 from api.logging_config import configure_app_logging
 from api.seed_exercises import seed_builtin_exercises, seed_exercise_media, seed_exercise_relations
 from api.services.license import check_license
@@ -61,6 +62,7 @@ from api.routers.system import router as system_router
 from api.routers.training_science import router as training_science_router
 from api.routers.training_methodology import router as training_methodology_router
 from api.routers.workspace import router as workspace_router
+from api.routers.nutrition import router as nutrition_router
 from api.services.system_runtime import (
     BACKUP_DIR,
     build_health_response,
@@ -199,6 +201,14 @@ async def lifespan(app: FastAPI):
     create_catalog_tables()
     logger.info(f"  CATALOG_DB = {catalog_path}")
 
+    # ── 3b. Nutrition DB ──
+    nutrition_path = NUTRITION_DATABASE_URL.replace("sqlite:///", "")
+    if not Path(nutrition_path).exists():
+        logger.warning("nutrition.db non trovato — creo tabelle vuote. "
+                       "Eseguire: python -m tools.admin_scripts.build_nutrition")
+    create_nutrition_tables()
+    logger.info(f"  NUTRITION_DB = {nutrition_path}")
+
     # ── 4. Seed esercizi builtin + relazioni (idempotente) ──
     from sqlmodel import Session as SyncSession
     with SyncSession(engine) as session:
@@ -208,6 +218,9 @@ async def lifespan(app: FastAPI):
 
     # ── 5. Integrity check ──
     _integrity_check_on_startup(DATABASE_URL, CATALOG_DATABASE_URL)
+    # Integrity check nutrition.db (separato, non blocca se mancante)
+    if Path(nutrition_path).exists():
+        _integrity_check_on_startup(NUTRITION_DATABASE_URL, NUTRITION_DATABASE_URL)
 
     logger.info("API pronta")
     yield
@@ -292,6 +305,7 @@ app.include_router(system_router, prefix=API_PREFIX)
 app.include_router(training_science_router, prefix=API_PREFIX)
 app.include_router(training_methodology_router, prefix=API_PREFIX)
 app.include_router(workspace_router, prefix=API_PREFIX)
+app.include_router(nutrition_router, prefix=API_PREFIX)
 
 
 @app.get("/health", response_model=HealthResponse)

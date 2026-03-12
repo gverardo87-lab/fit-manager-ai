@@ -1,6 +1,6 @@
 // src/types/api.ts
 /**
- * Type Synchronization — Design by Contract.
+ * Type Synchronization â€” Design by Contract.
  *
  * Queste interfacce sono la traduzione 1:1 degli schema Pydantic
  * del backend Python. Ogni campo Optional[X] diventa X | null.
@@ -14,9 +14,9 @@
  * REGOLA: se cambi uno schema Pydantic, DEVI aggiornare qui.
  */
 
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // COSTANTI (allineate a api/schemas/financial.py)
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 export const PAYMENT_METHODS = ["CONTANTI", "POS", "BONIFICO", "ASSEGNO", "ALTRO"] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
@@ -49,9 +49,9 @@ export const EXPENSE_CATEGORIES = [
 ] as const;
 export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
 
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // AUTH (api/auth/schemas.py)
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 /** POST /api/auth/register */
 export interface TrainerRegister {
@@ -67,7 +67,7 @@ export interface TrainerLogin {
   password: string;
 }
 
-/** Risposta login/register — TokenResponse */
+/** Risposta login/register â€” TokenResponse */
 export interface TokenResponse {
   access_token: string;
   token_type: string;
@@ -205,7 +205,7 @@ export interface InstallationConnectivityPortalValidationResponse {
   checks: InstallationConnectivityCheck[];
 }
 
-/** Dati pubblici trainer — TrainerPublic */
+/** Dati pubblici trainer â€” TrainerPublic */
 export interface Trainer {
   id: number;
   email: string;
@@ -214,9 +214,9 @@ export interface Trainer {
   is_active: boolean;
 }
 
-// ════════════════════════════════════════════════════════════
-// CLIENT (api/routers/clients.py — inline schemas)
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// CLIENT (api/routers/clients.py â€” inline schemas)
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 /** POST /api/clients */
 export interface ClientCreate {
@@ -244,7 +244,7 @@ export interface ClientUpdate {
   note_interne?: string | null;
 }
 
-// ── Anamnesi v2 (questionario Chiara — 6 step) ──
+// â”€â”€ Anamnesi v2 (questionario Chiara â€” 6 step) â”€â”€
 
 /** Singola domanda anamnesi con toggle si/no + dettaglio testuale */
 export interface AnamnesiQuestion {
@@ -252,9 +252,9 @@ export interface AnamnesiQuestion {
   dettaglio: string | null;
 }
 
-/** Struttura completa anamnesi cliente — 6 step del wizard (v2, allineata al questionario Chiara) */
+/** Struttura completa anamnesi cliente â€” 6 step del wizard (v2, allineata al questionario Chiara) */
 export interface AnamnesiData {
-  // ── Step 1: Stile di Vita ──
+  // â”€â”€ Step 1: Stile di Vita â”€â”€
   professione: string | null;
   ore_seduto: string;
   spostamento: string;
@@ -264,13 +264,13 @@ export interface AnamnesiData {
   fumo: string;
   alcol: string;
   passi_giornalieri: string | null;
-  // ── Step 2: Obiettivo e Motivazione ──
+  // â”€â”€ Step 2: Obiettivo e Motivazione â”€â”€
   obiettivo_principale: string;
   obiettivi_secondari: string | null;
   perche_adesso: string | null;
   cosa_3_mesi: string | null;
   impegno: number;
-  // ── Step 3: Esperienza Sportiva ──
+  // â”€â”€ Step 3: Esperienza Sportiva â”€â”€
   si_allena: boolean;
   frequenza_settimanale: string;
   luogo_allenamento: string;
@@ -278,7 +278,7 @@ export interface AnamnesiData {
   esperienza_durata: string;
   esperienza_pt: boolean;
   feedback_pt: string | null;
-  // ── Step 4: Salute e Sicurezza ── (safety engine scansiona questi campi)
+  // â”€â”€ Step 4: Salute e Sicurezza â”€â”€ (safety engine scansiona questi campi)
   dolori_attuali: string[];
   dolori_attuali_altro: string | null;
   infortuni_importanti: AnamnesiQuestion;
@@ -289,13 +289,13 @@ export interface AnamnesiData {
   farmaci_dettaglio: string | null;
   limitazioni_mediche: AnamnesiQuestion;
   certificato_sportivo: string;
-  // ── Step 5: Alimentazione ──
+  // â”€â”€ Step 5: Alimentazione â”€â”€
   tipo_alimentazione: string;
   intolleranze: string | null;
   serenita_cibo: number;
   messaggio_alimentazione: string | null;
   rapporto_complesso_alimentazione: string;
-  // ── Step 6: Logistica e Note ──
+  // â”€â”€ Step 6: Logistica e Note â”€â”€
   preferenza_luogo: string;
   sedute_settimana: string;
   giorni_orari_preferiti: string | null;
@@ -303,12 +303,12 @@ export interface AnamnesiData {
   freni_altro: string | null;
   consenso_privacy: boolean;
   note_finali: string | null;
-  // ── Metadata ──
+  // â”€â”€ Metadata â”€â”€
   data_compilazione: string;
   data_ultimo_aggiornamento: string;
 }
 
-// ── Costanti anamnesi (opzioni select/multi-select) ──
+// â”€â”€ Costanti anamnesi (opzioni select/multi-select) â”€â”€
 
 export const ORE_SEDUTO = ["<3", "3-6", "6-9", ">9"] as const;
 export const ORE_SEDUTO_LABELS: Record<string, string> = {
@@ -430,7 +430,7 @@ export const FRENI_LABELS: Record<string, string> = {
   alimentazione: "Problemi alimentari", ansia: "Ansia / disagio in palestra",
 };
 
-/** ClientResponse — restituito da GET/POST/PUT */
+/** ClientResponse â€” restituito da GET/POST/PUT */
 export interface Client {
   id: number;
   nome: string;
@@ -445,7 +445,7 @@ export interface Client {
   anamnesi: AnamnesiData | null;
 }
 
-/** ClientEnrichedResponse — restituito da GET /api/clients (lista enriched) */
+/** ClientEnrichedResponse â€” restituito da GET /api/clients (lista enriched) */
 export interface ClientEnriched extends Client {
   contratti_attivi: number;
   totale_versato: number;
@@ -466,9 +466,76 @@ export interface ClientEnrichedListResponse {
   kpi_rate_scadute: number;
 }
 
-// ════════════════════════════════════════════════════════════
-// EVENT (api/routers/agenda.py — inline schemas)
-// ════════════════════════════════════════════════════════════
+export interface ClientDossierIdentity {
+  id: number;
+  nome: string;
+  cognome: string;
+  telefono: string | null;
+  email: string | null;
+  data_nascita: string | null;
+  sesso: string | null;
+  stato: string;
+  note_interne: string | null;
+  client_since: string | null;
+}
+
+export interface ClientDossierClinicalAlert {
+  condition_name: string;
+  category: string | null;
+}
+
+export interface ClientDossierSessionSummary {
+  total_pt_sessions: number;
+  completed_pt_sessions: number;
+  last_completed_session_at: string | null;
+  next_scheduled_session_at: string | null;
+}
+
+export interface ClientDossierPlanSummary {
+  total_plans: number;
+  latest_plan_name: string | null;
+  latest_plan_updated_at: string | null;
+  active_plan_name: string | null;
+  active_plan_start_date: string | null;
+  active_plan_end_date: string | null;
+}
+
+export interface ClientDossierContractSummary {
+  active_contracts: number;
+  credits_residui: number;
+  has_overdue_rates: boolean;
+  next_contract_expiry_date: string | null;
+}
+
+export interface ClientDossierGoalSummary {
+  active_goals: number;
+  reached_goals: number;
+  abandoned_goals: number;
+}
+
+export interface ClientDossierActivityItem {
+  at: string;
+  kind: string;
+  label: string;
+  status: string | null;
+  href: string | null;
+}
+
+export interface ClientDossierResponse {
+  generated_at: string;
+  client: ClientDossierIdentity;
+  readiness: ClinicalReadinessClientItem | null;
+  clinical_alerts: ClientDossierClinicalAlert[];
+  session_summary: ClientDossierSessionSummary;
+  plan_summary: ClientDossierPlanSummary;
+  contract_summary: ClientDossierContractSummary;
+  goal_summary: ClientDossierGoalSummary;
+  recent_activity: ClientDossierActivityItem[];
+}
+
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// EVENT (api/routers/agenda.py â€” inline schemas)
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 /** POST /api/agenda */
 export interface EventCreate {
@@ -491,7 +558,7 @@ export interface EventUpdate {
   stato?: string | null;
 }
 
-/** EventResponse — restituito da GET/POST/PUT */
+/** EventResponse â€” restituito da GET/POST/PUT */
 export interface Event {
   id: number;
   data_inizio: string; // ISO datetime string
@@ -506,9 +573,9 @@ export interface Event {
   cliente_cognome: string | null;
 }
 
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // CONTRACT (api/schemas/financial.py)
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 /** POST /api/contracts */
 export interface ContractCreate {
@@ -533,7 +600,7 @@ export interface ContractUpdate {
   note?: string | null;
 }
 
-/** ContractResponse — restituito da GET/POST/PUT */
+/** ContractResponse â€” restituito da GET/POST/PUT */
 export interface Contract {
   id: number;
   id_cliente: number;
@@ -552,7 +619,7 @@ export interface Contract {
   rinnovo_di: number | null;
 }
 
-/** ContractListResponse — GET /api/contracts (enriched with rate KPI) */
+/** ContractListResponse â€” GET /api/contracts (enriched with rate KPI) */
 export interface ContractListItem extends Contract {
   client_nome: string;
   client_cognome: string;
@@ -570,7 +637,7 @@ export interface RenewalChainItem {
   chiuso: boolean;
 }
 
-/** ContractWithRatesResponse — GET /api/contracts/{id} */
+/** ContractWithRatesResponse â€” GET /api/contracts/{id} */
 export interface ContractWithRates extends Contract {
   rate: Rate[];
   // Client info (per la pagina dettaglio)
@@ -598,9 +665,9 @@ export interface ContractWithRates extends Contract {
   rinnovi_successivi: RenewalChainItem[];
 }
 
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // RATE (api/schemas/financial.py)
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 /** POST /api/rates */
 export interface RateCreate {
@@ -617,7 +684,7 @@ export interface RateUpdate {
   descrizione?: string | null;
 }
 
-/** POST /api/rates/{id}/pay — Pagamento atomico */
+/** POST /api/rates/{id}/pay â€” Pagamento atomico */
 export interface RatePayment {
   importo: number;
   metodo?: string;
@@ -634,7 +701,7 @@ export interface RatePaymentReceipt {
   note: string | null;
 }
 
-/** RateResponse — restituito da GET/POST/PUT/PAY */
+/** RateResponse â€” restituito da GET/POST/PUT/PAY */
 export interface Rate {
   id: number;
   id_contratto: number;
@@ -660,11 +727,11 @@ export interface PaymentPlanCreate {
   frequenza?: string;
 }
 
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // CASH MOVEMENT (api/schemas/financial.py)
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-/** POST /api/movements (solo manuali — Ledger Integrity) */
+/** POST /api/movements (solo manuali â€” Ledger Integrity) */
 export interface MovementManualCreate {
   importo: number;
   tipo: MovementType;
@@ -674,7 +741,7 @@ export interface MovementManualCreate {
   note?: string | null;
 }
 
-/** MovementResponse — restituito da GET/POST */
+/** MovementResponse â€” restituito da GET/POST */
 export interface CashMovement {
   id: number;
   data_movimento: string | null; // ISO datetime
@@ -691,9 +758,9 @@ export interface CashMovement {
   operatore: string;
 }
 
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // MOVEMENT STATS (api/routers/movements.py)
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 /** Punto dati per il grafico giornaliero entrate/uscite + saldo */
 export interface ChartDataPoint {
@@ -714,9 +781,9 @@ export interface MovementStats {
   chart_data: ChartDataPoint[];
 }
 
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // RECURRING EXPENSES (api/routers/recurring_expenses.py)
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 /** POST /api/recurring-expenses */
 export interface RecurringExpenseCreate {
@@ -747,7 +814,7 @@ export interface RecurringExpense {
   importo: number;
   frequenza: ExpenseFrequency;
   giorno_scadenza: number;
-  data_inizio: string | null; // ISO date — ancoraggio frequenze
+  data_inizio: string | null; // ISO date â€” ancoraggio frequenze
   attiva: boolean;
   data_creazione: string | null;
   data_disattivazione: string | null;
@@ -789,9 +856,9 @@ export interface RecurringExpenseClosePreviewResponse {
   delta_netto: number;
 }
 
-// ════════════════════════════════════════════════════════════
-// PENDING EXPENSES (api/routers/movements.py — Conferma & Registra)
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// PENDING EXPENSES (api/routers/movements.py â€” Conferma & Registra)
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 /** Singola spesa in attesa di conferma per un mese */
 export interface PendingExpenseItem {
@@ -810,9 +877,9 @@ export interface PendingExpensesResponse {
   totale_pending: number;
 }
 
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // DASHBOARD (api/schemas/financial.py)
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 /** GET /api/dashboard/summary */
 export interface DashboardSummary {
@@ -1059,9 +1126,9 @@ export interface ClinicalReadinessWorklistResponse {
   page_size: number;
 }
 
-// ════════════════════════════════════════════════════════════
-// TRAINING METHODOLOGY — MyTrainer (api/schemas/training_methodology.py)
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// TRAINING METHODOLOGY â€” MyTrainer (api/schemas/training_methodology.py)
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 /** Compliance per singola sessione di un piano */
 export interface SessionComplianceItem {
@@ -1246,10 +1313,10 @@ export interface WorkspaceCaseDetailResponse {
   activity_preview: WorkspaceCaseActivityItem[];
 }
 
-// ════════════════════════════════════════════════════════════
-// SESSION PREP — Cockpit operativo per sessioni del giorno
-// (api/schemas/workspace.py → SessionPrep*)
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// SESSION PREP â€” Cockpit operativo per sessioni del giorno
+// (api/schemas/workspace.py â†’ SessionPrep*)
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 export type HealthCheckStatus = "ok" | "warning" | "critical" | "missing";
 
@@ -1373,9 +1440,9 @@ export interface TrainingMethodologyWorklistResponse {
   page_size: number;
 }
 
-// ════════════════════════════════════════════════════════════
-// TODO (api/routers/todos.py — inline schemas)
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// TODO (api/routers/todos.py â€” inline schemas)
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 /** POST /api/todos */
 export interface TodoCreate {
@@ -1391,7 +1458,7 @@ export interface TodoUpdate {
   data_scadenza?: string | null;
 }
 
-/** TodoResponse — restituito da GET/POST/PUT/PATCH */
+/** TodoResponse â€” restituito da GET/POST/PUT/PATCH */
 export interface Todo {
   id: number;
   titolo: string;
@@ -1402,11 +1469,11 @@ export interface Todo {
   created_at: string;
 }
 
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // GENERIC PAGINATED RESPONSE
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-/** Wrapper paginato generico — usato da GET /clients, /movements */
+/** Wrapper paginato generico â€” usato da GET /clients, /movements */
 export interface PaginatedResponse<T> {
   items: T[];
   total: number;
@@ -1414,7 +1481,7 @@ export interface PaginatedResponse<T> {
   page_size: number;
 }
 
-/** Response paginata contratti con KPI aggregati — GET /api/contracts */
+/** Response paginata contratti con KPI aggregati â€” GET /api/contracts */
 export interface ContractListResponse extends PaginatedResponse<ContractListItem> {
   kpi_attivi: number;
   kpi_chiusi: number;
@@ -1423,15 +1490,15 @@ export interface ContractListResponse extends PaginatedResponse<ContractListItem
   kpi_rate_scadute: number;
 }
 
-/** Wrapper lista semplice — usato da GET /rates, /rates/generate-plan */
+/** Wrapper lista semplice â€” usato da GET /rates, /rates/generate-plan */
 export interface ListResponse<T> {
   items: T[];
   total: number;
 }
 
-// ════════════════════════════════════════════════════════════
-// AGING REPORT (api/routers/rates.py — GET /rates/aging)
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// AGING REPORT (api/routers/rates.py â€” GET /rates/aging)
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 /** Singola rata nell'aging report */
 export interface AgingItem {
@@ -1458,7 +1525,7 @@ export interface AgingBucket {
   items: AgingItem[];
 }
 
-/** GET /api/rates/aging — Orizzonte finanziario completo */
+/** GET /api/rates/aging â€” Orizzonte finanziario completo */
 export interface AgingResponse {
   totale_scaduto: number;
   totale_in_arrivo: number;
@@ -1469,9 +1536,9 @@ export interface AgingResponse {
   upcoming_buckets: AgingBucket[];
 }
 
-// ════════════════════════════════════════════════════════════
-// FORECAST (api/routers/movements.py — GET /forecast)
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// FORECAST (api/routers/movements.py â€” GET /forecast)
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 export interface ForecastMonthData {
   mese: number;
@@ -1505,9 +1572,9 @@ export interface ForecastResponse {
   saldo_iniziale: number;
 }
 
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // BACKUP (api/routers/backup.py)
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 /** GET /api/backup/list */
 export interface BackupInfo {
@@ -1540,9 +1607,9 @@ export interface BackupRestoreResponse {
   safety_backup: string;
 }
 
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // EXERCISE (api/routers/exercises.py + api/schemas/exercise.py)
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 /** Sub-entity: media galleria esercizio */
 export interface ExerciseMedia {
@@ -1597,7 +1664,7 @@ export interface TaxonomyCondition {
   nota: string | null;
 }
 
-/** ExerciseResponse — restituito da GET/POST/PUT */
+/** ExerciseResponse â€” restituito da GET/POST/PUT */
 export interface Exercise {
   id: number;
   nome: string;
@@ -1629,7 +1696,7 @@ export interface Exercise {
   piano_movimento: string | null;
   tipo_contrazione: string | null;
 
-  // Demand Vector 10D — costo biomeccanico-funzionale (scala 0-4)
+  // Demand Vector 10D â€” costo biomeccanico-funzionale (scala 0-4)
   skill_demand: number | null;
   coordination_demand: number | null;
   stability_demand: number | null;
@@ -1652,9 +1719,9 @@ export interface Exercise {
   suggerimenti: string[];
 }
 
-// ═══════════════════════════════════════════════════════════════
-// SAFETY MAP (anamnesi × condizioni mediche)
-// ═══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// SAFETY MAP (anamnesi Ã— condizioni mediche)
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 /** Singola condizione medica rilevante per un esercizio nella safety map */
 export interface SafetyConditionDetail {
@@ -1755,7 +1822,7 @@ export interface ExerciseRelationCreate {
   tipo_relazione: string;
 }
 
-/** GET /api/exercises — lista paginata */
+/** GET /api/exercises â€” lista paginata */
 export interface ExerciseListResponse {
   items: Exercise[];
   total: number;
@@ -1763,9 +1830,9 @@ export interface ExerciseListResponse {
   page_size: number;
 }
 
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // WORKOUT PLAN (api/routers/workouts.py + api/schemas/workout.py)
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 export const OBIETTIVI_SCHEDA = ["forza", "ipertrofia", "resistenza", "dimagrimento", "generale"] as const;
 export type ObiettivoScheda = (typeof OBIETTIVI_SCHEDA)[number];
@@ -1773,7 +1840,7 @@ export type ObiettivoScheda = (typeof OBIETTIVI_SCHEDA)[number];
 export const LIVELLI_SCHEDA = ["beginner", "intermedio", "avanzato"] as const;
 export type LivelloScheda = (typeof LIVELLI_SCHEDA)[number];
 
-/** Esercizio dentro una sessione — output enriched */
+/** Esercizio dentro una sessione â€” output enriched */
 export interface WorkoutExerciseRow {
   id: number;
   id_esercizio: number;
@@ -1789,7 +1856,7 @@ export interface WorkoutExerciseRow {
   note: string | null;
 }
 
-// Tipo blocco — allineato a VALID_BLOCK_TYPES in api/schemas/workout.py
+// Tipo blocco â€” allineato a VALID_BLOCK_TYPES in api/schemas/workout.py
 export const BLOCK_TYPES = ["circuit", "superset", "tabata", "amrap", "emom", "for_time"] as const;
 export type BlockType = (typeof BLOCK_TYPES)[number];
 
@@ -1802,7 +1869,7 @@ export const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
   for_time: "For Time",
 };
 
-/** Blocco strutturato — circuit, tabata, AMRAP, EMOM, superset */
+/** Blocco strutturato â€” circuit, tabata, AMRAP, EMOM, superset */
 export interface SessionBlock {
   id: number;
   tipo_blocco: BlockType;
@@ -1816,7 +1883,7 @@ export interface SessionBlock {
   esercizi: WorkoutExerciseRow[];
 }
 
-/** Sessione di allenamento — output con esercizi straight + blocchi nested */
+/** Sessione di allenamento â€” output con esercizi straight + blocchi nested */
 export interface WorkoutSession {
   id: number;
   numero_sessione: number;
@@ -1828,7 +1895,7 @@ export interface WorkoutSession {
   blocchi: SessionBlock[];
 }
 
-/** Scheda allenamento — output completo */
+/** Scheda allenamento â€” output completo */
 export interface WorkoutPlan {
   id: number;
   id_cliente: number | null;
@@ -1847,7 +1914,7 @@ export interface WorkoutPlan {
   data_fine: string | null;
 }
 
-/** GET /api/workouts — lista paginata */
+/** GET /api/workouts â€” lista paginata */
 export interface WorkoutPlanListResponse {
   items: WorkoutPlan[];
   total: number;
@@ -1915,9 +1982,9 @@ export interface WorkoutPlanUpdate {
   data_fine?: string | null;
 }
 
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // WORKOUT LOGS (api/schemas/workout_log.py)
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 /** POST /api/clients/{id}/workout-logs */
 export interface WorkoutLogCreate {
@@ -1928,7 +1995,7 @@ export interface WorkoutLogCreate {
   note?: string | null;
 }
 
-/** WorkoutLogResponse — restituito da GET/POST */
+/** WorkoutLogResponse â€” restituito da GET/POST */
 export interface WorkoutLog {
   id: number;
   id_scheda: number;
@@ -1948,9 +2015,9 @@ export interface WorkoutLogListResponse {
   total: number;
 }
 
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // MISURAZIONI CORPOREE (api/schemas/measurement.py)
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 export const METRIC_CATEGORIES = [
   "antropometrica",
@@ -1969,7 +2036,7 @@ export const METRIC_CATEGORY_LABELS: Record<MetricCategory, string> = {
   forza: "Forza",
 };
 
-/** GET /api/metrics — catalogo metriche */
+/** GET /api/metrics â€” catalogo metriche */
 export interface Metric {
   id: number;
   nome: string;
@@ -2007,7 +2074,7 @@ export interface MeasurementValue {
   valore: number;
 }
 
-/** Info obiettivo auto-completato — per toast frontend */
+/** Info obiettivo auto-completato â€” per toast frontend */
 export interface GoalCompletionInfo {
   id: number;
   nome_metrica: string;
@@ -2015,7 +2082,7 @@ export interface GoalCompletionInfo {
   valore_raggiunto: number;
 }
 
-/** Sessione di misurazione — output con valori nested */
+/** Sessione di misurazione â€” output con valori nested */
 export interface Measurement {
   id: number;
   id_cliente: number;
@@ -2025,15 +2092,15 @@ export interface Measurement {
   obiettivi_raggiunti?: GoalCompletionInfo[];
 }
 
-/** GET /api/clients/{id}/measurements — lista paginata */
+/** GET /api/clients/{id}/measurements â€” lista paginata */
 export interface MeasurementListResponse {
   items: Measurement[];
   total: number;
 }
 
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // CLIENT GOALS (api/schemas/goal.py)
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 export const GOAL_DIRECTIONS = ["aumentare", "diminuire", "mantenere"] as const;
 export type GoalDirection = (typeof GOAL_DIRECTIONS)[number];
@@ -2116,9 +2183,9 @@ export interface GoalListResponse {
   raggiunti: number;
 }
 
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // ASSISTANT (api/schemas/assistant.py)
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 /** Entita' risolta dal parser */
 export interface ResolvedEntity {
@@ -2129,7 +2196,7 @@ export interface ResolvedEntity {
   confidence: number;
 }
 
-/** Ambiguita' — piu' candidati possibili */
+/** Ambiguita' â€” piu' candidati possibili */
 export interface AmbiguityItem {
   field: string;
   candidates: ResolvedEntity[];
@@ -2144,12 +2211,12 @@ export interface ParsedOperation {
   confidence: number;
 }
 
-/** POST /api/assistant/parse — request */
+/** POST /api/assistant/parse â€” request */
 export interface AssistantParseRequest {
   text: string;
 }
 
-/** POST /api/assistant/parse — response */
+/** POST /api/assistant/parse â€” response */
 export interface AssistantParseResponse {
   success: boolean;
   operations: ParsedOperation[];
@@ -2159,13 +2226,13 @@ export interface AssistantParseResponse {
   raw_text: string;
 }
 
-/** POST /api/assistant/commit — request */
+/** POST /api/assistant/commit â€” request */
 export interface AssistantCommitRequest {
   intent: string;
   payload: Record<string, unknown>;
 }
 
-/** POST /api/assistant/commit — response */
+/** POST /api/assistant/commit â€” response */
 export interface AssistantCommitResponse {
   success: boolean;
   message: string;
@@ -2175,15 +2242,15 @@ export interface AssistantCommitResponse {
   navigate_to: string | null;
 }
 
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // TRAINING SCIENCE ENGINE (api/services/training_science/types.py + periodization.py)
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-/** Obiettivo di allenamento — determina tutti i parametri di carico */
+/** Obiettivo di allenamento â€” determina tutti i parametri di carico */
 export const TS_OBIETTIVI = ["forza", "ipertrofia", "resistenza", "dimagrimento", "tonificazione"] as const;
 export type TSObjective = (typeof TS_OBIETTIVI)[number];
 
-/** Livello di esperienza — determina volume tollerabile (MEV/MAV/MRV) */
+/** Livello di esperienza â€” determina volume tollerabile (MEV/MAV/MRV) */
 export const TS_LIVELLI = ["principiante", "intermedio", "avanzato"] as const;
 export type TSLevel = (typeof TS_LIVELLI)[number];
 
@@ -2195,7 +2262,7 @@ export const TS_GRUPPI_MUSCOLARI = [
 ] as const;
 export type TSMuscleGroup = (typeof TS_GRUPPI_MUSCOLARI)[number];
 
-/** Pattern di movimento — 9 compound + 9 isolation */
+/** Pattern di movimento â€” 9 compound + 9 isolation */
 export const TS_PATTERN = [
   "push_h", "push_v", "squat", "hinge", "pull_h", "pull_v", "core", "rotation", "carry",
   "hip_thrust", "curl", "extension_tri", "lateral_raise", "face_pull",
@@ -2239,7 +2306,7 @@ export interface TSVolumeTarget {
   note: string;
 }
 
-/** Slot in una sessione — "qui va un esercizio di questo tipo" */
+/** Slot in una sessione â€” "qui va un esercizio di questo tipo" */
 export interface TSSlotSessione {
   pattern: TSPattern;
   priorita: TSSlotPriority;
@@ -2249,7 +2316,7 @@ export interface TSSlotSessione {
   riposo_sec: number;
   muscolo_target: TSMuscleGroup | null;
   note: string;
-  /** Carico in kg (opzionale). Abilita tonnellaggio e intensità relativa. NSCA 2016. */
+  /** Carico in kg (opzionale). Abilita tonnellaggio e intensitÃ  relativa. NSCA 2016. */
   carico_kg: number | null;
 }
 
@@ -2284,7 +2351,7 @@ export interface TSVolumeEffettivo {
   target_mav_max: number;
   target_mrv: number;
   stato: "sotto_mev" | "mev_mav" | "ottimale" | "sopra_mav" | "sopra_mrv";
-  /** Tensione meccanica in kg (tonnage × EMG). Presente solo con carico. Schoenfeld 2010. */
+  /** Tensione meccanica in kg (tonnage Ã— EMG). Presente solo con carico. Schoenfeld 2010. */
   tensione_kg: number | null;
 }
 
@@ -2294,7 +2361,7 @@ export interface TSAnalisiVolume {
   volume_totale_settimana: number;
   muscoli_sotto_mev: string[];
   muscoli_sopra_mrv: string[];
-  /** True se almeno uno slot ha carico_kg. Le serie sono pesate per intensità (dose-response). */
+  /** True se almeno uno slot ha carico_kg. Le serie sono pesate per intensitÃ  (dose-response). */
   has_load_data: boolean;
   /** Volume-Load totale settimanale in kg (NSCA 2016). Presente solo con carico. */
   tonnellaggio_totale: number | null;
@@ -2320,7 +2387,7 @@ export interface TSContributoEsercizio {
   carico_kg: number | null;
 }
 
-/** Dettaglio completo per un muscolo — drill-down nella tab analisi */
+/** Dettaglio completo per un muscolo â€” drill-down nella tab analisi */
 export interface TSDettaglioMuscolo {
   muscolo: TSMuscleGroup;
   serie_effettive: number;
@@ -2363,7 +2430,7 @@ export interface TSTonnellaggioSlotAnalisi {
   serie: number;
   rep_medie: number;
   carico_kg: number;
-  /** serie × rep_medie × carico_kg (Haff & Triplett, NSCA 2016) */
+  /** serie Ã— rep_medie Ã— carico_kg (Haff & Triplett, NSCA 2016) */
   tonnellaggio: number;
   /** %1RM se 1RM noto (Kraemer & Ratamess 2004) */
   intensita_relativa: number | null;
@@ -2371,7 +2438,7 @@ export interface TSTonnellaggioSlotAnalisi {
   zona_intensita: string | null;
 }
 
-/** Analisi biomeccanica Volume-Load — tonnage + tensione meccanica per muscolo.
+/** Analisi biomeccanica Volume-Load â€” tonnage + tensione meccanica per muscolo.
  * NSCA 2016, McBride 2009, Schoenfeld 2010 (mechanical tension), Contreras 2010 (EMG). */
 export interface TSAnalisiTonnellaggio {
   tonnellaggio_totale: number;
@@ -2379,16 +2446,16 @@ export interface TSAnalisiTonnellaggio {
   intensita_media_ponderata: number | null;
   slot_detail: TSTonnellaggioSlotAnalisi[];
   zona_prevalente: string | null;
-  /** Tensione meccanica per gruppo muscolare (kg) — tonnage × EMG coefficient.
+  /** Tensione meccanica per gruppo muscolare (kg) â€” tonnage Ã— EMG coefficient.
    * Schoenfeld 2010: mechanical tension = primary hypertrophy driver. */
   tensione_per_muscolo: Record<string, number>;
-  /** Tensione ipertrofica per muscolo (kg) — pesata con hypertrophy weights.
+  /** Tensione ipertrofica per muscolo (kg) â€” pesata con hypertrophy weights.
    * Israetel RP 2020 half-set rule, soglia EMG 40% MVC (Schoenfeld 2017). */
   tensione_ipertrofica_per_muscolo: Record<string, number>;
   fonte: string;
 }
 
-/** Analisi completa 4D di un piano — score 0-100 + dati strutturati */
+/** Analisi completa 4D di un piano â€” score 0-100 + dati strutturati */
 export interface TSAnalisiPiano {
   volume: TSAnalisiVolume;
   balance: TSAnalisiBalance;
@@ -2398,11 +2465,11 @@ export interface TSAnalisiPiano {
   dettaglio_rapporti: TSDettaglioRapporto[];
   frequenza_per_muscolo: Record<string, number>;
   recovery_overlaps: TSDettaglioRecovery[];
-  /** Volume-Load (v3) — presente solo se almeno uno slot ha carico_kg. NSCA 2016. */
+  /** Volume-Load (v3) â€” presente solo se almeno uno slot ha carico_kg. NSCA 2016. */
   tonnellaggio: TSAnalisiTonnellaggio | null;
 }
 
-/** Prescrizione di intensità per una settimana del mesociclo (Zourdos 2016, NSCA 2016) */
+/** Prescrizione di intensitÃ  per una settimana del mesociclo (Zourdos 2016, NSCA 2016) */
 export interface TSIntensityPrescription {
   rpe_min: number;
   rpe_max: number;
@@ -2420,12 +2487,12 @@ export interface TSSettimanaConfig {
   numero: number;
   fase: "accumulazione" | "intensificazione" | "overreaching" | "deload";
   fattore_volume: number;
-  /** Prescrizione intensità: RPE/RIR + %1RM + zona NSCA (Zourdos 2016, Helms 2019) */
+  /** Prescrizione intensitÃ : RPE/RIR + %1RM + zona NSCA (Zourdos 2016, Helms 2019) */
   intensita: TSIntensityPrescription;
   note: string;
 }
 
-/** Mesociclo completo — piano base + variazione volume nel tempo */
+/** Mesociclo completo â€” piano base + variazione volume nel tempo */
 export interface TSMesociclo {
   piano_base: TSTemplatePiano;
   settimane: TSSettimanaConfig[];
@@ -2658,9 +2725,9 @@ export interface TSPlanPackage {
 }
 
 
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // PROJECTION ENGINE (api/schemas/projection.py)
-// ════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 /** Trend OLS per una singola metrica */
 export interface MetricTrendResponse {
@@ -2749,7 +2816,7 @@ export interface ClientProjectionResponse {
   has_goals: boolean;
 }
 
-// ── Portale Clienti Self-Service (UPG-2026-03-06-01) ────────────────────────
+// â”€â”€ Portale Clienti Self-Service (UPG-2026-03-06-01) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface ShareTokenResponse {
   token: string;
@@ -2764,3 +2831,161 @@ export interface AnamnesiValidateResponse {
   has_existing: boolean;
   scope: string;
 }
+
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// NUTRITION â€” catalogo alimenti + piani alimentari
+// Mirror di api/schemas/nutrition.py
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+export interface FoodCategory {
+  id: number;
+  nome: string;
+  nome_en: string;
+  icona: string | null;
+}
+
+export interface Food {
+  id: number;
+  nome: string;
+  nome_en: string | null;
+  categoria_id: number;
+  categoria_nome: string | null;
+  energia_kcal: number;
+  proteine_g: number;
+  carboidrati_g: number;
+  grassi_g: number;
+  di_cui_zuccheri_g: number | null;
+  di_cui_saturi_g: number | null;
+  fibra_g: number | null;
+  sodio_mg: number | null;
+  acqua_g: number | null;
+  colesterolo_mg: number | null;
+  note: string | null;
+  source: string;
+  is_active: boolean;
+}
+
+export interface FoodDetail extends Food {
+  porzioni: StandardPortion[];
+}
+
+export interface StandardPortion {
+  id: number;
+  alimento_id: number;
+  nome: string;
+  grammi: number;
+}
+
+export interface NutritionPlan {
+  id: number;
+  trainer_id: number;
+  id_cliente: number;
+  nome: string;
+  obiettivo_calorico: number | null;
+  proteine_g_target: number | null;
+  carboidrati_g_target: number | null;
+  grassi_g_target: number | null;
+  note_cliniche: string | null;
+  data_inizio: string | null;
+  data_fine: string | null;
+  attivo: boolean;
+  created_at: string;
+}
+
+export interface NutritionPlanCreate {
+  id_cliente: number;
+  nome: string;
+  obiettivo_calorico?: number | null;
+  proteine_g_target?: number | null;
+  carboidrati_g_target?: number | null;
+  grassi_g_target?: number | null;
+  note_cliniche?: string | null;
+  data_inizio?: string | null;
+  data_fine?: string | null;
+  attivo?: boolean;
+}
+
+export interface NutritionPlanUpdate {
+  nome?: string;
+  obiettivo_calorico?: number | null;
+  proteine_g_target?: number | null;
+  carboidrati_g_target?: number | null;
+  grassi_g_target?: number | null;
+  note_cliniche?: string | null;
+  data_inizio?: string | null;
+  data_fine?: string | null;
+  attivo?: boolean;
+}
+
+export interface MealComponentDetail {
+  id: number;
+  pasto_id: number;
+  alimento_id: number;
+  alimento_nome: string | null;
+  alimento_categoria: string | null;
+  quantita_g: number;
+  note: string | null;
+  energia_kcal: number;
+  proteine_g: number;
+  carboidrati_g: number;
+  grassi_g: number;
+  fibra_g: number | null;
+}
+
+export interface PlanMealDetail {
+  id: number;
+  piano_id: number;
+  giorno_settimana: number;
+  giorno_label: string | null;
+  tipo_pasto: string;
+  tipo_pasto_label: string | null;
+  ordine: number;
+  nome: string | null;
+  note: string | null;
+  componenti: MealComponentDetail[];
+  totale_kcal: number;
+  totale_proteine_g: number;
+  totale_carboidrati_g: number;
+  totale_grassi_g: number;
+}
+
+export interface NutritionPlanDetail extends NutritionPlan {
+  pasti: PlanMealDetail[];
+  totale_kcal: number | null;
+  totale_proteine_g: number | null;
+  totale_carboidrati_g: number | null;
+  totale_grassi_g: number | null;
+}
+
+export interface NutritionSummary {
+  ha_piano_attivo: boolean;
+  piano_attivo: NutritionPlan | null;
+  totale_piani: number;
+  media_kcal_die: number | null;
+  media_proteine_g_die: number | null;
+  media_carboidrati_g_die: number | null;
+  media_grassi_g_die: number | null;
+  obiettivo_calorico: number | null;
+  delta_kcal: number | null;
+}
+
+export const TIPO_PASTO_OPTIONS = [
+  { value: "COLAZIONE", label: "Colazione" },
+  { value: "SPUNTINO_MATTINA", label: "Spuntino mattina" },
+  { value: "PRANZO", label: "Pranzo" },
+  { value: "SPUNTINO_POMERIGGIO", label: "Spuntino pomeriggio" },
+  { value: "CENA", label: "Cena" },
+  { value: "PRE_WORKOUT", label: "Pre-workout" },
+  { value: "POST_WORKOUT", label: "Post-workout" },
+] as const;
+
+export const GIORNO_OPTIONS = [
+  { value: 0, label: "Ogni giorno" },
+  { value: 1, label: "LunedÃ¬" },
+  { value: 2, label: "MartedÃ¬" },
+  { value: 3, label: "MercoledÃ¬" },
+  { value: 4, label: "GiovedÃ¬" },
+  { value: 5, label: "VenerdÃ¬" },
+  { value: 6, label: "Sabato" },
+  { value: 7, label: "Domenica" },
+] as const;
