@@ -15,6 +15,7 @@ import apiClient, { extractErrorMessage } from "@/lib/api-client";
 import type {
   Client,
   ClientCreate,
+  ClientDossierResponse,
   ClientUpdate,
   ClientEnriched,
   ClientEnrichedListResponse,
@@ -43,6 +44,17 @@ export function useClient(id: number | null) {
     queryKey: ["client", id],
     queryFn: async () => {
       const { data } = await apiClient.get<ClientEnriched>(`/clients/${id}`);
+      return data;
+    },
+    enabled: id !== null,
+  });
+}
+
+export function useClientDossier(id: number | null) {
+  return useQuery<ClientDossierResponse>({
+    queryKey: ["client-dossier", id],
+    queryFn: async () => {
+      const { data } = await apiClient.get<ClientDossierResponse>(`/clients/${id}/dossier`);
       return data;
     },
     enabled: id !== null,

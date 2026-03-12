@@ -19,7 +19,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import Session, or_, select, func
 from pydantic import BaseModel, Field, field_validator
 
-from api.database import get_session
+from api.database import catalog_engine, get_session
+from api.models.goal import ClientGoal
+from api.models.medical_condition import MedicalCondition
+from api.models.workout import WorkoutPlan
+from api.models.workout_log import WorkoutLog
 from api.dependencies import get_current_trainer
 from api.models.trainer import Trainer
 from api.models.client import Client
@@ -27,6 +31,9 @@ from api.models.contract import Contract
 from api.models.event import Event
 from api.models.rate import Rate
 from api.routers._audit import log_audit
+from api.schemas.clinical import ClinicalReadinessClientItem
+from api.services.clinical_readiness import compute_clinical_readiness_data
+from api.services.safety_engine import extract_client_conditions
 
 router = APIRouter(prefix="/clients", tags=["clients"])
 
@@ -164,6 +171,77 @@ class ClientListResponse(BaseModel):
     kpi_rate_scadute: int = 0
 
 
+class ClientDossierIdentity(BaseModel):
+    """Identita' cliente per il dossier read-only."""
+
+    id: int
+    nome: str
+    cognome: str
+    telefono: Optional[str] = None
+    email: Optional[str] = None
+    data_nascita: Optional[str] = None
+    sesso: Optional[str] = None
+    stato: str
+    note_interne: Optional[str] = None
+    client_since: Optional[str] = None
+
+
+class ClientDossierClinicalAlert(BaseModel):
+    condition_name: str
+    category: Optional[str] = None
+
+
+class ClientDossierSessionSummary(BaseModel):
+    total_pt_sessions: int = 0
+    completed_pt_sessions: int = 0
+    last_completed_session_at: Optional[str] = None
+    next_scheduled_session_at: Optional[str] = None
+
+
+class ClientDossierPlanSummary(BaseModel):
+    total_plans: int = 0
+    latest_plan_name: Optional[str] = None
+    latest_plan_updated_at: Optional[str] = None
+    active_plan_name: Optional[str] = None
+    active_plan_start_date: Optional[str] = None
+    active_plan_end_date: Optional[str] = None
+
+
+class ClientDossierContractSummary(BaseModel):
+    active_contracts: int = 0
+    credits_residui: int = 0
+    has_overdue_rates: bool = False
+    next_contract_expiry_date: Optional[str] = None
+
+
+class ClientDossierGoalSummary(BaseModel):
+    active_goals: int = 0
+    reached_goals: int = 0
+    abandoned_goals: int = 0
+
+
+class ClientDossierActivityItem(BaseModel):
+    at: str
+    kind: str
+    label: str
+    status: Optional[str] = None
+    href: Optional[str] = None
+
+
+class ClientDossierResponse(BaseModel):
+    """Dossier cliente read-only per uso operativo on-demand."""
+
+    generated_at: str
+    client: ClientDossierIdentity
+    readiness: Optional[ClinicalReadinessClientItem] = None
+    clinical_alerts: List[ClientDossierClinicalAlert] = Field(default_factory=list)
+    session_summary: ClientDossierSessionSummary
+    plan_summary: ClientDossierPlanSummary
+    contract_summary: ClientDossierContractSummary
+    goal_summary: ClientDossierGoalSummary
+    recent_activity: List[ClientDossierActivityItem] = Field(default_factory=list)
+
+
 # --- Credit Engine helpers ---
 
 def _calc_credits_batch(
@@ -212,6 +290,320 @@ def _calc_credits_batch(
         cid: credits_map.get(cid, 0) - usage_map.get(cid, 0)
         for cid in client_ids
     }
+
+
+def _stringify_date(value: Optional[date | datetime | str]) -> Optional[str]:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    return str(value)
+
+
+def _coerce_date(value: Optional[date | datetime | str]) -> Optional[date]:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    try:
+        return date.fromisoformat(str(value))
+    except ValueError:
+        return None
+
+
+def _is_plan_active(plan: WorkoutPlan, reference_date: date) -> bool:
+    start_date = _coerce_date(plan.data_inizio)
+    end_date = _coerce_date(plan.data_fine)
+    if start_date is None or end_date is None:
+        return False
+    return end_date >= reference_date
+
+
+def _build_client_enriched_response(
+    session: Session,
+    trainer_id: int,
+    client: Client,
+) -> ClientEnrichedResponse:
+    if client.id is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cliente non trovato")
+
+    credits = _calc_credits_batch(session, [client.id], trainer_id)
+
+    contract_row = session.exec(
+        select(
+            func.count(Contract.id),
+            func.coalesce(func.sum(Contract.totale_versato), 0),
+            func.coalesce(func.sum(Contract.prezzo_totale), 0),
+        )
+        .where(
+            Contract.id_cliente == client.id,
+            Contract.trainer_id == trainer_id,
+            Contract.deleted_at == None,
+            Contract.chiuso == False,
+        )
+    ).one()
+
+    today = date.today()
+    overdue_count = session.exec(
+        select(func.count(Rate.id))
+        .join(Contract, Rate.id_contratto == Contract.id)
+        .where(
+            Contract.id_cliente == client.id,
+            Contract.trainer_id == trainer_id,
+            Contract.deleted_at == None,
+            Contract.chiuso == False,
+            Rate.deleted_at == None,
+            Rate.stato != "SALDATA",
+            or_(Rate.data_scadenza < today, Contract.data_scadenza < today),
+        )
+    ).one()
+
+    last_event_row = session.exec(
+        select(func.max(Event.data_inizio))
+        .where(
+            Event.id_cliente == client.id,
+            Event.trainer_id == trainer_id,
+            Event.deleted_at == None,
+            Event.stato != "Cancellato",
+        )
+    ).one()
+
+    return ClientEnrichedResponse(
+        id=client.id,
+        nome=client.nome,
+        cognome=client.cognome,
+        telefono=client.telefono,
+        email=client.email,
+        data_nascita=str(client.data_nascita) if client.data_nascita else None,
+        sesso=client.sesso,
+        stato=client.stato,
+        note_interne=client.note_interne,
+        crediti_residui=credits.get(client.id, 0),
+        anamnesi=json.loads(client.anamnesi_json) if client.anamnesi_json else None,
+        contratti_attivi=int(contract_row[0]),
+        totale_versato=float(contract_row[1]),
+        prezzo_totale_attivo=float(contract_row[2]),
+        ha_rate_scadute=overdue_count > 0,
+        ultimo_evento_data=str(last_event_row)[:10] if last_event_row else None,
+    )
+
+
+def _build_client_dossier_response(
+    session: Session,
+    trainer_id: int,
+    client: Client,
+) -> ClientDossierResponse:
+    if client.id is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cliente non trovato")
+
+    now_dt = datetime.now(timezone.utc)
+    today = now_dt.date()
+    enriched = _build_client_enriched_response(session, trainer_id, client)
+
+    _summary, readiness_items = compute_clinical_readiness_data(
+        trainer_id=trainer_id,
+        session=session,
+        reference_date=today,
+    )
+    readiness = next((item for item in readiness_items if item.client_id == client.id), None)
+
+    condition_ids = extract_client_conditions(client.anamnesi_json)
+    clinical_alerts: List[ClientDossierClinicalAlert] = []
+    if condition_ids:
+        with Session(catalog_engine) as catalog:
+            rows = catalog.exec(
+                select(MedicalCondition.id, MedicalCondition.nome, MedicalCondition.categoria)
+                .where(MedicalCondition.id.in_(list(condition_ids)))
+                .order_by(MedicalCondition.categoria, MedicalCondition.nome)
+            ).all()
+        clinical_alerts = [
+            ClientDossierClinicalAlert(condition_name=row[1], category=row[2])
+            for row in rows
+        ]
+
+    total_pt_sessions = int(session.exec(
+        select(func.count(Event.id))
+        .where(
+            Event.trainer_id == trainer_id,
+            Event.id_cliente == client.id,
+            Event.deleted_at == None,
+            Event.categoria == "PT",
+            Event.stato != "Cancellato",
+        )
+    ).one())
+
+    completed_pt_sessions = int(session.exec(
+        select(func.count(Event.id))
+        .where(
+            Event.trainer_id == trainer_id,
+            Event.id_cliente == client.id,
+            Event.deleted_at == None,
+            Event.categoria == "PT",
+            Event.stato == "Completato",
+        )
+    ).one())
+
+    last_completed_session = session.exec(
+        select(func.max(Event.data_inizio))
+        .where(
+            Event.trainer_id == trainer_id,
+            Event.id_cliente == client.id,
+            Event.deleted_at == None,
+            Event.categoria == "PT",
+            Event.stato == "Completato",
+        )
+    ).one()
+
+    next_scheduled_session = session.exec(
+        select(Event.data_inizio)
+        .where(
+            Event.trainer_id == trainer_id,
+            Event.id_cliente == client.id,
+            Event.deleted_at == None,
+            Event.categoria == "PT",
+            Event.stato != "Cancellato",
+            Event.data_inizio >= now_dt,
+        )
+        .order_by(Event.data_inizio.asc())
+    ).first()
+
+    plan_rows = session.exec(
+        select(WorkoutPlan)
+        .where(
+            WorkoutPlan.trainer_id == trainer_id,
+            WorkoutPlan.id_cliente == client.id,
+            WorkoutPlan.deleted_at == None,
+        )
+        .order_by(func.coalesce(WorkoutPlan.updated_at, WorkoutPlan.created_at).desc())
+    ).all()
+    latest_plan = plan_rows[0] if plan_rows else None
+    active_plan = next(
+        (plan for plan in plan_rows if _is_plan_active(plan, today)),
+        None,
+    )
+
+    next_contract_expiry = session.exec(
+        select(func.min(Contract.data_scadenza))
+        .where(
+            Contract.id_cliente == client.id,
+            Contract.trainer_id == trainer_id,
+            Contract.deleted_at == None,
+            Contract.chiuso == False,
+        )
+    ).one()
+
+    goal_rows = session.exec(
+        select(ClientGoal.stato, func.count(ClientGoal.id))
+        .where(
+            ClientGoal.id_cliente == client.id,
+            ClientGoal.trainer_id == trainer_id,
+            ClientGoal.deleted_at == None,
+        )
+        .group_by(ClientGoal.stato)
+    ).all()
+    goal_counts = {row[0]: int(row[1]) for row in goal_rows}
+
+    recent_events = session.exec(
+        select(Event)
+        .where(
+            Event.trainer_id == trainer_id,
+            Event.id_cliente == client.id,
+            Event.deleted_at == None,
+            Event.stato != "Cancellato",
+        )
+        .order_by(Event.data_inizio.desc())
+        .limit(5)
+    ).all()
+
+    recent_logs = session.exec(
+        select(WorkoutLog)
+        .where(
+            WorkoutLog.trainer_id == trainer_id,
+            WorkoutLog.id_cliente == client.id,
+            WorkoutLog.deleted_at == None,
+        )
+        .order_by(WorkoutLog.data_esecuzione.desc())
+        .limit(5)
+    ).all()
+
+    activity_items: List[tuple[datetime, ClientDossierActivityItem]] = []
+    for event in recent_events:
+        activity_items.append((
+            event.data_inizio,
+            ClientDossierActivityItem(
+                at=event.data_inizio.isoformat(),
+                kind="event",
+                label=event.titolo or event.categoria,
+                status=event.stato,
+                href="/agenda",
+            ),
+        ))
+
+    for log in recent_logs:
+        activity_at = datetime.combine(log.data_esecuzione, datetime.min.time(), tzinfo=timezone.utc)
+        activity_items.append((
+            activity_at,
+            ClientDossierActivityItem(
+                at=activity_at.isoformat(),
+                kind="workout_log",
+                label="Allenamento registrato",
+                href=f"/clienti/{client.id}?tab=schede",
+            ),
+        ))
+
+    activity_items.sort(key=lambda item: item[0], reverse=True)
+
+    return ClientDossierResponse(
+        generated_at=now_dt.isoformat(),
+        client=ClientDossierIdentity(
+            id=client.id,
+            nome=client.nome,
+            cognome=client.cognome,
+            telefono=client.telefono,
+            email=client.email,
+            data_nascita=_stringify_date(client.data_nascita),
+            sesso=client.sesso,
+            stato=client.stato,
+            note_interne=client.note_interne,
+            client_since=_stringify_date(client.data_creazione),
+        ),
+        readiness=readiness,
+        clinical_alerts=clinical_alerts,
+        session_summary=ClientDossierSessionSummary(
+            total_pt_sessions=total_pt_sessions,
+            completed_pt_sessions=completed_pt_sessions,
+            last_completed_session_at=_stringify_date(last_completed_session),
+            next_scheduled_session_at=_stringify_date(next_scheduled_session),
+        ),
+        plan_summary=ClientDossierPlanSummary(
+            total_plans=len(plan_rows),
+            latest_plan_name=latest_plan.nome if latest_plan else None,
+            latest_plan_updated_at=(
+                _stringify_date(latest_plan.updated_at or latest_plan.created_at)
+                if latest_plan
+                else None
+            ),
+            active_plan_name=active_plan.nome if active_plan else None,
+            active_plan_start_date=_stringify_date(active_plan.data_inizio) if active_plan else None,
+            active_plan_end_date=_stringify_date(active_plan.data_fine) if active_plan else None,
+        ),
+        contract_summary=ClientDossierContractSummary(
+            active_contracts=enriched.contratti_attivi,
+            credits_residui=enriched.crediti_residui,
+            has_overdue_rates=enriched.ha_rate_scadute,
+            next_contract_expiry_date=_stringify_date(next_contract_expiry),
+        ),
+        goal_summary=ClientDossierGoalSummary(
+            active_goals=goal_counts.get("attivo", 0),
+            reached_goals=goal_counts.get("raggiunto", 0),
+            abandoned_goals=goal_counts.get("abbandonato", 0),
+        ),
+        recent_activity=[item[1] for item in activity_items[:5]],
+    )
 
 
 # --- Endpoints ---
@@ -413,72 +805,28 @@ def get_client(
 
     if not client:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cliente non trovato")
+    return _build_client_enriched_response(session, trainer.id, client)
 
-    # ── Enrichment (5 query, pattern identico a list_clients) ──
 
-    # Q1-Q2: crediti residui
-    credits = _calc_credits_batch(session, [client.id], trainer.id)
-
-    # Q3: contratti attivi aggregate
-    contract_row = session.exec(
-        select(
-            func.count(Contract.id),
-            func.coalesce(func.sum(Contract.totale_versato), 0),
-            func.coalesce(func.sum(Contract.prezzo_totale), 0),
+@router.get("/{client_id}/dossier", response_model=ClientDossierResponse)
+def get_client_dossier(
+    client_id: int,
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """Dossier cliente read-only per uso operativo on-demand."""
+    client = session.exec(
+        select(Client).where(
+            Client.id == client_id,
+            Client.trainer_id == trainer.id,
+            Client.deleted_at == None,
         )
-        .where(
-            Contract.id_cliente == client.id,
-            Contract.trainer_id == trainer.id,
-            Contract.deleted_at == None,
-            Contract.chiuso == False,
-        )
-    ).one()
+    ).first()
 
-    # Q4: ha_rate_scadute
-    today = date.today()
-    overdue_count = session.exec(
-        select(func.count(Rate.id))
-        .join(Contract, Rate.id_contratto == Contract.id)
-        .where(
-            Contract.id_cliente == client.id,
-            Contract.trainer_id == trainer.id,
-            Contract.deleted_at == None,
-            Contract.chiuso == False,
-            Rate.deleted_at == None,
-            Rate.stato != "SALDATA",
-            or_(Rate.data_scadenza < today, Contract.data_scadenza < today),
-        )
-    ).one()
+    if not client:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cliente non trovato")
 
-    # Q5: ultimo evento (non cancellato)
-    last_event_row = session.exec(
-        select(func.max(Event.data_inizio))
-        .where(
-            Event.id_cliente == client.id,
-            Event.trainer_id == trainer.id,
-            Event.deleted_at == None,
-            Event.stato != "Cancellato",
-        )
-    ).one()
-
-    return ClientEnrichedResponse(
-        id=client.id,
-        nome=client.nome,
-        cognome=client.cognome,
-        telefono=client.telefono,
-        email=client.email,
-        data_nascita=str(client.data_nascita) if client.data_nascita else None,
-        sesso=client.sesso,
-        stato=client.stato,
-        note_interne=client.note_interne,
-        crediti_residui=credits.get(client.id, 0),
-        anamnesi=json.loads(client.anamnesi_json) if client.anamnesi_json else None,
-        contratti_attivi=int(contract_row[0]),
-        totale_versato=float(contract_row[1]),
-        prezzo_totale_attivo=float(contract_row[2]),
-        ha_rate_scadute=overdue_count > 0,
-        ultimo_evento_data=str(last_event_row)[:10] if last_event_row else None,
-    )
+    return _build_client_dossier_response(session, trainer.id, client)
 
 
 # --- POST: Crea cliente ---
