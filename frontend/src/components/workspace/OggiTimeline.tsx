@@ -10,73 +10,22 @@ import {
 import { cn } from "@/lib/utils";
 import type { SessionPrepItem } from "@/types/api";
 
+// ── Tipi e metadati stato pre-seduta ──────────────────────────────
+
 export type PreFlightStatus = "ready" | "incomplete" | "risk" | "blocked" | "no_client";
 
 export const PREFLIGHT_META: Record<
   PreFlightStatus,
-  {
-    label: string;
-    color: string;
-    dot: string;
-  }
+  { label: string; dot: string; color: string }
 > = {
-  ready: {
-    label: "Pronta",
-    color: "text-emerald-700 dark:text-emerald-300",
-    dot: "bg-emerald-500",
-  },
-  incomplete: {
-    label: "Incompleta",
-    color: "text-amber-700 dark:text-amber-300",
-    dot: "bg-amber-500",
-  },
-  risk: {
-    label: "Rischio",
-    color: "text-red-700 dark:text-red-300",
-    dot: "bg-red-500",
-  },
-  blocked: {
-    label: "Bloccata",
-    color: "text-red-800 dark:text-red-200",
-    dot: "bg-red-600",
-  },
-  no_client: {
-    label: "Interna",
-    color: "text-stone-500 dark:text-zinc-400",
-    dot: "bg-stone-300 dark:bg-zinc-600",
-  },
+  ready:      { label: "Pronta",     dot: "bg-emerald-500",                    color: "text-emerald-700 dark:text-emerald-300" },
+  incomplete: { label: "Incompleta", dot: "bg-amber-500",                     color: "text-amber-700 dark:text-amber-300" },
+  risk:       { label: "Rischio",    dot: "bg-red-500",                        color: "text-red-700 dark:text-red-300" },
+  blocked:    { label: "Bloccata",   dot: "bg-red-600",                        color: "text-red-800 dark:text-red-200" },
+  no_client:  { label: "Interno",    dot: "bg-stone-300 dark:bg-zinc-600",     color: "text-muted-foreground" },
 };
 
 const TIME_FMT = new Intl.DateTimeFormat("it-IT", { hour: "2-digit", minute: "2-digit" });
-
-const FLOW_GROUP_META: Record<
-  "attention" | "prepared" | "internal",
-  {
-    title: string;
-    description: string;
-    tone: SurfaceTone;
-    titleColor: string;
-  }
-> = {
-  attention: {
-    title: "Da sbloccare",
-    description: "Le sedute che possono cambiare davvero il lavoro in sala.",
-    tone: "red",
-    titleColor: "text-red-700 dark:text-red-400",
-  },
-  prepared: {
-    title: "In linea",
-    description: "Sedute gia' pronte o da confermare senza attrito.",
-    tone: "teal",
-    titleColor: "text-emerald-700 dark:text-emerald-400",
-  },
-  internal: {
-    title: "Altri slot",
-    description: "Impegni interni o senza scheda cliente.",
-    tone: "neutral",
-    titleColor: "text-stone-500 dark:text-zinc-400",
-  },
-};
 
 function getPreflightTone(status: PreFlightStatus): SurfaceTone {
   if (status === "ready") return "teal";
@@ -85,95 +34,32 @@ function getPreflightTone(status: PreFlightStatus): SurfaceTone {
   return "neutral";
 }
 
-function getToneMarkerClass(tone: SurfaceTone): string {
-  if (tone === "teal") return "bg-emerald-500";
-  if (tone === "amber") return "bg-amber-500";
-  if (tone === "red") return "bg-red-500";
-  return "bg-stone-300 dark:bg-zinc-600";
-}
-
 export function getPreFlightStatus(session: SessionPrepItem): PreFlightStatus {
   if (!session.client_id) return "no_client";
-  if (session.contract_credits_remaining !== null && session.contract_credits_remaining <= 0) return "blocked";
+  if (session.contract_credits_remaining !== null && session.contract_credits_remaining <= 0)
+    return "blocked";
   if (session.clinical_alerts.length > 0) return "risk";
-  if (session.health_checks.some((check) => check.status !== "ok")) return "incomplete";
+  if (session.health_checks.some((c) => c.status !== "ok")) return "incomplete";
   return "ready";
 }
 
-function buildSessionSummary(session: SessionPrepItem, status: PreFlightStatus): string {
-  if (!session.client_id) {
-    return session.event_notes?.trim() || "Impegno interno senza scheda pre-seduta.";
-  }
-
-  const parts: string[] = [];
-  const reviewChecks = session.health_checks.filter((check) => check.status !== "ok");
-
-  if (session.is_new_client) parts.push("nuovo cliente");
-  if (session.clinical_alerts.length > 0) {
-    parts.push(
-      `${session.clinical_alerts.length} ${session.clinical_alerts.length === 1 ? "alert clinico" : "alert clinici"}`,
-    );
-  }
-  if (reviewChecks.length > 0) {
-    parts.push(
-      `${reviewChecks.length} ${reviewChecks.length === 1 ? "controllo da rivedere" : "controlli da rivedere"}`,
-    );
-  }
-  if (session.contract_credits_remaining !== null) {
-    if (session.contract_credits_remaining <= 0) {
-      parts.push("crediti esauriti");
-    } else if (session.contract_credits_remaining <= 2) {
-      parts.push(`${session.contract_credits_remaining} crediti residui`);
-    }
-  }
-  if (!session.active_plan_name && status !== "blocked") {
-    parts.push("programma da verificare");
-  }
-
-  if (parts.length === 0 && session.active_plan_name) {
-    parts.push(session.active_plan_name);
-  }
-
-  if (parts.length === 0 && session.days_since_last_session !== null) {
-    parts.push(
-      session.days_since_last_session === 0
-        ? "allenato oggi"
-        : session.days_since_last_session === 1
-          ? "ultimo allenamento ieri"
-          : `ultimo allenamento ${session.days_since_last_session}g fa`,
-    );
-  }
-
-  if (parts.length === 0) return "Seduta pronta, nessuna criticita' visibile.";
-  return parts.slice(0, 3).join(" | ");
+function getSessionSubline(session: SessionPrepItem, status: PreFlightStatus): string {
+  if (!session.client_id) return session.event_notes?.trim() || "Impegno interno";
+  const issues: string[] = [];
+  if (session.clinical_alerts.length > 0)
+    issues.push(`${session.clinical_alerts.length} alert ${session.clinical_alerts.length === 1 ? "clinico" : "clinici"}`);
+  const bad = session.health_checks.filter((c) => c.status !== "ok");
+  if (bad.length > 0) issues.push(`${bad.length} ${bad.length === 1 ? "controllo" : "controlli"}`);
+  if (session.contract_credits_remaining !== null && session.contract_credits_remaining <= 0)
+    issues.push("crediti esauriti");
+  if (issues.length > 0) return issues.join(" · ");
+  if (session.active_plan_name) return session.active_plan_name;
+  return status === "ready" ? "Seduta pronta" : "Da verificare";
 }
 
-function buildGroups(sessions: SessionPrepItem[]): {
-  attention: SessionPrepItem[];
-  prepared: SessionPrepItem[];
-  internal: SessionPrepItem[];
-} {
-  return sessions.reduce(
-    (acc, session) => {
-      const status = getPreFlightStatus(session);
-      if (!session.client_id) {
-        acc.internal.push(session);
-      } else if (status === "blocked" || status === "risk" || status === "incomplete") {
-        acc.attention.push(session);
-      } else {
-        acc.prepared.push(session);
-      }
-      return acc;
-    },
-    {
-      attention: [] as SessionPrepItem[],
-      prepared: [] as SessionPrepItem[],
-      internal: [] as SessionPrepItem[],
-    },
-  );
-}
+// ── Session Card ──────────────────────────────────────────────────
 
-function SessionCard({
+function SessionItem({
   session,
   status,
   selected,
@@ -185,155 +71,100 @@ function SessionCard({
   onSelect: () => void;
 }) {
   const meta = PREFLIGHT_META[status];
-  const label = session.client_name ?? session.event_title ?? session.category;
-  const summary = buildSessionSummary(session, status);
   const tone = getPreflightTone(status);
+  const name = session.client_name ?? session.event_title ?? session.category;
+  const subline = getSessionSubline(session, status);
 
   return (
     <button
       type="button"
       onClick={onSelect}
       className={cn(
-        surfaceRoleClassName(
-          {
-            role: "signal",
-            tone: selected ? tone : "neutral",
-            interactive: true,
-          },
-          "oggi-rail-card w-full px-0 py-0 text-left",
-        ),
-        selected && "oggi-rail-card-selected",
-        selected && `oggi-glow-${tone}`,
+        "relative w-full rounded-xl px-3.5 py-3 text-left transition-all duration-150",
+        selected
+          ? cn(
+              surfaceRoleClassName({ role: "signal", tone, interactive: true }),
+              `oggi-glow-${tone}`,
+              "oggi-rail-card-selected",
+            )
+          : "border border-transparent hover:border-border/60 hover:bg-accent/40",
       )}
     >
+      {/* Barra status sinistra */}
       <span
         className={cn(
-          "absolute inset-y-3 left-0 w-1 rounded-r-full",
+          "absolute inset-y-3 left-0 w-[3px] rounded-r-full transition-opacity",
           meta.dot,
-          selected ? "opacity-100" : "opacity-75",
+          selected ? "opacity-100" : "opacity-30",
         )}
       />
 
-      <div className="grid gap-2.5 px-3 py-3 sm:grid-cols-[72px_minmax(0,1fr)_auto] sm:items-start">
-        <div className="flex items-center gap-2 sm:flex-col sm:items-start sm:gap-0.5">
-          <span
-            className={surfaceChipClassName(
-              { tone: selected ? tone : "neutral" },
-              "px-2.5 py-1 text-[10px] font-bold tabular-nums",
-            )}
-          >
-            {TIME_FMT.format(new Date(session.starts_at))}
-          </span>
-          <span className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.16em] text-stone-400 dark:text-zinc-500">
-            <span className={cn("h-2 w-2 rounded-full", meta.dot)} />
-            {session.category}
-          </span>
-        </div>
-
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <p
-              className={cn(
-                "text-[14px] font-bold tracking-tight",
-                session.client_id
-                  ? "text-stone-900 dark:text-zinc-50"
-                  : "text-stone-700 dark:text-zinc-200",
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span
+              className={surfaceChipClassName(
+                { tone: selected ? tone : "neutral" },
+                "shrink-0 px-2 py-0.5 text-[10px] font-bold tabular-nums",
               )}
             >
-              {label}
-            </p>
-            {session.is_new_client && (
-              <span
-                className={surfaceChipClassName(
-                  { tone: "teal" },
-                  "px-2 py-0.5 text-[8px] font-bold uppercase tracking-[0.14em]",
-                )}
-              >
-                nuovo
-              </span>
-            )}
+              {TIME_FMT.format(new Date(session.starts_at))}
+            </span>
+            <p className="truncate text-[13px] font-bold text-foreground">{name}</p>
           </div>
-          <p className="mt-1 text-[10.5px] leading-5 text-stone-500 dark:text-zinc-400">
-            {summary}
-          </p>
+          <p className="mt-1 truncate pl-1 text-[10.5px] text-muted-foreground">{subline}</p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 sm:flex-col sm:items-end">
-          <span
-            className={cn(
-              surfaceChipClassName(
-                { tone: selected ? tone : "neutral" },
-                "text-[8.5px] font-bold uppercase tracking-[0.14em]",
-              ),
-              selected && meta.color,
-            )}
-          >
-            {selected ? "In focus" : meta.label}
-          </span>
-        </div>
+        <span
+          className={cn(
+            "shrink-0 text-[9px] font-bold uppercase tracking-[0.12em]",
+            selected ? meta.color : "text-muted-foreground/60",
+          )}
+        >
+          {selected ? "Focus" : meta.label}
+        </span>
       </div>
     </button>
   );
 }
 
-function SessionGroup({
-  group,
-  sessions,
-  selectedEventId,
-  onSelect,
+// ── Group Label ───────────────────────────────────────────────────
+
+function GroupLabel({
+  label,
+  count,
+  tone,
 }: {
-  group: "attention" | "prepared" | "internal";
-  sessions: SessionPrepItem[];
-  selectedEventId: number | null;
-  onSelect: (eventId: number) => void;
+  label: string;
+  count: number;
+  tone: SurfaceTone;
 }) {
-  const meta = FLOW_GROUP_META[group];
-  const toneMarkerClass = getToneMarkerClass(meta.tone);
+  const dotClass =
+    tone === "red" ? "bg-red-500" : tone === "teal" ? "bg-emerald-500" : "bg-stone-300 dark:bg-zinc-600";
+  const textClass =
+    tone === "red"
+      ? "text-red-700 dark:text-red-400"
+      : tone === "teal"
+        ? "text-emerald-700 dark:text-emerald-400"
+        : "text-muted-foreground";
 
   return (
-    <section className="space-y-2">
-      <div className="flex items-start gap-3">
-        <span className={cn("mt-1 h-2.5 w-2.5 shrink-0 rounded-full", toneMarkerClass)} />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <p className={cn("text-[10px] font-bold uppercase tracking-[0.18em]", meta.titleColor)}>
-              {meta.title}
-            </p>
-            <p className="text-[11px] text-stone-500 dark:text-zinc-400">
-              {meta.description}
-            </p>
-          </div>
-        </div>
-        <span
-          className={surfaceChipClassName(
-            { tone: meta.tone },
-            "px-2.5 py-1 text-[9px] font-bold tabular-nums",
-          )}
-        >
-          {sessions.length}
-        </span>
-      </div>
-
-      {sessions.length > 0 ? (
-        <div className="oggi-rail-group space-y-2 pl-4 sm:pl-5">
-          {sessions.map((session) => (
-            <SessionCard
-              key={session.event_id}
-              session={session}
-              status={getPreFlightStatus(session)}
-              selected={session.event_id === selectedEventId}
-              onSelect={() => onSelect(session.event_id)}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="ml-4 rounded-[20px] border border-dashed border-stone-200/80 bg-stone-50/70 px-3.5 py-2.5 text-[11px] font-medium text-stone-500 dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-zinc-400">
-          Nessuna seduta in questa fascia.
-        </div>
-      )}
-    </section>
+    <div className="flex items-center gap-2 px-1">
+      <span className={cn("h-2 w-2 shrink-0 rounded-full", dotClass)} />
+      <p className={cn("text-[10px] font-bold uppercase tracking-[0.16em]", textClass)}>{label}</p>
+      <span
+        className={surfaceChipClassName(
+          { tone },
+          "ml-auto px-2 py-0.5 text-[9px] font-bold tabular-nums",
+        )}
+      >
+        {count}
+      </span>
+    </div>
   );
 }
+
+// ── OggiTimeline ──────────────────────────────────────────────────
 
 interface OggiTimelineProps {
   sessions: SessionPrepItem[];
@@ -353,95 +184,100 @@ export function OggiTimeline({
       <div
         className={surfaceRoleClassName(
           { role: "page", tone: "neutral" },
-          cn("flex flex-col items-center justify-center p-8 text-center", className),
+          cn("flex flex-col items-center justify-center p-10 text-center", className),
         )}
       >
-        <CalendarClock className="h-7 w-7 text-stone-300 dark:text-zinc-600" />
-        <p className="mt-2.5 text-[13px] font-bold text-stone-500 dark:text-zinc-400">
+        <CalendarClock className="h-8 w-8 text-muted-foreground/30" />
+        <p className="mt-3 text-[13px] font-semibold text-muted-foreground">
           Nessuna seduta in agenda oggi
         </p>
-        <p className="mt-1 text-[10px] leading-5 text-stone-400 dark:text-zinc-500">
-          La giornata resta libera: usa l&apos;agenda solo per eventuali impegni interni o follow-up.
+        <p className="mt-1 text-[11px] text-muted-foreground/60">
+          Usa l&apos;agenda per eventuali impegni interni.
         </p>
       </div>
     );
   }
 
-  const groups = buildGroups(sessions);
-  const clientCount = sessions.filter((session) => Boolean(session.client_id)).length;
+  const attention = sessions.filter((s) => {
+    const st = getPreFlightStatus(s);
+    return s.client_id && (st === "blocked" || st === "risk" || st === "incomplete");
+  });
+  const prepared = sessions.filter((s) => s.client_id && getPreFlightStatus(s) === "ready");
+  const internal = sessions.filter((s) => !s.client_id);
 
   return (
     <div
       className={surfaceRoleClassName(
         { role: "page", tone: "neutral" },
-        cn("oggi-rail-shell h-full px-4 py-4 sm:px-5 sm:py-5", className),
+        cn("oggi-rail-shell px-4 py-4 sm:px-5 sm:py-5", className),
       )}
     >
-      <div className="space-y-3">
-        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-end sm:justify-between">
-          <div className="min-w-0">
-            <p className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.18em] text-stone-400 dark:text-zinc-500">
-              <Clock3 className="h-3 w-3" />
-              Timeline sedute
-            </p>
-            <h2 className="mt-1 text-[1rem] font-black tracking-tight text-stone-900 dark:text-zinc-50">
-              Flusso operativo della giornata
-            </h2>
-            <p className="mt-0.5 text-[10.5px] leading-5 text-stone-500 dark:text-zinc-400">
-              Leggi prima cosa sbloccare, poi cosa resta in linea.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-1.5">
-            <span
-              className={surfaceChipClassName(
-                { tone: "neutral" },
-                "px-2.5 py-1 text-[9px] font-bold tabular-nums",
-              )}
-            >
-              {clientCount} clienti
-            </span>
-            <span
-              className={surfaceChipClassName(
-                { tone: "red" },
-                "px-2.5 py-1 text-[9px] font-bold tabular-nums",
-              )}
-            >
-              {groups.attention.length} attenzione
-            </span>
-            <span
-              className={surfaceChipClassName(
-                { tone: "teal" },
-                "px-2.5 py-1 text-[9px] font-bold tabular-nums",
-              )}
-            >
-              {groups.prepared.length} in linea
-            </span>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <SessionGroup
-            group="attention"
-            sessions={groups.attention}
-            selectedEventId={selectedEventId}
-            onSelect={onSelect}
-          />
-          <SessionGroup
-            group="prepared"
-            sessions={groups.prepared}
-            selectedEventId={selectedEventId}
-            onSelect={onSelect}
-          />
-          {groups.internal.length > 0 && (
-            <SessionGroup
-              group="internal"
-              sessions={groups.internal}
-              selectedEventId={selectedEventId}
-              onSelect={onSelect}
-            />
+      {/* Header */}
+      <div className="mb-4 flex items-center gap-2">
+        <Clock3 className="h-3.5 w-3.5 text-muted-foreground/40" />
+        <h2 className="text-[13px] font-bold tracking-tight text-foreground">Sedute di oggi</h2>
+        <span
+          className={surfaceChipClassName(
+            { tone: "neutral" },
+            "ml-auto px-2.5 py-1 text-[9px] font-bold tabular-nums",
           )}
-        </div>
+        >
+          {sessions.filter((s) => s.client_id).length} clienti
+        </span>
+      </div>
+
+      {/* Gruppi */}
+      <div className="space-y-5">
+        {attention.length > 0 && (
+          <div className="space-y-1.5">
+            <GroupLabel label="Da sbloccare" count={attention.length} tone="red" />
+            <div className="space-y-1.5">
+              {attention.map((s) => (
+                <SessionItem
+                  key={s.event_id}
+                  session={s}
+                  status={getPreFlightStatus(s)}
+                  selected={s.event_id === selectedEventId}
+                  onSelect={() => onSelect(s.event_id)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {prepared.length > 0 && (
+          <div className="space-y-1.5">
+            <GroupLabel label="In linea" count={prepared.length} tone="teal" />
+            <div className="space-y-1.5">
+              {prepared.map((s) => (
+                <SessionItem
+                  key={s.event_id}
+                  session={s}
+                  status={getPreFlightStatus(s)}
+                  selected={s.event_id === selectedEventId}
+                  onSelect={() => onSelect(s.event_id)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {internal.length > 0 && (
+          <div className="space-y-1.5">
+            <GroupLabel label="Interni" count={internal.length} tone="neutral" />
+            <div className="space-y-1.5">
+              {internal.map((s) => (
+                <SessionItem
+                  key={s.event_id}
+                  session={s}
+                  status="no_client"
+                  selected={s.event_id === selectedEventId}
+                  onSelect={() => onSelect(s.event_id)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
