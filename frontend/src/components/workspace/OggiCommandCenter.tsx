@@ -216,11 +216,27 @@ export function OggiCommandCenter({ session, status, className }: OggiCommandCen
   const anamnesiCheck = session.health_checks.find((c) => c.domain === "anamnesi");
   const creditsRem = session.contract_credits_remaining;
   const creditsTotal = session.contract_credits_total;
-  const chips = [
-    { label: "Sedute", value: creditsRem !== null && creditsTotal !== null ? `${creditsRem}/${creditsTotal}` : "n/d" },
-    { label: "Profilo", value: anamnesiCheck?.status === "ok" ? "Completo" : "Incompleto" },
-    { label: "Scheda", value: session.active_plan_name ? (session.active_plan_name.length > 14 ? session.active_plan_name.slice(0, 12) + "…" : session.active_plan_name) : "Nessuna" },
-    { label: "Contratto", value: creditsRem !== null && creditsRem <= 0 ? "Esaurito" : session.contract_expiring_days !== null && session.contract_expiring_days <= 14 ? "In scadenza" : "Ok" },
+  const chips: { label: string; value: string; tone: SurfaceTone }[] = [
+    {
+      label: "Sedute",
+      value: creditsRem !== null && creditsTotal !== null ? `${creditsRem}/${creditsTotal}` : "n/d",
+      tone: creditsRem !== null && creditsRem <= 0 ? "red" : creditsRem !== null && creditsRem <= 2 ? "amber" : "neutral",
+    },
+    {
+      label: "Profilo",
+      value: anamnesiCheck?.status === "ok" ? "Completo" : "Incompleto",
+      tone: anamnesiCheck?.status === "ok" ? "neutral" : "amber",
+    },
+    {
+      label: "Scheda",
+      value: session.active_plan_name ? (session.active_plan_name.length > 14 ? session.active_plan_name.slice(0, 12) + "…" : session.active_plan_name) : "Nessuna",
+      tone: session.active_plan_name ? "neutral" : "amber",
+    },
+    {
+      label: "Contratto",
+      value: creditsRem !== null && creditsRem <= 0 ? "Esaurito" : session.contract_expiring_days !== null && session.contract_expiring_days <= 14 ? "In scadenza" : "Ok",
+      tone: creditsRem !== null && creditsRem <= 0 ? "red" : session.contract_expiring_days !== null && session.contract_expiring_days <= 14 ? "amber" : "neutral",
+    },
   ];
 
   // Alerts
@@ -288,7 +304,7 @@ export function OggiCommandCenter({ session, status, className }: OggiCommandCen
         {/* STAT CHIPS */}
         <div className="flex flex-wrap gap-1.5">
           {chips.map((chip) => (
-            <span key={chip.label} className={surfaceChipClassName({ tone: "neutral" }, "px-2.5 py-1.5 text-[10px] font-semibold")}>
+            <span key={chip.label} className={surfaceChipClassName({ tone: chip.tone }, "px-2.5 py-1.5 text-[10px] font-semibold")}>
               <span className="text-muted-foreground">{chip.label}</span>
               <span className="ml-1.5 font-bold text-foreground">{chip.value}</span>
             </span>

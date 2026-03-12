@@ -95,7 +95,7 @@ export function OggiHero({
               <span className="mx-2 opacity-40">·</span>
               {TIME_FMT.format(now)}
             </p>
-            <h1 className={cn("mt-1.5 text-[1.45rem] font-black tracking-tight", titleColor)}>
+            <h1 className={cn("mt-1.5 text-[2rem] font-black tracking-tight leading-none", titleColor)}>
               {title}
             </h1>
           </div>
