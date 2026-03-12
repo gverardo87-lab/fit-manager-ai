@@ -2,15 +2,14 @@
 "use client";
 
 /**
- * Dettaglio piano alimentare — full-page editor.
+ * Dettaglio piano alimentare — builder griglia settimanale.
  *
- * Mostra:
- * - Header: nome piano + cliente + date + stato + bottone "Modifica"
- * - Target macro (se impostati) vs media calcolata
- * - PlanDetailPanel: giorni × pasti × alimenti (con add/delete inline)
- *
- * Pattern: identico a /schede/[id] per navigazione (back via ?from).
- * Usa GET /nutrition/plans/{plan_id} (no clientId richiesto).
+ * Layout:
+ * - Back + Header + badge + cliente + date + "Modifica piano"
+ * - Target macro (se presenti) con barre di avanzamento
+ * - Builder: WeeklyPlanGrid (vista griglia) ↔ DayDetailPanel (vista giorno)
+ * - FoodSearchSidebar (Sheet laterale per aggiunta alimenti)
+ * - NutritionPlanSheet (Sheet modifica metadati piano)
  */
 
 import { use, useState } from "react";
@@ -24,7 +23,9 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { useNutritionPlanById } from "@/hooks/useNutrition";
-import { PlanDetailPanel } from "@/components/nutrition/PlanDetailPanel";
+import { WeeklyPlanGrid } from "@/components/nutrition/WeeklyPlanGrid";
+import { DayDetailPanel } from "@/components/nutrition/DayDetailPanel";
+import { FoodSearchSidebar } from "@/components/nutrition/FoodSearchSidebar";
 import { NutritionPlanSheet } from "@/components/nutrition/NutritionPlanSheet";
 import { useClients } from "@/hooks/useClients";
 import { resolveBackNavigation } from "@/lib/url-state";
@@ -45,14 +46,22 @@ function MacroBar({
       </div>
       {pct !== null && (
         <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-          <div
-            className={`h-full rounded-full ${color}`}
-            style={{ width: `${pct}%` }}
-          />
+          <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
         </div>
       )}
     </div>
   );
+}
+
+// ── Client name helper ────────────────────────────────────────────────────
+
+function ClientName({ clientId }: { clientId: number }) {
+  const { data: clients } = useClients();
+  const list = Array.isArray(clients)
+    ? clients
+    : (clients as { items?: { id: number; nome: string; cognome: string }[] })?.items ?? [];
+  const client = list.find((c) => c.id === clientId);
+  return <>{client ? `${client.cognome} ${client.nome}` : `Cliente #${clientId}`}</>;
 }
 
 // ── Pagina ─────────────────────────────────────────────────────────────────
@@ -68,10 +77,13 @@ export default function NutritionPlanPage({
   const searchParams = useSearchParams();
   const fromParam = searchParams.get("from");
 
+  const [viewMode, setViewMode] = useState<"grid" | "day">("grid");
+  const [selectedDay, setSelectedDay] = useState<number>(0);
+  const [activeMealId, setActiveMealId] = useState<number | null>(null);
+  const [activeMealLabel, setActiveMealLabel] = useState<string>("");
   const [editOpen, setEditOpen] = useState(false);
 
   const backNav = resolveBackNavigation(fromParam, { href: "/nutrizione", label: "Torna ai piani" });
-
   const { data: planDetail, isLoading } = useNutritionPlanById(planId);
 
   if (isLoading) {
@@ -157,34 +169,22 @@ export default function NutritionPlanPage({
             </p>
             {planDetail.totale_kcal != null && planDetail.totale_kcal > 0 && (
               <span className="text-xs text-muted-foreground">
-                Media calcolata: <span className="font-medium text-foreground">{Math.round(planDetail.totale_kcal)} kcal</span>
+                Media calcolata:{" "}
+                <span className="font-medium text-foreground">
+                  {Math.round(planDetail.totale_kcal)} kcal
+                </span>
               </span>
             )}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {planDetail.proteine_g_target && (
-              <MacroBar
-                label="Proteine"
-                actual={planDetail.totale_proteine_g ?? 0}
-                target={planDetail.proteine_g_target}
-                color="bg-blue-500"
-              />
+              <MacroBar label="Proteine" actual={planDetail.totale_proteine_g ?? 0} target={planDetail.proteine_g_target} color="bg-blue-500" />
             )}
             {planDetail.carboidrati_g_target && (
-              <MacroBar
-                label="Carboidrati"
-                actual={planDetail.totale_carboidrati_g ?? 0}
-                target={planDetail.carboidrati_g_target}
-                color="bg-amber-500"
-              />
+              <MacroBar label="Carboidrati" actual={planDetail.totale_carboidrati_g ?? 0} target={planDetail.carboidrati_g_target} color="bg-amber-500" />
             )}
             {planDetail.grassi_g_target && (
-              <MacroBar
-                label="Grassi"
-                actual={planDetail.totale_grassi_g ?? 0}
-                target={planDetail.grassi_g_target}
-                color="bg-rose-400"
-              />
+              <MacroBar label="Grassi" actual={planDetail.totale_grassi_g ?? 0} target={planDetail.grassi_g_target} color="bg-rose-400" />
             )}
           </div>
           {planDetail.note_cliniche && (
@@ -196,10 +196,37 @@ export default function NutritionPlanPage({
         </div>
       )}
 
-      {/* ── Piano dettaglio (pasti + alimenti) ── */}
-      <PlanDetailPanel planId={planId} clientId={clientId} />
+      {/* ── Builder area ── */}
+      {viewMode === "grid" ? (
+        <WeeklyPlanGrid
+          plan={planDetail}
+          planId={planId}
+          onSelectDay={(d) => { setSelectedDay(d); setViewMode("day"); }}
+          activeDay={selectedDay}
+        />
+      ) : (
+        <DayDetailPanel
+          plan={planDetail}
+          planId={planId}
+          giorno={selectedDay}
+          onBack={() => setViewMode("grid")}
+          onAddFood={(mealId, label) => {
+            setActiveMealId(mealId);
+            setActiveMealLabel(label);
+          }}
+        />
+      )}
 
-      {/* ── Sheet modifica ── */}
+      {/* ── Sidebar ricerca alimenti ── */}
+      <FoodSearchSidebar
+        open={activeMealId !== null}
+        onOpenChange={(v) => { if (!v) setActiveMealId(null); }}
+        planId={planId}
+        mealId={activeMealId}
+        mealLabel={activeMealLabel}
+      />
+
+      {/* ── Sheet modifica piano ── */}
       <NutritionPlanSheet
         open={editOpen}
         onOpenChange={setEditOpen}
@@ -208,13 +235,4 @@ export default function NutritionPlanPage({
       />
     </div>
   );
-}
-
-// ── Client name helper ────────────────────────────────────────────────────
-
-function ClientName({ clientId }: { clientId: number }) {
-  const { data: clients } = useClients();
-  const list = Array.isArray(clients) ? clients : (clients as { items?: { id: number; nome: string; cognome: string }[] })?.items ?? [];
-  const client = list.find((c) => c.id === clientId);
-  return <>{client ? `${client.cognome} ${client.nome}` : `Cliente #${clientId}`}</>;
 }
