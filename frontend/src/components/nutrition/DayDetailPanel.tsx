@@ -4,10 +4,10 @@
 /**
  * Vista dettaglio giorno: tutti i 7 slot pasto in ordine canonico.
  * Slot vuoto → CTA "Aggiungi". Slot pieno → lista alimenti + azioni.
- * Header: nome giorno + totali macro + tasto "← Torna alla griglia".
+ * Header delegato a NutritionDayHeader (donut, target bars, copy day, fibra).
  */
 
-import { ArrowLeft, Plus, Trash2, Loader2, UtensilsCrossed } from "lucide-react";
+import { Plus, Trash2, Loader2, UtensilsCrossed } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -17,8 +17,9 @@ import {
   AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useAddMeal, useDeleteMeal, useDeleteComponent } from "@/hooks/useNutrition";
+import { NutritionDayHeader } from "./NutritionDayHeader";
 import type { NutritionPlanDetail, PlanMealDetail, MealComponentDetail } from "@/types/api";
-import { GIORNO_OPTIONS, TIPO_PASTO_OPTIONS } from "@/types/api";
+import { TIPO_PASTO_OPTIONS } from "@/types/api";
 
 const MEAL_SLOTS = [
   { value: "COLAZIONE", label: "Colazione" },
@@ -38,19 +39,6 @@ interface DayDetailPanelProps {
   onAddFood: (mealId: number, mealLabel: string) => void;
 }
 
-function TargetBar({ value, target, color }: { value: number; target: number; color: string }) {
-  const pct = Math.min(Math.round((value / target) * 100), 100);
-  const over = value > target;
-  return (
-    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-      <div
-        className={`h-full rounded-full transition-all ${over ? "bg-rose-400" : color}`}
-        style={{ width: `${pct}%` }}
-      />
-    </div>
-  );
-}
-
 function getDailyTotals(pasti: PlanMealDetail[], giorno: number) {
   const meals = pasti.filter((m) => m.giorno_settimana === giorno);
   return {
@@ -58,6 +46,8 @@ function getDailyTotals(pasti: PlanMealDetail[], giorno: number) {
     p: meals.reduce((s, m) => s + m.totale_proteine_g, 0),
     c: meals.reduce((s, m) => s + m.totale_carboidrati_g, 0),
     g: meals.reduce((s, m) => s + m.totale_grassi_g, 0),
+    fibra: meals.reduce((s, m) =>
+      s + m.componenti.reduce((cs, comp) => cs + (comp.fibra_g ?? 0), 0), 0),
   };
 }
 
@@ -223,50 +213,16 @@ function MealSlotCard({ giorno, tipoPasto, tipoPastoLabel, meal, planId, onAddFo
 export function DayDetailPanel({ plan, planId, giorno, onBack, onAddFood }: DayDetailPanelProps) {
   const pasti = plan.pasti ?? [];
   const totals = getDailyTotals(pasti, giorno);
-  const giornoLabel = GIORNO_OPTIONS.find((g) => g.value === giorno)?.label ?? "Giorno";
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <h3 className="text-lg font-bold">{giornoLabel}</h3>
-            {totals.kcal > 0 && (
-              <Badge variant="secondary" className="text-sm font-bold text-emerald-700 bg-emerald-50 px-2.5">
-                {Math.round(totals.kcal)} kcal
-              </Badge>
-            )}
-          </div>
-          {totals.kcal > 0 && (
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-blue-600 tabular-nums">P {Math.round(totals.p)}g</span>
-              <span className="text-muted-foreground/40 text-xs">·</span>
-              <span className="text-sm font-medium text-amber-600 tabular-nums">C {Math.round(totals.c)}g</span>
-              <span className="text-muted-foreground/40 text-xs">·</span>
-              <span className="text-sm font-medium text-rose-500 tabular-nums">G {Math.round(totals.g)}g</span>
-            </div>
-          )}
-          {plan.obiettivo_calorico && totals.kcal > 0 && (
-            <div className="space-y-1 pt-1 max-w-xs">
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Target: {plan.obiettivo_calorico} kcal</span>
-                <span className={totals.kcal > plan.obiettivo_calorico ? "text-rose-500 font-medium" : "text-emerald-600 font-medium"}>
-                  {Math.round((totals.kcal / plan.obiettivo_calorico) * 100)}%
-                </span>
-              </div>
-              <TargetBar value={totals.kcal} target={plan.obiettivo_calorico} color="bg-emerald-500" />
-            </div>
-          )}
-        </div>
-        <Button
-          variant="ghost" size="sm"
-          className="gap-1.5 text-muted-foreground hover:text-foreground self-start sm:self-auto"
-          onClick={onBack}
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Torna alla griglia
-        </Button>
-      </div>
+      <NutritionDayHeader
+        plan={plan}
+        planId={planId}
+        giorno={giorno}
+        totals={totals}
+        onBack={onBack}
+      />
       <Separator />
       <div className="space-y-3">
         {MEAL_SLOTS.map((slot) => {

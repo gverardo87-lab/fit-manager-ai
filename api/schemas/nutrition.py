@@ -296,3 +296,14 @@ class NutritionSummary(BaseModel):
     # Confronto target vs reale
     obiettivo_calorico: Optional[int] = None
     delta_kcal: Optional[float] = None   # reale - target (negativo = deficit)
+
+
+class CopyDayInput(BaseModel):
+    """Input per copiare tutti i pasti di un giorno su un altro."""
+    source_giorno: int   # 0-7
+    target_giorno: int   # 0-7
+
+
+class CopyDayResult(BaseModel):
+    pasti_copiati: int
+    componenti_copiati: int

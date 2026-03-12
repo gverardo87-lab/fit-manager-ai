@@ -299,3 +299,32 @@ export function useDeleteComponent() {
     onError: (err) => toast.error(extractErrorMessage(err, "Errore rimozione alimento")),
   });
 }
+
+// ── Mutation: copia giorno su altro giorno ────────────────────────────────
+
+export function useCopyDay() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      planId,
+      sourceGiorno,
+      targetGiorno,
+    }: {
+      planId: number;
+      sourceGiorno: number;
+      targetGiorno: number;
+    }) => {
+      const { data } = await apiClient.post(
+        `/nutrition/plans/${planId}/copy-day`,
+        { source_giorno: sourceGiorno, target_giorno: targetGiorno }
+      );
+      return data as { pasti_copiati: number; componenti_copiati: number };
+    },
+    onSuccess: (data, { planId }) => {
+      queryClient.invalidateQueries({ queryKey: ["nutrition-plan", planId] });
+      const n = data.pasti_copiati;
+      toast.success(`${n} past${n === 1 ? "o" : "i"} copiati`);
+    },
+    onError: (err) => toast.error(extractErrorMessage(err, "Errore copia giorno")),
+  });
+}

@@ -46,6 +46,8 @@ from api.models.nutrition import (
 )
 from api.models.trainer import Trainer
 from api.schemas.nutrition import (
+    CopyDayInput,
+    CopyDayResult,
     FoodCategoryResponse,
     FoodDetailResponse,
     FoodResponse,
@@ -1051,3 +1053,79 @@ def delete_component(
     comp.deleted_at = datetime.now(timezone.utc)
     session.add(comp)
     session.commit()
+
+
+# ---------------------------------------------------------------------------
+# COPY DAY — POST /nutrition/plans/{plan_id}/copy-day
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/nutrition/plans/{plan_id}/copy-day",
+    response_model=CopyDayResult,
+    status_code=status.HTTP_200_OK,
+)
+def copy_day(
+    plan_id: int,
+    data: CopyDayInput,
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+    nutrition_session: Session = Depends(get_nutrition_session),
+):
+    """
+    Copia tutti i pasti e i relativi alimenti da source_giorno a target_giorno.
+
+    I pasti del target_giorno NON vengono cancellati — i nuovi si aggiungono.
+    Utile per replicare una struttura giornaliera su piu' giorni.
+    """
+    _bouncer_plan(session, plan_id, trainer.id)
+
+    if data.source_giorno == data.target_giorno:
+        raise HTTPException(status_code=400, detail="source_giorno e target_giorno devono essere diversi")
+
+    # Carica pasti sorgente (non eliminati)
+    source_meals = session.exec(
+        select(PlanMeal).where(
+            PlanMeal.piano_id == plan_id,
+            PlanMeal.giorno_settimana == data.source_giorno,
+            PlanMeal.deleted_at == None,
+        )
+    ).all()
+
+    pasti_copiati = 0
+    componenti_copiati = 0
+
+    for meal in source_meals:
+        new_meal = PlanMeal(
+            piano_id=plan_id,
+            giorno_settimana=data.target_giorno,
+            tipo_pasto=meal.tipo_pasto,
+            ordine=meal.ordine,
+            nome=meal.nome,
+            note=meal.note,
+        )
+        session.add(new_meal)
+        session.flush()  # ottieni new_meal.id senza commit
+
+        # Carica componenti del pasto sorgente
+        source_components = session.exec(
+            select(MealComponent).where(
+                MealComponent.pasto_id == meal.id,
+                MealComponent.deleted_at == None,
+            )
+        ).all()
+
+        for comp in source_components:
+            new_comp = MealComponent(
+                pasto_id=new_meal.id,
+                alimento_id=comp.alimento_id,
+                quantita_g=comp.quantita_g,
+                note=comp.note,
+            )
+            session.add(new_comp)
+            componenti_copiati += 1
+
+        pasti_copiati += 1
+
+    session.commit()
+    return CopyDayResult(pasti_copiati=pasti_copiati, componenti_copiati=componenti_copiati)

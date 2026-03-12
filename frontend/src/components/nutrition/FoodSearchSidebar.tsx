@@ -24,7 +24,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { toast } from "sonner";
-import { useFoods, useAddComponent } from "@/hooks/useNutrition";
+import { useFoods, useAddComponent, useFoodDetail } from "@/hooks/useNutrition";
 import type { Food } from "@/types/api";
 
 // ── Props ─────────────────────────────────────────────────────────────────
@@ -55,6 +55,7 @@ export function FoodSearchSidebar({
 
   const addComponent = useAddComponent();
   const { data: foods = [], isLoading } = useFoods(debouncedQuery || undefined);
+  const { data: foodDetail } = useFoodDetail(selectedFood?.id ?? null);
 
   // Debounce ricerca 400ms
   useEffect(() => {
@@ -265,20 +266,31 @@ export function FoodSearchSidebar({
                   onChange={(e) => setQuantita(e.target.value)}
                   className="text-right tabular-nums h-11 text-base font-semibold"
                 />
-                {/* Quick portions */}
+                {/* Porzioni: da DB se disponibili, altrimenti grammi standard */}
                 <div className="flex flex-wrap gap-1.5 pt-0.5">
-                  {[30, 50, 80, 100, 125, 150, 200, 250].map((g) => (
+                  {(foodDetail?.porzioni?.length
+                    ? foodDetail.porzioni.slice(0, 8).map((p) => ({
+                        key: String(p.id),
+                        label: `${p.nome} (${p.grammi}g)`,
+                        grams: p.grammi,
+                      }))
+                    : [30, 50, 80, 100, 125, 150, 200, 250].map((g) => ({
+                        key: String(g),
+                        label: `${g}g`,
+                        grams: g,
+                      }))
+                  ).map((item) => (
                     <button
-                      key={g}
+                      key={item.key}
                       type="button"
-                      onClick={() => setQuantita(String(g))}
+                      onClick={() => setQuantita(String(item.grams))}
                       className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
-                        quantita === String(g)
+                        quantita === String(item.grams)
                           ? "border-primary bg-primary text-primary-foreground"
                           : "border-border text-muted-foreground hover:border-primary/60 hover:text-foreground hover:bg-muted/50"
                       }`}
                     >
-                      {g}g
+                      {item.label}
                     </button>
                   ))}
                 </div>
