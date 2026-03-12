@@ -34,8 +34,9 @@ Esempio:
 - `rolled_back`
 - `superseded`
 
-## Ultimo allineamento (2026-03-11)
+## Ultimo allineamento (2026-03-12)
 
+- `UPG-2026-03-12-23`: `/oggi` viene rifondata a partire dal runtime reale con una promessa unica centrata sulla preparazione delle sedute di oggi. Il risultato elimina l'ibrido tra hero, timeline e command center: ora la pagina usa un header operativo compatto, una lista sedute con dominanza `richiede attenzione / pronta / altri impegni` e una scheda pre-seduta coerente per il lavoro quotidiano di chinesiologi, personal trainer e professionisti fitness a P.IVA. Il secondo pass UX/UI riduce stacking e full-width inutili, porta note e contesto critico piu in alto e scalda la resa visiva verso il linguaggio FitManager.
 - `UPG-2026-03-11-22`: snellito il path decisionale attivo per `/oggi`. Le skill workspace/responsive restano vive ma meno rigide, mentre le spec `Oggi` non piu' allineate alla route reale vengono declassate a storico o benchmark-only invece di continuare a congelare il prossimo redesign.
 - `UPG-2026-03-11-21`: la governance docs viene compressa in quattro documenti autorevoli (`AGENTS.md`, `MANIFESTO.md`, `LAUNCH_SCOPE.md`, `POSTMORTEMS.md`). `CLAUDE.md`, `codex.md` e `docs/ai-sync/MULTI_AGENT_SYNC.md` restano solo come shim compatibili, cosi' gli agenti non devono piu' leggere insieme regole vive, roadmap e memoria storica prima di agire.
 - `UPG-2026-03-11-20`: eseguito il redesign massiccio `Oggi v4` partendo davvero da zero dopo il benchmark ufficiale. Il workspace non e piu una pila di bucket/card: ora ha un masthead corto, un feed unico filtrabile (`Focus / Linea completa / Backlog`), righe dossier dense e un rail destro unificato con dossier caso + passaporto cliente/sessione. Decisione chiave: tenere le informazioni importanti della vecchia `session prep`, ma rifonderle dentro una superficie piu forte e piu vicina alle best practice operative dei CRM top.
