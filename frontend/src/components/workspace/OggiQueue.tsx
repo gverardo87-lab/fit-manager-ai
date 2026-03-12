@@ -4,8 +4,15 @@ import { LayoutList, SunMedium } from "lucide-react";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { surfaceRoleClassName, type SurfaceTone } from "@/components/ui/surface-role";
 import { WorkspaceCaseCard } from "@/components/workspace/WorkspaceCaseCard";
 import { WORKSPACE_BUCKET_META } from "@/components/workspace/workspace-ui";
+import {
+  getWorkspaceBucketMarkerClass,
+  getWorkspaceBucketRailClass,
+  getWorkspaceBucketTone,
+  getWorkspaceChipClassName,
+} from "@/components/workspace/workspace-visuals";
 import { cn } from "@/lib/utils";
 import type { OperationalCase, WorkspaceTodaySection } from "@/types/api";
 
@@ -23,6 +30,12 @@ const LANE_HINT: Record<string, string> = {
   waiting: "In attesa",
 };
 
+const VIEW_TONE: Record<QueueView, SurfaceTone> = {
+  focus: "amber",
+  all: "neutral",
+  backlog: "teal",
+};
+
 function LaneSection({
   section,
   selectedCaseId,
@@ -37,21 +50,20 @@ function LaneSection({
   hrefTransform: (href: string) => string;
 }) {
   const meta = WORKSPACE_BUCKET_META[section.bucket];
+  const bucketTone = getWorkspaceBucketTone(section.bucket);
 
   if (section.total === 0 && section.items.length === 0) return null;
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
       <div className="flex items-center gap-2 px-1">
+        <span className={cn("h-1.5 w-1.5 rounded-full", getWorkspaceBucketMarkerClass(section.bucket))} />
         <span
-          className={cn(
-            "h-1.5 w-1.5 rounded-full",
-            section.bucket === "now" ? "bg-red-500" :
-            section.bucket === "today" ? "bg-amber-500" :
-            "bg-stone-300 dark:bg-zinc-600",
+          className={getWorkspaceChipClassName(
+            bucketTone,
+            "px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]",
           )}
-        />
-        <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500 dark:text-zinc-400">
+        >
           {LANE_HINT[section.bucket] ?? meta.label}
         </span>
         <span className="text-[11px] tabular-nums text-stone-400 dark:text-zinc-500">
@@ -59,12 +71,7 @@ function LaneSection({
         </span>
       </div>
 
-      <div className={cn(
-        "space-y-1.5 border-l-2 pl-3 ml-[2.5px]",
-        section.bucket === "now" ? "border-red-200 dark:border-red-900/40" :
-        section.bucket === "today" ? "border-amber-200 dark:border-amber-900/40" :
-        "border-stone-200/50 dark:border-zinc-800",
-      )}>
+      <div className={cn("ml-[2.5px] space-y-1.5 border-l-2 pl-3", getWorkspaceBucketRailClass(section.bucket))}>
         {section.items.map((item) => (
           <WorkspaceCaseCard
             key={item.case_id}
@@ -83,11 +90,13 @@ function LaneSection({
 /* ── View Switcher ── */
 
 function ViewTab({
+  view,
   label,
   count,
   active,
   onClick,
 }: {
+  view: QueueView;
   label: string;
   count: number;
   active: boolean;
@@ -97,11 +106,14 @@ function ViewTab({
     <button
       type="button"
       onClick={onClick}
-      className={cn(
-        "rounded-full px-3 py-1.5 text-[11px] font-semibold transition-colors",
-        active
-          ? "bg-stone-900 text-white dark:bg-zinc-100 dark:text-stone-900"
-          : "text-stone-500 hover:bg-stone-100 dark:text-zinc-400 dark:hover:bg-zinc-800",
+      className={getWorkspaceChipClassName(
+        active ? VIEW_TONE[view] : "neutral",
+        cn(
+          "px-3 py-1.5 text-[11px] font-semibold transition-all",
+          active
+            ? "shadow-sm"
+            : "text-stone-500 opacity-75 hover:opacity-100 dark:text-zinc-400",
+        ),
       )}
     >
       {label}
@@ -159,9 +171,14 @@ export function OggiQueue({
   const hasAnyCases = sections.some((s) => s.total > 0 || s.items.length > 0);
 
   return (
-    <section className={cn("oggi-glow-neutral flex flex-col overflow-hidden rounded-2xl dark:bg-zinc-950/80", className)} style={{ border: "1px solid oklch(0.70 0.02 250 / 0.10)", background: "linear-gradient(180deg, oklch(0.995 0.003 250 / 0.8) 0%, oklch(0.99 0.001 250 / 0.6) 100%)" }}>
+    <section
+      className={surfaceRoleClassName(
+        { role: "page", tone: "neutral" },
+        cn("flex flex-col overflow-hidden", className),
+      )}
+    >
       {/* Header */}
-      <div className="border-b border-stone-100/80 px-4 py-3 backdrop-blur-sm dark:border-zinc-800/80">
+      <div className="border-b border-border/70 px-4 py-3.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <LayoutList className="h-4 w-4 text-stone-400 dark:text-zinc-500" />
@@ -170,17 +187,29 @@ export function OggiQueue({
             </h2>
           </div>
           <div className="flex items-center gap-1">
-            <ViewTab label="Focus" count={focusTotal} active={effectiveView === "focus"} onClick={() => onChangeView("focus")} />
-            <ViewTab label="Tutti" count={focusTotal + backlogTotal} active={effectiveView === "all"} onClick={() => onChangeView("all")} />
-            <ViewTab label="Prossimi" count={backlogTotal} active={effectiveView === "backlog"} onClick={() => onChangeView("backlog")} />
+            <ViewTab view="focus" label="Focus" count={focusTotal} active={effectiveView === "focus"} onClick={() => onChangeView("focus")} />
+            <ViewTab view="all" label="Tutti" count={focusTotal + backlogTotal} active={effectiveView === "all"} onClick={() => onChangeView("all")} />
+            <ViewTab view="backlog" label="Prossimi" count={backlogTotal} active={effectiveView === "backlog"} onClick={() => onChangeView("backlog")} />
           </div>
         </div>
 
         {/* Meta counters */}
-        <div className="mt-2 flex gap-3 text-[11px] text-stone-400 dark:text-zinc-500">
-          {completedCount > 0 && <span>{completedCount} completati oggi</span>}
-          {snoozedCount > 0 && <span>{snoozedCount} in pausa</span>}
-          {isLoadingBacklog && <span className="animate-pulse">Carico prossimi...</span>}
+        <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-stone-400 dark:text-zinc-500">
+          {completedCount > 0 && (
+            <span className={getWorkspaceChipClassName("neutral", "px-2.5 py-1 text-[10px] font-medium")}>
+              {completedCount} completati oggi
+            </span>
+          )}
+          {snoozedCount > 0 && (
+            <span className={getWorkspaceChipClassName("neutral", "px-2.5 py-1 text-[10px] font-medium")}>
+              {snoozedCount} in pausa
+            </span>
+          )}
+          {isLoadingBacklog && (
+            <span className={getWorkspaceChipClassName("teal", "animate-pulse px-2.5 py-1 text-[10px] font-medium")}>
+              Carico prossimi...
+            </span>
+          )}
         </div>
       </div>
 
@@ -194,7 +223,12 @@ export function OggiQueue({
               subtitle="Nessun caso aperto. Perfetta per follow-up o programmazione."
             />
           ) : activeSections.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-stone-200 px-4 py-5 text-center text-sm text-stone-500 dark:border-zinc-700 dark:text-zinc-400">
+            <div
+              className={surfaceRoleClassName(
+                { role: "context", tone: "neutral" },
+                "px-4 py-5 text-center text-sm text-stone-500 dark:text-zinc-400",
+              )}
+            >
               Nessun caso in questa vista.
             </div>
           ) : (

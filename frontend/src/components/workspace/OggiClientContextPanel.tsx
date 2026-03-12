@@ -14,40 +14,51 @@ import {
   XCircle,
 } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { surfaceRoleClassName, type SurfaceTone } from "@/components/ui/surface-role";
+import {
+  getWorkspaceChipClassName,
+  getWorkspacePanelClassName,
+  getWorkspaceSectionClassName,
+  getWorkspaceSeverityTone,
+} from "@/components/workspace/workspace-visuals";
 import { appendFromParam } from "@/lib/url-state";
 import { cn } from "@/lib/utils";
 import type { HealthCheckStatus, SessionPrepHint, SessionPrepItem } from "@/types/api";
 
-const STATUS_META: Record<
-  HealthCheckStatus,
-  {
-    icon: typeof CheckCircle2;
-    iconClassName: string;
-    tone: string;
-  }
-> = {
-  ok: {
-    icon: CheckCircle2,
-    iconClassName: "text-emerald-600 dark:text-emerald-400",
-    tone: "border-emerald-200/80 bg-emerald-50/80 dark:border-emerald-900/30 dark:bg-emerald-950/20",
-  },
-  warning: {
-    icon: AlertTriangle,
-    iconClassName: "text-amber-600 dark:text-amber-400",
-    tone: "border-amber-200/80 bg-amber-50/80 dark:border-amber-900/30 dark:bg-amber-950/20",
-  },
-  critical: {
-    icon: XCircle,
-    iconClassName: "text-red-600 dark:text-red-400",
-    tone: "border-red-200/80 bg-red-50/80 dark:border-red-900/30 dark:bg-red-950/20",
-  },
-  missing: {
-    icon: XCircle,
-    iconClassName: "text-red-600 dark:text-red-400",
-    tone: "border-red-200/80 bg-red-50/80 dark:border-red-900/30 dark:bg-red-950/20",
-  },
+const HEALTH_CHECK_ICON: Record<HealthCheckStatus, typeof CheckCircle2> = {
+  ok: CheckCircle2,
+  warning: AlertTriangle,
+  critical: XCircle,
+  missing: XCircle,
 };
+
+function getHealthCheckTone(status: HealthCheckStatus): SurfaceTone {
+  if (status === "ok") return "teal";
+  if (status === "warning") return "amber";
+  return "red";
+}
+
+function getToneIconClassName(tone: SurfaceTone): string {
+  if (tone === "teal") return "text-emerald-600 dark:text-emerald-400";
+  if (tone === "amber") return "text-amber-600 dark:text-amber-400";
+  if (tone === "red") return "text-red-600 dark:text-red-400";
+  return "text-stone-500 dark:text-zinc-400";
+}
+
+function getToneTextClassName(tone: SurfaceTone): string {
+  if (tone === "teal") return "text-emerald-700 dark:text-emerald-300";
+  if (tone === "amber") return "text-amber-700 dark:text-amber-300";
+  if (tone === "red") return "text-red-700 dark:text-red-300";
+  return "text-foreground/90";
+}
+
+function getReadinessTone(score: number): SurfaceTone {
+  if (score >= 80) return "teal";
+  if (score >= 60) return "amber";
+  return "red";
+}
 
 const DATE_FORMATTER = new Intl.DateTimeFormat("it-IT", {
   day: "numeric",
@@ -125,14 +136,19 @@ function buildLastSessionLabel(item: SessionPrepItem): string {
 function CompactStat({
   label,
   value,
-  tone,
+  tone = "neutral",
 }: {
   label: string;
   value: string;
-  tone?: string;
+  tone?: SurfaceTone;
 }) {
   return (
-    <div className={cn("rounded-[16px] border px-3 py-2.5", tone ?? "border-stone-200/80 bg-white/80 dark:border-zinc-800 dark:bg-zinc-950/50")}>
+    <div
+      className={surfaceRoleClassName(
+        { role: "signal", tone },
+        "px-3 py-2.5",
+      )}
+    >
       <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
         {label}
       </p>
@@ -142,18 +158,23 @@ function CompactStat({
 }
 
 function HealthCheckRow({ item }: { item: SessionPrepItem["health_checks"][number] }) {
-  const meta = STATUS_META[item.status];
-  const Icon = meta.icon;
+  const tone = getHealthCheckTone(item.status);
+  const Icon = HEALTH_CHECK_ICON[item.status];
 
   return (
-    <div className={cn("rounded-[16px] border px-3 py-2.5", meta.tone)}>
+    <div
+      className={surfaceRoleClassName(
+        { role: "signal", tone },
+        "px-3 py-2.5",
+      )}
+    >
       <div className="flex items-start gap-2.5">
-        <Icon className={cn("mt-0.5 h-4 w-4 shrink-0", meta.iconClassName)} />
+        <Icon className={cn("mt-0.5 h-4 w-4 shrink-0", getToneIconClassName(tone))} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-[12px] font-semibold">{item.label}</p>
             {item.days_since_last !== null ? (
-              <span className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground dark:bg-zinc-950/60">
+              <span className={getWorkspaceChipClassName("neutral", "px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]")}>
                 {item.days_since_last === 0 ? "oggi" : `${item.days_since_last}g`}
               </span>
             ) : null}
@@ -176,15 +197,20 @@ function HealthCheckRow({ item }: { item: SessionPrepItem["health_checks"][numbe
 }
 
 function HintRow({ hint }: { hint: SessionPrepHint }) {
+  const tone = getWorkspaceSeverityTone(hint.severity);
+
   return (
-    <div className="rounded-[16px] border border-stone-200/80 bg-white/80 px-3 py-2.5 dark:border-zinc-800 dark:bg-zinc-950/50">
+    <div
+      className={surfaceRoleClassName(
+        { role: "signal", tone },
+        "px-3 py-2.5",
+      )}
+    >
       <div className="flex items-start gap-2.5">
         <Lightbulb
           className={cn(
             "mt-0.5 h-4 w-4 shrink-0",
-            hint.severity === "critical" || hint.severity === "high"
-              ? "text-amber-600 dark:text-amber-400"
-              : "text-muted-foreground",
+            getToneIconClassName(tone),
           )}
         />
         <div className="min-w-0">
@@ -225,32 +251,31 @@ export function OggiClientContextPanel({
   const checksNeedingAttention = item.health_checks.filter((check) => check.status !== "ok");
   const visibleChecks = checksNeedingAttention.length > 0 ? checksNeedingAttention : item.health_checks.slice(0, 2);
   const visibleHints = item.quality_hints.slice(0, 2);
+  const readinessTone = item.readiness_score !== null ? getReadinessTone(item.readiness_score) : null;
 
   return (
-    <section
-      className={cn(
-        "min-h-0",
-        !embedded &&
-          "overflow-hidden rounded-[26px] border border-stone-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,246,242,0.98))] shadow-[0_24px_54px_-44px_rgba(41,37,36,0.28)] dark:border-zinc-800 dark:bg-[linear-gradient(180deg,rgba(24,24,27,0.98),rgba(20,20,24,0.98))]",
-        className,
-      )}
-    >
+    <section className={getWorkspacePanelClassName({ variant: "default", embedded }, className)}>
       <div
         className={cn(
           "px-4 py-3.5",
-          !embedded && "border-b border-stone-200/80 dark:border-zinc-800",
+          !embedded && "border-b border-border/70",
         )}
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-100 via-white to-amber-100 dark:from-emerald-950/30 dark:to-amber-950/20">
+            <div
+              className={surfaceRoleClassName(
+                { role: "signal", tone: "teal" },
+                "flex h-10 w-10 shrink-0 items-center justify-center",
+              )}
+            >
               <UserRound className="h-4.5 w-4.5 text-emerald-700 dark:text-emerald-300" />
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-[15px] font-semibold">{item.client_name}</h3>
                 {item.is_new_client ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300">
+                  <span className={getWorkspaceChipClassName("teal", "px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]")}>
                     <Sparkles className="h-3 w-3" />
                     Nuovo
                   </span>
@@ -265,12 +290,22 @@ export function OggiClientContextPanel({
             </div>
           </div>
 
-          {item.readiness_score !== null ? (
-            <div className="rounded-[18px] border border-emerald-200/80 bg-emerald-50/90 px-3 py-2 text-right dark:border-emerald-900/30 dark:bg-emerald-950/20">
+          {item.readiness_score !== null && readinessTone ? (
+            <div
+              className={surfaceRoleClassName(
+                { role: "signal", tone: readinessTone },
+                "px-3 py-2 text-right",
+              )}
+            >
               <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                 Readiness
               </p>
-              <p className="mt-1 text-[20px] font-bold leading-none tabular-nums text-emerald-700 dark:text-emerald-300">
+              <p
+                className={cn(
+                  "mt-1 text-[20px] font-bold leading-none tabular-nums",
+                  getToneTextClassName(readinessTone),
+                )}
+              >
                 {item.readiness_score}%
               </p>
             </div>
@@ -278,22 +313,22 @@ export function OggiClientContextPanel({
         </div>
 
         <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] text-muted-foreground">
-          <span className="inline-flex items-center gap-1 rounded-full bg-stone-100 px-2.5 py-1 dark:bg-zinc-800">
+          <span className={getWorkspaceChipClassName("neutral", "px-2.5 py-1 text-[11px] font-medium")}>
             <Clock3 className="h-3.5 w-3.5" />
             {timeRangeLabel}
           </span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-stone-100 px-2.5 py-1 dark:bg-zinc-800">
+          <span className={getWorkspaceChipClassName("neutral", "px-2.5 py-1 text-[11px] font-medium")}>
             <CalendarDays className="h-3.5 w-3.5" />
             {lastSessionLabel}
           </span>
           {item.active_plan_name ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-stone-100 px-2.5 py-1 dark:bg-zinc-800">
+            <span className={getWorkspaceChipClassName("teal", "px-2.5 py-1 text-[11px] font-medium")}>
               <HeartPulse className="h-3.5 w-3.5" />
               {item.active_plan_name}
             </span>
           ) : null}
           {clientSinceLabel ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-stone-100 px-2.5 py-1 dark:bg-zinc-800">
+            <span className={getWorkspaceChipClassName("neutral", "px-2.5 py-1 text-[11px] font-medium")}>
               <UserRound className="h-3.5 w-3.5" />
               Cliente da {clientSinceLabel}
             </span>
@@ -319,11 +354,7 @@ export function OggiClientContextPanel({
                   ? `${checksNeedingAttention.length} aree da sistemare`
                   : "Profilo pronto"
               }
-              tone={
-                checksNeedingAttention.length > 0
-                  ? "border-amber-200/80 bg-amber-50/80 dark:border-amber-900/30 dark:bg-amber-950/20"
-                  : "border-emerald-200/80 bg-emerald-50/80 dark:border-emerald-900/30 dark:bg-emerald-950/20"
-              }
+              tone={checksNeedingAttention.length > 0 ? "amber" : "teal"}
             />
             <CompactStat
               label="Alert clinici"
@@ -332,16 +363,17 @@ export function OggiClientContextPanel({
                   ? `${item.clinical_alerts.length} condizioni segnalate`
                   : "Nessuna criticita aperta"
               }
-              tone={
-                item.clinical_alerts.length > 0
-                  ? "border-red-200/80 bg-red-50/80 dark:border-red-900/30 dark:bg-red-950/20"
-                  : "border-stone-200/80 bg-white/80 dark:border-zinc-800 dark:bg-zinc-950/50"
-              }
+              tone={item.clinical_alerts.length > 0 ? "red" : "neutral"}
             />
           </div>
 
           {item.event_notes ? (
-            <div className="rounded-[18px] border border-stone-200/80 bg-white/80 px-3 py-2.5 dark:border-zinc-800 dark:bg-zinc-950/50">
+            <div
+              className={getWorkspaceSectionClassName(
+                { variant: "default", emphasis: "neutral" },
+                "px-3 py-2.5",
+              )}
+            >
               <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                 Note appuntamento
               </p>
@@ -350,7 +382,12 @@ export function OggiClientContextPanel({
           ) : null}
 
           {item.clinical_alerts.length > 0 ? (
-            <div className="rounded-[18px] border border-red-200/80 bg-red-50/90 px-3 py-2.5 dark:border-red-900/30 dark:bg-red-950/20">
+            <div
+              className={surfaceRoleClassName(
+                { role: "context", tone: "red" },
+                "px-3 py-2.5",
+              )}
+            >
               <div className="flex items-start gap-2.5">
                 <ShieldAlert className="mt-0.5 h-4.5 w-4.5 shrink-0 text-red-600 dark:text-red-400" />
                 <div className="min-w-0">
@@ -374,7 +411,12 @@ export function OggiClientContextPanel({
               {visibleChecks.length > 0 ? (
                 visibleChecks.map((check) => <HealthCheckRow key={check.domain} item={check} />)
               ) : (
-                <div className="rounded-[16px] border border-emerald-200/80 bg-emerald-50/80 px-3 py-2.5 dark:border-emerald-900/30 dark:bg-emerald-950/20">
+                <div
+                  className={surfaceRoleClassName(
+                    { role: "signal", tone: "teal" },
+                    "px-3 py-2.5",
+                  )}
+                >
                   <p className="text-[12px] font-medium text-emerald-700 dark:text-emerald-300">
                     Nessun check aperto da rivedere.
                   </p>
@@ -398,18 +440,16 @@ export function OggiClientContextPanel({
           ) : null}
 
           <div className="flex flex-wrap gap-2 pt-0.5">
-            <Link
-              href={`/clienti/${item.client_id}?from=oggi`}
-              className="inline-flex items-center rounded-full border border-stone-200/80 px-3 py-2 text-[12px] font-medium text-foreground transition-colors hover:bg-stone-50 dark:border-zinc-700 dark:hover:bg-zinc-900"
-            >
-              Profilo cliente
-            </Link>
-            <Link
-              href={`/clienti/${item.client_id}/misurazioni?from=oggi`}
-              className="inline-flex items-center rounded-full border border-stone-200/80 px-3 py-2 text-[12px] font-medium text-foreground transition-colors hover:bg-stone-50 dark:border-zinc-700 dark:hover:bg-zinc-900"
-            >
-              Misurazioni
-            </Link>
+            <Button asChild size="sm" variant="outline" className="h-9 rounded-full px-3.5 text-[12px]">
+              <Link href={`/clienti/${item.client_id}?from=oggi`}>
+                Profilo cliente
+              </Link>
+            </Button>
+            <Button asChild size="sm" variant="outline" className="h-9 rounded-full px-3.5 text-[12px]">
+              <Link href={`/clienti/${item.client_id}/misurazioni?from=oggi`}>
+                Misurazioni
+              </Link>
+            </Button>
           </div>
         </div>
       </ScrollArea>
