@@ -38,6 +38,19 @@ interface DayDetailPanelProps {
   onAddFood: (mealId: number, mealLabel: string) => void;
 }
 
+function TargetBar({ value, target, color }: { value: number; target: number; color: string }) {
+  const pct = Math.min(Math.round((value / target) * 100), 100);
+  const over = value > target;
+  return (
+    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+      <div
+        className={`h-full rounded-full transition-all ${over ? "bg-rose-400" : color}`}
+        style={{ width: `${pct}%` }}
+      />
+    </div>
+  );
+}
+
 function getDailyTotals(pasti: PlanMealDetail[], giorno: number) {
   const meals = pasti.filter((m) => m.giorno_settimana === giorno);
   return {
@@ -231,6 +244,17 @@ export function DayDetailPanel({ plan, planId, giorno, onBack, onAddFood }: DayD
               <span className="text-sm font-medium text-amber-600 tabular-nums">C {Math.round(totals.c)}g</span>
               <span className="text-muted-foreground/40 text-xs">·</span>
               <span className="text-sm font-medium text-rose-500 tabular-nums">G {Math.round(totals.g)}g</span>
+            </div>
+          )}
+          {plan.obiettivo_calorico && totals.kcal > 0 && (
+            <div className="space-y-1 pt-1 max-w-xs">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Target: {plan.obiettivo_calorico} kcal</span>
+                <span className={totals.kcal > plan.obiettivo_calorico ? "text-rose-500 font-medium" : "text-emerald-600 font-medium"}>
+                  {Math.round((totals.kcal / plan.obiettivo_calorico) * 100)}%
+                </span>
+              </div>
+              <TargetBar value={totals.kcal} target={plan.obiettivo_calorico} color="bg-emerald-500" />
             </div>
           )}
         </div>

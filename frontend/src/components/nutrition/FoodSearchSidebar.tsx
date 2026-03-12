@@ -265,6 +265,23 @@ export function FoodSearchSidebar({
                   onChange={(e) => setQuantita(e.target.value)}
                   className="text-right tabular-nums h-11 text-base font-semibold"
                 />
+                {/* Quick portions */}
+                <div className="flex flex-wrap gap-1.5 pt-0.5">
+                  {[30, 50, 80, 100, 125, 150, 200, 250].map((g) => (
+                    <button
+                      key={g}
+                      type="button"
+                      onClick={() => setQuantita(String(g))}
+                      className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                        quantita === String(g)
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border text-muted-foreground hover:border-primary/60 hover:text-foreground hover:bg-muted/50"
+                      }`}
+                    >
+                      {g}g
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Anteprima macro scalata */}
