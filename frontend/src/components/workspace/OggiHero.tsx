@@ -110,6 +110,7 @@ interface OggiHeroProps {
   extraCaseCount: number;
   alertClients: number;
   supportCase: OperationalCase | null;
+  compact?: boolean;
   className?: string;
 }
 
@@ -120,6 +121,7 @@ export function OggiHero({
   extraCaseCount,
   alertClients,
   supportCase,
+  compact = false,
   className,
 }: OggiHeroProps) {
   const [now, setNow] = useState(() => new Date());
@@ -131,6 +133,55 @@ export function OggiHero({
 
   const supportHref = resolveCaseHref(supportCase);
   const dayBrief = getDayBrief(prep, attentionCount, readyCount, extraCaseCount);
+
+  // ── Compact strip variant ──────────────────────────────────────────────
+  if (compact) {
+    const directionColor =
+      dayBrief.tone === "red"
+        ? "text-red-700 dark:text-red-300"
+        : dayBrief.tone === "teal"
+          ? "text-emerald-700 dark:text-emerald-300"
+          : "text-stone-600 dark:text-zinc-300";
+
+    return (
+      <section className={className}>
+        <div className={surfaceRoleClassName({ role: "page", tone: "neutral" }, "px-4 py-3 sm:px-5")}>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            {/* Data + ora */}
+            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-400 dark:text-zinc-500">
+              <span>{DATE_FMT.format(now)}</span>
+              <span className={surfaceChipClassName({ tone: "neutral" }, "px-2.5 py-1 text-[11px] font-bold tabular-nums text-stone-500 dark:text-zinc-400")}>
+                {TIME_FMT.format(now)}
+              </span>
+            </div>
+            {/* Direzione giornata — testo colorato, nessuna superficie */}
+            <p className={`flex-1 text-[12px] font-bold tracking-tight ${directionColor}`}>
+              {dayBrief.title}
+            </p>
+            {/* Conteggi — chips compatti */}
+            <div className="ml-auto flex items-center gap-1.5">
+              <span className={surfaceChipClassName({ tone: "neutral" }, "px-2.5 py-1 text-[9px] font-bold tabular-nums")}>
+                {prep.total_sessions} clienti
+              </span>
+              {attentionCount > 0 && (
+                <span className={surfaceChipClassName({ tone: "red" }, "px-2.5 py-1 text-[9px] font-bold tabular-nums")}>
+                  {attentionCount} attenzione
+                </span>
+              )}
+              {extraCaseCount > 0 && (
+                <Link
+                  href="/clienti/myportal"
+                  className={surfaceChipClassName({ tone: "amber" }, "px-2.5 py-1 text-[9px] font-bold tabular-nums transition-opacity hover:opacity-80")}
+                >
+                  {extraCaseCount} fuori seduta
+                </Link>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className={className}>

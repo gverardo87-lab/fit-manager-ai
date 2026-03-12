@@ -40,6 +40,27 @@ Il suo vantaggio e' l'unione di:
 - AI solo come capability opzionale, mai come prerequisito del CRM.
 - Le feature launch-critical valgono piu' delle macro-feature accessorie.
 
+## Visual Identity
+
+**Palette:** teal come accento primario — oklch hue 170 (`--primary` in globals.css). Stone/zinc come neutri (light/dark). Nessun blue, purple o altri accent.
+
+**Segnali cromatici — regola del singolo colore:**
+- Una sola superficie colorata per componente. Il resto e' sempre neutral.
+- Toni ammessi: `neutral` (default), `teal` (positivo/pronto), `amber` (attenzione), `red` (critico/bloccato).
+- Il colore vive nel testo o nel dot, non in superfici multiple.
+- Chip informativi: sempre `tone: "neutral"`. Il badge stato e' l'unico elemento cromatico.
+
+**Design system:** `surface-role.ts` — `surfaceRoleClassName` (role + tone) e `surfaceChipClassName` (tone + emphasis).
+Roles: `page`, `hero`, `signal`, `context`, `dossier`, `chart`. Mai classi Tailwind colore inline se esiste un role.
+
+**Tipografia:** scala rigorosa — label 8-9px uppercase tracking wide, valori 11-13px bold, titoli 20px extrabold.
+Font: Inter (sans) + JetBrains Mono (mono). Nessun serif.
+
+**Motion:** `usePageReveal()` per staggered fade-in + slide-up al caricamento pagina (delay incrementale per blocchi).
+AnimatedNumber per counter. Nessuna animazione decorativa che ritarda l'uso.
+
+**LogoIcon:** SVG custom (onda + chart + foglia) in `components/ui/logo-icon.tsx`. Non modificare proporzioni o path.
+
 ## Regola pratica
 
 Se una scelta aumenta complessita' documentale o runtime ma non migliora velocita operativa,

@@ -55,22 +55,26 @@ const FLOW_GROUP_META: Record<
     title: string;
     description: string;
     tone: SurfaceTone;
+    titleColor: string;
   }
 > = {
   attention: {
     title: "Da sbloccare",
     description: "Sedute che possono cambiare davvero il lavoro in sala.",
     tone: "red",
+    titleColor: "text-red-700 dark:text-red-400",
   },
   prepared: {
     title: "In linea",
     description: "Sedute pronte o da confermare velocemente.",
     tone: "teal",
+    titleColor: "text-emerald-700 dark:text-emerald-400",
   },
   internal: {
     title: "Altri slot",
     description: "Impegni interni o senza scheda cliente da tenere in sfondo.",
     tone: "neutral",
+    titleColor: "text-stone-400 dark:text-zinc-500",
   },
 };
 
@@ -181,13 +185,16 @@ function SessionCard({
     <button
       type="button"
       onClick={onSelect}
-      className={surfaceRoleClassName(
-        {
-          role: "signal",
-          tone: selected ? getPreflightTone(status) : "neutral",
-          interactive: true,
-        },
-        cn("w-full px-3.5 py-3 text-left", selected && "ring-1 ring-primary/12"),
+      className={cn(
+        surfaceRoleClassName(
+          {
+            role: "signal",
+            tone: selected ? getPreflightTone(status) : "neutral",
+            interactive: true,
+          },
+          cn("w-full px-3.5 py-3 text-left", selected && "ring-1 ring-primary/12"),
+        ),
+        selected && `oggi-glow-${getPreflightTone(status)}`,
       )}
     >
       <div className="flex items-start justify-between gap-3">
@@ -264,16 +271,16 @@ function SessionGroup({
   return (
     <section
       className={surfaceRoleClassName(
-        { role: "context", tone: meta.tone },
-        "flex h-full min-h-0 flex-col px-3.5 py-3.5 sm:px-4",
+        { role: "context", tone: "neutral" },
+        "flex flex-col px-3.5 py-3.5 sm:px-4",
       )}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-stone-400 dark:text-zinc-500">
+          <p className={`text-[9px] font-bold uppercase tracking-[0.18em] ${meta.titleColor}`}>
             {meta.title}
           </p>
-          <p className="mt-1 text-[10.5px] leading-5 text-stone-600 dark:text-zinc-300">
+          <p className="mt-1 text-[10.5px] leading-5 text-stone-500 dark:text-zinc-400">
             {meta.description}
           </p>
         </div>
@@ -349,24 +356,16 @@ export function OggiTimeline({
     <div
       className={surfaceRoleClassName(
         { role: "page", tone: "neutral" },
-        cn("px-4 py-4 sm:px-5 sm:py-5", className),
+        cn("h-full px-4 py-4 sm:px-5 sm:py-5", className),
       )}
     >
       <div className="space-y-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div className="min-w-0">
-            <p className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.18em] text-stone-400 dark:text-zinc-500">
-              <Clock3 className="h-3 w-3" />
-              Flusso della giornata
-            </p>
-            <h3 className="mt-1.5 text-[20px] font-extrabold tracking-tight text-stone-900 dark:text-zinc-50">
-              Sedute lette come regia, non come elenco
-            </h3>
-            <p className="mt-1 text-[11px] leading-5 text-stone-600 dark:text-zinc-300">
-              Le fasce della giornata restano compatte: scegli il focus attivo, poi scorri il resto senza aprire una cartella dopo l&apos;altra.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.18em] text-stone-400 dark:text-zinc-500">
+            <Clock3 className="h-3 w-3" />
+            Flusso della giornata
+          </p>
+          <div className="flex flex-wrap gap-1.5">
             <span className={surfaceChipClassName({ tone: "neutral" }, "px-2.5 py-1 text-[9px] font-bold tabular-nums")}>
               {clientCount} clienti
             </span>
@@ -379,7 +378,7 @@ export function OggiTimeline({
           </div>
         </div>
 
-        <div className="grid gap-3 xl:grid-cols-[minmax(0,1.08fr)_minmax(0,1.08fr)_minmax(0,0.84fr)]">
+        <div className="space-y-3">
           <SessionGroup
             group="attention"
             sessions={groups.attention}
@@ -392,12 +391,14 @@ export function OggiTimeline({
             selectedEventId={selectedEventId}
             onSelect={onSelect}
           />
-          <SessionGroup
-            group="internal"
-            sessions={groups.internal}
-            selectedEventId={selectedEventId}
-            onSelect={onSelect}
-          />
+          {groups.internal.length > 0 && (
+            <SessionGroup
+              group="internal"
+              sessions={groups.internal}
+              selectedEventId={selectedEventId}
+              onSelect={onSelect}
+            />
+          )}
         </div>
       </div>
     </div>

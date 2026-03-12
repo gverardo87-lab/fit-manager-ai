@@ -10,10 +10,10 @@ import {
   type PreFlightStatus,
 } from "@/components/workspace/OggiTimeline";
 import { OggiCommandCenter } from "@/components/workspace/OggiCommandCenter";
-import { OggiPreSessionCard } from "@/components/workspace/OggiPreSessionCard";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { surfaceRoleClassName } from "@/components/ui/surface-role";
+import { cn } from "@/lib/utils";
 import { useSessionPrep, useWorkspaceToday } from "@/hooks/useWorkspace";
 import { usePageReveal } from "@/lib/page-reveal";
 import type { OperationalCase, SessionPrepItem } from "@/types/api";
@@ -131,19 +131,19 @@ export default function OggiWorkspacePage() {
 
   if (prepQuery.isLoading || (!prep && !prepQuery.isError)) {
     return (
-      <div className="space-y-4">
+      <div className="flex flex-col gap-3">
         <OggiHeroSkeleton />
-        <div className="space-y-4">
-          {todayQuery.isError && (
-            <div className={surfaceRoleClassName({ role: "context", tone: "amber" }, "px-4 py-3")}>
-              <p className="text-[12px] font-semibold text-amber-800 dark:text-amber-300">
-                Le attenzioni extra di oggi non sono disponibili.
-              </p>
-            </div>
-          )}
+        {todayQuery.isError && (
+          <div className={surfaceRoleClassName({ role: "context", tone: "amber" }, "px-4 py-3")}>
+            <p className="text-[12px] font-semibold text-amber-800 dark:text-amber-300">
+              Le attenzioni extra di oggi non sono disponibili.
+            </p>
+          </div>
+        )}
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]">
+          <Skeleton className="h-[460px] rounded-[32px]" />
           <Skeleton className="h-[460px] rounded-[32px]" />
         </div>
-        <Skeleton className="h-[360px] rounded-[32px]" />
       </div>
     );
   }
@@ -180,9 +180,11 @@ export default function OggiWorkspacePage() {
   const safePrep = prep!;
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-3">
+      {/* Hero compatto — strip singola riga */}
       <div className={revealClass(0)} style={revealStyle(0)}>
         <OggiHero
+          compact
           prep={safePrep}
           attentionCount={sessionSummary.attentionCount}
           readyCount={sessionSummary.readyCount}
@@ -205,28 +207,26 @@ export default function OggiWorkspacePage() {
         </div>
       )}
 
-      {selectedSession?.client_id && (
-        <div className={revealClass(18)} style={revealStyle(18)}>
-          <OggiPreSessionCard session={selectedSession} />
-        </div>
-      )}
-
+      {/* Cockpit 2 colonne: timeline (sinistra) | focus seduta (destra) */}
       <div
-        className={revealClass(32)}
-        style={revealStyle(32)}
+        className={cn(revealClass(18), "grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]")}
+        style={revealStyle(18)}
       >
-        <OggiCommandCenter
-          session={selectedSession}
-          status={selectedStatus}
-        />
-      </div>
-
-      <div className={revealClass(48)} style={revealStyle(48)}>
-        <OggiTimeline
-          sessions={orderedSessions}
-          selectedEventId={effectiveSelectedId}
-          onSelect={setSelectedEventId}
-        />
+        {/* Mobile: CommandCenter prima (order-1), Timeline dopo (order-2) */}
+        {/* Desktop: Timeline a sinistra (lg:order-1), CommandCenter a destra (lg:order-2) */}
+        <div className="order-2 lg:order-1">
+          <OggiTimeline
+            sessions={orderedSessions}
+            selectedEventId={effectiveSelectedId}
+            onSelect={setSelectedEventId}
+          />
+        </div>
+        <div className="order-1 lg:order-2">
+          <OggiCommandCenter
+            session={selectedSession}
+            status={selectedStatus}
+          />
+        </div>
       </div>
     </div>
   );
