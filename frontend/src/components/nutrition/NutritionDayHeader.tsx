@@ -217,6 +217,30 @@ export function NutritionDayHeader({ plan, planId, giorno, totals, onBack }: Nut
               <TargetBar value={totals.fibra} target={25} color="bg-violet-500" />
             </div>
           )}
+
+          {/* Cosa manca al target? */}
+          {hasData && (() => {
+            const items: { label: string; color: string }[] = [];
+            if (plan.obiettivo_calorico && totals.kcal < plan.obiettivo_calorico)
+              items.push({ label: `+${Math.round(plan.obiettivo_calorico - totals.kcal)} kcal`, color: "text-foreground font-semibold" });
+            if (plan.proteine_g_target && totals.p < plan.proteine_g_target)
+              items.push({ label: `P +${Math.round(plan.proteine_g_target - totals.p)}g`, color: "text-blue-600" });
+            if (plan.carboidrati_g_target && totals.c < plan.carboidrati_g_target)
+              items.push({ label: `C +${Math.round(plan.carboidrati_g_target - totals.c)}g`, color: "text-amber-600" });
+            if (plan.grassi_g_target && totals.g < plan.grassi_g_target)
+              items.push({ label: `G +${Math.round(plan.grassi_g_target - totals.g)}g`, color: "text-rose-500" });
+            if (items.length === 0) return null;
+            return (
+              <div className="rounded-md border border-amber-200 bg-amber-50/60 px-3 py-2 max-w-xs">
+                <p className="text-xs font-semibold text-amber-700 mb-1">Mancante al target</p>
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                  {items.map((item) => (
+                    <span key={item.label} className={`text-xs tabular-nums font-medium ${item.color}`}>{item.label}</span>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Right: donut + buttons */}

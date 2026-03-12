@@ -14,7 +14,7 @@
 
 import { use, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Pencil, UtensilsCrossed, CalendarRange, User } from "lucide-react";
+import { ArrowLeft, Pencil, UtensilsCrossed, CalendarRange, User, Printer } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 
@@ -29,6 +29,7 @@ import { FoodSearchSidebar } from "@/components/nutrition/FoodSearchSidebar";
 import { NutritionPlanSheet } from "@/components/nutrition/NutritionPlanSheet";
 import { useClients } from "@/hooks/useClients";
 import { resolveBackNavigation } from "@/lib/url-state";
+import { printNutritionPlan } from "@/lib/print-nutrition-plan";
 
 // ── Macro bar ─────────────────────────────────────────────────────────────
 
@@ -81,6 +82,7 @@ export default function NutritionPlanPage({
   const [selectedDay, setSelectedDay] = useState<number>(0);
   const [activeMealId, setActiveMealId] = useState<number | null>(null);
   const [activeMealLabel, setActiveMealLabel] = useState<string>("");
+  const [swapCompId, setSwapCompId] = useState<number | null>(null);
   const [editOpen, setEditOpen] = useState(false);
 
   const backNav = resolveBackNavigation(fromParam, { href: "/nutrizione", label: "Torna ai piani" });
@@ -154,10 +156,16 @@ export default function NutritionPlanPage({
             )}
           </div>
         </div>
-        <Button variant="outline" size="sm" className="shrink-0" onClick={() => setEditOpen(true)}>
-          <Pencil className="mr-2 h-3.5 w-3.5" />
-          Modifica piano
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button variant="outline" size="sm" onClick={() => printNutritionPlan(planDetail)} title="Stampa piano">
+            <Printer className="mr-2 h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Stampa</span>
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+            <Pencil className="mr-2 h-3.5 w-3.5" />
+            Modifica piano
+          </Button>
+        </div>
       </div>
 
       {/* ── Target macro ── */}
@@ -211,8 +219,14 @@ export default function NutritionPlanPage({
           giorno={selectedDay}
           onBack={() => setViewMode("grid")}
           onAddFood={(mealId, label) => {
+            setSwapCompId(null);
             setActiveMealId(mealId);
             setActiveMealLabel(label);
+          }}
+          onSwapFood={(mealId, compId) => {
+            setSwapCompId(compId);
+            setActiveMealId(mealId);
+            setActiveMealLabel("");
           }}
         />
       )}
@@ -220,10 +234,11 @@ export default function NutritionPlanPage({
       {/* ── Sidebar ricerca alimenti ── */}
       <FoodSearchSidebar
         open={activeMealId !== null}
-        onOpenChange={(v) => { if (!v) setActiveMealId(null); }}
+        onOpenChange={(v) => { if (!v) { setActiveMealId(null); setSwapCompId(null); } }}
         planId={planId}
         mealId={activeMealId}
         mealLabel={activeMealLabel}
+        replaceCompId={swapCompId}
       />
 
       {/* ── Sheet modifica piano ── */}

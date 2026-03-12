@@ -24,7 +24,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { toast } from "sonner";
-import { useFoods, useAddComponent, useFoodDetail } from "@/hooks/useNutrition";
+import { useFoods, useAddComponent, useDeleteComponent, useFoodDetail } from "@/hooks/useNutrition";
 import type { Food } from "@/types/api";
 
 // ── Props ─────────────────────────────────────────────────────────────────
@@ -35,6 +35,8 @@ interface FoodSearchSidebarProps {
   planId: number;
   mealId: number | null;
   mealLabel?: string;
+  /** Se valorizzato, la sidebar è in modalità "sostituisci": elimina questo componente e aggiunge il nuovo. */
+  replaceCompId?: number | null;
 }
 
 // ── Componente ────────────────────────────────────────────────────────────
@@ -45,6 +47,7 @@ export function FoodSearchSidebar({
   planId,
   mealId,
   mealLabel,
+  replaceCompId,
 }: FoodSearchSidebarProps) {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -54,6 +57,7 @@ export function FoodSearchSidebar({
   const searchRef = useRef<HTMLInputElement>(null);
 
   const addComponent = useAddComponent();
+  const deleteComponent = useDeleteComponent();
   const { data: foods = [], isLoading } = useFoods(debouncedQuery || undefined);
   const { data: foodDetail } = useFoodDetail(selectedFood?.id ?? null);
 
@@ -95,12 +99,23 @@ export function FoodSearchSidebar({
     const g = parseFloat(quantita);
     if (!g || g <= 0) return;
 
+    // Swap mode: delete old component first
+    if (replaceCompId != null) {
+      await deleteComponent.mutateAsync({ planId, mealId, compId: replaceCompId });
+    }
+
     await addComponent.mutateAsync({
       planId,
       mealId,
       alimento_id: selectedFood.id,
       quantita_g: g,
     });
+
+    if (replaceCompId != null) {
+      toast.success(`${selectedFood.nome} sostituito`);
+      onOpenChange(false);
+      return;
+    }
 
     toast.success(`${selectedFood.nome} aggiunto`);
     setAddedCount((n) => n + 1);
@@ -123,7 +138,9 @@ export function FoodSearchSidebar({
       }
     : null;
 
-  const headerTitle = mealLabel
+  const headerTitle = replaceCompId != null
+    ? "Sostituisci alimento"
+    : mealLabel
     ? `Aggiungi a ${mealLabel}`
     : "Aggiungi alimento";
 
@@ -340,17 +357,18 @@ export function FoodSearchSidebar({
                 onClick={handleAdd}
                 disabled={
                   addComponent.isPending ||
+                  deleteComponent.isPending ||
                   !quantita ||
                   parseFloat(quantita) <= 0 ||
                   mealId === null
                 }
               >
-                {addComponent.isPending ? (
+                {addComponent.isPending || deleteComponent.isPending ? (
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 ) : (
                   <Plus className="mr-2 h-5 w-5" />
                 )}
-                Aggiungi al pasto
+                {replaceCompId != null ? "Sostituisci" : "Aggiungi al pasto"}
               </Button>
             </div>
           )}

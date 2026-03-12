@@ -2993,3 +2993,30 @@ export const GIORNO_OPTIONS = [
   { value: 6, label: "Sabato" },
   { value: 7, label: "Domenica" },
 ] as const;
+
+export interface TemplateComponentDetail {
+  id: number;
+  template_id: number;
+  alimento_id: number;
+  alimento_nome: string | null;
+  quantita_g: number;
+  note: string | null;
+  energia_kcal: number;
+  proteine_g: number;
+  carboidrati_g: number;
+  grassi_g: number;
+  fibra_g: number | null;
+}
+
+export interface MealTemplate {
+  id: number;
+  trainer_id: number;
+  nome: string;
+  tipo_pasto: string | null;
+  created_at: string;
+  componenti: TemplateComponentDetail[];
+  totale_kcal: number;
+  totale_proteine_g: number;
+  totale_carboidrati_g: number;
+  totale_grassi_g: number;
+}

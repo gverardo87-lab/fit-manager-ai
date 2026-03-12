@@ -28,6 +28,25 @@ import type {
   PlanMealDetail,
 } from "@/types/api";
 
+// ── Mutation: rinomina/aggiorna pasto ─────────────────────────────────────
+
+export function useUpdateMeal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ planId, mealId, nome }: { planId: number; mealId: number; nome: string }) => {
+      const { data } = await apiClient.put<PlanMealDetail>(
+        `/nutrition/plans/${planId}/meals/${mealId}`,
+        { nome }
+      );
+      return data;
+    },
+    onSuccess: (_data, { planId }) => {
+      queryClient.invalidateQueries({ queryKey: ["nutrition-plan", planId] });
+    },
+    onError: (err) => toast.error(extractErrorMessage(err, "Errore rinomina pasto")),
+  });
+}
+
 // ── Catalogo (read-only) ─────────────────────────────────────────────────
 
 export function useNutritionCategories() {

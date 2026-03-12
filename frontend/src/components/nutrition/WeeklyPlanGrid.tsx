@@ -10,7 +10,7 @@
  */
 
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAddMeal } from "@/hooks/useNutrition";
@@ -60,6 +60,59 @@ function getDailyTotals(pasti: PlanMealDetail[], giorno: number) {
   };
 }
 
+// ── Weekly averages bar ───────────────────────────────────────────────────
+
+function WeeklyAvgBar({ plan, pasti }: { plan: NutritionPlanDetail; pasti: PlanMealDetail[] }) {
+  const days = Array.from(new Set(pasti.map((m) => m.giorno_settimana)));
+  if (days.length === 0) return null;
+
+  const totalsPerDay = days.map((d) => {
+    const meals = pasti.filter((m) => m.giorno_settimana === d);
+    return {
+      kcal: meals.reduce((s, m) => s + m.totale_kcal, 0),
+      p: meals.reduce((s, m) => s + m.totale_proteine_g, 0),
+      c: meals.reduce((s, m) => s + m.totale_carboidrati_g, 0),
+      g: meals.reduce((s, m) => s + m.totale_grassi_g, 0),
+    };
+  });
+
+  const n = totalsPerDay.length;
+  const avg = {
+    kcal: totalsPerDay.reduce((s, d) => s + d.kcal, 0) / n,
+    p: totalsPerDay.reduce((s, d) => s + d.p, 0) / n,
+    c: totalsPerDay.reduce((s, d) => s + d.c, 0) / n,
+    g: totalsPerDay.reduce((s, d) => s + d.g, 0) / n,
+  };
+
+  const target = plan.obiettivo_calorico;
+  const kcalDelta = target ? avg.kcal - target : null;
+
+  return (
+    <div className="rounded-b-lg border border-t-0 bg-muted/10 px-4 py-3">
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <TrendingUp className="h-3.5 w-3.5" />
+          Media su {n} giorn{n === 1 ? "o" : "i"}
+        </div>
+        <Badge variant="secondary" className="text-xs font-bold text-emerald-700 bg-emerald-50">
+          {Math.round(avg.kcal)} kcal
+        </Badge>
+        {kcalDelta !== null && (
+          <span className={`text-xs font-medium ${Math.abs(kcalDelta) <= 100 ? "text-emerald-600" : kcalDelta < 0 ? "text-amber-600" : "text-rose-500"}`}>
+            {kcalDelta > 0 ? "+" : ""}{Math.round(kcalDelta)} vs target {target} kcal
+          </span>
+        )}
+        <span className="text-muted-foreground/30 text-xs hidden sm:inline">·</span>
+        <span className="text-sm text-blue-600 tabular-nums font-medium">P {Math.round(avg.p)}g</span>
+        <span className="text-muted-foreground/30 text-xs">·</span>
+        <span className="text-sm text-amber-600 tabular-nums font-medium">C {Math.round(avg.c)}g</span>
+        <span className="text-muted-foreground/30 text-xs">·</span>
+        <span className="text-sm text-rose-500 tabular-nums font-medium">G {Math.round(avg.g)}g</span>
+      </div>
+    </div>
+  );
+}
+
 // ── Componente principale ─────────────────────────────────────────────────
 
 export function WeeklyPlanGrid({
@@ -100,7 +153,8 @@ export function WeeklyPlanGrid({
   };
 
   return (
-    <div className="overflow-x-auto rounded-lg border bg-background">
+    <div>
+    <div className="overflow-x-auto rounded-t-lg border border-b-0 bg-background">
       <table className="min-w-full text-sm">
         <thead>
           <tr className="border-b bg-muted/30">
@@ -247,6 +301,8 @@ export function WeeklyPlanGrid({
           </tr>
         </tbody>
       </table>
+    </div>
+    <WeeklyAvgBar plan={plan} pasti={pasti} />
     </div>
   );
 }
