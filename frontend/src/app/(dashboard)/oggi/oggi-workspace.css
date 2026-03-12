@@ -1,0 +1,153 @@
+@layer components {
+  .oggi-lift {
+    transition:
+      transform 500ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      box-shadow 500ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .oggi-lift:hover {
+    transform: translateY(-2px);
+  }
+
+  .oggi-glow-teal {
+    box-shadow:
+      0 0 0 0.5px oklch(0.65 0.12 170 / 0.12),
+      0 4px 16px -2px oklch(0.62 0.15 150 / 0.1),
+      0 16px 40px -8px oklch(0.62 0.12 150 / 0.06);
+  }
+
+  .oggi-glow-amber {
+    box-shadow:
+      0 0 0 0.5px oklch(0.75 0.12 70 / 0.1),
+      0 4px 16px -2px oklch(0.75 0.12 70 / 0.1),
+      0 16px 40px -8px oklch(0.75 0.1 70 / 0.06);
+  }
+
+  .oggi-glow-red {
+    box-shadow:
+      0 0 0 0.5px oklch(0.55 0.15 25 / 0.12),
+      0 4px 16px -2px oklch(0.55 0.15 25 / 0.15),
+      0 16px 40px -8px oklch(0.55 0.12 25 / 0.08);
+  }
+
+  .oggi-glow-neutral {
+    box-shadow: 0 1px 3px oklch(0.4 0 0 / 0.04);
+  }
+
+  .oggi-lift:hover.oggi-glow-teal {
+    box-shadow:
+      0 0 0 0.5px oklch(0.65 0.15 170 / 0.18),
+      0 8px 24px -2px oklch(0.62 0.18 150 / 0.16),
+      0 24px 56px -8px oklch(0.62 0.15 150 / 0.1);
+  }
+
+  .oggi-lift:hover.oggi-glow-amber {
+    box-shadow:
+      0 0 0 0.5px oklch(0.75 0.15 70 / 0.15),
+      0 8px 24px -2px oklch(0.75 0.15 70 / 0.14),
+      0 24px 56px -8px oklch(0.75 0.12 70 / 0.08);
+  }
+
+  .oggi-lift:hover.oggi-glow-red {
+    box-shadow:
+      0 0 0 0.5px oklch(0.55 0.18 25 / 0.18),
+      0 8px 24px -2px oklch(0.55 0.18 25 / 0.2),
+      0 24px 56px -8px oklch(0.55 0.15 25 / 0.12);
+  }
+
+  .oggi-lift:hover.oggi-glow-neutral {
+    box-shadow:
+      0 1px 3px oklch(0.4 0 0 / 0.06),
+      0 8px 20px -4px oklch(0.55 0.04 170 / 0.06);
+  }
+
+  .dark .oggi-glow-teal {
+    box-shadow:
+      0 0 0 0.5px oklch(0.4 0.08 170 / 0.25),
+      0 4px 20px -2px oklch(0.3 0.1 170 / 0.3),
+      0 16px 48px -8px oklch(0.25 0.08 170 / 0.2);
+  }
+
+  .dark .oggi-glow-amber {
+    box-shadow:
+      0 0 0 0.5px oklch(0.4 0.08 70 / 0.2),
+      0 4px 20px -2px oklch(0.35 0.1 70 / 0.25);
+  }
+
+  .dark .oggi-glow-red {
+    box-shadow:
+      0 0 0 0.5px oklch(0.35 0.1 25 / 0.25),
+      0 4px 20px -2px oklch(0.3 0.12 25 / 0.3);
+  }
+
+  .dark .oggi-glow-neutral {
+    box-shadow: 0 1px 3px oklch(0 0 0 / 0.4);
+  }
+
+  .dark .oggi-lift:hover.oggi-glow-teal {
+    box-shadow:
+      0 0 0 0.5px oklch(0.45 0.1 170 / 0.35),
+      0 8px 28px -2px oklch(0.3 0.12 170 / 0.4),
+      0 24px 56px -8px oklch(0.25 0.1 170 / 0.25);
+  }
+
+  .dark .oggi-lift:hover.oggi-glow-neutral {
+    box-shadow:
+      0 1px 3px oklch(0 0 0 / 0.5),
+      0 8px 20px -4px oklch(0.2 0.04 170 / 0.15);
+  }
+
+  .oggi-timeline-header {
+    border-bottom: 0.5px solid color-mix(in oklch, var(--border) 76%, var(--primary) 24%);
+  }
+
+  .oggi-timeline-row {
+    border: 0.5px solid transparent;
+    background: color-mix(in oklch, white 82%, var(--background) 18%);
+  }
+
+  .oggi-timeline-row-selected {
+    border-color: color-mix(in oklch, var(--border) 62%, var(--primary) 38%);
+    background: linear-gradient(
+      135deg,
+      color-mix(in oklch, white 78%, var(--chart-4) 22%),
+      color-mix(in oklch, var(--accent) 58%, white 42%)
+    );
+  }
+
+  .dark .oggi-timeline-row {
+    background: color-mix(in oklch, var(--card) 82%, var(--background) 18%);
+  }
+
+  .dark .oggi-timeline-row-selected {
+    border-color: color-mix(in oklch, var(--border) 58%, var(--primary) 42%);
+    background: linear-gradient(
+      135deg,
+      color-mix(in oklch, var(--card) 78%, var(--primary) 22%),
+      color-mix(in oklch, var(--background) 74%, var(--accent) 26%)
+    );
+  }
+
+  @keyframes oggi-pulse {
+    0%,
+    100% {
+      opacity: 0.5;
+    }
+
+    50% {
+      opacity: 1;
+    }
+  }
+
+  .oggi-pulse-dot {
+    animation: oggi-pulse 2s ease-in-out infinite;
+  }
+
+  .oggi-glass-border {
+    border: 0.5px solid oklch(0.8 0.01 200 / 0.15);
+  }
+
+  .dark .oggi-glass-border {
+    border: 0.5px solid oklch(0.5 0.02 200 / 0.12);
+  }
+}

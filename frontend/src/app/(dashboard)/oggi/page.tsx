@@ -1,5 +1,7 @@
 "use client";
 
+import "./oggi-workspace.css";
+
 import { useMemo, useState } from "react";
 import { AlertCircle, RefreshCw } from "lucide-react";
 

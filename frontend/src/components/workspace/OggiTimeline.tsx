@@ -3,6 +3,11 @@
 import { CalendarClock, Clock3 } from "lucide-react";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  surfaceChipClassName,
+  surfaceRoleClassName,
+  type SurfaceTone,
+} from "@/components/ui/surface-role";
 import { cn } from "@/lib/utils";
 import type { SessionPrepItem } from "@/types/api";
 
@@ -56,6 +61,13 @@ export const PREFLIGHT_META: Record<
 };
 
 const TIME_FMT = new Intl.DateTimeFormat("it-IT", { hour: "2-digit", minute: "2-digit" });
+
+function getPreflightTone(status: PreFlightStatus): SurfaceTone {
+  if (status === "ready") return "teal";
+  if (status === "incomplete") return "amber";
+  if (status === "risk" || status === "blocked") return "red";
+  return "neutral";
+}
 
 export function getPreFlightStatus(session: SessionPrepItem): PreFlightStatus {
   if (!session.client_id) return "no_client";
@@ -158,15 +170,9 @@ function TimelineRow({
       type="button"
       onClick={onSelect}
       className={cn(
-        "oggi-lift group flex w-full items-start gap-3 rounded-[22px] px-3.5 py-3 text-left transition-all",
-        selected && meta.glow,
+        "oggi-lift oggi-timeline-row group flex w-full items-start gap-3 rounded-[22px] px-3.5 py-3 text-left transition-all",
+        selected && ["oggi-timeline-row-selected", meta.glow],
       )}
-      style={{
-        border: selected ? "0.5px solid oklch(0.77 0.04 170 / 0.18)" : "0.5px solid transparent",
-        background: selected
-          ? "linear-gradient(135deg, oklch(0.995 0.01 90 / 0.92), oklch(0.984 0.016 175 / 0.68))"
-          : "oklch(1 0 0 / 0.46)",
-      }}
     >
       <div className="w-[3.75rem] shrink-0">
         <p className="text-[14px] font-extrabold tabular-nums tracking-tight text-stone-800 dark:text-zinc-100">
@@ -192,7 +198,12 @@ function TimelineRow({
             {label}
           </p>
           {session.is_new_client && (
-            <span className="rounded-full bg-teal-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-teal-700 dark:text-teal-300">
+            <span
+              className={surfaceChipClassName(
+                { tone: "teal" },
+                "px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em]",
+              )}
+            >
               nuovo
             </span>
           )}
@@ -205,9 +216,10 @@ function TimelineRow({
 
       <span
         className={cn(
-          "shrink-0 rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em]",
-          meta.bg,
-          meta.color,
+          surfaceChipClassName(
+            { tone: getPreflightTone(status) },
+            "shrink-0 text-[9px] font-bold uppercase tracking-[0.12em]",
+          ),
         )}
       >
         {meta.label}
@@ -272,15 +284,10 @@ export function OggiTimeline({
   if (sessions.length === 0) {
     return (
       <div
-        className={cn(
-          "flex flex-col items-center justify-center rounded-[28px] p-10 text-center",
-          className,
+        className={surfaceRoleClassName(
+          { role: "page", tone: "neutral" },
+          cn("flex flex-col items-center justify-center p-10 text-center", className),
         )}
-        style={{
-          border: "0.5px solid oklch(0.82 0.02 170 / 0.12)",
-          background:
-            "linear-gradient(180deg, oklch(0.998 0.006 95 / 0.96), oklch(0.988 0.01 175 / 0.74))",
-        }}
       >
         <CalendarClock className="h-8 w-8 text-stone-300 dark:text-zinc-600" />
         <p className="mt-3 text-sm font-bold text-stone-500 dark:text-zinc-400">
@@ -298,17 +305,12 @@ export function OggiTimeline({
 
   return (
     <div
-      className={cn("flex flex-col overflow-hidden rounded-[28px]", className)}
-      style={{
-        border: "0.5px solid oklch(0.80 0.03 165 / 0.14)",
-        background:
-          "linear-gradient(180deg, oklch(0.998 0.008 92 / 0.98), oklch(0.99 0.012 175 / 0.84) 48%, oklch(0.985 0.014 190 / 0.72))",
-      }}
+      className={surfaceRoleClassName(
+        { role: "page", tone: "neutral" },
+        cn("flex flex-col overflow-hidden", className),
+      )}
     >
-      <div
-        className="flex items-center justify-between gap-3 px-4 py-3.5 sm:px-5"
-        style={{ borderBottom: "0.5px solid oklch(0.82 0.02 170 / 0.10)" }}
-      >
+      <div className="oggi-timeline-header flex items-center justify-between gap-3 px-4 py-3.5 sm:px-5">
         <div className="min-w-0">
           <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-stone-400 dark:text-zinc-500">
             <Clock3 className="h-3.5 w-3.5" />

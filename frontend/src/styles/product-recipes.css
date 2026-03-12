@@ -1,0 +1,183 @@
+@layer components {
+  /* Shared shell roles */
+  .bg-mesh-login {
+    background: linear-gradient(
+      -45deg,
+      oklch(0.97 0.025 173),
+      oklch(0.99 0.005 200),
+      oklch(0.975 0.02 163),
+      oklch(0.985 0.015 185)
+    );
+    background-size: 400% 400%;
+    animation: mesh-float 10s ease infinite;
+  }
+
+  .dark .bg-mesh-login {
+    background: linear-gradient(
+      -45deg,
+      oklch(0.16 0.025 173),
+      oklch(0.14 0.008 200),
+      oklch(0.17 0.02 163),
+      oklch(0.15 0.02 185)
+    );
+    background-size: 400% 400%;
+    animation: mesh-float 10s ease infinite;
+  }
+
+  .bg-mesh-app {
+    background-image: radial-gradient(
+      ellipse 70% 50% at 0% 0%,
+      oklch(0.93 0.04 173 / 0.22) 0%,
+      transparent 65%
+    );
+    background-color: oklch(0.985 0.003 180);
+  }
+
+  .dark .bg-mesh-app {
+    background-image: radial-gradient(
+      ellipse 70% 50% at 0% 0%,
+      oklch(0.28 0.05 173 / 0.3) 0%,
+      transparent 65%
+    );
+    background-color: oklch(0.15 0.01 200);
+  }
+
+  /* Shared surface roles */
+  .fm-surface {
+    --fm-surface-border: color-mix(in oklch, var(--border) 88%, var(--ring) 12%);
+    --fm-surface-bg: linear-gradient(
+      180deg,
+      color-mix(in oklch, var(--card) 90%, white 10%),
+      color-mix(in oklch, var(--background) 84%, var(--accent) 16%)
+    );
+    --fm-surface-shadow:
+      0 18px 48px -32px color-mix(in oklch, var(--foreground) 10%, transparent),
+      var(--shadow-card);
+    border: 1px solid var(--fm-surface-border);
+    background: var(--fm-surface-bg);
+    box-shadow: var(--fm-surface-shadow);
+    color: var(--card-foreground);
+  }
+
+  .fm-surface-page {
+    border-radius: var(--radius-4xl);
+  }
+
+  .fm-surface-hero {
+    border-radius: var(--radius-4xl);
+    --fm-surface-shadow:
+      0 24px 56px -34px color-mix(in oklch, var(--primary) 16%, transparent),
+      var(--shadow-card);
+  }
+
+  .fm-surface-dossier {
+    border-radius: var(--radius-3xl);
+  }
+
+  .fm-surface-context,
+  .fm-surface-chart {
+    border-radius: var(--radius-2xl);
+  }
+
+  .fm-surface-signal {
+    border-radius: var(--radius-xl);
+  }
+
+  .fm-surface-tone-neutral {
+    --fm-surface-border: color-mix(in oklch, var(--border) 92%, var(--ring) 8%);
+    --fm-surface-bg: linear-gradient(
+      180deg,
+      color-mix(in oklch, var(--card) 88%, white 12%),
+      color-mix(in oklch, var(--background) 86%, var(--accent) 14%)
+    );
+  }
+
+  .fm-surface-tone-teal {
+    --fm-surface-border: color-mix(in oklch, var(--border) 74%, var(--primary) 26%);
+    --fm-surface-bg: linear-gradient(
+      145deg,
+      color-mix(in oklch, var(--card) 90%, white 10%),
+      color-mix(in oklch, var(--accent) 66%, var(--background) 34%) 52%,
+      color-mix(in oklch, var(--background) 78%, var(--primary) 22%)
+    );
+    --fm-surface-shadow:
+      0 24px 56px -34px color-mix(in oklch, var(--primary) 16%, transparent),
+      var(--shadow-card);
+  }
+
+  .fm-surface-tone-amber {
+    --fm-surface-border: color-mix(in oklch, var(--border) 72%, var(--chart-5) 28%);
+    --fm-surface-bg: linear-gradient(
+      145deg,
+      color-mix(in oklch, var(--card) 90%, white 10%),
+      color-mix(in oklch, var(--background) 72%, var(--chart-4) 28%)
+    );
+  }
+
+  .fm-surface-tone-red {
+    --fm-surface-border: color-mix(in oklch, var(--border) 72%, var(--destructive) 28%);
+    --fm-surface-bg: linear-gradient(
+      145deg,
+      color-mix(in oklch, var(--card) 90%, white 10%),
+      color-mix(in oklch, var(--background) 74%, var(--destructive) 26%)
+    );
+  }
+
+  .fm-surface-interactive {
+    transition:
+      transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      box-shadow 220ms ease,
+      border-color 220ms ease;
+  }
+
+  .fm-surface-interactive:hover {
+    transform: translateY(-1px);
+  }
+
+  /* Shared semantic chips */
+  .fm-chip {
+    --fm-chip-border: color-mix(in oklch, var(--border) 84%, var(--ring) 16%);
+    --fm-chip-bg: color-mix(in oklch, var(--background) 68%, var(--accent) 32%);
+    --fm-chip-foreground: color-mix(in oklch, var(--foreground) 74%, var(--primary) 26%);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    border: 1px solid var(--fm-chip-border);
+    background: var(--fm-chip-bg);
+    color: var(--fm-chip-foreground);
+    border-radius: 9999px;
+    box-shadow: 0 1px 2px color-mix(in oklch, var(--foreground) 6%, transparent);
+  }
+
+  .fm-chip-emphasis-subtle {
+    padding: 0.25rem 0.625rem;
+  }
+
+  .fm-chip-emphasis-strong {
+    padding: 0.375rem 0.75rem;
+  }
+
+  .fm-chip-tone-neutral {
+    --fm-chip-border: color-mix(in oklch, var(--border) 92%, var(--ring) 8%);
+    --fm-chip-bg: color-mix(in oklch, var(--card) 80%, var(--background) 20%);
+    --fm-chip-foreground: color-mix(in oklch, var(--foreground) 82%, var(--primary) 18%);
+  }
+
+  .fm-chip-tone-teal {
+    --fm-chip-border: color-mix(in oklch, var(--border) 76%, var(--primary) 24%);
+    --fm-chip-bg: color-mix(in oklch, var(--accent) 64%, var(--background) 36%);
+    --fm-chip-foreground: color-mix(in oklch, var(--foreground) 66%, var(--primary) 34%);
+  }
+
+  .fm-chip-tone-amber {
+    --fm-chip-border: color-mix(in oklch, var(--border) 72%, var(--chart-5) 28%);
+    --fm-chip-bg: color-mix(in oklch, var(--background) 70%, var(--chart-4) 30%);
+    --fm-chip-foreground: color-mix(in oklch, var(--foreground) 70%, var(--chart-5) 30%);
+  }
+
+  .fm-chip-tone-red {
+    --fm-chip-border: color-mix(in oklch, var(--border) 72%, var(--destructive) 28%);
+    --fm-chip-bg: color-mix(in oklch, var(--background) 74%, var(--destructive) 26%);
+    --fm-chip-foreground: color-mix(in oklch, var(--foreground) 66%, var(--destructive) 34%);
+  }
+}

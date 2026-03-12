@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Providers } from "@/lib/providers";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
+import "../styles/product-recipes.css";
 
 export const metadata: Metadata = {
   title: "FitManager AI Studio",
