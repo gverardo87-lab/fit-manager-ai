@@ -2,7 +2,6 @@
 
 import { CalendarClock, Clock3 } from "lucide-react";
 
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   surfaceChipClassName,
   surfaceRoleClassName,
@@ -18,49 +17,62 @@ export const PREFLIGHT_META: Record<
   {
     label: string;
     color: string;
-    bg: string;
     dot: string;
-    glow: string;
   }
 > = {
   ready: {
     label: "Pronta",
     color: "text-emerald-700 dark:text-emerald-300",
-    bg: "bg-emerald-500/10",
     dot: "bg-emerald-500",
-    glow: "oggi-glow-teal",
   },
   incomplete: {
     label: "Incompleta",
     color: "text-amber-700 dark:text-amber-300",
-    bg: "bg-amber-500/10",
     dot: "bg-amber-500",
-    glow: "oggi-glow-amber",
   },
   risk: {
     label: "Rischio",
     color: "text-red-700 dark:text-red-300",
-    bg: "bg-red-500/10",
     dot: "bg-red-500",
-    glow: "oggi-glow-red",
   },
   blocked: {
     label: "Bloccata",
     color: "text-red-800 dark:text-red-200",
-    bg: "bg-red-500/15",
     dot: "bg-red-600",
-    glow: "oggi-glow-red",
   },
   no_client: {
     label: "Interna",
     color: "text-stone-500 dark:text-zinc-400",
-    bg: "bg-stone-200/70 dark:bg-zinc-800/70",
     dot: "bg-stone-300 dark:bg-zinc-600",
-    glow: "oggi-glow-neutral",
   },
 };
 
 const TIME_FMT = new Intl.DateTimeFormat("it-IT", { hour: "2-digit", minute: "2-digit" });
+
+const FLOW_GROUP_META: Record<
+  "attention" | "prepared" | "internal",
+  {
+    title: string;
+    description: string;
+    tone: SurfaceTone;
+  }
+> = {
+  attention: {
+    title: "Da sbloccare",
+    description: "Sedute che possono cambiare davvero il lavoro in sala.",
+    tone: "red",
+  },
+  prepared: {
+    title: "In linea",
+    description: "Sedute pronte o da confermare velocemente.",
+    tone: "teal",
+  },
+  internal: {
+    title: "Altri slot",
+    description: "Impegni interni o senza scheda cliente da tenere in sfondo.",
+    tone: "neutral",
+  },
+};
 
 function getPreflightTone(status: PreFlightStatus): SurfaceTone {
   if (status === "ready") return "teal";
@@ -125,7 +137,7 @@ function buildSessionSummary(session: SessionPrepItem, status: PreFlightStatus):
   return parts.slice(0, 3).join(" | ");
 }
 
-function buildGroupLabel(sessions: SessionPrepItem[]): {
+function buildGroups(sessions: SessionPrepItem[]): {
   attention: SessionPrepItem[];
   prepared: SessionPrepItem[];
   internal: SessionPrepItem[];
@@ -150,7 +162,7 @@ function buildGroupLabel(sessions: SessionPrepItem[]): {
   );
 }
 
-function TimelineRow({
+function SessionCard({
   session,
   status,
   selected,
@@ -169,27 +181,45 @@ function TimelineRow({
     <button
       type="button"
       onClick={onSelect}
-      className={cn(
-        "oggi-lift oggi-timeline-row group flex w-full items-start gap-3 rounded-[22px] px-3.5 py-3 text-left transition-all",
-        selected && ["oggi-timeline-row-selected", meta.glow],
+      className={surfaceRoleClassName(
+        {
+          role: "signal",
+          tone: selected ? getPreflightTone(status) : "neutral",
+          interactive: true,
+        },
+        cn("w-full px-3.5 py-3 text-left", selected && "ring-1 ring-primary/12"),
       )}
     >
-      <div className="w-[3.75rem] shrink-0">
-        <p className="text-[14px] font-extrabold tabular-nums tracking-tight text-stone-800 dark:text-zinc-100">
-          {TIME_FMT.format(new Date(session.starts_at))}
-        </p>
-        <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-stone-400 dark:text-zinc-500">
-          {session.category}
-        </p>
-      </div>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span
+              className={surfaceChipClassName(
+                { tone: "neutral" },
+                "px-2 py-0.5 text-[8.5px] font-bold uppercase tracking-[0.14em]",
+              )}
+            >
+              {TIME_FMT.format(new Date(session.starts_at))}
+            </span>
+            <span className={cn("h-2 w-2 shrink-0 rounded-full", meta.dot)} />
+            <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-stone-400 dark:text-zinc-500">
+              {session.category}
+            </span>
+            {session.is_new_client && (
+              <span
+                className={surfaceChipClassName(
+                  { tone: "teal" },
+                  "px-2 py-0.5 text-[8px] font-bold uppercase tracking-[0.14em]",
+                )}
+              >
+                nuovo
+              </span>
+            )}
+          </div>
 
-      <span className={cn("mt-1 h-2.5 w-2.5 shrink-0 rounded-full", meta.dot)} />
-
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
           <p
             className={cn(
-              "truncate text-[13px] font-bold tracking-tight",
+              "mt-2 text-[13px] font-bold tracking-tight",
               session.client_id
                 ? "text-stone-900 dark:text-zinc-50"
                 : "text-stone-600 dark:text-zinc-300",
@@ -197,72 +227,84 @@ function TimelineRow({
           >
             {label}
           </p>
-          {session.is_new_client && (
-            <span
-              className={surfaceChipClassName(
-                { tone: "teal" },
-                "px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em]",
-              )}
-            >
-              nuovo
-            </span>
-          )}
+          <p className="mt-1 text-[10.5px] leading-5 text-stone-500 dark:text-zinc-400">
+            {summary}
+          </p>
         </div>
 
-        <p className="mt-1 text-[11px] leading-5 text-stone-500 dark:text-zinc-400">
-          {summary}
-        </p>
+        <span
+          className={cn(
+            surfaceChipClassName(
+              { tone: getPreflightTone(status) },
+              "shrink-0 text-[8.5px] font-bold uppercase tracking-[0.12em]",
+            ),
+            meta.color,
+          )}
+        >
+          {selected ? "In focus" : meta.label}
+        </span>
       </div>
-
-      <span
-        className={cn(
-          surfaceChipClassName(
-            { tone: getPreflightTone(status) },
-            "shrink-0 text-[9px] font-bold uppercase tracking-[0.12em]",
-          ),
-        )}
-      >
-        {meta.label}
-      </span>
     </button>
   );
 }
 
 function SessionGroup({
-  title,
-  count,
+  group,
   sessions,
   selectedEventId,
   onSelect,
 }: {
-  title: string;
-  count: number;
+  group: "attention" | "prepared" | "internal";
   sessions: SessionPrepItem[];
   selectedEventId: number | null;
   onSelect: (eventId: number) => void;
 }) {
-  if (sessions.length === 0) return null;
+  const meta = FLOW_GROUP_META[group];
 
   return (
-    <section className="space-y-2">
-      <div className="flex items-center justify-between px-1">
-        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-stone-400 dark:text-zinc-500">
-          {title}
-        </p>
-        <span className="text-[10px] font-semibold tabular-nums text-stone-400 dark:text-zinc-500">
-          {count}
+    <section
+      className={surfaceRoleClassName(
+        { role: "context", tone: meta.tone },
+        "flex h-full min-h-0 flex-col px-3.5 py-3.5 sm:px-4",
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-stone-400 dark:text-zinc-500">
+            {meta.title}
+          </p>
+          <p className="mt-1 text-[10.5px] leading-5 text-stone-600 dark:text-zinc-300">
+            {meta.description}
+          </p>
+        </div>
+        <span
+          className={surfaceChipClassName(
+            { tone: meta.tone },
+            "px-2.5 py-1 text-[9px] font-bold tabular-nums",
+          )}
+        >
+          {sessions.length}
         </span>
       </div>
-      <div className="space-y-2">
-        {sessions.map((session) => (
-          <TimelineRow
-            key={session.event_id}
-            session={session}
-            status={getPreFlightStatus(session)}
-            selected={session.event_id === selectedEventId}
-            onSelect={() => onSelect(session.event_id)}
-          />
-        ))}
+
+      <div className="mt-3 space-y-2.5">
+        {sessions.length > 0 ? (
+          sessions.map((session) => (
+            <SessionCard
+              key={session.event_id}
+              session={session}
+              status={getPreFlightStatus(session)}
+              selected={session.event_id === selectedEventId}
+              onSelect={() => onSelect(session.event_id)}
+            />
+          ))
+        ) : (
+          <div className={surfaceRoleClassName({ role: "signal", tone: "neutral" }, "px-3.5 py-3")}>
+            <p className="text-[11px] font-semibold text-stone-500 dark:text-zinc-400">
+              Nessuna seduta in questa fascia.
+            </p>
+          </div>
+        )}
       </div>
     </section>
   );
@@ -286,75 +328,78 @@ export function OggiTimeline({
       <div
         className={surfaceRoleClassName(
           { role: "page", tone: "neutral" },
-          cn("flex flex-col items-center justify-center p-10 text-center", className),
+          cn("flex flex-col items-center justify-center p-8 text-center", className),
         )}
       >
-        <CalendarClock className="h-8 w-8 text-stone-300 dark:text-zinc-600" />
-        <p className="mt-3 text-sm font-bold text-stone-500 dark:text-zinc-400">
+        <CalendarClock className="h-7 w-7 text-stone-300 dark:text-zinc-600" />
+        <p className="mt-2.5 text-[13px] font-bold text-stone-500 dark:text-zinc-400">
           Nessuna seduta in agenda oggi
         </p>
-        <p className="mt-1 text-[11px] text-stone-400 dark:text-zinc-500">
-          La pagina resta pronta per eventuali impegni o follow-up successivi.
+        <p className="mt-1 text-[10px] leading-5 text-stone-400 dark:text-zinc-500">
+          La giornata resta libera: usa l&apos;agenda solo per eventuali impegni interni o follow-up.
         </p>
       </div>
     );
   }
 
-  const groups = buildGroupLabel(sessions);
+  const groups = buildGroups(sessions);
   const clientCount = sessions.filter((session) => Boolean(session.client_id)).length;
 
   return (
     <div
       className={surfaceRoleClassName(
         { role: "page", tone: "neutral" },
-        cn("flex flex-col overflow-hidden", className),
+        cn("px-4 py-4 sm:px-5 sm:py-5", className),
       )}
     >
-      <div className="oggi-timeline-header flex items-center justify-between gap-3 px-4 py-3.5 sm:px-5">
-        <div className="min-w-0">
-          <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-stone-400 dark:text-zinc-500">
-            <Clock3 className="h-3.5 w-3.5" />
-            Sedute di oggi
-          </p>
-          <p className="mt-1 text-[11px] leading-5 text-stone-600 dark:text-zinc-300">
-            Parti dalle sedute che richiedono attenzione, poi scorri la giornata con contesto gia&apos; leggibile.
-          </p>
+      <div className="space-y-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0">
+            <p className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.18em] text-stone-400 dark:text-zinc-500">
+              <Clock3 className="h-3 w-3" />
+              Flusso della giornata
+            </p>
+            <h3 className="mt-1.5 text-[20px] font-extrabold tracking-tight text-stone-900 dark:text-zinc-50">
+              Sedute lette come regia, non come elenco
+            </h3>
+            <p className="mt-1 text-[11px] leading-5 text-stone-600 dark:text-zinc-300">
+              Le fasce della giornata restano compatte: scegli il focus attivo, poi scorri il resto senza aprire una cartella dopo l&apos;altra.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <span className={surfaceChipClassName({ tone: "neutral" }, "px-2.5 py-1 text-[9px] font-bold tabular-nums")}>
+              {clientCount} clienti
+            </span>
+            <span className={surfaceChipClassName({ tone: "red" }, "px-2.5 py-1 text-[9px] font-bold tabular-nums")}>
+              {groups.attention.length} attenzione
+            </span>
+            <span className={surfaceChipClassName({ tone: "teal" }, "px-2.5 py-1 text-[9px] font-bold tabular-nums")}>
+              {groups.prepared.length} in linea
+            </span>
+          </div>
         </div>
-        <div className="text-right">
-          <p className="text-[22px] font-extrabold tabular-nums tracking-tight text-stone-900 dark:text-zinc-50">
-            {clientCount}
-          </p>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400 dark:text-zinc-500">
-            clienti
-          </p>
-        </div>
-      </div>
 
-      <ScrollArea className="min-h-0 flex-1">
-        <div className="space-y-4 p-3 sm:p-3.5">
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,1.08fr)_minmax(0,1.08fr)_minmax(0,0.84fr)]">
           <SessionGroup
-            title="Richiedono attenzione"
-            count={groups.attention.length}
+            group="attention"
             sessions={groups.attention}
             selectedEventId={selectedEventId}
             onSelect={onSelect}
           />
           <SessionGroup
-            title="Pronte o in linea"
-            count={groups.prepared.length}
+            group="prepared"
             sessions={groups.prepared}
             selectedEventId={selectedEventId}
             onSelect={onSelect}
           />
           <SessionGroup
-            title="Altri impegni"
-            count={groups.internal.length}
+            group="internal"
             sessions={groups.internal}
             selectedEventId={selectedEventId}
             onSelect={onSelect}
           />
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 }

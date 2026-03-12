@@ -166,15 +166,15 @@ function ContextTile({
   detail: string;
 }) {
   return (
-    <div className={surfaceRoleClassName({ role: "context", tone: "neutral" }, "px-3.5 py-3")}>
-      <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-stone-400 dark:text-zinc-500">
-        <Icon className="h-3.5 w-3.5" />
+    <div className={surfaceRoleClassName({ role: "context", tone: "neutral" }, "px-3 py-2.5")}>
+      <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.16em] text-stone-400 dark:text-zinc-500">
+        <Icon className="h-3 w-3" />
         {label}
       </div>
-      <p className="mt-2 text-[15px] font-extrabold tracking-tight text-stone-900 dark:text-zinc-50">
+      <p className="mt-1.5 text-[14px] font-extrabold tracking-tight text-stone-900 dark:text-zinc-50">
         {value}
       </p>
-      <p className="mt-1 text-[10px] leading-5 text-stone-500 dark:text-zinc-400">
+      <p className="mt-0.5 text-[9.5px] leading-5 text-stone-500 dark:text-zinc-400">
         {detail}
       </p>
     </div>
@@ -196,9 +196,9 @@ function PrepNotesField({
   };
 
   return (
-    <div className={surfaceRoleClassName({ role: "context", tone: "teal" }, cn("px-4 py-4", className))}>
-      <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-stone-400 dark:text-zinc-500">
-        <NotebookPen className="h-3.5 w-3.5" />
+    <div className={surfaceRoleClassName({ role: "context", tone: "teal" }, cn("px-3.5 py-3.5", className))}>
+      <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.16em] text-stone-400 dark:text-zinc-500">
+        <NotebookPen className="h-3 w-3" />
         Note pre-seduta
       </div>
       <Textarea
@@ -206,9 +206,9 @@ function PrepNotesField({
         onChange={(event) => handleChange(event.target.value)}
         placeholder="Annota una modifica al programma, un vincolo clinico o un follow-up da non dimenticare."
         rows={3}
-        className="mt-3 min-h-24 resize-none border-white/40 bg-white/55 text-[13px] leading-6 text-stone-700 placeholder:text-stone-300 focus-visible:border-ring/60 focus-visible:ring-ring/40 dark:border-white/10 dark:bg-zinc-950/30 dark:text-zinc-300 dark:placeholder:text-zinc-600"
+        className="mt-2.5 min-h-20 resize-none border-white/40 bg-white/55 text-[12px] leading-5 text-stone-700 placeholder:text-stone-300 focus-visible:border-ring/60 focus-visible:ring-ring/40 dark:border-white/10 dark:bg-zinc-950/30 dark:text-zinc-300 dark:placeholder:text-zinc-600"
       />
-      <p className="mt-2 text-[10px] text-stone-400 dark:text-zinc-500">
+      <p className="mt-1.5 text-[9px] text-stone-400 dark:text-zinc-500">
         {note.trim() ? "Salvato localmente su questo dispositivo." : "Vuoto: usa questo spazio per preparare la seduta."}
       </p>
     </div>
@@ -228,14 +228,14 @@ export function OggiCommandCenter({
 }: OggiCommandCenterProps) {
   if (!session) {
     return (
-      <div className={surfaceRoleClassName({ role: "dossier", tone: "neutral" }, cn("flex items-center justify-center p-10 text-center", className))}>
+      <div className={surfaceRoleClassName({ role: "hero", tone: "neutral" }, cn("flex items-center justify-center p-8 text-center", className))}>
         <div className="max-w-sm">
-          <Stethoscope className="mx-auto h-10 w-10 text-stone-300 dark:text-zinc-600" />
-          <p className="mt-4 text-sm font-bold text-stone-600 dark:text-zinc-300">
-            Apri una seduta dalla lista
+          <Stethoscope className="mx-auto h-8 w-8 text-stone-300 dark:text-zinc-600" />
+          <p className="mt-3 text-[13px] font-bold text-stone-600 dark:text-zinc-300">
+            Nessuna seduta in focus
           </p>
-          <p className="mt-1 text-[12px] leading-5 text-stone-500 dark:text-zinc-400">
-            Qui vedrai la scheda pre-seduta con i punti da verificare, il contesto utile e le note operative.
+          <p className="mt-1 text-[11px] leading-5 text-stone-500 dark:text-zinc-400">
+            Quando scegli una seduta dal flusso di oggi, qui resta davanti solo il contesto che puo&apos; cambiare il lavoro in sala.
           </p>
         </div>
       </div>
@@ -244,29 +244,29 @@ export function OggiCommandCenter({
 
   if (!session.client_id) {
     return (
-      <div className={surfaceRoleClassName({ role: "dossier", tone: "neutral" }, cn("p-6 sm:p-7", className))}>
-        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-stone-400 dark:text-zinc-500">
-          Impegno interno
+      <div className={surfaceRoleClassName({ role: "hero", tone: "neutral" }, cn("p-5 sm:p-6", className))}>
+        <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-stone-400 dark:text-zinc-500">
+          Focus interno
         </p>
-        <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-stone-900 dark:text-zinc-50">
+        <h2 className="mt-1.5 text-[22px] font-extrabold tracking-tight text-stone-900 dark:text-zinc-50">
           {session.event_title ?? session.category}
         </h2>
-        <p className="mt-3 text-[13px] leading-6 text-stone-600 dark:text-zinc-300">
-          Questo slot non ha un cliente associato, quindi non richiede una scheda pre-seduta clinica.
+        <p className="mt-2.5 text-[12px] leading-5 text-stone-600 dark:text-zinc-300">
+          Questo slot non ha un cliente associato, quindi resta fuori dalla preparazione pre-seduta vera e propria.
         </p>
         {session.event_notes && (
-          <div className={surfaceRoleClassName({ role: "context", tone: "neutral" }, "mt-5 px-4 py-4")}>
-            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-stone-400 dark:text-zinc-500">
-              <FileText className="h-3.5 w-3.5" />
+          <div className={surfaceRoleClassName({ role: "context", tone: "neutral" }, "mt-4 px-3.5 py-3.5")}>
+            <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.16em] text-stone-400 dark:text-zinc-500">
+              <FileText className="h-3 w-3" />
               Note evento
             </div>
-            <p className="mt-3 text-[13px] leading-6 text-stone-700 dark:text-zinc-300">
+            <p className="mt-2.5 text-[12px] leading-5 text-stone-700 dark:text-zinc-300">
               {session.event_notes}
             </p>
           </div>
         )}
-        <div className="mt-6">
-          <Button asChild className="rounded-full px-4 text-sm font-bold">
+        <div className="mt-5">
+          <Button asChild className="h-9 rounded-full px-3.5 text-[13px] font-bold">
             <Link href="/agenda">
               Apri agenda
               <ArrowRight className="h-4 w-4" />
@@ -282,26 +282,26 @@ export function OggiCommandCenter({
   const hasQuickContext = session.quality_hints.length > 0 || Boolean(session.event_notes);
 
   return (
-    <div className={surfaceRoleClassName({ role: "dossier", tone: "teal" }, cn("p-5 sm:p-6", className))}>
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+    <div className={surfaceRoleClassName({ role: "hero", tone: "teal" }, cn("p-4 sm:p-5", className))}>
+      <div className="flex flex-col gap-3.5">
+        <div className="flex flex-col gap-2.5 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-stone-400 dark:text-zinc-500">
-              Scheda pre-seduta
+            <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-stone-400 dark:text-zinc-500">
+              Focus attivo
             </p>
-            <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-stone-900 dark:text-zinc-50">
+            <h2 className="mt-1.5 text-[26px] font-extrabold tracking-tight text-stone-900 dark:text-zinc-50 sm:text-[28px]">
               {session.client_name}
             </h2>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-stone-500 dark:text-zinc-400">
-              <span className={surfaceChipClassName({ tone: "neutral" }, "font-semibold")}>
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] text-stone-500 dark:text-zinc-400">
+              <span className={surfaceChipClassName({ tone: "neutral" }, "px-2.5 py-1 font-semibold")}>
                 {TIME_FMT.format(new Date(session.starts_at))}
               </span>
               {session.client_age !== null && <span>{session.client_age} anni</span>}
               {session.is_new_client && <span>nuovo cliente</span>}
               {session.client_sex && <span>{session.client_sex}</span>}
             </div>
-            <p className="mt-2 max-w-2xl text-[12px] leading-5 text-stone-600 dark:text-zinc-300">
-              Tieni in alto i punti che possono cambiare la seduta, poi usa note e contesto rapido per entrare in sala senza riaprire tutto il profilo.
+            <p className="mt-1.5 max-w-xl text-[11px] leading-5 text-stone-600 dark:text-zinc-300">
+              Questa e&apos; la seduta che stai preparando adesso: tieni davanti solo cio&apos; che puo&apos; cambiare il lavoro in sala, poi usa note e contesto rapido senza aprire un profilo completo.
             </p>
           </div>
 
@@ -318,25 +318,25 @@ export function OggiCommandCenter({
           </span>
         </div>
 
-        <div className="grid gap-4 2xl:grid-cols-[minmax(0,1.02fr)_minmax(290px,0.98fr)]">
-          <div className="space-y-4">
-            <section className={surfaceRoleClassName({ role: "context", tone: "neutral" }, "px-4 py-4")}>
-              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-stone-400 dark:text-zinc-500">
-                <ShieldAlert className="h-3.5 w-3.5" />
-                Da verificare adesso
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,1.08fr)_minmax(260px,0.92fr)] xl:items-start">
+          <div className="space-y-3">
+            <section className={surfaceRoleClassName({ role: "context", tone: "neutral" }, "px-3.5 py-3.5")}>
+              <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.16em] text-stone-400 dark:text-zinc-500">
+                <ShieldAlert className="h-3 w-3" />
+                Prima di entrare in sala
               </div>
 
               {attentionItems.length > 0 ? (
-                <div className="mt-4 grid gap-2.5 md:grid-cols-2">
+                <div className="mt-3 grid gap-2 md:grid-cols-2">
                   {attentionItems.map((item, index) => (
                     <div
                       key={`${item.title}-${index}`}
-                      className={surfaceRoleClassName({ role: "signal", tone: getAttentionTone(item.tone) }, "px-3.5 py-3")}
+                      className={surfaceRoleClassName({ role: "signal", tone: getAttentionTone(item.tone) }, "px-3 py-2.5")}
                     >
-                      <div className="flex items-start gap-3">
+                      <div className="flex items-start gap-2.5">
                         <CircleAlert
                           className={cn(
-                            "mt-0.5 h-4 w-4 shrink-0",
+                            "mt-0.5 h-3.5 w-3.5 shrink-0",
                             item.tone === "critical"
                               ? "text-red-600 dark:text-red-300"
                               : item.tone === "warning"
@@ -345,10 +345,10 @@ export function OggiCommandCenter({
                           )}
                         />
                         <div>
-                          <p className="text-[13px] font-bold text-stone-900 dark:text-zinc-50">
+                          <p className="text-[12px] font-bold text-stone-900 dark:text-zinc-50">
                             {item.title}
                           </p>
-                          <p className="mt-1 text-[12px] leading-5 text-stone-600 dark:text-zinc-300">
+                          <p className="mt-0.5 text-[11px] leading-5 text-stone-600 dark:text-zinc-300">
                             {item.detail}
                           </p>
                         </div>
@@ -357,11 +357,11 @@ export function OggiCommandCenter({
                   ))}
                 </div>
               ) : (
-                <div className={surfaceRoleClassName({ role: "signal", tone: "teal" }, "mt-4 px-4 py-4")}>
-                  <p className="text-[13px] font-bold text-emerald-700 dark:text-emerald-300">
+                <div className={surfaceRoleClassName({ role: "signal", tone: "teal" }, "mt-3 px-3.5 py-3")}>
+                  <p className="text-[12px] font-bold text-emerald-700 dark:text-emerald-300">
                     Seduta pronta
                   </p>
-                  <p className="mt-1 text-[12px] leading-5 text-emerald-800/80 dark:text-emerald-200/80">
+                  <p className="mt-0.5 text-[11px] leading-5 text-emerald-800/80 dark:text-emerald-200/80">
                     Non emergono blocchi clinico-operativi immediati. Usa note e contesto rapido per entrare in sala con la seduta gia&apos; chiara.
                   </p>
                 </div>
@@ -370,21 +370,21 @@ export function OggiCommandCenter({
 
             <PrepNotesField key={session.event_id} eventId={session.event_id} />
 
-            <div className="flex flex-wrap gap-3">
-              <Button asChild className="rounded-full px-4 text-sm font-bold">
+            <div className="flex flex-wrap gap-2.5 pt-1">
+              <Button asChild className="h-9 rounded-full px-3.5 text-[13px] font-bold">
                 <Link href={appendFromParam(`/clienti/${session.client_id}`, "oggi")}>
                   Apri profilo cliente
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
-              <Button asChild variant="outline" className="rounded-full px-4 text-sm font-bold">
+              <Button asChild variant="outline" className="h-9 rounded-full px-3.5 text-[13px] font-bold">
                 <Link href="/agenda">Vai in agenda</Link>
               </Button>
             </div>
           </div>
 
-          <div className="space-y-4">
-            <section className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-3">
+            <section className="grid gap-2.5 sm:grid-cols-2">
               <ContextTile
                 icon={TrendingUp}
                 label="Readiness"
@@ -416,18 +416,18 @@ export function OggiCommandCenter({
             </section>
 
             {hasQuickContext && (
-              <section className={surfaceRoleClassName({ role: "context", tone: "neutral" }, "px-4 py-4")}>
-                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-stone-400 dark:text-zinc-500">
-                  <UserRound className="h-3.5 w-3.5" />
+              <section className={surfaceRoleClassName({ role: "context", tone: "neutral" }, "px-3.5 py-3.5")}>
+                <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.16em] text-stone-400 dark:text-zinc-500">
+                  <UserRound className="h-3 w-3" />
                   Contesto seduta
                 </div>
 
                 {session.quality_hints.length > 0 && (
-                  <div className="mt-4 space-y-2.5">
+                  <div className="mt-3 space-y-2">
                     {session.quality_hints.slice(0, 3).map((hint, index) => (
                       <p
                         key={`${hint.code}-${index}`}
-                        className="text-[12px] leading-5 text-stone-600 dark:text-zinc-300"
+                        className="text-[11px] leading-5 text-stone-600 dark:text-zinc-300"
                       >
                         {hint.text}
                       </p>
@@ -439,14 +439,14 @@ export function OggiCommandCenter({
                   <div
                     className={surfaceRoleClassName(
                       { role: "signal", tone: "neutral" },
-                      cn(session.quality_hints.length > 0 && "mt-4", "px-3.5 py-3"),
+                      cn(session.quality_hints.length > 0 && "mt-3", "px-3 py-2.5"),
                     )}
                   >
-                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-stone-400 dark:text-zinc-500">
-                      <FileText className="h-3.5 w-3.5" />
+                    <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.16em] text-stone-400 dark:text-zinc-500">
+                      <FileText className="h-3 w-3" />
                       Note appuntamento
                     </div>
-                    <p className="mt-3 text-[13px] leading-6 text-stone-700 dark:text-zinc-300">
+                    <p className="mt-2.5 text-[12px] leading-5 text-stone-700 dark:text-zinc-300">
                       {session.event_notes}
                     </p>
                   </div>

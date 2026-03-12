@@ -1,7 +1,5 @@
 "use client";
 
-import "./oggi-workspace.css";
-
 import { useMemo, useState } from "react";
 import { AlertCircle, RefreshCw } from "lucide-react";
 
@@ -14,9 +12,9 @@ import {
 import { OggiCommandCenter } from "@/components/workspace/OggiCommandCenter";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { surfaceRoleClassName } from "@/components/ui/surface-role";
 import { useSessionPrep, useWorkspaceToday } from "@/hooks/useWorkspace";
 import { usePageReveal } from "@/lib/page-reveal";
-import { cn } from "@/lib/utils";
 import type { OperationalCase, SessionPrepItem } from "@/types/api";
 
 const ATTENTION_STATUSES = new Set<PreFlightStatus>(["blocked", "risk", "incomplete"]);
@@ -110,8 +108,6 @@ export default function OggiWorkspacePage() {
 
   const selectedSession = orderedSessions.find((item) => item.event_id === effectiveSelectedId) ?? null;
   const selectedStatus = selectedSession ? getPreFlightStatus(selectedSession) : "no_client";
-  const priorityStatus = prioritySession ? getPreFlightStatus(prioritySession) : "no_client";
-  const hasExtraAlert = todayQuery.isError;
 
   const sessionSummary = useMemo(() => {
     const readyCount = clientSessions.filter((session) => getPreFlightStatus(session) === "ready").length;
@@ -134,43 +130,26 @@ export default function OggiWorkspacePage() {
 
   if (prepQuery.isLoading || (!prep && !prepQuery.isError)) {
     return (
-      <div className="grid gap-4 lg:grid-cols-[minmax(320px,0.82fr)_minmax(0,1.18fr)] lg:items-start">
-        <Skeleton
-          className={cn(
-            "h-[620px] rounded-[30px] lg:row-start-1",
-            hasExtraAlert ? "lg:row-span-3" : "lg:row-span-2",
-          )}
-        />
-        <OggiHeroSkeleton className="lg:col-start-2 lg:row-start-1" />
-        <div className="space-y-4 lg:col-start-2 lg:row-start-2">
+      <div className="space-y-4">
+        <OggiHeroSkeleton />
+        <div className="space-y-4">
           {todayQuery.isError && (
-            <div
-              className="rounded-2xl px-4 py-3"
-              style={{
-                border: "0.5px solid oklch(0.78 0.02 75 / 0.16)",
-                background: "oklch(0.98 0.01 85 / 0.45)",
-              }}
-            >
+            <div className={surfaceRoleClassName({ role: "context", tone: "amber" }, "px-4 py-3")}>
               <p className="text-[12px] font-semibold text-amber-800 dark:text-amber-300">
                 Le attenzioni extra di oggi non sono disponibili.
               </p>
             </div>
           )}
-          <Skeleton className="h-[500px] rounded-[30px]" />
+          <Skeleton className="h-[460px] rounded-[32px]" />
         </div>
+        <Skeleton className="h-[360px] rounded-[32px]" />
       </div>
     );
   }
 
   if (prepQuery.isError && !prep) {
     return (
-      <div
-        className="rounded-3xl p-6"
-        style={{
-          border: "0.5px solid oklch(0.55 0.15 25 / 0.15)",
-          background: "oklch(0.98 0.005 25 / 0.35)",
-        }}
-      >
+      <div className={surfaceRoleClassName({ role: "hero", tone: "red" }, "p-6")}>
         <div className="flex items-start gap-3">
           <AlertCircle className="mt-0.5 h-5 w-5 text-red-500" />
           <div className="min-w-0 flex-1">
@@ -200,54 +179,21 @@ export default function OggiWorkspacePage() {
   const safePrep = prep!;
 
   return (
-    <div
-      className="grid gap-4 lg:grid-cols-[minmax(320px,0.82fr)_minmax(0,1.18fr)] lg:items-start"
-    >
-      <div
-        className={revealClass(
-          40,
-          cn("lg:col-start-1 lg:row-start-1", hasExtraAlert ? "lg:row-span-3" : "lg:row-span-2"),
-        )}
-        style={revealStyle(40)}
-      >
-        <OggiTimeline
-          sessions={orderedSessions}
-          selectedEventId={effectiveSelectedId}
-          onSelect={setSelectedEventId}
-          className="lg:sticky lg:top-5 lg:h-[calc(100vh-7.5rem)]"
-        />
-      </div>
-
-      <div
-        className={revealClass(0, "lg:col-start-2 lg:row-start-1")}
-        style={revealStyle(0)}
-      >
+    <div className="space-y-4">
+      <div className={revealClass(0)} style={revealStyle(0)}>
         <OggiHero
           prep={safePrep}
           attentionCount={sessionSummary.attentionCount}
           readyCount={sessionSummary.readyCount}
           extraCaseCount={extraCases.length}
           alertClients={safePrep.clients_with_alerts}
-          spotlightSession={prioritySession}
-          spotlightStatus={priorityStatus}
           supportCase={supportCase}
-          onSelectSession={setSelectedEventId}
         />
       </div>
 
       {todayQuery.isError && (
-        <div
-          className={revealClass(20, "lg:col-start-2 lg:row-start-2")}
-          style={revealStyle(20)}
-        >
-          <div
-            className="rounded-2xl px-4 py-3"
-            style={{
-              border: "0.5px solid oklch(0.78 0.03 72 / 0.16)",
-              background:
-                "linear-gradient(135deg, oklch(0.988 0.02 80 / 0.92), oklch(0.984 0.012 55 / 0.80))",
-            }}
-          >
+        <div className={revealClass(12)} style={revealStyle(12)}>
+          <div className={surfaceRoleClassName({ role: "context", tone: "amber" }, "px-4 py-3")}>
             <p className="text-[12px] font-semibold text-amber-800 dark:text-amber-300">
               Le attenzioni extra di oggi non sono disponibili.
             </p>
@@ -259,15 +205,20 @@ export default function OggiWorkspacePage() {
       )}
 
       <div
-        className={revealClass(
-          60,
-          cn("lg:col-start-2", hasExtraAlert ? "lg:row-start-3" : "lg:row-start-2"),
-        )}
-        style={revealStyle(60)}
+        className={revealClass(26)}
+        style={revealStyle(26)}
       >
         <OggiCommandCenter
           session={selectedSession}
           status={selectedStatus}
+        />
+      </div>
+
+      <div className={revealClass(48)} style={revealStyle(48)}>
+        <OggiTimeline
+          sessions={orderedSessions}
+          selectedEventId={effectiveSelectedId}
+          onSelect={setSelectedEventId}
         />
       </div>
     </div>
