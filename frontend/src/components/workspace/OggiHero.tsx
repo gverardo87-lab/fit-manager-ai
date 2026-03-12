@@ -1,14 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
+import type { PreFlightStatus } from "@/components/workspace/OggiTimeline";
 import {
   surfaceChipClassName,
   surfaceRoleClassName,
   type SurfaceTone,
 } from "@/components/ui/surface-role";
 import { cn } from "@/lib/utils";
-import type { SessionPrepResponse } from "@/types/api";
+import type { SessionPrepItem, SessionPrepResponse } from "@/types/api";
 
 const TIME_FMT = new Intl.DateTimeFormat("it-IT", { hour: "2-digit", minute: "2-digit" });
 const DATE_FMT = new Intl.DateTimeFormat("it-IT", {
@@ -17,26 +16,109 @@ const DATE_FMT = new Intl.DateTimeFormat("it-IT", {
   month: "long",
 });
 
-function getDayBrief(
-  prep: SessionPrepResponse,
-  attentionCount: number,
-  readyCount: number,
-): { tone: SurfaceTone; title: string } {
-  if (attentionCount > 0) {
+function getReferenceDate(value: string | number | Date | null | undefined): Date {
+  const nextDate = value ? new Date(value) : new Date();
+  return Number.isNaN(nextDate.getTime()) ? new Date() : nextDate;
+}
+
+function getSessionTimeLabel(startsAt: string): string {
+  return TIME_FMT.format(getReferenceDate(startsAt));
+}
+
+function getFocusBrief({
+  prep,
+  focusSession,
+  focusStatus,
+}: {
+  prep: SessionPrepResponse;
+  focusSession: SessionPrepItem | null;
+  focusStatus: PreFlightStatus | null;
+}): { tone: SurfaceTone; lead: string; detail: string | null } {
+  if (!focusSession) {
+    if (prep.total_sessions > 0) {
+      return {
+        tone: "neutral",
+        lead: "Seleziona una seduta per aprire il focus operativo",
+        detail: "La timeline resta il punto di ingresso per preparazione e verifiche pre-seduta.",
+      };
+    }
+    if (prep.non_client_events.length > 0) {
+      return {
+        tone: "neutral",
+        lead: "Nessuna seduta PT da preparare oggi",
+        detail:
+          prep.non_client_events.length === 1
+            ? "Resta un solo slot interno in agenda."
+            : `Restano ${prep.non_client_events.length} slot interni in agenda.`,
+      };
+    }
     return {
-      tone: "red",
-      title:
-        attentionCount === 1
-          ? "Una seduta chiede attenzione"
-          : `${attentionCount} sedute chiedono attenzione`,
+      tone: "neutral",
+      lead: "Nessuna seduta PT in agenda oggi",
+      detail: "Il workspace resta libero per pianificazione, follow-up o attivita' interne.",
     };
   }
-  if (prep.total_sessions > 0 && readyCount === prep.total_sessions) {
-    return { tone: "teal", title: "La giornata è in linea" };
+
+  const timeLabel = getSessionTimeLabel(focusSession.starts_at);
+
+  if (!focusSession.client_id) {
+    return {
+      tone: "neutral",
+      lead: `Focus interno alle ${timeLabel}`,
+      detail:
+        focusSession.event_title ??
+        focusSession.event_notes?.trim() ??
+        "Impegno interno in agenda.",
+    };
   }
+
+  const name = focusSession.client_name ?? "Seduta cliente";
+
+  if (focusStatus === "blocked") {
+    return {
+      tone: "red",
+      lead: `${name} alle ${timeLabel}: sblocco contrattuale richiesto`,
+      detail: "I crediti risultano esauriti: chiarisci il contratto prima della seduta.",
+    };
+  }
+
+  if (focusStatus === "risk") {
+    return {
+      tone: "red",
+      lead: `${name} alle ${timeLabel}: verifica clinica prima della seduta`,
+      detail:
+        focusSession.clinical_alerts.length === 1
+          ? "E' presente un alert clinico da controllare."
+          : `Sono presenti ${focusSession.clinical_alerts.length} alert clinici da controllare.`,
+    };
+  }
+
+  if (focusStatus === "incomplete") {
+    const pendingChecks = focusSession.health_checks.filter((check) => check.status !== "ok").length;
+    return {
+      tone: "amber",
+      lead: `${name} alle ${timeLabel}: check pre-seduta da completare`,
+      detail:
+        pendingChecks === 1
+          ? "Resta un controllo aperto prima della seduta."
+          : `Restano ${pendingChecks} controlli aperti prima della seduta.`,
+    };
+  }
+
+  if (focusStatus === "ready") {
+    return {
+      tone: "teal",
+      lead: `${name} alle ${timeLabel} e' pronto`,
+      detail: focusSession.active_plan_name
+        ? `Scheda attiva: ${focusSession.active_plan_name}.`
+        : "Nessun blocco immediato rilevato per la seduta.",
+    };
+  }
+
   return {
     tone: "neutral",
-    title: prep.total_sessions > 0 ? "La giornata è sotto controllo" : "Nessuna seduta oggi",
+    lead: `${name} alle ${timeLabel}`,
+    detail: "Focus aperto sulla seduta selezionata.",
   };
 }
 
@@ -44,6 +126,9 @@ export interface OggiHeroProps {
   prep: SessionPrepResponse;
   attentionCount: number;
   readyCount: number;
+  internalCount: number;
+  focusSession: SessionPrepItem | null;
+  focusStatus: PreFlightStatus | null;
   lastUpdatedAt?: number | null;
   isRefreshing?: boolean;
   className?: string;
@@ -53,26 +138,29 @@ export function OggiHero({
   prep,
   attentionCount,
   readyCount,
+  internalCount,
+  focusSession,
+  focusStatus,
   lastUpdatedAt,
   isRefreshing = false,
   className,
 }: OggiHeroProps) {
-  const [now, setNow] = useState(() => new Date());
+  const now = getReferenceDate(prep.current_time);
+  const { tone, lead, detail } = getFocusBrief({
+    prep,
+    focusSession,
+    focusStatus,
+  });
+  const syncLabel = lastUpdatedAt ? TIME_FMT.format(getReferenceDate(lastUpdatedAt)) : null;
 
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(new Date()), 60_000);
-    return () => window.clearInterval(id);
-  }, []);
-
-  const { tone, title } = getDayBrief(prep, attentionCount, readyCount);
-  const syncLabel = lastUpdatedAt ? TIME_FMT.format(new Date(lastUpdatedAt)) : null;
-
-  const titleColor =
+  const leadColor =
     tone === "red"
       ? "text-red-700 dark:text-red-300"
-      : tone === "teal"
-        ? "text-emerald-700 dark:text-emerald-300"
-        : "text-foreground";
+      : tone === "amber"
+        ? "text-amber-700 dark:text-amber-300"
+        : tone === "teal"
+          ? "text-emerald-700 dark:text-emerald-300"
+          : "text-foreground";
 
   return (
     <section className={className}>
@@ -83,20 +171,28 @@ export function OggiHero({
         )}
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          {/* Sinistra: data + status */}
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               {DATE_FMT.format(now)}
-              <span className="mx-2 opacity-40">·</span>
+              <span className="mx-2 opacity-40">|</span>
               {TIME_FMT.format(now)}
+              <span className="mx-2 opacity-40">|</span>
+              preparazione sedute
             </p>
-            <h1 className={cn("mt-1.5 text-[2rem] font-black tracking-tight leading-none", titleColor)}>
-              {title}
+            <h1 className="mt-1 text-[1.9rem] font-black leading-none tracking-tight text-foreground">
+              Oggi
             </h1>
+            <p className={cn("mt-1.5 text-[14px] font-semibold leading-snug sm:text-[15px]", leadColor)}>
+              {lead}
+            </p>
+            {detail && (
+              <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+                {detail}
+              </p>
+            )}
           </div>
 
-          {/* Destra: KPI chips inline + sync */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 sm:max-w-[25rem] sm:justify-end">
             <span
               className={surfaceChipClassName(
                 { tone: "neutral" },
@@ -113,11 +209,11 @@ export function OggiHero({
                   "px-3 py-1.5 text-[11px] font-bold tabular-nums",
                 )}
               >
-                {attentionCount} da sbloccare
+                {attentionCount} da verificare
               </span>
             )}
 
-            {readyCount > 0 && (
+            {attentionCount === 0 && readyCount > 0 && (
               <span
                 className={surfaceChipClassName(
                   { tone: "teal" },
@@ -125,6 +221,17 @@ export function OggiHero({
                 )}
               >
                 {readyCount} {readyCount === 1 ? "pronta" : "pronte"}
+              </span>
+            )}
+
+            {internalCount > 0 && (
+              <span
+                className={surfaceChipClassName(
+                  { tone: "neutral" },
+                  "px-3 py-1.5 text-[11px] font-bold tabular-nums",
+                )}
+              >
+                {internalCount} {internalCount === 1 ? "interno" : "interni"}
               </span>
             )}
 
@@ -141,7 +248,7 @@ export function OggiHero({
                     isRefreshing ? "oggi-pulse-dot bg-amber-500" : "bg-emerald-500",
                   )}
                 />
-                {isRefreshing ? "Sync" : syncLabel}
+                {isRefreshing ? "Sync" : `Agg. ${syncLabel}`}
               </span>
             )}
           </div>

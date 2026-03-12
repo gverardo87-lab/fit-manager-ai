@@ -176,6 +176,9 @@ export default function OggiWorkspacePage() {
           prep={safePrep}
           attentionCount={sessionSummary.attentionCount}
           readyCount={sessionSummary.readyCount}
+          internalCount={safePrep.non_client_events.length}
+          focusSession={selectedSession}
+          focusStatus={selectedSession ? selectedStatus : null}
           lastUpdatedAt={lastUpdatedAt}
           isRefreshing={prepQuery.isFetching || todayQuery.isFetching}
         />
