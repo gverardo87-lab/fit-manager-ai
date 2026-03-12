@@ -15,6 +15,13 @@ import {
   UserRound,
 } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
+import {
+  surfaceChipClassName,
+  surfaceRoleClassName,
+  type SurfaceTone,
+} from "@/components/ui/surface-role";
+import { Textarea } from "@/components/ui/textarea";
 import { appendFromParam } from "@/lib/url-state";
 import { cn } from "@/lib/utils";
 import type { SessionPrepItem } from "@/types/api";
@@ -62,6 +69,19 @@ interface AttentionItem {
   tone: AttentionTone;
   title: string;
   detail: string;
+}
+
+function getPreflightTone(status: PreFlightStatus): SurfaceTone {
+  if (status === "ready") return "teal";
+  if (status === "incomplete") return "amber";
+  if (status === "risk" || status === "blocked") return "red";
+  return "neutral";
+}
+
+function getAttentionTone(tone: AttentionTone): SurfaceTone {
+  if (tone === "critical") return "red";
+  if (tone === "warning") return "amber";
+  return "neutral";
 }
 
 function buildAttentionItems(session: SessionPrepItem, status: PreFlightStatus): AttentionItem[] {
@@ -146,14 +166,7 @@ function ContextTile({
   detail: string;
 }) {
   return (
-    <div
-      className="rounded-[22px] px-3.5 py-3"
-      style={{
-        border: "0.5px solid oklch(0.82 0.02 170 / 0.12)",
-        background:
-          "linear-gradient(180deg, oklch(0.998 0.006 95 / 0.94), oklch(0.988 0.01 170 / 0.76))",
-      }}
-    >
+    <div className={surfaceRoleClassName({ role: "context", tone: "neutral" }, "px-3.5 py-3")}>
       <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-stone-400 dark:text-zinc-500">
         <Icon className="h-3.5 w-3.5" />
         {label}
@@ -183,24 +196,17 @@ function PrepNotesField({
   };
 
   return (
-    <div
-      className={cn("rounded-[24px] px-4 py-4", className)}
-      style={{
-        border: "0.5px solid oklch(0.80 0.03 165 / 0.14)",
-        background:
-          "linear-gradient(180deg, oklch(0.997 0.008 95 / 0.98), oklch(0.988 0.014 170 / 0.78))",
-      }}
-    >
+    <div className={surfaceRoleClassName({ role: "context", tone: "teal" }, cn("px-4 py-4", className))}>
       <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-stone-400 dark:text-zinc-500">
         <NotebookPen className="h-3.5 w-3.5" />
         Note pre-seduta
       </div>
-      <textarea
+      <Textarea
         value={note}
         onChange={(event) => handleChange(event.target.value)}
         placeholder="Annota una modifica al programma, un vincolo clinico o un follow-up da non dimenticare."
         rows={3}
-        className="mt-3 w-full resize-none rounded-xl bg-white/55 px-3 py-2.5 text-[13px] leading-6 text-stone-700 placeholder:text-stone-300 focus:outline-none dark:bg-zinc-950/30 dark:text-zinc-300 dark:placeholder:text-zinc-600"
+        className="mt-3 min-h-24 resize-none border-white/40 bg-white/55 text-[13px] leading-6 text-stone-700 placeholder:text-stone-300 focus-visible:border-ring/60 focus-visible:ring-ring/40 dark:border-white/10 dark:bg-zinc-950/30 dark:text-zinc-300 dark:placeholder:text-zinc-600"
       />
       <p className="mt-2 text-[10px] text-stone-400 dark:text-zinc-500">
         {note.trim() ? "Salvato localmente su questo dispositivo." : "Vuoto: usa questo spazio per preparare la seduta."}
@@ -222,14 +228,7 @@ export function OggiCommandCenter({
 }: OggiCommandCenterProps) {
   if (!session) {
     return (
-      <div
-        className={cn("flex items-center justify-center rounded-[28px] p-10 text-center", className)}
-        style={{
-          border: "0.5px solid oklch(0.82 0.02 170 / 0.12)",
-          background:
-            "linear-gradient(180deg, oklch(0.998 0.006 95 / 0.96), oklch(0.988 0.01 175 / 0.74))",
-        }}
-      >
+      <div className={surfaceRoleClassName({ role: "dossier", tone: "neutral" }, cn("flex items-center justify-center p-10 text-center", className))}>
         <div className="max-w-sm">
           <Stethoscope className="mx-auto h-10 w-10 text-stone-300 dark:text-zinc-600" />
           <p className="mt-4 text-sm font-bold text-stone-600 dark:text-zinc-300">
@@ -245,14 +244,7 @@ export function OggiCommandCenter({
 
   if (!session.client_id) {
     return (
-      <div
-        className={cn("rounded-[28px] p-6 sm:p-7", className)}
-        style={{
-          border: "0.5px solid oklch(0.82 0.02 170 / 0.12)",
-          background:
-            "linear-gradient(180deg, oklch(0.998 0.006 95 / 0.96), oklch(0.988 0.01 175 / 0.74))",
-        }}
-      >
+      <div className={surfaceRoleClassName({ role: "dossier", tone: "neutral" }, cn("p-6 sm:p-7", className))}>
         <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-stone-400 dark:text-zinc-500">
           Impegno interno
         </p>
@@ -263,14 +255,7 @@ export function OggiCommandCenter({
           Questo slot non ha un cliente associato, quindi non richiede una scheda pre-seduta clinica.
         </p>
         {session.event_notes && (
-          <div
-            className="mt-5 rounded-2xl px-4 py-4"
-            style={{
-              border: "0.5px solid oklch(0.82 0.02 170 / 0.12)",
-              background:
-                "linear-gradient(180deg, oklch(0.998 0.006 95 / 0.92), oklch(0.988 0.01 170 / 0.74))",
-            }}
-          >
+          <div className={surfaceRoleClassName({ role: "context", tone: "neutral" }, "mt-5 px-4 py-4")}>
             <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-stone-400 dark:text-zinc-500">
               <FileText className="h-3.5 w-3.5" />
               Note evento
@@ -281,16 +266,12 @@ export function OggiCommandCenter({
           </div>
         )}
         <div className="mt-6">
-          <Link
-            href="/agenda"
-            className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold text-white"
-            style={{
-              background: "linear-gradient(135deg, oklch(0.47 0.11 168), oklch(0.41 0.09 198))",
-            }}
-          >
-            Apri agenda
-            <ArrowRight className="h-4 w-4" />
-          </Link>
+          <Button asChild className="rounded-full px-4 text-sm font-bold">
+            <Link href="/agenda">
+              Apri agenda
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
         </div>
       </div>
     );
@@ -301,14 +282,7 @@ export function OggiCommandCenter({
   const hasQuickContext = session.quality_hints.length > 0 || Boolean(session.event_notes);
 
   return (
-    <div
-      className={cn("rounded-[28px] p-5 sm:p-6", className)}
-      style={{
-        border: "0.5px solid oklch(0.80 0.03 165 / 0.14)",
-        background:
-          "linear-gradient(180deg, oklch(0.998 0.008 92 / 0.98), oklch(0.989 0.013 170 / 0.86) 42%, oklch(0.985 0.016 195 / 0.74))",
-      }}
-    >
+    <div className={surfaceRoleClassName({ role: "dossier", tone: "teal" }, cn("p-5 sm:p-6", className))}>
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
@@ -319,10 +293,7 @@ export function OggiCommandCenter({
               {session.client_name}
             </h2>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-stone-500 dark:text-zinc-400">
-              <span
-                className="rounded-full px-2.5 py-1 font-semibold shadow-sm dark:bg-zinc-950/40"
-                style={{ background: "oklch(1 0 0 / 0.72)" }}
-              >
+              <span className={surfaceChipClassName({ tone: "neutral" }, "font-semibold")}>
                 {TIME_FMT.format(new Date(session.starts_at))}
               </span>
               {session.client_age !== null && <span>{session.client_age} anni</span>}
@@ -336,17 +307,12 @@ export function OggiCommandCenter({
 
           <span
             className={cn(
-              "inline-flex items-center self-start rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em]",
+              surfaceChipClassName(
+                { tone: getPreflightTone(status), emphasis: "strong" },
+                "inline-flex items-center self-start text-[10px] font-bold uppercase tracking-[0.14em]",
+              ),
               meta.color,
             )}
-            style={{
-              background:
-                status === "ready"
-                  ? "oklch(0.62 0.15 150 / 0.10)"
-                  : status === "incomplete"
-                    ? "oklch(0.75 0.12 70 / 0.10)"
-                    : "oklch(0.55 0.15 25 / 0.10)",
-            }}
           >
             {meta.label}
           </span>
@@ -354,14 +320,7 @@ export function OggiCommandCenter({
 
         <div className="grid gap-4 2xl:grid-cols-[minmax(0,1.02fr)_minmax(290px,0.98fr)]">
           <div className="space-y-4">
-            <section
-              className="rounded-[24px] px-4 py-4"
-              style={{
-                border: "0.5px solid oklch(0.80 0.03 165 / 0.14)",
-                background:
-                  "linear-gradient(180deg, oklch(0.997 0.008 95 / 0.98), oklch(0.989 0.014 170 / 0.78))",
-              }}
-            >
+            <section className={surfaceRoleClassName({ role: "context", tone: "neutral" }, "px-4 py-4")}>
               <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-stone-400 dark:text-zinc-500">
                 <ShieldAlert className="h-3.5 w-3.5" />
                 Da verificare adesso
@@ -372,15 +331,7 @@ export function OggiCommandCenter({
                   {attentionItems.map((item, index) => (
                     <div
                       key={`${item.title}-${index}`}
-                      className="rounded-[20px] px-3.5 py-3"
-                      style={{
-                        background:
-                          item.tone === "critical"
-                            ? "linear-gradient(180deg, oklch(0.995 0.012 35 / 0.94), oklch(0.982 0.016 25 / 0.72))"
-                            : item.tone === "warning"
-                              ? "linear-gradient(180deg, oklch(0.997 0.016 88 / 0.96), oklch(0.987 0.022 82 / 0.76))"
-                              : "linear-gradient(180deg, oklch(0.998 0.006 95 / 0.92), oklch(0.988 0.01 170 / 0.72))",
-                      }}
+                      className={surfaceRoleClassName({ role: "signal", tone: getAttentionTone(item.tone) }, "px-3.5 py-3")}
                     >
                       <div className="flex items-start gap-3">
                         <CircleAlert
@@ -406,13 +357,7 @@ export function OggiCommandCenter({
                   ))}
                 </div>
               ) : (
-                <div
-                  className="mt-4 rounded-[20px] px-4 py-4"
-                  style={{
-                    background:
-                      "linear-gradient(180deg, oklch(0.992 0.014 150 / 0.86), oklch(0.982 0.02 160 / 0.62))",
-                  }}
-                >
+                <div className={surfaceRoleClassName({ role: "signal", tone: "teal" }, "mt-4 px-4 py-4")}>
                   <p className="text-[13px] font-bold text-emerald-700 dark:text-emerald-300">
                     Seduta pronta
                   </p>
@@ -426,23 +371,15 @@ export function OggiCommandCenter({
             <PrepNotesField key={session.event_id} eventId={session.event_id} />
 
             <div className="flex flex-wrap gap-3">
-              <Link
-                href={appendFromParam(`/clienti/${session.client_id}`, "oggi")}
-                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold text-white"
-                style={{
-                  background: "linear-gradient(135deg, oklch(0.47 0.11 168), oklch(0.41 0.09 198))",
-                }}
-              >
-                Apri profilo cliente
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link
-                href="/agenda"
-                className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold text-stone-700 transition-colors hover:bg-white/70 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-950/40"
-                style={{ borderColor: "oklch(0.82 0.02 170 / 0.18)" }}
-              >
-                Vai in agenda
-              </Link>
+              <Button asChild className="rounded-full px-4 text-sm font-bold">
+                <Link href={appendFromParam(`/clienti/${session.client_id}`, "oggi")}>
+                  Apri profilo cliente
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="rounded-full px-4 text-sm font-bold">
+                <Link href="/agenda">Vai in agenda</Link>
+              </Button>
             </div>
           </div>
 
@@ -479,14 +416,7 @@ export function OggiCommandCenter({
             </section>
 
             {hasQuickContext && (
-              <section
-                className="rounded-[24px] px-4 py-4"
-                style={{
-                  border: "0.5px solid oklch(0.82 0.02 170 / 0.12)",
-                  background:
-                    "linear-gradient(180deg, oklch(0.998 0.006 95 / 0.94), oklch(0.988 0.01 170 / 0.76))",
-                }}
-              >
+              <section className={surfaceRoleClassName({ role: "context", tone: "neutral" }, "px-4 py-4")}>
                 <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-stone-400 dark:text-zinc-500">
                   <UserRound className="h-3.5 w-3.5" />
                   Contesto seduta
@@ -507,13 +437,10 @@ export function OggiCommandCenter({
 
                 {session.event_notes && (
                   <div
-                    className={cn(
-                      "rounded-[20px] px-3.5 py-3",
-                      session.quality_hints.length > 0 && "mt-4",
+                    className={surfaceRoleClassName(
+                      { role: "signal", tone: "neutral" },
+                      cn(session.quality_hints.length > 0 && "mt-4", "px-3.5 py-3"),
                     )}
-                    style={{
-                      background: "oklch(1 0 0 / 0.62)",
-                    }}
                   >
                     <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-stone-400 dark:text-zinc-500">
                       <FileText className="h-3.5 w-3.5" />

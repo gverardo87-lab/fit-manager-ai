@@ -4,6 +4,12 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, CalendarClock, CircleAlert, Clock3 } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
+import {
+  surfaceChipClassName,
+  surfaceRoleClassName,
+  type SurfaceTone,
+} from "@/components/ui/surface-role";
 import { cn } from "@/lib/utils";
 import type { OperationalCase, SessionPrepItem, SessionPrepResponse } from "@/types/api";
 import type { PreFlightStatus } from "@/components/workspace/OggiTimeline";
@@ -38,6 +44,13 @@ function getSpotlightCopy(session: SessionPrepItem, status: PreFlightStatus): st
   return "Apri la scheda pre-seduta e conferma che tutto sia pronto.";
 }
 
+function getPreflightTone(status: PreFlightStatus): SurfaceTone {
+  if (status === "ready") return "teal";
+  if (status === "incomplete") return "amber";
+  if (status === "risk" || status === "blocked") return "red";
+  return "neutral";
+}
+
 function StatPill({
   label,
   value,
@@ -47,39 +60,10 @@ function StatPill({
   label: string;
   value: number;
   detail: string;
-  tone?: "neutral" | "teal" | "amber" | "red";
+  tone?: SurfaceTone;
 }) {
-  const styles = {
-    neutral: {
-      border: "oklch(0.83 0.02 170 / 0.16)",
-      background:
-        "linear-gradient(180deg, oklch(0.995 0.006 95 / 0.96), oklch(0.986 0.01 170 / 0.72))",
-    },
-    teal: {
-      border: "oklch(0.72 0.08 170 / 0.22)",
-      background:
-        "linear-gradient(180deg, oklch(0.99 0.01 170 / 0.92), oklch(0.97 0.018 170 / 0.68))",
-    },
-    amber: {
-      border: "oklch(0.77 0.08 78 / 0.22)",
-      background:
-        "linear-gradient(180deg, oklch(0.995 0.014 88 / 0.94), oklch(0.985 0.022 82 / 0.72))",
-    },
-    red: {
-      border: "oklch(0.64 0.12 25 / 0.18)",
-      background:
-        "linear-gradient(180deg, oklch(0.995 0.01 35 / 0.96), oklch(0.982 0.014 25 / 0.68))",
-    },
-  }[tone];
-
   return (
-    <div
-      className="rounded-[22px] px-3.5 py-3"
-      style={{
-        border: `0.5px solid ${styles.border}`,
-        background: styles.background,
-      }}
-    >
+    <div className={surfaceRoleClassName({ role: "signal", tone }, "px-3.5 py-3")}>
       <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-stone-400 dark:text-zinc-500">
         {label}
       </p>
@@ -132,23 +116,13 @@ export function OggiHero({
 
   return (
     <section className={className}>
-      <div
-        className="rounded-[30px] px-4 py-4 sm:px-5 sm:py-5"
-        style={{
-          border: "0.5px solid oklch(0.80 0.03 165 / 0.14)",
-          background:
-            "linear-gradient(145deg, oklch(0.997 0.008 95 / 0.98), oklch(0.989 0.013 168 / 0.78) 52%, oklch(0.985 0.016 195 / 0.72))",
-        }}
-      >
+      <div className={surfaceRoleClassName({ role: "hero", tone: "teal" }, "px-4 py-4 sm:px-5 sm:py-5")}>
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start">
           <div className="min-w-0 space-y-3.5">
             <div className="flex flex-wrap items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-400 dark:text-zinc-500">
               <span>Oggi</span>
               <span>{DATE_FMT.format(now)}</span>
-              <span
-                className="rounded-full px-2.5 py-1 text-stone-500 shadow-sm dark:bg-zinc-900/60 dark:text-zinc-400"
-                style={{ background: "oklch(1 0 0 / 0.72)" }}
-              >
+              <span className={surfaceChipClassName({ tone: "neutral" }, "px-2.5 py-1 text-stone-500 dark:text-zinc-400")}>
                 {TIME_FMT.format(now)}
               </span>
             </div>
@@ -164,14 +138,7 @@ export function OggiHero({
             </div>
 
             {supportCase && (
-              <div
-                className="rounded-[22px] px-3.5 py-3"
-                style={{
-                  border: "0.5px solid oklch(0.77 0.05 80 / 0.18)",
-                  background:
-                    "linear-gradient(135deg, oklch(0.994 0.01 90 / 0.94), oklch(0.986 0.016 82 / 0.72))",
-                }}
-              >
+              <div className={surfaceRoleClassName({ role: "signal", tone: "amber" }, "px-3.5 py-3")}>
                 <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                   <div className="min-w-0">
                     <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-amber-700/80 dark:text-amber-300/80">
@@ -230,14 +197,7 @@ export function OggiHero({
           </div>
 
           <div className="xl:w-[320px] xl:shrink-0">
-            <div
-              className="rounded-[26px] p-4 sm:p-5"
-              style={{
-                border: "0.5px solid oklch(0.78 0.03 165 / 0.16)",
-                background:
-                  "linear-gradient(180deg, oklch(0.995 0.008 92 / 0.96), oklch(0.981 0.018 175 / 0.70))",
-              }}
-            >
+            <div className={surfaceRoleClassName({ role: "dossier", tone: "teal" }, "p-4 sm:p-5")}>
               <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-stone-400 dark:text-zinc-500">
                 <CalendarClock className="h-3.5 w-3.5" />
                 Seduta da aprire
@@ -253,17 +213,12 @@ export function OggiHero({
                       {spotlightMeta && (
                         <span
                           className={cn(
-                            "rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em]",
+                            surfaceChipClassName(
+                              { tone: getPreflightTone(spotlightStatus), emphasis: "strong" },
+                              "text-[10px] font-bold uppercase tracking-[0.14em]",
+                            ),
                             spotlightMeta.color,
                           )}
-                          style={{
-                            background:
-                              spotlightStatus === "ready"
-                                ? "oklch(0.62 0.15 150 / 0.10)"
-                                : spotlightStatus === "incomplete"
-                                  ? "oklch(0.75 0.12 70 / 0.10)"
-                                  : "oklch(0.55 0.15 25 / 0.10)",
-                          }}
                         >
                           {spotlightMeta.label}
                         </span>
@@ -280,10 +235,7 @@ export function OggiHero({
                     </div>
                   </div>
 
-                  <div
-                    className="rounded-2xl px-3.5 py-3 shadow-sm dark:bg-zinc-950/40"
-                    style={{ background: "oklch(1 0 0 / 0.68)" }}
-                  >
+                  <div className={surfaceRoleClassName({ role: "context", tone: "neutral" }, "px-3.5 py-3")}>
                     <div className="flex items-center gap-2 text-[11px] text-stone-500 dark:text-zinc-400">
                       <Clock3 className="h-3.5 w-3.5" />
                       <span>
@@ -299,23 +251,18 @@ export function OggiHero({
                     </p>
                   </div>
 
-                  <button
+                  <Button
                     type="button"
+                    size="lg"
+                    className="h-11 w-full rounded-full text-sm font-bold"
                     onClick={() => onSelectSession(spotlightSession.event_id)}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-bold text-white transition-transform hover:-translate-y-0.5"
-                    style={{
-                      background: "linear-gradient(135deg, oklch(0.47 0.11 168), oklch(0.41 0.09 198))",
-                    }}
                   >
                     Apri scheda pre-seduta
                     <ArrowRight className="h-4 w-4" />
-                  </button>
+                  </Button>
                 </div>
               ) : (
-                <div
-                  className="mt-4 rounded-2xl px-4 py-4 shadow-sm dark:bg-zinc-950/40"
-                  style={{ background: "oklch(1 0 0 / 0.68)" }}
-                >
+                <div className={surfaceRoleClassName({ role: "context", tone: "neutral" }, "mt-4 px-4 py-4")}>
                   <div className="flex items-center gap-2 text-stone-500 dark:text-zinc-400">
                     <CircleAlert className="h-4 w-4" />
                     <p className="text-sm font-semibold">Nessuna seduta da preparare</p>
@@ -335,14 +282,7 @@ export function OggiHero({
 
 export function OggiHeroSkeleton({ className }: { className?: string }) {
   return (
-    <div
-      className={cn("rounded-[30px] px-4 py-4 sm:px-5 sm:py-5", className)}
-      style={{
-        border: "0.5px solid oklch(0.80 0.03 165 / 0.12)",
-        background:
-          "linear-gradient(145deg, oklch(0.997 0.008 95 / 0.82), oklch(0.989 0.013 168 / 0.64))",
-      }}
-    >
+    <div className={surfaceRoleClassName({ role: "hero", tone: "neutral" }, cn("px-4 py-4 sm:px-5 sm:py-5", className))}>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-4">
           <div className="h-3 w-44 rounded bg-stone-200/60 dark:bg-white/10" />
