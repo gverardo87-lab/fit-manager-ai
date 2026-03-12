@@ -240,6 +240,7 @@ class SessionPrepItem(BaseModel):
     active_plan_name: str | None = None
     contract_credits_remaining: int | None = None
     contract_credits_total: int | None = None
+    contract_expiring_days: int | None = None
     readiness_score: int | None = None
 
 

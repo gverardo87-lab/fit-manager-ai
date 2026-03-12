@@ -1297,6 +1297,7 @@ export interface SessionPrepItem {
   active_plan_name: string | null;
   contract_credits_remaining: number | null;
   contract_credits_total: number | null;
+  contract_expiring_days: number | null;
   readiness_score: number | null;
 }
 

@@ -10,6 +10,7 @@ import {
   type PreFlightStatus,
 } from "@/components/workspace/OggiTimeline";
 import { OggiCommandCenter } from "@/components/workspace/OggiCommandCenter";
+import { OggiPreSessionCard } from "@/components/workspace/OggiPreSessionCard";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { surfaceRoleClassName } from "@/components/ui/surface-role";
@@ -204,9 +205,15 @@ export default function OggiWorkspacePage() {
         </div>
       )}
 
+      {selectedSession?.client_id && (
+        <div className={revealClass(18)} style={revealStyle(18)}>
+          <OggiPreSessionCard session={selectedSession} />
+        </div>
+      )}
+
       <div
-        className={revealClass(26)}
-        style={revealStyle(26)}
+        className={revealClass(32)}
+        style={revealStyle(32)}
       >
         <OggiCommandCenter
           session={selectedSession}

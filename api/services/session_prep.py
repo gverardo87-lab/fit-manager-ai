@@ -417,6 +417,7 @@ def build_session_prep(
             active_plan_name=readiness.workout_plan_name if readiness else None,
             contract_credits_remaining=cinfo[0] if cinfo else None,
             contract_credits_total=cinfo[1] if cinfo else None,
+            contract_expiring_days=cinfo[2] if cinfo else None,
             readiness_score=readiness.readiness_score if readiness else None,
         ))
 
