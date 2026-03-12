@@ -143,10 +143,10 @@ function NavItem({
           onClick={handleClick}
           data-guide={item.guideId}
           className={cn(
-            "relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+            "relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
             isActive
-              ? "bg-primary/10 text-primary"
-              : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              ? "bg-primary/12 text-primary font-semibold before:absolute before:inset-y-[6px] before:left-0 before:w-[3px] before:rounded-full before:bg-primary before:content-['']"
+              : "text-muted-foreground hover:bg-accent/70 hover:text-foreground"
           )}
         >
           <item.icon className="h-4.5 w-4.5 shrink-0" />
@@ -190,7 +190,7 @@ export function Sidebar({ onNavigate, guidePulse }: SidebarProps) {
     <div className="flex h-full flex-col">
       {/* ── Logo ── */}
       <div className="flex h-16 items-center gap-3 px-5">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary shadow-[0_0_0_3px_oklch(0.52_0.14_173/0.15),0_2px_8px_oklch(0.52_0.14_173/0.25)]">
           <LogoIcon className="h-5 w-5 text-primary-foreground" />
         </div>
         <div className="min-w-0">
@@ -269,7 +269,7 @@ export function Sidebar({ onNavigate, guidePulse }: SidebarProps) {
       <div className="border-t p-4">
         {trainer && (
           <div className="mb-3 flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100 text-sm font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary ring-1 ring-primary/20">
               {trainer.nome[0]}
               {trainer.cognome[0]}
             </div>

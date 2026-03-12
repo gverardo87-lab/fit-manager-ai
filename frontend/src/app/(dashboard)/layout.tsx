@@ -141,14 +141,14 @@ export default function DashboardLayout({
     />
     <div className="bg-mesh-app flex h-screen">
       {/* ── Sidebar desktop (fissa, visibile da lg in su) ── */}
-      <aside className="hidden lg:flex lg:w-64 lg:flex-col lg:border-r lg:bg-white dark:lg:bg-zinc-900">
+      <aside className="hidden lg:flex lg:w-64 lg:flex-col lg:border-r lg:bg-sidebar dark:lg:bg-sidebar">
         <Sidebar guidePulse={shouldShowOnboarding} />
       </aside>
 
       {/* ── Contenuto principale ── */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* ── Header mobile (visibile sotto lg) ── */}
-        <header className="flex h-14 shrink-0 items-center gap-3 border-b bg-white px-4 lg:hidden dark:bg-zinc-900">
+        <header className="flex h-14 shrink-0 items-center gap-3 border-b bg-sidebar px-4 lg:hidden dark:bg-sidebar">
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon-sm">
