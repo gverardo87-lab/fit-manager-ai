@@ -2860,6 +2860,25 @@ export interface Food {
   sodio_mg: number | null;
   acqua_g: number | null;
   colesterolo_mg: number | null;
+  // Minerali
+  calcio_mg: number | null;
+  ferro_mg: number | null;
+  zinco_mg: number | null;
+  magnesio_mg: number | null;
+  fosforo_mg: number | null;
+  potassio_mg: number | null;
+  selenio_ug: number | null;
+  // Vitamine
+  vitamina_a_ug: number | null;
+  vitamina_d_ug: number | null;
+  vitamina_e_mg: number | null;
+  vitamina_c_mg: number | null;
+  vitamina_b1_mg: number | null;
+  vitamina_b2_mg: number | null;
+  vitamina_b3_mg: number | null;
+  vitamina_b6_mg: number | null;
+  vitamina_b9_ug: number | null;
+  vitamina_b12_ug: number | null;
   note: string | null;
   source: string;
   is_active: boolean;

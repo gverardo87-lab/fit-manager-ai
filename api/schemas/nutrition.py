@@ -33,7 +33,7 @@ class FoodCategoryResponse(BaseModel):
 
 
 class FoodResponse(BaseModel):
-    """Alimento con macro per 100g. Esposto via GET /nutrition/foods."""
+    """Alimento con macro e micronutrienti per 100g. Esposto via GET /nutrition/foods."""
     model_config = {"from_attributes": True}
 
     id: int
@@ -55,6 +55,27 @@ class FoodResponse(BaseModel):
     sodio_mg: Optional[float] = None
     acqua_g: Optional[float] = None
     colesterolo_mg: Optional[float] = None
+
+    # Minerali per 100g
+    calcio_mg: Optional[float] = None
+    ferro_mg: Optional[float] = None
+    zinco_mg: Optional[float] = None
+    magnesio_mg: Optional[float] = None
+    fosforo_mg: Optional[float] = None
+    potassio_mg: Optional[float] = None
+    selenio_ug: Optional[float] = None
+
+    # Vitamine per 100g
+    vitamina_a_ug: Optional[float] = None
+    vitamina_d_ug: Optional[float] = None
+    vitamina_e_mg: Optional[float] = None
+    vitamina_c_mg: Optional[float] = None
+    vitamina_b1_mg: Optional[float] = None
+    vitamina_b2_mg: Optional[float] = None
+    vitamina_b3_mg: Optional[float] = None
+    vitamina_b6_mg: Optional[float] = None
+    vitamina_b9_ug: Optional[float] = None
+    vitamina_b12_ug: Optional[float] = None
 
     note: Optional[str] = None
     source: str

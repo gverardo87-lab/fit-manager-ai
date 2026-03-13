@@ -41,11 +41,13 @@ class FoodCategory(SQLModel, table=True):
 
 class Food(SQLModel, table=True):
     """
-    Alimento con macronutrienti per 100g (fonte CREA 2019 / USDA / custom).
+    Alimento con macro e micronutrienti per 100g.
+
+    Fonte: CREA 2019 (Tabelle di Composizione degli Alimenti, IV ed.)
+    integrato con USDA FoodData Central per alimenti senza equivalente CREA.
 
     Tutti i valori nutrizionali riferiti a 100g di prodotto edibile.
-    I campi opzionali (di_cui_zuccheri_g, fibra_g, ecc.) possono essere
-    NULL se il dato non e' disponibile nella fonte.
+    I campi opzionali possono essere NULL se il dato non e' disponibile nella fonte.
     """
     __tablename__ = "alimenti"
 
@@ -69,6 +71,27 @@ class Food(SQLModel, table=True):
     sodio_mg: Optional[float] = None                       # 5.0
     acqua_g: Optional[float] = None                        # 11.8
     colesterolo_mg: Optional[float] = None                 # 0.0
+
+    # Minerali (per 100g) — opzionali
+    calcio_mg: Optional[float] = None                      # 15.0
+    ferro_mg: Optional[float] = None                       # 1.4
+    zinco_mg: Optional[float] = None                       # 1.2
+    magnesio_mg: Optional[float] = None                    # 40.0
+    fosforo_mg: Optional[float] = None                     # 190.0
+    potassio_mg: Optional[float] = None                    # 200.0
+    selenio_ug: Optional[float] = None                     # 30.0
+
+    # Vitamine (per 100g) — opzionali
+    vitamina_a_ug: Optional[float] = None                  # retinolo equivalenti
+    vitamina_d_ug: Optional[float] = None                  # colecalciferolo
+    vitamina_e_mg: Optional[float] = None                  # alfa-tocoferolo
+    vitamina_c_mg: Optional[float] = None                  # acido ascorbico
+    vitamina_b1_mg: Optional[float] = None                 # tiamina
+    vitamina_b2_mg: Optional[float] = None                 # riboflavina
+    vitamina_b3_mg: Optional[float] = None                 # niacina
+    vitamina_b6_mg: Optional[float] = None                 # piridossina
+    vitamina_b9_ug: Optional[float] = None                 # folato
+    vitamina_b12_ug: Optional[float] = None                # cobalamina
 
     note: Optional[str] = None                             # "Valore medio CREA 2019"
     source: str = Field(default="crea")                   # "crea" | "usda" | "custom"
