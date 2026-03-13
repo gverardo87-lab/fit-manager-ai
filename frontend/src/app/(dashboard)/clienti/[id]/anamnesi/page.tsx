@@ -24,6 +24,7 @@ import {
   Link2,
   Loader2,
   Plus,
+  Settings,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,7 @@ import { AnamnesiSummary } from "@/components/clients/anamnesi/AnamnesiSummary";
 import { AnamnesiWizard } from "@/components/clients/anamnesi/AnamnesiWizard";
 import { isStructuredAnamnesi } from "@/components/clients/anamnesi/anamnesi-helpers";
 import { useClient, useCreateShareToken } from "@/hooks/useClients";
+import { useConnectivityStatus } from "@/hooks/useConnectivityStatus";
 import { resolveBackNavigation } from "@/lib/url-state";
 import type { AnamnesiData, ShareTokenResponse } from "@/types/api";
 
@@ -242,8 +244,11 @@ function ShareAnamnesiDialog({
   clientName: string;
 }) {
   const createToken = useCreateShareToken(clientId);
+  const { data: connectivity } = useConnectivityStatus();
   const [result, setResult] = useState<ShareTokenResponse | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const portalEnabled = connectivity?.public_portal_enabled ?? false;
 
   const isLocalhost =
     typeof window !== "undefined" &&
@@ -293,94 +298,128 @@ function ShareAnamnesiDialog({
         <DialogHeader>
           <DialogTitle>Invia Questionario Anamnesi</DialogTitle>
           <DialogDescription>
-            Genera un link monouso per <strong>{clientName}</strong>.
-            Il cliente compila il questionario direttamente dal proprio smartphone.
+            {portalEnabled
+              ? <>Genera un link monouso per <strong>{clientName}</strong>. Il cliente compila il questionario direttamente dal proprio smartphone.</>
+              : "Per inviare il questionario al cliente devi prima attivare il Portale Pubblico."}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 pt-2">
-          {/* Warning localhost — link non funziona dal cellulare (nascosto se PUBLIC_BASE_URL configurato) */}
-          {isLocalhost && !(result?.url.startsWith("http")) && (
-            <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 p-3 text-xs text-amber-800 dark:text-amber-300">
-              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-              <div className="space-y-1">
-                <p className="font-medium">Stai usando localhost</p>
-                <p>
-                  Il link generato funziona solo su questo PC. Per inviarlo al cliente,
-                  accedi al CRM tramite{" "}
-                  <strong>IP LAN</strong> (es.{" "}
-                  <code className="font-mono bg-amber-100 dark:bg-amber-900/50 px-1 rounded">
-                    192.168.1.23:3000
-                  </code>
-                  ) o Tailscale.
+          {/* ── Portale disabilitato: guida passo-passo ── */}
+          {!portalEnabled ? (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 p-4 text-sm text-amber-800 dark:text-amber-300 space-y-3">
+                <div className="flex gap-2.5">
+                  <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
+                  <p className="font-semibold">Portale Pubblico non attivo</p>
+                </div>
+                <p className="text-xs leading-relaxed">
+                  Il Portale Pubblico permette ai tuoi clienti di compilare l&apos;anamnesi
+                  dal proprio smartphone tramite un link sicuro e monouso.
                 </p>
+                <div className="text-xs leading-relaxed space-y-1.5">
+                  <p className="font-medium">Per attivarlo:</p>
+                  <ol className="list-decimal list-inside space-y-1 pl-1">
+                    <li>Vai in <strong>Impostazioni</strong> &rarr; sezione <strong>Connettivit&agrave;</strong></li>
+                    <li>Avvia il <strong>Wizard di configurazione</strong></li>
+                    <li>Seleziona il profilo <strong>&ldquo;Portale Pubblico&rdquo;</strong></li>
+                    <li>Completa i passaggi guidati</li>
+                  </ol>
+                </div>
               </div>
+              <Link href="/impostazioni#connettivita">
+                <Button className="w-full">
+                  <Settings className="mr-2 h-4 w-4" />
+                  Apri Impostazioni Connettivit&agrave;
+                </Button>
+              </Link>
             </div>
-          )}
-          {!result ? (
-            <>
-              <div className="rounded-lg border bg-muted/40 p-3 text-xs text-muted-foreground space-y-1">
-                <p>• Il link &egrave; <strong>monouso</strong>: dopo l&apos;invio non pu&ograve; essere riutilizzato</p>
-                <p>• Scade dopo <strong>48 ore</strong> dalla generazione</p>
-                <p>• I dati vengono salvati direttamente nel profilo cliente</p>
-                <p>• Il link funziona solo mentre FitManager &egrave; aperto</p>
-              </div>
-              <Button
-                className="w-full"
-                onClick={handleGenerate}
-                disabled={createToken.isPending}
-              >
-                {createToken.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Link2 className="mr-2 h-4 w-4" />
-                )}
-                {createToken.isPending ? "Generazione..." : "Genera Link"}
-              </Button>
-            </>
           ) : (
             <>
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground">Link generato</p>
-                <div className="flex gap-2">
-                  <Input
-                    value={fullUrl}
-                    readOnly
-                    className="text-xs font-mono"
-                    onClick={(e) => (e.target as HTMLInputElement).select()}
-                  />
-                  <Button size="icon" variant="outline" onClick={handleCopy} title="Copia link">
-                    {copied ? (
-                      <Check className="h-4 w-4 text-emerald-500" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </Button>
+              {/* Warning localhost — link non funziona dal cellulare (nascosto se PUBLIC_BASE_URL configurato) */}
+              {isLocalhost && !(result?.url.startsWith("http")) && (
+                <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 p-3 text-xs text-amber-800 dark:text-amber-300">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-medium">Stai usando localhost</p>
+                    <p>
+                      Il link generato funziona solo su questo PC. Per inviarlo al cliente,
+                      accedi al CRM tramite{" "}
+                      <strong>IP LAN</strong> (es.{" "}
+                      <code className="font-mono bg-amber-100 dark:bg-amber-900/50 px-1 rounded">
+                        192.168.1.23:3000
+                      </code>
+                      ) o Tailscale.
+                    </p>
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Scade:{" "}
-                  {new Date(result.expires_at).toLocaleString("it-IT", {
-                    day: "numeric",
-                    month: "short",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </p>
-              </div>
+              )}
+              {!result ? (
+                <>
+                  <div className="rounded-lg border bg-muted/40 p-3 text-xs text-muted-foreground space-y-1">
+                    <p>• Il link &egrave; <strong>monouso</strong>: dopo l&apos;invio non pu&ograve; essere riutilizzato</p>
+                    <p>• Scade dopo <strong>48 ore</strong> dalla generazione</p>
+                    <p>• I dati vengono salvati direttamente nel profilo cliente</p>
+                    <p>• Il link funziona solo mentre FitManager &egrave; aperto</p>
+                  </div>
+                  <Button
+                    className="w-full"
+                    onClick={handleGenerate}
+                    disabled={createToken.isPending}
+                  >
+                    {createToken.isPending ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Link2 className="mr-2 h-4 w-4" />
+                    )}
+                    {createToken.isPending ? "Generazione..." : "Genera Link"}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">Link generato</p>
+                    <div className="flex gap-2">
+                      <Input
+                        value={fullUrl}
+                        readOnly
+                        className="text-xs font-mono"
+                        onClick={(e) => (e.target as HTMLInputElement).select()}
+                      />
+                      <Button size="icon" variant="outline" onClick={handleCopy} title="Copia link">
+                        {copied ? (
+                          <Check className="h-4 w-4 text-emerald-500" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Scade:{" "}
+                      {new Date(result.expires_at).toLocaleString("it-IT", {
+                        day: "numeric",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  </div>
 
-              <div className="flex gap-2">
-                <Button className="flex-1 bg-[#25D366] hover:bg-[#1ebe5d] text-white" onClick={handleWhatsApp}>
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  Invia su WhatsApp
-                </Button>
-                <Button variant="outline" className="flex-1" onClick={handleCopy}>
-                  {copied ? (
-                    <><Check className="mr-2 h-4 w-4 text-emerald-500" />Copiato!</>
-                  ) : (
-                    <><Copy className="mr-2 h-4 w-4" />Copia link</>
-                  )}
-                </Button>
-              </div>
+                  <div className="flex gap-2">
+                    <Button className="flex-1 bg-[#25D366] hover:bg-[#1ebe5d] text-white" onClick={handleWhatsApp}>
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      Invia su WhatsApp
+                    </Button>
+                    <Button variant="outline" className="flex-1" onClick={handleCopy}>
+                      {copied ? (
+                        <><Check className="mr-2 h-4 w-4 text-emerald-500" />Copiato!</>
+                      ) : (
+                        <><Copy className="mr-2 h-4 w-4" />Copia link</>
+                      )}
+                    </Button>
+                  </div>
+                </>
+              )}
             </>
           )}
         </div>
