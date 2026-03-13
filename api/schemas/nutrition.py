@@ -444,3 +444,52 @@ class CreateFromTemplateInput(BaseModel):
     nome: str
     data_inizio: Optional[date] = None
     attivo: bool = True
+
+
+# ---------------------------------------------------------------------------
+# Validazione LARN (Nutrition Science Engine)
+# ---------------------------------------------------------------------------
+
+
+class NutrientReferenceResponse(BaseModel):
+    """Valori di riferimento LARN per un nutriente."""
+    nutriente: str
+    unita: str
+    ar: Optional[float] = None
+    pri: Optional[float] = None
+    ai: Optional[float] = None
+    ul: Optional[float] = None
+    fonte: str = "LARN 2014"
+
+
+class NutrientAssessmentResponse(BaseModel):
+    """Valutazione compliance di un singolo nutriente."""
+    nutriente: str
+    unita: str
+    apporto_die: Optional[float]
+    riferimento: NutrientReferenceResponse
+    status: str   # ottimale | sufficiente | carente | eccesso | non_valutabile
+    percentuale_pri: Optional[float] = None
+    nota: Optional[str] = None
+
+
+class MacroDistributionResponse(BaseModel):
+    """Distribuzione macro in % delle calorie."""
+    proteine_pct: float
+    carboidrati_pct: float
+    grassi_pct: float
+    proteine_range: list[float]     # [min, max] LARN
+    carboidrati_range: list[float]
+    grassi_range: list[float]
+
+
+class PlanValidationResponse(BaseModel):
+    """Risultato completo validazione LARN di un piano alimentare."""
+    kcal_die: float
+    macro: MacroDistributionResponse
+    nutrienti: list[NutrientAssessmentResponse]
+    score: int                        # 0-100
+    warnings: list[str]
+    note_metodologiche: str
+    profilo_eta: int
+    profilo_sesso: str

@@ -28,6 +28,7 @@ import type {
   NutritionPlanTemplate,
   NutritionSummary,
   PlanMealDetail,
+  PlanValidationResult,
 } from "@/types/api";
 
 // ── Mutation: rinomina/aggiorna pasto ─────────────────────────────────────
@@ -381,5 +382,24 @@ export function useCopyDay() {
       toast.success(`${n} past${n === 1 ? "o" : "i"} copiati`);
     },
     onError: (err) => toast.error(extractErrorMessage(err, "Errore copia giorno")),
+  });
+}
+
+
+// ---------------------------------------------------------------------------
+// LARN Validation
+// ---------------------------------------------------------------------------
+
+export function usePlanLarnValidation(planId: number | null) {
+  return useQuery({
+    queryKey: ["nutrition-larn-validation", planId],
+    queryFn: async () => {
+      const { data } = await apiClient.get(
+        `/nutrition/plans/${planId}/larn-validation`
+      );
+      return data as PlanValidationResult;
+    },
+    enabled: !!planId,
+    staleTime: 5 * 60 * 1000,
   });
 }

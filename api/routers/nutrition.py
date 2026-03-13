@@ -73,6 +73,10 @@ from api.schemas.nutrition import (
     PlanMealResponse,
     PlanMealUpdate,
     PlanTemplateItem,
+    MacroDistributionResponse,
+    NutrientAssessmentResponse,
+    NutrientReferenceResponse,
+    PlanValidationResponse,
     SaveAsTemplateInput,
     StandardPortionResponse,
     TemplateComponentDetail,
@@ -1519,3 +1523,215 @@ def create_plan_from_template(
         len(tmpl_meals) if tmpl_meals else 0,
     )
     return NutritionPlanResponse.model_validate(plan)
+
+
+# ---------------------------------------------------------------------------
+# LARN VALIDATION — GET /nutrition/plans/{plan_id}/larn-validation
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/nutrition/plans/{plan_id}/larn-validation",
+    response_model=PlanValidationResponse,
+)
+def validate_plan_larn(
+    plan_id: int,
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+    nutrition_session: Session = Depends(get_nutrition_session),
+):
+    """
+    Validazione LARN 2014 del piano alimentare.
+
+    Calcola la media giornaliera di tutti i nutrienti (macro + micro)
+    e li confronta con i livelli di riferimento LARN per il profilo
+    del cliente (eta', sesso). Ritorna score 0-100, warnings e dettaglio
+    per ogni nutriente.
+    """
+    from datetime import date as date_type
+
+    from api.models.client import Client
+    from api.services.nutrition_science import validate_plan as run_validation
+    from api.services.nutrition_science.types import ClientProfile, Sex
+
+    plan = _bouncer_plan(session, plan_id, trainer.id)
+
+    # Fetch client profile
+    client = session.exec(
+        select(Client).where(Client.id == plan.id_cliente)
+    ).first()
+    if not client:
+        raise HTTPException(404, "Cliente non trovato")
+
+    # Calcola eta'
+    if not client.data_nascita:
+        raise HTTPException(
+            422, "Data di nascita del cliente non disponibile — necessaria per validazione LARN"
+        )
+    today = date_type.today()
+    eta = today.year - client.data_nascita.year
+    if (today.month, today.day) < (client.data_nascita.month, client.data_nascita.day):
+        eta -= 1
+
+    # Sesso
+    sesso_raw = (client.sesso or "").upper().strip()
+    if sesso_raw in ("M", "MASCHIO", "UOMO"):
+        sesso = Sex.M
+    elif sesso_raw in ("F", "FEMMINA", "DONNA"):
+        sesso = Sex.F
+    else:
+        raise HTTPException(
+            422, "Sesso del cliente non specificato — necessario per validazione LARN"
+        )
+
+    # Peso (opzionale — da anamnesi JSON se disponibile)
+    peso_kg = None
+    altezza_cm = None
+    if client.anamnesi_json:
+        import json
+        try:
+            anamnesi = json.loads(client.anamnesi_json)
+            peso_kg = anamnesi.get("peso_kg") or anamnesi.get("peso")
+            altezza_cm = anamnesi.get("altezza_cm") or anamnesi.get("altezza")
+            if peso_kg is not None:
+                peso_kg = float(peso_kg)
+            if altezza_cm is not None:
+                altezza_cm = float(altezza_cm)
+        except (json.JSONDecodeError, ValueError, TypeError):
+            pass
+
+    profile = ClientProfile(
+        eta=eta,
+        sesso=sesso,
+        peso_kg=peso_kg,
+        altezza_cm=altezza_cm,
+    )
+
+    # --- Fetch plan data (same pattern as get_nutrition_plan_by_id) ---
+    meals = session.exec(
+        select(PlanMeal).where(
+            PlanMeal.piano_id == plan_id,
+            PlanMeal.deleted_at == None,
+        ).order_by(PlanMeal.giorno_settimana)
+    ).all()
+
+    if not meals:
+        raise HTTPException(
+            422, "Piano senza pasti — impossibile validare"
+        )
+
+    meal_ids = [m.id for m in meals]
+    components_all = session.exec(
+        select(MealComponent).where(
+            MealComponent.pasto_id.in_(meal_ids),
+            MealComponent.deleted_at == None,
+        )
+    ).all()
+
+    if not components_all:
+        raise HTTPException(
+            422, "Piano senza alimenti — impossibile validare"
+        )
+
+    # Fetch foods with all micronutrient data
+    food_ids = list({c.alimento_id for c in components_all})
+    foods = nutrition_session.exec(
+        select(Food).where(Food.id.in_(food_ids))
+    ).all()
+    food_map = {f.id: f for f in foods}
+
+    # --- Calcola totali per giorno, poi media ---
+    giorni_unici = {m.giorno_settimana for m in meals}
+    n_giorni = max(len(giorni_unici), 1)
+
+    # Campi micronutrienti da sommare
+    MICRO_FIELDS = [
+        "calcio_mg", "ferro_mg", "zinco_mg", "magnesio_mg", "fosforo_mg",
+        "potassio_mg", "selenio_ug", "sodio_mg", "fibra_g",
+        "vitamina_a_ug", "vitamina_d_ug", "vitamina_e_mg", "vitamina_c_mg",
+        "vitamina_b1_mg", "vitamina_b2_mg", "vitamina_b3_mg", "vitamina_b6_mg",
+        "vitamina_b9_ug", "vitamina_b12_ug",
+    ]
+
+    total_kcal = 0.0
+    total_prot = 0.0
+    total_carb = 0.0
+    total_fat = 0.0
+    micro_totals: dict[str, float] = {f: 0.0 for f in MICRO_FIELDS}
+    micro_has_data: dict[str, bool] = {f: False for f in MICRO_FIELDS}
+
+    for comp in components_all:
+        food = food_map.get(comp.alimento_id)
+        if not food:
+            continue
+        ratio = comp.quantita_g / 100.0
+        total_kcal += food.energia_kcal * ratio
+        total_prot += food.proteine_g * ratio
+        total_carb += food.carboidrati_g * ratio
+        total_fat += food.grassi_g * ratio
+
+        for field in MICRO_FIELDS:
+            val = getattr(food, field, None)
+            if val is not None:
+                micro_totals[field] += val * ratio
+                micro_has_data[field] = True
+
+    # Media giornaliera
+    kcal_die = total_kcal / n_giorni
+    prot_die = total_prot / n_giorni
+    carb_die = total_carb / n_giorni
+    fat_die = total_fat / n_giorni
+
+    daily_nutrients: dict[str, float | None] = {}
+    for field in MICRO_FIELDS:
+        if micro_has_data[field]:
+            daily_nutrients[field] = micro_totals[field] / n_giorni
+        else:
+            daily_nutrients[field] = None
+
+    # --- Run LARN validation ---
+    result = run_validation(
+        profile=profile,
+        daily_nutrients=daily_nutrients,
+        kcal_die=kcal_die,
+        proteine_g_die=prot_die,
+        carboidrati_g_die=carb_die,
+        grassi_g_die=fat_die,
+    )
+
+    # --- Serialize response ---
+    return PlanValidationResponse(
+        kcal_die=result.kcal_die,
+        macro=MacroDistributionResponse(
+            proteine_pct=result.macro.proteine_pct,
+            carboidrati_pct=result.macro.carboidrati_pct,
+            grassi_pct=result.macro.grassi_pct,
+            proteine_range=list(result.macro.proteine_range),
+            carboidrati_range=list(result.macro.carboidrati_range),
+            grassi_range=list(result.macro.grassi_range),
+        ),
+        nutrienti=[
+            NutrientAssessmentResponse(
+                nutriente=a.nutriente,
+                unita=a.unita,
+                apporto_die=a.apporto_die,
+                riferimento=NutrientReferenceResponse(
+                    nutriente=a.riferimento.nutriente,
+                    unita=a.riferimento.unita,
+                    ar=a.riferimento.ar,
+                    pri=a.riferimento.pri,
+                    ai=a.riferimento.ai,
+                    ul=a.riferimento.ul,
+                ),
+                status=a.status.value,
+                percentuale_pri=a.percentuale_pri,
+                nota=a.nota,
+            )
+            for a in result.nutrienti
+        ],
+        score=result.score,
+        warnings=result.warnings,
+        note_metodologiche=result.note_metodologiche,
+        profilo_eta=profile.eta,
+        profilo_sesso=profile.sesso.value,
+    )

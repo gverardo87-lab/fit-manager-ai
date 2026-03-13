@@ -3062,3 +3062,47 @@ export interface CreateFromTemplateInput {
   data_inizio: string | null;
   attivo: boolean;
 }
+
+// ---------------------------------------------------------------------------
+// Validazione LARN (Nutrition Science Engine)
+// ---------------------------------------------------------------------------
+
+export interface NutrientReference {
+  nutriente: string;
+  unita: string;
+  ar: number | null;
+  pri: number | null;
+  ai: number | null;
+  ul: number | null;
+  fonte: string;
+}
+
+export interface NutrientAssessment {
+  nutriente: string;
+  unita: string;
+  apporto_die: number | null;
+  riferimento: NutrientReference;
+  status: "ottimale" | "sufficiente" | "carente" | "eccesso" | "non_valutabile";
+  percentuale_pri: number | null;
+  nota: string | null;
+}
+
+export interface MacroDistribution {
+  proteine_pct: number;
+  carboidrati_pct: number;
+  grassi_pct: number;
+  proteine_range: [number, number];
+  carboidrati_range: [number, number];
+  grassi_range: [number, number];
+}
+
+export interface PlanValidationResult {
+  kcal_die: number;
+  macro: MacroDistribution;
+  nutrienti: NutrientAssessment[];
+  score: number;
+  warnings: string[];
+  note_metodologiche: string;
+  profilo_eta: number;
+  profilo_sesso: string;
+}
