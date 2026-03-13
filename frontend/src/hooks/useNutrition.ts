@@ -228,6 +228,25 @@ export function useDeleteNutritionPlan(clientId: number) {
   });
 }
 
+// ── Mutation: elimina piano cross-client (per lista globale) ─────────────
+
+export function useDeleteNutritionPlanById() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ clientId, planId }: { clientId: number; planId: number }) => {
+      await apiClient.delete(`/clients/${clientId}/nutrition/plans/${planId}`);
+    },
+    onSuccess: (_data, { clientId, planId }) => {
+      queryClient.invalidateQueries({ queryKey: ["nutrition-plans-all"] });
+      queryClient.invalidateQueries({ queryKey: ["nutrition-plans", clientId] });
+      queryClient.invalidateQueries({ queryKey: ["nutrition-plan", planId] });
+      queryClient.invalidateQueries({ queryKey: ["nutrition-summary", clientId] });
+      toast.success("Piano eliminato");
+    },
+    onError: (err) => toast.error(extractErrorMessage(err, "Errore eliminazione piano")),
+  });
+}
+
 // ── Query: piano template statici ────────────────────────────────────────
 
 export function usePlanTemplates() {
