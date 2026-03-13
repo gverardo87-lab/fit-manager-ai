@@ -40,20 +40,26 @@ from api.models.nutrition import (
     FoodCategory,
     Food,
     MealComponent,
+    MealTemplate,
     NutritionPlan,
     PlanMeal,
     StandardPortion,
+    TemplateComponent,
 )
 from api.models.trainer import Trainer
 from api.schemas.nutrition import (
+    ApplyTemplateResult,
     CopyDayInput,
     CopyDayResult,
+    CreateFromTemplateInput,
     FoodCategoryResponse,
     FoodDetailResponse,
     FoodResponse,
     MealComponentCreate,
     MealComponentDetail,
     MealComponentUpdate,
+    MealTemplateCreate,
+    MealTemplateDetail,
     NutritionPlanCreate,
     NutritionPlanDetail,
     NutritionPlanResponse,
@@ -63,9 +69,16 @@ from api.schemas.nutrition import (
     PlanMealDetail,
     PlanMealResponse,
     PlanMealUpdate,
+    PlanTemplateItem,
+    SaveAsTemplateInput,
     StandardPortionResponse,
+    TemplateComponentDetail,
     TIPO_PASTO_LABELS,
     GIORNO_LABELS,
+)
+from api.services.nutrition_plan_templates import (
+    get_all_templates,
+    get_template_by_id,
 )
 
 logger = logging.getLogger(__name__)
@@ -1129,3 +1142,316 @@ def copy_day(
 
     session.commit()
     return CopyDayResult(pasti_copiati=pasti_copiati, componenti_copiati=componenti_copiati)
+
+
+# ---------------------------------------------------------------------------
+# TEMPLATE PASTI — helper
+# ---------------------------------------------------------------------------
+
+
+def _enrich_template_component(
+    tc: TemplateComponent,
+    food: Optional[Food],
+) -> TemplateComponentDetail:
+    if food is None:
+        return TemplateComponentDetail(
+            id=tc.id, template_id=tc.template_id,
+            alimento_id=tc.alimento_id, quantita_g=tc.quantita_g, note=tc.note,
+        )
+    return TemplateComponentDetail(
+        id=tc.id, template_id=tc.template_id,
+        alimento_id=tc.alimento_id,
+        alimento_nome=food.nome,
+        quantita_g=tc.quantita_g, note=tc.note,
+        energia_kcal=round(food.energia_kcal * tc.quantita_g / 100, 1),
+        proteine_g=round(food.proteine_g * tc.quantita_g / 100, 1),
+        carboidrati_g=round(food.carboidrati_g * tc.quantita_g / 100, 1),
+        grassi_g=round(food.grassi_g * tc.quantita_g / 100, 1),
+        fibra_g=_scale_macro(food.fibra_g, tc.quantita_g),
+    )
+
+
+def _bouncer_template(session: Session, template_id: int, trainer_id: int) -> MealTemplate:
+    tmpl = session.exec(
+        select(MealTemplate).where(
+            MealTemplate.id == template_id,
+            MealTemplate.trainer_id == trainer_id,
+            MealTemplate.deleted_at == None,
+        )
+    ).first()
+    if not tmpl:
+        raise HTTPException(status_code=404, detail="Template non trovato")
+    return tmpl
+
+
+def _build_template_detail(
+    tmpl: MealTemplate,
+    session: Session,
+    nutrition_session: Session,
+) -> MealTemplateDetail:
+    comps = session.exec(
+        select(TemplateComponent).where(
+            TemplateComponent.template_id == tmpl.id,
+            TemplateComponent.deleted_at == None,
+        )
+    ).all()
+    food_ids = list({c.alimento_id for c in comps})
+    food_map: dict[int, Food] = {}
+    if food_ids:
+        foods = nutrition_session.exec(select(Food).where(Food.id.in_(food_ids))).all()
+        food_map = {f.id: f for f in foods}
+
+    enriched = [_enrich_template_component(c, food_map.get(c.alimento_id)) for c in comps]
+    return MealTemplateDetail(
+        id=tmpl.id, trainer_id=tmpl.trainer_id, nome=tmpl.nome,
+        tipo_pasto=tmpl.tipo_pasto, created_at=tmpl.created_at,
+        componenti=enriched,
+        totale_kcal=round(sum(c.energia_kcal for c in enriched), 1),
+        totale_proteine_g=round(sum(c.proteine_g for c in enriched), 1),
+        totale_carboidrati_g=round(sum(c.carboidrati_g for c in enriched), 1),
+        totale_grassi_g=round(sum(c.grassi_g for c in enriched), 1),
+    )
+
+
+# ---------------------------------------------------------------------------
+# TEMPLATE — GET /nutrition/meal-templates
+# ---------------------------------------------------------------------------
+
+
+@router.get("/nutrition/meal-templates", response_model=list[MealTemplateDetail])
+def list_meal_templates(
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+    nutrition_session: Session = Depends(get_nutrition_session),
+):
+    """Lista tutti i template pasto del trainer con componenti arricchiti."""
+    templates = session.exec(
+        select(MealTemplate).where(
+            MealTemplate.trainer_id == trainer.id,
+            MealTemplate.deleted_at == None,
+        ).order_by(MealTemplate.nome)
+    ).all()
+    return [_build_template_detail(t, session, nutrition_session) for t in templates]
+
+
+# ---------------------------------------------------------------------------
+# TEMPLATE — DELETE /nutrition/meal-templates/{template_id}
+# ---------------------------------------------------------------------------
+
+
+@router.delete("/nutrition/meal-templates/{template_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_meal_template(
+    template_id: int,
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """Soft-delete template pasto e tutti i suoi componenti."""
+    tmpl = _bouncer_template(session, template_id, trainer.id)
+    now = datetime.now(timezone.utc)
+    comps = session.exec(
+        select(TemplateComponent).where(
+            TemplateComponent.template_id == template_id,
+            TemplateComponent.deleted_at == None,
+        )
+    ).all()
+    for c in comps:
+        c.deleted_at = now
+        session.add(c)
+    tmpl.deleted_at = now
+    session.add(tmpl)
+    session.commit()
+
+
+# ---------------------------------------------------------------------------
+# TEMPLATE — POST /nutrition/plans/{plan_id}/meals/{meal_id}/save-as-template
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/nutrition/plans/{plan_id}/meals/{meal_id}/save-as-template",
+    response_model=MealTemplateDetail,
+    status_code=status.HTTP_201_CREATED,
+)
+def save_meal_as_template(
+    plan_id: int,
+    meal_id: int,
+    data: SaveAsTemplateInput,
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+    nutrition_session: Session = Depends(get_nutrition_session),
+):
+    """Salva i componenti di un pasto come template riutilizzabile."""
+    _bouncer_plan(session, plan_id, trainer.id)
+    meal = _bouncer_meal(session, meal_id, trainer.id)
+
+    components = session.exec(
+        select(MealComponent).where(
+            MealComponent.pasto_id == meal.id,
+            MealComponent.deleted_at == None,
+        )
+    ).all()
+
+    tmpl = MealTemplate(
+        trainer_id=trainer.id,
+        nome=data.nome,
+        tipo_pasto=data.tipo_pasto or meal.tipo_pasto,
+    )
+    session.add(tmpl)
+    session.flush()
+
+    for comp in components:
+        tc = TemplateComponent(
+            template_id=tmpl.id,
+            alimento_id=comp.alimento_id,
+            quantita_g=comp.quantita_g,
+            note=comp.note,
+        )
+        session.add(tc)
+
+    session.commit()
+    session.refresh(tmpl)
+    return _build_template_detail(tmpl, session, nutrition_session)
+
+
+# ---------------------------------------------------------------------------
+# TEMPLATE — POST /nutrition/plans/{plan_id}/meals/{meal_id}/apply-template/{template_id}
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/nutrition/plans/{plan_id}/meals/{meal_id}/apply-template/{template_id}",
+    response_model=ApplyTemplateResult,
+)
+def apply_template_to_meal(
+    plan_id: int,
+    meal_id: int,
+    template_id: int,
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+    nutrition_session: Session = Depends(get_nutrition_session),
+):
+    """
+    Applica un template a un pasto: aggiunge i componenti del template al pasto.
+
+    Operazione ADDITIVA — non svuota il pasto prima.
+    Verifica cross-DB che ogni alimento del template esista in nutrition.db.
+    """
+    _bouncer_plan(session, plan_id, trainer.id)
+    _bouncer_meal(session, meal_id, trainer.id)
+    tmpl = _bouncer_template(session, template_id, trainer.id)
+
+    tc_list = session.exec(
+        select(TemplateComponent).where(
+            TemplateComponent.template_id == tmpl.id,
+            TemplateComponent.deleted_at == None,
+        )
+    ).all()
+
+    # Batch verifica alimenti in nutrition.db
+    food_ids = list({tc.alimento_id for tc in tc_list})
+    if food_ids:
+        foods = nutrition_session.exec(select(Food).where(Food.id.in_(food_ids))).all()
+        valid_ids = {f.id for f in foods}
+    else:
+        valid_ids = set()
+
+    count = 0
+    for tc in tc_list:
+        if tc.alimento_id not in valid_ids:
+            continue   # alimento rimosso dal catalogo — skip silenzioso
+        comp = MealComponent(
+            pasto_id=meal_id,
+            alimento_id=tc.alimento_id,
+            quantita_g=tc.quantita_g,
+            note=tc.note,
+        )
+        session.add(comp)
+        count += 1
+
+    session.commit()
+    return ApplyTemplateResult(componenti_aggiunti=count)
+
+
+# ---------------------------------------------------------------------------
+# PIANO TEMPLATE STATICI
+# GET  /nutrition/plan-templates          — lista profili pre-impostati
+# POST /nutrition/plans/from-template     — crea piano da profilo
+# ---------------------------------------------------------------------------
+
+
+@router.get("/nutrition/plan-templates", response_model=list[PlanTemplateItem])
+def list_plan_templates(
+    _trainer: Trainer = Depends(get_current_trainer),
+):
+    """Lista dei template piano statici (nessun DB — pure read-only)."""
+    return get_all_templates()
+
+
+@router.post(
+    "/nutrition/plans/from-template",
+    response_model=NutritionPlanResponse,
+    status_code=201,
+)
+def create_plan_from_template(
+    body: CreateFromTemplateInput,
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+):
+    """
+    Crea un piano alimentare pre-impostato da un template statico.
+
+    Il piano viene creato con macro target e note cliniche del profilo scelto.
+    Nessun pasto viene creato: il trainer aggiunge gli alimenti manualmente.
+    """
+    tmpl = get_template_by_id(body.template_id)
+    if tmpl is None:
+        raise HTTPException(status_code=404, detail="Template non trovato")
+
+    # Verifica che il cliente appartenga al trainer (Relational IDOR)
+    from api.models.client import Client
+    client = session.exec(
+        select(Client).where(
+            Client.id == body.id_cliente,
+            Client.trainer_id == trainer.id,
+            Client.deleted_at == None,
+        )
+    ).first()
+    if not client:
+        raise HTTPException(status_code=404, detail="Cliente non trovato")
+
+    plan = NutritionPlan(
+        trainer_id=trainer.id,
+        id_cliente=body.id_cliente,
+        nome=body.nome,
+        obiettivo_calorico=tmpl.obiettivo_calorico,
+        proteine_g_target=tmpl.proteine_g_target,
+        carboidrati_g_target=tmpl.carboidrati_g_target,
+        grassi_g_target=tmpl.grassi_g_target,
+        note_cliniche=tmpl.note_cliniche,
+        data_inizio=body.data_inizio,
+        attivo=body.attivo,
+    )
+
+    # Se attivo=True, disattiva gli altri piani dello stesso cliente
+    if body.attivo:
+        for existing in session.exec(
+            select(NutritionPlan).where(
+                NutritionPlan.trainer_id == trainer.id,
+                NutritionPlan.id_cliente == body.id_cliente,
+                NutritionPlan.attivo == True,
+                NutritionPlan.deleted_at == None,
+            )
+        ).all():
+            existing.attivo = False
+            session.add(existing)
+
+    session.add(plan)
+    session.commit()
+    session.refresh(plan)
+    logger.info(
+        "Piano creato da template '%s' per cliente %d (trainer %d)",
+        body.template_id,
+        body.id_cliente,
+        trainer.id,
+    )
+    return NutritionPlanResponse.model_validate(plan)

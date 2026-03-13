@@ -17,6 +17,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import apiClient, { extractErrorMessage } from "@/lib/api-client";
 import type {
+  CreateFromTemplateInput,
   FoodCategory,
   Food,
   FoodDetail,
@@ -24,6 +25,7 @@ import type {
   NutritionPlanCreate,
   NutritionPlanUpdate,
   NutritionPlanDetail,
+  NutritionPlanTemplate,
   NutritionSummary,
   PlanMealDetail,
 } from "@/types/api";
@@ -220,6 +222,40 @@ export function useDeleteNutritionPlan(clientId: number) {
       toast.success("Piano eliminato");
     },
     onError: (err) => toast.error(extractErrorMessage(err, "Errore eliminazione piano")),
+  });
+}
+
+// ── Query: piano template statici ────────────────────────────────────────
+
+export function usePlanTemplates() {
+  return useQuery({
+    queryKey: ["nutrition-plan-templates"],
+    queryFn: async () => {
+      const { data } = await apiClient.get<NutritionPlanTemplate[]>("/nutrition/plan-templates");
+      return data;
+    },
+    staleTime: Infinity,   // dati statici, non cambiano mai
+  });
+}
+
+// ── Mutation: crea piano da template ─────────────────────────────────────
+
+export function useCreatePlanFromTemplate(clientId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: CreateFromTemplateInput) => {
+      const { data } = await apiClient.post<NutritionPlan>(
+        "/nutrition/plans/from-template",
+        payload
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["nutrition-plans", clientId] });
+      queryClient.invalidateQueries({ queryKey: ["nutrition-summary", clientId] });
+      toast.success("Piano creato dal modello");
+    },
+    onError: (err) => toast.error(extractErrorMessage(err, "Errore creazione piano")),
   });
 }
 

@@ -168,3 +168,44 @@ class MealComponent(SQLModel, table=True):
     note: Optional[str] = None
 
     deleted_at: Optional[datetime] = None
+
+
+# ---------------------------------------------------------------------------
+# crm.db — template pasti riutilizzabili (trainer-owned)
+# ---------------------------------------------------------------------------
+
+
+class MealTemplate(SQLModel, table=True):
+    """
+    Template pasto riutilizzabile creato dal trainer.
+
+    Permette di salvare una combinazione di alimenti (es. "Colazione proteica")
+    e riapplicarla rapidamente a qualsiasi pasto di qualsiasi piano.
+    """
+    __tablename__ = "meal_templates"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    trainer_id: int = Field(foreign_key="trainers.id", index=True)
+    nome: str                              # "Colazione proteica", "Pranzo fit"
+    tipo_pasto: Optional[str] = None       # suggerimento default (nullable)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
+    deleted_at: Optional[datetime] = None
+
+
+class TemplateComponent(SQLModel, table=True):
+    """
+    Componente di un template pasto.
+
+    Stessa struttura di MealComponent ma legato a MealTemplate.
+    alimento_id e' cross-DB reference verso nutrition.db (no FK constraint).
+    """
+    __tablename__ = "template_components"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    template_id: int = Field(foreign_key="meal_templates.id", index=True)
+    alimento_id: int = Field(index=True)   # cross-DB ref → nutrition.db
+    quantita_g: float
+    note: Optional[str] = None
+    deleted_at: Optional[datetime] = None

@@ -53,7 +53,6 @@ export default function NutrizionePage() {
   const [clientFilter, setClientFilter] = useState<string>("__all__");
   const [soloAttivi, setSoloAttivi] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [sheetClientId, setSheetClientId] = useState<number | null>(null);
 
   const { data: clients = [] } = useClients();
   const { data: plans = [], isLoading } = useAllNutritionPlans();
@@ -86,7 +85,7 @@ export default function NutrizionePage() {
           <h1 className="text-2xl font-bold tracking-tight">Nutrizione</h1>
           <p className="text-sm text-muted-foreground">Piani alimentari personalizzati per i clienti</p>
         </div>
-        <Button onClick={() => { setSheetClientId(null); setSheetOpen(true); }}>
+        <Button onClick={() => setSheetOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
           <span className="hidden sm:inline">Nuovo Piano</span>
         </Button>
@@ -212,7 +211,7 @@ export default function NutrizionePage() {
       <NutritionPlanSheet
         open={sheetOpen}
         onOpenChange={setSheetOpen}
-        clientId={sheetClientId ?? (clientFilter !== "__all__" ? parseInt(clientFilter) : 0)}
+        clientId={clientFilter !== "__all__" ? parseInt(clientFilter) : null}
         plan={null}
       />
     </div>

@@ -307,3 +307,84 @@ class CopyDayInput(BaseModel):
 class CopyDayResult(BaseModel):
     pasti_copiati: int
     componenti_copiati: int
+
+
+# ---------------------------------------------------------------------------
+# Template pasti
+# ---------------------------------------------------------------------------
+
+
+class MealTemplateCreate(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    nome: str
+    tipo_pasto: Optional[str] = None
+
+
+class SaveAsTemplateInput(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    nome: str                  # nome del nuovo template
+    tipo_pasto: Optional[str] = None
+
+
+class ApplyTemplateResult(BaseModel):
+    componenti_aggiunti: int
+
+
+class TemplateComponentDetail(BaseModel):
+    model_config = {"from_attributes": True}
+
+    id: int
+    template_id: int
+    alimento_id: int
+    alimento_nome: Optional[str] = None
+    quantita_g: float
+    note: Optional[str] = None
+    energia_kcal: float = 0.0
+    proteine_g: float = 0.0
+    carboidrati_g: float = 0.0
+    grassi_g: float = 0.0
+    fibra_g: Optional[float] = None
+
+
+class MealTemplateDetail(BaseModel):
+    model_config = {"from_attributes": True}
+
+    id: int
+    trainer_id: int
+    nome: str
+    tipo_pasto: Optional[str] = None
+    created_at: datetime
+    componenti: list[TemplateComponentDetail] = []
+    totale_kcal: float = 0.0
+    totale_proteine_g: float = 0.0
+    totale_carboidrati_g: float = 0.0
+    totale_grassi_g: float = 0.0
+
+
+# ---------------------------------------------------------------------------
+# Piano template statici
+# ---------------------------------------------------------------------------
+
+
+class PlanTemplateItem(BaseModel):
+    id: str
+    nome: str
+    descrizione: str
+    tags: list[str]
+    obiettivo_calorico: int
+    proteine_g_target: int
+    carboidrati_g_target: int
+    grassi_g_target: int
+    note_cliniche: str
+
+
+class CreateFromTemplateInput(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    template_id: str
+    id_cliente: int
+    nome: str
+    data_inizio: Optional[date] = None
+    attivo: bool = True

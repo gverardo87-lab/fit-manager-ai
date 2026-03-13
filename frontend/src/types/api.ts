@@ -3020,3 +3020,23 @@ export interface MealTemplate {
   totale_carboidrati_g: number;
   totale_grassi_g: number;
 }
+
+export interface NutritionPlanTemplate {
+  id: string;
+  nome: string;
+  descrizione: string;
+  tags: string[];
+  obiettivo_calorico: number;
+  proteine_g_target: number;
+  carboidrati_g_target: number;
+  grassi_g_target: number;
+  note_cliniche: string;
+}
+
+export interface CreateFromTemplateInput {
+  template_id: string;
+  id_cliente: number;
+  nome: string;
+  data_inizio: string | null;
+  attivo: boolean;
+}
