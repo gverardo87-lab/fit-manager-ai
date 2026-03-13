@@ -167,12 +167,16 @@ export default function PublicAnamnesiPage({
   return (
     <div className="min-h-screen bg-mesh-login flex flex-col items-center justify-start px-4 py-8 gap-6">
 
-      {/* Logo + brand */}
-      <div className="flex items-center gap-2 text-white">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20">
-          <LogoIcon className="h-5 w-5 text-white" />
+      {/* Logo professionista */}
+      <div className="flex flex-col items-center gap-1">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/95 shadow-lg ring-1 ring-white/20 backdrop-blur-sm">
+          <img
+            src="/logo_cb.png"
+            alt="CB Chinesiologa"
+            className="h-11 w-11 object-contain"
+          />
         </div>
-        <span className="text-lg font-semibold tracking-tight">FitManager</span>
+        <span className="text-[11px] font-medium tracking-wide text-white/70">Dott.ssa Chiara Bassani</span>
       </div>
 
       {/* ── Loading ── */}

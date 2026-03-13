@@ -261,7 +261,7 @@ function WelcomeCard({ exerciseCount }: { exerciseCount: number }) {
             <Sparkles className="h-7 w-7 text-primary" />
           </div>
           <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
-            Benvenuto in FitManager AI Studio
+            Benvenuto in FitManager Studio+
           </h2>
           <p className="mt-2 max-w-lg text-sm text-muted-foreground">
             Il tuo gestionale fitness e&apos; pronto. Inizia aggiungendo il primo cliente

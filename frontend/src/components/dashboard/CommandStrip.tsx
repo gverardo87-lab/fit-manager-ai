@@ -86,7 +86,7 @@ export function CommandStrip({ summary, todayEvents, dateAnchor }: CommandStripP
         {/* Left: greeting + date + live status */}
         <div className="min-w-0 flex-1">
           <h1 className="text-xl font-bold tracking-tight text-white sm:text-2xl">
-            {getGreeting()}{trainerName ? `, ${trainerName}` : ""}
+            {getGreeting()}, Dott.ssa Chiara Bassani
           </h1>
           <p className="mt-1 text-sm font-medium capitalize text-white/60">
             {dateLabel}

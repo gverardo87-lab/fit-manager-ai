@@ -264,7 +264,7 @@ function renderCover(data: ClinicalPdfExportData): string {
   }
   return `
     <section class="page cover">
-      <div class="brand">FitManager AI Studio</div>
+      <div class="brand">FitManager Studio+</div>
       <h1>${escapeHtml(data.nome)}</h1>
       <p class="sub">SCHEDA DI ALLENAMENTO</p>
       <ul class="cover-grid">${info.join("")}</ul>

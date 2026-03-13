@@ -160,24 +160,26 @@ export default function LoginPage() {
       <div className="pointer-events-none absolute -bottom-20 -right-20 h-80 w-80 rounded-full bg-primary/6 blur-3xl" />
 
       <Card className="relative w-full max-w-sm shadow-lg sm:max-w-md">
-        <CardHeader className="space-y-3 text-center">
-          {/* Logo */}
+        <CardHeader className="space-y-4 text-center">
+          {/* Logo professionale */}
           <div className="mx-auto">
             <Image
-              src="/logo.png"
-              alt="FitManager AI Studio"
-              width={200}
-              height={60}
-              className="h-16 w-auto object-contain"
+              src="/logo_cb.png"
+              alt="CB Chinesiologa"
+              width={180}
+              height={100}
+              className="h-20 w-auto object-contain"
               priority
             />
           </div>
-          <CardTitle className="sr-only">
-            FitManager AI Studio
-          </CardTitle>
-          <CardDescription>
-            Accedi al tuo gestionale fitness
-          </CardDescription>
+          <div>
+            <CardTitle className="text-base font-semibold tracking-tight text-foreground/80">
+              FitManager Studio+
+            </CardTitle>
+            <CardDescription className="mt-1">
+              Accedi al tuo gestionale fitness
+            </CardDescription>
+          </div>
         </CardHeader>
 
         <CardContent>

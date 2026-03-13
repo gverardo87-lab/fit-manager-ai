@@ -12,7 +12,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "FitManager AI Studio",
+  title: "FitManager Studio+",
   description: "CRM gestionale per personal trainer - privacy first, zero cloud.",
 };
 

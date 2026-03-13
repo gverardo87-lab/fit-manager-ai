@@ -230,7 +230,7 @@ async def lifespan(app: FastAPI):
 # --- App FastAPI ---
 
 app = FastAPI(
-    title="FitManager AI Studio API",
+    title="FitManager Studio+ API",
     version=__version__,
     description="REST API per il CRM fitness. Multi-tenant, JWT auth, database-agnostic.",
     lifespan=lifespan,

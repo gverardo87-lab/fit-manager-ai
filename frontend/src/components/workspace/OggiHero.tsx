@@ -7,6 +7,8 @@ import {
   type SurfaceTone,
 } from "@/components/ui/surface-role";
 import { cn } from "@/lib/utils";
+import { getGreeting } from "@/lib/dashboard-helpers";
+import { AnalogClock } from "@/components/workspace/AnalogClock";
 import type { SessionPrepItem, SessionPrepResponse } from "@/types/api";
 
 const TIME_FMT = new Intl.DateTimeFormat("it-IT", { hour: "2-digit", minute: "2-digit" });
@@ -175,13 +177,17 @@ export function OggiHero({
             <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
               <span>{DATE_FMT.format(now)}</span>
               <span className="h-1 w-1 rounded-full bg-current opacity-25" />
-              <span className="tabular-nums">{TIME_FMT.format(now)}</span>
-              <span className="h-1 w-1 rounded-full bg-current opacity-25" />
               <span>preparazione sedute</span>
             </p>
-            <h1 className="oggi-title-gradient mt-2 text-[2.2rem] font-black leading-none tracking-tight sm:text-[2.5rem]">
-              Oggi
-            </h1>
+            <div className="mt-2 flex items-center gap-4">
+              <h1 className="oggi-title-gradient text-[2.2rem] font-black leading-normal tracking-tight sm:text-[2.5rem]">
+                Oggi
+              </h1>
+              <AnalogClock className="h-[72px] w-[72px] shrink-0 sm:h-[88px] sm:w-[88px]" />
+            </div>
+            <p className="mt-1 text-[14.5px] font-semibold text-primary">
+              {getGreeting()}, Dott.ssa Chiara Bassani
+            </p>
             <div className="oggi-hero-divider mt-3" />
             <p className={cn("mt-3 text-[14px] font-semibold leading-snug sm:text-[15px]", leadColor)}>
               {lead}

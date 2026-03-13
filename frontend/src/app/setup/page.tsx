@@ -126,7 +126,7 @@ export default function SetupPage() {
           <div className="flex items-center justify-center gap-2">
             <Sparkles className="text-primary h-5 w-5" />
             <CardTitle className="text-2xl font-bold tracking-tight">
-              Benvenuto in FitManager AI Studio
+              Benvenuto in FitManager Studio+
             </CardTitle>
           </div>
           <CardDescription>

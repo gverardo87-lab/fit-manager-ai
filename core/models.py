@@ -384,7 +384,7 @@ class BulkUpdateClientiRequest(BaseModel):
 
 class AppConfig(BaseModel):
     """Configuration settings globali"""
-    app_name: str = "FitManager AI"
+    app_name: str = "FitManager Studio+"
     app_version: str = "3.0.0"
     max_file_size_mb: int = 50
     session_timeout_hours: int = 8
@@ -665,7 +665,7 @@ class ExerciseDB(ExerciseCreate):
 
 class BackupManifest(BaseModel):
     """Metadati del backup per verifica integrita' e info ripristino."""
-    app_name: str = "FitManager AI Studio"
+    app_name: str = "FitManager Studio+"
     app_version: str = "3.0.0"
     backup_date: datetime
     db_checksum: str  # SHA-256 hex digest of crm.db
