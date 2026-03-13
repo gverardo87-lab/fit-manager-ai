@@ -90,6 +90,52 @@ class StandardPortion(SQLModel, table=True):
     grammi: float                         # 30.0, 15.0, 80.0
 
 
+class PlanTemplate(SQLModel, table=True):
+    """
+    Template piano alimentare con dieta settimanale completa.
+
+    Dati catalogo read-only in nutrition.db (no deleted_at).
+    I template popolati contengono pasti e componenti per 7 giorni.
+    """
+    __tablename__ = "plan_templates"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    slug: str = Field(unique=True, index=True)   # "donna_under30_attiva"
+    nome: str
+    descrizione: str
+    tags: str                                      # JSON: '["donna","under30","attiva"]'
+    obiettivo_calorico: int
+    proteine_g_target: int
+    carboidrati_g_target: int
+    grassi_g_target: int
+    note_cliniche: str
+    is_active: bool = Field(default=True)
+
+
+class TemplatePlanMeal(SQLModel, table=True):
+    """Pasto di un template piano (giorno × tipo_pasto)."""
+    __tablename__ = "template_plan_meals"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    template_id: int = Field(foreign_key="plan_templates.id", index=True)
+    giorno_settimana: int    # 1-7 (lun-dom)
+    tipo_pasto: str          # COLAZIONE, PRANZO, etc.
+    ordine: int = Field(default=0)
+    nome: Optional[str] = None
+    note: Optional[str] = None
+
+
+class TemplatePlanComponent(SQLModel, table=True):
+    """Componente (alimento × grammi) di un pasto template."""
+    __tablename__ = "template_plan_components"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    meal_id: int = Field(foreign_key="template_plan_meals.id", index=True)
+    alimento_id: int = Field(foreign_key="alimenti.id", index=True)
+    quantita_g: float
+    note: Optional[str] = None
+
+
 # ---------------------------------------------------------------------------
 # crm.db — trainer-owned, Bouncer Pattern + Deep IDOR
 # ---------------------------------------------------------------------------

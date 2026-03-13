@@ -35,6 +35,7 @@ import { Separator } from "@/components/ui/separator";
 
 import {
   useCreateNutritionPlan,
+  useCreatePlanFromTemplate,
   useUpdateNutritionPlan,
   usePlanTemplates,
 } from "@/hooks/useNutrition";
@@ -113,6 +114,11 @@ function TemplateCard({
           <Badge variant="secondary" className="text-xs font-bold text-emerald-700 bg-emerald-50">
             {tmpl.obiettivo_calorico} kcal
           </Badge>
+          {tmpl.has_meals && (
+            <Badge variant="outline" className="text-xs text-violet-700 border-violet-200 bg-violet-50">
+              {tmpl.meal_count} pasti
+            </Badge>
+          )}
         </div>
       </div>
     </button>
@@ -144,10 +150,11 @@ export function NutritionPlanSheet({ open, onOpenChange, clientId, plan }: Nutri
 
   const create = useCreateNutritionPlan(effectiveClientId ?? 0);
   const update = useUpdateNutritionPlan(effectiveClientId ?? 0);
-  const isPending = create.isPending || update.isPending;
+  const createFromTemplate = useCreatePlanFromTemplate(effectiveClientId ?? 0);
+  const isPending = create.isPending || update.isPending || createFromTemplate.isPending;
 
   const { data: templates = [] } = usePlanTemplates();
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -227,22 +234,48 @@ export function NutritionPlanSheet({ open, onOpenChange, clientId, plan }: Nutri
   };
 
   const onSubmit = async (values: FormValues) => {
-    const payload = {
-      nome: values.nome,
-      obiettivo_calorico: values.obiettivo_calorico || null,
-      proteine_g_target: values.proteine_g_target || null,
-      carboidrati_g_target: values.carboidrati_g_target || null,
-      grassi_g_target: values.grassi_g_target || null,
-      note_cliniche: values.note_cliniche || null,
-      data_inizio: values.data_inizio || null,
-      data_fine: values.data_fine || null,
-      attivo: values.attivo,
-    };
-
     if (isEdit && plan) {
+      const payload = {
+        nome: values.nome,
+        obiettivo_calorico: values.obiettivo_calorico || null,
+        proteine_g_target: values.proteine_g_target || null,
+        carboidrati_g_target: values.carboidrati_g_target || null,
+        grassi_g_target: values.grassi_g_target || null,
+        note_cliniche: values.note_cliniche || null,
+        data_inizio: values.data_inizio || null,
+        data_fine: values.data_fine || null,
+        attivo: values.attivo,
+      };
       await update.mutateAsync({ planId: plan.id, payload });
     } else {
-      await create.mutateAsync(payload);
+      // Trova il template selezionato per verificare se ha pasti
+      const selectedTmpl = selectedTemplateId !== null
+        ? templates.find((t) => t.id === selectedTemplateId)
+        : undefined;
+
+      if (selectedTmpl?.has_meals && effectiveClientId) {
+        // Crea via from-template (copia pasti + componenti)
+        await createFromTemplate.mutateAsync({
+          template_id: selectedTmpl.id,
+          id_cliente: effectiveClientId,
+          nome: values.nome,
+          data_inizio: values.data_inizio || null,
+          attivo: values.attivo,
+        });
+      } else {
+        const payload = {
+          nome: values.nome,
+          obiettivo_calorico: values.obiettivo_calorico || null,
+          proteine_g_target: values.proteine_g_target || null,
+          carboidrati_g_target: values.carboidrati_g_target || null,
+          grassi_g_target: values.grassi_g_target || null,
+          note_cliniche: values.note_cliniche || null,
+          data_inizio: values.data_inizio || null,
+          data_fine: values.data_fine || null,
+          attivo: values.attivo,
+        };
+        await create.mutateAsync(payload);
+      }
     }
     onOpenChange(false);
   };

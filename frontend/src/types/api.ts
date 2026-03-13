@@ -3022,7 +3022,8 @@ export interface MealTemplate {
 }
 
 export interface NutritionPlanTemplate {
-  id: string;
+  id: number;
+  slug: string;
   nome: string;
   descrizione: string;
   tags: string[];
@@ -3031,10 +3032,12 @@ export interface NutritionPlanTemplate {
   carboidrati_g_target: number;
   grassi_g_target: number;
   note_cliniche: string;
+  meal_count: number;
+  has_meals: boolean;
 }
 
 export interface CreateFromTemplateInput {
-  template_id: string;
+  template_id: number;
   id_cliente: number;
   nome: string;
   data_inizio: string | null;

@@ -43,8 +43,11 @@ from api.models.nutrition import (
     MealTemplate,
     NutritionPlan,
     PlanMeal,
+    PlanTemplate,
     StandardPortion,
     TemplateComponent,
+    TemplatePlanComponent,
+    TemplatePlanMeal,
 )
 from api.models.trainer import Trainer
 from api.schemas.nutrition import (
@@ -75,10 +78,6 @@ from api.schemas.nutrition import (
     TemplateComponentDetail,
     TIPO_PASTO_LABELS,
     GIORNO_LABELS,
-)
-from api.services.nutrition_plan_templates import (
-    get_all_templates,
-    get_template_by_id,
 )
 
 logger = logging.getLogger(__name__)
@@ -1373,18 +1372,45 @@ def apply_template_to_meal(
 
 
 # ---------------------------------------------------------------------------
-# PIANO TEMPLATE STATICI
-# GET  /nutrition/plan-templates          — lista profili pre-impostati
-# POST /nutrition/plans/from-template     — crea piano da profilo
+# PIANO TEMPLATE (nutrition.db)
+# GET  /nutrition/plan-templates          — lista template da DB
+# POST /nutrition/plans/from-template     — crea piano con pasti da template
 # ---------------------------------------------------------------------------
 
 
 @router.get("/nutrition/plan-templates", response_model=list[PlanTemplateItem])
 def list_plan_templates(
     _trainer: Trainer = Depends(get_current_trainer),
+    nutrition_session: Session = Depends(get_nutrition_session),
 ):
-    """Lista dei template piano statici (nessun DB — pure read-only)."""
-    return get_all_templates()
+    """Lista dei template piano da nutrition.db, arricchiti con meal_count."""
+    templates = nutrition_session.exec(
+        select(PlanTemplate).where(PlanTemplate.is_active == True)
+    ).all()
+
+    if not templates:
+        return []
+
+    # Batch count meals per template (anti N+1)
+    tmpl_ids = [t.id for t in templates]
+    meal_counts = nutrition_session.exec(
+        select(
+            TemplatePlanMeal.template_id,
+            func.count(TemplatePlanMeal.id).label("cnt"),
+        )
+        .where(TemplatePlanMeal.template_id.in_(tmpl_ids))
+        .group_by(TemplatePlanMeal.template_id)
+    ).all()
+    count_map = {row[0]: row[1] for row in meal_counts}
+
+    result = []
+    for t in templates:
+        item = PlanTemplateItem.model_validate(t)
+        item.meal_count = count_map.get(t.id, 0)
+        item.has_meals = item.meal_count > 0
+        result.append(item)
+
+    return result
 
 
 @router.post(
@@ -1396,28 +1422,24 @@ def create_plan_from_template(
     body: CreateFromTemplateInput,
     trainer: Trainer = Depends(get_current_trainer),
     session: Session = Depends(get_session),
+    nutrition_session: Session = Depends(get_nutrition_session),
 ):
     """
-    Crea un piano alimentare pre-impostato da un template statico.
+    Crea un piano alimentare da un template DB.
 
-    Il piano viene creato con macro target e note cliniche del profilo scelto.
-    Nessun pasto viene creato: il trainer aggiunge gli alimenti manualmente.
+    Se il template ha pasti (has_meals), vengono copiati nel piano.
     """
-    tmpl = get_template_by_id(body.template_id)
+    tmpl = nutrition_session.exec(
+        select(PlanTemplate).where(
+            PlanTemplate.id == body.template_id,
+            PlanTemplate.is_active == True,
+        )
+    ).first()
     if tmpl is None:
         raise HTTPException(status_code=404, detail="Template non trovato")
 
     # Verifica che il cliente appartenga al trainer (Relational IDOR)
-    from api.models.client import Client
-    client = session.exec(
-        select(Client).where(
-            Client.id == body.id_cliente,
-            Client.trainer_id == trainer.id,
-            Client.deleted_at == None,
-        )
-    ).first()
-    if not client:
-        raise HTTPException(status_code=404, detail="Cliente non trovato")
+    _bouncer_client(session, body.id_cliente, trainer.id)
 
     plan = NutritionPlan(
         trainer_id=trainer.id,
@@ -1446,12 +1468,54 @@ def create_plan_from_template(
             session.add(existing)
 
     session.add(plan)
+    session.flush()  # get plan.id
+
+    # Fetch template meals + components in batch
+    tmpl_meals = nutrition_session.exec(
+        select(TemplatePlanMeal)
+        .where(TemplatePlanMeal.template_id == tmpl.id)
+        .order_by(TemplatePlanMeal.giorno_settimana, TemplatePlanMeal.ordine)
+    ).all()
+
+    if tmpl_meals:
+        meal_ids = [m.id for m in tmpl_meals]
+        tmpl_components = nutrition_session.exec(
+            select(TemplatePlanComponent)
+            .where(TemplatePlanComponent.meal_id.in_(meal_ids))
+        ).all()
+        comp_by_meal: dict[int, list] = {}
+        for c in tmpl_components:
+            comp_by_meal.setdefault(c.meal_id, []).append(c)
+
+        for tmpl_meal in tmpl_meals:
+            meal = PlanMeal(
+                piano_id=plan.id,
+                giorno_settimana=tmpl_meal.giorno_settimana,
+                tipo_pasto=tmpl_meal.tipo_pasto,
+                ordine=tmpl_meal.ordine,
+                nome=tmpl_meal.nome,
+                note=tmpl_meal.note,
+            )
+            session.add(meal)
+            session.flush()  # get meal.id
+
+            for tc in comp_by_meal.get(tmpl_meal.id, []):
+                comp = MealComponent(
+                    pasto_id=meal.id,
+                    alimento_id=tc.alimento_id,
+                    quantita_g=tc.quantita_g,
+                    note=tc.note,
+                )
+                session.add(comp)
+
     session.commit()
     session.refresh(plan)
     logger.info(
-        "Piano creato da template '%s' per cliente %d (trainer %d)",
-        body.template_id,
+        "Piano creato da template '%s' (id=%d) per cliente %d (trainer %d), %d pasti copiati",
+        tmpl.slug,
+        tmpl.id,
         body.id_cliente,
         trainer.id,
+        len(tmpl_meals) if tmpl_meals else 0,
     )
     return NutritionPlanResponse.model_validate(plan)

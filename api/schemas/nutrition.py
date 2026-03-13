@@ -11,6 +11,7 @@ Convenzioni:
   - extra="forbid" su tutti i Create (Mass Assignment Prevention)
 """
 
+import json
 from datetime import date, datetime
 from typing import Optional
 
@@ -369,7 +370,10 @@ class MealTemplateDetail(BaseModel):
 
 
 class PlanTemplateItem(BaseModel):
-    id: str
+    model_config = {"from_attributes": True}
+
+    id: int
+    slug: str
     nome: str
     descrizione: str
     tags: list[str]
@@ -378,12 +382,43 @@ class PlanTemplateItem(BaseModel):
     carboidrati_g_target: int
     grassi_g_target: int
     note_cliniche: str
+    meal_count: int = 0       # enriched: numero pasti nel template
+    has_meals: bool = False    # enriched: True se il template ha pasti
+
+    @model_validator(mode="before")
+    @classmethod
+    def parse_tags(cls, data):  # noqa: N805
+        """Parsa tags da JSON string (DB) o lista (gia' parsed)."""
+        if hasattr(data, "__getattr__"):
+            # ORM object — access via attribute
+            tags = getattr(data, "tags", "[]")
+        elif isinstance(data, dict):
+            tags = data.get("tags", "[]")
+        else:
+            return data
+        if isinstance(tags, str):
+            parsed = json.loads(tags)
+            if hasattr(data, "__getattr__"):
+                # Can't set on ORM directly, convert to dict
+                d = {
+                    "id": data.id, "slug": data.slug, "nome": data.nome,
+                    "descrizione": data.descrizione, "tags": parsed,
+                    "obiettivo_calorico": data.obiettivo_calorico,
+                    "proteine_g_target": data.proteine_g_target,
+                    "carboidrati_g_target": data.carboidrati_g_target,
+                    "grassi_g_target": data.grassi_g_target,
+                    "note_cliniche": data.note_cliniche,
+                    "is_active": data.is_active,
+                }
+                return d
+            data["tags"] = parsed
+        return data
 
 
 class CreateFromTemplateInput(BaseModel):
     model_config = {"extra": "forbid"}
 
-    template_id: str
+    template_id: int
     id_cliente: int
     nome: str
     data_inizio: Optional[date] = None

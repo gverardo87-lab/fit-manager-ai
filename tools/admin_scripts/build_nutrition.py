@@ -31,9 +31,14 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
+import json
+
 from api.config import NUTRITION_DATABASE_URL
 from api.database import create_nutrition_tables, nutrition_engine
-from api.models.nutrition import FoodCategory, Food, StandardPortion
+from api.models.nutrition import (
+    FoodCategory, Food, PlanTemplate, StandardPortion,
+    TemplatePlanComponent, TemplatePlanMeal,
+)
 from sqlmodel import Session, select
 
 
@@ -344,6 +349,9 @@ def build_nutrition_db(dry_run: bool = False, reset: bool = False) -> None:
     if reset and not dry_run:
         # Svuota tabelle in ordine inverso (FK)
         with Session(nutrition_engine) as s:
+            s.exec(TemplatePlanComponent.__table__.delete())
+            s.exec(TemplatePlanMeal.__table__.delete())
+            s.exec(PlanTemplate.__table__.delete())
             s.exec(StandardPortion.__table__.delete())
             s.exec(Food.__table__.delete())
             s.exec(FoodCategory.__table__.delete())
@@ -463,11 +471,400 @@ def build_nutrition_db(dry_run: bool = False, reset: bool = False) -> None:
 
         print(f"  Porzioni standard: {len(PORTIONS)} totali, {inserted_portions} nuove inserite.")
 
+        # ── Template piani ────────────────────────────────────────────
+        _seed_templates(session, food_id_map, dry_run)
+
     if dry_run:
         print("\n  [DRY RUN] Nessuna modifica eseguita.")
     else:
         print("\n  nutrition.db pronto.")
         _print_stats()
+
+
+# ---------------------------------------------------------------------------
+# Template piani — 8 profili macro + 1 dieta completa (donna_under30_attiva)
+# ---------------------------------------------------------------------------
+
+PLAN_TEMPLATES = [
+    {
+        "slug": "uomo_under30_sedentario",
+        "nome": "Uomo under 30 — Sedentario",
+        "descrizione": "Ufficio/studio, <3h attivita' fisica a settimana",
+        "tags": ["uomo", "under30", "sedentario"],
+        "obiettivo_calorico": 1900,
+        "proteine_g_target": 140,
+        "carboidrati_g_target": 220,
+        "grassi_g_target": 65,
+        "note_cliniche": (
+            "Profilo sedentario maschile under 30. "
+            "Priorita': mantenimento massa muscolare con deficit moderato. "
+            "P 1.6g/kg (70kg), C ~45% kcal, G ~30% kcal. "
+            "Colazione + pranzo + cena + 1 spuntino pomeriggio."
+        ),
+    },
+    {
+        "slug": "uomo_under30_attivo",
+        "nome": "Uomo under 30 — Attivo",
+        "descrizione": "3-5 sessioni allenamento a settimana",
+        "tags": ["uomo", "under30", "attivo"],
+        "obiettivo_calorico": 2400,
+        "proteine_g_target": 175,
+        "carboidrati_g_target": 290,
+        "grassi_g_target": 80,
+        "note_cliniche": (
+            "Profilo attivo maschile under 30. "
+            "P 2.0g/kg (87kg), C ~48% kcal per sostenere le sessioni, G ~30% kcal. "
+            "Pre e post-workout consigliati nei giorni di allenamento."
+        ),
+    },
+    {
+        "slug": "uomo_under30_sportivo",
+        "nome": "Uomo under 30 — Sportivo",
+        "descrizione": "Atleta o >5 sessioni intense a settimana",
+        "tags": ["uomo", "under30", "sportivo"],
+        "obiettivo_calorico": 2900,
+        "proteine_g_target": 210,
+        "carboidrati_g_target": 360,
+        "grassi_g_target": 85,
+        "note_cliniche": (
+            "Profilo agonistico maschile under 30. "
+            "P 2.2g/kg, C elevati per performance e recupero, G moderati. "
+            "6 pasti giornalieri consigliati. Pre/post-workout obbligatori."
+        ),
+    },
+    {
+        "slug": "uomo_over30_mantenimento",
+        "nome": "Uomo over 30 — Mantenimento",
+        "descrizione": "Adulto attivo, obiettivo composizione corporea",
+        "tags": ["uomo", "over30", "attivo"],
+        "obiettivo_calorico": 2200,
+        "proteine_g_target": 170,
+        "carboidrati_g_target": 240,
+        "grassi_g_target": 75,
+        "note_cliniche": (
+            "Profilo maschile over 30 con metabolismo rallentato. "
+            "Proteina elevata per prevenire catabolismo muscolare (eta'-dipendente). "
+            "P 2.0g/kg, C moderati, G 30% kcal. Timing post-workout critico."
+        ),
+    },
+    {
+        "slug": "donna_under30_sedentaria",
+        "nome": "Donna under 30 — Sedentaria",
+        "descrizione": "Ufficio/studio, <2h attivita' fisica a settimana",
+        "tags": ["donna", "under30", "sedentaria"],
+        "obiettivo_calorico": 1500,
+        "proteine_g_target": 110,
+        "carboidrati_g_target": 175,
+        "grassi_g_target": 52,
+        "note_cliniche": (
+            "Profilo sedentario femminile under 30. "
+            "Deficit calorico moderato per dimagrimento controllato. "
+            "P 1.8g/kg (61kg), C ~46% kcal, G ~31% kcal. "
+            "Attenzione al ferro e calcio. Colazione sostanziosa consigliata."
+        ),
+    },
+    {
+        "slug": "donna_under30_attiva",
+        "nome": "Donna under 30 — Attiva",
+        "descrizione": "3-4 sessioni allenamento a settimana",
+        "tags": ["donna", "under30", "attiva"],
+        "obiettivo_calorico": 1900,
+        "proteine_g_target": 140,
+        "carboidrati_g_target": 220,
+        "grassi_g_target": 65,
+        "note_cliniche": (
+            "Profilo attivo femminile under 30. "
+            "Bilanciato per supportare l'allenamento e la composizione corporea. "
+            "P 2.0g/kg, C ~46% kcal. Pre/post-workout leggeri nei giorni di allenamento. "
+            "Monitorare ferro e vitamina D."
+        ),
+    },
+    {
+        "slug": "donna_under30_sportiva",
+        "nome": "Donna under 30 — Sportiva",
+        "descrizione": "Atleta o >5 sessioni intensive a settimana",
+        "tags": ["donna", "under30", "sportiva"],
+        "obiettivo_calorico": 2300,
+        "proteine_g_target": 165,
+        "carboidrati_g_target": 280,
+        "grassi_g_target": 72,
+        "note_cliniche": (
+            "Profilo agonistico femminile under 30. "
+            "Apporto calorico adeguato a prevenire RED-S (Relative Energy Deficiency in Sport). "
+            "P 2.2g/kg, C elevati, G 28% kcal. 5-6 pasti. "
+            "Integrazione ferro e calcio da valutare."
+        ),
+    },
+    {
+        "slug": "donna_over30_mantenimento",
+        "nome": "Donna over 30 — Mantenimento",
+        "descrizione": "Adulta attiva, obiettivo benessere e composizione",
+        "tags": ["donna", "over30", "attiva"],
+        "obiettivo_calorico": 1750,
+        "proteine_g_target": 135,
+        "carboidrati_g_target": 195,
+        "grassi_g_target": 60,
+        "note_cliniche": (
+            "Profilo femminile over 30. Metabolismo basale in calo, "
+            "proteina elevata per preservare la massa muscolare. "
+            "P 2.0g/kg, C 44% kcal, G 31% kcal. "
+            "Particolare attenzione a calcio e vitamina D per salute ossea."
+        ),
+    },
+]
+
+# Dieta settimanale completa per "donna_under30_attiva" (~1900 kcal/die)
+# Struttura: (giorno 1-7, tipo_pasto, ordine, [(alimento_nome, grammi_g), ...])
+DIETA_DONNA_ATTIVA = [
+    # ── Lunedi (giorno 1) ───────────────────────────────────────────────
+    (1, "COLAZIONE", 0, [
+        ("Yogurt greco 0% grassi", 150),
+        ("Avena, fiocchi", 40),
+        ("Mirtilli, freschi", 80),
+        ("Mandorle", 15),
+    ]),
+    (1, "SPUNTINO_MATTINA", 1, [
+        ("Mela, fresca", 150),
+    ]),
+    (1, "PRANZO", 2, [
+        ("Petto di pollo, crudo", 150),
+        ("Riso integrale, cotto", 180),
+        ("Zucchine", 200),
+        ("Olio di oliva extravergine", 10),
+    ]),
+    (1, "SPUNTINO_POMERIGGIO", 3, [
+        ("Yogurt greco 0% grassi", 125),
+        ("Noci", 15),
+    ]),
+    (1, "CENA", 4, [
+        ("Salmone atlantico, crudo", 150),
+        ("Spinaci, crudi", 150),
+        ("Pane integrale", 40),
+        ("Olio di oliva extravergine", 10),
+    ]),
+    # ── Martedi (giorno 2) ──────────────────────────────────────────────
+    (2, "COLAZIONE", 0, [
+        ("Latte parzialmente scremato", 200),
+        ("Avena, fiocchi", 40),
+        ("Banana, fresca", 100),
+        ("Semi di chia", 10),
+    ]),
+    (2, "SPUNTINO_MATTINA", 1, [
+        ("Arancia, fresca", 150),
+    ]),
+    (2, "PRANZO", 2, [
+        ("Pasta integrale, secca", 80),
+        ("Lenticchie, cotte", 150),
+        ("Pomodori, freschi", 100),
+        ("Olio di oliva extravergine", 10),
+    ]),
+    (2, "SPUNTINO_POMERIGGIO", 3, [
+        ("Fiocchi di latte (cottage cheese)", 100),
+        ("Crackers, classici", 20),
+    ]),
+    (2, "CENA", 4, [
+        ("Merluzzo, filetto crudo", 180),
+        ("Broccoli, cotti", 200),
+        ("Pane di frumento, bianco", 40),
+        ("Olio di oliva extravergine", 10),
+    ]),
+    # ── Mercoledi (giorno 3) ────────────────────────────────────────────
+    (3, "COLAZIONE", 0, [
+        ("Yogurt greco 0% grassi", 150),
+        ("Avena, fiocchi", 40),
+        ("Fragole, fresche", 120),
+        ("Nocciole", 15),
+    ]),
+    (3, "SPUNTINO_MATTINA", 1, [
+        ("Pera, fresca", 150),
+    ]),
+    (3, "PRANZO", 2, [
+        ("Petto di tacchino, crudo", 150),
+        ("Farro, cotto", 180),
+        ("Peperoni rossi", 150),
+        ("Olio di oliva extravergine", 10),
+    ]),
+    (3, "SPUNTINO_POMERIGGIO", 3, [
+        ("Banana, fresca", 100),
+        ("Mandorle", 15),
+    ]),
+    (3, "CENA", 4, [
+        ("Uovo intero, crudo", 120),  # 2 uova
+        ("Asparagi", 200),
+        ("Pane integrale", 40),
+        ("Olio di oliva extravergine", 10),
+    ]),
+    # ── Giovedi (giorno 4) ──────────────────────────────────────────────
+    (4, "COLAZIONE", 0, [
+        ("Latte parzialmente scremato", 200),
+        ("Fette biscottate integrali", 40),
+        ("Miele", 15),
+        ("Noci", 15),
+    ]),
+    (4, "SPUNTINO_MATTINA", 1, [
+        ("Kiwi", 120),
+    ]),
+    (4, "PRANZO", 2, [
+        ("Tonno in scatola al naturale", 120),
+        ("Quinoa, cotta", 180),
+        ("Pomodori, freschi", 150),
+        ("Olio di oliva extravergine", 10),
+    ]),
+    (4, "SPUNTINO_POMERIGGIO", 3, [
+        ("Yogurt greco 0% grassi", 125),
+        ("Mirtilli, freschi", 60),
+    ]),
+    (4, "CENA", 4, [
+        ("Manzo, fesa, cruda", 140),
+        ("Fagiolini, cotti", 200),
+        ("Pane di frumento, bianco", 40),
+        ("Olio di oliva extravergine", 10),
+    ]),
+    # ── Venerdi (giorno 5) ──────────────────────────────────────────────
+    (5, "COLAZIONE", 0, [
+        ("Yogurt greco 0% grassi", 150),
+        ("Avena, fiocchi", 40),
+        ("Banana, fresca", 100),
+        ("Semi di lino", 10),
+    ]),
+    (5, "SPUNTINO_MATTINA", 1, [
+        ("Mandorle", 20),
+    ]),
+    (5, "PRANZO", 2, [
+        ("Pasta di semola, secca", 80),
+        ("Gamberi, cotti", 150),
+        ("Zucchine", 150),
+        ("Olio di oliva extravergine", 10),
+    ]),
+    (5, "SPUNTINO_POMERIGGIO", 3, [
+        ("Mela, fresca", 150),
+        ("Ricotta di vaccino", 50),
+    ]),
+    (5, "CENA", 4, [
+        ("Orata, cruda", 180),
+        ("Carote", 150),
+        ("Lattuga, iceberg", 100),
+        ("Pane integrale", 40),
+        ("Olio di oliva extravergine", 10),
+    ]),
+    # ── Sabato (giorno 6) ───────────────────────────────────────────────
+    (6, "COLAZIONE", 0, [
+        ("Yogurt greco intero", 150),
+        ("Avena, fiocchi", 35),
+        ("Miele", 10),
+        ("Fragole, fresche", 100),
+    ]),
+    (6, "SPUNTINO_MATTINA", 1, [
+        ("Arancia, fresca", 150),
+    ]),
+    (6, "PRANZO", 2, [
+        ("Ceci, cotti", 200),
+        ("Riso integrale, cotto", 160),
+        ("Spinaci, crudi", 100),
+        ("Olio di oliva extravergine", 10),
+    ]),
+    (6, "SPUNTINO_POMERIGGIO", 3, [
+        ("Fiocchi di latte (cottage cheese)", 100),
+        ("Gallette di riso", 20),
+    ]),
+    (6, "CENA", 4, [
+        ("Petto di pollo, crudo", 150),
+        ("Melanzane", 200),
+        ("Pane di frumento, bianco", 40),
+        ("Olio di oliva extravergine", 10),
+    ]),
+    # ── Domenica (giorno 7) ─────────────────────────────────────────────
+    (7, "COLAZIONE", 0, [
+        ("Latte parzialmente scremato", 200),
+        ("Pane integrale", 50),
+        ("Avocado", 50),
+        ("Uovo intero, crudo", 60),  # 1 uovo
+    ]),
+    (7, "SPUNTINO_MATTINA", 1, [
+        ("Pesca, fresca", 150),
+    ]),
+    (7, "PRANZO", 2, [
+        ("Pasta integrale, secca", 80),
+        ("Branzino, cotto", 160),
+        ("Pomodori, freschi", 100),
+        ("Olio di oliva extravergine", 10),
+    ]),
+    (7, "SPUNTINO_POMERIGGIO", 3, [
+        ("Yogurt greco 0% grassi", 125),
+        ("Anacardi", 15),
+    ]),
+    (7, "CENA", 4, [
+        ("Edamame, cotti", 150),
+        ("Riso bianco, cotto", 160),
+        ("Broccoli, crudi", 150),
+        ("Olio di oliva extravergine", 10),
+    ]),
+]
+
+
+def _seed_templates(session: Session, food_id_map: dict[str, int], dry_run: bool) -> None:
+    """Seed template piani + dieta completa donna_under30_attiva."""
+    inserted_templates = 0
+    inserted_meals = 0
+    inserted_components = 0
+
+    for tmpl_data in PLAN_TEMPLATES:
+        existing = session.exec(
+            select(PlanTemplate).where(PlanTemplate.slug == tmpl_data["slug"])
+        ).first()
+        if existing:
+            continue
+        if dry_run:
+            inserted_templates += 1
+            continue
+
+        tmpl = PlanTemplate(
+            slug=tmpl_data["slug"],
+            nome=tmpl_data["nome"],
+            descrizione=tmpl_data["descrizione"],
+            tags=json.dumps(tmpl_data["tags"]),
+            obiettivo_calorico=tmpl_data["obiettivo_calorico"],
+            proteine_g_target=tmpl_data["proteine_g_target"],
+            carboidrati_g_target=tmpl_data["carboidrati_g_target"],
+            grassi_g_target=tmpl_data["grassi_g_target"],
+            note_cliniche=tmpl_data["note_cliniche"],
+        )
+        session.add(tmpl)
+        session.flush()
+        inserted_templates += 1
+
+        # Seed dieta completa solo per donna_under30_attiva
+        if tmpl_data["slug"] == "donna_under30_attiva":
+            for giorno, tipo_pasto, ordine, alimenti in DIETA_DONNA_ATTIVA:
+                meal = TemplatePlanMeal(
+                    template_id=tmpl.id,
+                    giorno_settimana=giorno,
+                    tipo_pasto=tipo_pasto,
+                    ordine=ordine,
+                )
+                session.add(meal)
+                session.flush()
+                inserted_meals += 1
+
+                for alimento_nome, grammi in alimenti:
+                    food_id = food_id_map.get(alimento_nome)
+                    if not food_id:
+                        print(f"  [WARN] Alimento non trovato per template: '{alimento_nome}'")
+                        continue
+                    comp = TemplatePlanComponent(
+                        meal_id=meal.id,
+                        alimento_id=food_id,
+                        quantita_g=grammi,
+                    )
+                    session.add(comp)
+                    inserted_components += 1
+
+    if not dry_run:
+        session.commit()
+
+    print(f"  Template piani: {len(PLAN_TEMPLATES)} totali, {inserted_templates} nuovi inseriti.")
+    if inserted_meals or inserted_components:
+        print(f"  Dieta template: {inserted_meals} pasti, {inserted_components} componenti.")
 
 
 def _print_stats() -> None:
@@ -476,11 +873,17 @@ def _print_stats() -> None:
         n_cat = session.exec(select(FoodCategory)).all().__len__()
         n_food = session.exec(select(Food).where(Food.is_active == True)).all().__len__()
         n_portions = session.exec(select(StandardPortion)).all().__len__()
+        n_templates = session.exec(select(PlanTemplate)).all().__len__()
+        n_tmpl_meals = session.exec(select(TemplatePlanMeal)).all().__len__()
+        n_tmpl_comps = session.exec(select(TemplatePlanComponent)).all().__len__()
 
     print(f"\n  Statistiche nutrition.db:")
-    print(f"    Categorie:         {n_cat}")
-    print(f"    Alimenti attivi:   {n_food}")
-    print(f"    Porzioni standard: {n_portions}")
+    print(f"    Categorie:           {n_cat}")
+    print(f"    Alimenti attivi:     {n_food}")
+    print(f"    Porzioni standard:   {n_portions}")
+    print(f"    Template piani:      {n_templates}")
+    print(f"    Pasti template:      {n_tmpl_meals}")
+    print(f"    Componenti template: {n_tmpl_comps}")
 
 
 # ---------------------------------------------------------------------------

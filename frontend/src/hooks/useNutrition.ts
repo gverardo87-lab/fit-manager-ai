@@ -234,7 +234,7 @@ export function usePlanTemplates() {
       const { data } = await apiClient.get<NutritionPlanTemplate[]>("/nutrition/plan-templates");
       return data;
     },
-    staleTime: Infinity,   // dati statici, non cambiano mai
+    staleTime: 5 * 60 * 1000,   // dati da DB, refresh ogni 5 min
   });
 }
 
