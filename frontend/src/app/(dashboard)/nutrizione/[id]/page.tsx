@@ -27,6 +27,7 @@ import { WeeklyPlanGrid } from "@/components/nutrition/WeeklyPlanGrid";
 import { DayDetailPanel } from "@/components/nutrition/DayDetailPanel";
 import { FoodSearchSidebar } from "@/components/nutrition/FoodSearchSidebar";
 import { NutritionPlanSheet } from "@/components/nutrition/NutritionPlanSheet";
+import { LarnValidationPanel } from "@/components/nutrition/LarnValidationPanel";
 import { useClients } from "@/hooks/useClients";
 import { resolveBackNavigation } from "@/lib/url-state";
 import { printNutritionPlan } from "@/lib/print-nutrition-plan";
@@ -203,6 +204,9 @@ export default function NutritionPlanPage({
           )}
         </div>
       )}
+
+      {/* ── Analisi LARN ── */}
+      <LarnValidationPanel planId={planId} />
 
       {/* ── Builder area ── */}
       {viewMode === "grid" ? (
