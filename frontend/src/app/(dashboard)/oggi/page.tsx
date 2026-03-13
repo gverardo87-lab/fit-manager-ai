@@ -87,10 +87,7 @@ export default function OggiWorkspacePage() {
     [clientSessions],
   );
 
-  const prioritySession = useMemo(
-    () => attentionSessions[0] ?? clientSessions[0] ?? orderedSessions[0] ?? null,
-    [attentionSessions, clientSessions, orderedSessions],
-  );
+  const prioritySession = attentionSessions[0] ?? clientSessions[0] ?? orderedSessions[0] ?? null;
 
   const effectiveSelectedId = useMemo(() => {
     if (selectedEventId !== null && orderedSessions.some((item) => item.event_id === selectedEventId)) {

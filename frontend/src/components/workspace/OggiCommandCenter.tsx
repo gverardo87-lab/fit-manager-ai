@@ -88,7 +88,12 @@ function saveNote(eventId: number, text: string) {
 }
 
 function PrepNotes({ eventId }: { eventId: number }) {
-  const [note, setNote] = useState(() => loadNote(eventId));
+  const [note, setNote] = useState("");
+
+  useEffect(() => {
+    setNote(loadNote(eventId));
+  }, [eventId]);
+
   const handleChange = (v: string) => { setNote(v); saveNote(eventId, v); };
 
   return (
@@ -125,8 +130,8 @@ function ReadinessRing({ score, size = 48 }: { score: number; size?: number }) {
   const l = score >= 80 ? 0.72 : score >= 50 ? 0.73 : 0.65;
 
   return (
-    <div className="relative shrink-0" style={{ width: size, height: size }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="absolute inset-0">
+    <div className="relative shrink-0" style={{ width: size, height: size }} role="img" aria-label={`Readiness score: ${score}%`}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="absolute inset-0" aria-hidden="true">
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(0,0,0,0.06)" strokeWidth={sw} className="dark:stroke-white/[0.06]" />
         <circle
           cx={size / 2} cy={size / 2} r={r} fill="none"

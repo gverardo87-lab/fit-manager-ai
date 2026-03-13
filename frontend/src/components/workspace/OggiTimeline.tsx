@@ -79,6 +79,7 @@ function SessionItem({
     <button
       type="button"
       onClick={onSelect}
+      aria-selected={selected}
       className={cn(
         "oggi-session-card relative w-full rounded-xl px-3.5 py-3 text-left",
         selected

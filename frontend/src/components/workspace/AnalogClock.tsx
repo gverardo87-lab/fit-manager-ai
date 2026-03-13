@@ -10,6 +10,8 @@
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
+const HOUR_TICKS = Array.from({ length: 12 }, (_, i) => i);
+
 interface AnalogClockProps {
   className?: string;
 }
@@ -28,11 +30,9 @@ export function AnalogClock({ className }: AnalogClockProps) {
   const hourAngle = hours * 30 + minutes * 0.5;
   const minuteAngle = minutes * 6;
 
-  const ticks = Array.from({ length: 12 }, (_, i) => i);
-
   return (
     <div className={cn("relative", className)}>
-      <svg viewBox="0 0 100 100" className="h-full w-full drop-shadow-lg">
+      <svg viewBox="0 0 100 100" className="h-full w-full drop-shadow-lg" role="img" aria-label={`Orologio: ${hours === 0 ? 12 : hours}:${String(minutes).padStart(2, "0")}`}>
         {/* Outer ring */}
         <circle
           cx="50" cy="50" r="48"
@@ -60,7 +60,7 @@ export function AnalogClock({ className }: AnalogClockProps) {
         />
 
         {/* Hour ticks */}
-        {ticks.map((i) => {
+        {HOUR_TICKS.map((i) => {
           const angle = (i * 30 - 90) * (Math.PI / 180);
           const isQuarter = i % 3 === 0;
           const outerR = 42;
