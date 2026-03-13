@@ -15,6 +15,7 @@ Valori macro su alimenti: sempre riferiti a 100g di prodotto.
 """
 
 from datetime import date, datetime, timezone
+from enum import Enum
 from typing import Optional
 
 from sqlmodel import Field, SQLModel
@@ -23,6 +24,18 @@ from sqlmodel import Field, SQLModel
 # ---------------------------------------------------------------------------
 # nutrition.db — catalogo globale, no trainer_id
 # ---------------------------------------------------------------------------
+
+
+class FoodType(str, Enum):
+    """Tipo di alimento nel catalogo.
+
+    - ingrediente: singolo alimento (uovo, pollo, riso)
+    - pietanza: piatto composto con ricetta (frittata, pasta al pomodoro)
+    - bevanda: bevande (latte, succo, integratore)
+    """
+    INGREDIENTE = "ingrediente"
+    PIETANZA = "pietanza"
+    BEVANDA = "bevanda"
 
 
 class FoodCategory(SQLModel, table=True):
@@ -95,6 +108,7 @@ class Food(SQLModel, table=True):
 
     note: Optional[str] = None                             # "Valore medio CREA 2019"
     source: str = Field(default="crea")                   # "crea" | "usda" | "custom"
+    food_type: str = Field(default="ingrediente")          # "ingrediente" | "pietanza" | "bevanda"
     is_active: bool = Field(default=True)
 
 
@@ -111,6 +125,34 @@ class StandardPortion(SQLModel, table=True):
     alimento_id: int = Field(foreign_key="alimenti.id", index=True)
     nome: str                             # "1 fetta", "1 cucchiaio", "1 porzione tipica"
     grammi: float                         # 30.0, 15.0, 80.0
+
+
+class DishRecipe(SQLModel, table=True):
+    """
+    Composizione di una pietanza: quali ingredienti e in che quantita'.
+
+    Una pietanza (food_type='pietanza') e' composta da N ingredienti
+    (food_type='ingrediente'). Questa tabella mappa la ricetta.
+
+    I valori nutrizionali della pietanza in Food sono per 100g di piatto finito
+    (calcolati dalla composizione o misurati sperimentalmente come fa il CREA).
+    La ricetta qui serve per:
+      - Mostrare al trainer la composizione del piatto
+      - Permettere sostituzioni intelligenti di ingredienti
+      - Drill-down nutrizionale per ingrediente
+
+    Esempio: "Frittata di spinaci" (pietanza_id=200)
+      → ingrediente_id=118 (Uovo intero), quantita_g=120, note="2 uova"
+      → ingrediente_id=144 (Spinaci, crudi), quantita_g=80
+      → ingrediente_id=159 (Olio EVO), quantita_g=10, note="1 cucchiaio"
+    """
+    __tablename__ = "ricette_pietanze"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    pietanza_id: int = Field(foreign_key="alimenti.id", index=True)
+    ingrediente_id: int = Field(foreign_key="alimenti.id", index=True)
+    quantita_g: float                     # grammi ingrediente per 1 porzione
+    note: Optional[str] = None            # "a crudo", "scolato", "2 uova"
 
 
 class PlanTemplate(SQLModel, table=True):

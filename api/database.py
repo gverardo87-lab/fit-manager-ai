@@ -107,6 +107,7 @@ NUTRITION_TABLE_NAMES = frozenset({
     "categorie_alimenti",
     "alimenti",
     "porzioni_standard",
+    "ricette_pietanze",
     "plan_templates",
     "template_plan_meals",
     "template_plan_components",

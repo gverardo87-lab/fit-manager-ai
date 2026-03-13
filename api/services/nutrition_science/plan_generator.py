@@ -1,17 +1,19 @@
 """
-Generatore piano alimentare LARN-compliant.
+Generatore piano alimentare LARN-compliant v2.
 
 Orchestratore: profilo cliente → piano settimanale 7 giorni × 5 pasti.
 
-Pipeline:
-1. Risolvi food pool da nutrition.db
-2. Per ogni giorno: seleziona alimenti con rotazione proteica
-3. Ottimizza porzioni per target calorico e macro
-4. Valida vs LARN
-5. Ritorna struttura pronta per il salvataggio
+v2: pasti principali dish-based (primi/secondi piatti compositi).
+PRANZO = primo piatto + contorno. CENA = secondo piatto + contorno + pane.
+COLAZIONE e SPUNTINI = ingredienti singoli.
 
-L'output e' una lista di (giorno, tipo_pasto, [(food_id, grammi)]) che
-il router converte in PlanMeal + MealComponent nel crm.db.
+Pipeline:
+1. Risolvi food pool da nutrition.db (pietanze + ingredienti)
+2. Per ogni giorno: seleziona pietanze/ingredienti con rotazione proteica
+3. Ottimizza porzioni per target calorico e macro (LARN standard)
+4. Valida vs LARN 2014 (micro) + CREA 2018 (frequenze)
+5. Score composito 3-assi: macro 25% + micro 35% + frequenze 40%
+6. Ritorna struttura pronta per il salvataggio
 """
 
 import random
@@ -24,10 +26,12 @@ from api.services.nutrition_science.food_selector import (
     build_day_selections,
     resolve_food_pools,
 )
+from api.services.nutrition_science.frequency_validator import validate_frequencies
 from api.services.nutrition_science.meal_archetypes import (
     ARCHETYPES,
     MEAL_ORDER,
-    WEEKLY_PROTEIN_ROTATION,
+    SECONDO_TO_PROTEIN_ROLE,
+    WEEKLY_SECONDO_ROTATION,
 )
 from api.services.nutrition_science.portion_optimizer import optimize_day
 from api.services.nutrition_science.plan_validator import validate_plan
@@ -109,14 +113,17 @@ def generate_plan(
     # 2-3. Per ogni giorno: seleziona + ottimizza
     all_meals: list[GeneratedMeal] = []
     used_yesterday: set[int] = set()
+    # Mappa (giorno, tipo_pasto, food_id) → ruolo per il frequency_validator
+    _ruolo_map: dict[tuple[int, str, int], str] = {}
 
     for giorno in range(1, 8):  # Lun-Dom
         # Seleziona alimenti
         day_selections = build_day_selections(giorno, pools, used_yesterday, rng)
 
-        # Converti in formato optimizer: [(tipo, [(Food, grammi, ruolo)])]
-        # Determina pool proteici del giorno per mappare ruoli corretti
-        pranzo_pool, cena_pool = WEEKLY_PROTEIN_ROTATION[giorno - 1]
+        # Determina il pool secondo del giorno per mappare ruoli corretti
+        secondo_pool = WEEKLY_SECONDO_ROTATION[giorno - 1]
+        # Mappa secondo_* → protein_* per la frequenza
+        protein_role = SECONDO_TO_PROTEIN_ROLE.get(secondo_pool, secondo_pool)
 
         day_for_opt: list[tuple[str, list[tuple[Food, float, str]]]] = []
         for tipo_pasto, food_list in day_selections:
@@ -124,16 +131,16 @@ def generate_plan(
             items: list[tuple[Food, float, str]] = []
             for i, (food, grammi) in enumerate(food_list):
                 ruolo = arch.slots[i].ruolo if arch and i < len(arch.slots) else "other"
-                # Mappa protein_main → pool specifico per limiti porzione corretti
-                if ruolo == "protein_main":
-                    ruolo = pranzo_pool if tipo_pasto == "PRANZO" else cena_pool
+                # secondo_piatto → usa il pool specifico del giorno come ruolo
+                if ruolo == "secondo_piatto":
+                    ruolo = secondo_pool
                 items.append((food, grammi, ruolo))
             day_for_opt.append((tipo_pasto, items))
 
         # Ottimizza porzioni
         optimized = optimize_day(day_for_opt, target_kcal, target_prot_g, target_fat_g)
 
-        # Converti in GeneratedMeal
+        # Converti in GeneratedMeal + popola ruolo_map per frequenze
         used_today: set[int] = set()
         for tipo_pasto, foods in optimized:
             ordine = MEAL_ORDER.index(tipo_pasto) if tipo_pasto in MEAL_ORDER else 0
@@ -142,13 +149,16 @@ def generate_plan(
                 tipo_pasto=tipo_pasto,
                 ordine=ordine,
             )
-            for food, grammi, _ in foods:
+            for food, grammi, ruolo in foods:
                 meal.componenti.append(GeneratedMealComponent(
                     food_id=food.id,
                     food_nome=food.nome,
                     quantita_g=round(grammi),
                 ))
                 used_today.add(food.id)
+                # Per frequency_validator: conserva il ruolo secondo_* originale
+                # (serve per contare porzioni LARN di secondo_piatto)
+                _ruolo_map[(giorno, tipo_pasto, food.id)] = ruolo
             all_meals.append(meal)
 
         used_yesterday = used_today
@@ -193,6 +203,22 @@ def generate_plan(
     n_giorni = 7
     daily_nutrients = {k: v / n_giorni for k, v in micro_totals.items()}
 
+    # 4b. Valida frequenze vs CREA 2018 (asse 3 dello scoring)
+    weekly_items: list[dict] = []
+    for meal in all_meals:
+        for comp in meal.componenti:
+            ruolo = _ruolo_map.get(
+                (meal.giorno_settimana, meal.tipo_pasto, comp.food_id), "other"
+            )
+            weekly_items.append({
+                "ruolo": ruolo,
+                "quantita_g": comp.quantita_g,
+                "giorno": meal.giorno_settimana,
+                "tipo_pasto": meal.tipo_pasto,
+            })
+
+    freq_result = validate_frequencies(weekly_items)
+
     validation = validate_plan(
         profile=profile,
         daily_nutrients=daily_nutrients,
@@ -200,6 +226,8 @@ def generate_plan(
         proteine_g_die=total_prot / n_giorni,
         carboidrati_g_die=total_carb / n_giorni,
         grassi_g_die=total_fat / n_giorni,
+        frequency_score=freq_result.score,
+        frequency_warnings=freq_result.warnings,
     )
 
     return GeneratedPlan(

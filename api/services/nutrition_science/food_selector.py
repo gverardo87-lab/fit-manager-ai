@@ -1,9 +1,11 @@
 """
-Selettore alimenti per il generatore LARN.
+Selettore alimenti v2 per il generatore LARN.
 
 Risolve nomi food → ID da nutrition.db, seleziona alimenti dai pool
-con vincoli di varieta' (no ripetizioni consecutive), gestisce la
-rotazione proteica settimanale.
+con vincoli di varieta' (no ripetizioni consecutive).
+
+v2: gestisce pietanze composte (primo/secondo piatto) e ingredienti singoli.
+La rotazione proteica settimanale si applica al secondo piatto (CENA).
 """
 
 import random
@@ -13,9 +15,10 @@ from sqlmodel import Session, select
 
 from api.models.nutrition import Food
 from api.services.nutrition_science.meal_archetypes import (
+    ARCHETYPES,
     FOOD_POOLS,
     MEAL_ORDER,
-    WEEKLY_PROTEIN_ROTATION,
+    WEEKLY_SECONDO_ROTATION,
     MealSlot,
 )
 
@@ -46,47 +49,21 @@ def resolve_food_pools(session: Session) -> dict[str, list[Food]]:
     return pools
 
 
-def select_food_for_slot(
-    slot: MealSlot,
-    pools: dict[str, list[Food]],
-    giorno: int,
+def _pick_from_pool(
+    pool: list[Food],
     used_today: set[int],
     used_yesterday: set[int],
     rng: random.Random,
-    protein_pool_override: Optional[str] = None,
 ) -> Optional[Food]:
-    """
-    Seleziona un alimento per uno slot, rispettando varieta'.
-
-    Args:
-        slot: lo slot da riempire (ruolo + grammi)
-        pools: pool risolti da resolve_food_pools()
-        giorno: 1-7
-        used_today: set di food.id gia' usati oggi
-        used_yesterday: set di food.id usati il giorno prima
-        rng: generatore random (seed deterministico)
-        protein_pool_override: se presente, usa questo pool invece di slot.ruolo
-    """
-    ruolo = protein_pool_override or slot.ruolo
-
-    # protein_main → risolvi dal pool specifico del giorno
-    if ruolo == "protein_main":
-        return None  # gestito dal caller tramite protein_pool_override
-
-    pool = pools.get(ruolo, [])
-    if not pool:
-        return None
-
-    # Filtra: evita ripetizioni oggi e ieri
+    """Seleziona un alimento dal pool evitando ripetizioni."""
     avoid = used_today | used_yesterday
     candidates = [f for f in pool if f.id not in avoid]
-
-    # Fallback: se nessun candidato, rilassa vincolo ieri
     if not candidates:
         candidates = [f for f in pool if f.id not in used_today]
     if not candidates:
         candidates = pool
-
+    if not candidates:
+        return None
     return rng.choice(candidates)
 
 
@@ -99,11 +76,14 @@ def build_day_selections(
     """
     Costruisce le selezioni per un giorno completo.
 
+    v2: PRANZO usa primo_piatto, CENA usa secondo_piatto (protein-rotated).
+    Contorno e' un pool unificato (pietanze + ingredienti).
+
     Ritorna: [(tipo_pasto, [(Food, grammi), ...]), ...]
     """
-    from api.services.nutrition_science.meal_archetypes import ARCHETYPES
+    # Pool secondo piatto per oggi (da rotazione settimanale)
+    secondo_pool_name = WEEKLY_SECONDO_ROTATION[giorno - 1]
 
-    pranzo_pool, cena_pool = WEEKLY_PROTEIN_ROTATION[giorno - 1]
     used_today: set[int] = set()
     day_meals: list[tuple[str, list[tuple[Food, float]]]] = []
 
@@ -117,34 +97,17 @@ def build_day_selections(
         for slot in arch.slots:
             food: Optional[Food] = None
 
-            if slot.ruolo == "protein_main":
-                # Usa il pool proteico specifico per questo pasto
-                if tipo_pasto == "PRANZO":
-                    prot_pool = pools.get(pranzo_pool, [])
-                elif tipo_pasto == "CENA":
-                    prot_pool = pools.get(cena_pool, [])
-                else:
-                    prot_pool = []
-
-                if prot_pool:
-                    avoid = used_today | used_yesterday
-                    candidates = [f for f in prot_pool if f.id not in avoid]
-                    if not candidates:
-                        candidates = [f for f in prot_pool if f.id not in used_today]
-                    if not candidates:
-                        candidates = prot_pool
-                    food = rng.choice(candidates)
+            if slot.ruolo == "secondo_piatto":
+                # Secondo piatto: usa il pool proteico del giorno
+                pool = pools.get(secondo_pool_name, [])
+                food = _pick_from_pool(pool, used_today, used_yesterday, rng)
             else:
-                food = select_food_for_slot(
-                    slot, pools, giorno, used_today, used_yesterday, rng,
-                )
+                # Tutti gli altri slot: usa il pool del ruolo
+                pool = pools.get(slot.ruolo, [])
+                food = _pick_from_pool(pool, used_today, used_yesterday, rng)
 
             if food:
-                # Uova: porzione in unita' (1 uovo ~60g), 2-3 uova per pasto
-                grammi = slot.grammi
-                if food.nome == "Uovo intero, crudo" and slot.ruolo == "protein_main":
-                    grammi = 180  # ~3 uova
-                meal_foods.append((food, grammi))
+                meal_foods.append((food, slot.grammi))
                 used_today.add(food.id)
             elif slot.obbligatorio:
                 pass  # skip silenzioso se pool vuoto

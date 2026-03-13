@@ -1,12 +1,22 @@
 """
-Archetipi pasto e pool alimentari per il generatore LARN.
+Archetipi pasto e pool alimentari per il generatore LARN v2.
 
-Ogni tipo pasto ha una struttura a slot (ruoli funzionali) con grammi default.
-I pool alimentari mappano food names → ruoli per la selezione.
+Architettura dish-based: PRANZO e CENA usano pietanze composte,
+COLAZIONE e spuntini usano ingredienti singoli.
 
-Pattern alimentari italiani: colazione dolce/proteica, pranzo completo,
-cena leggera, 2 spuntini. Varieta' settimanale: pesce 2-3x, legumi 2-3x,
-carne bianca 2x, uova 1x, carne rossa max 1x.
+Pattern alimentari italiani:
+  - PRANZO: primo piatto (pietanza) + contorno + olio
+  - CENA: secondo piatto (pietanza, protein-rotated) + contorno + pane + olio
+  - COLAZIONE: yogurt/latte + cereali + frutta + frutta secca
+  - SPUNTINI: frutta, yogurt, frutta secca
+
+Porzioni default allineate a LARN 2014:
+  - Primo piatto: ~200g (peso finito, include condimento)
+  - Secondo piatto: ~160g (peso finito, include condimento)
+  - Contorno: 200g | Pane: 50g | Frutta: 150g | Olio: 10g
+  - Yogurt/latte: 125g | Frutta secca: 30g
+
+Frequenze allineate a CREA 2018 Direttive 1-13.
 """
 
 from dataclasses import dataclass, field
@@ -15,7 +25,7 @@ from dataclasses import dataclass, field
 @dataclass
 class MealSlot:
     """Slot funzionale dentro un pasto."""
-    ruolo: str       # es. "protein_animal", "carb_cooked", "vegetable"
+    ruolo: str       # es. "primo_piatto", "secondo_poultry", "vegetable"
     grammi: float    # porzione default
     obbligatorio: bool = True
 
@@ -28,49 +38,54 @@ class MealArchetype:
 
 
 # ---------------------------------------------------------------------------
-# Archetipi pasto (struttura standard italiana)
+# Archetipi pasto (struttura standard italiana v2 — dish-based)
 # ---------------------------------------------------------------------------
 
 ARCHETYPES: dict[str, MealArchetype] = {
     "COLAZIONE": MealArchetype(
         tipo_pasto="COLAZIONE",
         slots=[
-            MealSlot("dairy", 170),          # yogurt / latte
-            MealSlot("cereal", 50),           # fiocchi avena / pane / fette bisc.
-            MealSlot("fruit", 150),           # frutta fresca
-            MealSlot("nuts", 20, obbligatorio=False),  # frutta secca
+            MealSlot("dairy", 125),           # yogurt/latte (LARN: 125g)
+            MealSlot("cereal", 30),            # fiocchi/fette bisc. (LARN: 30g)
+            MealSlot("fruit", 150),            # frutta fresca (LARN: 150g)
+            MealSlot("nuts", 30, obbligatorio=False),  # frutta secca (LARN: 30g)
         ],
     ),
     "SPUNTINO_MATTINA": MealArchetype(
         tipo_pasto="SPUNTINO_MATTINA",
         slots=[
-            MealSlot("fruit", 200),
+            MealSlot("fruit", 150),            # frutta fresca (LARN: 150g)
         ],
     ),
     "PRANZO": MealArchetype(
         tipo_pasto="PRANZO",
         slots=[
-            MealSlot("protein_main", 150),    # carne/pesce/legumi/uova
-            MealSlot("carb_cooked", 100),     # pasta/riso/farro cotto (~80g crudo)
-            MealSlot("vegetable", 200),       # contorno
-            MealSlot("fat", 12),              # olio EVO
-            MealSlot("bread", 40, obbligatorio=False),
+            # Primo piatto pietanza (peso finito: pasta cotta + sugo + condimento)
+            MealSlot("primo_piatto", 200),
+            # Contorno: pietanza composta o verdura cruda
+            MealSlot("contorno", 200),
+            # Olio extra per il contorno (se contorno non composto)
+            MealSlot("fat", 5),
         ],
     ),
     "SPUNTINO_POMERIGGIO": MealArchetype(
         tipo_pasto="SPUNTINO_POMERIGGIO",
         slots=[
-            MealSlot("dairy_light", 150),     # yogurt
-            MealSlot("nuts", 20, obbligatorio=False),
+            MealSlot("dairy_light", 125),      # yogurt (LARN: 125g)
+            MealSlot("nuts", 30, obbligatorio=False),  # frutta secca (LARN: 30g)
         ],
     ),
     "CENA": MealArchetype(
         tipo_pasto="CENA",
         slots=[
-            MealSlot("protein_main", 160),    # proteina principale
-            MealSlot("vegetable", 250),       # contorno abbondante
-            MealSlot("carb_light", 50),       # pane o piccola porzione cereale
-            MealSlot("fat", 12),              # olio EVO
+            # Secondo piatto pietanza (proteina-rotated settimanalmente)
+            MealSlot("secondo_piatto", 160),
+            # Contorno
+            MealSlot("contorno", 200),
+            # Pane
+            MealSlot("carb_light", 50),        # pane (LARN: 50g)
+            # Olio extra
+            MealSlot("fat", 5),
         ],
     ),
 }
@@ -83,14 +98,20 @@ MEAL_ORDER = ["COLAZIONE", "SPUNTINO_MATTINA", "PRANZO", "SPUNTINO_POMERIGGIO", 
 #
 # I nomi devono corrispondere ESATTAMENTE ai nomi in nutrition.db.
 # Il generatore risolve nome → id a runtime.
+#
+# Pool pietanze (food_type='pietanza') per pasti principali.
+# Pool ingredienti (food_type='ingrediente') per colazione/spuntini.
 # ---------------------------------------------------------------------------
 
 FOOD_POOLS: dict[str, list[str]] = {
+    # ── Colazione e spuntini (ingredienti singoli) ──
+
     "dairy": [
         "Yogurt greco 0% grassi",
         "Yogurt greco intero",
         "Yogurt intero bianco",
         "Latte parzialmente scremato",
+        "Latte intero, fresco",
         "Ricotta di vaccino",
     ],
     "dairy_light": [
@@ -105,22 +126,10 @@ FOOD_POOLS: dict[str, list[str]] = {
         "Pane integrale",
         "Gallette di riso",
     ],
-    "carb_cooked": [
-        "Pasta integrale, cotta",
-        "Pasta di semola, cotta",
-        "Riso integrale, cotto",
-        "Farro, cotto",
-        "Quinoa, cotta",
-        "Cous cous, cotto",
-    ],
     "carb_light": [
         "Pane integrale",
         "Pane di segale",
         "Gallette di riso",
-    ],
-    "bread": [
-        "Pane integrale",
-        "Pane di segale",
     ],
     "fruit": [
         "Mela, fresca",
@@ -140,8 +149,72 @@ FOOD_POOLS: dict[str, list[str]] = {
         "Semi di zucca",
         "Semi di chia",
     ],
-    "vegetable": [
-        "Spinaci, crudi",
+    "fat": [
+        "Olio di oliva extravergine",
+    ],
+
+    # ── Primi piatti (pietanze — PRANZO) ──
+
+    "primo_piatto": [
+        "Pasta al pomodoro",
+        "Pasta integrale al pomodoro",
+        "Pasta e fagioli",
+        "Pasta e lenticchie",
+        "Pasta e ceci",
+        "Pasta con tonno e pomodoro",
+        "Pasta con salmone e zucchine",
+        "Risotto ai funghi",
+        "Cous cous con verdure",
+        "Farro con verdure",
+    ],
+
+    # ── Secondi piatti (pietanze — CENA, protein-rotated) ──
+
+    "secondo_poultry": [
+        "Petto di pollo alla griglia",
+        "Pollo con verdure",
+        "Hamburger di tacchino",
+    ],
+    "secondo_fish": [
+        "Salmone al forno con limone",
+        "Merluzzo al forno con pomodorini",
+        "Branzino al forno",
+        "Gamberi saltati in padella",
+    ],
+    "secondo_legume": [
+        "Tofu saltato con verdure",
+        "Tempeh con verdure",
+        # Legumi puri come fallback (l'optimizer puo' aggiustarli)
+        "Lenticchie, cotte",
+        "Ceci, cotti",
+        "Fagioli borlotti, cotti",
+    ],
+    "secondo_egg": [
+        "Frittata di spinaci",
+        "Frittata di zucchine",
+    ],
+    "secondo_red_meat": [
+        "Scaloppine di vitello",
+        "Lonza di maiale al forno",
+        "Polpette di manzo al pomodoro",
+    ],
+    "secondo_deli": [
+        "Bresaola",
+        "Prosciutto crudo, magro",
+    ],
+
+    # ── Contorni (mix pietanze + ingredienti) ──
+
+    "contorno": [
+        # Contorni composti (pietanze)
+        "Insalata mista",
+        "Verdure grigliate miste",
+        "Spinaci saltati",
+        "Broccoli al vapore con olio",
+        "Caponata di verdure",
+        "Insalata di finocchi e arance",
+        "Patate al forno",
+        # Verdure singole (ingredienti — l'olio viene dallo slot fat)
         "Broccoli, cotti",
         "Zucchine",
         "Pomodori, freschi",
@@ -149,72 +222,48 @@ FOOD_POOLS: dict[str, list[str]] = {
         "Peperoni rossi",
         "Fagiolini, cotti",
         "Finocchio",
-        "Lattuga, iceberg",
-        "Rucola",
-        "Cavolo nero",
-        "Bietola",
         "Asparagi",
-    ],
-    "fat": [
-        "Olio di oliva extravergine",
-    ],
-
-    # ── Proteine: pool separati per rotazione settimanale ──
-
-    "protein_poultry": [
-        "Petto di pollo, crudo",
-        "Petto di tacchino, crudo",
-    ],
-    "protein_fish": [
-        "Salmone atlantico, crudo",
-        "Merluzzo, filetto crudo",
-        "Orata, cruda",
-        "Sgombro, crudo",
-        "Trota, cruda",
-        "Branzino, cotto",
-        "Tonno in scatola al naturale",
-    ],
-    "protein_legume": [
-        "Lenticchie, cotte",
-        "Ceci, cotti",
-        "Fagioli borlotti, cotti",
-        "Fagioli bianchi cannellini, cotti",
-        "Edamame, cotti",
-    ],
-    "protein_egg": [
-        "Uovo intero, crudo",
-    ],
-    "protein_red_meat": [
-        "Manzo, fesa, cruda",
-        "Vitello, scaloppina cruda",
-    ],
-    "protein_deli": [
-        "Bresaola",
-        "Prosciutto crudo, magro",
     ],
 }
 
 # ---------------------------------------------------------------------------
 # Rotazione settimanale proteine (Lun-Dom)
 #
-# Schema: pesce 3x, pollo/tacchino 2x, legumi 2x, uova 1x,
-# carne rossa max 1x. Distribuzione bilanciata ferro/omega3/fibra.
+# Allineata a CREA 2018 Dir. 9:
+#   Pesce 2-3x, Carne bianca 1-3x, Legumi 2-4x, Uova 2-4x,
+#   Carne rossa max 1-2x, Affettati max 1x.
+#
+# Il primo piatto a PRANZO ha proteine integrate (pasta e fagioli,
+# pasta con tonno, ecc.). La rotazione proteica si applica al
+# SECONDO piatto a CENA.
+#
+# Totale cena: pesce 2x, pollo 2x, legumi 2x, uova 1x = 7 cene
+# + primi pranzo con proteine (tonno 1x, legumi 3x = dentro range CREA)
 # ---------------------------------------------------------------------------
 
-# (pranzo_pool, cena_pool) per ogni giorno 1-7
-WEEKLY_PROTEIN_ROTATION: list[tuple[str, str]] = [
-    # Lun: pollo pranzo, pesce cena
-    ("protein_poultry", "protein_fish"),
-    # Mar: legumi pranzo, pollo cena
-    ("protein_legume", "protein_poultry"),
-    # Mer: pesce pranzo, uova cena
-    ("protein_fish", "protein_egg"),
-    # Gio: legumi pranzo, bresaola/crudo cena
-    ("protein_legume", "protein_deli"),
-    # Ven: pesce pranzo, pollo cena
-    ("protein_fish", "protein_poultry"),
-    # Sab: carne rossa pranzo, pesce cena
-    ("protein_red_meat", "protein_fish"),
-    # Dom: uova pranzo, legumi cena
-    ("protein_egg", "protein_legume"),
+# Secondo piatto per CENA di ogni giorno 1-7
+#
+# Allineato a CREA 2018 Dir. 9 sub-frequenze:
+#   Pesce 2-3x, Pollo 1-3x, Legumi 2-4x, Uova 2-4x,
+#   Carne rossa max 1-2x, Affettati max 1x.
+#
+# Totale: pesce 2x, pollo 1x, legumi 2x, uova 2x = 7 cene
+WEEKLY_SECONDO_ROTATION: list[str] = [
+    "secondo_poultry",     # Lun: pollo/tacchino
+    "secondo_fish",        # Mar: pesce
+    "secondo_legume",      # Mer: legumi/tofu
+    "secondo_egg",         # Gio: uova (frittata)
+    "secondo_fish",        # Ven: pesce
+    "secondo_legume",      # Sab: legumi/tofu
+    "secondo_egg",         # Dom: uova (frittata)
 ]
+
+# Mapping secondo_* → ruolo proteico per il frequency_validator
+SECONDO_TO_PROTEIN_ROLE: dict[str, str] = {
+    "secondo_poultry": "protein_poultry",
+    "secondo_fish": "protein_fish",
+    "secondo_legume": "protein_legume",
+    "secondo_egg": "protein_egg",
+    "secondo_red_meat": "protein_red_meat",
+    "secondo_deli": "protein_deli",
+}

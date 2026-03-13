@@ -14,25 +14,46 @@ Approccio: scaling proporzionale iterativo.
 from api.models.nutrition import Food
 
 
-# Limiti porzione ragionevoli (grammi)
+# ---------------------------------------------------------------------------
+# Limiti porzione ragionevoli (grammi) — allineati a LARN 2014
+#
+# Fonte: SINU, "Standard Quantitativi delle Porzioni", LARN 2014.
+# I range (min, max) permettono ±50% rispetto alla porzione standard
+# per adattarsi a target calorici diversi (1400-2800 kcal/die).
+# ---------------------------------------------------------------------------
+
 PORTION_LIMITS: dict[str, tuple[float, float]] = {
-    "dairy":          (100, 250),
-    "dairy_light":    (100, 200),
-    "cereal":         (25, 70),
-    "carb_cooked":    (50, 150),
-    "carb_light":     (20, 80),
-    "bread":          (20, 60),
-    "fruit":          (100, 250),
-    "nuts":           (10, 35),
-    "vegetable":      (100, 400),
-    "fat":            (5, 20),
-    "protein_main":   (80, 200),
-    "protein_poultry": (80, 200),
-    "protein_fish":   (80, 200),
-    "protein_legume": (100, 250),
-    "protein_egg":    (120, 240),  # 2-4 uova
-    "protein_red_meat": (80, 180),
-    "protein_deli":   (40, 80),
+    # --- Colazione / spuntini (ingredienti) ---
+    # Latticini: yogurt/latte 125g standard → 100-200g
+    "dairy":          (100, 200),
+    "dairy_light":    (100, 175),
+    # Cereali colazione: 30g standard → 20-50g
+    "cereal":         (20, 50),
+    # Pane: 50g standard → 25-75g
+    "carb_light":     (25, 75),
+    # Frutta: 150g standard → 100-225g
+    "fruit":          (100, 225),
+    # Frutta secca: 30g standard → 15-40g
+    "nuts":           (15, 40),
+    # Olio EVO: 3-10g (ridotto, primo/secondo gia' conditi nella ricetta)
+    "fat":            (3, 10),
+
+    # --- Primo piatto (pietanza, peso finito) ---
+    # 200g standard → 150-300g (1 porzione ±50%)
+    "primo_piatto":   (150, 300),
+
+    # --- Secondo piatto (pietanza, peso finito) ---
+    # 160g standard → 120-220g
+    "secondo_poultry": (120, 220),
+    "secondo_fish":    (120, 220),
+    "secondo_legume":  (120, 250),
+    "secondo_egg":     (120, 220),
+    "secondo_red_meat": (120, 200),
+    "secondo_deli":    (30, 80),     # affettati: porzione piccola
+
+    # --- Contorno (pietanza composta o verdura) ---
+    # 200g standard → 100-350g
+    "contorno":        (100, 350),
 }
 
 
@@ -121,6 +142,9 @@ def optimize_day(
         if abs(prot_delta) > 5:  # margine di 5g
             # Trova alimenti proteici e scala
             protein_roles = {
+                "secondo_poultry", "secondo_fish", "secondo_legume",
+                "secondo_egg", "secondo_red_meat", "secondo_deli",
+                # Legacy roles (backward-compat)
                 "protein_main", "protein_poultry", "protein_fish",
                 "protein_legume", "protein_egg", "protein_red_meat", "protein_deli",
             }
@@ -139,7 +163,8 @@ def optimize_day(
                 adjusted.append((tipo, new_foods))
             result = adjusted
 
-    # --- Step 3: aggiusta grassi (olio + noci) ---
+    # --- Step 3: aggiusta grassi ---
+    # 3a: scala olio + noci (aggiunta diretta)
     if target_fat_g and target_fat_g > 0:
         totals = _calc_day_totals(result)
         fat_delta = target_fat_g - totals["grassi_g"]
@@ -160,13 +185,38 @@ def optimize_day(
                 adjusted.append((tipo, new_foods))
             result = adjusted
 
+    # 3b: se grassi ancora in eccesso, riduci pietanze ad alto contenuto lipidico
+    if target_fat_g and target_fat_g > 0:
+        totals = _calc_day_totals(result)
+        fat_excess = totals["grassi_g"] - target_fat_g
+        if fat_excess > 5:
+            # Scala le porzioni di pietanze grasse (>8g fat/100g)
+            fat_kcal = 0
+            for _, foods in result:
+                for food, grammi, ruolo in foods:
+                    if food.grassi_g > 4 and ruolo not in {"fat", "nuts"}:
+                        fat_kcal += food.grassi_g * grammi / 100.0
+            if fat_kcal > 0:
+                shrink = max(0.65, 1 - fat_excess / fat_kcal)
+                adjusted = []
+                for tipo, foods in result:
+                    new_foods = []
+                    for food, grammi, ruolo in foods:
+                        if food.grassi_g > 4 and ruolo not in {"fat", "nuts"}:
+                            new_g = _clamp(grammi * shrink, ruolo)
+                            new_foods.append((food, round(new_g), ruolo))
+                        else:
+                            new_foods.append((food, grammi, ruolo))
+                    adjusted.append((tipo, new_foods))
+                result = adjusted
+
     # --- Step 4: ri-bilancia kcal via carboidrati ---
     # Dopo aggiustamento proteine/grassi, le kcal possono essere sbilanciate.
     # Correggi scalando le fonti di carboidrati.
     totals = _calc_day_totals(result)
     kcal_gap = target_kcal - totals["kcal"]
     if abs(kcal_gap) > 50:  # margine 50 kcal
-        carb_roles = {"carb_cooked", "carb_light", "cereal", "bread"}
+        carb_roles = {"primo_piatto", "carb_light", "cereal"}
         # Calcola kcal totali da fonti carb
         carb_kcal = 0
         for _, foods in result:
@@ -175,7 +225,7 @@ def optimize_day(
                     carb_kcal += food.energia_kcal * grammi / 100.0
         if carb_kcal > 0:
             carb_scale = 1 + (kcal_gap / carb_kcal)
-            carb_scale = max(0.5, min(2.0, carb_scale))
+            carb_scale = max(0.5, min(2.5, carb_scale))
             adjusted = []
             for tipo, foods in result:
                 new_foods = []

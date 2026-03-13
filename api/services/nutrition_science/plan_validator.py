@@ -1,19 +1,26 @@
 """
-Validatore piano alimentare vs LARN 2014.
+Validatore piano alimentare vs LARN 2014 + Linee Guida CREA 2018.
 
-Prende un piano alimentare (con pasti e componenti arricchiti) e un profilo
-cliente, e produce una valutazione completa di compliance nutrizionale.
+Scoring v2 a 3 assi:
+  - Asse 1 (25%): Distribuzione macro (% kcal P/C/G nel range LARN)
+  - Asse 2 (35%): Micronutrienti (19 nutrienti vs AR/PRI/AI/UL)
+  - Asse 3 (40%): Frequenze alimentari (porzioni/settimana vs CREA 2018)
+
+Il punteggio a 3 assi risolve il cap ~70% del v1 che pesava 70% micro
+(penalizzando nutrienti come Vit.D intrinsecamente carenti dalla dieta).
 
 Logica:
 1. Calcola apporto medio giornaliero di ogni nutriente dal piano
 2. Lookup riferimento LARN per profilo (eta', sesso, stato fisiologico)
 3. Classifica ogni nutriente: ottimale / sufficiente / carente / eccesso
-4. Calcola score complessivo 0-100
-5. Genera warnings per criticita'
+4. Valuta frequenze settimanali vs CREA 2018 (se dati disponibili)
+5. Calcola score composito 3-assi 0-100
+6. Genera warnings per criticita'
 """
 
 from typing import Optional
 
+from api.services.nutrition_science.larn_portions import DIET_LIMITED_NUTRIENTS
 from api.services.nutrition_science.larn_tables import (
     LARN_LACTATION_ADD,
     LARN_PREGNANCY_ADD,
@@ -124,13 +131,16 @@ def _assess_nutrient(
     )
 
 
-def _compute_score(assessments: list[NutrientAssessment]) -> int:
+def _compute_micro_score(assessments: list[NutrientAssessment]) -> int:
     """
-    Score 0-100 composito basato sulla compliance dei nutrienti.
+    Score 0-100 per asse micronutrienti.
 
-    Pesi:
-    - Macro distribution: 30 punti
-    - Micronutrienti valutabili: 70 punti distribuiti equamente
+    Nutrienti con fonti alimentari limitate (es. Vit.D) ricevono
+    peso attenuato: se carenti, contribuiscono 60 invece di 0-40.
+    Questo evita che nutrienti irraggiungibili dalla sola dieta
+    penalizzino ingiustamente il piano.
+
+    Fonte: LARN 2014 riconosce che Vit.D richiede supplementazione.
     """
     evaluable = [a for a in assessments if a.status != ComplianceStatus.NON_VALUTABILE]
     if not evaluable:
@@ -138,18 +148,59 @@ def _compute_score(assessments: list[NutrientAssessment]) -> int:
 
     total = 0
     for a in evaluable:
+        # Nutriente con fonte alimentare limitata (es. Vit.D)
+        is_limited = any(
+            a.nutriente.lower() in key.lower() or key.replace("_ug", "").replace("_mg", "").replace("vitamina_", "vitamina ") in a.nutriente.lower()
+            for key in DIET_LIMITED_NUTRIENTS
+        )
+
         if a.status == ComplianceStatus.OTTIMALE:
             total += 100
         elif a.status == ComplianceStatus.SUFFICIENTE:
-            total += 65
+            total += 70
         elif a.status == ComplianceStatus.CARENTE:
-            # Proporzionale: se ha il 50% del target, score ~25
-            pct = a.percentuale_pri or 0
-            total += max(0, min(40, pct * 0.4))
+            if is_limited:
+                # Nutriente intrinsecamente carente: penalita' attenuata
+                total += 60
+            else:
+                pct = a.percentuale_pri or 0
+                total += max(0, min(45, pct * 0.45))
         elif a.status == ComplianceStatus.ECCESSO:
-            total += 30  # penalizzazione moderata
+            total += 35
 
     return round(total / len(evaluable))
+
+
+def _compute_macro_score(
+    prot_pct: float,
+    carb_pct: float,
+    fat_pct: float,
+    macro: MacroDistribution,
+) -> int:
+    """
+    Score 0-100 per asse distribuzione macro.
+
+    100 = tutti e 3 nel range LARN.
+    Ogni macro fuori range penalizza proporzionalmente alla distanza.
+    """
+    score = 0
+    for val, rng in [
+        (prot_pct, macro.proteine_range),
+        (carb_pct, macro.carboidrati_range),
+        (fat_pct, macro.grassi_range),
+    ]:
+        if rng[0] <= val <= rng[1]:
+            score += 33  # nel range
+        else:
+            # Distanza dal range piu' vicino, penalita' proporzionale
+            if val < rng[0]:
+                distance_pct = (rng[0] - val) / rng[0] * 100
+            else:
+                distance_pct = (val - rng[1]) / rng[1] * 100
+            # Penalita' graduale: 5% fuori = 25pt, 10% fuori = 18pt, 20%+ = 0pt
+            partial = max(0, 33 - distance_pct * 1.5)
+            score += partial
+    return round(min(100, score + 1))  # +1 per arrotondamento 3×33=99
 
 
 # ---------------------------------------------------------------------------
@@ -164,9 +215,19 @@ def validate_plan(
     proteine_g_die: float,
     carboidrati_g_die: float,
     grassi_g_die: float,
+    frequency_score: Optional[int] = None,
+    frequency_warnings: Optional[list[str]] = None,
 ) -> PlanValidationResult:
     """
-    Valida un piano alimentare contro i riferimenti LARN 2014.
+    Valida un piano alimentare contro LARN 2014 + CREA 2018.
+
+    Scoring v2 a 3 assi:
+      - Asse 1 (25%): Distribuzione macro (% kcal P/C/G)
+      - Asse 2 (35%): Micronutrienti (19 nutrienti vs LARN)
+      - Asse 3 (40%): Frequenze alimentari (vs CREA 2018)
+
+    Se frequency_score non e' fornito, il peso viene ridistribuito
+    su macro (35%) e micro (65%) per backward-compat.
 
     Args:
         profile: profilo del cliente (eta', sesso, peso, ecc.)
@@ -175,6 +236,8 @@ def validate_plan(
         proteine_g_die: grammi proteine /die
         carboidrati_g_die: grammi carboidrati /die
         grassi_g_die: grammi grassi /die
+        frequency_score: score frequenze 0-100 (da frequency_validator)
+        frequency_warnings: warning frequenze (da frequency_validator)
 
     Returns:
         PlanValidationResult con assessment completo
@@ -191,7 +254,7 @@ def validate_plan(
             macro=MacroDistribution(proteine_pct=0, carboidrati_pct=0, grassi_pct=0),
             score=0,
             warnings=["Piano vuoto o senza calorie"],
-            note_metodologiche="LARN 2014 — SINU IV Revisione",
+            note_metodologiche="LARN 2014 — SINU IV Revisione + CREA 2018",
         )
 
     prot_pct = round(proteine_g_die * 4 / kcal_die * 100, 1)
@@ -230,7 +293,6 @@ def validate_plan(
             prot_g_kg, prot_ref_adj, "Proteine", "g/kg",
         ))
     elif prot_ref:
-        # Senza peso, confronto assoluto con stima peso medio
         assessments.append(NutrientAssessment(
             nutriente="Proteine",
             unita="g/kg",
@@ -261,8 +323,12 @@ def validate_plan(
 
         # Warning specifici
         if assessment.status == ComplianceStatus.CARENTE:
-            warnings.append(f"{label} carente: {assessment.apporto_die or 0} {unita} "
-                            f"(target: {ref.get('pri') or ref.get('ai')} {unita})")
+            # Nutriente con fonte alimentare limitata: nota clinica, non warning
+            if campo in DIET_LIMITED_NUTRIENTS:
+                assessment.nota = DIET_LIMITED_NUTRIENTS[campo]
+            else:
+                warnings.append(f"{label} carente: {assessment.apporto_die or 0} {unita} "
+                                f"(target: {ref.get('pri') or ref.get('ai')} {unita})")
         elif assessment.status == ComplianceStatus.ECCESSO:
             warnings.append(f"{label} in eccesso: {assessment.apporto_die} {unita} "
                             f"(UL: {ref.get('ul')} {unita})")
@@ -272,22 +338,27 @@ def validate_plan(
     if sodio is not None and sodio > 2000:
         warnings.append(f"Sodio elevato ({round(sodio)} mg/die, OMS raccomanda < 2000 mg)")
 
-    # --- Score complessivo ---
-    # Macro compliance contribuisce 30 punti
-    macro_score = 30
-    for val, rng in [
-        (prot_pct, macro.proteine_range),
-        (carb_pct, macro.carboidrati_range),
-        (fat_pct, macro.grassi_range),
-    ]:
-        if rng[0] <= val <= rng[1]:
-            macro_score += 0  # gia' incluso nel base
-        else:
-            macro_score -= 10
+    # --- Score composito v2 (3 assi) ---
+    axis_macro = _compute_macro_score(prot_pct, carb_pct, fat_pct, macro)
+    axis_micro = _compute_micro_score(assessments)
 
-    micro_score = _compute_score(assessments)
-    # Peso: 30% macro + 70% micro
-    final_score = round(max(0, min(100, macro_score * 0.3 + micro_score * 0.7)))
+    if frequency_score is not None:
+        # 3 assi: 25% macro + 35% micro + 40% frequenze
+        final_score = round(
+            axis_macro * 0.25
+            + axis_micro * 0.35
+            + frequency_score * 0.40
+        )
+        if frequency_warnings:
+            warnings.extend(frequency_warnings)
+    else:
+        # Fallback 2 assi: 35% macro + 65% micro (backward-compat)
+        final_score = round(
+            axis_macro * 0.35
+            + axis_micro * 0.65
+        )
+
+    final_score = max(0, min(100, final_score))
 
     return PlanValidationResult(
         profilo=profile,
@@ -297,9 +368,11 @@ def validate_plan(
         score=final_score,
         warnings=warnings,
         note_metodologiche=(
-            "Valutazione basata su LARN 2014 (SINU — Societa' Italiana di Nutrizione Umana, "
-            "IV Revisione). Livelli di riferimento: AR (Fabbisogno Medio), PRI (Assunzione "
-            "Raccomandata), AI (Assunzione Adeguata), UL (Livello Massimo Tollerabile). "
-            "Range macro LARN: Proteine 12-20%, Carboidrati 45-60%, Grassi 20-35% dell'energia."
+            "Valutazione basata su LARN 2014 (SINU — IV Revisione) + "
+            "Linee Guida CREA 2018. "
+            "Score composito 3 assi: macro (25%), micro (35%), frequenze CREA (40%). "
+            "Nutrienti con fonte alimentare limitata (es. Vitamina D) hanno "
+            "penalita' attenuata — LARN raccomanda supplementazione. "
+            "Range macro: Proteine 12-20%, Carboidrati 45-60%, Grassi 20-35%."
         ),
     )
