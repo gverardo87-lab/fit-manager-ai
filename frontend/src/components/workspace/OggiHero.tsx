@@ -163,30 +163,31 @@ export function OggiHero({
           : "text-foreground";
 
   return (
-    <section className={className}>
+    <section className={cn("oggi-hero-mesh", className)}>
       <div
         className={surfaceRoleClassName(
           { role: "page", tone: "neutral" },
-          "oggi-command-bar px-5 py-4",
+          "oggi-command-bar px-5 py-5 sm:px-6 sm:py-6",
         )}
       >
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-              {DATE_FMT.format(now)}
-              <span className="mx-2 opacity-40">|</span>
-              {TIME_FMT.format(now)}
-              <span className="mx-2 opacity-40">|</span>
-              preparazione sedute
+            <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              <span>{DATE_FMT.format(now)}</span>
+              <span className="h-1 w-1 rounded-full bg-current opacity-25" />
+              <span className="tabular-nums">{TIME_FMT.format(now)}</span>
+              <span className="h-1 w-1 rounded-full bg-current opacity-25" />
+              <span>preparazione sedute</span>
             </p>
-            <h1 className="mt-1 text-[1.9rem] font-black leading-none tracking-tight text-foreground">
+            <h1 className="oggi-title-gradient mt-2 text-[2.2rem] font-black leading-none tracking-tight sm:text-[2.5rem]">
               Oggi
             </h1>
-            <p className={cn("mt-1.5 text-[14px] font-semibold leading-snug sm:text-[15px]", leadColor)}>
+            <div className="oggi-hero-divider mt-3" />
+            <p className={cn("mt-3 text-[14px] font-semibold leading-snug sm:text-[15px]", leadColor)}>
               {lead}
             </p>
             {detail && (
-              <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+              <p className="mt-1.5 text-[11px] leading-5 text-muted-foreground/80">
                 {detail}
               </p>
             )}

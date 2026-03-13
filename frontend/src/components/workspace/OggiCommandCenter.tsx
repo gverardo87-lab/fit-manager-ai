@@ -274,10 +274,10 @@ export function OggiCommandCenter({ session, status, className }: OggiCommandCen
       <div className="space-y-4">
 
         {/* HEADER: Ring + Nome + Status */}
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-4">
           {session.readiness_score !== null && (
-            <div className={surfaceRoleClassName({ role: "signal", tone: readinessTone }, "flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-xl")}>
-              <ReadinessRing score={session.readiness_score} size={40} />
+            <div className={surfaceRoleClassName({ role: "signal", tone: readinessTone }, "oggi-dossier-glass flex h-[60px] w-[60px] shrink-0 items-center justify-center rounded-2xl")}>
+              <ReadinessRing score={session.readiness_score} size={48} />
             </div>
           )}
           <div className="min-w-0 flex-1">
@@ -285,18 +285,25 @@ export function OggiCommandCenter({ session, status, className }: OggiCommandCen
               <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
                 Focus attivo
               </span>
-              <span className={surfaceChipClassName({ tone: timingTone }, "px-2 py-0.5 text-[10px] font-bold")}>
+              <span className={surfaceChipClassName({ tone: timingTone }, "px-2.5 py-0.5 text-[10px] font-bold")}>
                 {timingLabel}
               </span>
               <span className={cn(surfaceChipClassName({ tone: statusTone, emphasis: "strong" }, "text-[9px] font-bold uppercase tracking-[0.1em]"), meta.color)}>
                 {meta.label}
               </span>
             </div>
-            <h2 className="mt-1 text-[1.7rem] font-black tracking-tight text-foreground leading-none">
+            <h2 className="mt-1.5 text-[1.8rem] font-black tracking-tight text-foreground leading-none sm:text-[2rem]">
               {session.client_name}
             </h2>
             {contextParts.length > 0 && (
-              <p className="mt-1 text-[11px] text-muted-foreground">{contextParts.join(" · ")}</p>
+              <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                {contextParts.map((part, i) => (
+                  <span key={i} className="flex items-center gap-1.5">
+                    {i > 0 && <span className="h-0.5 w-0.5 rounded-full bg-current opacity-30" />}
+                    {part}
+                  </span>
+                ))}
+              </p>
             )}
           </div>
         </div>
@@ -332,9 +339,16 @@ export function OggiCommandCenter({ session, status, className }: OggiCommandCen
             </div>
           </div>
         ) : (
-          <div className={surfaceRoleClassName({ role: "signal", tone: "teal" }, "px-4 py-3")}>
-            <p className="text-[12px] font-bold text-emerald-700 dark:text-emerald-300">Seduta pronta</p>
-            <p className="mt-0.5 text-[11px] text-muted-foreground/80">Nessun blocco clinico-operativo immediato.</p>
+          <div className={surfaceRoleClassName({ role: "signal", tone: "teal" }, "px-4 py-3.5")}>
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/15 dark:bg-emerald-400/15">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400" />
+              </span>
+              <div>
+                <p className="text-[12px] font-bold text-emerald-700 dark:text-emerald-300">Seduta pronta</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground/80">Nessun blocco clinico-operativo immediato.</p>
+              </div>
+            </div>
           </div>
         )}
 
@@ -342,16 +356,16 @@ export function OggiCommandCenter({ session, status, className }: OggiCommandCen
         <PrepNotes key={session.event_id} eventId={session.event_id} />
 
         {/* AZIONI */}
-        <div className="flex flex-wrap gap-2">
-          <Button asChild size="sm" className="h-8 rounded-full px-3.5 text-[12px] font-semibold">
-            <Link href={profileHref}>Profilo <ArrowRight className="h-3.5 w-3.5" /></Link>
+        <div className="flex flex-wrap gap-2 pt-1">
+          <Button asChild size="sm" className="h-9 rounded-full px-4 text-[12px] font-bold shadow-sm">
+            <Link href={profileHref}>Profilo <ArrowRight className="ml-1 h-3.5 w-3.5" /></Link>
           </Button>
           {planHref && (
-            <Button asChild variant="outline" size="sm" className="h-8 rounded-full px-3.5 text-[12px] font-semibold">
-              <Link href={planHref}>Scheda attiva <ArrowRight className="h-3.5 w-3.5" /></Link>
+            <Button asChild variant="outline" size="sm" className="h-9 rounded-full px-4 text-[12px] font-bold">
+              <Link href={planHref}>Scheda attiva <ArrowRight className="ml-1 h-3.5 w-3.5" /></Link>
             </Button>
           )}
-          <Button asChild variant="ghost" size="sm" className="h-8 rounded-full px-3.5 text-[12px] font-semibold text-muted-foreground">
+          <Button asChild variant="ghost" size="sm" className="h-9 rounded-full px-4 text-[12px] font-semibold text-muted-foreground">
             <Link href="/agenda">Agenda</Link>
           </Button>
         </div>

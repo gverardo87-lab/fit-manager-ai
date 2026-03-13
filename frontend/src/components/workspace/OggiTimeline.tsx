@@ -80,12 +80,12 @@ function SessionItem({
       type="button"
       onClick={onSelect}
       className={cn(
-        "relative w-full rounded-xl px-3.5 py-3 text-left transition-all duration-150",
+        "oggi-session-card relative w-full rounded-xl px-3.5 py-3 text-left",
         selected
           ? cn(
               surfaceRoleClassName({ role: "signal", tone, interactive: true }),
               `oggi-glow-${tone}`,
-              "oggi-rail-card-selected",
+              "oggi-session-card-selected",
             )
           : "border border-transparent hover:border-border/60 hover:bg-accent/40",
       )}
@@ -150,7 +150,7 @@ function GroupLabel({
 
   return (
     <div className="flex items-center gap-2 px-1">
-      <span className={cn("h-2 w-2 shrink-0 rounded-full", dotClass)} />
+      <span className={cn("h-2 w-2 shrink-0 rounded-full", dotClass, tone === "red" && "oggi-status-beat")} />
       <p className={cn("text-[10px] font-bold uppercase tracking-[0.16em]", textClass)}>{label}</p>
       <span
         className={surfaceChipClassName(
@@ -213,9 +213,9 @@ export function OggiTimeline({
       )}
     >
       {/* Header */}
-      <div className="mb-4 flex items-center gap-2">
-        <Clock3 className="h-3.5 w-3.5 text-muted-foreground/40" />
-        <h2 className="text-[13px] font-bold tracking-tight text-foreground">Sedute di oggi</h2>
+      <div className="mb-5 flex items-center gap-2.5">
+        <Clock3 className="h-4 w-4 text-muted-foreground/50" />
+        <h2 className="text-[14px] font-extrabold tracking-tight text-foreground">Sedute di oggi</h2>
         <span
           className={surfaceChipClassName(
             { tone: "neutral" },
