@@ -73,6 +73,8 @@ from api.schemas.nutrition import (
     PlanMealResponse,
     PlanMealUpdate,
     PlanTemplateItem,
+    GeneratePlanInput,
+    GeneratePlanResponse,
     MacroDistributionResponse,
     NutrientAssessmentResponse,
     NutrientReferenceResponse,
@@ -1734,4 +1736,145 @@ def validate_plan_larn(
         note_metodologiche=result.note_metodologiche,
         profilo_eta=profile.eta,
         profilo_sesso=profile.sesso.value,
+    )
+
+
+# ---------------------------------------------------------------------------
+# GENERATE — POST /nutrition/plans/generate
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/nutrition/plans/generate",
+    response_model=GeneratePlanResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def generate_nutrition_plan(
+    body: GeneratePlanInput,
+    trainer: Trainer = Depends(get_current_trainer),
+    session: Session = Depends(get_session),
+    nutrition_session: Session = Depends(get_nutrition_session),
+):
+    """
+    Genera un piano alimentare settimanale LARN-compliant.
+
+    Pipeline:
+    1. Profilo cliente (eta', sesso, peso da anamnesi)
+    2. Seleziona alimenti con rotazione proteica settimanale
+    3. Ottimizza porzioni per target calorico e LARN
+    4. Salva piano + pasti + componenti in crm.db
+    """
+    from datetime import date as date_type
+
+    from api.models.client import Client
+    from api.services.nutrition_science.plan_generator import generate_plan
+    from api.services.nutrition_science.types import ClientProfile, Sex
+
+    # Bouncer: verifica ownership cliente
+    _bouncer_client(session, body.id_cliente, trainer.id)
+
+    # Fetch client
+    client = session.exec(
+        select(Client).where(Client.id == body.id_cliente)
+    ).first()
+    if not client:
+        raise HTTPException(404, "Cliente non trovato")
+
+    # Profilo
+    if not client.data_nascita:
+        raise HTTPException(422, "Data di nascita del cliente non disponibile")
+    today = date_type.today()
+    eta = today.year - client.data_nascita.year
+    if (today.month, today.day) < (client.data_nascita.month, client.data_nascita.day):
+        eta -= 1
+
+    sesso_raw = (client.sesso or "").upper().strip()
+    if sesso_raw in ("M", "MASCHIO", "UOMO"):
+        sesso = Sex.M
+    elif sesso_raw in ("F", "FEMMINA", "DONNA"):
+        sesso = Sex.F
+    else:
+        raise HTTPException(422, "Sesso del cliente non specificato")
+
+    peso_kg = None
+    altezza_cm = None
+    if client.anamnesi_json:
+        import json as json_mod
+        try:
+            anamnesi = json_mod.loads(client.anamnesi_json)
+            peso_kg = anamnesi.get("peso_kg") or anamnesi.get("peso")
+            altezza_cm = anamnesi.get("altezza_cm") or anamnesi.get("altezza")
+            if peso_kg is not None:
+                peso_kg = float(peso_kg)
+            if altezza_cm is not None:
+                altezza_cm = float(altezza_cm)
+        except (json_mod.JSONDecodeError, ValueError, TypeError):
+            pass
+
+    profile = ClientProfile(
+        eta=eta, sesso=sesso, peso_kg=peso_kg, altezza_cm=altezza_cm,
+    )
+
+    # Genera piano
+    generated = generate_plan(
+        session=nutrition_session,
+        profile=profile,
+        target_kcal=body.obiettivo_calorico,
+        target_prot_g=body.proteine_g_target,
+        target_carb_g=body.carboidrati_g_target,
+        target_fat_g=body.grassi_g_target,
+    )
+
+    # Salva in crm.db
+    plan = NutritionPlan(
+        trainer_id=trainer.id,
+        id_cliente=body.id_cliente,
+        nome=body.nome,
+        obiettivo_calorico=body.obiettivo_calorico,
+        proteine_g_target=body.proteine_g_target,
+        carboidrati_g_target=body.carboidrati_g_target,
+        grassi_g_target=body.grassi_g_target,
+        note_cliniche=f"Piano generato automaticamente — Score LARN: {generated.score_larn}/100",
+        data_inizio=body.data_inizio,
+        attivo=body.attivo,
+    )
+    session.add(plan)
+    session.flush()
+
+    total_components = 0
+    for gen_meal in generated.pasti:
+        meal = PlanMeal(
+            piano_id=plan.id,
+            giorno_settimana=gen_meal.giorno_settimana,
+            tipo_pasto=gen_meal.tipo_pasto,
+            ordine=gen_meal.ordine,
+        )
+        session.add(meal)
+        session.flush()
+
+        for gen_comp in gen_meal.componenti:
+            comp = MealComponent(
+                pasto_id=meal.id,
+                alimento_id=gen_comp.food_id,
+                quantita_g=gen_comp.quantita_g,
+            )
+            session.add(comp)
+            total_components += 1
+
+    session.commit()
+    session.refresh(plan)
+
+    logger.info(
+        "Piano generato LARN per cliente %d (trainer %d): %d pasti, %d componenti, score %d",
+        body.id_cliente, trainer.id, len(generated.pasti), total_components, generated.score_larn,
+    )
+
+    return GeneratePlanResponse(
+        plan_id=plan.id,
+        nome=plan.nome,
+        kcal_die_media=generated.kcal_die_media,
+        score_larn=generated.score_larn,
+        num_pasti=len(generated.pasti),
+        num_componenti=total_components,
+        warnings=generated.warnings,
     )

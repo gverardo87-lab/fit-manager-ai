@@ -21,6 +21,8 @@ import type {
   FoodCategory,
   Food,
   FoodDetail,
+  GeneratePlanInput,
+  GeneratePlanResponse,
   NutritionPlan,
   NutritionPlanCreate,
   NutritionPlanUpdate,
@@ -401,5 +403,32 @@ export function usePlanLarnValidation(planId: number | null) {
     },
     enabled: !!planId,
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+
+// ---------------------------------------------------------------------------
+// Generate LARN Plan
+// ---------------------------------------------------------------------------
+
+export function useGeneratePlan() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: GeneratePlanInput) => {
+      const { data } = await apiClient.post<GeneratePlanResponse>(
+        "/nutrition/plans/generate",
+        payload,
+      );
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["nutrition-plans"] });
+      queryClient.invalidateQueries({ queryKey: ["nutrition-summary"] });
+      toast.success(
+        `Piano generato: ${data.num_pasti} pasti, score LARN ${data.score_larn}/100`,
+      );
+    },
+    onError: (err) =>
+      toast.error(extractErrorMessage(err, "Errore generazione piano")),
   });
 }

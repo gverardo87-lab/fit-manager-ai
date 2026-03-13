@@ -493,3 +493,28 @@ class PlanValidationResponse(BaseModel):
     note_metodologiche: str
     profilo_eta: int
     profilo_sesso: str
+
+
+class GeneratePlanInput(BaseModel):
+    """Input per generazione piano LARN-compliant."""
+    model_config = {"extra": "forbid"}
+
+    id_cliente: int
+    nome: str
+    obiettivo_calorico: int
+    proteine_g_target: Optional[int] = None
+    carboidrati_g_target: Optional[int] = None
+    grassi_g_target: Optional[int] = None
+    data_inizio: Optional[date] = None
+    attivo: bool = True
+
+
+class GeneratePlanResponse(BaseModel):
+    """Risposta generazione piano con preview score."""
+    plan_id: int
+    nome: str
+    kcal_die_media: float
+    score_larn: int
+    num_pasti: int
+    num_componenti: int
+    warnings: list[str]

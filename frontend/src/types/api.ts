@@ -3106,3 +3106,24 @@ export interface PlanValidationResult {
   profilo_eta: number;
   profilo_sesso: string;
 }
+
+export interface GeneratePlanInput {
+  id_cliente: number;
+  nome: string;
+  obiettivo_calorico: number;
+  proteine_g_target?: number | null;
+  carboidrati_g_target?: number | null;
+  grassi_g_target?: number | null;
+  data_inizio?: string | null;
+  attivo?: boolean;
+}
+
+export interface GeneratePlanResponse {
+  plan_id: number;
+  nome: string;
+  kcal_die_media: number;
+  score_larn: number;
+  num_pasti: number;
+  num_componenti: number;
+  warnings: string[];
+}

@@ -15,7 +15,8 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Check, Sparkles } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Check, Sparkles, Wand2 } from "lucide-react";
 
 import {
   Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
@@ -36,6 +37,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   useCreateNutritionPlan,
   useCreatePlanFromTemplate,
+  useGeneratePlan,
   useUpdateNutritionPlan,
   usePlanTemplates,
 } from "@/hooks/useNutrition";
@@ -138,6 +140,7 @@ interface NutritionPlanSheetProps {
 
 export function NutritionPlanSheet({ open, onOpenChange, clientId, plan }: NutritionPlanSheetProps) {
   const isEdit = plan !== null;
+  const router = useRouter();
 
   // Quando clientId è null (apertura da pagina globale) il trainer sceglie il cliente dentro lo sheet
   const [localClientId, setLocalClientId] = useState<number | null>(null);
@@ -151,7 +154,8 @@ export function NutritionPlanSheet({ open, onOpenChange, clientId, plan }: Nutri
   const create = useCreateNutritionPlan(effectiveClientId ?? 0);
   const update = useUpdateNutritionPlan(effectiveClientId ?? 0);
   const createFromTemplate = useCreatePlanFromTemplate(effectiveClientId ?? 0);
-  const isPending = create.isPending || update.isPending || createFromTemplate.isPending;
+  const generatePlan = useGeneratePlan();
+  const isPending = create.isPending || update.isPending || createFromTemplate.isPending || generatePlan.isPending;
 
   const { data: templates = [] } = usePlanTemplates();
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
@@ -472,13 +476,43 @@ export function NutritionPlanSheet({ open, onOpenChange, clientId, plan }: Nutri
             )} />
 
             {/* Footer */}
-            <div className="flex gap-2 pt-2">
-              <Button type="button" variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
-                Annulla
-              </Button>
-              <Button type="submit" className="flex-1" disabled={isPending || (!isEdit && effectiveClientId === null)}>
-                {isPending ? "Salvo..." : isEdit ? "Salva modifiche" : "Crea piano"}
-              </Button>
+            <div className="flex flex-col gap-2 pt-2">
+              {/* Genera LARN — solo in create mode con kcal target */}
+              {!isEdit && (
+                <Button
+                  type="button"
+                  variant="default"
+                  className="w-full bg-violet-600 hover:bg-violet-700 text-white"
+                  disabled={isPending || !effectiveClientId || !form.getValues("obiettivo_calorico") || !form.getValues("nome")}
+                  onClick={async () => {
+                    const values = form.getValues();
+                    if (!effectiveClientId || !values.obiettivo_calorico || !values.nome) return;
+                    const result = await generatePlan.mutateAsync({
+                      id_cliente: effectiveClientId,
+                      nome: values.nome,
+                      obiettivo_calorico: values.obiettivo_calorico,
+                      proteine_g_target: values.proteine_g_target || undefined,
+                      carboidrati_g_target: values.carboidrati_g_target || undefined,
+                      grassi_g_target: values.grassi_g_target || undefined,
+                      data_inizio: values.data_inizio || undefined,
+                      attivo: values.attivo,
+                    });
+                    onOpenChange(false);
+                    router.push(`/nutrizione/${result.plan_id}`);
+                  }}
+                >
+                  <Wand2 className="mr-2 h-4 w-4" />
+                  {generatePlan.isPending ? "Genero piano..." : "Genera piano LARN"}
+                </Button>
+              )}
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
+                  Annulla
+                </Button>
+                <Button type="submit" className="flex-1" disabled={isPending || (!isEdit && effectiveClientId === null)}>
+                  {isPending ? "Salvo..." : isEdit ? "Salva modifiche" : "Crea piano"}
+                </Button>
+              </div>
             </div>
           </form>
         </Form>
