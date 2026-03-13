@@ -115,6 +115,23 @@ Tutte con PRAGMA: `journal_mode=WAL`, `foreign_keys=ON`, `busy_timeout=5000`.
 | Clinical Analysis | `frontend/src/lib/clinical-analysis.ts` | Range normativi OMS/ACSM (client-side) |
 | Smart Programming | `frontend/src/lib/smart-programming/` | Scoring 14D (consumer del backend SSoT) |
 
+## Agent Skills (quality automation)
+
+Skills installate in `.agents/skills/` — knowledge base attive per audit e code generation.
+
+| Skill | Source | Quando si attiva |
+|-------|--------|-----------------|
+| `vercel-react-best-practices` | Vercel Labs | Scrittura, review o refactor di codice React/Next.js. 62 regole in 8 categorie, prioritizzate per impatto. Le regole chiave sono codificate in `frontend/CLAUDE.md` sezione "React Performance Rules". |
+| `web-design-guidelines` | Vercel Labs | Audit UI on-demand (`/web-design-guidelines <file>`). Scarica linee guida aggiornate da GitHub e controlla conformita' WCAG + UX. |
+| `code-review` | Built-in | Review pull request (`/code-review`). Analisi diff, architettura, sicurezza. |
+| `frontend-design` | Built-in | Creazione UI production-grade (`/frontend-design`). Design system coerente, no estetica AI generica. |
+
+**Integrazione nel workflow**:
+- Le regole Vercel CRITICAL/HIGH sono codificate nei CLAUDE.md come regole operative (non servono invocazioni esplicite).
+- `/web-design-guidelines` per audit accessibilita' pre-lancio su componenti specifici.
+- `/code-review` su ogni PR verso main.
+- `/frontend-design` quando si crea una nuova pagina o componente complesso.
+
 ## Struttura file governance
 
 | File | Scopo | Quando leggerlo |

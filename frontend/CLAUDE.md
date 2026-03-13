@@ -600,3 +600,182 @@ sonner 2 (toast)
 lucide-react (icons)
 cmdk 1.1.1 (command palette fuzzy search)
 ```
+
+## React Performance Rules (Vercel)
+
+Regole operative estratte da `vercel-react-best-practices` (62 regole, 8 categorie).
+Filtrate per rilevanza su questo stack (Next.js 16 client-heavy, React Query, shadcn/ui).
+Fonte completa: `.agents/skills/vercel-react-best-practices/AGENTS.md`.
+
+### CRITICAL — Hydration Safety
+
+Estensione della regola 5 dei Pitfalls. Pattern completo:
+
+```typescript
+// ❌ VIETATO — causa hydration mismatch
+const [value, setValue] = useState(() => localStorage.getItem("key"));
+const [auth, setAuth] = useState(() => isAuthenticated());
+const [width, setWidth] = useState(() => window.innerWidth);
+
+// ✅ OBBLIGATORIO — server e client rendono lo stesso valore iniziale
+const [value, setValue] = useState("");
+useEffect(() => { setValue(localStorage.getItem("key") ?? ""); }, []);
+
+const [auth, setAuth] = useState(false);
+useEffect(() => { setAuth(isAuthenticated()); }, []);
+```
+
+API vietate in `useState` initializer: `document`, `window`, `localStorage`, `sessionStorage`,
+`navigator`, `screen`, `matchMedia`, `getComputedStyle`, `getBoundingClientRect`.
+
+### CRITICAL — Bundle Size
+
+**Barrel imports** (`bundle-barrel-imports`): Next.js 16 ha `optimizePackageImports` per `lucide-react`,
+ma per moduli interni MAI creare barrel file (`index.ts` con `export *`).
+Importare direttamente dal file sorgente.
+
+**Dynamic imports** (`bundle-dynamic-imports`): componenti pesanti non visibili al primo render
+devono usare `next/dynamic` con `{ ssr: false }`. Candidati in questo progetto:
+- `recharts` (gia' lazy in alcune pagine — verificare consistenza)
+- `CommandPalette` (caricato on-demand via Ctrl+K)
+- `MuscleMap` SVG (pesante, visibile solo in drill-down)
+
+**Preload on intent** (`bundle-preload`): per componenti lazy, preload su `onMouseEnter`/`onFocus`
+del bottone che li apre. Riduce latenza percepita a zero.
+
+### HIGH — Re-render Optimization
+
+**No inline components** (`rerender-no-inline-components`):
+```typescript
+// ❌ VIETATO — componente ricreato ad ogni render, perde stato
+function ParentComponent() {
+  const ChildComponent = () => <div>{...}</div>;
+  return <ChildComponent />;
+}
+
+// ✅ OBBLIGATORIO — componente stabile a module level
+function ChildComponent() { return <div>{...}</div>; }
+function ParentComponent() { return <ChildComponent />; }
+```
+
+**useMemo solo quando serve** (`rerender-simple-expression-in-memo`):
+```typescript
+// ❌ useMemo su espressioni banali — overhead > risparmio
+const label = useMemo(() => items.length > 0 ? "Attivi" : "Vuoto", [items.length]);
+const first = useMemo(() => arr[0] ?? null, [arr]);
+
+// ✅ espressione diretta — piu' veloce del confronto deps
+const label = items.length > 0 ? "Attivi" : "Vuoto";
+const first = arr[0] ?? null;
+```
+
+Usare `useMemo` SOLO per: sort/filter su array grandi, calcoli O(n) ripetuti, oggetti/array
+usati come deps di altri hook. MAI per accesso a indice, confronto booleano, operatore ternario.
+
+**Derived state senza useEffect** (`rerender-derived-state-no-effect`):
+```typescript
+// ❌ VIETATO — causa re-render extra
+const [fullName, setFullName] = useState("");
+useEffect(() => { setFullName(`${first} ${last}`); }, [first, last]);
+
+// ✅ OBBLIGATORIO — calcolo inline durante il render
+const fullName = `${first} ${last}`;
+```
+
+**Functional setState** (`rerender-functional-setstate`):
+```typescript
+// ❌ callback ricreata ad ogni render (reference instabile)
+const increment = () => setCount(count + 1);
+
+// ✅ reference stabile, non dipende da count — zero re-render del parent
+const increment = () => setCount(prev => prev + 1);
+```
+
+### HIGH — Rendering Performance
+
+**Hoist static data** (`rendering-hoist-jsx`):
+```typescript
+// ❌ array/oggetto costante ricreato ad ogni render
+function Component() {
+  const options = [{ value: "a" }, { value: "b" }];
+  const columns = ["Nome", "Email", "Telefono"];
+  ...
+}
+
+// ✅ hoistato a module level — creato una volta sola
+const OPTIONS = [{ value: "a" }, { value: "b" }];
+const COLUMNS = ["Nome", "Email", "Telefono"];
+function Component() { ... }
+```
+
+Ogni `Array.from()`, literal array `[...]`, literal object `{...}` costante DEVE essere
+hoistato fuori dal componente. Include: config maps, `Intl.DateTimeFormat`, `Intl.NumberFormat`,
+`Set`, `Map`, `RegExp`.
+
+**Ternario esplicito** (`rendering-conditional-render`):
+```typescript
+// ❌ rischio: se count e' 0, React renderizza "0" come testo
+{count && <Badge>{count}</Badge>}
+
+// ✅ esplicito: null quando falsy
+{count > 0 ? <Badge>{count}</Badge> : null}
+```
+
+Usare SEMPRE ternario `? ... : null` invece di `&&` quando il lato sinistro puo' essere
+`0`, `""`, o `NaN`. `&&` e' OK solo con boolean espliciti (`isOpen && ...`).
+
+### MEDIUM — JavaScript Idioms
+
+**Set/Map per lookup O(1)** (`js-set-map-lookups`):
+```typescript
+// ❌ O(n) per ogni check
+const isActive = activeIds.includes(id);
+
+// ✅ O(1) — costruisci Set una volta
+const activeSet = new Set(activeIds);
+const isActive = activeSet.has(id);
+```
+
+Gia' usato nel progetto (`ATTENTION_STATUSES` in `oggi/page.tsx`). Applicare ovunque
+ci sia `.includes()` o `.find()` ripetuto sullo stesso array.
+
+**Combine iterations** (`js-combine-iterations`):
+```typescript
+// ❌ 3 passaggi sull'array
+const active = items.filter(i => i.active);
+const names = active.map(i => i.name);
+const count = names.length;
+
+// ✅ 1 passaggio
+const names: string[] = [];
+for (const item of items) {
+  if (item.active) names.push(item.name);
+}
+```
+
+### MEDIUM — Accessibilita' (Web Design Guidelines)
+
+Regole base per ogni componente:
+
+| Regola | Applicazione |
+|--------|-------------|
+| SVG informativo | `role="img"` + `aria-label` descrittivo. SVG decorativo: `aria-hidden="true"` |
+| Lista selezionabile | `aria-selected={selected}` su ogni item. Opzionale: `role="listbox"` sul container |
+| Tooltip solo hover | Mai info critica solo su `:hover`. Aggiungere `title` o rendere accessibile da tastiera |
+| Contrasto colori | Mai comunicare stato SOLO con colore. Aggiungere testo/icona/pattern |
+| Focus visible | Ogni elemento interattivo DEVE avere `:focus-visible` visibile. Nessun `outline: none` senza alternativa |
+| Heading hierarchy | `h1` → `h2` → `h3` senza salti. Un solo `h1` per pagina |
+
+**Audit on-demand**: invocare `/web-design-guidelines <file>` per analisi WCAG completa su un file.
+
+### Checklist pre-commit (React)
+
+Prima di committare codice frontend, verificare:
+- [ ] Zero `useState(() => browserAPI())` — usare `useEffect`
+- [ ] Costanti/array/oggetti statici hoistati a module level
+- [ ] `useMemo` solo su calcoli O(n), mai su espressioni banali
+- [ ] Zero componenti definiti dentro altri componenti
+- [ ] SVG informativi con `role="img"` + `aria-label`
+- [ ] Elementi selezionabili con `aria-selected`
+- [ ] Ternario `? : null` invece di `&&` con valori potenzialmente falsy non-boolean
+- [ ] Zero codice morto (componenti/funzioni non importati)
