@@ -14,6 +14,7 @@
 import { use, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 
+import { AvatarContextBar } from "@/components/portal/AvatarContextBar";
 import { PortalHeader } from "@/components/portal/PortalHeader";
 import { PortalNav } from "@/components/portal/PortalNav";
 import { BodyOverviewSection } from "@/components/portal/BodyOverviewSection";
@@ -32,6 +33,7 @@ import { useClientGoals } from "@/hooks/useGoals";
 import { useClientWorkouts, useClientWorkoutLogs } from "@/hooks/useWorkouts";
 import { useExerciseSafetyMap } from "@/hooks/useExercises";
 import { useClinicalReadiness } from "@/hooks/useDashboard";
+import { useClientAvatar } from "@/hooks/useWorkspace";
 
 import { generateClinicalReport } from "@/lib/clinical-analysis";
 import { analyzeCorrelations } from "@/lib/metric-correlations";
@@ -76,6 +78,7 @@ export default function MonitoraggioClientDetailPage({
   const { data: workoutLogsData } = useClientWorkoutLogs(clientId);
   const { data: safetyData } = useExerciseSafetyMap(clientId);
   const { data: readinessData } = useClinicalReadiness();
+  const { data: avatar, isLoading: avatarLoading } = useClientAvatar(clientId);
 
   // Computed values
   const measurements = useMemo(() => measurementsData?.items ?? [], [measurementsData?.items]);
@@ -206,7 +209,11 @@ export default function MonitoraggioClientDetailPage({
         />
       </div>
 
-      <div className={revealClass(30)} style={revealStyle(30)}>
+      <div className={revealClass(20)} style={revealStyle(20)}>
+        <AvatarContextBar avatar={avatar ?? null} isLoading={avatarLoading} />
+      </div>
+
+      <div className={revealClass(35)} style={revealStyle(35)}>
         <PortalNav />
       </div>
 
