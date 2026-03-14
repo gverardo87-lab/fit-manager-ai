@@ -120,7 +120,7 @@ function PrepNotes({ eventId }: { eventId: number }) {
 
 // ── Readiness Ring ────────────────────────────────────────────────
 
-function ReadinessRing({ score, size = 48 }: { score: number; size?: number }) {
+function ReadinessRing({ score, size = 54 }: { score: number; size?: number }) {
   const sw = 3.5;
   const r = (size - sw) / 2;
   const circ = 2 * Math.PI * r;
@@ -275,14 +275,16 @@ export function OggiCommandCenter({ session, status, className }: OggiCommandCen
     : null;
 
   return (
-    <div className={cn(surfaceRoleClassName({ role: "hero", tone: "neutral" }, cn("oggi-dossier-shell p-4 sm:p-5", className)), "oggi-lift", glowClass)}>
-      <div className="space-y-4">
+    <div className={cn(surfaceRoleClassName({ role: "hero", tone: "neutral" }, cn("oggi-dossier-shell oggi-scrollbar p-5 sm:p-6", className)), "oggi-lift oggi-dossier-enter", glowClass)}>
+      <div className="space-y-5">
 
         {/* HEADER: Ring + Nome + Status */}
         <div className="flex items-start gap-4">
           {session.readiness_score !== null && (
-            <div className={surfaceRoleClassName({ role: "signal", tone: readinessTone }, "oggi-dossier-glass flex h-[60px] w-[60px] shrink-0 items-center justify-center rounded-2xl")}>
-              <ReadinessRing score={session.readiness_score} size={48} />
+            <div className="oggi-readiness-halo" data-tone={readinessTone === "teal" ? "teal" : readinessTone === "red" ? "red" : "amber"}>
+              <div className={surfaceRoleClassName({ role: "signal", tone: readinessTone }, "oggi-dossier-glass flex h-[68px] w-[68px] shrink-0 items-center justify-center rounded-2xl")}>
+                <ReadinessRing score={session.readiness_score} size={54} />
+              </div>
             </div>
           )}
           <div className="min-w-0 flex-1">
@@ -313,12 +315,12 @@ export function OggiCommandCenter({ session, status, className }: OggiCommandCen
           </div>
         </div>
 
-        {/* STAT CHIPS */}
-        <div className="flex flex-wrap gap-1.5">
+        {/* STAT CHIPS — grid 2x2 */}
+        <div className="grid grid-cols-2 gap-1.5">
           {chips.map((chip) => (
-            <span key={chip.label} className={surfaceChipClassName({ tone: chip.tone }, "px-2.5 py-1.5 text-[10px] font-semibold")}>
-              <span className="text-muted-foreground">{chip.label}</span>
-              <span className="ml-1.5 font-bold text-foreground">{chip.value}</span>
+            <span key={chip.label} className={surfaceChipClassName({ tone: chip.tone }, "flex items-center justify-between px-3 py-2 text-[10.5px] font-semibold")}>
+              <span className="text-muted-foreground/80">{chip.label}</span>
+              <span className="font-bold text-foreground">{chip.value}</span>
             </span>
           ))}
         </div>
@@ -344,14 +346,14 @@ export function OggiCommandCenter({ session, status, className }: OggiCommandCen
             </div>
           </div>
         ) : (
-          <div className={surfaceRoleClassName({ role: "signal", tone: "teal" }, "px-4 py-3.5")}>
-            <div className="flex items-center gap-2.5">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/15 dark:bg-emerald-400/15">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400" />
+          <div className={surfaceRoleClassName({ role: "signal", tone: "teal" }, "px-4 py-4")}>
+            <div className="flex items-center gap-3">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/12 dark:bg-emerald-400/12">
+                <span className="oggi-clear-dot h-2 w-2 rounded-full bg-emerald-500 dark:bg-emerald-400" />
               </span>
               <div>
-                <p className="text-[12px] font-bold text-emerald-700 dark:text-emerald-300">Seduta pronta</p>
-                <p className="mt-0.5 text-[11px] text-muted-foreground/80">Nessun blocco clinico-operativo immediato.</p>
+                <p className="text-[12.5px] font-bold text-emerald-700 dark:text-emerald-300">Seduta pronta</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground/70">Nessun blocco clinico-operativo immediato.</p>
               </div>
             </div>
           </div>

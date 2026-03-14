@@ -1,76 +1,93 @@
 @layer components {
+  /* ── Lift interaction (hover elevate) ── */
+
   .oggi-lift {
     transition:
-      transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
-      box-shadow 280ms ease,
-      border-color 280ms ease;
+      transform 320ms cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 320ms ease,
+      border-color 320ms ease;
   }
 
   .oggi-lift:hover {
-    transform: translateY(-1px);
+    transform: translateY(-2px);
   }
+
+  /* ── Semantic glow — light ── */
 
   .oggi-glow-teal {
     box-shadow:
-      0 0 0 0.5px oklch(0.65 0.12 170 / 0.12),
-      0 10px 28px -18px oklch(0.62 0.14 150 / 0.18),
-      0 28px 56px -34px oklch(0.62 0.1 150 / 0.12);
+      0 0 0 0.5px oklch(0.65 0.12 170 / 0.10),
+      0 1px 2px oklch(0.62 0.14 150 / 0.06),
+      0 8px 24px -12px oklch(0.62 0.14 150 / 0.16),
+      0 24px 48px -28px oklch(0.62 0.1 150 / 0.12);
   }
 
   .oggi-glow-amber {
     box-shadow:
-      0 0 0 0.5px oklch(0.75 0.12 70 / 0.12),
-      0 10px 28px -18px oklch(0.75 0.12 70 / 0.18),
-      0 28px 56px -34px oklch(0.75 0.08 70 / 0.12);
+      0 0 0 0.5px oklch(0.75 0.12 70 / 0.10),
+      0 1px 2px oklch(0.75 0.12 70 / 0.06),
+      0 8px 24px -12px oklch(0.75 0.12 70 / 0.16),
+      0 24px 48px -28px oklch(0.75 0.08 70 / 0.12);
   }
 
   .oggi-glow-red {
     box-shadow:
-      0 0 0 0.5px oklch(0.55 0.15 25 / 0.15),
-      0 10px 28px -18px oklch(0.55 0.15 25 / 0.22),
-      0 28px 56px -34px oklch(0.55 0.12 25 / 0.14);
+      0 0 0 0.5px oklch(0.55 0.15 25 / 0.12),
+      0 1px 2px oklch(0.55 0.15 25 / 0.08),
+      0 8px 24px -12px oklch(0.55 0.15 25 / 0.20),
+      0 24px 48px -28px oklch(0.55 0.12 25 / 0.14);
   }
 
   .oggi-glow-neutral {
     box-shadow:
       0 0 0 0.5px color-mix(in oklch, var(--border) 70%, transparent),
-      0 8px 24px -18px color-mix(in oklch, var(--foreground) 12%, transparent);
+      0 1px 2px color-mix(in oklch, var(--foreground) 4%, transparent),
+      0 6px 20px -14px color-mix(in oklch, var(--foreground) 10%, transparent);
   }
+
+  /* ── Semantic glow — dark ── */
 
   .dark .oggi-glow-teal {
     box-shadow:
       0 0 0 0.5px oklch(0.4 0.08 170 / 0.28),
-      0 12px 32px -18px oklch(0.28 0.1 170 / 0.34),
-      0 28px 56px -32px oklch(0.22 0.08 170 / 0.24);
+      0 1px 3px oklch(0.2 0.06 170 / 0.20),
+      0 10px 28px -14px oklch(0.28 0.1 170 / 0.30),
+      0 24px 48px -28px oklch(0.22 0.08 170 / 0.22);
   }
 
   .dark .oggi-glow-amber {
     box-shadow:
       0 0 0 0.5px oklch(0.4 0.08 70 / 0.24),
-      0 12px 32px -18px oklch(0.3 0.1 70 / 0.28);
+      0 1px 3px oklch(0.25 0.06 70 / 0.16),
+      0 10px 28px -14px oklch(0.3 0.1 70 / 0.24);
   }
 
   .dark .oggi-glow-red {
     box-shadow:
       0 0 0 0.5px oklch(0.35 0.1 25 / 0.28),
-      0 12px 32px -18px oklch(0.28 0.12 25 / 0.34);
+      0 1px 3px oklch(0.2 0.08 25 / 0.18),
+      0 10px 28px -14px oklch(0.28 0.12 25 / 0.30);
   }
 
   .dark .oggi-glow-neutral {
     box-shadow:
       0 0 0 0.5px color-mix(in oklch, var(--border) 60%, transparent),
-      0 8px 24px -18px oklch(0 0 0 / 0.5);
+      0 1px 3px oklch(0 0 0 / 0.3),
+      0 6px 20px -14px oklch(0 0 0 / 0.45);
   }
+
+  /* ── Hero command bar ── */
 
   .oggi-command-bar {
     position: relative;
     overflow: hidden;
-    border-color: color-mix(in oklch, var(--border) 82%, var(--primary) 18%);
+    border-color: color-mix(in oklch, var(--border) 78%, var(--primary) 22%);
     background:
-      radial-gradient(circle at top right, oklch(0.95 0.025 170 / 0.75), transparent 28%),
+      radial-gradient(ellipse 60% 80% at 95% 10%, oklch(0.94 0.03 170 / 0.55), transparent 50%),
+      radial-gradient(ellipse 50% 60% at 5% 90%, oklch(0.96 0.015 200 / 0.30), transparent 50%),
       linear-gradient(
-        135deg,
-        color-mix(in oklch, white 86%, var(--card) 14%),
+        160deg,
+        color-mix(in oklch, white 88%, var(--card) 12%),
         color-mix(in oklch, var(--background) 82%, var(--accent) 18%)
       );
   }
@@ -81,26 +98,44 @@
     inset: 0;
     pointer-events: none;
     background:
-      linear-gradient(90deg, transparent 0%, color-mix(in oklch, var(--primary) 6%, transparent) 48%, transparent 100%);
-    opacity: 0.6;
+      linear-gradient(90deg, transparent 0%, color-mix(in oklch, var(--primary) 5%, transparent) 50%, transparent 100%);
+    opacity: 0.5;
+  }
+
+  /* Grain texture overlay — subtle depth */
+  .oggi-command-bar::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.025;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 128px 128px;
   }
 
   .dark .oggi-command-bar {
-    border-color: color-mix(in oklch, var(--border) 72%, var(--primary) 28%);
+    border-color: color-mix(in oklch, var(--border) 68%, var(--primary) 32%);
     background:
-      radial-gradient(circle at top right, oklch(0.28 0.04 170 / 0.26), transparent 28%),
+      radial-gradient(ellipse 60% 80% at 95% 10%, oklch(0.26 0.04 170 / 0.30), transparent 50%),
+      radial-gradient(ellipse 50% 60% at 5% 90%, oklch(0.20 0.025 200 / 0.20), transparent 50%),
       linear-gradient(
-        135deg,
-        color-mix(in oklch, var(--card) 88%, var(--background) 12%),
-        color-mix(in oklch, var(--background) 86%, var(--accent) 14%)
+        160deg,
+        color-mix(in oklch, var(--card) 90%, var(--background) 10%),
+        color-mix(in oklch, var(--background) 84%, var(--accent) 16%)
       );
   }
+
+  .dark .oggi-command-bar::after {
+    opacity: 0.04;
+  }
+
+  /* ── Timeline rail shell ── */
 
   .oggi-rail-shell {
     background:
       linear-gradient(
         180deg,
-        color-mix(in oklch, white 90%, var(--card) 10%),
+        color-mix(in oklch, white 92%, var(--card) 8%),
         color-mix(in oklch, var(--background) 88%, var(--accent) 12%)
       );
   }
@@ -109,80 +144,22 @@
     background:
       linear-gradient(
         180deg,
-        color-mix(in oklch, var(--card) 88%, var(--background) 12%),
+        color-mix(in oklch, var(--card) 90%, var(--background) 10%),
         color-mix(in oklch, var(--background) 86%, var(--accent) 14%)
       );
   }
 
-  .oggi-rail-group {
-    position: relative;
-  }
-
-  .oggi-rail-group::before {
-    content: "";
-    position: absolute;
-    left: 0.2rem;
-    top: 0.6rem;
-    bottom: 0.6rem;
-    width: 1px;
-    background: color-mix(in oklch, var(--border) 80%, var(--primary) 20%);
-  }
-
-  .dark .oggi-rail-group::before {
-    background: color-mix(in oklch, var(--border) 72%, var(--primary) 28%);
-  }
-
-  .oggi-rail-card {
-    position: relative;
-    overflow: hidden;
-    border: 1px solid color-mix(in oklch, var(--border) 90%, var(--ring) 10%);
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in oklch, white 86%, var(--card) 14%),
-        color-mix(in oklch, var(--background) 90%, var(--accent) 10%)
-      );
-  }
-
-  .oggi-rail-card-selected {
-    border-color: color-mix(in oklch, var(--border) 58%, var(--primary) 42%);
-    background:
-      linear-gradient(
-        135deg,
-        color-mix(in oklch, white 84%, var(--chart-4) 16%),
-        color-mix(in oklch, var(--background) 84%, var(--accent) 16%)
-      );
-  }
-
-  .dark .oggi-rail-card {
-    border-color: color-mix(in oklch, var(--border) 84%, var(--ring) 16%);
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in oklch, var(--card) 86%, var(--background) 14%),
-        color-mix(in oklch, var(--background) 88%, var(--accent) 12%)
-      );
-  }
-
-  .dark .oggi-rail-card-selected {
-    border-color: color-mix(in oklch, var(--border) 52%, var(--primary) 48%);
-    background:
-      linear-gradient(
-        135deg,
-        color-mix(in oklch, var(--card) 78%, var(--primary) 22%),
-        color-mix(in oklch, var(--background) 80%, var(--accent) 20%)
-      );
-  }
+  /* ── Dossier shell (command center) ── */
 
   .oggi-dossier-shell {
     position: relative;
     overflow: hidden;
-    border-color: color-mix(in oklch, var(--border) 82%, var(--primary) 18%);
+    border-color: color-mix(in oklch, var(--border) 78%, var(--primary) 22%);
     background:
-      radial-gradient(circle at top right, oklch(0.95 0.025 70 / 0.55), transparent 28%),
+      radial-gradient(ellipse 55% 65% at 92% 8%, oklch(0.95 0.02 170 / 0.45), transparent 50%),
       linear-gradient(
-        180deg,
-        color-mix(in oklch, white 90%, var(--card) 10%),
+        175deg,
+        color-mix(in oklch, white 91%, var(--card) 9%),
         color-mix(in oklch, var(--background) 87%, var(--accent) 13%)
       );
   }
@@ -193,45 +170,96 @@
     inset: 0;
     pointer-events: none;
     background:
-      linear-gradient(180deg, color-mix(in oklch, white 18%, transparent), transparent 42%);
-    opacity: 0.75;
+      linear-gradient(180deg, color-mix(in oklch, white 14%, transparent), transparent 38%);
+    opacity: 0.7;
+  }
+
+  /* Grain on dossier too */
+  .oggi-dossier-shell::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.02;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 128px 128px;
   }
 
   .dark .oggi-dossier-shell {
-    border-color: color-mix(in oklch, var(--border) 74%, var(--primary) 26%);
+    border-color: color-mix(in oklch, var(--border) 70%, var(--primary) 30%);
     background:
-      radial-gradient(circle at top right, oklch(0.28 0.04 70 / 0.18), transparent 28%),
+      radial-gradient(ellipse 55% 65% at 92% 8%, oklch(0.26 0.035 170 / 0.20), transparent 50%),
       linear-gradient(
-        180deg,
-        color-mix(in oklch, var(--card) 86%, var(--background) 14%),
+        175deg,
+        color-mix(in oklch, var(--card) 88%, var(--background) 12%),
         color-mix(in oklch, var(--background) 86%, var(--accent) 14%)
       );
   }
+
+  .dark .oggi-dossier-shell::after {
+    opacity: 0.035;
+  }
+
+  /* ── Notes shell ── */
 
   .oggi-notes-shell {
     background:
       linear-gradient(
         180deg,
-        color-mix(in oklch, white 88%, var(--card) 12%),
-        color-mix(in oklch, var(--background) 84%, var(--accent) 16%)
+        color-mix(in oklch, white 89%, var(--card) 11%),
+        color-mix(in oklch, var(--background) 85%, var(--accent) 15%)
       );
-    border-color: color-mix(in oklch, var(--border) 88%, var(--ring) 12%);
+    border-color: color-mix(in oklch, var(--border) 86%, var(--ring) 14%);
   }
 
   .dark .oggi-notes-shell {
     background:
       linear-gradient(
         180deg,
-        color-mix(in oklch, var(--card) 86%, var(--background) 14%),
+        color-mix(in oklch, var(--card) 88%, var(--background) 12%),
         color-mix(in oklch, var(--background) 88%, var(--accent) 12%)
       );
   }
 
+  /* ── Readiness ring glow halo ── */
+
+  .oggi-readiness-halo {
+    position: relative;
+  }
+
+  .oggi-readiness-halo::before {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    opacity: 0.18;
+    filter: blur(8px);
+    transition: opacity 700ms ease;
+  }
+
+  .oggi-readiness-halo[data-tone="teal"]::before {
+    background: oklch(0.65 0.15 170);
+  }
+
+  .oggi-readiness-halo[data-tone="amber"]::before {
+    background: oklch(0.70 0.14 75);
+  }
+
+  .oggi-readiness-halo[data-tone="red"]::before {
+    background: oklch(0.55 0.16 25);
+  }
+
+  .dark .oggi-readiness-halo::before {
+    opacity: 0.25;
+  }
+
+  /* ── Pulse animation ── */
+
   @keyframes oggi-pulse {
     0%,
     100% {
-      opacity: 0.45;
-      transform: scale(0.95);
+      opacity: 0.4;
+      transform: scale(0.92);
     }
 
     50% {
@@ -241,7 +269,7 @@
   }
 
   .oggi-pulse-dot {
-    animation: oggi-pulse 1.8s ease-in-out infinite;
+    animation: oggi-pulse 2s ease-in-out infinite;
   }
 
   /* ── Hero animated mesh gradient ── */
@@ -257,16 +285,16 @@
     inset: 0;
     pointer-events: none;
     background:
-      radial-gradient(ellipse 55% 55% at 8% 80%, oklch(0.88 0.07 170 / 0.14), transparent),
-      radial-gradient(ellipse 40% 50% at 88% 12%, oklch(0.92 0.04 200 / 0.10), transparent),
-      radial-gradient(ellipse 60% 35% at 50% 50%, oklch(0.94 0.025 170 / 0.06), transparent);
-    animation: oggi-mesh-drift 16s ease-in-out infinite alternate;
+      radial-gradient(ellipse 50% 50% at 6% 85%, oklch(0.88 0.065 170 / 0.12), transparent),
+      radial-gradient(ellipse 35% 45% at 90% 10%, oklch(0.92 0.035 200 / 0.08), transparent),
+      radial-gradient(ellipse 55% 30% at 45% 50%, oklch(0.94 0.02 170 / 0.05), transparent);
+    animation: oggi-mesh-drift 20s ease-in-out infinite alternate;
   }
 
   .dark .oggi-hero-mesh::after {
     background:
-      radial-gradient(ellipse 55% 55% at 8% 80%, oklch(0.22 0.055 170 / 0.20), transparent),
-      radial-gradient(ellipse 40% 50% at 88% 12%, oklch(0.20 0.035 200 / 0.14), transparent);
+      radial-gradient(ellipse 50% 50% at 6% 85%, oklch(0.22 0.05 170 / 0.18), transparent),
+      radial-gradient(ellipse 35% 45% at 90% 10%, oklch(0.20 0.03 200 / 0.12), transparent);
   }
 
   @keyframes oggi-mesh-drift {
@@ -275,21 +303,21 @@
     }
 
     100% {
-      transform: translate(1.5%, -0.8%) scale(1.015);
+      transform: translate(1.2%, -0.6%) scale(1.01);
     }
   }
 
   /* ── Gradient text title ── */
 
   .oggi-title-gradient {
-    background: linear-gradient(135deg, oklch(0.30 0.055 170), oklch(0.22 0.03 220));
+    background: linear-gradient(145deg, oklch(0.28 0.06 170), oklch(0.38 0.04 200));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
   .dark .oggi-title-gradient {
-    background: linear-gradient(135deg, oklch(0.88 0.10 170), oklch(0.78 0.06 210));
+    background: linear-gradient(145deg, oklch(0.90 0.11 170), oklch(0.80 0.06 200));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -300,90 +328,124 @@
   @keyframes oggi-status-beat {
     0%,
     100% {
-      opacity: 0.55;
-      transform: scale(0.85);
+      opacity: 0.5;
+      transform: scale(0.8);
     }
 
     50% {
       opacity: 1;
-      transform: scale(1.2);
+      transform: scale(1.15);
     }
   }
 
   .oggi-status-beat {
-    animation: oggi-status-beat 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    animation: oggi-status-beat 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
 
-  /* ── Timeline rail shimmer ── */
-
-  .oggi-rail-group::after {
-    content: "";
-    position: absolute;
-    left: calc(0.2rem - 2px);
-    width: 5px;
-    top: 0;
-    bottom: 0;
-    pointer-events: none;
-    border-radius: 3px;
-    background: linear-gradient(
-      180deg,
-      transparent,
-      oklch(0.65 0.12 170 / 0.06) 50%,
-      transparent
-    );
-    animation: oggi-rail-glow 5s ease-in-out infinite;
-  }
-
-  @keyframes oggi-rail-glow {
-    0%,
-    100% {
-      opacity: 0;
-    }
-
-    50% {
-      opacity: 1;
-    }
-  }
-
-  /* ── Enhanced session card interaction ── */
+  /* ── Session card interaction ── */
 
   .oggi-session-card {
     transition:
-      transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1),
-      border-color 200ms ease,
-      background 200ms ease,
-      box-shadow 200ms ease;
+      transform 240ms cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 240ms ease,
+      background 240ms ease,
+      box-shadow 240ms ease;
   }
 
   .oggi-session-card:hover {
-    transform: translateX(3px);
+    transform: translateX(4px);
+  }
+
+  .oggi-session-card:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
 
   .oggi-session-card-selected {
-    transform: translateX(4px);
+    transform: translateX(5px);
   }
 
   .oggi-session-card-selected:hover {
-    transform: translateX(4px);
+    transform: translateX(5px);
   }
 
-  /* ── Command center glass panel ── */
+  /* ── Glass panel (readiness ring backdrop) ── */
 
   .oggi-dossier-glass {
-    backdrop-filter: blur(12px) saturate(1.25);
-    -webkit-backdrop-filter: blur(12px) saturate(1.25);
+    backdrop-filter: blur(14px) saturate(1.3);
+    -webkit-backdrop-filter: blur(14px) saturate(1.3);
   }
 
-  /* ── Hero divider line ── */
+  /* ── Hero divider ── */
 
   .oggi-hero-divider {
-    width: 2.5rem;
-    height: 2px;
-    background: linear-gradient(90deg, oklch(0.65 0.12 170 / 0.5), oklch(0.65 0.12 170 / 0));
+    width: 3rem;
+    height: 1.5px;
+    background: linear-gradient(90deg, oklch(0.60 0.12 170 / 0.45), oklch(0.60 0.12 170 / 0));
     border-radius: 1px;
   }
 
   .dark .oggi-hero-divider {
-    background: linear-gradient(90deg, oklch(0.55 0.10 170 / 0.6), oklch(0.55 0.10 170 / 0));
+    background: linear-gradient(90deg, oklch(0.55 0.10 170 / 0.55), oklch(0.55 0.10 170 / 0));
+  }
+
+  /* ── Dossier entrance animation ── */
+
+  @keyframes oggi-dossier-enter {
+    from {
+      opacity: 0;
+      transform: translateY(6px) scale(0.995);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  .oggi-dossier-enter {
+    animation: oggi-dossier-enter 400ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  /* ── Refined scrollbar for timeline/dossier columns ── */
+
+  .oggi-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .oggi-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .oggi-scrollbar::-webkit-scrollbar-thumb {
+    background: color-mix(in oklch, var(--foreground) 12%, transparent);
+    border-radius: 2px;
+  }
+
+  .oggi-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklch, var(--foreground) 22%, transparent);
+  }
+
+  .dark .oggi-scrollbar::-webkit-scrollbar-thumb {
+    background: color-mix(in oklch, var(--foreground) 16%, transparent);
+  }
+
+  /* ── All-clear celebratory dot ── */
+
+  @keyframes oggi-clear-breathe {
+    0%,
+    100% {
+      opacity: 0.6;
+      box-shadow: 0 0 0 0 oklch(0.65 0.15 155 / 0.3);
+    }
+
+    50% {
+      opacity: 1;
+      box-shadow: 0 0 0 4px oklch(0.65 0.15 155 / 0);
+    }
+  }
+
+  .oggi-clear-dot {
+    animation: oggi-clear-breathe 3s ease-in-out infinite;
   }
 }

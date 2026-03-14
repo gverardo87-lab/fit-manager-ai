@@ -210,13 +210,13 @@ export function OggiTimeline({
     <div
       className={surfaceRoleClassName(
         { role: "page", tone: "neutral" },
-        cn("oggi-rail-shell px-4 py-4 sm:px-5 sm:py-5", className),
+        cn("oggi-rail-shell oggi-scrollbar px-4 py-5 sm:px-5 sm:py-6", className),
       )}
     >
       {/* Header */}
-      <div className="mb-5 flex items-center gap-2.5">
-        <Clock3 className="h-4 w-4 text-muted-foreground/50" />
-        <h2 className="text-[14px] font-extrabold tracking-tight text-foreground">Sedute di oggi</h2>
+      <div className="mb-6 flex items-center gap-2.5">
+        <Clock3 className="h-4 w-4 text-muted-foreground/40" />
+        <h2 className="text-[14.5px] font-extrabold tracking-tight text-foreground">Sedute di oggi</h2>
         <span
           className={surfaceChipClassName(
             { tone: "neutral" },

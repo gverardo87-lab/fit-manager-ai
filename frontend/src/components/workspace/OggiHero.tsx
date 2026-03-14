@@ -169,41 +169,41 @@ export function OggiHero({
       <div
         className={surfaceRoleClassName(
           { role: "page", tone: "neutral" },
-          "oggi-command-bar px-5 py-5 sm:px-6 sm:py-6",
+          "oggi-command-bar px-6 py-7 sm:px-8 sm:py-8",
         )}
       >
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
-            <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            <p className="flex items-center gap-2.5 text-[10px] font-bold uppercase tracking-[0.22em] text-muted-foreground/70">
               <span>{DATE_FMT.format(now)}</span>
-              <span className="h-1 w-1 rounded-full bg-current opacity-25" />
+              <span className="h-0.5 w-3 rounded-full bg-current opacity-20" />
               <span>preparazione sedute</span>
             </p>
-            <div className="mt-2 flex items-center gap-4">
-              <h1 className="oggi-title-gradient text-[2.2rem] font-black leading-normal tracking-tight sm:text-[2.5rem]">
+            <div className="mt-3 flex items-center gap-5">
+              <h1 className="oggi-title-gradient text-[2.6rem] font-black leading-tight tracking-tighter sm:text-[3rem]">
                 Oggi
               </h1>
-              <AnalogClock className="h-[72px] w-[72px] shrink-0 sm:h-[88px] sm:w-[88px]" />
+              <AnalogClock className="h-[76px] w-[76px] shrink-0 sm:h-[92px] sm:w-[92px]" />
             </div>
-            <p className="mt-1 text-[14.5px] font-semibold text-primary">
+            <p className="mt-2.5 text-[15px] font-semibold text-primary/90">
               {getGreeting()}, Dott.ssa Chiara Bassani
             </p>
-            <div className="oggi-hero-divider mt-3" />
-            <p className={cn("mt-3 text-[14px] font-semibold leading-snug sm:text-[15px]", leadColor)}>
+            <div className="oggi-hero-divider mt-4" />
+            <p className={cn("mt-4 text-[14.5px] font-semibold leading-snug sm:text-[15.5px]", leadColor)}>
               {lead}
             </p>
             {detail && (
-              <p className="mt-1.5 text-[11px] leading-5 text-muted-foreground/80">
+              <p className="mt-2 max-w-lg text-[11.5px] leading-[1.6] text-muted-foreground/70">
                 {detail}
               </p>
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 sm:max-w-[25rem] sm:justify-end">
+          <div className="flex flex-wrap items-center gap-2 sm:flex-col sm:items-end sm:gap-2.5">
             <span
               className={surfaceChipClassName(
                 { tone: "neutral" },
-                "px-3 py-1.5 text-[11px] font-bold tabular-nums",
+                "px-3.5 py-1.5 text-[11px] font-bold tabular-nums",
               )}
             >
               {prep.total_sessions} {prep.total_sessions === 1 ? "seduta" : "sedute"}
@@ -213,7 +213,7 @@ export function OggiHero({
               <span
                 className={surfaceChipClassName(
                   { tone: "red" },
-                  "px-3 py-1.5 text-[11px] font-bold tabular-nums",
+                  "px-3.5 py-1.5 text-[11px] font-bold tabular-nums",
                 )}
               >
                 {attentionCount} da verificare
@@ -224,7 +224,7 @@ export function OggiHero({
               <span
                 className={surfaceChipClassName(
                   { tone: "teal" },
-                  "px-3 py-1.5 text-[11px] font-bold tabular-nums",
+                  "px-3.5 py-1.5 text-[11px] font-bold tabular-nums",
                 )}
               >
                 {readyCount} {readyCount === 1 ? "pronta" : "pronte"}
@@ -235,7 +235,7 @@ export function OggiHero({
               <span
                 className={surfaceChipClassName(
                   { tone: "neutral" },
-                  "px-3 py-1.5 text-[11px] font-bold tabular-nums",
+                  "px-3.5 py-1.5 text-[11px] font-bold tabular-nums",
                 )}
               >
                 {internalCount} {internalCount === 1 ? "interno" : "interni"}
@@ -246,7 +246,7 @@ export function OggiHero({
               <span
                 className={surfaceChipClassName(
                   { tone: isRefreshing ? "amber" : "neutral" },
-                  "px-2.5 py-1.5 text-[10px] font-bold",
+                  "px-3 py-1.5 text-[10px] font-bold",
                 )}
               >
                 <span
