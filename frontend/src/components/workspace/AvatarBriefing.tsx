@@ -36,12 +36,21 @@ function buildBriefingParts(avatar: ClientAvatar): string[] {
   // ── Frase 2: stato operativo (il piu' importante) ──
   const opParts: string[] = [];
 
-  // Compliance
+  // Compliance + trend
   if (training.compliance_30d !== null) {
     const c = Math.round(training.compliance_30d);
-    if (c >= 80) opParts.push(`compliance buona (${c}%)`);
-    else if (c >= 50) opParts.push(`compliance in calo (${c}%)`);
-    else opParts.push(`compliance bassa (${c}%)`);
+    const trendWord = training.compliance_trend === "up" ? " ↑" : training.compliance_trend === "down" ? " ↓" : "";
+    if (c >= 80) opParts.push(`compliance buona (${c}%${trendWord})`);
+    else if (c >= 50) opParts.push(`compliance media (${c}%${trendWord})`);
+    else opParts.push(`compliance bassa (${c}%${trendWord})`);
+  }
+
+  // PT attendance
+  if (training.pt_attendance_30d !== null) {
+    const att = Math.round(training.pt_attendance_30d * 100);
+    const trendWord = training.pt_attendance_trend === "up" ? " ↑" : training.pt_attendance_trend === "down" ? " ↓" : "";
+    if (att < 60) opParts.push(`frequenza PT ${att}%${trendWord}`);
+    else if (training.pt_attendance_trend === "down") opParts.push(`frequenza PT in calo (${att}%)`);
   }
 
   // Crediti

@@ -19,6 +19,9 @@ import {
   FileText,
   Heart,
   Target,
+  TrendingUp,
+  TrendingDown,
+  Minus,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +29,7 @@ import { Button } from "@/components/ui/button";
 import { ReadinessRing } from "@/components/ui/readiness-ring";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import type { ClientAvatar, ClientEnriched, AvatarHighlight, SemaphoreStatus } from "@/types/api";
+import type { ClientAvatar, ClientEnriched, AvatarHighlight, SemaphoreStatus, TrendDirection, Momentum } from "@/types/api";
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -107,6 +110,29 @@ const DIMENSION_STYLE: Record<SemaphoreStatus, { dot: string; bg: string; iconCo
   },
 };
 
+// ── Trend arrow ──────────────────────────────────────────────────
+
+const TREND_ICON = {
+  up: TrendingUp,
+  stable: Minus,
+  down: TrendingDown,
+  unknown: null,
+} as const;
+
+const TREND_COLOR: Record<TrendDirection, string> = {
+  up: "text-emerald-500",
+  stable: "text-muted-foreground/60",
+  down: "text-red-500",
+  unknown: "",
+};
+
+const MOMENTUM_LABEL: Record<Momentum, { text: string; color: string }> = {
+  accelerating: { text: "In crescita", color: "text-emerald-600 dark:text-emerald-400" },
+  steady: { text: "Stabile", color: "text-muted-foreground" },
+  decelerating: { text: "In calo", color: "text-red-600 dark:text-red-400" },
+  inactive: { text: "Inattivo", color: "text-muted-foreground/50" },
+};
+
 interface DimensionDef {
   key: string;
   icon: typeof Heart;
@@ -114,6 +140,10 @@ interface DimensionDef {
   value: string;
   status: SemaphoreStatus;
   tabTarget: string;
+  trend?: TrendDirection;
+  /** Optional second line (e.g. PT attendance) */
+  subValue?: string;
+  subTrend?: TrendDirection;
 }
 
 function buildDimensions(avatar: ClientAvatar): DimensionDef[] {
@@ -149,6 +179,11 @@ function buildDimensions(avatar: ClientAvatar): DimensionDef[] {
         : "Nessuna",
       status: training.status,
       tabTarget: "schede",
+      trend: training.compliance_trend,
+      subValue: training.pt_sessions_scheduled_30d > 0
+        ? `PT: ${training.pt_sessions_completed_30d}/${training.pt_sessions_scheduled_30d} sedute`
+        : undefined,
+      subTrend: training.pt_attendance_trend,
     },
     {
       key: "body",
@@ -258,9 +293,19 @@ export function AvatarHero({
               )}
             </div>
             {avatar ? (
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                {avatar.readiness_score >= 80 ? "Pronto" : avatar.readiness_score >= 50 ? "Da verificare" : "Critico"}
-              </span>
+              <div className="flex flex-col items-center gap-0.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {avatar.readiness_score >= 80 ? "Pronto" : avatar.readiness_score >= 50 ? "Da verificare" : "Critico"}
+                </span>
+                {avatar.training.momentum && avatar.training.momentum !== "inactive" && MOMENTUM_LABEL[avatar.training.momentum] ? (
+                  <span className={cn(
+                    "text-[9px] font-bold uppercase tracking-[0.08em]",
+                    MOMENTUM_LABEL[avatar.training.momentum].color,
+                  )}>
+                    {MOMENTUM_LABEL[avatar.training.momentum].text}
+                  </span>
+                ) : null}
+              </div>
             ) : null}
           </div>
 
@@ -326,9 +371,30 @@ export function AvatarHero({
                       </span>
                       <span className={cn("ml-auto h-2 w-2 rounded-full", style.dot)} />
                     </div>
-                    <p className="mt-1 truncate text-[13px] font-bold leading-tight text-foreground">
-                      {dim.value}
-                    </p>
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <p className="truncate text-[13px] font-bold leading-tight text-foreground">
+                        {dim.value}
+                      </p>
+                      {dim.trend && dim.trend !== "unknown" ? (() => {
+                        const TrendIcon = TREND_ICON[dim.trend];
+                        return TrendIcon ? (
+                          <TrendIcon className={cn("ml-auto h-3 w-3 shrink-0", TREND_COLOR[dim.trend])} />
+                        ) : null;
+                      })() : null}
+                    </div>
+                    {dim.subValue ? (
+                      <div className="mt-0.5 flex items-center gap-1">
+                        <p className="truncate text-[10px] text-muted-foreground/70">
+                          {dim.subValue}
+                        </p>
+                        {dim.subTrend && dim.subTrend !== "unknown" ? (() => {
+                          const SubIcon = TREND_ICON[dim.subTrend];
+                          return SubIcon ? (
+                            <SubIcon className={cn("ml-auto h-2.5 w-2.5 shrink-0", TREND_COLOR[dim.subTrend])} />
+                          ) : null;
+                        })() : null}
+                      </div>
+                    ) : null}
                   </button>
                 );
               }) : Array.from({ length: 4 }).map((_, i) => (

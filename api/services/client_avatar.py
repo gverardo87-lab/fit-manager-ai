@@ -30,7 +30,9 @@ from api.schemas.client_avatar import (
     AvatarIdentity,
     AvatarTrainingPath,
     ClientAvatar,
+    Momentum,
     SemaphoreStatus,
+    TrendDirection,
 )
 from api.services.client_avatar_highlights import AvatarContext, compute_highlights
 from api.services.client_freshness import build_measurement_freshness
@@ -84,6 +86,38 @@ def _parse_datetime(value) -> datetime | None:
 
 def _anamnesi_version(state: str) -> int:
     return {"missing": 0, "legacy": 1, "structured": 2}.get(state, 0)
+
+
+def _compute_trend(
+    recent: float | None, older: float | None, threshold: float = 0.10
+) -> TrendDirection:
+    """Compare 30d window vs prior 30d. ±threshold = significant change."""
+    if recent is None or older is None:
+        return "unknown"
+    delta = recent - older
+    if delta >= threshold:
+        return "up"
+    if delta <= -threshold:
+        return "down"
+    return "stable"
+
+
+def _compute_momentum(
+    compliance_trend: TrendDirection,
+    pt_attendance_trend: TrendDirection,
+    has_active_plan: bool,
+    days_since_last: int | None,
+) -> Momentum:
+    """Composite of compliance + PT attendance trends."""
+    if not has_active_plan and (days_since_last is None or days_since_last >= 30):
+        return "inactive"
+    trend_scores = {"up": 1, "stable": 0, "down": -1, "unknown": 0}
+    score = trend_scores[compliance_trend] + trend_scores[pt_attendance_trend]
+    if score >= 1:
+        return "accelerating"
+    if score <= -1:
+        return "decelerating"
+    return "steady"
 
 
 # ---------------------------------------------------------------------------
@@ -200,12 +234,26 @@ def _build_training(
     days_since_last: int | None,
     compliance_30d: float | None,
     compliance_60d: float | None,
+    compliance_trend: TrendDirection = "unknown",
+    pt_sessions_completed_30d: int = 0,
+    pt_sessions_scheduled_30d: int = 0,
+    pt_attendance_30d: float | None = None,
+    pt_attendance_60d: float | None = None,
+    pt_attendance_trend: TrendDirection = "unknown",
+    momentum: Momentum = "inactive",
 ) -> AvatarTrainingPath:
-    if not active_plan:
+    has_active = active_plan is not None
+    if not has_active:
         return AvatarTrainingPath(
             total_sessions=total_sessions,
             completed_sessions=completed_sessions,
             days_since_last_session=days_since_last,
+            pt_sessions_completed_30d=pt_sessions_completed_30d,
+            pt_sessions_scheduled_30d=pt_sessions_scheduled_30d,
+            pt_attendance_30d=round(pt_attendance_30d, 2) if pt_attendance_30d is not None else None,
+            pt_attendance_60d=round(pt_attendance_60d, 2) if pt_attendance_60d is not None else None,
+            pt_attendance_trend=pt_attendance_trend,
+            momentum=momentum,
             status="red",
         )
 
@@ -223,9 +271,16 @@ def _build_training(
         active_plan_objective=active_plan.obiettivo,
         compliance_30d=round(compliance_30d, 2) if compliance_30d is not None else None,
         compliance_60d=round(compliance_60d, 2) if compliance_60d is not None else None,
+        compliance_trend=compliance_trend,
         total_sessions=total_sessions,
         completed_sessions=completed_sessions,
         days_since_last_session=days_since_last,
+        pt_sessions_completed_30d=pt_sessions_completed_30d,
+        pt_sessions_scheduled_30d=pt_sessions_scheduled_30d,
+        pt_attendance_30d=round(pt_attendance_30d, 2) if pt_attendance_30d is not None else None,
+        pt_attendance_60d=round(pt_attendance_60d, 2) if pt_attendance_60d is not None else None,
+        pt_attendance_trend=pt_attendance_trend,
+        momentum=momentum,
         status=status,
     )
 
@@ -494,6 +549,66 @@ def build_avatars_batch(
         row[0]: _parse_date(row[1]) for row in measurement_rows if row[0] is not None
     }
 
+    # ── Q13a: PT events completed in 30d (agenda, categoria=PT, stato=Completato) ──
+    pt_completed_30d_rows = session.exec(
+        select(Event.id_cliente, func.count(Event.id)).where(
+            Event.trainer_id == trainer_id,
+            Event.id_cliente.in_(valid_ids),
+            Event.categoria == "PT",
+            Event.stato == "Completato",
+            Event.data_inizio >= d30.isoformat(),
+            Event.deleted_at == None,  # noqa: E711
+        ).group_by(Event.id_cliente)
+    ).all()
+    pt_completed_30d: dict[int, int] = {
+        row[0]: row[1] for row in pt_completed_30d_rows if row[0] is not None
+    }
+
+    # ── Q13b: PT events scheduled in 30d (non-cancelled) ──
+    pt_scheduled_30d_rows = session.exec(
+        select(Event.id_cliente, func.count(Event.id)).where(
+            Event.trainer_id == trainer_id,
+            Event.id_cliente.in_(valid_ids),
+            Event.categoria == "PT",
+            Event.stato != "Cancellato",
+            Event.data_inizio >= d30.isoformat(),
+            Event.deleted_at == None,  # noqa: E711
+        ).group_by(Event.id_cliente)
+    ).all()
+    pt_scheduled_30d: dict[int, int] = {
+        row[0]: row[1] for row in pt_scheduled_30d_rows if row[0] is not None
+    }
+
+    # ── Q14a: PT events completed in 60d ──
+    pt_completed_60d_rows = session.exec(
+        select(Event.id_cliente, func.count(Event.id)).where(
+            Event.trainer_id == trainer_id,
+            Event.id_cliente.in_(valid_ids),
+            Event.categoria == "PT",
+            Event.stato == "Completato",
+            Event.data_inizio >= d60.isoformat(),
+            Event.deleted_at == None,  # noqa: E711
+        ).group_by(Event.id_cliente)
+    ).all()
+    pt_completed_60d: dict[int, int] = {
+        row[0]: row[1] for row in pt_completed_60d_rows if row[0] is not None
+    }
+
+    # ── Q14b: PT events scheduled in 60d (non-cancelled) ──
+    pt_scheduled_60d_rows = session.exec(
+        select(Event.id_cliente, func.count(Event.id)).where(
+            Event.trainer_id == trainer_id,
+            Event.id_cliente.in_(valid_ids),
+            Event.categoria == "PT",
+            Event.stato != "Cancellato",
+            Event.data_inizio >= d60.isoformat(),
+            Event.deleted_at == None,  # noqa: E711
+        ).group_by(Event.id_cliente)
+    ).all()
+    pt_scheduled_60d: dict[int, int] = {
+        row[0]: row[1] for row in pt_scheduled_60d_rows if row[0] is not None
+    }
+
     # ── Build avatars ──
     avatars: list[ClientAvatar] = []
     for cid in valid_ids:
@@ -533,7 +648,35 @@ def build_avatars_batch(
         c30 = min(1.0, logs_30d.get(cid, 0) / expected_30) if plan else None
         c60 = min(1.0, logs_60d.get(cid, 0) / expected_60) if plan else None
 
+        # Compliance trend: compare 30d vs prior 30d (derived from 60d - 30d)
+        if c30 is not None and c60 is not None:
+            logs_prior_30 = logs_60d.get(cid, 0) - logs_30d.get(cid, 0)
+            c_prior = min(1.0, logs_prior_30 / expected_30) if plan else None
+            c_trend = _compute_trend(c30, c_prior)
+        else:
+            c_trend: TrendDirection = "unknown"
+
+        # PT attendance (agenda events — independent axis)
+        pt_comp_30 = pt_completed_30d.get(cid, 0)
+        pt_sched_30 = pt_scheduled_30d.get(cid, 0)
+        pt_comp_60 = pt_completed_60d.get(cid, 0)
+        pt_sched_60 = pt_scheduled_60d.get(cid, 0)
+
+        pt_att_30 = min(1.0, pt_comp_30 / pt_sched_30) if pt_sched_30 > 0 else None
+        pt_att_60 = min(1.0, pt_comp_60 / pt_sched_60) if pt_sched_60 > 0 else None
+
+        # PT attendance trend: compare 30d vs prior 30d
+        if pt_att_30 is not None and pt_att_60 is not None:
+            pt_comp_prior = pt_comp_60 - pt_comp_30
+            pt_sched_prior = pt_sched_60 - pt_sched_30
+            pt_att_prior = min(1.0, pt_comp_prior / pt_sched_prior) if pt_sched_prior > 0 else None
+            pt_att_trend = _compute_trend(pt_att_30, pt_att_prior)
+        else:
+            pt_att_trend: TrendDirection = "unknown"
+
         has_active_plan = plan is not None and plan.data_inizio is not None
+        momentum = _compute_momentum(c_trend, pt_att_trend, has_active_plan, days_since_last)
+
         training = _build_training(
             active_plan=plan if has_active_plan else None,
             total_sessions=total_sess,
@@ -541,6 +684,13 @@ def build_avatars_batch(
             days_since_last=days_since_last,
             compliance_30d=c30,
             compliance_60d=c60,
+            compliance_trend=c_trend,
+            pt_sessions_completed_30d=pt_comp_30,
+            pt_sessions_scheduled_30d=pt_sched_30,
+            pt_attendance_30d=pt_att_30,
+            pt_attendance_60d=pt_att_60,
+            pt_attendance_trend=pt_att_trend,
+            momentum=momentum,
         )
 
         # Body goals
@@ -586,6 +736,8 @@ def build_avatars_batch(
             has_measurements=body_goals.has_measurements,
             measurement_freshness=meas_freshness.status,
             seniority_days=identity.seniority_days,
+            pt_attendance_trend=pt_att_trend,
+            momentum=momentum,
         )
         highlights = compute_highlights(ctx)
 

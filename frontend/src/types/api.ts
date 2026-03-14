@@ -1380,6 +1380,8 @@ export interface SessionPrepResponse {
 // ── Client Avatar ─────────────────────────────────────────────────
 
 export type SemaphoreStatus = "green" | "amber" | "red";
+export type TrendDirection = "up" | "stable" | "down" | "unknown";
+export type Momentum = "accelerating" | "steady" | "decelerating" | "inactive";
 
 export interface AvatarIdentity {
   id: number;
@@ -1424,9 +1426,16 @@ export interface AvatarTrainingPath {
   active_plan_objective: string | null;
   compliance_30d: number | null;
   compliance_60d: number | null;
+  compliance_trend: TrendDirection;
   total_sessions: number;
   completed_sessions: number;
   days_since_last_session: number | null;
+  pt_sessions_completed_30d: number;
+  pt_sessions_scheduled_30d: number;
+  pt_attendance_30d: number | null;
+  pt_attendance_60d: number | null;
+  pt_attendance_trend: TrendDirection;
+  momentum: Momentum;
   status: SemaphoreStatus;
 }
 

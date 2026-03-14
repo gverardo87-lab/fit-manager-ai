@@ -13,6 +13,8 @@ from pydantic import BaseModel, Field
 
 
 SemaphoreStatus = Literal["green", "amber", "red"]
+TrendDirection = Literal["up", "stable", "down", "unknown"]
+Momentum = Literal["accelerating", "steady", "decelerating", "inactive"]
 
 
 class AvatarIdentity(BaseModel):
@@ -56,15 +58,23 @@ class AvatarContractStatus(BaseModel):
 
 
 class AvatarTrainingPath(BaseModel):
-    """Dimensione allenamento: scheda, compliance, sessioni."""
+    """Dimensione allenamento: scheda, compliance, sessioni, frequenza PT."""
     has_active_plan: bool = False
     active_plan_name: Optional[str] = None
     active_plan_objective: Optional[str] = None
     compliance_30d: Optional[float] = None
     compliance_60d: Optional[float] = None
+    compliance_trend: TrendDirection = "unknown"
     total_sessions: int = 0
     completed_sessions: int = 0
     days_since_last_session: Optional[int] = None
+    # PT attendance (agenda events, independent from workout compliance)
+    pt_sessions_completed_30d: int = 0
+    pt_sessions_scheduled_30d: int = 0
+    pt_attendance_30d: Optional[float] = None
+    pt_attendance_60d: Optional[float] = None
+    pt_attendance_trend: TrendDirection = "unknown"
+    momentum: Momentum = "inactive"
     status: SemaphoreStatus = "red"
 
 

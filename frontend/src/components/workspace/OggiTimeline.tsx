@@ -81,12 +81,16 @@ function buildNarrativeSubline(avatar: ClientAvatar, session: SessionPrepItem, s
   // If blockers exist, that's the subline
   if (parts.length > 0) return parts.join(" · ");
 
-  // Otherwise: compliance + plan name or positive state
+  // Otherwise: compliance + PT attendance + plan name or positive state
   const nuggets: string[] = [];
   if (avatar.training.compliance_30d !== null) {
     const c = Math.round(avatar.training.compliance_30d);
-    if (c < 50) nuggets.push(`compliance ${c}%`);
-    else if (c < 80) nuggets.push(`compl. ${c}%`);
+    const arrow = avatar.training.compliance_trend === "down" ? "↓" : avatar.training.compliance_trend === "up" ? "↑" : "";
+    if (c < 50) nuggets.push(`compl. ${c}%${arrow}`);
+    else if (c < 80) nuggets.push(`compl. ${c}%${arrow}`);
+  }
+  if (avatar.training.pt_attendance_trend === "down" && avatar.training.pt_attendance_30d !== null) {
+    nuggets.push(`freq. PT ↓`);
   }
   if (avatar.training.days_since_last_session !== null && avatar.training.days_since_last_session >= 14) {
     nuggets.push(`${avatar.training.days_since_last_session}g pausa`);

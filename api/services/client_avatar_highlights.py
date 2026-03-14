@@ -31,6 +31,9 @@ class AvatarContext:
     has_measurements: bool
     measurement_freshness: str  # missing | ok | warning | critical
     seniority_days: int
+    # Trajectory fields
+    pt_attendance_trend: str = "unknown"  # up | stable | down | unknown
+    momentum: str = "inactive"  # accelerating | steady | decelerating | inactive
 
 
 HighlightRule = Callable[[AvatarContext], Optional[AvatarHighlight]]
@@ -160,6 +163,30 @@ def _no_active_plan(ctx: AvatarContext) -> Optional[AvatarHighlight]:
     return None
 
 
+def _pt_attendance_dropping(ctx: AvatarContext) -> Optional[AvatarHighlight]:
+    if ctx.pt_attendance_trend == "down":
+        return AvatarHighlight(
+            code="pt_attendance_dropping",
+            text="Frequenza PT in calo",
+            severity="warning",
+            dimension="training",
+            cta_href=f"/clienti/{ctx.client_id}?tab=sessioni",
+        )
+    return None
+
+
+def _momentum_decelerating(ctx: AvatarContext) -> Optional[AvatarHighlight]:
+    if ctx.momentum == "decelerating":
+        return AvatarHighlight(
+            code="momentum_decelerating",
+            text="Momentum in calo — da monitorare",
+            severity="info",
+            dimension="training",
+            cta_href=f"/monitoraggio/{ctx.client_id}?from=clienti-{ctx.client_id}",
+        )
+    return None
+
+
 def _loyal_no_renewal(ctx: AvatarContext) -> Optional[AvatarHighlight]:
     if (
         ctx.seniority_days >= 180
@@ -184,11 +211,13 @@ HIGHLIGHT_RULES: list[HighlightRule] = [
     _credits_exhausted,
     _session_gap_14d,
     _compliance_dropping,
+    _pt_attendance_dropping,
     _credits_low,
     _measurements_stale,
     _anamnesi_missing,
     _anamnesi_v1,
     _no_active_plan,
+    _momentum_decelerating,
     _loyal_no_renewal,
 ]
 
