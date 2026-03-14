@@ -74,6 +74,10 @@ class AvatarTrainingPath(BaseModel):
     pt_attendance_30d: Optional[float] = None
     pt_attendance_60d: Optional[float] = None
     pt_attendance_trend: TrendDirection = "unknown"
+    days_since_last_pt: Optional[int] = None
+    days_until_next_pt: Optional[int] = None
+    next_pt_date: Optional[str] = None
+    pt_cancellation_rate_30d: Optional[float] = None
     momentum: Momentum = "inactive"
     status: SemaphoreStatus = "red"
 

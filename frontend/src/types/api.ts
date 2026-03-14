@@ -1435,6 +1435,10 @@ export interface AvatarTrainingPath {
   pt_attendance_30d: number | null;
   pt_attendance_60d: number | null;
   pt_attendance_trend: TrendDirection;
+  days_since_last_pt: number | null;
+  days_until_next_pt: number | null;
+  next_pt_date: string | null;
+  pt_cancellation_rate_30d: number | null;
   momentum: Momentum;
   status: SemaphoreStatus;
 }

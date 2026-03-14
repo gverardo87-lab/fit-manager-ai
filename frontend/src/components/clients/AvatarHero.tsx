@@ -15,6 +15,7 @@ import {
   Phone,
   Pencil,
   Activity,
+  CalendarCheck,
   CircleAlert,
   FileText,
   Heart,
@@ -138,12 +139,36 @@ interface DimensionDef {
   icon: typeof Heart;
   label: string;
   value: string;
+  subline?: string;
   status: SemaphoreStatus;
   tabTarget: string;
   trend?: TrendDirection;
-  /** Optional second line (e.g. PT attendance) */
-  subValue?: string;
-  subTrend?: TrendDirection;
+}
+
+function buildPtSubline(t: ClientAvatar["training"]): string | undefined {
+  if (t.days_since_last_pt !== null && t.days_until_next_pt !== null) {
+    return `${t.days_since_last_pt}g fa · prossima tra ${t.days_until_next_pt}g`;
+  }
+  if (t.days_since_last_pt !== null) {
+    return `ultima ${t.days_since_last_pt}g fa`;
+  }
+  if (t.days_until_next_pt !== null) {
+    return `prossima tra ${t.days_until_next_pt}g`;
+  }
+  return undefined;
+}
+
+function computePtSemaphore(
+  t: ClientAvatar["training"],
+  c: ClientAvatar["contract"],
+): SemaphoreStatus {
+  if (t.pt_sessions_scheduled_30d === 0 && t.pt_sessions_completed_30d === 0) return "red";
+  if (t.days_since_last_pt !== null && t.days_since_last_pt >= 21) return "red";
+  if (t.days_since_last_pt !== null && t.days_since_last_pt >= 10) return "amber";
+  if (t.pt_attendance_30d !== null && t.pt_attendance_30d < 0.5) return "red";
+  if (t.pt_attendance_30d !== null && t.pt_attendance_30d < 0.8) return "amber";
+  if (t.days_until_next_pt === null && c.credits_remaining > 0) return "amber";
+  return "green";
 }
 
 function buildDimensions(avatar: ClientAvatar): DimensionDef[] {
@@ -171,7 +196,7 @@ function buildDimensions(avatar: ClientAvatar): DimensionDef[] {
     {
       key: "training",
       icon: Activity,
-      label: "Allenamento",
+      label: "Scheda",
       value: training.has_active_plan
         ? (training.active_plan_name && training.active_plan_name.length > 14
             ? training.active_plan_name.slice(0, 12) + "\u2026"
@@ -180,10 +205,20 @@ function buildDimensions(avatar: ClientAvatar): DimensionDef[] {
       status: training.status,
       tabTarget: "schede",
       trend: training.compliance_trend,
-      subValue: training.pt_sessions_scheduled_30d > 0
-        ? `PT: ${training.pt_sessions_completed_30d}/${training.pt_sessions_scheduled_30d} sedute`
-        : undefined,
-      subTrend: training.pt_attendance_trend,
+    },
+    {
+      key: "pt_attendance",
+      icon: CalendarCheck,
+      label: "Sedute PT",
+      value: training.pt_sessions_scheduled_30d > 0
+        ? `${training.pt_sessions_completed_30d}/${training.pt_sessions_scheduled_30d}`
+        : training.pt_sessions_completed_30d > 0
+          ? `${training.pt_sessions_completed_30d} fatte`
+          : "Nessuna",
+      subline: buildPtSubline(training),
+      status: computePtSemaphore(training, contract),
+      tabTarget: "sessioni",
+      trend: training.pt_attendance_trend,
     },
     {
       key: "body",
@@ -349,8 +384,8 @@ export function AvatarHero({
               )}
             </div>
 
-            {/* ── Dimension cards — 2x2 mobile, 4-col desktop ── */}
-            <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
+            {/* ── Dimension cards — 2-col mobile, 5-col desktop ── */}
+            <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-5">
               {dimensions ? dimensions.map((dim) => {
                 const style = DIMENSION_STYLE[dim.status];
                 const Icon = dim.icon;
@@ -382,22 +417,14 @@ export function AvatarHero({
                         ) : null;
                       })() : null}
                     </div>
-                    {dim.subValue ? (
-                      <div className="mt-0.5 flex items-center gap-1">
-                        <p className="truncate text-[10px] text-muted-foreground/70">
-                          {dim.subValue}
-                        </p>
-                        {dim.subTrend && dim.subTrend !== "unknown" ? (() => {
-                          const SubIcon = TREND_ICON[dim.subTrend];
-                          return SubIcon ? (
-                            <SubIcon className={cn("ml-auto h-2.5 w-2.5 shrink-0", TREND_COLOR[dim.subTrend])} />
-                          ) : null;
-                        })() : null}
-                      </div>
+                    {dim.subline ? (
+                      <p className="mt-0.5 truncate text-[10px] font-medium text-foreground/60">
+                        {dim.subline}
+                      </p>
                     ) : null}
                   </button>
                 );
-              }) : Array.from({ length: 4 }).map((_, i) => (
+              }) : Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="rounded-lg border bg-white/70 px-3 py-2.5 dark:bg-zinc-800/50">
                   <Skeleton className="mb-2 h-3 w-14" />
                   <Skeleton className="h-4 w-20" />

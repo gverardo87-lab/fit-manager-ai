@@ -34,6 +34,10 @@ class AvatarContext:
     # Trajectory fields
     pt_attendance_trend: str = "unknown"  # up | stable | down | unknown
     momentum: str = "inactive"  # accelerating | steady | decelerating | inactive
+    # PT temporal anchors
+    days_since_last_pt: Optional[int] = None
+    days_until_next_pt: Optional[int] = None
+    pt_cancellation_rate_30d: Optional[float] = None
 
 
 HighlightRule = Callable[[AvatarContext], Optional[AvatarHighlight]]
@@ -175,6 +179,48 @@ def _pt_attendance_dropping(ctx: AvatarContext) -> Optional[AvatarHighlight]:
     return None
 
 
+def _pt_session_gap(ctx: AvatarContext) -> Optional[AvatarHighlight]:
+    if ctx.days_since_last_pt is not None and ctx.days_since_last_pt >= 14:
+        severity = "critical" if ctx.days_since_last_pt >= 21 else "warning"
+        return AvatarHighlight(
+            code="pt_session_gap",
+            text=f"{ctx.days_since_last_pt}g dall'ultima seduta PT",
+            severity=severity,
+            dimension="training",
+            cta_href=f"/agenda?from=clienti-{ctx.client_id}",
+        )
+    return None
+
+
+def _no_next_pt_booked(ctx: AvatarContext) -> Optional[AvatarHighlight]:
+    if (
+        ctx.days_until_next_pt is None
+        and ctx.has_active_contract
+        and ctx.credits_remaining > 0
+    ):
+        return AvatarHighlight(
+            code="no_next_pt_booked",
+            text="Nessuna seduta PT programmata",
+            severity="warning",
+            dimension="training",
+            cta_href=f"/agenda?from=clienti-{ctx.client_id}",
+        )
+    return None
+
+
+def _pt_high_cancellation(ctx: AvatarContext) -> Optional[AvatarHighlight]:
+    if ctx.pt_cancellation_rate_30d is not None and ctx.pt_cancellation_rate_30d >= 0.3:
+        pct = int(ctx.pt_cancellation_rate_30d * 100)
+        return AvatarHighlight(
+            code="pt_high_cancellation",
+            text=f"{pct}% sedute PT cancellate",
+            severity="warning",
+            dimension="training",
+            cta_href=f"/clienti/{ctx.client_id}?tab=sessioni",
+        )
+    return None
+
+
 def _momentum_decelerating(ctx: AvatarContext) -> Optional[AvatarHighlight]:
     if ctx.momentum == "decelerating":
         return AvatarHighlight(
@@ -209,9 +255,12 @@ def _loyal_no_renewal(ctx: AvatarContext) -> Optional[AvatarHighlight]:
 HIGHLIGHT_RULES: list[HighlightRule] = [
     _overdue_rates,
     _credits_exhausted,
+    _pt_session_gap,
     _session_gap_14d,
     _compliance_dropping,
     _pt_attendance_dropping,
+    _no_next_pt_booked,
+    _pt_high_cancellation,
     _credits_low,
     _measurements_stale,
     _anamnesi_missing,

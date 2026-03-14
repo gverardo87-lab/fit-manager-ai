@@ -53,6 +53,16 @@ function buildBriefingParts(avatar: ClientAvatar): string[] {
     else if (training.pt_attendance_trend === "down") opParts.push(`frequenza PT in calo (${att}%)`);
   }
 
+  // PT temporal anchors
+  if (training.days_since_last_pt !== null && training.days_since_last_pt >= 7) {
+    opParts.push(`ultima PT ${training.days_since_last_pt}g fa`);
+  }
+  if (training.days_until_next_pt !== null) {
+    opParts.push(`prossima PT tra ${training.days_until_next_pt}g`);
+  } else if (contract.has_active_contract && contract.credits_remaining > 0) {
+    opParts.push("nessuna PT programmata");
+  }
+
   // Crediti
   if (contract.has_active_contract) {
     const rem = contract.credits_remaining;

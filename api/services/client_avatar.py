@@ -240,21 +240,34 @@ def _build_training(
     pt_attendance_30d: float | None = None,
     pt_attendance_60d: float | None = None,
     pt_attendance_trend: TrendDirection = "unknown",
+    days_since_last_pt: int | None = None,
+    days_until_next_pt: int | None = None,
+    next_pt_date: str | None = None,
+    pt_cancellation_rate_30d: float | None = None,
     momentum: Momentum = "inactive",
 ) -> AvatarTrainingPath:
+    # Common PT fields
+    pt_fields = dict(
+        pt_sessions_completed_30d=pt_sessions_completed_30d,
+        pt_sessions_scheduled_30d=pt_sessions_scheduled_30d,
+        pt_attendance_30d=round(pt_attendance_30d, 2) if pt_attendance_30d is not None else None,
+        pt_attendance_60d=round(pt_attendance_60d, 2) if pt_attendance_60d is not None else None,
+        pt_attendance_trend=pt_attendance_trend,
+        days_since_last_pt=days_since_last_pt,
+        days_until_next_pt=days_until_next_pt,
+        next_pt_date=next_pt_date,
+        pt_cancellation_rate_30d=pt_cancellation_rate_30d,
+        momentum=momentum,
+    )
+
     has_active = active_plan is not None
     if not has_active:
         return AvatarTrainingPath(
             total_sessions=total_sessions,
             completed_sessions=completed_sessions,
             days_since_last_session=days_since_last,
-            pt_sessions_completed_30d=pt_sessions_completed_30d,
-            pt_sessions_scheduled_30d=pt_sessions_scheduled_30d,
-            pt_attendance_30d=round(pt_attendance_30d, 2) if pt_attendance_30d is not None else None,
-            pt_attendance_60d=round(pt_attendance_60d, 2) if pt_attendance_60d is not None else None,
-            pt_attendance_trend=pt_attendance_trend,
-            momentum=momentum,
             status="red",
+            **pt_fields,
         )
 
     # Semaphore
@@ -275,13 +288,8 @@ def _build_training(
         total_sessions=total_sessions,
         completed_sessions=completed_sessions,
         days_since_last_session=days_since_last,
-        pt_sessions_completed_30d=pt_sessions_completed_30d,
-        pt_sessions_scheduled_30d=pt_sessions_scheduled_30d,
-        pt_attendance_30d=round(pt_attendance_30d, 2) if pt_attendance_30d is not None else None,
-        pt_attendance_60d=round(pt_attendance_60d, 2) if pt_attendance_60d is not None else None,
-        pt_attendance_trend=pt_attendance_trend,
-        momentum=momentum,
         status=status,
+        **pt_fields,
     )
 
 
@@ -609,6 +617,50 @@ def build_avatars_batch(
         row[0]: row[1] for row in pt_scheduled_60d_rows if row[0] is not None
     }
 
+    # ── Q15: Last completed PT session date ──
+    last_pt_rows = session.exec(
+        select(Event.id_cliente, func.max(Event.data_inizio)).where(
+            Event.trainer_id == trainer_id,
+            Event.id_cliente.in_(valid_ids),
+            Event.categoria == "PT",
+            Event.stato == "Completato",
+            Event.deleted_at == None,  # noqa: E711
+        ).group_by(Event.id_cliente)
+    ).all()
+    last_pt_by_client: dict[int, date | None] = {
+        row[0]: _parse_date(row[1]) for row in last_pt_rows if row[0] is not None
+    }
+
+    # ── Q16: Next scheduled PT session (first future Programmato) ──
+    next_pt_rows = session.exec(
+        select(Event.id_cliente, func.min(Event.data_inizio)).where(
+            Event.trainer_id == trainer_id,
+            Event.id_cliente.in_(valid_ids),
+            Event.categoria == "PT",
+            Event.stato == "Programmato",
+            Event.data_inizio >= now_str,
+            Event.deleted_at == None,  # noqa: E711
+        ).group_by(Event.id_cliente)
+    ).all()
+    next_pt_by_client: dict[int, date | None] = {
+        row[0]: _parse_date(row[1]) for row in next_pt_rows if row[0] is not None
+    }
+
+    # ── Q17: PT cancellations in 30d ──
+    pt_cancelled_30d_rows = session.exec(
+        select(Event.id_cliente, func.count(Event.id)).where(
+            Event.trainer_id == trainer_id,
+            Event.id_cliente.in_(valid_ids),
+            Event.categoria == "PT",
+            Event.stato == "Cancellato",
+            Event.data_inizio >= d30.isoformat(),
+            Event.deleted_at == None,  # noqa: E711
+        ).group_by(Event.id_cliente)
+    ).all()
+    pt_cancelled_30d: dict[int, int] = {
+        row[0]: row[1] for row in pt_cancelled_30d_rows if row[0] is not None
+    }
+
     # ── Build avatars ──
     avatars: list[ClientAvatar] = []
     for cid in valid_ids:
@@ -674,6 +726,18 @@ def build_avatars_batch(
         else:
             pt_att_trend: TrendDirection = "unknown"
 
+        # PT temporal anchors
+        last_pt_date = last_pt_by_client.get(cid)
+        days_since_last_pt = (reference - last_pt_date).days if last_pt_date else None
+        next_pt_dt = next_pt_by_client.get(cid)
+        days_until_next_pt = (next_pt_dt - reference).days if next_pt_dt else None
+        next_pt_date_str = next_pt_dt.isoformat() if next_pt_dt else None
+
+        # PT cancellation rate
+        pt_canc_30 = pt_cancelled_30d.get(cid, 0)
+        pt_total_30 = pt_sched_30 + pt_canc_30
+        pt_cancel_rate = round(pt_canc_30 / pt_total_30, 2) if pt_total_30 > 0 else None
+
         has_active_plan = plan is not None and plan.data_inizio is not None
         momentum = _compute_momentum(c_trend, pt_att_trend, has_active_plan, days_since_last)
 
@@ -690,6 +754,10 @@ def build_avatars_batch(
             pt_attendance_30d=pt_att_30,
             pt_attendance_60d=pt_att_60,
             pt_attendance_trend=pt_att_trend,
+            days_since_last_pt=days_since_last_pt,
+            days_until_next_pt=days_until_next_pt,
+            next_pt_date=next_pt_date_str,
+            pt_cancellation_rate_30d=pt_cancel_rate,
             momentum=momentum,
         )
 
@@ -738,6 +806,9 @@ def build_avatars_batch(
             seniority_days=identity.seniority_days,
             pt_attendance_trend=pt_att_trend,
             momentum=momentum,
+            days_since_last_pt=days_since_last_pt,
+            days_until_next_pt=days_until_next_pt,
+            pt_cancellation_rate_30d=pt_cancel_rate,
         )
         highlights = compute_highlights(ctx)
 
