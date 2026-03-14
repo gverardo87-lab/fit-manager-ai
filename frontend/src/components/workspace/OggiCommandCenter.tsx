@@ -5,12 +5,15 @@ import Link from "next/link";
 import { ArrowRight, CircleAlert, FileText, NotebookPen, Stethoscope } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { ReadinessRing } from "@/components/ui/readiness-ring";
+import { SemaphoreDot } from "@/components/ui/semaphore-dot";
 import {
   surfaceChipClassName,
   surfaceRoleClassName,
   type SurfaceTone,
 } from "@/components/ui/surface-role";
 import { Textarea } from "@/components/ui/textarea";
+import { AvatarBriefing } from "@/components/workspace/AvatarBriefing";
 import { appendFromParam } from "@/lib/url-state";
 import { cn } from "@/lib/utils";
 import type { ClientAvatar, SessionPrepItem } from "@/types/api";
@@ -118,52 +121,7 @@ function PrepNotes({ eventId }: { eventId: number }) {
   );
 }
 
-// ── Readiness Ring ────────────────────────────────────────────────
-
-function ReadinessRing({ score, size = 54 }: { score: number; size?: number }) {
-  const sw = 3.5;
-  const r = (size - sw) / 2;
-  const circ = 2 * Math.PI * r;
-  const offset = circ - Math.min(score / 100, 1) * circ;
-  const hue = score >= 80 ? 155 : score >= 50 ? 85 : 25;
-  const chroma = score >= 80 ? 0.17 : 0.18;
-  const l = score >= 80 ? 0.72 : score >= 50 ? 0.73 : 0.65;
-
-  const readinessLabel = score >= 80 ? "pronto" : score >= 50 ? "da verificare" : "critico";
-
-  return (
-    <div className="relative shrink-0" style={{ width: size, height: size }} role="img" aria-label={`Prontezza: ${score}% — ${readinessLabel}`}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="absolute inset-0" aria-hidden="true">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(0,0,0,0.06)" strokeWidth={sw} className="dark:stroke-white/[0.06]" />
-        <circle
-          cx={size / 2} cy={size / 2} r={r} fill="none"
-          stroke={`oklch(${l} ${chroma} ${hue})`}
-          strokeWidth={sw} strokeLinecap="round"
-          strokeDasharray={circ} strokeDashoffset={offset}
-          className="transition-[stroke-dashoffset] duration-700 ease-out"
-          style={{ transformOrigin: "center", transform: "rotate(-90deg)" }}
-        />
-      </svg>
-      <div className="absolute inset-0 flex items-center justify-center">
-        <span className="text-[12px] font-extrabold tabular-nums text-foreground">{score}</span>
-      </div>
-    </div>
-  );
-}
-
 // ── OggiCommandCenter ─────────────────────────────────────────────
-
-// ── Semaphore dot ────────────────────────────────────────────────
-
-const SEMAPHORE_COLORS = {
-  green: "bg-emerald-500",
-  amber: "bg-amber-500",
-  red: "bg-red-500",
-} as const;
-
-function SemaphoreDot({ status }: { status: "green" | "amber" | "red" }) {
-  return <span className={cn("inline-block h-2 w-2 shrink-0 rounded-full", SEMAPHORE_COLORS[status])} />;
-}
 
 interface OggiCommandCenterProps {
   session: SessionPrepItem | null;
@@ -361,6 +319,9 @@ export function OggiCommandCenter({ session, status, avatar, className }: OggiCo
           </div>
         </div>
 
+        {/* BRIEFING NARRATIVO (se avatar disponibile) */}
+        {avatar ? <AvatarBriefing avatar={avatar} /> : null}
+
         {/* STAT CHIPS — grid 2x2 */}
         <div className="grid grid-cols-2 gap-2">
           {chips.map((chip) => (
@@ -408,20 +369,37 @@ export function OggiCommandCenter({ session, status, avatar, className }: OggiCo
           </div>
         )}
 
-        {/* AVATAR HIGHLIGHTS (se avatar disponibile e ha highlight non gia' coperti dagli alert) */}
+        {/* AVATAR HIGHLIGHTS — clickabili con cta_href */}
         {avatar && avatar.highlights.length > 0 ? (
           <div className="flex flex-wrap gap-1.5">
-            {avatar.highlights.map((h) => (
-              <span
-                key={h.code}
-                className={surfaceChipClassName(
-                  { tone: h.severity === "critical" ? "red" : h.severity === "warning" ? "amber" : "neutral" },
-                  "px-2.5 py-1 text-[10px] font-semibold",
-                )}
-              >
-                {h.text}
-              </span>
-            ))}
+            {avatar.highlights.map((h) => {
+              const tone: SurfaceTone = h.severity === "critical" ? "red" : h.severity === "warning" ? "amber" : "neutral";
+              if (h.cta_href) {
+                return (
+                  <Link
+                    key={h.code}
+                    href={h.cta_href}
+                    className={surfaceChipClassName(
+                      { tone },
+                      "px-2.5 py-1 text-[10px] font-semibold transition-colors hover:ring-1 hover:ring-ring/20",
+                    )}
+                  >
+                    {h.text}
+                  </Link>
+                );
+              }
+              return (
+                <span
+                  key={h.code}
+                  className={surfaceChipClassName(
+                    { tone },
+                    "px-2.5 py-1 text-[10px] font-semibold",
+                  )}
+                >
+                  {h.text}
+                </span>
+              );
+            })}
           </div>
         ) : null}
 

@@ -21,8 +21,7 @@ import {
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import { ClientProfileHeader } from "@/components/clients/ClientProfileHeader";
-import { ClientProfileKpi } from "@/components/clients/ClientProfileKpi";
+import { AvatarHero } from "@/components/clients/AvatarHero";
 import { ClientSheet } from "@/components/clients/ClientSheet";
 import { ContractSheet } from "@/components/contracts/ContractSheet";
 import { TemplateSelector } from "@/components/workouts/TemplateSelector";
@@ -40,6 +39,7 @@ import { useClientContracts } from "@/hooks/useContracts";
 import { useClientEvents } from "@/hooks/useAgenda";
 import { useClientReadiness, computeOnboardingSteps } from "@/hooks/useClientReadiness";
 import { useNutritionPlans } from "@/hooks/useNutrition";
+import { useClientAvatar } from "@/hooks/useWorkspace";
 import { resolveBackNavigation } from "@/lib/url-state";
 
 // ════════════════════════════════════════════════════════════
@@ -55,6 +55,7 @@ export default function ClientProfilePage({
   const clientId = parseInt(id, 10);
 
   const { data: client, isLoading } = useClient(clientId);
+  const { data: avatar, isLoading: avatarLoading } = useClientAvatar(clientId);
   const { readiness } = useClientReadiness(clientId);
   const { data: contractsData } = useClientContracts(clientId);
   const { data: eventsData } = useClientEvents(clientId);
@@ -127,17 +128,18 @@ export default function ClientProfilePage({
 
   return (
     <div className="space-y-4">
-      <ClientProfileHeader
+      <AvatarHero
         client={client}
+        avatar={avatar ?? null}
+        isLoading={avatarLoading}
         onEdit={() => setSheetOpen(true)}
+        onTabChange={handleTabChange}
         backHref={backHref}
         backLabel={backLabel}
       />
 
       {/* Onboarding Checklist — hero CTA + stepper (solo se profilo incompleto) */}
       <OnboardingChecklist steps={onboardingSteps} />
-
-      <ClientProfileKpi client={client} />
 
       {/* Tabs con completion dots */}
       <Tabs value={activeTab} onValueChange={handleTabChange}>

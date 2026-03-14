@@ -43,8 +43,15 @@ export function getPreFlightStatus(session: SessionPrepItem): PreFlightStatus {
   return "ready";
 }
 
-function getSessionSubline(session: SessionPrepItem, status: PreFlightStatus): string {
+function getSessionSubline(session: SessionPrepItem, status: PreFlightStatus, avatar?: ClientAvatar | null): string {
   if (!session.client_id) return session.event_notes?.trim() || "Impegno interno";
+
+  // Narrative subline when avatar is available
+  if (avatar) {
+    return buildNarrativeSubline(avatar, session, status);
+  }
+
+  // Fallback: structured subline
   const issues: string[] = [];
   if (session.clinical_alerts.length > 0)
     issues.push(`${session.clinical_alerts.length} alert ${session.clinical_alerts.length === 1 ? "clinico" : "clinici"}`);
@@ -54,6 +61,41 @@ function getSessionSubline(session: SessionPrepItem, status: PreFlightStatus): s
     issues.push("crediti esauriti");
   if (issues.length > 0) return issues.join(" · ");
   if (session.active_plan_name) return session.active_plan_name;
+  return status === "ready" ? "Seduta pronta" : "Da verificare";
+}
+
+function buildNarrativeSubline(avatar: ClientAvatar, session: SessionPrepItem, status: PreFlightStatus): string {
+  const parts: string[] = [];
+
+  // Top priority: blockers
+  if (avatar.contract.credits_remaining <= 0 && avatar.contract.has_active_contract) {
+    parts.push("crediti esauriti");
+  }
+  if (session.clinical_alerts.length > 0) {
+    parts.push(`${session.clinical_alerts.length} alert ${session.clinical_alerts.length === 1 ? "clinico" : "clinici"}`);
+  }
+  if (avatar.contract.overdue_rates_count > 0) {
+    parts.push(`${avatar.contract.overdue_rates_count} ${avatar.contract.overdue_rates_count === 1 ? "rata scaduta" : "rate scadute"}`);
+  }
+
+  // If blockers exist, that's the subline
+  if (parts.length > 0) return parts.join(" · ");
+
+  // Otherwise: compliance + plan name or positive state
+  const nuggets: string[] = [];
+  if (avatar.training.compliance_30d !== null) {
+    const c = Math.round(avatar.training.compliance_30d);
+    if (c < 50) nuggets.push(`compliance ${c}%`);
+    else if (c < 80) nuggets.push(`compl. ${c}%`);
+  }
+  if (avatar.training.days_since_last_session !== null && avatar.training.days_since_last_session >= 14) {
+    nuggets.push(`${avatar.training.days_since_last_session}g pausa`);
+  }
+  if (session.active_plan_name) {
+    nuggets.push(session.active_plan_name.length > 18 ? session.active_plan_name.slice(0, 16) + "\u2026" : session.active_plan_name);
+  }
+
+  if (nuggets.length > 0) return nuggets.join(" · ");
   return status === "ready" ? "Seduta pronta" : "Da verificare";
 }
 
@@ -81,7 +123,7 @@ function SessionItem({
   const meta = PREFLIGHT_META[status];
   const tone = getPreflightTone(status);
   const name = session.client_name ?? session.event_title ?? session.category;
-  const subline = getSessionSubline(session, status);
+  const subline = getSessionSubline(session, status, avatar);
 
   return (
     <button

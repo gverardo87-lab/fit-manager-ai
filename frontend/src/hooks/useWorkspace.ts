@@ -115,6 +115,18 @@ export function useWorkspaceCaseDetail(query: WorkspaceCaseDetailQuery, enabled 
   });
 }
 
+export function useClientAvatar(clientId: number, enabled = true) {
+  return useQuery<ClientAvatar>({
+    queryKey: ["client-avatar", clientId],
+    queryFn: async () => {
+      const { data } = await apiClient.get<ClientAvatar>(`/clients/${clientId}/avatar`);
+      return data;
+    },
+    refetchInterval: 60_000,
+    enabled: enabled && clientId > 0,
+  });
+}
+
 export function useClientAvatars(clientIds: number[], enabled = true) {
   const sortedIds = [...clientIds].sort((a, b) => a - b);
   const key = sortedIds.join(",");

@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session
 
-from api.database import get_session
+from api.database import get_catalog_session, get_session
 from api.dependencies import get_current_trainer
 from api.models.trainer import Trainer
 from api.schemas.client_avatar import (
@@ -28,10 +28,11 @@ router = APIRouter(prefix="/clients", tags=["client-avatar"])
 def get_client_avatar(
     client_id: int,
     session: Session = Depends(get_session),
+    catalog_session: Session = Depends(get_catalog_session),
     trainer: Trainer = Depends(get_current_trainer),
 ):
     """Avatar composito per un singolo cliente."""
-    avatar = build_avatar(session, trainer.id, client_id)
+    avatar = build_avatar(session, trainer.id, client_id, catalog_session)
     if not avatar:
         raise HTTPException(404, "Cliente non trovato")
     return avatar
@@ -41,10 +42,11 @@ def get_client_avatar(
 def get_client_avatars_batch(
     body: ClientAvatarBatchRequest,
     session: Session = Depends(get_session),
+    catalog_session: Session = Depends(get_catalog_session),
     trainer: Trainer = Depends(get_current_trainer),
 ):
     """Avatar compositi per un batch di clienti (max 50)."""
-    avatars = build_avatars_batch(session, trainer.id, body.client_ids)
+    avatars = build_avatars_batch(session, trainer.id, body.client_ids, catalog_session)
     return ClientAvatarBatchResponse(
         generated_at=datetime.now(timezone.utc).isoformat(),
         avatars=avatars,
