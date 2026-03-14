@@ -129,8 +129,10 @@ function ReadinessRing({ score, size = 54 }: { score: number; size?: number }) {
   const chroma = score >= 80 ? 0.17 : 0.18;
   const l = score >= 80 ? 0.72 : score >= 50 ? 0.73 : 0.65;
 
+  const readinessLabel = score >= 80 ? "pronto" : score >= 50 ? "da verificare" : "critico";
+
   return (
-    <div className="relative shrink-0" style={{ width: size, height: size }} role="img" aria-label={`Readiness score: ${score}%`}>
+    <div className="relative shrink-0" style={{ width: size, height: size }} role="img" aria-label={`Prontezza: ${score}% — ${readinessLabel}`}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="absolute inset-0" aria-hidden="true">
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(0,0,0,0.06)" strokeWidth={sw} className="dark:stroke-white/[0.06]" />
         <circle
@@ -158,9 +160,10 @@ interface OggiCommandCenterProps {
 }
 
 export function OggiCommandCenter({ session, status, className }: OggiCommandCenterProps) {
-  const [clockMs, setClockMs] = useState(() => Date.now());
+  const [clockMs, setClockMs] = useState(0);
 
   useEffect(() => {
+    setClockMs(Date.now());
     const id = window.setInterval(() => setClockMs(Date.now()), 15_000);
     return () => window.clearInterval(id);
   }, []);
@@ -168,12 +171,14 @@ export function OggiCommandCenter({ session, status, className }: OggiCommandCen
   // ── Empty state ──
   if (!session) {
     return (
-      <div className={cn(surfaceRoleClassName({ role: "hero", tone: "neutral" }, cn("flex items-center justify-center p-8 text-center", className)), "oggi-lift oggi-glow-neutral")}>
+      <div className={cn(surfaceRoleClassName({ role: "hero", tone: "neutral" }, cn("oggi-dossier-shell flex items-center justify-center px-8 py-14 text-center", className)), "oggi-lift oggi-glow-neutral")}>
         <div className="max-w-xs">
-          <Stethoscope className="mx-auto h-8 w-8 text-muted-foreground/30" />
-          <p className="mt-3 text-[13px] font-bold text-muted-foreground">Nessuna seduta in focus</p>
-          <p className="mt-1 text-[11px] leading-5 text-muted-foreground/60">
-            Seleziona una seduta dalla timeline per vedere il contesto pre-seduta.
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-muted/30">
+            <Stethoscope className="h-7 w-7 text-muted-foreground/40" />
+          </div>
+          <p className="mt-4 text-[14px] font-bold text-muted-foreground">Nessuna seduta in focus</p>
+          <p className="mt-1.5 text-[11.5px] leading-5 text-muted-foreground/60">
+            Seleziona una seduta dalla timeline per aprire il contesto pre-seduta.
           </p>
         </div>
       </div>
@@ -183,13 +188,13 @@ export function OggiCommandCenter({ session, status, className }: OggiCommandCen
   // ── Slot interno (no cliente) ──
   if (!session.client_id) {
     return (
-      <div className={cn(surfaceRoleClassName({ role: "hero", tone: "neutral" }, cn("p-5", className)), "oggi-lift oggi-glow-neutral")}>
+      <div className={cn(surfaceRoleClassName({ role: "hero", tone: "neutral" }, cn("oggi-dossier-shell oggi-dossier-enter p-5 sm:p-6", className)), "oggi-lift oggi-glow-neutral")}>
         <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Slot interno</p>
-        <h2 className="mt-1.5 text-[22px] font-extrabold tracking-tight text-foreground">
+        <h2 className="mt-2 text-[22px] font-extrabold tracking-tight text-foreground">
           {session.event_title ?? session.category}
         </h2>
         {session.event_notes && (
-          <div className={surfaceRoleClassName({ role: "context", tone: "neutral" }, "mt-4 px-3.5 py-3")}>
+          <div className={surfaceRoleClassName({ role: "context", tone: "neutral" }, "oggi-notes-shell mt-4 px-3.5 py-3")}>
             <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
               <FileText className="h-3 w-3" />
               Note evento
@@ -197,8 +202,8 @@ export function OggiCommandCenter({ session, status, className }: OggiCommandCen
             <p className="mt-2.5 text-[12px] leading-5 text-foreground/80">{session.event_notes}</p>
           </div>
         )}
-        <Button asChild size="sm" className="mt-5 h-8 rounded-full px-3.5 text-[12px] font-semibold">
-          <Link href="/agenda">Apri agenda <ArrowRight className="h-3.5 w-3.5" /></Link>
+        <Button asChild size="sm" className="mt-5 h-9 rounded-full px-4 text-[12px] font-semibold">
+          <Link href="/agenda">Apri agenda <ArrowRight className="ml-1 h-3.5 w-3.5" /></Link>
         </Button>
       </div>
     );
@@ -276,7 +281,7 @@ export function OggiCommandCenter({ session, status, className }: OggiCommandCen
 
   return (
     <div className={cn(surfaceRoleClassName({ role: "hero", tone: "neutral" }, cn("oggi-dossier-shell oggi-scrollbar p-5 sm:p-6", className)), "oggi-lift oggi-dossier-enter", glowClass)}>
-      <div className="space-y-5">
+      <div className="space-y-5" role="region" aria-label={`Focus seduta: ${session.client_name ?? "Slot"}`}>
 
         {/* HEADER: Ring + Nome + Status */}
         <div className="flex items-start gap-4">
@@ -316,10 +321,10 @@ export function OggiCommandCenter({ session, status, className }: OggiCommandCen
         </div>
 
         {/* STAT CHIPS — grid 2x2 */}
-        <div className="grid grid-cols-2 gap-1.5">
+        <div className="grid grid-cols-2 gap-2">
           {chips.map((chip) => (
-            <span key={chip.label} className={surfaceChipClassName({ tone: chip.tone }, "flex items-center justify-between px-3 py-2 text-[10.5px] font-semibold")}>
-              <span className="text-muted-foreground/80">{chip.label}</span>
+            <span key={chip.label} className={surfaceChipClassName({ tone: chip.tone }, "flex items-center justify-between px-3 py-2.5 text-[10.5px] font-semibold transition-colors duration-200")}>
+              <span className="text-muted-foreground/70">{chip.label}</span>
               <span className="font-bold text-foreground">{chip.value}</span>
             </span>
           ))}
@@ -348,12 +353,12 @@ export function OggiCommandCenter({ session, status, className }: OggiCommandCen
         ) : (
           <div className={surfaceRoleClassName({ role: "signal", tone: "teal" }, "px-4 py-4")}>
             <div className="flex items-center gap-3">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/12 dark:bg-emerald-400/12">
-                <span className="oggi-clear-dot h-2 w-2 rounded-full bg-emerald-500 dark:bg-emerald-400" />
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/10 dark:bg-emerald-400/10">
+                <span className="oggi-clear-dot h-2.5 w-2.5 rounded-full bg-emerald-500 dark:bg-emerald-400" />
               </span>
               <div>
-                <p className="text-[12.5px] font-bold text-emerald-700 dark:text-emerald-300">Seduta pronta</p>
-                <p className="mt-0.5 text-[11px] text-muted-foreground/70">Nessun blocco clinico-operativo immediato.</p>
+                <p className="text-[13px] font-bold text-emerald-700 dark:text-emerald-300">Seduta pronta</p>
+                <p className="mt-0.5 text-[11px] leading-5 text-muted-foreground/70">Nessun blocco clinico-operativo immediato.</p>
               </div>
             </div>
           </div>
@@ -363,16 +368,16 @@ export function OggiCommandCenter({ session, status, className }: OggiCommandCen
         <PrepNotes key={session.event_id} eventId={session.event_id} />
 
         {/* AZIONI */}
-        <div className="flex flex-wrap gap-2 pt-1">
-          <Button asChild size="sm" className="h-9 rounded-full px-4 text-[12px] font-bold shadow-sm">
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <Button asChild size="sm" className="h-9 rounded-full px-4 text-[12px] font-bold shadow-sm transition-shadow hover:shadow-md">
             <Link href={profileHref}>Profilo <ArrowRight className="ml-1 h-3.5 w-3.5" /></Link>
           </Button>
           {planHref && (
-            <Button asChild variant="outline" size="sm" className="h-9 rounded-full px-4 text-[12px] font-bold">
+            <Button asChild variant="outline" size="sm" className="h-9 rounded-full px-4 text-[12px] font-bold transition-colors">
               <Link href={planHref}>Scheda attiva <ArrowRight className="ml-1 h-3.5 w-3.5" /></Link>
             </Button>
           )}
-          <Button asChild variant="ghost" size="sm" className="h-9 rounded-full px-4 text-[12px] font-semibold text-muted-foreground">
+          <Button asChild variant="ghost" size="sm" className="h-9 rounded-full px-4 text-[12px] font-semibold text-muted-foreground transition-colors hover:text-foreground">
             <Link href="/agenda">Agenda</Link>
           </Button>
         </div>

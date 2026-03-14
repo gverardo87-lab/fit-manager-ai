@@ -185,15 +185,15 @@ export function OggiHero({
               </h1>
               <AnalogClock className="h-[76px] w-[76px] shrink-0 sm:h-[92px] sm:w-[92px]" />
             </div>
-            <p className="mt-2.5 text-[15px] font-semibold text-primary/90">
+            <p className="mt-3 text-[15px] font-semibold text-primary/90">
               {getGreeting()}, Dott.ssa Chiara Bassani
             </p>
             <div className="oggi-hero-divider mt-4" />
-            <p className={cn("mt-4 text-[14.5px] font-semibold leading-snug sm:text-[15.5px]", leadColor)}>
+            <p className={cn("mt-4 text-[14.5px] font-semibold leading-snug transition-colors duration-300 sm:text-[15.5px]", leadColor)}>
               {lead}
             </p>
             {detail && (
-              <p className="mt-2 max-w-lg text-[11.5px] leading-[1.6] text-muted-foreground/70">
+              <p className="mt-2 max-w-lg text-[11.5px] leading-[1.65] text-muted-foreground/65">
                 {detail}
               </p>
             )}
@@ -246,12 +246,12 @@ export function OggiHero({
               <span
                 className={surfaceChipClassName(
                   { tone: isRefreshing ? "amber" : "neutral" },
-                  "px-3 py-1.5 text-[10px] font-bold",
+                  "px-3 py-1.5 text-[10px] font-bold transition-colors duration-300",
                 )}
               >
                 <span
                   className={cn(
-                    "h-1.5 w-1.5 rounded-full",
+                    "h-1.5 w-1.5 rounded-full transition-colors duration-300",
                     isRefreshing ? "oggi-pulse-dot bg-amber-500" : "bg-emerald-500",
                   )}
                 />
@@ -270,17 +270,25 @@ export function OggiHeroSkeleton({ className }: { className?: string }) {
     <div
       className={surfaceRoleClassName(
         { role: "page", tone: "neutral" },
-        cn("px-5 py-4", className),
+        cn("oggi-command-bar px-6 py-7 sm:px-8 sm:py-8", className),
       )}
     >
-      <div className="flex items-center justify-between gap-4">
-        <div className="space-y-2">
-          <div className="h-3 w-36 rounded bg-muted/60" />
-          <div className="h-7 w-52 rounded-xl bg-muted/40" />
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1 space-y-3">
+          <div className="h-3 w-44 rounded bg-muted/50" />
+          <div className="flex items-center gap-5">
+            <div className="h-12 w-28 rounded-xl bg-muted/30" />
+            <div className="h-[76px] w-[76px] rounded-full bg-muted/20 sm:h-[92px] sm:w-[92px]" />
+          </div>
+          <div className="h-4 w-60 rounded bg-muted/40" />
+          <div className="h-[1.5px] w-12 rounded bg-muted/30" />
+          <div className="h-4 w-72 rounded bg-muted/35" />
+          <div className="h-3 w-56 rounded bg-muted/25" />
         </div>
-        <div className="flex gap-2">
-          <div className="h-7 w-20 rounded-full bg-muted/40" />
-          <div className="h-7 w-24 rounded-full bg-muted/40" />
+        <div className="flex flex-wrap items-center gap-2 sm:flex-col sm:items-end sm:gap-2.5">
+          <div className="h-7 w-20 rounded-full bg-muted/35" />
+          <div className="h-7 w-24 rounded-full bg-muted/30" />
+          <div className="h-6 w-16 rounded-full bg-muted/25" />
         </div>
       </div>
     </div>

@@ -80,8 +80,9 @@ function SessionItem({
       type="button"
       onClick={onSelect}
       aria-selected={selected}
+      aria-label={`${name} — ${TIME_FMT.format(new Date(session.starts_at))} — ${meta.label}`}
       className={cn(
-        "oggi-session-card relative w-full rounded-xl px-3.5 py-3 text-left",
+        "oggi-session-card group relative w-full rounded-xl px-3.5 py-3 text-left",
         selected
           ? cn(
               surfaceRoleClassName({ role: "signal", tone, interactive: true }),
@@ -94,9 +95,9 @@ function SessionItem({
       {/* Barra status sinistra */}
       <span
         className={cn(
-          "absolute inset-y-3 left-0 w-[3px] rounded-r-full transition-opacity",
+          "absolute inset-y-3 left-0 w-[3px] rounded-r-full transition-all duration-300",
           meta.dot,
-          selected ? "opacity-100" : "opacity-30",
+          selected ? "opacity-100" : "opacity-30 group-hover:opacity-60",
         )}
       />
 
@@ -113,13 +114,13 @@ function SessionItem({
             </span>
             <p className="truncate text-[13px] font-bold text-foreground">{name}</p>
           </div>
-          <p className="mt-1 truncate pl-1 text-[10.5px] text-muted-foreground">{subline}</p>
+          <p className="mt-1 truncate pl-1 text-[10.5px] text-muted-foreground/80">{subline}</p>
         </div>
 
         <span
           className={cn(
-            "shrink-0 text-[9px] font-bold uppercase tracking-[0.12em]",
-            selected ? meta.color : "text-muted-foreground/60",
+            "shrink-0 text-[9px] font-bold uppercase tracking-[0.12em] transition-colors duration-200",
+            selected ? meta.color : "text-muted-foreground/60 group-hover:text-muted-foreground",
           )}
         >
           {selected ? "Focus" : meta.label}
@@ -150,13 +151,14 @@ function GroupLabel({
         : "text-muted-foreground";
 
   return (
-    <div className="flex items-center gap-2 px-1">
+    <div className="flex items-center gap-2 px-1 pb-1">
       <span className={cn("h-2 w-2 shrink-0 rounded-full", dotClass, tone === "red" && "oggi-status-beat")} />
       <p className={cn("text-[10px] font-bold uppercase tracking-[0.16em]", textClass)}>{label}</p>
+      <span className="h-px flex-1 bg-border/40" />
       <span
         className={surfaceChipClassName(
           { tone },
-          "ml-auto px-2 py-0.5 text-[9px] font-bold tabular-nums",
+          "px-2 py-0.5 text-[9px] font-bold tabular-nums",
         )}
       >
         {count}
@@ -185,15 +187,17 @@ export function OggiTimeline({
       <div
         className={surfaceRoleClassName(
           { role: "page", tone: "neutral" },
-          cn("flex flex-col items-center justify-center p-10 text-center", className),
+          cn("oggi-rail-shell flex flex-col items-center justify-center px-8 py-14 text-center", className),
         )}
       >
-        <CalendarClock className="h-8 w-8 text-muted-foreground/30" />
-        <p className="mt-3 text-[13px] font-semibold text-muted-foreground">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted/40">
+          <CalendarClock className="h-7 w-7 text-muted-foreground/40" />
+        </div>
+        <p className="mt-4 text-[14px] font-bold text-muted-foreground">
           Nessuna seduta in agenda oggi
         </p>
-        <p className="mt-1 text-[11px] text-muted-foreground/60">
-          Usa l&apos;agenda per eventuali impegni interni.
+        <p className="mt-1.5 max-w-[220px] text-[11.5px] leading-5 text-muted-foreground/60">
+          Usa l&apos;agenda per pianificare sedute o impegni interni.
         </p>
       </div>
     );
@@ -214,9 +218,9 @@ export function OggiTimeline({
       )}
     >
       {/* Header */}
-      <div className="mb-6 flex items-center gap-2.5">
-        <Clock3 className="h-4 w-4 text-muted-foreground/40" />
-        <h2 className="text-[14.5px] font-extrabold tracking-tight text-foreground">Sedute di oggi</h2>
+      <div className="mb-7 flex items-center gap-2.5">
+        <Clock3 className="h-4 w-4 text-primary/50" />
+        <h2 className="text-[15px] font-extrabold tracking-tight text-foreground">Sedute di oggi</h2>
         <span
           className={surfaceChipClassName(
             { tone: "neutral" },
@@ -228,11 +232,11 @@ export function OggiTimeline({
       </div>
 
       {/* Gruppi */}
-      <div className="space-y-5">
+      <div className="space-y-6">
         {attention.length > 0 && (
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <GroupLabel label="Da sbloccare" count={attention.length} tone="red" />
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               {attention.map((s) => (
                 <SessionItem
                   key={s.event_id}
@@ -247,9 +251,9 @@ export function OggiTimeline({
         )}
 
         {prepared.length > 0 && (
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <GroupLabel label="In linea" count={prepared.length} tone="teal" />
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               {prepared.map((s) => (
                 <SessionItem
                   key={s.event_id}
@@ -264,9 +268,9 @@ export function OggiTimeline({
         )}
 
         {internal.length > 0 && (
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <GroupLabel label="Interni" count={internal.length} tone="neutral" />
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               {internal.map((s) => (
                 <SessionItem
                   key={s.event_id}

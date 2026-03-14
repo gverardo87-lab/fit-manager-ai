@@ -17,13 +17,15 @@ interface AnalogClockProps {
 }
 
 export function AnalogClock({ className }: AnalogClockProps) {
-  const [now, setNow] = useState(() => new Date());
+  const [now, setNow] = useState(new Date(0));
 
   useEffect(() => {
+    setNow(new Date());
     const id = window.setInterval(() => setNow(new Date()), 10_000);
     return () => window.clearInterval(id);
   }, []);
 
+  const hydrated = now.getTime() > 0;
   const hours = now.getHours() % 12;
   const minutes = now.getMinutes();
 
@@ -31,8 +33,8 @@ export function AnalogClock({ className }: AnalogClockProps) {
   const minuteAngle = minutes * 6;
 
   return (
-    <div className={cn("relative", className)}>
-      <svg viewBox="0 0 100 100" className="h-full w-full drop-shadow-lg" role="img" aria-label={`Orologio: ${hours === 0 ? 12 : hours}:${String(minutes).padStart(2, "0")}`}>
+    <div className={cn("relative transition-opacity duration-500", hydrated ? "opacity-100" : "opacity-0", className)}>
+      <svg viewBox="0 0 100 100" className="h-full w-full drop-shadow-lg" role="img" aria-label={hydrated ? `Orologio: ${hours === 0 ? 12 : hours}:${String(minutes).padStart(2, "0")}` : "Orologio"}>
         {/* Outer ring */}
         <circle
           cx="50" cy="50" r="48"
@@ -88,7 +90,7 @@ export function AnalogClock({ className }: AnalogClockProps) {
           stroke="currentColor"
           strokeWidth="3"
           strokeLinecap="round"
-          className="text-foreground/80"
+          className="text-foreground/80 transition-all duration-700 ease-out"
         />
 
         {/* Minute hand */}
@@ -99,7 +101,7 @@ export function AnalogClock({ className }: AnalogClockProps) {
           stroke="currentColor"
           strokeWidth="2"
           strokeLinecap="round"
-          className="text-foreground/60"
+          className="text-foreground/60 transition-all duration-700 ease-out"
         />
 
         {/* Center dot */}

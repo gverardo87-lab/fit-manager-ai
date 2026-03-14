@@ -117,7 +117,7 @@ export default function OggiWorkspacePage() {
 
   if (prepQuery.isLoading || (!prep && !prepQuery.isError)) {
     return (
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-4">
         <OggiHeroSkeleton />
         {todayQuery.isError && (
           <div className={surfaceRoleClassName({ role: "context", tone: "amber" }, "px-4 py-3")}>
@@ -126,9 +126,9 @@ export default function OggiWorkspacePage() {
             </p>
           </div>
         )}
-        <div className="grid gap-3 lg:grid-cols-[minmax(340px,0.84fr)_minmax(0,1.16fr)]">
-          <Skeleton className="h-[460px] rounded-[32px]" />
-          <Skeleton className="h-[460px] rounded-[32px]" />
+        <div className="grid gap-4 lg:grid-cols-[minmax(340px,0.84fr)_minmax(0,1.16fr)]">
+          <Skeleton className="h-[480px] rounded-2xl" />
+          <Skeleton className="h-[480px] rounded-2xl" />
         </div>
       </div>
     );
@@ -166,7 +166,7 @@ export default function OggiWorkspacePage() {
   const safePrep = prep!;
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
       {/* Hero compatto — strip singola riga */}
       <div className={revealClass(0)} style={revealStyle(0)}>
         <OggiHero
@@ -198,7 +198,7 @@ export default function OggiWorkspacePage() {
       <div
         className={cn(
           revealClass(18),
-          "grid gap-3 lg:grid-cols-[minmax(340px,0.84fr)_minmax(0,1.16fr)] lg:items-start",
+          "grid gap-4 lg:grid-cols-[minmax(340px,0.84fr)_minmax(0,1.16fr)] lg:items-start",
         )}
         style={revealStyle(18)}
       >
