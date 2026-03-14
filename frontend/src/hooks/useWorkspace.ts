@@ -7,6 +7,8 @@ import { useQuery } from "@tanstack/react-query";
 
 import apiClient from "@/lib/api-client";
 import type {
+  ClientAvatar,
+  ClientAvatarBatchResponse,
   SessionPrepResponse,
   WorkspaceCaseDetailResponse,
   WorkspaceCaseListResponse,
@@ -110,5 +112,24 @@ export function useWorkspaceCaseDetail(query: WorkspaceCaseDetailQuery, enabled 
     },
     refetchInterval: 60_000,
     enabled: enabled && caseId.trim().length > 0,
+  });
+}
+
+export function useClientAvatars(clientIds: number[], enabled = true) {
+  const sortedIds = [...clientIds].sort((a, b) => a - b);
+  const key = sortedIds.join(",");
+
+  return useQuery<Map<number, ClientAvatar>>({
+    queryKey: ["client-avatars", key],
+    queryFn: async () => {
+      if (sortedIds.length === 0) return new Map();
+      const { data } = await apiClient.post<ClientAvatarBatchResponse>(
+        "/clients/avatars",
+        { client_ids: sortedIds },
+      );
+      return new Map(data.avatars.map((a) => [a.client_id, a]));
+    },
+    refetchInterval: 60_000,
+    enabled: enabled && sortedIds.length > 0,
   });
 }

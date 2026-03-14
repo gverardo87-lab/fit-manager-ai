@@ -13,7 +13,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { appendFromParam } from "@/lib/url-state";
 import { cn } from "@/lib/utils";
-import type { SessionPrepItem } from "@/types/api";
+import type { ClientAvatar, SessionPrepItem } from "@/types/api";
 import { PREFLIGHT_META, type PreFlightStatus } from "@/components/workspace/OggiTimeline";
 
 // ── Costanti ──────────────────────────────────────────────────────
@@ -153,13 +153,26 @@ function ReadinessRing({ score, size = 54 }: { score: number; size?: number }) {
 
 // ── OggiCommandCenter ─────────────────────────────────────────────
 
+// ── Semaphore dot ────────────────────────────────────────────────
+
+const SEMAPHORE_COLORS = {
+  green: "bg-emerald-500",
+  amber: "bg-amber-500",
+  red: "bg-red-500",
+} as const;
+
+function SemaphoreDot({ status }: { status: "green" | "amber" | "red" }) {
+  return <span className={cn("inline-block h-2 w-2 shrink-0 rounded-full", SEMAPHORE_COLORS[status])} />;
+}
+
 interface OggiCommandCenterProps {
   session: SessionPrepItem | null;
   status: PreFlightStatus;
+  avatar: ClientAvatar | null;
   className?: string;
 }
 
-export function OggiCommandCenter({ session, status, className }: OggiCommandCenterProps) {
+export function OggiCommandCenter({ session, status, avatar, className }: OggiCommandCenterProps) {
   const [clockMs, setClockMs] = useState(0);
 
   useEffect(() => {
@@ -222,32 +235,60 @@ export function OggiCommandCenter({ session, status, className }: OggiCommandCen
   const statusTone = getPreflightTone(status);
   const readinessTone = getReadinessTone(session.readiness_score);
 
-  // Chips statistiche
+  // Chips statistiche — enriched con avatar semaphores se disponibili
   const anamnesiCheck = session.health_checks.find((c) => c.domain === "anamnesi");
-  const creditsRem = session.contract_credits_remaining;
-  const creditsTotal = session.contract_credits_total;
-  const chips: { label: string; value: string; tone: SurfaceTone }[] = [
-    {
-      label: "Sedute",
-      value: creditsRem !== null && creditsTotal !== null ? `${creditsRem}/${creditsTotal}` : "n/d",
-      tone: creditsRem !== null && creditsRem <= 0 ? "red" : creditsRem !== null && creditsRem <= 2 ? "amber" : "neutral",
-    },
-    {
-      label: "Profilo",
-      value: anamnesiCheck?.status === "ok" ? "Completo" : "Incompleto",
-      tone: anamnesiCheck?.status === "ok" ? "neutral" : "amber",
-    },
-    {
-      label: "Scheda",
-      value: session.active_plan_name ? (session.active_plan_name.length > 14 ? session.active_plan_name.slice(0, 12) + "…" : session.active_plan_name) : "Nessuna",
-      tone: session.active_plan_name ? "neutral" : "amber",
-    },
-    {
-      label: "Contratto",
-      value: creditsRem !== null && creditsRem <= 0 ? "Esaurito" : session.contract_expiring_days !== null && session.contract_expiring_days <= 14 ? "In scadenza" : "Ok",
-      tone: creditsRem !== null && creditsRem <= 0 ? "red" : session.contract_expiring_days !== null && session.contract_expiring_days <= 14 ? "amber" : "neutral",
-    },
-  ];
+  const creditsRem = avatar ? avatar.contract.credits_remaining : session.contract_credits_remaining;
+  const creditsTotal = avatar ? avatar.contract.credits_total : session.contract_credits_total;
+
+  const chips: { label: string; value: string; tone: SurfaceTone; semaphore?: "green" | "amber" | "red" }[] = avatar
+    ? [
+        {
+          label: "Clinica",
+          value: avatar.clinical.anamnesi_state === "structured" ? "Completa" : avatar.clinical.anamnesi_state === "legacy" ? "Legacy" : "Mancante",
+          tone: avatar.clinical.status === "red" ? "red" : avatar.clinical.status === "amber" ? "amber" : "neutral",
+          semaphore: avatar.clinical.status,
+        },
+        {
+          label: "Contratto",
+          value: !avatar.contract.has_active_contract ? "Assente" : avatar.contract.credits_remaining <= 0 ? "Esaurito" : `${avatar.contract.credits_remaining}/${avatar.contract.credits_total}`,
+          tone: avatar.contract.status === "red" ? "red" : avatar.contract.status === "amber" ? "amber" : "neutral",
+          semaphore: avatar.contract.status,
+        },
+        {
+          label: "Allenamento",
+          value: avatar.training.has_active_plan ? (avatar.training.active_plan_name && avatar.training.active_plan_name.length > 12 ? avatar.training.active_plan_name.slice(0, 10) + "…" : avatar.training.active_plan_name ?? "Attivo") : "Nessuna",
+          tone: avatar.training.status === "red" ? "red" : avatar.training.status === "amber" ? "amber" : "neutral",
+          semaphore: avatar.training.status,
+        },
+        {
+          label: "Corpo",
+          value: avatar.body_goals.has_measurements ? (avatar.body_goals.active_goals > 0 ? `${avatar.body_goals.active_goals} obiettivi` : "Misurato") : "Mancante",
+          tone: avatar.body_goals.status === "red" ? "red" : avatar.body_goals.status === "amber" ? "amber" : "neutral",
+          semaphore: avatar.body_goals.status,
+        },
+      ]
+    : [
+        {
+          label: "Sedute",
+          value: creditsRem !== null && creditsTotal !== null ? `${creditsRem}/${creditsTotal}` : "n/d",
+          tone: (creditsRem !== null && creditsRem <= 0 ? "red" : creditsRem !== null && creditsRem <= 2 ? "amber" : "neutral") as SurfaceTone,
+        },
+        {
+          label: "Profilo",
+          value: anamnesiCheck?.status === "ok" ? "Completo" : "Incompleto",
+          tone: (anamnesiCheck?.status === "ok" ? "neutral" : "amber") as SurfaceTone,
+        },
+        {
+          label: "Scheda",
+          value: session.active_plan_name ? (session.active_plan_name.length > 14 ? session.active_plan_name.slice(0, 12) + "…" : session.active_plan_name) : "Nessuna",
+          tone: (session.active_plan_name ? "neutral" : "amber") as SurfaceTone,
+        },
+        {
+          label: "Contratto",
+          value: creditsRem !== null && creditsRem <= 0 ? "Esaurito" : session.contract_expiring_days !== null && session.contract_expiring_days <= 14 ? "In scadenza" : "Ok",
+          tone: (creditsRem !== null && creditsRem <= 0 ? "red" : session.contract_expiring_days !== null && session.contract_expiring_days <= 14 ? "amber" : "neutral") as SurfaceTone,
+        },
+      ];
 
   // Alerts
   const alerts: { title: string; detail: string; critical: boolean }[] = [];
@@ -324,7 +365,10 @@ export function OggiCommandCenter({ session, status, className }: OggiCommandCen
         <div className="grid grid-cols-2 gap-2">
           {chips.map((chip) => (
             <span key={chip.label} className={surfaceChipClassName({ tone: chip.tone }, "flex items-center justify-between px-3 py-2.5 text-[10.5px] font-semibold transition-colors duration-200")}>
-              <span className="text-muted-foreground/70">{chip.label}</span>
+              <span className="flex items-center gap-1.5 text-muted-foreground/70">
+                {chip.semaphore ? <SemaphoreDot status={chip.semaphore} /> : null}
+                {chip.label}
+              </span>
               <span className="font-bold text-foreground">{chip.value}</span>
             </span>
           ))}
@@ -363,6 +407,23 @@ export function OggiCommandCenter({ session, status, className }: OggiCommandCen
             </div>
           </div>
         )}
+
+        {/* AVATAR HIGHLIGHTS (se avatar disponibile e ha highlight non gia' coperti dagli alert) */}
+        {avatar && avatar.highlights.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {avatar.highlights.map((h) => (
+              <span
+                key={h.code}
+                className={surfaceChipClassName(
+                  { tone: h.severity === "critical" ? "red" : h.severity === "warning" ? "amber" : "neutral" },
+                  "px-2.5 py-1 text-[10px] font-semibold",
+                )}
+              >
+                {h.text}
+              </span>
+            ))}
+          </div>
+        ) : null}
 
         {/* NOTE */}
         <PrepNotes key={session.event_id} eventId={session.event_id} />

@@ -8,7 +8,7 @@ import {
   type SurfaceTone,
 } from "@/components/ui/surface-role";
 import { cn } from "@/lib/utils";
-import type { SessionPrepItem } from "@/types/api";
+import type { ClientAvatar, SessionPrepItem } from "@/types/api";
 
 // ── Tipi e metadati stato pre-seduta ──────────────────────────────
 
@@ -59,16 +59,24 @@ function getSessionSubline(session: SessionPrepItem, status: PreFlightStatus): s
 
 // ── Session Card ──────────────────────────────────────────────────
 
+const SEMAPHORE_DOT: Record<string, string> = {
+  green: "bg-emerald-500",
+  amber: "bg-amber-500",
+  red: "bg-red-500",
+};
+
 function SessionItem({
   session,
   status,
   selected,
   onSelect,
+  avatar,
 }: {
   session: SessionPrepItem;
   status: PreFlightStatus;
   selected: boolean;
   onSelect: () => void;
+  avatar?: ClientAvatar | null;
 }) {
   const meta = PREFLIGHT_META[status];
   const tone = getPreflightTone(status);
@@ -115,6 +123,14 @@ function SessionItem({
             <p className="truncate text-[13px] font-bold text-foreground">{name}</p>
           </div>
           <p className="mt-1 truncate pl-1 text-[10.5px] text-muted-foreground/80">{subline}</p>
+          {avatar ? (
+            <div className="mt-1.5 flex items-center gap-1 pl-1" aria-label="Stato dimensioni cliente">
+              <span className={cn("h-1.5 w-1.5 rounded-full", SEMAPHORE_DOT[avatar.clinical.status])} title="Clinica" />
+              <span className={cn("h-1.5 w-1.5 rounded-full", SEMAPHORE_DOT[avatar.contract.status])} title="Contratto" />
+              <span className={cn("h-1.5 w-1.5 rounded-full", SEMAPHORE_DOT[avatar.training.status])} title="Allenamento" />
+              <span className={cn("h-1.5 w-1.5 rounded-full", SEMAPHORE_DOT[avatar.body_goals.status])} title="Corpo" />
+            </div>
+          ) : null}
         </div>
 
         <span
@@ -173,6 +189,7 @@ interface OggiTimelineProps {
   sessions: SessionPrepItem[];
   selectedEventId: number | null;
   onSelect: (eventId: number) => void;
+  avatarMap?: Map<number, ClientAvatar>;
   className?: string;
 }
 
@@ -180,6 +197,7 @@ export function OggiTimeline({
   sessions,
   selectedEventId,
   onSelect,
+  avatarMap,
   className,
 }: OggiTimelineProps) {
   if (sessions.length === 0) {
@@ -244,6 +262,7 @@ export function OggiTimeline({
                   status={getPreFlightStatus(s)}
                   selected={s.event_id === selectedEventId}
                   onSelect={() => onSelect(s.event_id)}
+                  avatar={s.client_id ? avatarMap?.get(s.client_id) : null}
                 />
               ))}
             </div>
@@ -261,6 +280,7 @@ export function OggiTimeline({
                   status={getPreFlightStatus(s)}
                   selected={s.event_id === selectedEventId}
                   onSelect={() => onSelect(s.event_id)}
+                  avatar={s.client_id ? avatarMap?.get(s.client_id) : null}
                 />
               ))}
             </div>
@@ -278,6 +298,7 @@ export function OggiTimeline({
                   status="no_client"
                   selected={s.event_id === selectedEventId}
                   onSelect={() => onSelect(s.event_id)}
+                  avatar={null}
                 />
               ))}
             </div>

@@ -1377,6 +1377,94 @@ export interface SessionPrepResponse {
   clients_with_alerts: number;
 }
 
+// ── Client Avatar ─────────────────────────────────────────────────
+
+export type SemaphoreStatus = "green" | "amber" | "red";
+
+export interface AvatarIdentity {
+  id: number;
+  nome: string;
+  cognome: string;
+  full_name: string;
+  age: number | null;
+  sesso: string | null;
+  telefono: string | null;
+  email: string | null;
+  client_since: string | null;
+  seniority_days: number;
+  stato: string;
+  status: SemaphoreStatus;
+}
+
+export interface AvatarClinicalProfile {
+  anamnesi_state: string;
+  anamnesi_version: number;
+  condition_count: number;
+  condition_names: string[];
+  risk_level: string;
+  status: SemaphoreStatus;
+}
+
+export interface AvatarContractStatus {
+  has_active_contract: boolean;
+  active_contract_id: number | null;
+  credits_remaining: number;
+  credits_total: number;
+  credits_used_pct: number;
+  days_to_expiry: number | null;
+  payment_status: string;
+  overdue_rates_count: number;
+  renewal_count: number;
+  status: SemaphoreStatus;
+}
+
+export interface AvatarTrainingPath {
+  has_active_plan: boolean;
+  active_plan_name: string | null;
+  active_plan_objective: string | null;
+  compliance_30d: number | null;
+  compliance_60d: number | null;
+  total_sessions: number;
+  completed_sessions: number;
+  days_since_last_session: number | null;
+  status: SemaphoreStatus;
+}
+
+export interface AvatarBodyGoals {
+  has_measurements: boolean;
+  last_measurement_date: string | null;
+  measurement_freshness: string;
+  active_goals: number;
+  bmi: number | null;
+  body_fat_pct: number | null;
+  status: SemaphoreStatus;
+}
+
+export interface AvatarHighlight {
+  code: string;
+  text: string;
+  severity: "info" | "warning" | "critical";
+  dimension: string;
+  cta_href: string | null;
+}
+
+export interface ClientAvatar {
+  client_id: number;
+  generated_at: string;
+  readiness_score: number;
+  identity: AvatarIdentity;
+  clinical: AvatarClinicalProfile;
+  contract: AvatarContractStatus;
+  training: AvatarTrainingPath;
+  body_goals: AvatarBodyGoals;
+  highlights: AvatarHighlight[];
+}
+
+export interface ClientAvatarBatchResponse {
+  generated_at: string;
+  avatars: ClientAvatar[];
+}
+
 export interface TrainingMethodologyPlanItem {
   plan_id: number;
   plan_nome: string;

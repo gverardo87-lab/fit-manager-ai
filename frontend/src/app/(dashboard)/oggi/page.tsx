@@ -16,9 +16,9 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { surfaceRoleClassName } from "@/components/ui/surface-role";
 import { cn } from "@/lib/utils";
-import { useSessionPrep, useWorkspaceToday } from "@/hooks/useWorkspace";
+import { useClientAvatars, useSessionPrep, useWorkspaceToday } from "@/hooks/useWorkspace";
 import { usePageReveal } from "@/lib/page-reveal";
-import type { SessionPrepItem } from "@/types/api";
+import type { ClientAvatar, SessionPrepItem } from "@/types/api";
 
 const ATTENTION_STATUSES = new Set<PreFlightStatus>(["blocked", "risk", "incomplete"]);
 
@@ -63,6 +63,18 @@ export default function OggiWorkspacePage() {
   const prep = prepQuery.data;
 
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+
+  // Avatar batch: fetch once for all client IDs in today's sessions
+  const avatarClientIds = useMemo(() => {
+    if (!prep) return [];
+    const ids = new Set<number>();
+    for (const s of prep.sessions) {
+      if (s.client_id) ids.add(s.client_id);
+    }
+    return Array.from(ids);
+  }, [prep]);
+  const avatarQuery = useClientAvatars(avatarClientIds, Boolean(prep));
+  const avatarMap: Map<number, ClientAvatar> = avatarQuery.data ?? new Map();
 
   const referenceNowMs = useMemo(() => {
     const rawValue = prep?.current_time ?? today?.agenda.current_time ?? null;
@@ -210,6 +222,7 @@ export default function OggiWorkspacePage() {
             sessions={orderedSessions}
             selectedEventId={effectiveSelectedId}
             onSelect={setSelectedEventId}
+            avatarMap={avatarMap}
           />
         </div>
         <div className="order-1 lg:order-2">
@@ -217,6 +230,7 @@ export default function OggiWorkspacePage() {
             className="lg:max-h-[calc(100vh-13.5rem)] lg:overflow-y-auto lg:pr-1"
             session={selectedSession}
             status={selectedStatus}
+            avatar={selectedSession?.client_id ? avatarMap.get(selectedSession.client_id) ?? null : null}
           />
         </div>
       </div>
